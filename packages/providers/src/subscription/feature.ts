@@ -21,16 +21,17 @@ export const claudeCodeVersion = setting({
 
 export const subscription = defineFeature({
 	id: "subscription",
+	description: "Bill Anthropic OAuth requests to the Claude plan instead of extra usage",
 	settings: [claudeCodeVersion],
-	setup(app) {
-		app.pi.on("before_provider_headers", (event, ctx) => {
+	setup(scope) {
+		scope.on("before_provider_headers", (event, ctx) => {
 			if (usesSubscription(ctx))
-				event.headers["user-agent"] = userAgent(claudeCodeVersion.get(app));
+				event.headers["user-agent"] = userAgent(claudeCodeVersion.get(scope));
 		});
 
-		app.pi.on("before_provider_request", (event, ctx) => {
+		scope.on("before_provider_request", (event, ctx) => {
 			if (!usesSubscription(ctx) || !isObject(event.payload)) return undefined;
-			return billToPlan(event.payload, claudeCodeVersion.get(app));
+			return billToPlan(event.payload, claudeCodeVersion.get(scope));
 		});
 	},
 });

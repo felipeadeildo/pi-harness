@@ -50,6 +50,8 @@ export function fakeContext(
 	return {
 		hasUI,
 		mode: hasUI ? "tui" : "print",
+		cwd: "/nonexistent",
+		isProjectTrusted: () => false,
 		ui: { notify: (message: string) => notes.push(message) },
 		...extra,
 	} as unknown as ExtensionContext;

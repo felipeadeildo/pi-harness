@@ -15,48 +15,67 @@ export const version = setting({
 
 export const subscription = defineFeature({
 	id: "subscription",
+	description: "Bill Anthropic OAuth requests to the Claude plan",
 	settings: [version],
-	setup(app) {
-		app.pi.on("before_provider_headers", (event) => {
-			event.headers["user-agent"] = `claude-cli/${version.get(app)}`;
+	setup(scope) {
+		scope.on("before_provider_headers", (event) => {
+			event.headers["user-agent"] = `claude-cli/${version.get(scope)}`;
 		});
 	},
 });
 
-export default (pi: ExtensionAPI) =>
+export default function (pi: ExtensionAPI): void {
 	createApp(pi, { name: "pi-providers" }).use(subscription).build();
+}
 ```
 
-A package is one app. The harness will be one app with every feature, which Pi loads as a single extension.
+A package is one app. The harness will be one app with every feature in it, and Pi loads it as a single extension.
 
-The builder follows pi's extension docs, so features don't have to:
+## What a feature gets
 
-- `setup` only registers things. Work that lasts goes in `app.onSessionStart`, cleanup in `app.onShutdown`, and the builder runs cleanup once per session, newest first.
-- The settings file is read when a session starts, before any feature's session hook runs.
-- If `setup` throws, that feature becomes a warning. The others still mount.
-- `app.warn` shows a notification when there's a UI, writes to stderr when there isn't, and holds the message until a session starts.
-- If two apps in one Pi process both have the same feature, only the first one runs it and the second one says who has it. That covers installing the harness and a standalone package at the same time.
+`setup` receives the feature's scope, not the raw `pi`:
+
+|                         |                                                                                                                                                                                                          |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scope.on`              | `pi.on`, but an error comes out as `pi-harness: permission: tool_call: boom` instead of just the extension's name. It's still thrown, because a `tool_call` handler that throws is how pi blocks a tool. |
+| `scope.registerCommand` | `pi.registerCommand`. If another feature in the same app already took the name, this one is skipped with a warning.                                                                                      |
+| `scope.onSessionStart`  | Runs once the session's settings are loaded. Anything that lasts, like a watcher, a server or a child process, starts here and never in `setup`.                                                         |
+| `scope.onShutdown`      | Runs once per session, newest first, even when pi fires `session_shutdown` twice.                                                                                                                        |
+| `scope.warn`            | Shows a notification when there's a UI and writes to stderr when there isn't. Messages sent before a session starts are held until it does.                                                              |
+| `scope.pi`              | For whatever the scope doesn't wrap. Anything registered this way won't carry the feature's name.                                                                                                        |
+
+A feature whose `setup` throws turns into a warning, and the other features still mount. If the same feature runs in two apps of one Pi process, say the harness and a standalone package, the first app runs it and the second one logs who has it.
 
 ## Settings
 
-Every app reads `~/.pi/agent/extensions/pi-harness/settings.json`. A setting's `id` is its path in that file. A store only reads the settings its own features declared, so keys from other apps never trigger a warning. `store.set` writes one value and leaves every other key alone.
+Every app reads `~/.pi/agent/extensions/pi-harness/settings.json`. A setting's `id` is its path in that file. A store only reads the settings its own features declared, so keys that belong to other apps never produce a warning. `store.set` writes one value and leaves every other key alone.
 
-A value that doesn't decode falls back to the default, and the warning names the file and the key.
+A setting declared with `project: true` also reads `<project>/.pi/extensions/pi-harness/settings.json`, but only once pi trusts the project, and there the project value wins. Anything without that flag can only be set globally. A project file that tries to set it gets a warning, so a cloned repository can't loosen what runs without asking.
 
-## Events
+A value that fails to decode is ignored, and the warning names the file and the key.
+
+Every feature also gets `features.<id>.enabled`, which defaults to on. A feature that's off never runs `setup`, so it registers nothing and costs nothing. The change takes effect on the next `/reload`.
+
+## Events and contracts
 
 ```ts
 const accountChanged = defineEvent("providers:account-changed", object({ account: string }));
 
-accountChanged.on(app, ({ account }) => …);
-accountChanged.emit(app, { account: "work" });
+accountChanged.on(scope, ({ account }) => …);
+accountChanged.emit(scope, { account: "work" });
 ```
 
-Events travel over `pi.events` on the channel `harness:<name>`, so two features work the same whether they share an app or come from different packages. The payload may come from an older or newer version of the other package, so it's decoded when it arrives. Anything that doesn't decode gets dropped with a warning. Payloads can gain fields but never lose them.
+Events travel over `pi.events` on the channel `harness:<name>`. Two features behave the same whether they share an app or come from different packages. The payload might come from an older or newer version of the other package, so it's decoded when it arrives, and one that doesn't decode is dropped with a warning.
+
+These rules hold for every event that crosses packages:
+
+- It's declared in `contracts/` in this package, never in the package that emits it. That way the listener doesn't depend on the emitter, and either one works without the other.
+- The payload is plain JSON, with no functions, classes or `Date`. A remote control or a web UI can then forward any contract without knowing what's inside.
+- A payload can gain fields but never lose them.
 
 ## Testing
 
-`@adeildo/pi-kit/testing` has `fakePi()` and `fakeContext()`. Two fakes built on one `createEventBus()` act like two extensions in the same Pi process.
+`@adeildo/pi-kit/testing` has `fakePi()` and `fakeContext()`. Two fakes built on one `createEventBus()` behave like two extensions in the same Pi process. `fire` runs the handlers in order and returns what each one returned.
 
 ## License
 

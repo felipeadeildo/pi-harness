@@ -1,9 +1,17 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
-import { boolean, matching, setting, SettingsStore, stringList } from "../src/index.ts";
+import {
+	boolean,
+	literal,
+	matching,
+	type Setting,
+	setting,
+	SettingsStore,
+	stringList,
+} from "../src/index.ts";
 
 const version = setting({
 	id: "subscription.claudeCodeVersion",
@@ -16,24 +24,37 @@ const hidden = setting({
 	default: [] as string[],
 	decoder: stringList("names"),
 });
+const preset = setting({
+	id: "statusline.preset",
+	default: "full",
+	decoder: literal("full", "minimal"),
+	project: true,
+});
 
 let dir: string;
-let path: string;
+let globalPath: string;
+let projectPath: string;
 
 beforeEach(() => {
 	dir = mkdtempSync(join(tmpdir(), "pi-kit-settings-"));
-	path = join(dir, "settings.json");
+	globalPath = join(dir, "global", "settings.json");
+	projectPath = join(dir, "project", "settings.json");
 });
 
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-function store(...settings: Parameters<SettingsStore["register"]>[0]): SettingsStore {
-	const created = new SettingsStore(path);
+function write(path: string, data: unknown): void {
+	mkdirSync(dirname(path), { recursive: true });
+	writeFileSync(path, typeof data === "string" ? data : JSON.stringify(data));
+}
+
+function store(...settings: Setting<unknown>[]): SettingsStore {
+	const created = new SettingsStore(globalPath);
 	created.register(settings);
 	return created;
 }
 
-describe("reading", () => {
+describe("the global file", () => {
 	test("a missing file means every default, with no warning", () => {
 		const settings = store(version, enabled);
 		expect(settings.load()).toEqual([]);
@@ -42,37 +63,37 @@ describe("reading", () => {
 	});
 
 	test("reads a value at its dotted path", () => {
-		writeFileSync(path, JSON.stringify({ subscription: { claudeCodeVersion: "2.1.300" } }));
+		write(globalPath, { subscription: { claudeCodeVersion: "2.1.300" } });
 		const settings = store(version);
 		expect(settings.load()).toEqual([]);
 		expect(version.get({ settings })).toBe("2.1.300");
 	});
 
-	test("an invalid value falls back to the default and says where", () => {
-		writeFileSync(path, JSON.stringify({ subscription: { claudeCodeVersion: "latest" } }));
+	test("an invalid value is ignored, and the warning says where", () => {
+		write(globalPath, { subscription: { claudeCodeVersion: "latest" } });
 		const settings = store(version);
 		expect(settings.load()).toEqual([
-			`${path}: subscription.claudeCodeVersion: expected a version like 2.1.280; using the default`,
+			`${globalPath}: subscription.claudeCodeVersion: expected a version like 2.1.280; ignored`,
 		]);
 		expect(version.get({ settings })).toBe("2.1.280");
 	});
 
 	test("keys another app declared are not this store's business", () => {
-		writeFileSync(path, JSON.stringify({ permission: { mode: "auto" }, subscription: {} }));
+		write(globalPath, { permission: { mode: "auto" }, subscription: {} });
 		expect(store(version).load()).toEqual([]);
 	});
 
 	test("a file that is not JSON warns once and uses the defaults", () => {
-		writeFileSync(path, "{ nope");
+		write(globalPath, "{ nope");
 		const settings = store(version);
 		const warnings = settings.load();
 		expect(warnings).toHaveLength(1);
-		expect(warnings[0]).toStartWith(`${path}: could not be read`);
+		expect(warnings[0]).toStartWith(`${globalPath}: could not be read`);
 		expect(version.get({ settings })).toBe("2.1.280");
 	});
 
 	test("reading before any load loads the file", () => {
-		writeFileSync(path, JSON.stringify({ subscription: { enabled: false } }));
+		write(globalPath, { subscription: { enabled: false } });
 		expect(enabled.get({ settings: store(enabled) })).toBe(false);
 	});
 
@@ -83,15 +104,48 @@ describe("reading", () => {
 	});
 });
 
+describe("the project file", () => {
+	test("wins for a setting that accepts it", () => {
+		write(globalPath, { statusline: { preset: "full" } });
+		write(projectPath, { statusline: { preset: "minimal" } });
+		const settings = store(preset);
+		expect(settings.load(projectPath)).toEqual([]);
+		expect(preset.get({ settings })).toBe("minimal");
+	});
+
+	test("cannot set a setting that did not ask for it", () => {
+		write(projectPath, { subscription: { claudeCodeVersion: "9.9.9" } });
+		const settings = store(version);
+		expect(settings.load(projectPath)).toEqual([
+			`${projectPath}: subscription.claudeCodeVersion: only the global settings file can set this; ignored`,
+		]);
+		expect(version.get({ settings })).toBe("2.1.280");
+	});
+
+	test("an invalid project value falls back to the global one", () => {
+		write(globalPath, { statusline: { preset: "minimal" } });
+		write(projectPath, { statusline: { preset: "huge" } });
+		const settings = store(preset);
+		expect(settings.load(projectPath)).toEqual([
+			`${projectPath}: statusline.preset: expected "full" or "minimal"; ignored`,
+		]);
+		expect(preset.get({ settings })).toBe("minimal");
+	});
+
+	test("is not read unless the caller passes it", () => {
+		write(projectPath, { statusline: { preset: "minimal" } });
+		const settings = store(preset);
+		settings.load();
+		expect(preset.get({ settings })).toBe("full");
+	});
+});
+
 describe("writing", () => {
 	test("keeps every key it does not know", () => {
-		writeFileSync(
-			path,
-			JSON.stringify({ permission: { mode: "auto" }, subscription: { enabled: true } }),
-		);
+		write(globalPath, { permission: { mode: "auto" }, subscription: { enabled: true } });
 		const settings = store(version, enabled);
 		expect(settings.set(version, "2.1.301")).toBeUndefined();
-		expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({
+		expect(JSON.parse(readFileSync(globalPath, "utf8"))).toEqual({
 			permission: { mode: "auto" },
 			subscription: { enabled: true, claudeCodeVersion: "2.1.301" },
 		});
@@ -99,10 +153,19 @@ describe("writing", () => {
 	});
 
 	test("creates the file and its folder", () => {
-		path = join(dir, "nested", "settings.json");
 		const settings = store(enabled);
 		expect(settings.set(enabled, false)).toBeUndefined();
-		expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ subscription: { enabled: false } });
+		expect(JSON.parse(readFileSync(globalPath, "utf8"))).toEqual({
+			subscription: { enabled: false },
+		});
+	});
+
+	test("a project value still wins after a global write", () => {
+		write(projectPath, { statusline: { preset: "minimal" } });
+		const settings = store(preset);
+		settings.load(projectPath);
+		settings.set(preset, "full");
+		expect(preset.get({ settings })).toBe("minimal");
 	});
 });
 
@@ -117,11 +180,12 @@ describe("listening", () => {
 		expect(heard).toEqual([]);
 
 		settings.set(hidden, ["amazon-bedrock"]);
-		writeFileSync(path, JSON.stringify({ hide: { providers: ["amazon-bedrock"] } }));
+		expect(heard).toEqual([["amazon-bedrock"]]);
+
 		settings.load();
 		expect(heard).toEqual([["amazon-bedrock"]]);
 
-		writeFileSync(path, JSON.stringify({}));
+		write(globalPath, {});
 		settings.load();
 		expect(heard).toEqual([["amazon-bedrock"], []]);
 	});
