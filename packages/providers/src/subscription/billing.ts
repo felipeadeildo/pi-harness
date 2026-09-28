@@ -1,7 +1,6 @@
-// How Claude Code tells Anthropic who it is. Anthropic bills an OAuth request to the Claude
-// plan when it carries Claude Code's user agent and a first system block with a billing
-// attribution. The attribution ends in a fingerprint: three characters of the first user
-// message hashed with the version and a salt Claude Code ships.
+// How Claude Code tells Anthropic who it is. A request is billed to the Claude plan when it
+// carries Claude Code's user agent and a first system block with a billing attribution, which ends
+// in three characters of the first user message hashed with the version and a salt.
 import { createHash } from "node:crypto";
 
 export const CLAUDE_CODE_IDENTITY = "You are Claude Code, Anthropic's official CLI for Claude.";

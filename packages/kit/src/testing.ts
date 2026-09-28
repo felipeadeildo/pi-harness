@@ -1,5 +1,5 @@
-// Fakes for testing features without a running pi. Two fakes on one bus behave like two
-// extensions in the same pi process, which is how the claim between apps gets tested.
+// Fakes for testing features without a running pi. Two fakes on one bus behave like two extensions
+// in the same pi process.
 import {
 	createEventBus,
 	type EventBus,
@@ -11,12 +11,10 @@ type Handler = (event: unknown, ctx: ExtensionContext) => unknown;
 
 export interface FakePi {
 	pi: ExtensionAPI;
-	/** Runs every handler registered for `name`, in order like pi does, and returns what each returned. */
 	fire(name: string, event: unknown, ctx: ExtensionContext): Promise<unknown[]>;
 	count(name: string): number;
 }
 
-/** Two fakes built on the same bus act like two extensions in one pi process. */
 export function fakePi(bus: EventBus = createEventBus()): FakePi {
 	const handlers = new Map<string, Handler[]>();
 	const pi = {
@@ -41,7 +39,6 @@ export function fakePi(bus: EventBus = createEventBus()): FakePi {
 	};
 }
 
-/** `extra` adds or replaces context fields, like `model` or `modelRegistry`. */
 export function fakeContext(
 	notes: string[] = [],
 	hasUI = true,

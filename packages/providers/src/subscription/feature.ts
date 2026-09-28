@@ -1,6 +1,6 @@
-// Bills Anthropic OAuth requests to the Claude Pro/Max plan instead of extra usage. It acts on
-// any provider that speaks the Anthropic Messages API with an OAuth token, not only the one
-// named `anthropic`, so a second account registered under another name gets the same treatment.
+// Bills Anthropic OAuth requests to the Claude Pro/Max plan instead of extra usage. It acts on any
+// provider that speaks the Anthropic Messages API with an OAuth token, not only the one named
+// `anthropic`, so a second account under another name gets the same treatment.
 import { defineFeature, isObject, matching, setting } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 

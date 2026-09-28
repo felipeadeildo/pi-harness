@@ -1,5 +1,5 @@
-// Where the settings files live and how they are read and written. Every app in a pi process
-// shares these files, so a write keeps every key it does not know.
+// Where the settings files live and how they are read and written. Every app shares them, so a
+// write keeps every key it does not know.
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
@@ -11,7 +11,6 @@ export type SettingsData = Record<string, unknown>;
 
 export interface SettingsFile {
 	data: SettingsData;
-	/** What was wrong with the file as a whole. Problems with one key are the store's to report. */
 	warnings: string[];
 }
 
@@ -23,7 +22,6 @@ export function projectSettingsPath(cwd: string): string {
 	return join(cwd, CONFIG_DIR_NAME, "extensions", "pi-harness", "settings.json");
 }
 
-/** A missing file is an empty one. A broken file warns once and reads as empty. */
 export function readSettingsFile(path: string): SettingsFile {
 	if (!existsSync(path)) return { data: {}, warnings: [] };
 	try {
@@ -36,7 +34,6 @@ export function readSettingsFile(path: string): SettingsFile {
 	}
 }
 
-/** Writes through a temporary file, so a crash mid-write never leaves half a file behind. */
 export function writeSettingsFile(path: string, data: SettingsData): void {
 	mkdirSync(dirname(path), { recursive: true });
 	const temporary = `${path}.${process.pid}.tmp`;
@@ -44,7 +41,6 @@ export function writeSettingsFile(path: string, data: SettingsData): void {
 	renameSync(temporary, path);
 }
 
-/** The value at a dotted id like `subscription.claudeCodeVersion`, or undefined. */
 export function lookup(data: SettingsData, id: string): unknown {
 	let node: unknown = data;
 	for (const key of id.split(".")) {
@@ -54,7 +50,6 @@ export function lookup(data: SettingsData, id: string): unknown {
 	return node;
 }
 
-/** Sets the value at a dotted id, creating the objects on the way. */
 export function assign(data: SettingsData, id: string, value: unknown): void {
 	const keys = id.split(".");
 	const last = keys.pop();

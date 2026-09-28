@@ -1,7 +1,6 @@
-// One store per app. It only reads and warns about the settings its own features declared,
-// because the file is shared with every other app. A value comes from the first layer that has a
-// valid one: the project file (for settings that accept it, in a trusted project), then the global
-// file, then the default.
+// One store per app, reading only the settings its own features declared. A value comes from the
+// first layer with a valid one: project (for settings that accept it, in a trusted project),
+// global, default.
 import { formatProblems } from "../decode.ts";
 import { assign, lookup, readSettingsFile, type SettingsData, writeSettingsFile } from "./files.ts";
 import type { Setting } from "./setting.ts";
@@ -45,10 +44,7 @@ export class SettingsStore {
 		return () => listeners.delete(untyped);
 	}
 
-	/**
-	 * Reads the files again and returns what was wrong with them, one line per problem.
-	 * Pass the project file only when pi trusts the project.
-	 */
+	/** Reads the files again. Pass the project file only when pi trusts the project. */
 	load(projectPath?: string): string[] {
 		this.#loaded = true;
 		this.#projectPath = projectPath;
@@ -79,10 +75,7 @@ export class SettingsStore {
 		return warnings;
 	}
 
-	/**
-	 * Writes one value to the global file and keeps the rest of it. A project value, when there is
-	 * one, still wins. Returns an error message on failure.
-	 */
+	/** Writes one value to the global file, keeping the rest. Returns an error message on failure. */
 	set<T>(entry: Setting<T>, value: T): string | undefined {
 		const { data } = readSettingsFile(this.globalPath);
 		assign(data, entry.id, value);
@@ -91,7 +84,6 @@ export class SettingsStore {
 		} catch (error) {
 			return error instanceof Error ? error.message : String(error);
 		}
-		// The file problems were reported when the session started, so they are not repeated here.
 		this.load(this.#projectPath);
 		return undefined;
 	}
@@ -105,7 +97,6 @@ export class SettingsStore {
 	}
 }
 
-/** Decodes the setting from one file. An invalid value warns and counts as not found. */
 function decodeAt<T>(
 	entry: Setting<T>,
 	data: SettingsData,

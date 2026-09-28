@@ -5,7 +5,6 @@ import { attributed } from "./attribution.ts";
 import type { FeatureScope, SessionHook, ShutdownHook } from "./feature.ts";
 
 export interface Hook<T> {
-	/** The feature that registered it, named when it fails. */
 	source: string;
 	run: T;
 }
@@ -16,7 +15,6 @@ export interface AppState {
 	pi: ExtensionAPI;
 	settings: SettingsStore;
 	mounted: ReadonlySet<string>;
-	/** Command name to the feature that registered it. */
 	commands: Map<string, string>;
 	starts: Hook<SessionHook>[];
 	shutdowns: Hook<ShutdownHook>[];
@@ -55,9 +53,8 @@ export function createScope(app: AppState, featureId: string): FeatureScope {
 type UntypedHandler = (...args: unknown[]) => unknown;
 type UntypedOn = (event: string, handler: UntypedHandler) => () => void;
 
-// pi.on has one overload per event, and TypeScript cannot implement an overloaded signature
-// generically. These two casts are the only bridge: callers still get the exact overload types,
-// and pi still gets the handler it was given, wrapped.
+// pi.on has one overload per event and TypeScript cannot implement an overloaded signature
+// generically, so this is the one place that casts. Callers keep the exact overload types.
 function attributedOn(pi: ExtensionAPI, label: string): ExtensionAPI["on"] {
 	const on = pi.on.bind(pi) as unknown as UntypedOn;
 	const wrapped: UntypedOn = (event, handler) =>

@@ -1,8 +1,7 @@
-// Before mounting a feature, an app asks every other app on pi.events whether one already runs
-// it. That is how the harness and a standalone copy of the same package avoid running a feature
-// twice. The answer is a field written on the payload, which works because pi's event bus calls
-// listeners synchronously. An app answers only while its runtime is live, and pi fires
-// `session_shutdown` before a reload builds the next runtime.
+// Before mounting a feature, an app asks the other apps on pi.events whether one already runs it,
+// which is how the harness and a standalone copy of the same package avoid running it twice. The
+// answer is a field written on the payload, which works because pi's bus is synchronous. An app
+// answers only while it is live, and pi fires `session_shutdown` before a reload builds the next.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { isObject, object, string } from "../decode.ts";
@@ -23,7 +22,6 @@ export function answerClaims(
 	});
 }
 
-/** The name of the app that already runs the feature, if one does. */
 export function ownerOf(pi: ExtensionAPI, featureId: string): string | undefined {
 	const claim: { feature: string; owner?: unknown } = { feature: featureId };
 	pi.events.emit(CHANNEL, claim);

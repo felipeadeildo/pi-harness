@@ -1,14 +1,12 @@
 // In the harness every feature runs inside one extension, so pi reports every failure under the
-// same name. These put the app and the feature in front of the message instead.
+// same name. These put the app and the feature in front of it instead.
 
 export function describe(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
-/**
- * Wraps `run` so what it throws, or what its promise rejects with, carries `label`. A sync function
- * stays sync: pi treats some handler results differently depending on whether they are promises.
- */
+// A sync function stays sync, because pi treats some handler results differently when they are
+// promises.
 export function attributed<A extends unknown[], R>(
 	label: string,
 	run: (...args: A) => R,

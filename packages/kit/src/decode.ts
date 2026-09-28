@@ -1,6 +1,5 @@
-// Decoders for everything that comes from outside: settings files and event payloads
-// from other packages. The only module in the kit that inspects `typeof`, and none of
-// it throws: a decoder returns a value or a list of problems.
+// Decoders for everything that comes from outside: settings files and event payloads from other
+// packages. The only module that inspects `typeof`, and no decoder throws.
 export interface Problem {
 	path: string;
 	message: string;

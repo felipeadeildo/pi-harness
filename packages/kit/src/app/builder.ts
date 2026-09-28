@@ -1,9 +1,7 @@
 // The app builder. A package's extension is `createApp(pi, …).use(feature).build()`, and the
-// harness is the same call with every feature, so they run in one extension and share one
-// settings store. The builder is where the rules from pi's extension docs live, so a feature does
-// not have to remember them. Nothing but registration happens in the factory. Session work starts
-// from `session_start`, cleanup runs once per session, and a feature that fails to set up becomes
-// a warning instead of taking the rest of the app down.
+// harness is the same call with every feature. The builder is where the rules from pi's extension
+// docs live: registration only in the factory, session work from `session_start`, cleanup once per
+// session, and a feature that fails to set up becomes a warning.
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { boolean } from "../decode.ts";
@@ -25,7 +23,6 @@ export interface App extends SettingsScope {
 
 export interface AppOptions {
 	name: string;
-	/** The global settings file. Defaults to the one every app shares. */
 	settingsPath?: string;
 }
 
@@ -46,7 +43,6 @@ export function createApp(pi: ExtensionAPI, options: AppOptions): AppBuilder {
 	return builder;
 }
 
-/** `features.<id>.enabled`. A feature that is off never gets set up, so it costs nothing. */
 export function enabledSetting(feature: Feature): Setting<boolean> {
 	return setting({
 		id: `features.${feature.id}.enabled`,
@@ -83,7 +79,7 @@ function mount(pi: ExtensionAPI, options: AppOptions, features: readonly Feature
 
 	answerClaims(pi, options.name, mounted, () => live);
 
-	// Registered before any feature's setup, so these run ahead of the features' own handlers.
+	// Registered first, so these run ahead of the features' own handlers.
 	pi.on("session_start", async (_event, ctx) => {
 		live = true;
 		session = ctx;
@@ -112,8 +108,8 @@ function mount(pi: ExtensionAPI, options: AppOptions, features: readonly Feature
 		session = undefined;
 	});
 
-	// Every feature's settings are registered first, so the file is read once to learn which ones
-	// are on, and a feature that is off still shows up on the settings screen.
+	// All the switches first: one read of the file decides what is on, and a feature that is off
+	// still shows up on the settings screen.
 	const candidates: { feature: Feature; enabled: Setting<boolean> }[] = [];
 	for (const feature of features) {
 		if (candidates.some((candidate) => candidate.feature.id === feature.id)) {
@@ -142,7 +138,6 @@ function mount(pi: ExtensionAPI, options: AppOptions, features: readonly Feature
 			feature.setup(createScope(state, feature.id));
 			mounted.add(feature.id);
 		} catch (error) {
-			// Whatever the feature registered before it threw stays registered. pi has no undo.
 			state.report(feature.id, `failed to set up: ${describe(error)}`);
 		}
 	}
@@ -150,7 +145,6 @@ function mount(pi: ExtensionAPI, options: AppOptions, features: readonly Feature
 	return app;
 }
 
-/** One at a time, so a hook can count on the ones before it having finished. */
 async function runInOrder<T>(
 	hooks: readonly Hook<T>[],
 	call: (run: T) => void | Promise<void>,
