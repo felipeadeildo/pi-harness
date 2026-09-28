@@ -19,7 +19,7 @@ Lefthook formats and lints staged files on commit, type-checks the repository, a
 ```text
 packages/
   ask-permission/   # pi-ask-permission, published
-  kit/              # @adeildo/pi-kit: app builder, settings, events
+  kit/              # @adeildo/pi-kit: app builder, feature scope, settings, events, contracts
   providers/        # @adeildo/pi-providers: subscription billing
 ```
 
@@ -31,9 +31,13 @@ Each package has its own README and CONTRIBUTING with the parts that are only ab
 
 ## Writing a feature
 
-Build it with `createApp` from `@adeildo/pi-kit`, even when it is the only feature of its package. The builder applies the rules from pi's extension docs: nothing starts in the factory, long-lived work starts in `session_start`, cleanup runs once on `session_shutdown`, and a feature that fails to set up turns into a warning instead of taking the others down.
+Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`, even when it's the only feature in its package. The harness mounts the same feature object, so a feature written this way works in both places without changes. The [kit README](packages/kit/README.md) covers the API. The rules:
 
-Settings are declared next to the feature with `setting()` and read with `handle.get(app)`. Features that need each other go through `defineEvent()`, never a direct import of another feature's state, so they keep working when installed apart.
+- `setup` only registers. Anything that lasts starts in `scope.onSessionStart` and stops in `scope.onShutdown`.
+- Register through the scope (`scope.on`, `scope.registerCommand`), so errors carry the feature's name.
+- Declare a setting next to the feature that reads it. Only settings that are safe to take from a cloned repository get `project: true`.
+- A feature never imports another feature's state. Anything that crosses features is an event in `packages/kit/src/contracts/` with a plain JSON payload.
+- Every rule of the feature gets a test that fails when the rule breaks. `@adeildo/pi-kit/testing` fakes pi for that.
 
 ## Commit and release
 
