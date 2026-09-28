@@ -1,3 +1,4 @@
+import type { FeatureScope } from "@adeildo/pi-kit";
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
@@ -14,8 +15,8 @@ interface Columns {
 	tool: number;
 }
 
-export function registerJudgeEntry(pi: ExtensionAPI): void {
-	pi.registerEntryRenderer<unknown>(JUDGE_ENTRY, (entry, { expanded }, theme) => {
+export function registerJudgeEntry(scope: FeatureScope): void {
+	scope.registerEntryRenderer<unknown>(JUDGE_ENTRY, (entry, { expanded }, theme) => {
 		const records = toRecords(entry.data);
 		if (records.length === 0) return undefined;
 		return new JudgeEntry(records, expanded, theme);

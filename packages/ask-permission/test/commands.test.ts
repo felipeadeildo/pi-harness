@@ -1,10 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import type {
-	ExtensionAPI,
-	ExtensionCommandContext,
-	RegisteredCommand,
-} from "@earendil-works/pi-coding-agent";
+import { fakePi, fakeScope } from "@adeildo/pi-kit/testing";
+import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 
 import { AlwaysYes } from "#core/always-yes.ts";
 import { defaultConfig } from "#core/config/schema.ts";
@@ -12,21 +9,14 @@ import { registerCommands } from "#pi/commands.ts";
 import type { SessionState } from "#pi/session.ts";
 
 function perm() {
-	let command: Omit<RegisteredCommand, "name" | "sourceInfo"> | undefined;
-	const pi = {
-		registerCommand: (_name: string, options: typeof command) => {
-			command = options;
-		},
-		registerShortcut: () => {},
-		appendEntry: () => {},
-	} as unknown as ExtensionAPI;
-
+	const fake = fakePi();
 	const state = {
 		config: defaultConfig(),
 		mode: "manual",
 		alwaysYes: new AlwaysYes(),
 	} as unknown as SessionState;
-	registerCommands(pi, state);
+	registerCommands(fakeScope({ pi: fake }), state);
+	const command = fake.commands.get("perm");
 	if (!command) throw new Error("/perm was not registered");
 
 	const notes: string[] = [];
@@ -44,7 +34,9 @@ describe("/perm", () => {
 	test("suggests every subcommand that starts with what was typed", async () => {
 		const { command } = perm();
 		const values = async (prefix: string) =>
-			((await command.getArgumentCompletions?.(prefix)) ?? []).map((item) => item.value);
+			((await command.getArgumentCompletions?.(prefix)) ?? []).map(
+				(item: { value: string }) => item.value,
+			);
 
 		expect(await values("fo")).toEqual([
 			"forget",

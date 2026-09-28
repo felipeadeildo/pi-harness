@@ -1,21 +1,16 @@
 import { describe, expect, test } from "bun:test";
 
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { fakePi, fakeScope } from "@adeildo/pi-kit/testing";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { AlwaysYes } from "#core/always-yes.ts";
 import type { DialogAnswer } from "#core/answer.ts";
 import { defaultConfig } from "#core/config/schema.ts";
 import type { OutsideScope } from "#core/config/schema.ts";
 import type { PermissionMode } from "#core/mode.ts";
+import { DECIDED_EVENT } from "#pi/api.ts";
 import { registerEvents } from "#pi/events.ts";
 import type { SessionState } from "#pi/session.ts";
-
-interface Entry {
-	customType: string;
-	data: unknown;
-}
-
-type Handler = (event: unknown, ctx: ExtensionContext) => unknown;
 
 /**
  * An alwaysAsk rule makes the judge answer without a backend, so these
@@ -27,23 +22,9 @@ function enabledJudge(): SessionState["config"] {
 }
 
 function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask") {
-	const entries: Entry[] = [];
-	const decided: { channel: string; data: unknown }[] = [];
-	const handlers = new Map<string, Handler>();
-
-	const pi = {
-		on: (name: string, handler: Handler) => {
-			handlers.set(name, handler);
-			return () => handlers.delete(name);
-		},
-		appendEntry: (customType: string, data: unknown) => {
-			entries.push({ customType, data });
-		},
-		events: {
-			emit: (channel: string, data: unknown) => decided.push({ channel, data }),
-			on: () => () => {},
-		},
-	} as unknown as ExtensionAPI;
+	const decided: unknown[] = [];
+	const fake = fakePi();
+	fake.pi.events.on(DECIDED_EVENT, (data: unknown) => decided.push(data));
 
 	const state = {
 		config: { ...enabledJudge(), workspace: { roots: ["."], outside } },
@@ -65,11 +46,12 @@ function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask")
 		},
 	} as unknown as SessionState;
 
-	registerEvents(pi, state);
+	registerEvents(fakeScope({ pi: fake }), state);
 
-	const toolCall = handlers.get("tool_call");
+	const toolCall = fake.handlers.get("tool_call")?.[0];
 	if (!toolCall) throw new Error("no tool_call handler");
 
+	const entries = fake.entries;
 	const cards = () => entries.filter((entry) => entry.customType === "pi-ask-permission:judge");
 	return { entries, cards, decided, state, toolCall };
 }
@@ -290,7 +272,7 @@ describe("workspace scope", () => {
 		await toolCall(judgeCall("call-1", "git status"), fakeContext());
 		await toolCall(judgeCall("call-2", "rm -rf build"), fakeContext());
 
-		expect(decided.map((event) => event.data)).toEqual([
+		expect(decided).toEqual([
 			expect.objectContaining({ toolCallId: "call-1", action: "allow", by: "read-only bash" }),
 			expect.objectContaining({ toolCallId: "call-2", action: "allow", by: "you" }),
 		]);

@@ -1,3 +1,4 @@
+import type { FeatureScope } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { isBuiltInTool, type ToolAdapter } from "#core/tools.ts";
@@ -25,8 +26,11 @@ export function announce(pi: ExtensionAPI, decided: Decided): void {
 }
 
 // Emit from session_start: every extension has loaded by then, so this one is listening.
-export function listenForTools(pi: ExtensionAPI, tools: Map<string, Partial<ToolAdapter>>): void {
-	pi.events.on(TOOL_EVENT, (data) => {
+export function listenForTools(
+	scope: FeatureScope,
+	tools: Map<string, Partial<ToolAdapter>>,
+): void {
+	scope.events.on(TOOL_EVENT, (data) => {
 		if (!isRecord(data) || typeof data.name !== "string" || isBuiltInTool(data.name)) return;
 
 		const adapter: Partial<ToolAdapter> = {};

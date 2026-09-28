@@ -34,7 +34,7 @@ Each package has its own README and CONTRIBUTING with the parts that are only ab
 Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`, even when it's the only feature in its package. The harness mounts the same feature object, so a feature written this way works in both places without changes. The [kit README](packages/kit/README.md) covers the API. The rules:
 
 - `setup` only registers. Anything that lasts starts in `scope.onSessionStart` and stops in `scope.onShutdown`.
-- Register through the scope (`scope.on`, `scope.registerCommand`), so errors carry the feature's name.
+- The scope is the extension API plus the app's services, and `scope.on` and `scope.registerCommand` come with the feature's name on every error.
 - Declare a setting next to the feature that reads it. Only settings that are safe to take from a cloned repository get `project: true`.
 - A feature never imports another feature's state. Anything that crosses features is an event in `packages/kit/src/contracts/` with a plain JSON payload.
 - Every rule of the feature gets a test that fails when the rule breaks. `@adeildo/pi-kit/testing` fakes pi for that.

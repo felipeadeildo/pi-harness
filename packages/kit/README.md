@@ -33,7 +33,7 @@ A package is one app. The harness will be one app with every feature in it, and 
 
 ## What a feature gets
 
-`setup` receives the feature's scope, not the raw `pi`:
+`setup` receives the feature's scope. It extends `ExtensionAPI`, so it has every pi method, with two of them wired to the feature:
 
 |                         |                                                                                                                                                                                                          |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -42,7 +42,7 @@ A package is one app. The harness will be one app with every feature in it, and 
 | `scope.onSessionStart`  | Runs once the session's settings are loaded. Anything that lasts, like a watcher, a server or a child process, starts here and never in `setup`.                                                         |
 | `scope.onShutdown`      | Runs once per session, newest first, even when pi fires `session_shutdown` twice.                                                                                                                        |
 | `scope.warn`            | Shows a notification when there's a UI and writes to stderr when there isn't. Messages sent before a session starts are held until it does.                                                              |
-| `scope.pi`              | For whatever the scope doesn't wrap. Anything registered this way won't carry the feature's name.                                                                                                        |
+| everything else         | The scope **is** the extension API, so `scope.registerTool`, `scope.appendEntry`, `scope.events` and the rest work as they always did.                                                                   |
 
 A feature whose `setup` throws turns into a warning, and the other features still mount. If the same feature runs in two apps of one Pi process, say the harness and a standalone package, the first app runs it and the second one logs who has it.
 

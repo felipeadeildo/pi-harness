@@ -1,4 +1,5 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { FeatureScope } from "@adeildo/pi-kit";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type AutocompleteItem, Key } from "@earendil-works/pi-tui";
 
 import { type Scope, SCOPE_LABEL } from "#core/always-yes.ts";
@@ -19,13 +20,13 @@ import { notifyJudgePolicyWarning, statusText } from "#ui/settings/status.ts";
 
 const JUDGE_STATUS = `${NAME}:judge`;
 
-export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
+export function registerCommands(scope: FeatureScope, state: SessionState): void {
 	const openSettingsFor = (ctx: ExtensionContext): Promise<void> =>
 		openSettings(ctx, {
 			config: state.config,
 			alwaysYes: state.alwaysYes,
 			mode: () => state.mode,
-			setMode: (mode) => setSessionMode(pi, state, mode, ctx, false),
+			setMode: (mode) => setSessionMode(scope, state, mode, ctx, false),
 			save: () => saveConfigFile(state, ctx),
 			onJudgeChange: () => state.judgeCache.clear(),
 		});
@@ -35,7 +36,7 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 	}
 
 	function cycleMode(ctx: ExtensionContext): void {
-		setSessionMode(pi, state, nextMode(state.mode), ctx);
+		setSessionMode(scope, state, nextMode(state.mode), ctx);
 	}
 
 	async function runJudgeProbe(ctx: ExtensionContext): Promise<void> {
@@ -111,18 +112,18 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 			return;
 		}
 
-		setSessionMode(pi, state, mode, ctx);
+		setSessionMode(scope, state, mode, ctx);
 	}
 
 	function forgetCommand(ctx: ExtensionContext, argument = "session"): void {
-		const scope = FORGET_SCOPES[argument];
-		if (!scope) {
+		const level = FORGET_SCOPES[argument];
+		if (!level) {
 			ctx.ui.notify(`${NAME}: forget takes ${Object.keys(FORGET_SCOPES).join(", ")}`, "warning");
 			return;
 		}
 
-		const where = scope === "all" ? "every scope" : SCOPE_LABEL[scope];
-		const removed = alwaysYesCount(forgetAlwaysYes(pi, state, ctx, scope));
+		const where = level === "all" ? "every scope" : SCOPE_LABEL[level];
+		const removed = alwaysYesCount(forgetAlwaysYes(scope, state, ctx, level));
 		ctx.ui.notify(`${NAME}: forgot ${removed} from ${where}`, "info");
 	}
 
@@ -131,7 +132,7 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 		else notifyStatus(ctx);
 	}
 
-	pi.registerCommand("perm", {
+	scope.registerCommand("perm", {
 		description: `${NAME}: settings, mode, status, forget, judge`,
 		getArgumentCompletions: (prefix) => {
 			const typed = prefix.trimStart().toLowerCase();
@@ -163,7 +164,7 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 		},
 	});
 
-	pi.registerShortcut(Key.alt("m"), {
+	scope.registerShortcut(Key.alt("m"), {
 		description: `${NAME}: cycle mode (manual, accept edits, auto)`,
 		handler: cycleMode,
 	});

@@ -47,6 +47,7 @@
 		"prepublishOnly": "cd ../.. && bun run verify"
 	},
 	"dependencies": {
+		"@adeildo/pi-kit": "workspace:*",
 		"shell-quote": "^1.10.0"
 	},
 	"peerDependencies": {

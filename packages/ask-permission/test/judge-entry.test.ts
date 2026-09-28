@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
+import { fakePi, fakeScope } from "@adeildo/pi-kit/testing";
+import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
 
 import type { JudgeRecord } from "#core/judge/types.ts";
@@ -28,20 +29,16 @@ function record(overrides: Partial<JudgeRecord> = {}): JudgeRecord {
 }
 
 /** Captures the registered renderer so entries can be rendered as on resume. */
+type Registered = (
+	entry: { data: unknown },
+	options: { expanded: boolean },
+	theme: Theme,
+) => Component | undefined;
+
 function renderer(): (data: unknown, expanded?: boolean) => Component | undefined {
-	let registered:
-		| ((
-				entry: { data: unknown },
-				options: { expanded: boolean },
-				theme: Theme,
-		  ) => Component | undefined)
-		| undefined;
-	const pi = {
-		registerEntryRenderer: (_customType: string, render: typeof registered) => {
-			registered = render;
-		},
-	} as unknown as ExtensionAPI;
-	registerJudgeEntry(pi);
+	const fake = fakePi();
+	registerJudgeEntry(fakeScope({ pi: fake }));
+	const registered = fake.renderers.get("pi-ask-permission:judge") as Registered | undefined;
 	return (data, expanded = false) => registered?.({ data }, { expanded }, theme);
 }
 

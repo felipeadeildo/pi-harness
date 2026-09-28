@@ -3,11 +3,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type {
-	ExtensionAPI,
-	ExtensionContext,
-	ToolDefinition,
-} from "@earendil-works/pi-coding-agent";
+import { fakePi, fakeScope } from "@adeildo/pi-kit/testing";
+import type { ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
 
 import { registerBashTimer } from "#pi/bash-timer.ts";
 
@@ -33,15 +30,9 @@ afterAll(() => {
 });
 
 function registeredBash(): ToolDefinition {
-	let tool: ToolDefinition | undefined;
-	const pi = {
-		on: () => () => {},
-		registerTool: (definition: ToolDefinition) => {
-			tool = definition;
-		},
-	} as unknown as ExtensionAPI;
-
-	registerBashTimer(pi);
+	const fake = fakePi();
+	registerBashTimer(fakeScope({ pi: fake }));
+	const tool = fake.tools[0];
 	if (!tool) throw new Error("bash was not registered");
 	return tool;
 }

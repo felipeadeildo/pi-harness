@@ -1,32 +1,52 @@
 // Fakes for testing features without a running pi. Two fakes on one bus behave like two extensions
 // in the same pi process.
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import {
 	createEventBus,
+	type EntryRenderer,
 	type EventBus,
 	type ExtensionAPI,
 	type ExtensionContext,
+	type RegisteredCommand,
+	type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 
-type Handler = (event: unknown, ctx: ExtensionContext) => unknown;
+import type { FeatureScope } from "./app/feature.ts";
+import { SettingsStore } from "./settings/store.ts";
+
+export type FakeHandler = (event: unknown, ctx: ExtensionContext) => unknown;
+type CommandOptions = Omit<RegisteredCommand, "name" | "sourceInfo">;
 
 export interface FakePi {
 	pi: ExtensionAPI;
+	handlers: Map<string, FakeHandler[]>;
+	commands: Map<string, CommandOptions>;
+	shortcuts: string[];
+	tools: ToolDefinition[];
+	providers: { name: string; config: unknown }[];
+	renderers: Map<string, EntryRenderer>;
+	entries: { customType: string; data: unknown }[];
+	messages: unknown[];
+	/** Runs every handler registered for `name`, in order, and returns what each returned. */
 	fire(name: string, event: unknown, ctx: ExtensionContext): Promise<unknown[]>;
 	count(name: string): number;
 }
 
 export function fakePi(bus: EventBus = createEventBus()): FakePi {
-	const handlers = new Map<string, Handler[]>();
-	const pi = {
-		on: (name: string, handler: Handler) => {
-			handlers.set(name, [...(handlers.get(name) ?? []), handler]);
-			return () => {};
-		},
-		events: bus,
-	} as unknown as ExtensionAPI;
-
-	return {
-		pi,
+	const handlers = new Map<string, FakeHandler[]>();
+	const commands = new Map<string, CommandOptions>();
+	const fake: FakePi = {
+		pi: undefined as unknown as ExtensionAPI,
+		handlers,
+		commands,
+		shortcuts: [],
+		tools: [],
+		providers: [],
+		renderers: new Map(),
+		entries: [],
+		messages: [],
 		async fire(name, event, ctx) {
 			const results: unknown[] = [];
 			for (const handler of handlers.get(name) ?? []) {
@@ -36,6 +56,59 @@ export function fakePi(bus: EventBus = createEventBus()): FakePi {
 			return results;
 		},
 		count: (name) => handlers.get(name)?.length ?? 0,
+	};
+
+	fake.pi = {
+		on(name: string, handler: FakeHandler) {
+			handlers.set(name, [...(handlers.get(name) ?? []), handler]);
+			return () => {};
+		},
+		events: bus,
+		registerCommand: (name: string, options: CommandOptions) => void commands.set(name, options),
+		registerShortcut: (shortcut: unknown) => void fake.shortcuts.push(String(shortcut)),
+		registerTool: (tool: ToolDefinition) => void fake.tools.push(tool),
+		registerProvider: (name: unknown, config?: unknown) =>
+			void fake.providers.push({ name: String(name), config }),
+		registerEntryRenderer: (customType: string, renderer: EntryRenderer) =>
+			void fake.renderers.set(customType, renderer),
+		appendEntry: (customType: string, data?: unknown) =>
+			void fake.entries.push({ customType, data }),
+		sendMessage: (message: unknown) => void fake.messages.push(message),
+	} as unknown as ExtensionAPI;
+
+	return fake;
+}
+
+export interface FakeScopeOptions {
+	id?: string;
+	pi?: FakePi;
+	/** Collects what the feature warned about. */
+	notes?: string[];
+	settingsPath?: string;
+}
+
+/**
+ * A feature scope over a fake pi, for calling a feature's own modules directly. Session hooks
+ * registered through it run when `fire("session_start")` or `fire("session_shutdown")` is called.
+ * It does not add the app's error attribution, which the kit tests on its own.
+ */
+export function fakeScope(options: FakeScopeOptions = {}): FeatureScope {
+	const fake = options.pi ?? fakePi();
+	const notes = options.notes ?? [];
+	const settings = new SettingsStore(
+		options.settingsPath ?? join(tmpdir(), `pi-kit-scope-${process.pid}-${Math.random()}.json`),
+	);
+
+	return {
+		...fake.pi,
+		id: options.id ?? "test",
+		settings,
+		on: fake.pi.on,
+		registerCommand: (name, command) => fake.pi.registerCommand(name, command),
+		onSessionStart: (run) => void fake.pi.on("session_start", (_event, ctx) => run(ctx)),
+		onShutdown: (run) => void fake.pi.on("session_shutdown", () => run()),
+		warn: (message) => void notes.push(message),
+		has: () => false,
 	};
 }
 

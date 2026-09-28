@@ -16,8 +16,8 @@ export function pass<T>(value: T, problems: Problem[] = []): Decoded<T> {
 	return { ok: true, value, problems };
 }
 
-export function fail<T>(problem: Problem): Decoded<T> {
-	return { ok: false, problems: [problem] };
+export function fail<T>(entry: Problem): Decoded<T> {
+	return { ok: false, problems: [entry] };
 }
 
 export function problem(path: string, message: string): Problem {

@@ -4,7 +4,6 @@ import type {
 	RegisteredCommand,
 } from "@earendil-works/pi-coding-agent";
 
-import type { EventScope } from "../events.ts";
 import type { Setting, SettingsScope } from "../settings/setting.ts";
 import type { SettingsStore } from "../settings/store.ts";
 
@@ -22,18 +21,21 @@ export interface Feature {
 	setup(scope: FeatureScope): void;
 }
 
-export interface FeatureScope extends SettingsScope, EventScope {
-	/** The feature's id. */
+/**
+ * What a feature gets in `setup`: the extension API, with `on` and `registerCommand` wired to this
+ * feature, plus the app's services. It extends `ExtensionAPI` on purpose. Reading a method through
+ * another type collapses pi's per-event overloads, and extending an interface keeps them.
+ */
+export interface FeatureScope extends ExtensionAPI, SettingsScope {
 	readonly id: string;
-	/** For whatever the scope does not wrap, without the feature's name on errors. */
-	readonly pi: ExtensionAPI;
 	readonly settings: SettingsStore;
-	/** `pi.on`, with the feature's name on every error. Errors are rethrown, never swallowed. */
-	readonly on: ExtensionAPI["on"];
-	registerCommand(name: string, options: CommandOptions): void;
+	/** Runs when a session starts, after the settings are loaded for it. */
 	onSessionStart(hook: SessionHook): void;
+	/** Runs once per session, newest first. */
 	onShutdown(hook: ShutdownHook): void;
+	/** Shown as `<app>: <feature>: <message>`. */
 	warn(message: string): void;
+	/** True when this app runs a feature with that id. */
 	has(featureId: string): boolean;
 }
 

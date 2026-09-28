@@ -5,6 +5,7 @@ import { attributed } from "./attribution.ts";
 import type { FeatureScope, SessionHook, ShutdownHook } from "./feature.ts";
 
 export interface Hook<T> {
+	/** The feature that registered it, named when it fails. */
 	source: string;
 	run: T;
 }
@@ -15,39 +16,38 @@ export interface AppState {
 	pi: ExtensionAPI;
 	settings: SettingsStore;
 	mounted: ReadonlySet<string>;
+	/** Command name to the feature that registered it. */
 	commands: Map<string, string>;
 	starts: Hook<SessionHook>[];
 	shutdowns: Hook<ShutdownHook>[];
 	report(source: string, message: string): void;
 }
 
-export function createScope(app: AppState, featureId: string): FeatureScope {
-	const label = `${app.name}: ${featureId}`;
+export function createScope(state: AppState, featureId: string): FeatureScope {
+	const label = `${state.name}: ${featureId}`;
 
-	const scope: FeatureScope = {
+	return {
+		...state.pi,
 		id: featureId,
-		pi: app.pi,
-		settings: app.settings,
-		on: attributedOn(app.pi, label),
+		settings: state.settings,
+		on: attributedOn(state.pi, label),
 		registerCommand(name, options) {
-			const owner = app.commands.get(name);
+			const owner = state.commands.get(name);
 			if (owner !== undefined) {
-				scope.warn(`/${name} is already registered by ${owner}; skipped`);
+				state.report(featureId, `/${name} is already registered by ${owner}; skipped`);
 				return;
 			}
-			app.commands.set(name, featureId);
-			app.pi.registerCommand(name, {
+			state.commands.set(name, featureId);
+			state.pi.registerCommand(name, {
 				...options,
 				handler: attributed(`${label}: /${name}`, options.handler),
 			});
 		},
-		onSessionStart: (run) => app.starts.push({ source: featureId, run }),
-		onShutdown: (run) => app.shutdowns.push({ source: featureId, run }),
-		warn: (message) => app.report(featureId, message),
-		has: (id) => app.mounted.has(id),
-	};
-
-	return scope;
+		onSessionStart: (run) => state.starts.push({ source: featureId, run }),
+		onShutdown: (run) => state.shutdowns.push({ source: featureId, run }),
+		warn: (message) => state.report(featureId, message),
+		has: (id) => state.mounted.has(id),
+	} as FeatureScope;
 }
 
 type UntypedHandler = (...args: unknown[]) => unknown;

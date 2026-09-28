@@ -3,7 +3,8 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { fakePi } from "@adeildo/pi-kit/testing";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { configPath } from "#core/config/store.ts";
 
@@ -25,17 +26,8 @@ afterEach(() => {
 });
 
 test("loading the extension writes nothing until a session starts", async () => {
-	const handlers = new Map<string, (event: unknown, ctx: ExtensionContext) => unknown>();
-	const pi = new Proxy(
-		{
-			on: (name: string, handler: (event: unknown, ctx: ExtensionContext) => unknown) =>
-				handlers.set(name, handler),
-			events: { on: () => () => {}, emit: () => {} },
-		},
-		{ get: (target, key) => (key in target ? target[key as keyof typeof target] : () => {}) },
-	) as unknown as ExtensionAPI;
-
-	piAskPermission(pi);
+	const fake = fakePi();
+	piAskPermission(fake.pi);
 	expect(existsSync(configPath())).toBe(false);
 
 	const ctx = {
@@ -46,6 +38,6 @@ test("loading the extension writes nothing until a session starts", async () => 
 		sessionManager: { getBranch: () => [] },
 		ui: { notify: () => {}, setStatus: () => {} },
 	} as unknown as ExtensionContext;
-	await handlers.get("session_start")?.({}, ctx);
+	await fake.fire("session_start", {}, ctx);
 	expect(existsSync(configPath())).toBe(true);
 });

@@ -1,20 +1,20 @@
+import type { FeatureScope } from "@adeildo/pi-kit";
 import {
 	createBashToolDefinition,
-	type ExtensionAPI,
 	type ExtensionContext,
 	getAgentDir,
 	SettingsManager,
 } from "@earendil-works/pi-coding-agent";
 
 // pi starts the "Took" clock before the dialog answers; this restarts it when bash runs.
-export function registerBashTimer(pi: ExtensionAPI): void {
+export function registerBashTimer(scope: FeatureScope): void {
 	const template = createBashToolDefinition(process.cwd());
 	const renderResult = template.renderResult;
 	if (!renderResult) return;
 
 	const startedAt = new Map<string, number>();
 
-	pi.on("session_shutdown", () => {
+	scope.on("session_shutdown", () => {
 		startedAt.clear();
 	});
 
@@ -34,7 +34,7 @@ export function registerBashTimer(pi: ExtensionAPI): void {
 		},
 	};
 
-	pi.registerTool(timed);
+	scope.registerTool(timed);
 }
 
 // Per call, so an untrusted project's settings.json cannot prefix every command.

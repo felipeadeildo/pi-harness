@@ -1,3 +1,4 @@
+import type { FeatureScope } from "@adeildo/pi-kit";
 import {
 	type ExtensionAPI,
 	type ExtensionContext,
@@ -40,8 +41,8 @@ import { notifyJudgePolicyWarning } from "#ui/settings/status.ts";
 const JUDGE_STATUS = `${NAME}:judge`;
 const TYPING_STATUS = "waiting for you to finish typing";
 
-export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
-	pi.on("session_start", (_event, ctx) => {
+export function registerEvents(scope: FeatureScope, state: SessionState): void {
+	scope.on("session_start", (_event, ctx) => {
 		loadSessionConfig(state, ctx);
 		openAlwaysYes(state, ctx);
 		restoreSession(state, ctx);
@@ -50,17 +51,17 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 		state.typing.start(ctx);
 	});
 
-	pi.on("session_tree", (_event, ctx) => {
+	scope.on("session_tree", (_event, ctx) => {
 		restoreSession(state, ctx);
 		renderModeStatus(ctx, state.mode, state.config.workspace.outside);
 	});
 
-	pi.on("session_shutdown", (_event, ctx) => {
+	scope.on("session_shutdown", (_event, ctx) => {
 		clearModeStatus(ctx);
 		state.typing.stop();
 	});
 
-	pi.on("tool_call", async (event, ctx) => {
+	scope.on("tool_call", async (event, ctx) => {
 		const call = describeCall(
 			event.toolName,
 			event.input,
@@ -68,9 +69,9 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 			state.config,
 			state.customTools,
 		);
-		const outcome = await gate(pi, state, ctx, call, event);
+		const outcome = await gate(scope, state, ctx, call, event);
 
-		announce(pi, {
+		announce(scope, {
 			toolCallId: event.toolCallId,
 			toolName: call.toolName,
 			summary: call.target.summary,
@@ -79,13 +80,13 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 		if (outcome.action === "block") return { block: true, reason: outcome.reason };
 
 		if (outcome.note) {
-			if (state.config.notes === "message") sendNote(pi, outcome.note, call.toolName);
+			if (state.config.notes === "message") sendNote(scope, outcome.note, call.toolName);
 			else state.pendingNotes.set(event.toolCallId, outcome.note);
 		}
 		return undefined;
 	});
 
-	pi.on("tool_result", (event) => {
+	scope.on("tool_result", (event) => {
 		for (const [path, write] of state.pendingWrites) {
 			if (write.toolCallId === event.toolCallId) state.pendingWrites.delete(path);
 		}

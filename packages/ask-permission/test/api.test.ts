@@ -1,23 +1,15 @@
 import { expect, test } from "bun:test";
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { fakePi, fakeScope } from "@adeildo/pi-kit/testing";
 
 import { type ToolAdapter, toolAdapter } from "#core/tools.ts";
 import { listenForTools, TOOL_EVENT } from "#pi/api.ts";
 
 function bus() {
-	const handlers: ((data: unknown) => void)[] = [];
-	const pi = {
-		events: {
-			on: (_channel: string, handler: (data: unknown) => void) => handlers.push(handler),
-			emit: (_channel: string, data: unknown) => {
-				for (const handler of handlers) handler(data);
-			},
-		},
-	} as unknown as ExtensionAPI;
+	const fake = fakePi();
 	const tools = new Map<string, Partial<ToolAdapter>>();
-	listenForTools(pi, tools);
-	return { tools, emit: (data: unknown) => pi.events.emit(TOOL_EVENT, data) };
+	listenForTools(fakeScope({ pi: fake }), tools);
+	return { tools, emit: (data: unknown) => fake.pi.events.emit(TOOL_EVENT, data) };
 }
 
 test("another extension describes its own tool", () => {
