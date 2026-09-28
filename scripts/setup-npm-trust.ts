@@ -42,9 +42,11 @@ async function main(): Promise<void> {
 	for (const pkg of packages) {
 		console.log(`\n${pkg.name}`);
 		if (list) {
+			// oxlint-disable-next-line no-await-in-loop -- npm trust is interactive, so one at a time
 			await $`npm trust list ${pkg.name}`.nothrow();
 			continue;
 		}
+		// oxlint-disable-next-line no-await-in-loop -- npm trust is interactive, so one at a time
 		await $`npm trust github ${pkg.name} --file ${WORKFLOW} --repo ${repo} --env ${ENVIRONMENT} --allow-publish --yes ${dryRun}`.nothrow();
 	}
 }

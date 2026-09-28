@@ -80,6 +80,7 @@ for (const entry of packed) {
 		noContextFiles: true,
 		additionalExtensionPaths: [dir],
 	});
+	// oxlint-disable-next-line no-await-in-loop -- one package at a time, so a failure names it
 	await loader.reload();
 
 	const result = loader.getExtensions();

@@ -72,8 +72,8 @@ async function main(): Promise<void> {
 			: options.tarballDir;
 	console.log(`Packing ${selected.length} package(s) into ${tarballDir}\n`);
 	const packed = await packAll(root, selected);
-	const versions = new Map<string, string>();
-	for (const entry of packed) versions.set(entry.pkg.name, await tarballVersion(entry));
+	const read = await Promise.all(packed.map((entry) => tarballVersion(entry)));
+	const versions = new Map(packed.map((entry, index) => [entry.pkg.name, read[index] ?? ""]));
 
 	const problems = (await Promise.all(packed.map(checkTarball))).flat();
 	if (problems.length > 0) {
@@ -95,6 +95,7 @@ async function main(): Promise<void> {
 			console.log(`\n- ${entry.pkg.name}@${version} waits for a dependency that failed`);
 			continue;
 		}
+		// oxlint-disable-next-line no-await-in-loop -- publishing is sequential, in dependency order
 		if (await isPublished(entry.pkg.name, version)) {
 			console.log(`\n= ${entry.pkg.name}@${version} is already on npm`);
 			continue;
@@ -105,6 +106,7 @@ async function main(): Promise<void> {
 		}
 
 		console.log(`\n+ ${entry.pkg.name}@${version}`);
+		// oxlint-disable-next-line no-await-in-loop -- one publish at a time, in dependency order
 		const result = await publish(entry);
 		if (result === 0) continue;
 
