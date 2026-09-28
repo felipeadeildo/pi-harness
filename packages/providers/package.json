@@ -33,7 +33,7 @@
 		".": "./src/index.ts"
 	},
 	"dependencies": {
-		"@adeildo/pi-kit": "^0.1.0"
+		"@adeildo/pi-kit": "workspace:*"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-ai": "*",

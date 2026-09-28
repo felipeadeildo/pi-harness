@@ -23,7 +23,11 @@
 		"fmt": "oxfmt",
 		"fmt:check": "oxfmt --check",
 		"test": "bun test",
-		"verify": "bun run check && bun run lint && bun run fmt:check && bun run test"
+		"verify": "bun run check && bun run lint && bun run fmt:check && bun run test",
+		"smoke": "bun scripts/smoke.ts",
+		"publish:dry": "bun scripts/publish.ts --dry-run",
+		"publish": "bun scripts/publish.ts",
+		"trust": "bun scripts/setup-npm-trust.ts"
 	},
 	"devDependencies": {
 		"@earendil-works/pi-ai": "0.87.1",
