@@ -1,0 +1,63 @@
+{
+	"name": "pi-ask-permission",
+	"version": "3.0.0",
+	"description": "A permission dialog for the Pi coding agent. Approve, always approve, or deny a tool call, and attach a note the model reads with the result.",
+	"keywords": [
+		"approval",
+		"permission",
+		"permissions",
+		"pi",
+		"pi-coding-agent",
+		"pi-extension",
+		"pi-package"
+	],
+	"homepage": "https://pi.dev/packages/pi-ask-permission",
+	"bugs": "https://github.com/felipeadeildo/pi-harness/issues",
+	"license": "MIT",
+	"author": {
+		"name": "Felipe Adeildo",
+		"email": "contato@felipeadeildo.com",
+		"url": "https://github.com/felipeadeildo"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/felipeadeildo/pi-harness.git",
+		"directory": "packages/ask-permission"
+	},
+	"files": [
+		"src",
+		"assets/preview.png",
+		"README.md",
+		"CONTRIBUTING.md",
+		"LICENSE",
+		"CHANGELOG.md"
+	],
+	"type": "module",
+	"imports": {
+		"#core/*": "./src/core/*",
+		"#identity": "./src/identity.ts",
+		"#pi/*": "./src/pi/*",
+		"#ui/*": "./src/ui/*",
+		"#util/*": "./src/util/*"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"prepublishOnly": "cd ../.. && bun run verify"
+	},
+	"dependencies": {
+		"shell-quote": "^1.10.0"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-ai": "*",
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	},
+	"pi": {
+		"extensions": [
+			"./src/index.ts"
+		],
+		"image": "https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-permission/assets/preview.png"
+	}
+}

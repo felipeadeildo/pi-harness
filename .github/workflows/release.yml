@@ -1,14 +1,21 @@
 # Releases and publishes in one run. Publishing on the `release` event would not
 # fire, because GitHub does not trigger workflows from events created with the
-# default GITHUB_TOKEN. OIDC trusted publishing means no NPM_TOKEN secret.
-# A manual run of this workflow publishes whatever version is on main, which is
-# how a failed publish gets retried.
+# default GITHUB_TOKEN. OIDC trusted publishing means no NPM_TOKEN secret, and
+# each package on npm needs its own trusted publisher pointing at this workflow.
+#
+# release-please reads release-please-config.json and .release-please-manifest.json,
+# so a package only releases once it is listed there. A manual run publishes the
+# folders given as input, which is how a failed publish gets retried.
 name: Release
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      paths:
+        description: 'Package folders to publish, as a JSON array, e.g. ["packages/ask-permission"]'
+        required: true
 
 permissions:
   contents: write
@@ -19,12 +26,11 @@ jobs:
   release:
     runs-on: ubuntu-latest
     outputs:
-      created: ${{ steps.release.outputs.release_created }}
+      created: ${{ steps.release.outputs.releases_created }}
+      paths: ${{ steps.release.outputs.paths_released }}
     steps:
       - id: release
         uses: googleapis/release-please-action@v4
-        with:
-          release-type: node
 
   publish:
     needs: release
@@ -45,5 +51,18 @@ jobs:
       # Trusted publishing wants npm >= 11.5.1, which the runner image may predate.
       - run: npm install -g npm@^11.5.1
 
-      # `prepublishOnly` in package.json runs `bun run verify`.
-      - run: npm publish
+      # Once for the whole repository, so each publish below skips prepublishOnly.
+      - run: bun run verify
+
+      # The harness depends on the other packages, so it always goes last.
+      - name: Publish
+        env:
+          PATHS: ${{ github.event_name == 'workflow_dispatch' && inputs.paths || needs.release.outputs.paths }}
+        run: |
+          set -euo pipefail
+          ordered=$(echo "$PATHS" | jq -r '(map(select(. != "packages/harness")) + map(select(. == "packages/harness"))) | .[]')
+          for path in $ordered; do
+            echo "::group::npm publish ${path}"
+            (cd "$path" && npm publish --ignore-scripts)
+            echo "::endgroup::"
+          done

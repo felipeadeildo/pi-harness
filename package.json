@@ -1,18 +1,7 @@
 {
-	"name": "pi-ask-permission",
-	"version": "3.0.0",
-	"description": "A permission dialog for the Pi coding agent. Approve, always approve, or deny a tool call, and attach a note the model reads with the result.",
-	"keywords": [
-		"approval",
-		"permission",
-		"permissions",
-		"pi",
-		"pi-coding-agent",
-		"pi-extension",
-		"pi-package"
-	],
-	"homepage": "https://pi.dev/packages/pi-ask-permission",
-	"bugs": "https://github.com/felipeadeildo/pi-ask-permission/issues",
+	"name": "pi-harness",
+	"private": true,
+	"description": "Felipe Adeildo's Pi harness: the extensions, settings and look he runs Pi with, each installable on its own.",
 	"license": "MIT",
 	"author": {
 		"name": "Felipe Adeildo",
@@ -21,27 +10,12 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/felipeadeildo/pi-ask-permission.git"
+		"url": "git+https://github.com/felipeadeildo/pi-harness.git"
 	},
-	"files": [
-		"src",
-		"assets/preview.png",
-		"README.md",
-		"CONTRIBUTING.md",
-		"LICENSE",
-		"CHANGELOG.md"
+	"workspaces": [
+		"packages/*"
 	],
 	"type": "module",
-	"imports": {
-		"#core/*": "./src/core/*",
-		"#identity": "./src/identity.ts",
-		"#pi/*": "./src/pi/*",
-		"#ui/*": "./src/ui/*",
-		"#util/*": "./src/util/*"
-	},
-	"publishConfig": {
-		"access": "public"
-	},
 	"scripts": {
 		"check": "tsc --noEmit",
 		"lint": "oxlint",
@@ -49,11 +23,7 @@
 		"fmt": "oxfmt",
 		"fmt:check": "oxfmt --check",
 		"test": "bun test",
-		"verify": "bun run check && bun run lint && bun run fmt:check && bun run test",
-		"prepublishOnly": "bun run verify"
-	},
-	"dependencies": {
-		"shell-quote": "^1.10.0"
+		"verify": "bun run check && bun run lint && bun run fmt:check && bun run test"
 	},
 	"devDependencies": {
 		"@earendil-works/pi-ai": "0.87.1",
@@ -65,17 +35,6 @@
 		"oxfmt": "^0.68.0",
 		"oxlint": "^1.83.0",
 		"typescript": "^5.7.0"
-	},
-	"peerDependencies": {
-		"@earendil-works/pi-ai": "*",
-		"@earendil-works/pi-coding-agent": "*",
-		"@earendil-works/pi-tui": "*"
-	},
-	"pi": {
-		"extensions": [
-			"./src/index.ts"
-		],
-		"image": "https://raw.githubusercontent.com/felipeadeildo/pi-ask-permission/main/assets/preview.png"
 	},
 	"trustedDependencies": [
 		"lefthook"

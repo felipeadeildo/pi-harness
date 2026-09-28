@@ -1,13 +1,13 @@
 <h1 align="center">pi-ask-permission</h1>
 
 <p align="center">
-  <a href="https://github.com/felipeadeildo/pi-ask-permission/actions/workflows/ci.yml"><img src="https://github.com/felipeadeildo/pi-ask-permission/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/felipeadeildo/pi-harness/actions/workflows/ci.yml"><img src="https://github.com/felipeadeildo/pi-harness/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://www.npmjs.com/package/pi-ask-permission"><img src="https://img.shields.io/npm/v/pi-ask-permission" alt="npm"></a>
   <a href="https://www.npmjs.com/package/pi-ask-permission"><img src="https://img.shields.io/npm/dm/pi-ask-permission" alt="downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license"></a>
   <a href="https://www.npmjs.com/package/pi-ask-permission"><img src="https://img.shields.io/badge/provenance-signed-success" alt="provenance"></a>
   <a href="https://pi.dev/packages/pi-ask-permission"><img src="https://img.shields.io/badge/pi--package-6E56CF" alt="pi package"></a>
-  <a href="https://pi.dev"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffelipeadeildo%2Fpi-ask-permission%2Fmain%2Fpackage.json&query=%24.devDependencies%5B%22%40earendil-works%2Fpi-coding-agent%22%5D&label=pi%20SDK&color=6E56CF" alt="pi SDK"></a>
+  <a href="https://pi.dev"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffelipeadeildo%2Fpi-harness%2Fmain%2Fpackage.json&query=%24.devDependencies%5B%22%40earendil-works%2Fpi-coding-agent%22%5D&label=pi%20SDK&color=6E56CF" alt="pi SDK"></a>
 </p>
 
 Pi runs every tool call without asking. This extension asks first.
@@ -15,7 +15,7 @@ Pi runs every tool call without asking. This extension asks first.
 Answer `yes`, `always yes`, or `deny`, and add a note if you want. The note reaches the model with the result, so denying `npm install` with `use pnpm instead` corrects the agent without stopping it.
 
 <p align="center">
-  <img src="assets/preview.png" alt="The permission dialog for npm install, with the judge card above it and a note typed on the deny row: use pnpm instead." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-permission/assets/preview.png" alt="The permission dialog for npm install, with the judge card above it and a note typed on the deny row: use pnpm instead." width="860">
 </p>
 
 ## Install

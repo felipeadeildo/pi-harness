@@ -1,0 +1,12 @@
+{
+	"$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+	"bootstrap-sha": "9d38e8c7db052241ec9c28af2817bc8dd3af2252",
+	"include-component-in-tag": true,
+	"plugins": ["node-workspace"],
+	"packages": {
+		"packages/ask-permission": {
+			"release-type": "node",
+			"component": "pi-ask-permission"
+		}
+	}
+}
