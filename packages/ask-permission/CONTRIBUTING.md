@@ -7,7 +7,7 @@ This package lives in the [pi-harness](https://github.com/felipeadeildo/pi-harne
 To run only this package's tests:
 
 ```bash
-bun test packages/ask-permission
+bun test ./packages/ask-permission
 ```
 
 ## Layout
