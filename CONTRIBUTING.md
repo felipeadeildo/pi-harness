@@ -43,8 +43,16 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`, even when 
 
 Commits follow [Conventional Commits](https://www.conventionalcommits.org), scoped by package when they touch one (`feat(providers): ...`). [release-please](https://github.com/googleapis/release-please) runs in manifest mode: `release-please-config.json` lists the packages that release, `.release-please-manifest.json` holds their versions, and one release PR carries every bump and changelog. Merging it tags each release as `<package>-v<version>`, and the same workflow publishes to npm.
 
-Auth is [trusted publishing](https://docs.npmjs.com/trusted-publishers/) over OIDC, so there is no `NPM_TOKEN` secret. A trusted publisher can only be added to a package that already exists, so a new package goes out like this:
+Auth is [trusted publishing](https://docs.npmjs.com/trusted-publishers/) over OIDC, so there is no `NPM_TOKEN` secret.
+
+```bash
+bun run smoke        # pack every package, install it outside the repo, load it
+bun run publish:dry  # what a publish would do, without publishing
+bun run trust        # point npm's trusted publisher at release.yml, per package
+```
+
+A trusted publisher can only be added to a package that already exists, so a new package goes out like this:
 
 1. `npm publish --access public` by hand, from the package folder.
-2. On npmjs.com, add a trusted publisher for `felipeadeildo/pi-harness` and `release.yml`.
-3. Add the package to `release-please-config.json` and `.release-please-manifest.json`.
+2. `bun run trust --only <package>`.
+3. Add it to `release-please-config.json` and `.release-please-manifest.json`.
