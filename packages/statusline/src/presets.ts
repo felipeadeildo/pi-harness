@@ -27,14 +27,25 @@ export const PRESETS: Record<StatuslinePreset, Preset> = {
 		lines: [
 			[
 				where,
-				{ id: "host", segments: ["host"] },
+				{ id: "host", segments: ["host", "version"] },
 				{ id: "working", segments: ["working"] },
 				context,
 			],
 			[{ id: "who", segments: ["provider"] }, model, rate, spend],
 			[{ id: "statuses", segments: ["statuses"] }],
 		],
-		cutOrder: ["statuses", "host", "working", "where", "spend", "context", "rate", "who", "model"],
+		cutOrder: [
+			"statuses",
+			"version",
+			"host",
+			"working",
+			"where",
+			"spend",
+			"context",
+			"rate",
+			"who",
+			"model",
+		],
 	},
 	compact: {
 		lines: [

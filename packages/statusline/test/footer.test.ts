@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 
-import type { ReadonlyFooterDataProvider, Theme } from "@earendil-works/pi-coding-agent";
+import {
+	VERSION,
+	type ReadonlyFooterDataProvider,
+	type Theme,
+} from "@earendil-works/pi-coding-agent";
 import type { TUI } from "@earendil-works/pi-tui";
 
 import { StatuslineFooter, type StatuslineSource } from "../src/footer.ts";
@@ -73,7 +77,9 @@ test("the footer draws the lines the preset asks for", () => {
 	const lines = component.render(200);
 
 	expect(lines).toHaveLength(3);
-	expect(lines[0]).toBe("~/Projects/pi-harness · main │ ghost │ 43.1% ▓▓▓░░░░░ 431k/1.0M");
+	expect(lines[0]).toBe(
+		`~/Projects/pi-harness · main │ ghost · v${VERSION} │ 43.1% ▓▓▓░░░░░ 431k/1.0M`,
+	);
 	expect(lines[1]).toBe("anthropic │ Opus 5.5 · high │ 42 tok/s · 320ms │ ↑2.4k · ↓347 · $0.139");
 	expect(lines[2]).toBe("auto · anywhere");
 });

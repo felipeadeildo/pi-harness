@@ -2,12 +2,15 @@
 // be built and tested without a terminal.
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
+import { VERSION } from "@earendil-works/pi-coding-agent";
+
 import type { Totals } from "./totals.ts";
 
 export type SegmentId =
 	| "path"
 	| "git"
 	| "host"
+	| "version"
 	| "session"
 	| "working"
 	| "provider"
@@ -75,6 +78,7 @@ const ICON = {
 	ttft: "⏱",
 	cache: "≋",
 	tokens: "◇",
+	version: "●",
 };
 
 type Renderer = (data: SessionData, options: SegmentOptions, paint: Paint) => Part | Part[];
@@ -84,6 +88,7 @@ const SEGMENTS: Record<SegmentId, Renderer> = {
 	git: (data) => data.branch ?? undefined,
 	host: (data, options, paint) =>
 		data.host === undefined ? undefined : withGlyph(options, "host", data.host, paint),
+	version: (_data, options, paint) => withGlyph(options, "version", `v${VERSION}`, paint),
 	session: (data) => data.sessionName,
 	working: (data, options, paint) =>
 		data.workingMs === undefined

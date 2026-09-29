@@ -3,7 +3,7 @@
 One footer for [Pi](https://pi.dev), with everything I want to see in it.
 
 ```
-~/Projects/pi-harness · main │ ghost │ 43.1% ▓▓▓░░░░░ 431k/1.0M
+~/Projects/pi-harness · main │ ghost · v1.4.2 │ 43.1% ▓▓▓░░░░░ 431k/1.0M
 anthropic │ Opus 5.5 · high │ 42 tok/s · 320ms │ ↑2.4k · ↓347 · R83.0M · $0.139
 auto · anywhere
 ```
@@ -17,6 +17,7 @@ The third line is what the other packages report through `setStatus`, so anythin
 | `~/Projects/pi-harness`    | The working folder, with the home directory as `~`, cut from the left when it is long                    |
 | `main`                     | The git branch, from pi's footer data, updated when it changes                                           |
 | `ghost`                    | The machine, so a line pasted into a chat still says which one it came from                              |
+| `v1.4.2`                   | The pi version, so an issue report says which one it was                                                 |
 | `43.1% ▓▓▓░░░░░ 431k/1.0M` | How full the context is, the gauge, and the tokens over the window                                       |
 | `anthropic`                | The provider serving the turn                                                                            |
 | `Opus 5.5 · high`          | The model and the thinking level                                                                         |
