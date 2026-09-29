@@ -12,7 +12,7 @@ export type SegmentId =
 	| "host"
 	| "version"
 	| "session"
-	| "working"
+	| "turn"
 	| "provider"
 	| "model"
 	| "thinking"
@@ -21,6 +21,10 @@ export type SegmentId =
 	| "tokens"
 	| "cache"
 	| "cost"
+	| "costRate"
+	| "turnTokens"
+	| "turnOut"
+	| "sessionTps"
 	| "context"
 	| "statuses";
 
@@ -41,10 +45,19 @@ export interface SessionData {
 	rate: number | undefined;
 	firstTokenMs: number | undefined;
 	/** How long the answer running right now has been going, or the last one took. */
-	workingMs: number | undefined;
+	turn: TurnData | undefined;
+	/** How long the model has spent writing across the branch, for the session speed. */
+	generationMs: number;
 	statuses: readonly string[];
 	/** A subscription account, where the dollar figure is what it would have cost. */
 	subscription: boolean;
+}
+
+export interface TurnData {
+	/** True while the answer is still arriving. */
+	running: boolean;
+	elapsedMs: number;
+	usage: Totals;
 }
 
 export interface SegmentOptions {
@@ -71,7 +84,11 @@ const GAUGE_CELLS = 8;
 
 const ICON = {
 	host: "@",
-	working: "◷",
+	turn: "✓",
+	running: "◷",
+	turnTokens: "⬆",
+	turnOut: "⤓",
+	sessionTps: "⚡",
 	provider: "⬡",
 	thinking: "✦",
 	rate: "⚡",
@@ -90,10 +107,7 @@ const SEGMENTS: Record<SegmentId, Renderer> = {
 		data.host === undefined ? undefined : withGlyph(options, "host", data.host, paint),
 	version: (_data, options, paint) => withGlyph(options, "version", `v${VERSION}`, paint),
 	session: (data) => data.sessionName,
-	working: (data, options, paint) =>
-		data.workingMs === undefined
-			? undefined
-			: withGlyph(options, "working", duration(data.workingMs), paint),
+	turn: (data, options, paint) => turnOf(data, options, paint),
 	provider: (data, options, paint) =>
 		data.model === undefined
 			? undefined
@@ -116,6 +130,27 @@ const SEGMENTS: Record<SegmentId, Renderer> = {
 		if (data.totals.cacheRead > 0) parts.push(`${paint.dim("R")}${count(data.totals.cacheRead)}`);
 		if (data.totals.cacheWrite > 0) parts.push(`${paint.dim("W")}${count(data.totals.cacheWrite)}`);
 		return parts.length === 0 ? undefined : parts;
+	},
+	turnTokens: (data, options, paint) => {
+		const usage = turnUsage(data);
+		if (usage === undefined) return undefined;
+		const total = usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
+		if (total === 0) return undefined;
+		const breakdown = `(U ${count(usage.input)} + R ${count(usage.cacheRead)}${usage.cacheWrite > 0 ? ` + W ${count(usage.cacheWrite)}` : ""})`;
+		return withGlyph(options, "turnTokens", `${count(total)} ${paint.dim(breakdown)}`, paint);
+	},
+	turnOut: (data, options, paint) => {
+		const output = turnUsage(data)?.output ?? 0;
+		return output === 0 ? undefined : withGlyph(options, "turnOut", count(output), paint);
+	},
+	costRate: (data, _options, paint) => {
+		const usage = turnUsage(data);
+		return usage === undefined ? undefined : costPerMillion(paint, usage);
+	},
+	sessionTps: (data, options, paint) => {
+		if (data.generationMs <= 0 || data.totals.output === 0) return undefined;
+		const rate = data.totals.output / (data.generationMs / 1000);
+		return withGlyph(options, "sessionTps", `avg ${Math.round(rate)} tok/s`, paint);
 	},
 	cache: (data, options, paint) =>
 		data.cacheHit === undefined
@@ -162,13 +197,36 @@ export function emptyData(): SessionData {
 		cacheHit: undefined,
 		rate: undefined,
 		firstTokenMs: undefined,
-		workingMs: undefined,
+		turn: undefined,
+		generationMs: 0,
 		statuses: [],
 		subscription: false,
 	};
 }
 
 /** The value, with a glyph in front when the font has one. */
+function turnOf(data: SessionData, options: SegmentOptions, paint: Paint): Part {
+	if (data.turn === undefined) return undefined;
+	return withGlyph(
+		options,
+		data.turn.running ? "running" : "turn",
+		duration(data.turn.elapsedMs),
+		paint,
+	);
+}
+
+function turnUsage(data: SessionData): Totals | undefined {
+	return data.turn?.usage;
+}
+
+function costPerMillion(paint: Paint, usage: Totals): Part {
+	const tokens = usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
+	if (usage.cost === 0 || tokens === 0) return undefined;
+	const perMillion = (usage.cost / tokens) * 1_000_000;
+	// Under half a cent per million there is nothing to say.
+	return perMillion < 0.005 ? undefined : paint.dim(`$${perMillion.toFixed(2)}/M`);
+}
+
 function withGlyph(
 	options: SegmentOptions,
 	name: keyof typeof ICON,

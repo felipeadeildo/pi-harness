@@ -11,6 +11,7 @@ import {
 	shortenPath,
 	type SessionData,
 } from "../src/segments.ts";
+import { emptyTotals } from "../src/totals.ts";
 
 const options = { pathLength: 40, statuses: true, gauge: true, icons: false };
 const icons = { ...options, icons: true };
@@ -91,7 +92,7 @@ test("the pieces the reference footer shows, plus the two it lacks", () => {
 	expect(parts(["cache"])).toEqual(["cache 99.9%"]);
 	expect(parts(["cost"])).toEqual(["$13.445"]);
 	expect(parts(["context"])).toEqual(["43.1% ▓▓▓░░░░░ 431k/1.0M"]);
-	expect(parts(["host", "working"])).toEqual(["ghost", undefined]);
+	expect(parts(["host", "turn"])).toEqual(["ghost", undefined]);
 });
 
 test("the gauge and the icons are each optional", () => {
@@ -120,7 +121,9 @@ test("a subscription says so, and a free session shows no cost", () => {
 });
 
 test("an answer that is still running shows the time, not a rate", () => {
-	expect(parts(["working"], { workingMs: 137_000 })).toEqual(["2m 17s"]);
+	expect(
+		parts(["turn"], { turn: { running: true, elapsedMs: 137_000, usage: emptyTotals() } }),
+	).toEqual(["2m 17s"]);
 	expect(parts(["rate"], { rate: undefined })).toEqual([undefined]);
 });
 

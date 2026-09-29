@@ -1,6 +1,6 @@
 // Which pieces a preset shows, line by line, and the order groups leave in when the terminal is
-// narrow. The last one to go is the model, because a line without it does not say who is doing the
-// work.
+// narrow. The first line is the answer being written right now. The last group to leave is the
+// model, because a line without it does not say who is doing the work.
 import type { SegmentId } from "./segments.ts";
 import type { StatuslinePreset } from "./settings.ts";
 
@@ -16,29 +16,32 @@ export interface Preset {
 	cutOrder: readonly string[];
 }
 
+const turn: Group = {
+	id: "turn",
+	segments: ["rate", "ttft", "turn", "turnTokens", "turnOut", "costRate"],
+};
 const where: Group = { id: "where", segments: ["path", "git", "session"] };
+const who: Group = { id: "who", segments: ["provider"] };
 const model: Group = { id: "model", segments: ["model", "thinking"] };
 const rate: Group = { id: "rate", segments: ["rate", "ttft"] };
-const spend: Group = { id: "spend", segments: ["tokens", "cache", "cost"] };
+const spend: Group = { id: "spend", segments: ["tokens", "cache", "cost", "sessionTps"] };
+const cost: Group = { id: "cost", segments: ["cost"] };
 const context: Group = { id: "context", segments: ["context"] };
+const statuses: Group = { id: "statuses", segments: ["statuses"] };
 
 export const PRESETS: Record<StatuslinePreset, Preset> = {
 	full: {
 		lines: [
-			[
-				where,
-				{ id: "host", segments: ["host", "version"] },
-				{ id: "working", segments: ["working"] },
-				context,
-			],
-			[{ id: "who", segments: ["provider"] }, model, rate, spend],
-			[{ id: "statuses", segments: ["statuses"] }],
+			[turn],
+			[where, { id: "host", segments: ["host", "version"] }, context],
+			[who, model, spend],
+			[statuses],
 		],
 		cutOrder: [
 			"statuses",
 			"version",
 			"host",
-			"working",
+			"turn",
 			"where",
 			"spend",
 			"context",
@@ -48,14 +51,11 @@ export const PRESETS: Record<StatuslinePreset, Preset> = {
 		],
 	},
 	compact: {
-		lines: [
-			[where, model, rate, { id: "spend", segments: ["cost"] }, context],
-			[{ id: "statuses", segments: ["statuses"] }],
-		],
-		cutOrder: ["statuses", "where", "rate", "context", "model"],
+		lines: [[turn], [where, model, rate, cost, context], [statuses]],
+		cutOrder: ["statuses", "turn", "where", "rate", "context", "model"],
 	},
 	minimal: {
-		lines: [[where, model, context], [{ id: "statuses", segments: ["statuses"] }]],
+		lines: [[where, model, context], [statuses]],
 		cutOrder: ["statuses", "where", "context", "model"],
 	},
 };

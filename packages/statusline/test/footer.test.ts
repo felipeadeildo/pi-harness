@@ -54,6 +54,12 @@ function source(
 			totals: { input: 2400, output: 347, cacheRead: 0, cacheWrite: 0, cost: 0.139 },
 			rate: 42,
 			firstTokenMs: 320,
+			generationMs: 30_000,
+			turn: {
+				running: false,
+				elapsedMs: 137_000,
+				usage: { input: 427_000, output: 66_000, cacheRead: 22_000_000, cacheWrite: 0, cost: 0.44 },
+			},
 			statuses: input.statuses,
 			...overrides,
 		}),
@@ -65,29 +71,53 @@ function source(
 	return { value, repaints };
 }
 
-test("the footer draws the lines the preset asks for", () => {
-	const { value } = source();
-	const component = new StatuslineFooter(
+function render(
+	overrides: Partial<SessionData> = {},
+	preset: "full" | "compact" | "minimal" = "full",
+): string[] {
+	const { value } = source(overrides, preset);
+	return new StatuslineFooter(
 		tui(),
 		theme,
 		footerData("main", { perm: "auto · anywhere" }),
 		value,
-	);
+	).render(200);
+}
 
-	const lines = component.render(200);
+test("the full footer is the answer, then where, then who and what it cost, then the other packages", () => {
+	const lines = render();
 
-	expect(lines).toHaveLength(3);
-	expect(lines[0]).toBe(
+	expect(lines).toHaveLength(4);
+	expect(lines[0]).toBe("42 tok/s · 320ms · 2m 17s · 22.5M (U 427k + R 22.0M) · 66k · $0.02/M");
+	expect(lines[1]).toBe(
 		`~/Projects/pi-harness · main │ ghost · v${VERSION} │ 43.1% ▓▓▓░░░░░ 431k/1.0M`,
 	);
-	expect(lines[1]).toBe("anthropic │ Opus 5.5 · high │ 42 tok/s · 320ms │ ↑2.4k · ↓347 · $0.139");
-	expect(lines[2]).toBe("auto · anywhere");
+	expect(lines[2]).toBe("anthropic │ Opus 5.5 · high │ ↑2.4k · ↓347 · $0.139 · avg 12 tok/s");
+	expect(lines[3]).toBe("auto · anywhere");
+});
+
+test("with no answer yet the first line has nothing to say", () => {
+	const lines = render({ turn: undefined, rate: undefined, firstTokenMs: undefined });
+
+	expect(lines).toHaveLength(3);
+	expect(lines[0]).toContain("~/Projects/pi-harness");
 });
 
 test("the statuses line disappears when nothing reports a status", () => {
 	const { value } = source();
 	const lines = new StatuslineFooter(tui(), theme, footerData(null), value).render(200);
-	expect(lines).toHaveLength(2);
+
+	expect(lines).toHaveLength(3);
+	expect(lines.join(" ")).not.toContain("auto");
+});
+
+test("the compact preset keeps the answer, the session and the statuses", () => {
+	const lines = render({}, "compact");
+
+	expect(lines).toHaveLength(3);
+	expect(lines[0]).toContain("42 tok/s");
+	expect(lines[1]).toContain("43.1%");
+	expect(lines[2]).toBe("auto · anywhere");
 });
 
 test("a narrow terminal gives up the groups in the cut order, keeping the model", () => {
@@ -96,14 +126,6 @@ test("a narrow terminal gives up the groups in the cut order, keeping the model"
 
 	expect(lines.join(" ")).toContain("Opus 5.5");
 	expect(lines.join(" ")).not.toContain("anthropic");
-});
-
-test("the compact preset fits one line when there is room", () => {
-	const { value } = source({}, "compact");
-	const lines = new StatuslineFooter(tui(), theme, footerData("main"), value).render(200);
-	expect(lines).toHaveLength(1);
-	expect(lines[0]).toContain("42 tok/s");
-	expect(lines[0]).toContain("43.1%");
 });
 
 test("the feature can ask for a repaint, and the component cleans up", () => {
@@ -128,9 +150,12 @@ test("the feature can ask for a repaint, and the component cleans up", () => {
 	expect(unwatched).toBe(1);
 });
 
-test("every preset renders without a branch, a model, or a context", () => {
+test("every preset renders without a branch, a model, a context or an answer", () => {
 	for (const preset of Object.keys(PRESETS) as (keyof typeof PRESETS)[]) {
-		const { value } = source({ model: undefined, thinking: undefined, context: undefined }, preset);
+		const { value } = source(
+			{ model: undefined, thinking: undefined, context: undefined, turn: undefined },
+			preset,
+		);
 		const lines = new StatuslineFooter(tui(), theme, footerData(null), value).render(200);
 		expect(lines.length).toBeGreaterThan(0);
 	}

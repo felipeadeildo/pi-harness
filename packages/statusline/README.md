@@ -3,10 +3,17 @@
 One footer for [Pi](https://pi.dev), with everything I want to see in it.
 
 ```
+42 tok/s · 320ms · 2m 17s · 22.5M (U 427k + R 22.0M) · 66k · $0.02/M
 ~/Projects/pi-harness · main │ ghost · v1.4.2 │ 43.1% ▓▓▓░░░░░ 431k/1.0M
-anthropic │ Opus 5.5 · high │ 42 tok/s · 320ms │ ↑2.4k · ↓347 · R83.0M · $0.139
+anthropic │ Opus 5.5 · high │ ↑2.4k · ↓347 · R83.0M · $0.139 · avg 12 tok/s
 auto · anywhere
 ```
+
+The first line is the answer being written right now: its speed, how long the first token took, how long it has been going, what it has read so far with the cache breakdown, what it has written, and what it costs per million tokens. When nothing is running it stays there, so the last answer is always readable.
+
+The three speeds are different things on purpose. `42 tok/s` is this answer, live. `avg 12 tok/s` is the whole session: output tokens over the time the model actually spent writing, which excludes the time tools and I take. `$0.02/M` is what a million tokens cost in this answer, which is the number that says whether a model is cheap.
+
+Each finished answer leaves a small entry in the session with its duration and time to the first token. Pi records usage without a duration, so this is where the session speed comes from after a resume, and it is the same data the usage ledger will read later.
 
 The third line is what the other packages report through `setStatus`, so anything installed next to this one shows up there without knowing about it.
 

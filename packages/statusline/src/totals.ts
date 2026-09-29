@@ -40,6 +40,35 @@ export function totalsOf(entries: readonly SessionEntry[]): Totals {
 }
 
 /** How much of the prompt came from the cache, the way pi's own footer reports it. */
+/** The entry a finished answer leaves behind, so the session speed survives a resume. */
+export const TURN_ENTRY = "pi-statusline:turn";
+
+export interface TurnRecord {
+	output: number;
+	firstTokenMs: number;
+	generationMs: number;
+}
+
+export function isTurnRecord(data: unknown): data is TurnRecord {
+	if (typeof data !== "object" || data === null) return false;
+	const record = data as Partial<TurnRecord>;
+	return (
+		typeof record.output === "number" &&
+		typeof record.firstTokenMs === "number" &&
+		typeof record.generationMs === "number"
+	);
+}
+
+/** How long the model spent writing, across the whole branch. */
+export function generationMsOf(entries: readonly SessionEntry[]): number {
+	let total = 0;
+	for (const entry of entries) {
+		if (entry.type !== "custom" || entry.customType !== TURN_ENTRY) continue;
+		if (isTurnRecord(entry.data)) total += entry.data.generationMs;
+	}
+	return total;
+}
+
 export function cacheHitPercent(entries: readonly SessionEntry[]): number | undefined {
 	for (let index = entries.length - 1; index >= 0; index--) {
 		const entry = entries[index];
