@@ -1,12 +1,20 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+
+import { SettingsStore, type SettingsScope, globalSettingsPath } from "@adeildo/pi-kit";
 
 import { decodeConfig } from "#core/config/decode.ts";
 import { noUIMode, isAllowed, isJudged, matchesPattern } from "#core/config/patterns.ts";
-import { DEFAULT_CONFIG, type PermissionConfig } from "#core/config/schema.ts";
-import { configPath, loadConfig, saveConfig } from "#core/config/store.ts";
+import { DEFAULT_CONFIG, DEFAULT_WORKSPACE, type PermissionConfig } from "#core/config/schema.ts";
+import {
+	migrateConfig,
+	PERMISSION_SETTINGS,
+	readConfig,
+	writeConfig,
+} from "#core/config/settings.ts";
+import { configPath } from "#core/config/store.ts";
 import { DEFAULT_JUDGE } from "#core/judge/config.ts";
 import { decodeJudge } from "#core/judge/decode.ts";
 
@@ -277,13 +285,25 @@ describe("noUIMode", () => {
 	});
 });
 
+/** The old file, written where 3.x kept it. */
+function writeLegacy(config: unknown): void {
+	mkdirSync(dirname(configPath()), { recursive: true });
+	writeFileSync(configPath(), typeof config === "string" ? config : JSON.stringify(config));
+}
+
+function scopeWithSettings(settingsPath = globalSettingsPath()): SettingsScope {
+	const settings = new SettingsStore(settingsPath);
+	settings.register(PERMISSION_SETTINGS);
+	return { settings };
+}
+
 describe("config file", () => {
 	let dir: string;
 	let previous: string | undefined;
 
 	beforeEach(() => {
 		previous = process.env.PI_CODING_AGENT_DIR;
-		dir = mkdtempSync(join(tmpdir(), "pi-ask-"));
+		dir = mkdtempSync(join(tmpdir(), "pi-perm-config-"));
 		process.env.PI_CODING_AGENT_DIR = dir;
 	});
 
@@ -297,63 +317,84 @@ describe("config file", () => {
 		expect(configPath()).toBe(join(dir, "extensions", "pi-ask-permission", "config.json"));
 	});
 
-	test("a missing file is created from the defaults", () => {
-		const loaded = loadConfig();
-		expect(loaded.config).toEqual(DEFAULT_CONFIG);
-		expect(loaded.warnings).toEqual([]);
-		expect(JSON.parse(readFileSync(configPath(), "utf8"))).toEqual(DEFAULT_CONFIG);
+	test("without an old file nothing is migrated and nothing is written", () => {
+		const scope = scopeWithSettings();
+		expect(migrateConfig(scope)).toEqual([]);
+		expect(existsSync(globalSettingsPath())).toBe(false);
 	});
 
-	test("a malformed file falls back to the defaults and warns", () => {
-		const path = configPath();
-		saveConfig(DEFAULT_CONFIG);
-		writeFileSync(path, "{ not json");
+	test("a malformed old file warns, changes nothing and is retired", () => {
+		writeLegacy("{ not json");
+		const scope = scopeWithSettings();
 
-		const loaded = loadConfig();
-		expect(loaded.config).toEqual(DEFAULT_CONFIG);
-		expect(loaded.warnings[0]).toContain("could not parse");
+		const warnings = migrateConfig(scope);
+
+		expect(warnings[0]).toContain("could not parse");
+		expect(readConfig(scope)).toEqual(DEFAULT_CONFIG);
+		expect(existsSync(`${configPath()}.bak`)).toBe(true);
 	});
 
-	test("a non-object file falls back to the defaults and warns", () => {
-		saveConfig(DEFAULT_CONFIG);
-		writeFileSync(configPath(), "[1, 2, 3]");
+	test("every value from the old file lands in the shared settings", () => {
+		writeLegacy({ notes: "message", allow: ["bash"], judge: { enabled: true, model: "jev-x" } });
+		const scope = scopeWithSettings();
 
-		const loaded = loadConfig();
-		expect(loaded.config).toEqual(DEFAULT_CONFIG);
-		expect(loaded.warnings[0]).toContain("must contain a JSON object");
+		migrateConfig(scope);
+
+		const config = readConfig(scope);
+		expect(config.notes).toBe("message");
+		expect(config.allow).toEqual(["bash"]);
+		expect(config.judge.enabled).toBe(true);
+		expect(config.judge.model).toBe("jev-x");
+		expect(config.judge.timeoutMs).toBe(DEFAULT_JUDGE.timeoutMs);
 	});
 
-	test("saveConfig round-trips", () => {
-		const config = { ...DEFAULT_CONFIG, notes: "message" as const, allow: ["bash"] };
-		expect(saveConfig(config)).toBeUndefined();
-		expect(loadConfig().config).toEqual(config);
+	test("the old file is kept as a backup", () => {
+		writeLegacy({ notes: "message" });
+		const scope = scopeWithSettings();
+
+		expect(migrateConfig(scope).at(-1)).toContain(".bak");
+		expect(existsSync(configPath())).toBe(false);
+		expect(existsSync(`${configPath()}.bak`)).toBe(true);
 	});
 
-	test("a file from before 3.0 is read with the new names and rewritten once", () => {
-		saveConfig(DEFAULT_CONFIG);
-		writeFileSync(
-			configPath(),
-			JSON.stringify({ followup: "message", judge: { never: ["sudo*"], autoDeny: false } }),
-		);
+	test("only what differs from the defaults is written", () => {
+		const scope = scopeWithSettings();
+		writeConfig(scope, { ...DEFAULT_CONFIG, notes: "message" });
 
-		const loaded = loadConfig();
-		expect(loaded.config.notes).toBe("message");
-		expect(loaded.config.judge.alwaysAsk).toEqual(["sudo*"]);
-		expect(loaded.config.judge.canDeny).toBe(false);
-		expect(loaded.warnings).toEqual([]);
-		expect(loaded.updated).toBe(true);
-
-		const rewritten = JSON.parse(readFileSync(configPath(), "utf8"));
-		expect(rewritten.followup).toBeUndefined();
-		expect(rewritten.notes).toBe("message");
-		expect(loadConfig().updated).toBeUndefined();
+		expect(JSON.parse(readFileSync(globalSettingsPath(), "utf8"))).toEqual({
+			permission: { notes: "message" },
+		});
 	});
 
-	test("a loaded config does not alias the exported defaults", () => {
-		const loaded = loadConfig();
-		loaded.config.allow.push("bash");
-		loaded.config.typing.pause = 1;
+	test("a written config reads back the same", () => {
+		const config: PermissionConfig = {
+			...DEFAULT_CONFIG,
+			allow: ["read", "bash"],
+			noUI: { bash: "allow" },
+			readOnlyBash: false,
+			workspace: { roots: ["src"], outside: "deny" },
+			typing: { pause: 500, maxWait: 10_000 },
+			judge: {
+				...DEFAULT_JUDGE,
+				enabled: true,
+				policy: "só leitura",
+				thresholds: { allow: 0.9, deny: 0.7 },
+				alwaysAsk: ["sudo*"],
+			},
+		};
+
+		expect(writeConfig(scopeWithSettings(), config)).toBeUndefined();
+		expect(readConfig(scopeWithSettings())).toEqual(config);
+	});
+
+	test("a read does not alias the exported defaults", () => {
+		const config = readConfig(scopeWithSettings());
+		config.allow.push("bash");
+		config.workspace.roots.push("..");
+		config.judge.tools.push("write");
+
 		expect(DEFAULT_CONFIG.allow).not.toContain("bash");
-		expect(DEFAULT_CONFIG.typing.pause).toBe(1000);
+		expect(DEFAULT_WORKSPACE.roots).not.toContain("..");
+		expect(DEFAULT_JUDGE.tools).not.toContain("write");
 	});
 });

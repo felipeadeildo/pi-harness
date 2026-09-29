@@ -86,7 +86,7 @@ Press `Alt+M` to switch modes. The status bar shows the one you are in.
 | `accept edits` | file edits and writes in the project |
 | `auto`         | everything in the project            |
 
-A call that leaves the project still asks, in every mode. The mode lasts for the session and never changes `config.json`.
+A call that leaves the project still asks, in every mode. The mode lasts for the session and never changes the settings file.
 
 ### Correct the agent
 
@@ -152,20 +152,21 @@ A long paste collapses to `[paste #1 +48 lines]` and expands when you confirm.
 
 ### Configuration
 
-`~/.pi/agent/extensions/pi-ask-permission/config.json` is created on first run. Every key has a row of the same name in `/perm`.
+The settings live in the file every pi-harness package shares, `~/.pi/agent/extensions/pi-harness/settings.json`, under a `permission.` prefix. Every key has a row of the same name in `/perm`, and only what you change is written, so a new default reaches you.
 
 ```json
 {
-	"allow": ["read", "grep", "find", "ls"],
-	"mode": "manual",
-	"readOnlyBash": true,
-	"notes": "result",
-	"noUI": "deny",
-	"workspace": { "roots": ["."], "outside": "ask" },
-	"typing": { "pause": 1000, "maxWait": null },
-	"judge": { "enabled": false }
+	"permission": {
+		"allow": ["read", "grep", "find", "ls"],
+		"mode": "manual",
+		"readOnlyBash": true,
+		"workspace": { "roots": ["."], "outside": "ask" },
+		"judge": { "enabled": false, "model": "jev-latest" }
+	}
 }
 ```
+
+The ids below leave out the `permission.` prefix.
 
 | Key                 | Does                                                                                                                                   |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
@@ -199,7 +200,9 @@ The `judge` block:
 | `riskCeiling`       | `0.45`         | Highest risk the judge may approve                    |
 | `timeoutMs`         | `5000`         | How long to wait for an answer                        |
 
-The file carries the full `judge` block. A malformed file falls back to the defaults and says what it dropped, so a typo never lets more through. A file from before 3.0 is rewritten with the new names on first load. `PI_CODING_AGENT_DIR` moves the file with the rest of the agent directory.
+A malformed value falls back and says what it dropped, so a typo never lets more through. A key from before 3.0 is read with the new name. `PI_CODING_AGENT_DIR` moves the file with the rest of the agent directory.
+
+Up to 3.0 the config was `~/.pi/agent/extensions/pi-ask-permission/config.json`. The first session after this version reads it, writes what you changed into the shared settings, and keeps the old file as `config.json.bak`.
 
 ### How a call is decided
 

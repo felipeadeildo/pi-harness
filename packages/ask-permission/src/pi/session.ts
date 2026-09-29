@@ -1,13 +1,10 @@
+import { type FeatureScope } from "@adeildo/pi-kit";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { AlwaysYes, savedFileExists, type Scope } from "#core/always-yes.ts";
 import { defaultConfig, type PermissionConfig } from "#core/config/schema.ts";
-import {
-	globalAlwaysYesPath,
-	loadConfig,
-	projectAlwaysYesPath,
-	saveConfig,
-} from "#core/config/store.ts";
+import { migrateConfig, readConfig, writeConfig } from "#core/config/settings.ts";
+import { globalAlwaysYesPath, projectAlwaysYesPath } from "#core/config/store.ts";
 import type { JudgeOutcome, JudgeRecord } from "#core/judge/types.ts";
 import type { PermissionMode } from "#core/mode.ts";
 import type { ToolAdapter } from "#core/tools.ts";
@@ -73,20 +70,22 @@ export function noteJudgeFailure(state: SessionState, ctx: ExtensionContext): vo
 	);
 }
 
-// Read at every session start, so an edit to config.json applies from the next session.
-export function loadSessionConfig(state: SessionState, ctx: ExtensionContext): void {
-	const loaded = loadConfig();
-	state.config = loaded.config;
-	for (const warning of loaded.warnings) ctx.ui.notify(`${NAME}: ${warning}`, "warning");
-	if (loaded.updated) ctx.ui.notify(`${NAME}: config.json updated to the 3.0 names`, "info");
+// Read at every session start, so an edit to the shared settings applies from the next session.
+export function loadSessionConfig(
+	scope: FeatureScope,
+	state: SessionState,
+	ctx: ExtensionContext,
+): void {
+	for (const warning of migrateConfig(scope)) ctx.ui.notify(`${NAME}: ${warning}`, "warning");
 
+	state.config = readConfig(scope);
 	state.typing.stop();
-	state.typing = new TypingMonitor(loaded.config.typing.pause, loaded.config.typing.maxWait);
+	state.typing = new TypingMonitor(state.config.typing.pause, state.config.typing.maxWait);
 }
 
-export function saveConfigFile(state: SessionState, ctx: ExtensionContext): void {
-	const error = saveConfig(state.config);
-	if (error) ctx.ui.notify(`${NAME}: could not save config: ${error}`, "error");
+export function saveConfig(scope: FeatureScope, state: SessionState, ctx: ExtensionContext): void {
+	const error = writeConfig(scope, state.config);
+	if (error) ctx.ui.notify(`${NAME}: could not save the settings: ${error}`, "error");
 }
 
 export function openAlwaysYes(state: SessionState, ctx: ExtensionContext): void {

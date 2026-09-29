@@ -9,12 +9,7 @@ import { judgeLogText } from "#core/judge/report.ts";
 import { MODE_DESCRIPTION, nextMode, parseMode, PERMISSION_MODES } from "#core/mode.ts";
 import { NAME } from "#identity";
 import { setSessionMode } from "#pi/mode.ts";
-import {
-	forgetAlwaysYes,
-	resetJudgeHealth,
-	saveConfigFile,
-	type SessionState,
-} from "#pi/session.ts";
+import { forgetAlwaysYes, resetJudgeHealth, saveConfig, type SessionState } from "#pi/session.ts";
 import { alwaysYesCount, openSettings } from "#ui/settings/screen.ts";
 import { notifyJudgePolicyWarning, statusText } from "#ui/settings/status.ts";
 
@@ -27,7 +22,7 @@ export function registerCommands(scope: FeatureScope, state: SessionState): void
 			alwaysYes: state.alwaysYes,
 			mode: () => state.mode,
 			setMode: (mode) => setSessionMode(scope, state, mode, ctx, false),
-			save: () => saveConfigFile(state, ctx),
+			save: () => saveConfig(scope, state, ctx),
 			onJudgeChange: () => state.judgeCache.clear(),
 		});
 
@@ -87,7 +82,7 @@ export function registerCommands(scope: FeatureScope, state: SessionState): void
 
 		if (argument === "on" || argument === "off") {
 			state.config.judge.enabled = argument === "on";
-			saveConfigFile(state, ctx);
+			saveConfig(scope, state, ctx);
 			state.judgeCache.clear();
 			if (argument === "on") {
 				resetJudgeHealth(state);

@@ -25,11 +25,11 @@ Status is one of `done`, `next`, `planned`, `later`. "Replaces" names the third-
 
 ## Phase 1. Move what exists onto the kit
 
-| Item                                        | Status  | Notes                                                                                                                                                                                                                                      |
-| ------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `pi-ask-permission` on the kit              | planned | Config moves into the shared settings file, which is a breaking change. What moves into the kit along with it is `contracts/permission` (a decision was made, a tool says what it touches), per-session state and `ui/` (dialog, selector) |
-| Settings screen generated from the registry | planned | One `/harness` screen for every feature, with the switches from `features.<id>.enabled`                                                                                                                                                    |
-| `@adeildo/pi-harness`                       | planned | One install, one app, my defaults. `/harness setup` applies the pi settings a package can't set by itself (`tuiMode`, `outputPad`, the extra usage warning)                                                                                |
+| Item                                        | Status  | Notes                                                                                                                                                       |
+| ------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pi-ask-permission` on the kit              | done    | The app, the feature scope and the shared settings are in. `contracts/permission`, `ui/` and per-session state still move into the kit                      |
+| Settings screen generated from the registry | planned | One `/harness` screen for every feature, with the switches from `features.<id>.enabled`                                                                     |
+| `@adeildo/pi-harness`                       | planned | One install, one app, my defaults. `/harness setup` applies the pi settings a package can't set by itself (`tuiMode`, `outputPad`, the extra usage warning) |
 
 ## Phase 2. Providers
 

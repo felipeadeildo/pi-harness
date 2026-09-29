@@ -48,7 +48,9 @@ A feature whose `setup` throws turns into a warning, and the other features stil
 
 ## Settings
 
-Every app reads `~/.pi/agent/extensions/pi-harness/settings.json`. A setting's `id` is its path in that file. A store only reads the settings its own features declared, so keys that belong to other apps never produce a warning. `store.set` writes one value and leaves every other key alone.
+Every app reads `~/.pi/agent/extensions/pi-harness/settings.json`. A setting's `id` is its path in that file. A store only reads the settings its own features declared, so keys that belong to other apps never produce a warning.
+
+`store.set` writes one value, and `store.setAll` writes several in one pass, which is what a feature does when it saves a whole config object. A value that already reads the same is not written, so a file holds what was decided and not a copy of every default, which would freeze them.
 
 A setting declared with `project: true` also reads `<project>/.pi/extensions/pi-harness/settings.json`, but only once pi trusts the project, and there the project value wins. Anything without that flag can only be set globally. A project file that tries to set it gets a warning, so a cloned repository can't loosen what runs without asking.
 

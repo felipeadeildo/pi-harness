@@ -43,7 +43,7 @@ const TYPING_STATUS = "waiting for you to finish typing";
 
 export function registerEvents(scope: FeatureScope, state: SessionState): void {
 	scope.on("session_start", (_event, ctx) => {
-		loadSessionConfig(state, ctx);
+		loadSessionConfig(scope, state, ctx);
 		openAlwaysYes(state, ctx);
 		restoreSession(state, ctx);
 		notifyJudgePolicyWarning(state.config, ctx);

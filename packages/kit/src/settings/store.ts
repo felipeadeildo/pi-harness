@@ -77,8 +77,20 @@ export class SettingsStore {
 
 	/** Writes one value to the global file, keeping the rest. Returns an error message on failure. */
 	set<T>(entry: Setting<T>, value: T): string | undefined {
+		return this.setAll([[entry, value]]);
+	}
+
+	/**
+	 * Writes several values in one pass, keeping the rest of the file. A value that already reads the
+	 * same is not written, so the file ends up holding what was decided and not a copy of every
+	 * default, which would freeze them.
+	 */
+	setAll(entries: readonly (readonly [Setting<unknown>, unknown])[]): string | undefined {
+		const changed = entries.filter(([entry, value]) => !same(this.get(entry), value));
+		if (changed.length === 0) return undefined;
+
 		const { data } = readSettingsFile(this.globalPath);
-		assign(data, entry.id, value);
+		for (const [entry, value] of changed) assign(data, entry.id, value);
 		try {
 			writeSettingsFile(this.globalPath, data);
 		} catch (error) {
@@ -91,8 +103,7 @@ export class SettingsStore {
 	#update(entry: Setting<unknown>, value: unknown): void {
 		const previous = this.#values.has(entry.id) ? this.#values.get(entry.id) : entry.default;
 		this.#values.set(entry.id, value);
-		// Decoders build new arrays and objects on every load, so compare by content.
-		if (JSON.stringify(previous) === JSON.stringify(value)) return;
+		if (same(previous, value)) return;
 		for (const listener of this.#listeners.get(entry.id) ?? []) listener(value);
 	}
 }
@@ -110,4 +121,9 @@ function decodeAt<T>(
 	const suffix = result.ok ? "" : "; ignored";
 	for (const line of formatProblems(result.problems)) warnings.push(`${path}: ${line}${suffix}`);
 	return result.ok ? { found: true, value: result.value } : { found: false };
+}
+
+/** Decoders build new arrays and objects on every read, so two values are compared by content. */
+function same(left: unknown, right: unknown): boolean {
+	return JSON.stringify(left) === JSON.stringify(right);
 }

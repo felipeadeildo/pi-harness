@@ -34,8 +34,9 @@ Use `#core`, `#ui`, `#pi`, `#util`, and `#identity`, declared in `package.json` 
 ## Adding a config key
 
 1. Add the type and the default in `core/config/schema.ts`.
-2. Add a decoder in `core/config/decode.ts`. A missing key takes the default; a present but invalid key takes the default and reports a warning.
-3. Add a test in `test/config.test.ts`.
+2. Declare the leaf in `core/config/settings.ts`, with the decoder and the row it shows on the settings screen. A missing key takes the default, and an invalid one is ignored with a warning.
+3. Read it in `readConfig` and write it in `toEntries`, so saving the settings keeps it.
+4. Add a test in `test/config.test.ts`. A round trip through `writeConfig` and `readConfig` is what proves the mapping.
 
 ## Open ideas
 
