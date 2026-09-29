@@ -25,6 +25,9 @@ function judgeScreen(): ReturnType<typeof buildJudgeSettings> {
 	});
 }
 
+const rowIds = (mode: PermissionMode) =>
+	topLevelItems(defaultConfig(), mode, []).map((item) => item.id);
+
 describe("settings layout", () => {
 	test("the enable toggle is a direct on/off row on the parent", () => {
 		const off = judgeToggleItem(DEFAULT_CONFIG);
@@ -99,12 +102,9 @@ describe("settings layout", () => {
 	});
 
 	test("the read-only row hides under auto, where nothing consults it", () => {
-		const ids = (mode: PermissionMode) =>
-			topLevelItems(defaultConfig(), mode, []).map((item) => item.id);
-
-		expect(ids("manual")).toContain("readOnlyBash");
-		expect(ids("accept-edits")).toContain("readOnlyBash");
-		expect(ids("auto")).not.toContain("readOnlyBash");
-		expect(ids("auto")).toEqual(["mode", "workspace.outside", "notes", "judge.enabled", "noUI"]);
+		expect(rowIds("manual")).toContain("readOnlyBash");
+		expect(rowIds("accept-edits")).toContain("readOnlyBash");
+		expect(rowIds("auto")).not.toContain("readOnlyBash");
+		expect(rowIds("auto")).toEqual(["mode", "workspace.outside", "notes", "judge.enabled", "noUI"]);
 	});
 });

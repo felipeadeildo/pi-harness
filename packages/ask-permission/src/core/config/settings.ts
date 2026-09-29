@@ -309,9 +309,9 @@ export function migrateConfig(scope: SettingsScope): string[] {
 	if (!existsSync(path)) return [];
 
 	const loaded = readLegacyConfig();
-	const error = writeConfig(scope, loaded.config);
-	if (error !== undefined)
-		return [...loaded.warnings, `could not move ${path} to the shared settings: ${error}`];
+	const failure = writeConfig(scope, loaded.config);
+	if (failure !== undefined)
+		return [...loaded.warnings, `could not move ${path} to the shared settings: ${failure}`];
 
 	const backup = `${path}.bak`;
 	try {
