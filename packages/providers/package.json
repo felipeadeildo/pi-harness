@@ -32,6 +32,9 @@
 	"exports": {
 		".": "./src/index.ts"
 	},
+	"publishConfig": {
+		"access": "public"
+	},
 	"dependencies": {
 		"@adeildo/pi-kit": "workspace:*"
 	},
