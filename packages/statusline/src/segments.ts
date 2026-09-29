@@ -33,6 +33,8 @@ export interface SessionData {
 	home: string | undefined;
 	/** From the footer data, not from the session. */
 	branch: string | null;
+	/** Ahead, behind and dirty, from asking git. Undefined until the first answer comes back. */
+	git: GitState | undefined;
 	/** Short host name, so a line pasted into a chat still says which machine it came from. */
 	host: string | undefined;
 	sessionName: string | undefined;
@@ -51,6 +53,13 @@ export interface SessionData {
 	statuses: readonly string[];
 	/** A subscription account, where the dollar figure is what it would have cost. */
 	subscription: boolean;
+}
+
+export interface GitState {
+	ahead: number;
+	behind: number;
+	/** Anything changed in the working tree. */
+	dirty: boolean;
 }
 
 export interface TurnData {
@@ -83,7 +92,9 @@ export type Part = string | undefined;
 const GAUGE_CELLS = 8;
 
 const ICON = {
-	host: "@",
+	host: "≋",
+	git: "⤳",
+	context: "≡",
 	turn: "✓",
 	running: "◷",
 	turnTokens: "⬆",
@@ -102,7 +113,7 @@ type Renderer = (data: SessionData, options: SegmentOptions, paint: Paint) => Pa
 
 const SEGMENTS: Record<SegmentId, Renderer> = {
 	path: (data, options) => shortenPath(data.cwd, data.home, options.pathLength),
-	git: (data) => data.branch ?? undefined,
+	git: (data, options, paint) => gitLabel(data, options, paint),
 	host: (data, options, paint) =>
 		data.host === undefined ? undefined : withGlyph(options, "host", data.host, paint),
 	version: (_data, options, paint) => withGlyph(options, "version", `v${VERSION}`, paint),
@@ -157,7 +168,8 @@ const SEGMENTS: Record<SegmentId, Renderer> = {
 			? undefined
 			: `${paint.dim(withGlyphText(options, "cache", "cache"))} ${data.cacheHit.toFixed(1)}%`,
 	cost: (data) => {
-		if (data.totals.cost === 0 && !data.subscription) return undefined;
+		// A subscription session that has not spent anything says nothing.
+		if (data.totals.cost === 0) return undefined;
 		return `$${data.totals.cost.toFixed(3)}${data.subscription ? " (sub)" : ""}`;
 	},
 	context: (data, options, paint) => {
@@ -165,7 +177,8 @@ const SEGMENTS: Record<SegmentId, Renderer> = {
 		const { percent, tokens, contextWindow } = data.context;
 		const gauge = options.gauge ? ` ${gaugeBar(percent)}` : "";
 		const window = ` ${count(tokens)}/${count(contextWindow)}`;
-		return paint.context(percent, `${percent.toFixed(1)}%${gauge}${paint.dim(window)}`);
+		const mark = options.icons ? `${paint.dim(ICON.context)} ` : "";
+		return paint.context(percent, `${mark}${percent.toFixed(1)}%${gauge}${paint.dim(window)}`);
 	},
 	statuses: (data, options, paint) =>
 		options.statuses ? data.statuses.map((text) => paint.dim(text)) : undefined,
@@ -195,6 +208,7 @@ export function emptyData(): SessionData {
 		context: undefined,
 		totals: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
 		cacheHit: undefined,
+		git: undefined,
 		rate: undefined,
 		firstTokenMs: undefined,
 		turn: undefined,
@@ -205,6 +219,21 @@ export function emptyData(): SessionData {
 }
 
 /** The value, with a glyph in front when the font has one. */
+/** The branch, how far it is from its upstream, and whether anything is uncommitted. */
+function gitLabel(data: SessionData, options: SegmentOptions, paint: Paint): Part {
+	if (data.branch === null) return undefined;
+
+	const marks: string[] = [];
+	if (data.git !== undefined) {
+		if (data.git.ahead > 0) marks.push(`${paint.dim("↑")}${data.git.ahead}`);
+		if (data.git.behind > 0) marks.push(`${paint.dim("↓")}${data.git.behind}`);
+		if (data.git.dirty) marks.push(paint.dim("*"));
+	}
+
+	const text = `${data.branch}${marks.join("")}`;
+	return data.branch === "detached" ? text : withGlyph(options, "git", text, paint);
+}
+
 function turnOf(data: SessionData, options: SegmentOptions, paint: Paint): Part {
 	if (data.turn === undefined) return undefined;
 	return withGlyph(

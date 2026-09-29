@@ -100,8 +100,16 @@ test("the gauge and the icons are each optional", () => {
 	expect(parts(["rate", "thinking", "host"], {}, icons)).toEqual([
 		"⚡ 42 tok/s",
 		"✦ high",
-		"@ ghost",
+		"≋ ghost",
 	]);
+});
+
+test("the branch says how far from its upstream it is, and whether anything changed", () => {
+	expect(parts(["git"], { git: { ahead: 2, behind: 1, dirty: true } })).toEqual(["main↑2↓1*"]);
+	expect(parts(["git"], { git: { ahead: 0, behind: 0, dirty: false } })).toEqual(["main"]);
+	expect(parts(["git"], { git: { ahead: 3, behind: 0, dirty: false } })).toEqual(["main↑3"]);
+	expect(parts(["git"], {}, icons)).toEqual(["⤳ main"]);
+	expect(parts(["git"], { branch: null })).toEqual([undefined]);
 });
 
 test("other packages show only when asked for, and the statuses come one per piece", () => {
@@ -110,8 +118,9 @@ test("other packages show only when asked for, and the statuses come one per pie
 	expect(parts(["statuses"], { statuses: ["one", "two"] })).toEqual(["one", "two"]);
 });
 
-test("a subscription says so, and a free session shows no cost", () => {
+test("a subscription says so, and a session that spent nothing says nothing", () => {
 	expect(parts(["cost"], { subscription: true })).toEqual(["$13.445 (sub)"]);
+	expect(parts(["cost"], { subscription: true, totals: emptyTotals() })).toEqual([undefined]);
 	expect(
 		parts(["cost"], {
 			subscription: false,

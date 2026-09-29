@@ -70,7 +70,7 @@ export const gauge = setting({
 
 export const icons = setting({
 	id: "statusline.icons",
-	default: false,
+	default: true,
 	decoder: boolean,
 	project: true,
 	ui: {

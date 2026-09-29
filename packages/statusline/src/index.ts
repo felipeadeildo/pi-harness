@@ -1,3 +1,4 @@
+import { execFile } from "node:child_process";
 import { hostname } from "node:os";
 
 import { createApp, defineFeature, type FeatureScope } from "@adeildo/pi-kit";
@@ -9,7 +10,13 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 
 import { StatuslineFooter, type StatuslineSource } from "./footer.ts";
-import { emptyData, type SegmentOptions, type SessionData, type TurnData } from "./segments.ts";
+import {
+	emptyData,
+	type GitState,
+	type SegmentOptions,
+	type SessionData,
+	type TurnData,
+} from "./segments.ts";
 import {
 	gauge,
 	icons,
@@ -55,6 +62,9 @@ interface Live {
 	rate: number | undefined;
 	/** What the answer being written, or the last one, used. */
 	usage: Totals;
+	/** Read by asking git, which is why it is cached and refreshed, never read in a render. */
+	git: GitState | undefined;
+	probing: boolean;
 	repaint: (() => void) | undefined;
 	ticker: ReturnType<typeof setInterval> | undefined;
 }
@@ -73,6 +83,8 @@ export const statusline = defineFeature({
 			firstTokenMs: undefined,
 			rate: undefined,
 			usage: emptyTotals(),
+			git: undefined,
+			probing: false,
 			repaint: undefined,
 			ticker: undefined,
 		};
@@ -90,8 +102,12 @@ export const statusline = defineFeature({
 		// A setting changed, here or in the shared file, so the line is drawn again.
 		for (const entry of STATUSLINE_SETTINGS) entry.listen(scope, () => live.repaint?.());
 
+		// A command the agent ran may have moved the branch or left the tree dirty.
+		scope.on("agent_settled", () => void probeGit(live));
+
 		scope.onSessionStart((ctx) => {
 			live.ctx = ctx;
+			void probeGit(live);
 			if (ctx.mode !== "tui") return;
 			ctx.ui.setFooter(
 				(tui, theme, footerData) => new StatuslineFooter(tui, theme, footerData, source),
@@ -146,6 +162,54 @@ export const statusline = defineFeature({
 		});
 	},
 });
+
+/**
+ * `git status --porcelain=v2 --branch` answers all three questions in one call: the upstream
+ * distance and whether anything changed.
+ */
+function readGit(cwd: string): Promise<GitState | undefined> {
+	return new Promise((resolve) => {
+		execFile(
+			"git",
+			["-C", cwd, "status", "--porcelain=v2", "--branch"],
+			{ timeout: 2000 },
+			(error, stdout) => {
+				if (error !== null) {
+					resolve(undefined);
+					return;
+				}
+
+				let ahead = 0;
+				let behind = 0;
+				let dirty = false;
+				for (const line of stdout.split("\n")) {
+					if (line.startsWith("# branch.ab")) {
+						const [, aheadPart, behindPart] = line.split(/\s+/);
+						ahead = Math.abs(Number(aheadPart ?? "0"));
+						behind = Math.abs(Number(behindPart ?? "0"));
+					} else if (line !== "" && !line.startsWith("#")) {
+						dirty = true;
+					}
+				}
+				resolve({ ahead, behind, dirty });
+			},
+		);
+	});
+}
+
+/** Only one at a time, and never while a render is waiting on it. */
+async function probeGit(live: Live): Promise<void> {
+	const ctx = live.ctx;
+	if (ctx === undefined || live.probing) return;
+
+	live.probing = true;
+	try {
+		live.git = await readGit(ctx.cwd);
+		live.repaint?.();
+	} finally {
+		live.probing = false;
+	}
+}
 
 /** The answer being written, or the last one when nothing is running. */
 function turnOf(live: Live, model: SessionData["model"]): TurnData | undefined {
@@ -208,6 +272,7 @@ function dataOf(
 					},
 		thinking: ctx.thinkingLevel,
 		context: contextOf(context),
+		git: live.git,
 		totals: totalsOf(entries),
 		cacheHit: cacheHitPercent(entries),
 		rate: live.rate,
