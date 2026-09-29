@@ -15,7 +15,10 @@ function tui(): TUI {
 	return { requestRender: () => {} } as unknown as TUI;
 }
 
-const theme = { fg: (_color: string, text: string) => text } as unknown as Theme;
+const theme = {
+	fg: (_color: string, text: string) => text,
+	bold: (text: string) => text,
+} as unknown as Theme;
 
 function footerData(
 	branch: string | null,

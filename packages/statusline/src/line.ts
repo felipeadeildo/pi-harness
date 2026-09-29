@@ -12,12 +12,17 @@ export interface Separators {
 }
 
 export const SEPARATORS: Record<SeparatorStyle, Separators> = {
+	/** The box drawing pi already uses for its own frames. */
 	bar: { group: "│", item: "·" },
-	dot: { group: "·", item: "·" },
-	slash: { group: "/", item: "·" },
+	dot: { group: "·", item: " " },
+	slash: { group: "/", item: " " },
+	/** Nerd Font wedges, for the people who have the font. */
+	powerline: { group: "\ue0b1", item: " " },
+	"powerline-solid": { group: "\ue0b0", item: " " },
+	arrow: { group: "❯", item: " " },
 };
 
-export type SeparatorStyle = "bar" | "dot" | "slash";
+export type SeparatorStyle = "bar" | "dot" | "slash" | "powerline" | "powerline-solid" | "arrow";
 
 export interface Group {
 	id: string;

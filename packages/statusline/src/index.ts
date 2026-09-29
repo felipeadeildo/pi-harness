@@ -267,7 +267,8 @@ function dataOf(
 				: {
 						id: model.id,
 						name: model.name ?? model.id,
-						provider: model.provider,
+						// The name the provider wants, which is capitalised, not the id pi routes by.
+						provider: ctx.modelRegistry.getProviderDisplayName(model.provider),
 						reasoning: model.reasoning,
 					},
 		thinking: ctx.thinkingLevel,

@@ -78,6 +78,12 @@ export class StatuslineFooter implements Component {
 		const theme = this.#theme;
 		return {
 			dim: (text) => theme.fg("dim", text),
+			muted: (text) => theme.fg("muted", text),
+			accent: (text) => theme.fg("accent", text),
+			success: (text) => theme.fg("success", text),
+			warning: (text) => theme.fg("warning", text),
+			error: (text) => theme.fg("error", text),
+			bold: (text) => theme.bold(text),
 			context: (percent, text) => {
 				if (percent > 90) return theme.fg("error", text);
 				if (percent > 70) return theme.fg("warning", text);
