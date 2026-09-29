@@ -1,0 +1,514 @@
+// What each piece says. A segment is a pure function of the snapshot: it returns a piece, with an
+// optional shorter form and a priority, or nothing when it has nothing to say. Where a segment goes is
+// the layout's business, so any segment can sit in any slot.
+import type { Snapshot } from "../data/snapshot.ts";
+import { promptOf, tokensOf, type Totals } from "../data/totals.ts";
+import type { Piece } from "./fit.ts";
+import {
+	basename,
+	CELL,
+	cell,
+	count,
+	fitWidth,
+	gauge,
+	latency,
+	money,
+	percent,
+	rate,
+	shortenPath,
+	stopwatch,
+	UNKNOWN,
+} from "./format.ts";
+import type { Glyphs } from "./glyphs.ts";
+import { EFFORT_LEVELS, type Paint, type Role } from "./paint.ts";
+
+export const SEGMENT_IDS = [
+	"path",
+	"branch",
+	"host",
+	"session",
+	"version",
+	"clock",
+	"provider",
+	"model",
+	"effort",
+	"context",
+	"speed",
+	"wait",
+	"elapsed",
+	"last",
+	"request",
+	"costRate",
+	"cost",
+	"tokens",
+	"cache",
+	"average",
+	"statuses",
+] as const;
+
+export type BuiltinSegment = (typeof SEGMENT_IDS)[number];
+/** One package's status on its own, by the key it passes to `setStatus`. */
+export type StatusSegment = `status:${string}`;
+export type SegmentId = BuiltinSegment | StatusSegment;
+
+const STATUS_PREFIX = "status:";
+/** A status placed on its own is something its package wants seen, like the permission mode. */
+const STATUS_PRIORITY = 95;
+
+export function isSegmentId(value: string): value is SegmentId {
+	return (
+		(SEGMENT_IDS as readonly string[]).includes(value) ||
+		(value.startsWith(STATUS_PREFIX) && value.length > STATUS_PREFIX.length)
+	);
+}
+
+/** The status keys a layout places on their own, which the `statuses` segment then leaves out. */
+export function claimedStatuses(slots: readonly (readonly SegmentId[])[]): Set<string> {
+	const claimed = new Set<string>();
+	for (const ids of slots) {
+		for (const id of ids)
+			if (id.startsWith(STATUS_PREFIX)) claimed.add(id.slice(STATUS_PREFIX.length));
+	}
+	return claimed;
+}
+
+export interface SegmentOptions {
+	/** Longest the folder may be before it is shortened from the left. 0 keeps all of it. */
+	pathLength: number;
+	/** Cells in the context gauge. 0 draws no gauge. */
+	gaugeCells: number;
+	/** Status keys placed on their own somewhere in the layout. */
+	claimed: ReadonlySet<string>;
+	/** A short word before each number, saying what it is. */
+	labels: boolean;
+}
+
+export interface SegmentInput {
+	snapshot: Snapshot;
+	glyphs: Glyphs;
+	paint: Paint;
+	options: SegmentOptions;
+}
+
+type Rendered = Omit<Piece, "priority"> | undefined;
+
+interface Segment {
+	/** Higher stays longer when the line runs out of room. */
+	priority: number;
+	/** One line for the docs and the settings screen. */
+	describe: string;
+	render(input: SegmentInput): Rendered;
+}
+
+export const SEGMENTS: Record<BuiltinSegment, Segment> = {
+	path: {
+		priority: 70,
+		describe: "the working folder, with home as ~",
+		render: ({ snapshot, glyphs, paint, options }) => {
+			if (snapshot.cwd === "") return undefined;
+			const full = shortenPath(snapshot.cwd, snapshot.home, options.pathLength);
+			const icon = mark(glyphs.folder, paint, "path");
+			return {
+				text: `${icon}${paint.role("path", full)}`,
+				compact: `${icon}${paint.role("path", basename(snapshot.cwd))}`,
+			};
+		},
+	},
+	branch: {
+		priority: 82,
+		describe:
+			"the git branch: ↑ commits ahead, ↓ behind, + staged, ~ modified, ? untracked, ! conflicts, then stashes",
+		render: ({ snapshot, glyphs, paint }) => {
+			if (snapshot.branch === null) return undefined;
+			const icon = mark(glyphs.branch, paint, "branch");
+			const detached = snapshot.branch === "detached";
+			const name = detached
+				? paint.role("behind", "detached")
+				: paint.role("branch", fitWidth(snapshot.branch, 32, glyphs.ellipsis));
+			const git = snapshot.git;
+			if (git === undefined) return { text: `${icon}${name}` };
+
+			const marks = [
+				counted(git.ahead, glyphs.ahead, "ahead", paint),
+				counted(git.behind, glyphs.behind, "behind", paint),
+				counted(git.staged, glyphs.staged, "staged", paint),
+				counted(git.modified, glyphs.modified, "modified", paint),
+				counted(git.untracked, glyphs.untracked, "untracked", paint),
+				counted(git.conflicted, glyphs.conflicted, "conflicted", paint),
+				counted(git.stashed, glyphs.stashed, "untracked", paint),
+			].filter((part) => part !== "");
+			const dirty = git.staged + git.modified + git.untracked + git.conflicted > 0;
+			return {
+				text: marks.length === 0 ? `${icon}${name}` : `${icon}${name} ${marks.join(" ")}`,
+				compact: dirty ? `${icon}${name}${paint.role("modified", "*")}` : `${icon}${name}`,
+			};
+		},
+	},
+	host: {
+		priority: 20,
+		describe: "the machine, so a pasted line says where it came from",
+		render: ({ snapshot, glyphs, paint }) =>
+			snapshot.host === undefined || snapshot.host === ""
+				? undefined
+				: { text: `${mark(glyphs.host, paint, "host")}${paint.role("host", snapshot.host)}` },
+	},
+	session: {
+		priority: 45,
+		describe: "the session name, once it has one",
+		render: ({ snapshot, glyphs, paint }) => {
+			const name = snapshot.sessionName;
+			if (name === undefined || name === "") return undefined;
+			const icon = mark(glyphs.session, paint, "session");
+			return {
+				text: `${icon}${paint.role("session", fitWidth(name, 32, glyphs.ellipsis))}`,
+				compact: `${icon}${paint.role("session", fitWidth(name, 14, glyphs.ellipsis))}`,
+			};
+		},
+	},
+	version: {
+		priority: 10,
+		describe: "the pi version, so a report says which one it was",
+		render: ({ snapshot, glyphs, paint }) => ({
+			text: `${mark(glyphs.version, paint, "brand")}${paint.role("version", snapshot.version)}`,
+		}),
+	},
+	clock: {
+		priority: 15,
+		describe: "the time of day",
+		render: ({ snapshot, glyphs, paint }) => {
+			const now = new Date(snapshot.now);
+			const time = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+			return { text: `${mark(glyphs.clock, paint, "clock")}${paint.role("clock", time)}` };
+		},
+	},
+	provider: {
+		priority: 40,
+		describe: "who serves the model, on its own",
+		render: ({ snapshot, paint }) =>
+			snapshot.model === undefined
+				? undefined
+				: { text: paint.role("provider", snapshot.model.provider) },
+	},
+	model: {
+		priority: 100,
+		describe: "the model doing the work, after its provider",
+		render: ({ snapshot, glyphs, paint }) => {
+			const icon = mark(glyphs.model, paint, "provider");
+			if (snapshot.model === undefined) return { text: `${icon}${paint.dim("no model")}` };
+			const name = paint.bold(paint.role("model", snapshot.model.name));
+			const provider = `${paint.role("provider", snapshot.model.provider)}${paint.dim("/")}`;
+			return { text: `${icon}${provider}${name}`, compact: `${icon}${name}` };
+		},
+	},
+	effort: {
+		// The frame is already painted in the effort colour, so the meter can go before the context.
+		priority: 80,
+		describe: "how hard the model thinks, as a meter that warms with the level",
+		render: ({ snapshot, glyphs, paint }) => {
+			if (snapshot.model?.reasoning !== true) return undefined;
+			const level = snapshot.thinking ?? "off";
+			const reached = EFFORT_LEVELS.indexOf(level as (typeof EFFORT_LEVELS)[number]);
+			const meter = EFFORT_LEVELS.map((step, index) => {
+				const bar = glyphs.levels[index] ?? "|";
+				return index <= reached ? paint.effort(step, bar) : paint.dim(bar);
+			}).join("");
+			const label = level === "off" ? paint.dim(level) : paint.effort(level, level);
+			return { text: `${meter} ${label}`, compact: meter };
+		},
+	},
+	context: {
+		priority: 88,
+		describe: "how full the context window is, with the tokens in it over the window",
+		render: ({ snapshot, glyphs, paint, options }) => {
+			const context = snapshot.context;
+			if (context === undefined) return undefined;
+			const glyph =
+				glyphs.context === "" ? "" : `${paint.stress(context.percent, glyphs.context)} `;
+			const icon = `${glyph}${word(options, glyphs.context === "ctx" ? "" : "ctx", paint)}`;
+			const value = paint.stress(context.percent, percent(context.percent));
+			const cells = gauge(context.percent, options.gaugeCells);
+			const bar =
+				options.gaugeCells <= 0
+					? ""
+					: ` ${paint.stress(context.percent, glyphs.fill.repeat(cells.filled))}${paint.dim(glyphs.empty.repeat(cells.empty))}`;
+			const size = paint.dim(` ${count(context.tokens)}/${count(context.window)}`);
+			return { text: `${icon}${value}${bar}${size}`, compact: `${icon}${value}` };
+		},
+	},
+	speed: {
+		priority: 60,
+		describe:
+			"how fast tokens flow in this answer: out ↓ is the model writing, in ↑ is it reading the prompt",
+		render: ({ snapshot, glyphs, paint, options }) => {
+			const request = snapshot.request;
+			if (request === undefined) return undefined;
+			// An estimate is drawn quieter until the provider says the real count; a `~` would change the width.
+			const out = speedCell(request.decode);
+			const value = request.estimated ? paint.muted(out) : paint.bold(paint.role("speed", out));
+			const down = `${flow("received", glyphs, paint, options)}${value}`;
+			const up = `${flow("sent", glyphs, paint, options)}${paint.role("sent", speedCell(request.prefill))}`;
+			const icon = mark(glyphs.speed, paint, "speed");
+			const unit = paint.dim(" tok/s");
+			return { text: `${icon}${down} ${up}${unit}`, compact: `${icon}${down}${unit}` };
+		},
+	},
+	wait: {
+		priority: 55,
+		describe: "time to first token (ttft): how long the model took to start answering",
+		render: ({ snapshot, glyphs, paint, options }) => {
+			const request = snapshot.request;
+			if (request === undefined) return undefined;
+			const ms = request.waiting ? request.elapsedMs : request.firstTokenMs;
+			const icon = glyphs.wait === "" ? "" : `${paint.role("wait", glyphs.wait)} `;
+			const value = cell(ms === undefined ? UNKNOWN : latency(ms), CELL.latency);
+			return {
+				text: `${icon}${word(options, "ttft", paint, glyphs.wait === "ttft")}${paint.role("wait", value)}`,
+			};
+		},
+	},
+	elapsed: {
+		priority: 65,
+		describe:
+			"how long the agent has worked on this prompt, and how many calls to the model it made",
+		render: ({ snapshot, glyphs, paint, options }) => {
+			const run = snapshot.run;
+			if (run === undefined) return undefined;
+			const role: Role = run.running ? "running" : "done";
+			const icon = mark(run.running ? glyphs.running : glyphs.done, paint, role);
+			// A stopwatch keeps its shape as it counts, so the line does not move while it ticks.
+			const time = paint.role(role, stopwatch(run.elapsedMs));
+			const calls =
+				run.requests <= 1
+					? ""
+					: paint.dim(options.labels ? ` · ${run.requests} calls` : ` ×${run.requests}`);
+			return { text: `${icon}${time}${calls}`, compact: `${icon}${time}` };
+		},
+	},
+	last: {
+		priority: 55,
+		describe:
+			"the last call to the model that finished: its wait for the first token and its writing speed",
+		render: ({ snapshot, glyphs, paint, options }) => {
+			const last = snapshot.last;
+			if (last === undefined) return undefined;
+			const parts: string[] = [];
+			if (last.firstTokenMs !== undefined) {
+				const wait = paint.role("wait", latency(last.firstTokenMs));
+				parts.push(
+					options.labels
+						? `${wait}${paint.dim(" wait")}`
+						: `${mark(glyphs.wait, paint, "wait")}${wait}`,
+				);
+			}
+			if (last.decode !== undefined) {
+				const speed = `${paint.role("received", glyphs.received)}${paint.role("speed", rate(last.decode))}`;
+				parts.push(`${speed}${paint.dim(" tok/s")}`);
+			}
+			if (parts.length === 0) return undefined;
+			const label = options.labels ? paint.dim("last call ") : "";
+			return { text: `${label}${parts.join(paint.dim(" · "))}`, compact: parts[0] };
+		},
+	},
+	request: {
+		priority: 30,
+		describe: "tokens of this answer: in ↑ is the prompt sent, out ↓ is what the model wrote",
+		render: ({ snapshot, glyphs, paint, options }) => {
+			const usage = snapshot.request?.usage;
+			if (usage === undefined) return undefined;
+			const sent = usage.input + usage.cacheRead + usage.cacheWrite;
+			const up = `${flow("sent", glyphs, paint, options)}${tokenCell(sent)}`;
+			const down = `${flow("received", glyphs, paint, options)}${tokenCell(usage.output)}`;
+			// Both cache cells are always there, so the breakdown never appears in the middle of the line.
+			const cache = cacheParts(usage, glyphs, paint, options, true);
+			return {
+				text: `${up} ${paint.dim("(")}${cache}${paint.dim(")")} ${down}`,
+				compact: `${up} ${down}`,
+			};
+		},
+	},
+	costRate: {
+		priority: 26,
+		describe:
+			"what a million tokens cost in this answer, the number that says whether a model is cheap",
+		render: ({ snapshot, paint }) => {
+			const usage = snapshot.request?.usage;
+			if (usage === undefined) return undefined;
+			const tokens = tokensOf(usage);
+			if (usage.cost === 0 || tokens === 0) return undefined;
+			const perMillion = (usage.cost / tokens) * 1_000_000;
+			if (perMillion < 0.005) return undefined;
+			return {
+				text: `${paint.role("cost", `$${perMillion.toFixed(2)}`)}${paint.dim(" per Mtok")}`,
+			};
+		},
+	},
+	cost: {
+		priority: 75,
+		describe:
+			"what the session cost; `sub` means a subscription, so it is what the tokens would have cost",
+		render: ({ snapshot, glyphs, paint }) => {
+			const amount = snapshot.totals.cost;
+			if (amount === 0) return undefined;
+			const value = paint.money(amount, money(amount));
+			const sub = snapshot.subscription ? paint.dim(" sub") : "";
+			const icon = glyphs.cost === "$" ? "" : mark(glyphs.cost, paint, "cost");
+			return { text: `${icon}${value}${sub}`, compact: `${icon}${value}` };
+		},
+	},
+	tokens: {
+		priority: 35,
+		describe:
+			"tokens of the whole session: ↑ sent to the model, cache included, and ↓ what it wrote back",
+		render: ({ snapshot, glyphs, paint, options }) => {
+			const totals = snapshot.totals;
+			if (tokensOf(totals) === 0) return undefined;
+			// Everything sent, not just the uncached part: `66 in` next to a million cached reads is a lie.
+			const sent = `${paint.role("sent", glyphs.sent)}${paint.role("sent", count(promptOf(totals)))}`;
+			const got = `${paint.role("received", glyphs.received)}${paint.role("received", count(totals.output))}`;
+			if (!options.labels) return { text: `${sent} ${got}` };
+			return {
+				text: `${sent}${paint.dim(" in")} ${got}${paint.dim(" out")}`,
+				compact: `${sent} ${got}`,
+			};
+		},
+	},
+	cache: {
+		priority: 30,
+		describe:
+			"how much of the last prompt was read from the cache; `new` when it was only just written",
+		render: ({ snapshot, glyphs, paint, options }) => {
+			const hit = snapshot.cacheHit;
+			if (hit === undefined) return undefined;
+			const icon = mark(glyphs.cacheRead, paint, "cache");
+			// A prompt that was written to the cache and not read from it is the cache warming up, not a miss.
+			if (snapshot.cacheWarming)
+				return { text: `${icon}${paint.muted(options.labels ? "cache new" : "new")}` };
+			const value =
+				hit >= 90 ? paint.role("done", percent(hit)) : paint.stress(100 - hit, percent(hit));
+			return {
+				text: `${icon}${value}${options.labels ? paint.dim(" cached") : ""}`,
+				compact: `${icon}${value}`,
+			};
+		},
+	},
+	average: {
+		priority: 25,
+		describe:
+			"the session's average speeds: ↓ the model writing, ↑ it reading the prompt, cache included",
+		render: ({ snapshot, glyphs, paint }) => {
+			const { decode, prefill } = snapshot.averages;
+			if (decode === undefined && prefill === undefined) return undefined;
+			const down =
+				decode === undefined
+					? ""
+					: `${paint.role("received", glyphs.received)}${paint.role("speed", rate(decode))}`;
+			const up =
+				prefill === undefined
+					? ""
+					: `${paint.role("sent", glyphs.sent)}${paint.role("sent", rate(prefill))}`;
+			const label = paint.dim("avg ");
+			const unit = paint.dim(" tok/s");
+			return {
+				text: `${label}${[down, up].filter((part) => part !== "").join(" ")}${unit}`,
+				compact: down === "" ? undefined : `${label}${down}${unit}`,
+			};
+		},
+	},
+	statuses: {
+		priority: 50,
+		describe: "what other packages report through setStatus, minus the ones placed on their own",
+		render: ({ snapshot, glyphs, paint, options }) => {
+			const texts = [...snapshot.statuses]
+				.filter(([key]) => !options.claimed.has(key))
+				.map(([, text]) => text);
+			if (texts.length === 0) return undefined;
+			const icon = glyphs.plug === "" ? "" : `${paint.dim(glyphs.plug)} `;
+			return {
+				text: `${icon}${texts.join(paint.dim(" · "))}`,
+				compact: `${icon}${texts[0] ?? ""}`,
+			};
+		},
+	},
+};
+
+/** The pieces for one slot, in the order the slot lists them. */
+export function renderSegments(ids: readonly SegmentId[], input: SegmentInput): Piece[] {
+	return ids.flatMap((id): Piece[] => {
+		if (id.startsWith(STATUS_PREFIX)) {
+			const text = input.snapshot.statuses.get(id.slice(STATUS_PREFIX.length));
+			return text === undefined ? [] : [{ text, priority: STATUS_PRIORITY }];
+		}
+		const segment = SEGMENTS[id as BuiltinSegment];
+		const rendered = segment.render(input);
+		return rendered === undefined ? [] : [{ ...rendered, priority: segment.priority }];
+	});
+}
+
+function mark(glyph: string, paint: Paint, role: Role): string {
+	return glyph === "" ? "" : `${paint.role(role, glyph)} `;
+}
+
+function counted(value: number, glyph: string, role: Role, paint: Paint): string {
+	return value > 0 ? paint.role(role, `${glyph}${value}`) : "";
+}
+
+/**
+ * Read from the cache, and written to it. With labels: `cache read 80k · wrote 1.3k`. `fixed` keeps both
+ * cells with a dash for zero, for a line that must not change shape.
+ */
+function cacheParts(
+	usage: Totals,
+	glyphs: Glyphs,
+	paint: Paint,
+	options: SegmentOptions,
+	fixed = false,
+): string {
+	const value = (tokens: number) => (fixed ? tokenCell(tokens) : tokens > 0 ? count(tokens) : "");
+	const read = value(usage.cacheRead);
+	const write = value(usage.cacheWrite);
+	if (options.labels) {
+		const parts = [
+			read === "" ? "" : `${paint.dim("read ")}${paint.role("cache", read)}`,
+			write === "" ? "" : `${paint.dim("wrote ")}${paint.role("cache", write)}`,
+		].filter((part) => part !== "");
+		return parts.length === 0 ? "" : `${paint.dim("cache ")}${parts.join(paint.dim(" · "))}`;
+	}
+	return [
+		read === "" ? "" : `${paint.role("cache", glyphs.cacheRead)}${read}`,
+		write === "" ? "" : `${paint.role("cache", glyphs.cacheWrite)}${write}`,
+	]
+		.filter((part) => part !== "")
+		.join(" ");
+}
+
+/**
+ * The direction of a flow of tokens, from where you sit: ↑ in, what is sent to the model, and ↓ out,
+ * what comes back. With labels the word follows the arrow.
+ */
+function flow(
+	role: "sent" | "received",
+	glyphs: Glyphs,
+	paint: Paint,
+	options: SegmentOptions,
+): string {
+	const arrow = role === "sent" ? glyphs.sent : glyphs.received;
+	const name = role === "sent" ? "in" : "out";
+	return paint.role(role, options.labels ? `${arrow}${name} ` : arrow);
+}
+
+/** A dim word in front of a value, when labels are on. `skip` when the glyph already is the word. */
+function word(options: SegmentOptions, text: string, paint: Paint, skip = false): string {
+	return options.labels && !skip && text !== "" ? paint.dim(`${text} `) : "";
+}
+
+function speedCell(value: number | undefined): string {
+	return cell(value === undefined ? UNKNOWN : rate(value), CELL.rate);
+}
+
+function tokenCell(value: number): string {
+	return cell(value === 0 ? UNKNOWN : count(value), CELL.count);
+}
+
+function pad(value: number): string {
+	return String(value).padStart(2, "0");
+}

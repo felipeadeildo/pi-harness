@@ -42,13 +42,13 @@ Status is one of `done`, `next`, `planned`, `later`. "Replaces" names the third-
 
 ## Phase 3. What I see
 
-| Item                    | Status  | Replaces               | Notes                                                                                                                                                                           |
-| ----------------------- | ------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Statusline              | planned | `pi-open-tui` (footer) | One line of segments with presets. The cut order and separators follow IDEA.md, and it also shows `setStatus` from packages that aren't mine                                    |
-| Header and editor frame | planned | `pi-open-tui`          | Bar cursor, hostname, session name, the tok/s and time to first token line, one line of the model's reasoning while it thinks                                                   |
-| Session naming          | planned |                        | Names a session from its first turns. Small, and the footer shows the result                                                                                                    |
-| Theme from the desktop  | planned |                        | Palette from matugen/DMS written to `~/.pi/agent/themes/`, the only place pi reloads a theme from on its own                                                                    |
-| Usage ledger            | planned |                        | One local record of usage per session, project, account and model, built from the session files with a cache. The statusline windows, `/usage` and later the traces all read it |
+| Item                    | Status  | Replaces               | Notes                                                                                                                                                                                                                                        |
+| ----------------------- | ------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Statusline              | done    | `pi-open-tui` (footer) | In `@adeildo/pi-look`. Segments go in named slots with a priority and a short form, and a status from any package can have a slot of its own (`status:<key>`), which is where the permission mode now sits                                   |
+| Header and editor frame | done    | `pi-open-tui`          | In `@adeildo/pi-look`. The start card, a framed editor with four slots in its borders, a bar cursor, the answer strip with speeds both ways and time to first token, and a working line with the tail of the thinking or the command running |
+| Session naming          | planned |                        | Names a session from its first turns. Small, and the footer shows the result                                                                                                                                                                 |
+| Theme from the desktop  | done    |                        | In `@adeildo/pi-look`. The DMS palette becomes the pi theme `desktop` in `~/.pi/agent/themes/`, rewritten when the wallpaper changes. The look itself only uses theme tokens, so it follows any theme                                        |
+| Usage ledger            | planned |                        | One local record of usage per session, project, account and model, built from the session files with a cache. The statusline windows, `/usage` and later the traces all read it                                                              |
 
 Review: IDEA.md had usage per project, observability and the statusline's numbers as three pieces. They're one dataset, so they become one ledger with three readers.
 

@@ -1,0 +1,173 @@
+// Everything the look can show, read once per frame. Segments are pure functions of this, so the
+// whole screen can be drawn and tested without a terminal or a session.
+import { hostname } from "node:os";
+
+import { VERSION, type ExtensionContext, type SessionEntry } from "@earendil-works/pi-coding-agent";
+
+import type { GitState } from "./git.ts";
+import type { RequestView, RunView } from "./telemetry.ts";
+import {
+	type Averages,
+	averagesOf,
+	cacheHitPercent,
+	cacheWarming,
+	emptyTotals,
+	type Totals,
+	totalsOf,
+} from "./totals.ts";
+
+export interface ModelInfo {
+	name: string;
+	/** As the provider wants to be written, not the id pi routes by. */
+	provider: string;
+	reasoning: boolean;
+}
+
+export interface ContextInfo {
+	percent: number;
+	tokens: number;
+	window: number;
+}
+
+export interface Snapshot {
+	now: number;
+	cwd: string;
+	home: string | undefined;
+	branch: string | null;
+	/** Undefined outside a repository or before the first probe. */
+	git: GitState | undefined;
+	host: string | undefined;
+	sessionName: string | undefined;
+	version: string;
+	model: ModelInfo | undefined;
+	thinking: string | undefined;
+	context: ContextInfo | undefined;
+	totals: Totals;
+	cacheHit: number | undefined;
+	/** The last prompt was written to the cache and nothing was read: the first call, not a miss. */
+	cacheWarming: boolean;
+	/** The dollar figure is what the tokens would have cost, not what was billed. */
+	subscription: boolean;
+	request: RequestView | undefined;
+	/** The last request that finished: its numbers are final. */
+	last: RequestView | undefined;
+	run: RunView | undefined;
+	averages: Averages;
+	/** What other packages report through `setStatus`, by key, in key order. */
+	statuses: ReadonlyMap<string, string>;
+}
+
+export function emptySnapshot(): Snapshot {
+	return {
+		now: 0,
+		cwd: "",
+		home: undefined,
+		branch: null,
+		git: undefined,
+		host: undefined,
+		sessionName: undefined,
+		version: VERSION,
+		model: undefined,
+		thinking: undefined,
+		context: undefined,
+		totals: emptyTotals(),
+		cacheHit: undefined,
+		cacheWarming: false,
+		subscription: false,
+		request: undefined,
+		last: undefined,
+		run: undefined,
+		averages: { decode: undefined, prefill: undefined },
+		statuses: new Map(),
+	};
+}
+
+export interface LiveInputs {
+	branch: string | null;
+	git: GitState | undefined;
+	request: RequestView | undefined;
+	last: RequestView | undefined;
+	run: RunView | undefined;
+	statuses: ReadonlyMap<string, string>;
+}
+
+interface Derived {
+	totals: Totals;
+	cacheHit: number | undefined;
+	cacheWarming: boolean;
+	averages: Averages;
+}
+
+/**
+ * Reads the session once per frame. The sums walk the whole branch, so they are kept until the leaf
+ * moves.
+ */
+export class SnapshotReader {
+	#key: string | undefined;
+	#derived: Derived | undefined;
+	readonly #host = hostname().split(".")[0];
+
+	read(ctx: ExtensionContext, live: LiveInputs): Snapshot {
+		const model = ctx.model;
+		const derived = this.#derive(ctx);
+
+		return {
+			now: Date.now(),
+			cwd: ctx.cwd,
+			home: process.env.HOME ?? process.env.USERPROFILE,
+			branch: live.branch,
+			git: live.git,
+			host: this.#host,
+			sessionName: ctx.sessionManager.getSessionName(),
+			version: VERSION,
+			model:
+				model === undefined
+					? undefined
+					: {
+							name: model.name ?? model.id,
+							provider: ctx.modelRegistry.getProviderDisplayName(model.provider),
+							reasoning: model.reasoning,
+						},
+			thinking: ctx.thinkingLevel,
+			context: contextOf(ctx),
+			...derived,
+			subscription: model === undefined ? false : ctx.modelRegistry.isUsingOAuth(model),
+			request: live.request,
+			last: live.last,
+			run: live.run,
+			statuses: new Map(
+				[...live.statuses.entries()]
+					.toSorted(([a], [b]) => a.localeCompare(b))
+					.map(([key, text]): [string, string] => [key, sanitize(text)])
+					.filter(([, text]) => text !== ""),
+			),
+		};
+	}
+
+	#derive(ctx: ExtensionContext): Derived {
+		// Every entry is appended at the leaf, so the leaf moving is the only way the sums change.
+		const key = ctx.sessionManager.getLeafId() ?? "";
+		if (this.#derived !== undefined && key === this.#key) return this.#derived;
+
+		const entries: readonly SessionEntry[] = ctx.sessionManager.getBranch();
+		this.#key = key;
+		this.#derived = {
+			totals: totalsOf(entries),
+			cacheHit: cacheHitPercent(entries),
+			cacheWarming: cacheWarming(entries),
+			averages: averagesOf(entries),
+		};
+		return this.#derived;
+	}
+}
+
+function contextOf(ctx: ExtensionContext): ContextInfo | undefined {
+	const usage = ctx.getContextUsage();
+	if (usage === undefined || usage.percent === null || usage.tokens === null) return undefined;
+	return { percent: usage.percent, tokens: usage.tokens, window: usage.contextWindow };
+}
+
+/** A status is one line: newlines and tabs from another package would break the frame. */
+function sanitize(text: string): string {
+	return text.replace(/[\r\n\t]+/g, " ").trim();
+}

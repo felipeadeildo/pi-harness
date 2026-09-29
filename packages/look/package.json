@@ -1,14 +1,16 @@
 {
-	"name": "@adeildo/pi-statusline",
+	"name": "@adeildo/pi-look",
 	"version": "0.1.0",
 	"private": true,
-	"description": "One line in the Pi footer: where you are, what the session costs, and what every other package is doing.",
+	"description": "Pi's start screen, editor and footer, redrawn around the data that matters, in your theme's colours.",
 	"keywords": [
+		"matugen",
 		"pi",
 		"pi-coding-agent",
 		"pi-extension",
 		"pi-package",
-		"statusline"
+		"statusline",
+		"theme"
 	],
 	"license": "MIT",
 	"author": {
@@ -19,7 +21,7 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/felipeadeildo/pi-harness.git",
-		"directory": "packages/statusline"
+		"directory": "packages/look"
 	},
 	"files": [
 		"src",
