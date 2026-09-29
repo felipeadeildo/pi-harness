@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 
 import {
 	boolean,
+	integer,
 	literal,
 	matching,
 	type Setting,
@@ -24,6 +25,8 @@ const hidden = setting({
 	default: [] as string[],
 	decoder: stringList("names"),
 });
+const pathLength = setting({ id: "statusline.pathLength", default: 40, decoder: integer(0, 500) });
+
 const preset = setting({
 	id: "statusline.preset",
 	default: "full",
@@ -67,6 +70,15 @@ describe("the global file", () => {
 		const settings = store(version);
 		expect(settings.load()).toEqual([]);
 		expect(version.get({ settings })).toBe("2.1.300");
+	});
+
+	test("a number out of range is ignored", () => {
+		write(globalPath, { statusline: { pathLength: 900 } });
+		const settings = store(pathLength);
+		expect(settings.load()).toEqual([
+			`${globalPath}: statusline.pathLength: expected a whole number from 0 to 500; ignored`,
+		]);
+		expect(pathLength.get({ settings })).toBe(40);
 	});
 
 	test("an invalid value is ignored, and the warning says where", () => {

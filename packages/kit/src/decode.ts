@@ -73,6 +73,18 @@ export const duration: Decoder<number> = {
 	},
 };
 
+/** A whole number from `min` to `max`, inclusive. */
+export function integer(min: number, max: number): Decoder<number> {
+	return {
+		decode(input, path) {
+			if (typeof input !== "number" || !Number.isInteger(input) || input < min || input > max) {
+				return fail(problem(path, `expected a whole number from ${min} to ${max}`));
+			}
+			return pass(input);
+		},
+	};
+}
+
 /** A string that matches `pattern`, described to the user as `expected`. */
 export function matching(pattern: RegExp, expected: string): Decoder<string> {
 	return {
