@@ -1,17 +1,4 @@
 import {
-	DEFAULT_CONFIG,
-	DEFAULT_TYPING,
-	DEFAULT_WORKSPACE,
-	defaultConfig,
-	type NoUIMode,
-	type PermissionConfig,
-	type TypingConfig,
-	type WorkspaceConfig,
-} from "#core/config/schema.ts";
-import { defaultJudge } from "#core/judge/config.ts";
-import { judgeConfig } from "#core/judge/decode.ts";
-import { DEFAULT_MODE } from "#core/mode.ts";
-import {
 	boolean,
 	type Decoder,
 	duration,
@@ -28,11 +15,25 @@ import {
 	stringList,
 	withDefault,
 	withDefaultOf,
-} from "#util/decode.ts";
+} from "@adeildo/pi-kit";
 
-type NoUIConfig = NoUIMode | Record<string, NoUIMode>;
+import {
+	DEFAULT_CONFIG,
+	DEFAULT_TYPING,
+	DEFAULT_WORKSPACE,
+	defaultConfig,
+	type NoUIMode,
+	type PermissionConfig,
+	type TypingConfig,
+	type WorkspaceConfig,
+} from "#core/config/schema.ts";
+import { defaultJudge } from "#core/judge/config.ts";
+import { judgeConfig } from "#core/judge/decode.ts";
+import { DEFAULT_MODE } from "#core/mode.ts";
 
-const noUI: Decoder<NoUIConfig> = {
+export type NoUIConfig = NoUIMode | Record<string, NoUIMode>;
+
+export const noUI: Decoder<NoUIConfig> = {
 	decode(input, path) {
 		if (input === "allow" || input === "deny") return pass(input);
 		if (!isObject(input)) return fail(problem(path, 'expected "allow", "deny", or a per-tool map'));
@@ -90,17 +91,7 @@ const RENAMED: [section: "judge" | undefined, from: string, to: string][] = [
 	["judge", "grant", "rememberApprovals"],
 ];
 
-/** Whether the file still uses a key from before 3.0, so loading it rewrites it. */
-export function isOutdated(input: unknown): boolean {
-	if (!isObject(input)) return false;
-	const judge = isObject(input.judge) ? input.judge : {};
-	return (
-		"yolo" in input ||
-		RENAMED.some(([section, from]) => from in (section === undefined ? input : judge))
-	);
-}
-
-// A rename keeps the value and says nothing: the file is rewritten with the new name.
+// A rename keeps the value and says nothing. The migration writes the new names.
 function migrate(input: unknown, warnings: string[]): unknown {
 	if (!isObject(input)) return input;
 

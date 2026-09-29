@@ -1,10 +1,4 @@
 import {
-	DEFAULT_JUDGE,
-	defaultJudge,
-	type JudgeConfig,
-	type JudgeThresholds,
-} from "#core/judge/config.ts";
-import {
 	boolean,
 	type Decoder,
 	duration,
@@ -17,7 +11,14 @@ import {
 	unit,
 	withDefault,
 	withDefaultOf,
-} from "#util/decode.ts";
+} from "@adeildo/pi-kit";
+
+import {
+	DEFAULT_JUDGE,
+	defaultJudge,
+	type JudgeConfig,
+	type JudgeThresholds,
+} from "#core/judge/config.ts";
 
 const thresholds: Decoder<JudgeThresholds> = object({
 	allow: withDefault(unit, DEFAULT_JUDGE.thresholds.allow),
