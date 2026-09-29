@@ -131,6 +131,15 @@ const ICON = {
 	statuses: "≫",
 };
 
+/** A bar that fills with the effort, so the level reads at a glance. */
+const EFFORT_ICON: Record<string, string> = {
+	off: "▁",
+	minimal: "▂",
+	low: "▃",
+	medium: "▅",
+	high: "▇",
+};
+
 type Renderer = (data: SessionData, options: SegmentOptions, paint: Paint) => Part | Part[];
 
 const SEGMENTS: Record<SegmentId, Renderer> = {
@@ -152,15 +161,17 @@ const SEGMENTS: Record<SegmentId, Renderer> = {
 		return name === undefined ? undefined : paint.bold(name);
 	},
 	thinking: (data, options, paint) => {
-		if (data.thinking === undefined) return undefined;
-		// More effort is a warmer color, so the line says how hard the model is working.
+		const level = data.thinking;
+		if (level === undefined) return undefined;
+		// More effort is a fuller bar and a warmer color, so the line says how hard the model works.
 		const heat: Record<string, (text: string) => string> = {
 			high: paint.warning,
 			medium: paint.success,
 			low: paint.muted,
 			off: paint.dim,
 		};
-		return glyph(options, "thinking", data.thinking, paint, heat[data.thinking] ?? paint.muted);
+		const icon = EFFORT_ICON[level] ?? ICON.thinking;
+		return painted(icon, level, options, paint, heat[level] ?? paint.muted);
 	},
 	rate: (data, options, paint) =>
 		data.rate === undefined
@@ -308,7 +319,18 @@ function glyph(
 	paint: Paint,
 	color: (text: string) => string = identity,
 ): string {
-	return options.icons ? `${paint.dim(ICON[name])} ${color(text)}` : color(text);
+	return painted(ICON[name], text, options, paint, color);
+}
+
+/** The same, for a segment that picks its own glyph, like the effort bar. */
+function painted(
+	icon: string,
+	text: string,
+	options: SegmentOptions,
+	paint: Paint,
+	color: (text: string) => string,
+): string {
+	return options.icons ? `${paint.dim(icon)} ${color(text)}` : color(text);
 }
 
 /** A word the segment carries itself, like `cache`, with the glyph before it. */

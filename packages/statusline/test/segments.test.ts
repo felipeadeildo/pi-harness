@@ -95,11 +95,11 @@ test("the pieces the reference footer shows, plus the two it lacks", () => {
 	expect(parts(["host", "turn"])).toEqual(["ghost", undefined]);
 });
 
-test("the gauge and the icons are each optional", () => {
+test("the gauge is optional and the effort fills a bar", () => {
 	expect(parts(["context"], {}, { ...options, gauge: false })).toEqual(["43.1% 431k/1.0M"]);
 	expect(parts(["rate", "thinking", "host"], {}, icons)).toEqual([
 		"⚡ 42 tok/s",
-		"✦ high",
+		"▇ high",
 		"⌂ ghost",
 	]);
 });
