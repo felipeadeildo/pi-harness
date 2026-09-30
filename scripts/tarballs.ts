@@ -37,14 +37,24 @@ export async function packAll(
 	return packed;
 }
 
-// The ways a package breaks without anyone noticing: an unresolved `workspace:` range, a range on
-// a workspace package that is not the version being released, and a `pi` manifest pointing at a
-// file the tarball does not carry. The second one happens when release-please bumps the
-// package.json files and bun.lock still has the old versions, because `bun pm pack` reads the
-// version it writes from the lockfile.
-export async function checkTarball(
+/** What is wrong with each tarball, as one line per problem. Empty when every one can ship. */
+export async function checkTarballs(
+	packed: readonly PackedPackage[],
+	workspace: readonly WorkspacePackage[],
+): Promise<string[]> {
+	const versions = new Map(workspace.map((pkg) => [pkg.name, pkg.version]));
+	const problems = await Promise.all(packed.map((entry) => checkTarball(entry, versions)));
+	return problems.flat();
+}
+
+// Three ways a package breaks without anyone noticing. A `workspace:` range left unresolved. A
+// dependency on a workspace package at a version other than the one being released, which is what
+// happens when release-please bumps the package.json files and bun.lock still has the old
+// versions, because `bun pm pack` takes the version from the lockfile. And a `pi` manifest
+// pointing at a file the tarball does not carry.
+async function checkTarball(
 	packed: PackedPackage,
-	workspace: ReadonlyMap<string, string>,
+	versions: ReadonlyMap<string, string>,
 ): Promise<string[]> {
 	const problems: string[] = [];
 	const manifest = JSON.parse(await tarRead(packed.tarball, "package/package.json")) as Record<
@@ -61,10 +71,10 @@ export async function checkTarball(
 				problems.push(`${section}.${name} is still ${range}`);
 				continue;
 			}
-			const current = workspace.get(name);
+			const current = versions.get(name);
 			if (current !== undefined && range !== current) {
 				problems.push(
-					`${section}.${name} is ${range}, but the workspace has ${current}: run bun install to refresh bun.lock`,
+					`${section}.${name} is ${range}, but the workspace has ${current}. Run bun install to refresh bun.lock`,
 				);
 			}
 		}

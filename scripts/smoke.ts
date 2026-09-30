@@ -17,7 +17,7 @@ import { DefaultResourceLoader, SettingsManager } from "@earendil-works/pi-codin
 import { $ } from "bun";
 
 import { workspacePackages } from "./packages.ts";
-import { checkTarball, packAll } from "./tarballs.ts";
+import { checkTarballs, packAll } from "./tarballs.ts";
 
 const root = resolve(import.meta.dir, "..");
 const keep = process.argv.includes("--keep");
@@ -32,8 +32,7 @@ process.env.PI_CODING_AGENT_DIR = agentDir;
 const packages = workspacePackages(root);
 const packed = await packAll(root, packages);
 
-const versions = new Map(packages.map((pkg) => [pkg.name, pkg.version]));
-const problems = (await Promise.all(packed.map((entry) => checkTarball(entry, versions)))).flat();
+const problems = await checkTarballs(packed, packages);
 if (problems.length > 0) {
 	for (const problem of problems) console.error(`  ${problem}`);
 	process.exit(1);
