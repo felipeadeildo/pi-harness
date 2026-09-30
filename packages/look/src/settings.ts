@@ -15,9 +15,9 @@ import type { IconMode } from "./render/glyphs.ts";
 import { isSegmentId, SEGMENT_IDS, SEGMENTS, type SegmentId } from "./render/segments.ts";
 
 const PERMISSION_STATUS: SegmentId = "status:pi-ask-permission:mode";
-const ACCOUNT_STATUS: SegmentId = "status:pi-providers:accounts";
+const ACCOUNT_STATUS: SegmentId = "status:pi-providers:account";
 
-const STATUS_LABELS: Partial<Record<string, string>> = {
+const STATUS_LABELS: Partial<Record<SegmentId, string>> = {
 	[PERMISSION_STATUS]: "permission mode",
 	[ACCOUNT_STATUS]: "account",
 };
