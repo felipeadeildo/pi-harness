@@ -32,7 +32,8 @@
 					"path": "packages/harness/package.json",
 					"jsonpath": "$.version"
 				}
-			]
+			],
+			"release-as": "4.1.0"
 		}
 	}
 }
