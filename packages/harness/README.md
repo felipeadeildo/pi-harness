@@ -11,10 +11,8 @@ The permission dialog is its own package, [`@adeildo/pi-ask-permission`](../ask-
 
 ## Install
 
-Not on npm yet. From a clone:
-
 ```bash
-pi install ./packages/harness
+pi install npm:@adeildo/pi-harness
 ```
 
 ## Settings

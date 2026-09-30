@@ -11,6 +11,11 @@
 		"packages/kit": {
 			"release-type": "node",
 			"component": "@adeildo/pi-kit"
+		},
+		"packages/harness": {
+			"release-type": "node",
+			"component": "@adeildo/pi-harness"
 		}
-	}
+	},
+	"bump-minor-pre-major": true
 }
