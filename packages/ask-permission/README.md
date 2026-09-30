@@ -100,7 +100,7 @@ A resumed session keeps its mode and its `Alt+W` choice. A new one starts from `
 
 ### Read a folder next door
 
-In a monorepo, a session in `apps/api` that reads `apps/web` leaves the workspace. The dialog says so and offers the folder, with the cursor already on it:
+In a monorepo, a session in `apps/api` that reads `apps/web` leaves the workspace. The dialog says so and offers to open the repository for reads. The cursor starts on that answer:
 
 ```text
 ╭─ permission · bash ──────────────────────────────────────────╮
@@ -116,9 +116,11 @@ In a monorepo, a session in `apps/api` that reads `apps/web` leaves the workspac
 ╰──────────────────────────────────────────────────────────────╯
 ```
 
-`enter` opens the repository for reads until the session ends, so the next reads there run without asking. `←` and `→` pick a folder higher or lower, and `s` keeps it for every session in this project. A write outside offers `yes, and add … to the workspace` instead, and the cursor stays on the plain `yes`. The folder is never your home or anything above it.
+Press `enter` and the next reads in `~/Projects/grace` run without asking, until the session ends. `←` and `→` move the folder one level up or down. `s` keeps it for every session in this project, in `.pi/extensions/pi-ask-permission/folders.json`. An untrusted project keeps it only until pi exits.
 
-The status bar counts the open folders, like `+1 folder`, and the `Folders` section of the settings screen closes them.
+A write outside gets `yes, and add … to the workspace` instead, and the cursor stays on `yes`. A folder opened for reads never lets a write through. The dialog never offers your home or a folder above it.
+
+The status bar counts the open folders, like `+1 folder`. The `Folders` section of the settings screen closes them.
 
 ### Correct the agent
 
@@ -242,7 +244,7 @@ If `~/.pi/agent/extensions/pi-ask-permission/config.json` exists, the next sessi
 The first step that answers wins.
 
 1. **Always yes** matches the tool and level: run it.
-2. **Workspace**: a call outside `workspace.roots` asks you, or is blocked with this session's outside set to `deny`. Nothing below can approve it. With `allow`, or when every path it reaches is in a folder you opened for it, the call goes on.
+2. **Workspace**: a call outside `workspace.roots` asks you, or is blocked with this session's outside set to `deny`. Nothing below can approve it. The call goes on with `allow`, or when every path it reaches is in a folder you opened.
 3. **Mode**: `full` runs it, `edits` and `judge` run an edit.
 4. **Allow list**: the tool is in `allow`, run it.
 5. **Read-only bash**: the command only reads, and its paths can be read, run it.

@@ -86,13 +86,12 @@ export function registerScreen(scope: FeatureScope, state: SessionState): void {
 	}
 }
 
-// One folder is named, so the row says what is open without opening anything.
+// With one folder open, the row names it.
 function foldersText(state: SessionState, where: Scope): string {
-	const folders = state.folders.list(where);
-	const only = folders[0];
-	if (folders.length === 0) return "none";
-	if (folders.length > 1 || only === undefined) return `${folders.length} folders`;
-	return only.access === "read" ? `${shortenHome(only.path)}, reads` : shortenHome(only.path);
+	const [first, ...rest] = state.folders.list(where);
+	if (first === undefined) return "none";
+	if (rest.length > 0) return `${rest.length + 1} folders`;
+	return first.access === "read" ? `${shortenHome(first.path)}, reads` : shortenHome(first.path);
 }
 
 function close(

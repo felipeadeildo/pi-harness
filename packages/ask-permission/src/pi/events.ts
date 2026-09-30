@@ -230,7 +230,7 @@ async function runJudge(
 	return undefined;
 }
 
-// Only a call that left for somewhere nameable gets a folder to open.
+// No offer when folderChoices finds nothing to open, like a path in the home itself.
 function offerFor(call: Call): FolderOffer | undefined {
 	if (call.reach.kind !== "outside") return undefined;
 	const choices = folderChoices(call.reach.paths);

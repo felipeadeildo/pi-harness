@@ -194,6 +194,10 @@ export class AskDialog implements Component, Focusable {
 		if (picked >= 0) this.selected = picked;
 	}
 
+	private get folder(): string | undefined {
+		return this.offer?.folders[this.folderIndex];
+	}
+
 	private get onOpenChoice(): boolean {
 		return this.choices[this.selected]?.open === true;
 	}
@@ -243,7 +247,7 @@ export class AskDialog implements Component, Focusable {
 		if (!option) return;
 		this.selected = index;
 
-		const folder = this.offer?.folders[this.folderIndex];
+		const folder = this.folder;
 		if (option.open && this.offer && folder !== undefined) {
 			this.complete({
 				decision: "allow",
@@ -400,26 +404,25 @@ export class AskDialog implements Component, Focusable {
 	}
 
 	private labelOf(option: Choice): string {
-		const folder = this.offer?.folders[this.folderIndex];
+		const folder = this.folder;
 		if (!option.open || !this.offer || folder === undefined) return option.label;
 		return openLabel(this.offer, folder);
 	}
 
-	// The scope shows once it is not the default, and the repository tag only where it helps.
+	// The scope shows only when it is not the default, and the repo tag only on the focused row.
 	private openTags(option: Choice, active: boolean): string {
 		if (!option.open || !this.offer) return "";
 		const tags: string[] = [];
 		if (this.openScope === "project") tags.push(this.theme.fg("accent", "for this project"));
-		const folder = this.offer.folders[this.folderIndex];
-		if (active && folder !== undefined && folder === this.offer.repoRoot)
+		if (active && this.folder !== undefined && this.folder === this.offer.repoRoot)
 			tags.push(this.theme.fg("dim", "repo root"));
 		return tags.length === 0 ? "" : `  ${tags.join(this.theme.fg("dim", " \u00b7 "))}`;
 	}
 
 	private reasonLines(): string[] {
-		const text = this.offer
-			? `${this.offer.access === "read" ? "reads" : "writes"} outside the workspace`
-			: this.reason;
+		let text = this.reason;
+		if (this.offer?.access === "read") text = "reads outside the workspace";
+		if (this.offer?.access === "write") text = "writes outside the workspace";
 		return text === undefined ? [] : [this.theme.fg("warning", `\u25b2 ${text}`)];
 	}
 

@@ -88,7 +88,7 @@ export function renderStatus(
 		const color = state.outside === "allow" ? "error" : "warning";
 		parts.push(theme.fg(color, `${ARROW[state.mode]}${label}`));
 	}
-	// The workspace grew, so it says so, quietly.
+	// Open folders widen the workspace, so the status bar counts them.
 	if (folders > 0)
 		parts.push(theme.fg("dim", `+${folders} ${folders === 1 ? "folder" : "folders"}`));
 	ctx.ui.setStatus(MODE_STATUS, parts.join(theme.fg("dim", " \u00b7 ")));
