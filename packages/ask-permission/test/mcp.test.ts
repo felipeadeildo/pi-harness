@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
+import { toolInfo } from "@adeildo/pi-kit/testing";
+
 import {
 	DEFAULT_MCP_POLICY,
 	describeHints,
@@ -46,12 +48,21 @@ describe("policyFor", () => {
 describe("mcpServers", () => {
 	test("counts the tools of each server, and what they declare", () => {
 		const servers = mcpServers([
-			{ name: "mcp__sauron__query", annotations: { readOnlyHint: true } },
-			{ name: "mcp__sauron__list", annotations: { readOnlyHint: true } },
-			{ name: "mcp__sauron__delete", annotations: { destructiveHint: true } },
-			{ name: "mcp__sauron__update", annotations: { idempotentHint: true } },
-			{ name: "mcp__dorothy__list_domains" },
-			{ name: "bash" },
+			toolInfo("mcp__sauron__query", {
+				namespace: { name: "mcp__sauron" },
+				annotations: { readOnlyHint: true },
+			}),
+			toolInfo("mcp__sauron__list", {
+				namespace: { name: "mcp__sauron" },
+				annotations: { readOnlyHint: true },
+			}),
+			toolInfo("mcp__sauron__delete", {
+				namespace: { name: "mcp__sauron" },
+				annotations: { destructiveHint: true },
+			}),
+			toolInfo("mcp__sauron__update", { namespace: { name: "mcp__sauron" } }),
+			toolInfo("mcp__dorothy__list_domains", { namespace: { name: "mcp__dorothy" } }),
+			toolInfo("bash"),
 		]);
 
 		expect(servers).toEqual([

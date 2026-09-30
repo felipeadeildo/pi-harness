@@ -18,7 +18,7 @@ import {
 	unit,
 } from "@adeildo/pi-kit";
 
-import { mode, type NoUIConfig, noUI, mcpServers } from "#core/config/decode.ts";
+import { mode, type NoUIConfig, noUI, mcpPolicies } from "#core/config/decode.ts";
 import {
 	DEFAULT_CONFIG,
 	DEFAULT_TYPING,
@@ -127,7 +127,7 @@ const PERMISSION_LEAVES = {
 		label: "Roots",
 		description: "The folders the project is made of. Relative, absolute and ~ work.",
 	}),
-	servers: hiddenLeaf<Record<string, McpPolicy>>("mcp.servers", {}, mcpServers),
+	servers: hiddenLeaf<Record<string, McpPolicy>>("mcp.servers", {}, mcpPolicies),
 	allow: leaf({
 		id: "allow",
 		fallback: DEFAULT_CONFIG.allow,

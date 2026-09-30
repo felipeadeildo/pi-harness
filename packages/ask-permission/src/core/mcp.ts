@@ -1,9 +1,7 @@
 // What a call to an MCP server means for the gate. Pi registers each server tool as
 // `mcp__<server>__<tool>` and reports the server's own annotations beside it, so the policy here
 // decides per server, and a hint the server declares can stand in for the mode.
-import type { ToolAnnotations } from "@earendil-works/pi-coding-agent";
-
-import { NAME } from "#identity";
+import type { ToolAnnotations, ToolInfo } from "@earendil-works/pi-coding-agent";
 
 const MCP_PREFIX = "mcp__";
 
@@ -14,7 +12,7 @@ export type McpPolicy = (typeof MCP_POLICIES)[number];
 /** Every server follows its own annotations until I say otherwise. */
 export const DEFAULT_MCP_POLICY: McpPolicy = "hints";
 
-/** The words the settings screen and the dialog use for a policy. */
+/** The words the settings screen uses for a policy. */
 export const MCP_POLICY_TEXT: Record<McpPolicy, { label: string; description: string }> = {
 	ask: { label: "ask me", description: "every call comes to me" },
 	hints: {
@@ -29,7 +27,7 @@ export const MCP_POLICY_TEXT: Record<McpPolicy, { label: string; description: st
  * The tools that drive other tools. Their own call is a script or a search, and every call inside
  * reaches the gate on its own, so asking for the wrapper would ask twice for the same thing.
  */
-export const ORCHESTRATORS = ["codemode", "tool_search"];
+const ORCHESTRATORS = new Set(["codemode", "tool_search"]);
 
 export interface McpCall {
 	/** The server name, as pi knows it. */
@@ -38,14 +36,12 @@ export interface McpCall {
 	tool: string;
 }
 
-export interface ToolFact {
-	namespace?: { name: string };
-	annotations?: ToolAnnotations;
-}
+export type ToolFact = Pick<ToolInfo, "namespace" | "annotations">;
 
 export type ToolFacts = (toolName: string) => ToolFact | undefined;
+
 export function isOrchestrator(toolName: string): boolean {
-	return ORCHESTRATORS.includes(toolName);
+	return ORCHESTRATORS.has(toolName);
 }
 
 /** The MCP call behind a tool name, or undefined for anything else. */
@@ -77,7 +73,9 @@ export interface McpServer {
 }
 
 /** The connected servers, with how many of their tools declare each kind of work. */
-export function mcpServers(tools: readonly (ToolFact & { name: string })[]): McpServer[] {
+export function mcpServers(
+	tools: readonly Pick<ToolInfo, "name" | "namespace" | "annotations">[],
+): McpServer[] {
 	const byServer = new Map<string, McpServer>();
 
 	for (const tool of tools) {
@@ -102,7 +100,7 @@ export function describeHints(hints: ToolAnnotations): string {
 }
 
 // A server name reaches us sanitized, so the match ignores what pi replaced: `dev-radius` and
-// `dev_radius` are the same server, and pi already refuses to run both.
+// `dev_radius` are the same server.
 function normalize(server: string): string {
 	const name = server.startsWith(MCP_PREFIX) ? server.slice(MCP_PREFIX.length) : server;
 	return name.trim().toLowerCase().replace(/-/g, "_");
@@ -128,9 +126,4 @@ function toolOf(toolName: string, fact: ToolFact | undefined, server: string): s
 
 export function hintsOf(fact: ToolFact | undefined): ToolAnnotations {
 	return fact?.annotations ?? {};
-}
-
-/** A call the policy refuses, with the reason the model reads. */
-export function denyReason(server: string): string {
-	return `${NAME}: every call to the MCP server "${server}" is denied here`;
 }

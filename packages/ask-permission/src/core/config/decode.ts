@@ -59,7 +59,7 @@ export const mode: Decoder<PermissionMode> = {
 };
 
 /** The policy per MCP server, keyed by server name. */
-export const mcpServers: Decoder<Record<string, McpPolicy>> = {
+export const mcpPolicies: Decoder<Record<string, McpPolicy>> = {
 	decode(input, path) {
 		if (!isObject(input)) return fail(problem(path, "expected a map of server to policy"));
 
@@ -98,7 +98,7 @@ const config: Decoder<PermissionConfig> = object({
 	})),
 	typing: withDefaultOf(typing, () => ({ ...DEFAULT_TYPING })),
 	judge: withDefaultOf(judgeConfig, defaultJudge),
-	mcp: withDefaultOf(object({ servers: withDefault(mcpServers, {}) }), () => ({ servers: {} })),
+	mcp: withDefaultOf(object({ servers: withDefault(mcpPolicies, {}) }), () => ({ servers: {} })),
 });
 
 export function decodeConfig(input: unknown, warnings: string[] = []): PermissionConfig {

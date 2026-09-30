@@ -6,7 +6,6 @@ import { isAllowed } from "#core/config/patterns.ts";
 import type { OutsideScope, PermissionConfig } from "#core/config/schema.ts";
 import type { Access, OpenFolders } from "#core/folders.ts";
 import {
-	denyReason,
 	hintsOf,
 	isOrchestrator,
 	type McpCall,
@@ -83,8 +82,7 @@ export function describeCall(
 	const input = asToolInput(rawInput);
 	const tool = toolAdapter(toolName, extras.custom);
 	const reach = reachOf(config.workspace.roots, cwd, tool.paths(input));
-	const facts: ToolFacts = extras.facts ?? (() => undefined);
-	const fact = facts(toolName);
+	const fact = extras.facts?.(toolName);
 	const mcp = mcpCallOf(toolName, fact);
 	const target = tool.describe(input);
 
@@ -169,7 +167,10 @@ function mcpVerdict(call: Call, servers: Readonly<Record<string, McpPolicy>>): V
 		case "allow":
 			return ALLOW;
 		case "deny":
-			return { action: "block", reason: denyReason(call.mcp.server) };
+			return {
+				action: "block",
+				reason: `${NAME}: every call to the MCP server "${call.mcp.server}" is denied here`,
+			};
 		case "ask":
 			return { action: "ask", reason: `every call to ${call.mcp.server} asks` };
 		case "hints":
