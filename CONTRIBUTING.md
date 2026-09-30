@@ -18,7 +18,7 @@ Lefthook formats and lints staged files on commit, type-checks the repository, a
 
 ```text
 packages/
-  ask-permission/   # pi-ask-permission, published
+  ask-permission/   # @adeildo/pi-ask-permission, published
   kit/              # @adeildo/pi-kit: app builder, feature scope, settings, events, contracts
   providers/        # @adeildo/pi-providers: subscription billing
 ```

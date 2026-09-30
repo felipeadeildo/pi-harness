@@ -1,5 +1,5 @@
 {
-	"name": "pi-ask-permission",
+	"name": "@adeildo/pi-ask-permission",
 	"version": "3.0.0",
 	"description": "A permission dialog for the Pi coding agent. Approve, always approve, or deny a tool call, and attach a note the model reads with the result.",
 	"keywords": [
@@ -11,7 +11,7 @@
 		"pi-extension",
 		"pi-package"
 	],
-	"homepage": "https://pi.dev/packages/pi-ask-permission",
+	"homepage": "https://pi.dev/packages/@adeildo/pi-ask-permission",
 	"bugs": "https://github.com/felipeadeildo/pi-harness/issues",
 	"license": "MIT",
 	"author": {

@@ -6,7 +6,7 @@
 	"packages": {
 		"packages/ask-permission": {
 			"release-type": "node",
-			"component": "pi-ask-permission"
+			"component": "@adeildo/pi-ask-permission"
 		},
 		"packages/kit": {
 			"release-type": "node",

@@ -1,12 +1,12 @@
-<h1 align="center">pi-ask-permission</h1>
+<h1 align="center">@adeildo/pi-ask-permission</h1>
 
 <p align="center">
   <a href="https://github.com/felipeadeildo/pi-harness/actions/workflows/ci.yml"><img src="https://github.com/felipeadeildo/pi-harness/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://www.npmjs.com/package/pi-ask-permission"><img src="https://img.shields.io/npm/v/pi-ask-permission" alt="npm"></a>
-  <a href="https://www.npmjs.com/package/pi-ask-permission"><img src="https://img.shields.io/npm/dm/pi-ask-permission" alt="downloads"></a>
+  <a href="https://www.npmjs.com/package/@adeildo/pi-ask-permission"><img src="https://img.shields.io/npm/v/@adeildo/pi-ask-permission" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/@adeildo/pi-ask-permission"><img src="https://img.shields.io/npm/dm/@adeildo/pi-ask-permission" alt="downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license"></a>
-  <a href="https://www.npmjs.com/package/pi-ask-permission"><img src="https://img.shields.io/badge/provenance-signed-success" alt="provenance"></a>
-  <a href="https://pi.dev/packages/pi-ask-permission"><img src="https://img.shields.io/badge/pi--package-6E56CF" alt="pi package"></a>
+  <a href="https://www.npmjs.com/package/@adeildo/pi-ask-permission"><img src="https://img.shields.io/badge/provenance-signed-success" alt="provenance"></a>
+  <a href="https://pi.dev/packages/@adeildo/pi-ask-permission"><img src="https://img.shields.io/badge/pi--package-6E56CF" alt="pi package"></a>
   <a href="https://pi.dev"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffelipeadeildo%2Fpi-harness%2Fmain%2Fpackage.json&query=%24.devDependencies%5B%22%40earendil-works%2Fpi-coding-agent%22%5D&label=pi%20SDK&color=6E56CF" alt="pi SDK"></a>
 </p>
 
@@ -21,10 +21,17 @@ Answer `yes`, `always yes`, or `deny`, and add a note if you want. The note reac
 ## Install
 
 ```bash
-pi install npm:pi-ask-permission
+pi install npm:@adeildo/pi-ask-permission
 ```
 
 Then start pi as usual. There is nothing to configure.
+
+Up to 3.0 the package was `pi-ask-permission`. Only the name on npm changed: your config, your grants and your old sessions keep working. Swap the install:
+
+```bash
+pi remove npm:pi-ask-permission
+pi install npm:@adeildo/pi-ask-permission
+```
 
 ## First run
 

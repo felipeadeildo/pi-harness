@@ -10,12 +10,12 @@ The extensions I run [Pi](https://pi.dev) with, in one repository. Pi stays Pi. 
 
 ## Packages
 
-| Package                                        | What it does                                                              | Status                                                                                                    |
-| ---------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| [`pi-ask-permission`](packages/ask-permission) | Asks before a tool call runs, with a judge model for the easy ones        | [![npm](https://img.shields.io/npm/v/pi-ask-permission)](https://www.npmjs.com/package/pi-ask-permission) |
-| [`@adeildo/pi-look`](packages/look)            | The start screen, a framed editor and the footer, in your theme's colours | not published yet                                                                                         |
-| [`@adeildo/pi-providers`](packages/providers)  | Bills Anthropic OAuth requests to the Claude plan                         | not published yet                                                                                         |
-| [`@adeildo/pi-kit`](packages/kit)              | The app builder, settings and event bus the other packages share          | not published yet                                                                                         |
+| Package                                                 | What it does                                                              | Status                                                                                                                      |
+| ------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| [`@adeildo/pi-ask-permission`](packages/ask-permission) | Asks before a tool call runs, with a judge model for the easy ones        | [![npm](https://img.shields.io/npm/v/@adeildo/pi-ask-permission)](https://www.npmjs.com/package/@adeildo/pi-ask-permission) |
+| [`@adeildo/pi-look`](packages/look)                     | The start screen, a framed editor and the footer, in your theme's colours | not published yet                                                                                                           |
+| [`@adeildo/pi-providers`](packages/providers)           | Bills Anthropic OAuth requests to the Claude plan                         | not published yet                                                                                                           |
+| [`@adeildo/pi-kit`](packages/kit)                       | The app builder, settings and event bus the other packages share          | not published yet                                                                                                           |
 
 A package stays private until I use it every day. `@adeildo/pi-harness`, which brings every package in with my defaults, comes once there is more than one to bring.
 
