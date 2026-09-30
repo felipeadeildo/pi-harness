@@ -1,5 +1,7 @@
 # IDEA.md
 
+> Registro de antes do pi 0.99. MCP, tema do sistema e roteamento de modelo viraram coisa do pi, e o [ROADMAP.md](ROADMAP.md) diz o que sobrou. Quando os dois discordam, vale o roadmap.
+
 Anotações do que eu quero construir em cima do pi. Não é especificação, não é README, não é proposta para ninguém aprovar. É onde eu junto as ideias antes de decidir o que fazer primeiro.
 
 Como ler. A parte 1 são os princípios que filtram o resto. A parte 2 é o ponto de partida, o que já existe e o que eu uso hoje. A parte 3 são as peças, cada uma com o problema que resolve e, quando eu já conferi, com o dado concreto. A parte 4 é ordem, riscos e o que eu não quero. Os diagramas são mermaid.
