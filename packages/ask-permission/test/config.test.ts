@@ -148,6 +148,16 @@ describe("decodeConfig", () => {
 		expect(warnings).toHaveLength(1);
 	});
 
+	test("keeps the MCP policies and drops invalid ones", () => {
+		const warnings: string[] = [];
+		const config = decodeConfig(
+			{ mcp: { servers: { sauron: "deny", dorothy: "nope" } } },
+			warnings,
+		);
+		expect(config.mcp.servers).toEqual({ sauron: "deny" });
+		expect(warnings).toEqual(["mcp.servers.dorothy: expected one of ask, hints, allow, deny"]);
+	});
+
 	test("an invalid higher-precedence value never widens access", () => {
 		const warnings: string[] = [];
 		const config = decodeConfig({ noUI: 42, allow: null, mode: "sometimes" }, warnings);
@@ -368,6 +378,7 @@ describe("config file", () => {
 				thresholds: { allow: 0.9, deny: 0.7 },
 				alwaysAsk: ["sudo*"],
 			},
+			mcp: { servers: { sauron: "deny", "dev-radius": "allow" } },
 		};
 
 		expect(writeConfig(scopeWithSettings(), config)).toBeUndefined();
@@ -379,9 +390,11 @@ describe("config file", () => {
 		config.allow.push("bash");
 		config.workspace.roots.push("..");
 		config.judge.alwaysAsk.push("sudo*");
+		config.mcp.servers.sauron = "allow";
 
 		expect(DEFAULT_CONFIG.allow).not.toContain("bash");
 		expect(DEFAULT_WORKSPACE.roots).not.toContain("..");
 		expect(DEFAULT_JUDGE.alwaysAsk).not.toContain("sudo*");
+		expect(DEFAULT_CONFIG.mcp.servers).not.toHaveProperty("sauron");
 	});
 });
