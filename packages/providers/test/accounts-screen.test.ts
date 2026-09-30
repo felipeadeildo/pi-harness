@@ -16,6 +16,7 @@ const KEY: Credential = { type: "api_key", key: "k" };
 const CTX = {
 	model: { provider: "anthropic" },
 	ui: { setStatus: () => {} },
+	modelRegistry: { getProviderDisplayName: () => "Anthropic" },
 } as unknown as ExtensionContext;
 
 let dir: string;
@@ -35,16 +36,23 @@ function setup() {
 	store.add("anthropic", "work", KEY);
 	const pins: Pins = new Map();
 	const fake = fakePi();
-	return { store, pins, fake, rows: accountRows(fakeScope({ pi: fake }), store, pins) };
+	return { store, pins, fake, rows: accountRows(fakeScope({ pi: fake }), store, pins, CTX) };
 }
 
-test("the screen lists a choice row per provider and a row per account", () => {
+test("the screen lists a choice row per provider and a block per account", () => {
 	const { rows } = setup();
 	const ids = rows.map((row) => row.id);
 
 	expect(ids).toContain("accounts.anthropic.active");
 	expect(ids.filter((id) => id.endsWith(".label"))).toHaveLength(2);
 	expect(ids.filter((id) => id.endsWith(".remove"))).toHaveLength(2);
+	expect(rows[0]).toMatchObject({ section: "Anthropic", label: "Account" });
+	expect(rows.filter((row) => row.label === "Rename")).toHaveLength(2);
+	expect(rows.filter((row) => row.label === "Remove")).toHaveLength(2);
+	expect(rows.filter((row) => row.kind === "info").map((row) => row.text(CTX))).toEqual([
+		"subscription",
+		"api key",
+	]);
 });
 
 test("picking an account pins it for the session, and default clears the pin", () => {

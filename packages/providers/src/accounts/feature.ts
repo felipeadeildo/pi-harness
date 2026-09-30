@@ -33,7 +33,7 @@ export const accounts = defineFeature({
 		const store = new AccountStore();
 		const pins: Pins = new Map();
 
-		scope.screen.rows(() => accountRows(scope, store, pins));
+		scope.screen.rows((ctx) => accountRows(scope, store, pins, ctx));
 		scope.on("model_select", (_event, ctx) => refreshStatus(store, pins, ctx));
 		scope.on("session_shutdown", (_event, ctx) => ctx.ui.setStatus(STATUS_KEY, undefined));
 
