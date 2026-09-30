@@ -135,5 +135,7 @@ test("the session pin overrides the store default, and null means pi's own crede
 	pins.set("anthropic", null);
 	expect(credentialOf(store, pins, "anthropic")).toBeUndefined();
 	pins.delete("anthropic");
+	expect(credentialOf(store, pins, "anthropic")).toBeUndefined();
+	store.setActive("anthropic", store.accounts("anthropic")[0]?.id);
 	expect(credentialOf(store, pins, "anthropic")).toEqual(OAUTH);
 });

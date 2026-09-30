@@ -7,11 +7,11 @@ import { Key } from "@earendil-works/pi-tui";
 import { interactionFor } from "./interaction.ts";
 import { liftProvider, nativeOf, type AccountSession } from "./lift.ts";
 import { login, loginMethods, type LoginMethod } from "./login.ts";
-import { record, replay, type Pins } from "./pins.ts";
+import { pin, replay, type Pins } from "./pins.ts";
+import { accountRows, DEFAULT_LABEL } from "./screen.ts";
 import { AccountStore } from "./store.ts";
 
 const NAME = "pi-providers";
-const DEFAULT_LABEL = "pi default";
 
 /** What happens when an account hits the limit of its plan. */
 export const WHEN_LIMITED = ["ask", "switch", "stop"] as const;
@@ -44,6 +44,8 @@ export const accounts = defineFeature({
 	setup(scope) {
 		const store = new AccountStore();
 		const pins: Pins = new Map();
+
+		scope.screen.rows(() => accountRows(scope, store, pins));
 
 		scope.onSessionStart((ctx) => {
 			for (const warning of store.reload()) scope.warn(warning);
@@ -109,16 +111,6 @@ function lift(
 		return;
 	}
 	scope.registerProvider(liftProvider(nativeOf(provider), sessionFor(store, pins, providerId)));
-}
-
-function pin(scope: FeatureScope, pins: Pins, providerId: string, accountId: string | null): void {
-	pins.set(providerId, accountId);
-	record(
-		scope,
-		accountId === null
-			? { kind: "default", provider: providerId }
-			: { kind: "account", provider: providerId, account: accountId },
-	);
 }
 
 async function pickAccount(

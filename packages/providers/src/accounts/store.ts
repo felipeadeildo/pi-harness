@@ -43,11 +43,14 @@ export class AccountStore {
 		return this.accounts(providerId).length > 0;
 	}
 
-	/** The account a request uses: the pinned one, or the first. */
+	/**
+	 * The account the store uses, when one is set. Without a choice the feature keeps pi's own
+	 * credential, so adding an account never takes over a session by itself.
+	 */
 	active(providerId: string): Account | undefined {
 		const entry = this.file().providers[providerId];
-		if (entry === undefined) return undefined;
-		return entry.accounts.find((account) => account.id === entry.active) ?? entry.accounts[0];
+		if (entry?.active === undefined) return undefined;
+		return entry.accounts.find((account) => account.id === entry.active);
 	}
 
 	/** Returns why it was not saved. */

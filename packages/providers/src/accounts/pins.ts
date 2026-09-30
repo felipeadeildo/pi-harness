@@ -16,6 +16,22 @@ export function record(pi: ExtensionAPI, entry: PinEntry): void {
 	pi.appendEntry(SESSION_ENTRY, entry);
 }
 
+/** Pins the account for the rest of the session, and writes it into the session file. */
+export function pin(
+	pi: ExtensionAPI,
+	pins: Pins,
+	providerId: string,
+	accountId: string | null,
+): void {
+	pins.set(providerId, accountId);
+	record(
+		pi,
+		accountId === null
+			? { kind: "default", provider: providerId }
+			: { kind: "account", provider: providerId, account: accountId },
+	);
+}
+
 /** The pins a branch recorded, newest winning. */
 export function replay(branch: readonly unknown[]): Pins {
 	const pins: Pins = new Map();

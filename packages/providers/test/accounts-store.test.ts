@@ -28,14 +28,14 @@ test("an account is added, listed and pinned", () => {
 	const store = new AccountStore(path);
 	expect(store.add("anthropic", "personal", OAUTH)).toBeUndefined();
 	expect(store.has("anthropic")).toBe(true);
-	expect(store.active("anthropic")?.label).toBe("personal");
+	// No choice yet, so pi's own credential stays the one a request uses.
+	expect(store.active("anthropic")).toBeUndefined();
 
 	const work = addWork(store);
-	expect(store.active("anthropic")?.label).toBe("personal");
 	expect(store.setActive("anthropic", work)).toBeUndefined();
 	expect(store.active("anthropic")?.label).toBe("work");
 	expect(store.setActive("anthropic", undefined)).toBeUndefined();
-	expect(store.active("anthropic")?.label).toBe("personal");
+	expect(store.active("anthropic")).toBeUndefined();
 });
 
 test("a rename keeps the account, and a removal takes the pin with it", () => {
@@ -59,7 +59,7 @@ test("a refreshed credential is kept", () => {
 	const fresh: Credential = { type: "oauth", access: "new", refresh: "r", expires: 42 };
 
 	expect(store.setCredential("anthropic", id, fresh)).toBeUndefined();
-	expect(store.active("anthropic")?.credential).toEqual(fresh);
+	expect(store.accounts("anthropic")[0]?.credential).toEqual(fresh);
 });
 
 test("the file is the only place an account lives", () => {
@@ -69,7 +69,7 @@ test("the file is the only place an account lives", () => {
 
 	const again = new AccountStore(path);
 	again.reload();
-	expect(again.active("anthropic")?.id).toBe(id);
+	expect(again.accounts("anthropic")[0]?.id).toBe(id);
 	expect(JSON.parse(readFileSync(path, "utf8"))).toMatchObject({
 		version: 1,
 		providers: { anthropic: { accounts: [{ label: "personal" }] } },
