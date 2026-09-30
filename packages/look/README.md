@@ -1,24 +1,18 @@
-# Look
+# @adeildo/pi-look
 
-Part of [`@adeildo/pi-harness`](../README.md). [Pi](https://pi.dev)'s start screen, editor, footer and working line, redrawn around the data I want in front of me, and painted only with the colours of the theme that is on.
+[![npm](https://img.shields.io/npm/v/@adeildo/pi-look)](https://www.npmjs.com/package/@adeildo/pi-look)
 
+[Pi](https://pi.dev)'s start screen, editor, footer and working line, redrawn around the data that matters while the agent works, and painted only with the colours of the theme that is on.
+
+```bash
+pi install npm:@adeildo/pi-look
 ```
-╭─ π pi v0.99.1 ──────────────────────────────────────────────────────────────────╮
-│      ▄▄▄▄▄▄▄▄▄▄▄▄      │ 󰚩 Anthropic/Claude Opus 5.5 · ▂▃▄▅▆▇ high              │
-│     ▀▀▀██▀▀▀▀██▀▀▀     │  ~/Projects/pi-harness ·  main ↑22 +14 ~2 ?2         │
-│        ██    ██        │  ghost · 18 tools · 9 skills · 6 prompts · 10 ext    │
-│        ██    ██        │ ───────────────────────────────────────────────────── │
-│      ▄█▀     ▀██▄▄     │ ctrl+l  model             shift+tab  effort           │
-│                        │ /       commands          !          shell            │
-│   ready when you are   │ ctrl+g  external editor   /tree      session history  │
-╰─────────────────────────────────────────────────────────────────────────────────╯
 
-   0:12 · 3 calls · last call 1.7s wait · ↓906 tok/s
-╭─ ⠋ Thinking · check the frame first ·  main* ────── ~/Projects/pi-harness ·  ghost ─╮
-│ what you type                                                                            │
-╰─ ⏵⏵ auto · anywhere · 󰚩 Anthropic/Claude Opus 5.5 · ▂▃▄▅ high ─── 󰍛 49% ━━━━━━━━ 489k/1M ─╯
-  $0.497 sub · ↑368k in ↓1.7k out ·  98% cached · avg ↓290 ↑31k tok/s ·  mem 12
-```
+It also comes in [`@adeildo/pi-harness`](../harness), with the rest of the pieces.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/preview.png" alt="The start card with the model, the folder, the branch and the keys, and below it the framed editor with the branch and folder in its top border and the model and context in its bottom border." width="860">
+</p>
 
 ## What is on the screen
 
@@ -28,10 +22,10 @@ Part of [`@adeildo/pi-harness`](../README.md). [Pi](https://pi.dev)'s start scre
 
 | Piece                              | Means                                                                                                                            |
 | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| ` 0:12 · 3 calls`                  | How long the agent has worked on this prompt, and how many calls to the model it made                                            |
+| `0:12 · 3 calls`                   | How long the agent has worked on this prompt, and how many calls to the model it made                                            |
 | `last call 1.7s wait · ↓906 tok/s` | The last call that finished: how long it waited for the first token, and how fast it wrote. Final numbers, never a partial count |
 
-The live pieces, which move with every token, are still there for whoever wants them: `speed`, `wait`, `request` and `costRate` go in any slot.
+The live pieces, which move with every token, go in any slot too: `speed`, `wait`, `request` and `costRate`.
 
 The arrows are from where you sit: `↑ in` is what goes to the model, `↓ out` is what comes back. `/look explain` lists every piece on screen with its current value and what it means.
 
@@ -68,7 +62,7 @@ The look never names a colour. Every piece names a **theme token**, so it follow
 | Labels, units, separators                     | `dim`                                                       |
 | Editor frame                                  | pi's effort border colour                                   |
 
-Syntax tokens are borrowed on purpose: a theme spends its hues there, so they give the line variety that stays in the theme's family. The table lives in `src/look/render/paint.ts` as `ROLE_TOKENS`, and a test fails if any entry is ever a colour instead of a token.
+Syntax tokens are borrowed on purpose: a theme spends its hues there, so they give the line variety that stays in the theme's family. The table lives in `src/render/paint.ts` as `ROLE_TOKENS`, and a test fails if any entry is ever a colour instead of a token.
 
 ### The desktop theme
 
@@ -97,11 +91,11 @@ The mapping, from the Material roles and the terminal colours:
 
 Material has no success, warning or diff roles, so the terminal colours of that hue stand in. The top of the effort ramp uses the terminal reds on purpose: they keep their meaning whatever the wallpaper, so the frame still reads hot at `xhigh` and `max`.
 
-Another palette source is a new file next to `src/look/desktop/palette.ts`: a parser into Material roles and terminal colours, and the same mapping does the rest.
+Another palette source is a new file next to `src/desktop/palette.ts`: a parser into Material roles and terminal colours, and the same mapping does the rest.
 
 ## Settings
 
-They live in the shared file, `~/.pi/agent/extensions/pi-harness/settings.json`, under `look.`. The ones marked _project_ are also read from a trusted project.
+They live in the file every piece shares, `~/.pi/agent/extensions/pi-harness/settings.json`, under `look.`. The ones marked _project_ are also read from a trusted project.
 
 | Key                 | Default                                                | Does                                                                                                                                                             |
 | ------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -152,7 +146,7 @@ Any segment goes in any slot, in the order the slot lists them.
 | `statuses`     | What other packages report through `setStatus`, minus the ones placed on their own                    |
 | `status:<key>` | One package's status, by the key it passes to `setStatus`                                             |
 
-A `status:<key>` segment is how a package gets a place of its own. [`@adeildo/pi-ask-permission`](../../ask-permission) reports its mode as `pi-ask-permission:mode`, and the mode says what happens to what you type, so by default it sits in the frame next to the model instead of in the footer with everything else.
+A `status:<key>` segment is how a package gets a place of its own. [`@adeildo/pi-ask-permission`](../ask-permission) reports its mode as `pi-ask-permission:mode`, and the mode says what happens to what you type, so by default it sits in the frame next to the model instead of in the footer with everything else.
 
 ## How it fits
 
@@ -163,3 +157,7 @@ The frame is the editor pi already has. Typing, history, autocomplete and every 
 ## Credit
 
 The framed editor and the idea of writing into its borders come from [pi-open-tui](https://github.com/OldSuns/pi-open-tui), which this replaces. The segments with priorities, and the status line in the editor border, come from [oh-my-pi](https://github.com/can1357/oh-my-pi).
+
+## License
+
+[MIT](LICENSE)

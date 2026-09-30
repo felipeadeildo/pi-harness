@@ -18,22 +18,24 @@ Lefthook formats and lints staged files on commit, type-checks the repository, a
 
 ```text
 packages/
-  ask-permission/   # @adeildo/pi-ask-permission
-  harness/          # @adeildo/pi-harness: every other feature, one folder each under src/
-  kit/              # @adeildo/pi-kit: app builder, feature scope, settings, events, contracts
+  ask-permission/   # @adeildo/pi-ask-permission: the permission dialog and the judge
+  look/             # @adeildo/pi-look: start card, framed editor, footer
+  providers/        # @adeildo/pi-providers: subscription billing
+  harness/          # @adeildo/pi-harness: every piece above, one extension each
+  kit/              # @adeildo/pi-kit: app builder, feature scope, settings, events
 ```
 
 Tooling lives at the root: one `tsconfig.json`, one oxlint and oxfmt config, one lockfile. The pi SDK versions are pinned in the root `package.json`, which is what the SDK compat workflow bumps. Packages declare the pi SDK as `peerDependencies` with `"*"`.
 
 Internal dependencies use `workspace:*`. Publishing goes through `bun pm pack`, which writes the real version into the tarball, and `bun run smoke` fails if a `workspace:` range is left in one.
 
-A new feature is a folder under `packages/harness/src/` with its own `index.ts`, listed in the harness's `pi.extensions`, and its tests under `packages/harness/test/<feature>/`. It becomes a package of its own only when someone would install it alone.
+Every piece is a package of its own, so it installs alone, and the harness brings them all. A new piece is a folder under `packages/` whose `src/index.ts` exports its feature and a default extension that mounts it. The harness then gets a dependency on it and a file in `packages/harness/src/` that mounts the same feature, listed in its `pi.extensions`.
 
-Each package has its own README and CONTRIBUTING with the parts that are only about it.
+Each package has its own README. `ask-permission` also has a CONTRIBUTING with the parts that are only about it.
 
 ## Writing a feature
 
-Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`, even when it's the only feature in its package. The harness mounts the same feature object, so a feature written this way works in both places without changes. The [kit README](packages/kit/README.md) covers the API. The rules:
+Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harness mounts the same feature object as the standalone package, so a feature written this way works in both places without changes, and the kit keeps it from running twice when both are installed. The [kit README](packages/kit/README.md) covers the API. The rules:
 
 - `setup` only registers. Anything that lasts starts in `scope.onSessionStart` and stops in `scope.onShutdown`.
 - The scope is the extension API plus the app's services, and `scope.on` and `scope.registerCommand` come with the feature's name on every error.

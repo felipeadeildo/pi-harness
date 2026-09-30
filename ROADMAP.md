@@ -17,26 +17,27 @@ Status is one of `done`, `next`, `planned`, `later`, `drop`. "Replaces" names th
 
 ## What ships
 
-The repository is a monorepo so the features can share the kit and one test run. What reaches npm is two packages and the base under them.
+One install brings everything: `@adeildo/pi-harness`. Every piece is also a package of its own, for whoever wants only that one, and all of them share one version.
 
-| Package                      | What it is                                                     | Why it is its own                                                                                                                                                 |
-| ---------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@adeildo/pi-ask-permission` | The permission dialog and the judge                            | It makes sense without the rest. Replaces `pi-ask-permission`, see [Leaving the old name](#leaving-the-old-name)                                                  |
-| `@adeildo/pi-harness`        | Everything else: the look, providers, questions, sessions, ... | One version, one changelog, one install. Its manifest lists one extension per feature, so `pi config` and pi's package filters turn a feature off without my code |
-| `@adeildo/pi-kit`            | The base both are built on                                     | Published only because `@adeildo/pi-ask-permission` needs it at runtime. Promises nothing to anyone else                                                          |
+| Package                      | What it is                                         |
+| ---------------------------- | -------------------------------------------------- |
+| `@adeildo/pi-harness`        | Every piece below, one extension each              |
+| `@adeildo/pi-ask-permission` | The permission dialog and the judge                |
+| `@adeildo/pi-look`           | The start card, the framed editor and the footer   |
+| `@adeildo/pi-providers`      | Subscription billing, and the account work to come |
+| `@adeildo/pi-kit`            | The library under all of them. Adds nothing to Pi  |
 
-A feature leaves the harness for a package of its own only when someone would install it alone, the way `@adeildo/pi-ask-permission` earned it. Until then it is a folder under `packages/harness/src/`, with its own tests.
+A new piece is a package under `packages/`, and the harness mounts the same feature object from a file of its own. With a piece installed twice, standalone and in the harness, the kit's claim on `pi.events` lets the first copy run it and keeps the other off.
 
-Everything ships under `@adeildo/`. The harness depends on `@adeildo/pi-ask-permission`, bundled in its tarball and loaded from `node_modules`, as pi's package docs ask. Installing both stays safe, because the kit's claim on `pi.events` keeps a feature from mounting twice.
-
-| Item                                  | Status  | Notes                                                                                                                                                    |
-| ------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Monorepo, bun workspaces, the kit     | done    | App, feature scope, settings, events. `pi-ask-permission` moved in with its history                                                                      |
-| Release pipeline                      | done    | See [Releases](#releases)                                                                                                                                |
-| Fold `look` and `providers` in        | done    | They are folders of `packages/harness` now, one extension each in its manifest                                                                           |
-| First publish                         | done    | 4.0.0 of all three is on npm, with trusted publishing pointed at `release.yml`. `pi-ask-permission` is deprecated with the command to switch             |
-| `/harness setup`                      | planned | Applies the pi settings a package can't set by itself: `tuiMode`, `outputPad`, the extra usage warning. Tools go through `defaultTools` with `+name` now |
-| Settings screen from the kit registry | planned | Only for the features' own settings. Turning a feature on and off is `pi config` now, so the `features.<id>.enabled` switches can go                     |
+| Item                                  | Status  | Notes                                                                                                                                                                  |
+| ------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Monorepo, bun workspaces, the kit     | done    | App, feature scope, settings, events. `pi-ask-permission` moved in with its history                                                                                    |
+| Release pipeline                      | done    | See [Releases](#releases)                                                                                                                                              |
+| One package per piece                 | done    | `look` and `providers` are packages, and the harness depends on every piece and mounts each as its own extension                                                       |
+| Publish look and providers            | next    | `@adeildo/pi-look` and `@adeildo/pi-providers` are new names on npm, so their first publish is by hand with 2FA, then `bun run trust`                                  |
+| First publish                         | done    | 4.0.0 of the kit, permission and the harness is on npm, with trusted publishing pointed at `release.yml`. `pi-ask-permission` is deprecated with the command to switch |
+| `/harness setup`                      | planned | Applies the pi settings a package can't set by itself: `tuiMode`, `outputPad`, the extra usage warning. Tools go through `defaultTools` with `+name` now               |
+| Settings screen from the kit registry | planned | Only for the features' own settings. Turning a feature on and off is `pi config` now, so the `features.<id>.enabled` switches can go                                   |
 
 ## Permission. `@adeildo/pi-ask-permission`
 
@@ -163,7 +164,7 @@ Modeled on how oh-my-pi and pi itself release, because both solved the same prob
 3. A job in `release.yml` refreshes `bun.lock` on that PR. Without it the tarballs would depend on the old kit, because `bun pm pack` takes a workspace dependency's version from the lockfile.
 4. Merging the PR tags `v<version>` and writes one GitHub release. Every release publishes all three packages, even the ones that didn't change, and that is the price of one version.
 5. The same run verifies, then runs `bun run smoke`, which packs every package, installs the tarballs outside the repository and loads them. A missing file in `files`, an unresolved `workspace:` range, a dependency on an old workspace version or one that only exists in the workspace fails there instead of on someone else's machine.
-6. `scripts/publish.ts` publishes in dependency order (kit, then `@adeildo/pi-ask-permission`, then the harness), skips a version already on npm, and leaves the dependents of a failure alone. Trusted publishing over OIDC gives provenance and no stored token.
+6. `scripts/publish.ts` publishes in dependency order (the kit, then each piece, then the harness), skips a version already on npm, and leaves the dependents of a failure alone. Trusted publishing over OIDC gives provenance and no stored token.
 
 A package that doesn't exist on npm yet can't have a trusted publisher, so the first publish of each `@adeildo/` name is done by hand with 2FA, and `bun run trust` runs after it.
 

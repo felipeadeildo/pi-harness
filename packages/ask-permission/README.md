@@ -24,7 +24,7 @@ Answer `yes`, `always yes`, or `deny`, and add a note if you want. The note reac
 pi install npm:@adeildo/pi-ask-permission
 ```
 
-Then start pi as usual. There is nothing to configure.
+Then start pi as usual. There is nothing to configure. It also comes in [`@adeildo/pi-harness`](../harness), with the rest of the pieces.
 
 `pi-ask-permission` on npm is this same extension under an older name, and it reads the same config, grants and sessions. To switch:
 
@@ -159,7 +159,7 @@ A long paste collapses to `[paste #1 +48 lines]` and expands when you confirm.
 
 ### Configuration
 
-The settings live in the file every pi-harness package shares, `~/.pi/agent/extensions/pi-harness/settings.json`, under a `permission.` prefix. Every key has a row of the same name in `/perm`, and only what you change is written, so a new default reaches you.
+The settings live in the file every piece shares, `~/.pi/agent/extensions/pi-harness/settings.json`, under a `permission.` prefix. Every key has a row of the same name in `/perm`, and only what you change is written, so a new default reaches you.
 
 ```json
 {
@@ -207,9 +207,9 @@ The `judge` block:
 | `riskCeiling`       | `0.45`         | Highest risk the judge may approve                    |
 | `timeoutMs`         | `5000`         | How long to wait for an answer                        |
 
-A malformed value falls back and says what it dropped, so a typo never lets more through. A key from before 3.0 is read with the new name. `PI_CODING_AGENT_DIR` moves the file with the rest of the agent directory.
+A malformed value falls back and says what it dropped, so a typo never lets more through. Keys under an older name are read under the current one. `PI_CODING_AGENT_DIR` moves the file with the rest of the agent directory.
 
-Up to 3.0 the config was `~/.pi/agent/extensions/pi-ask-permission/config.json`. The first session after this version reads it, writes what you changed into the shared settings, and keeps the old file as `config.json.bak`.
+If `~/.pi/agent/extensions/pi-ask-permission/config.json` exists, the next session reads it, writes what you set there into the shared settings, and renames it to `config.json.bak`.
 
 ### How a call is decided
 
@@ -233,6 +233,7 @@ The judge answers three questions: a verdict, how reversible the call is, and wh
 - A bash path the check cannot read counts as outside. `$HOME`, `$SECRET`, and `"$@"` ask for that reason.
 - The read-only check is a classifier, not a sandbox. It trusts the command name as written and does not resolve `PATH`. It refuses anything it cannot prove harmless, so a few safe commands still ask.
 - The judge is a model, and it can be wrong. It sees the tool call, so do not judge calls that carry secrets you would not send to its provider.
+- Pi's `codemode` tool runs a script that calls other tools. The dialog asks about the script, and every call the script makes goes through the same steps on its own.
 - If you want deterministic rules and no human in the loop, use a sandbox instead.
 
 ### For other extensions
@@ -271,4 +272,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Commits follow [Conventional Commits](ht
 
 ## License
 
-[MIT](LICENSE) © Felipe Adeildo
+[MIT](LICENSE) © adeildo

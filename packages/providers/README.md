@@ -1,13 +1,21 @@
-# Providers
+# @adeildo/pi-providers
 
-Part of [`@adeildo/pi-harness`](../README.md). It has one feature, `subscription`.
+[![npm](https://img.shields.io/npm/v/@adeildo/pi-providers)](https://www.npmjs.com/package/@adeildo/pi-providers)
+
+Provider features for [Pi](https://pi.dev). It has one, `subscription`.
+
+```bash
+pi install npm:@adeildo/pi-providers
+```
+
+It also comes in [`@adeildo/pi-harness`](../harness), with the rest of the pieces.
 
 ## subscription
 
 With a Claude Pro or Max subscription connected through `/login anthropic`, Pi's requests count as paid extra usage. With `subscription`, they come out of the plan, the way Claude Code's do.
 
 > [!WARNING]
-> This makes Pi introduce itself to Anthropic as Claude Code. Using your subscription from anything other than Claude Code may break Anthropic's terms. It is on once the harness is installed, so decide whether you're fine with that risk. To turn it off, switch off the providers extension in `pi config`, or set `"features": { "subscription": { "enabled": false } }` in the settings file below.
+> This makes Pi introduce itself to Anthropic as Claude Code. Using your subscription from anything other than Claude Code may break Anthropic's terms. It is on once the package is installed, so decide whether you're fine with that risk. To turn it off, switch off the extension in `pi config`, or set `"features": { "subscription": { "enabled": false } }` in the settings file below.
 
 Pi already sends Claude Code's identity with an OAuth token. Anthropic checks two more things before it bills a request to the plan.
 
@@ -39,3 +47,7 @@ When a request comes back with `400 claude_code_version_too_old`, raise the vers
 ## Credit
 
 The idea and the fingerprint come from [pi-claude-max](https://github.com/bradennss/pi-claude-max) by Braden Lamb, MIT. This is a rewrite. It reads the version from settings, carries pi's cache breakpoints over instead of dropping the one-hour TTL, moves every system block after the identity instead of only the second, and checks for an OAuth token instead of the provider name.
+
+## License
+
+[MIT](LICENSE)

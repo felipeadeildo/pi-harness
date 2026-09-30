@@ -2,32 +2,41 @@
 
 <p align="center">
   <a href="https://github.com/felipeadeildo/pi-harness/actions/workflows/ci.yml"><img src="https://github.com/felipeadeildo/pi-harness/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://www.npmjs.com/package/@adeildo/pi-harness"><img src="https://img.shields.io/npm/v/@adeildo/pi-harness" alt="npm"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license"></a>
   <a href="https://pi.dev"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffelipeadeildo%2Fpi-harness%2Fmain%2Fpackage.json&query=%24.devDependencies%5B%22%40earendil-works%2Fpi-coding-agent%22%5D&label=pi%20SDK&color=6E56CF" alt="pi SDK"></a>
 </p>
 
-The extensions I run [Pi](https://pi.dev) with, in one repository. Pi stays Pi. Everything here installs on top of it as a package, and each package works on its own.
+The extensions adeildo runs [Pi](https://pi.dev) with. They install on top of Pi as packages, so there is no fork, and `pi remove` puts Pi back the way it was.
 
-## Packages
-
-| Package                                                 | What it does                                                                         | Status                                                                                                                      |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| [`@adeildo/pi-ask-permission`](packages/ask-permission) | Asks before a tool call runs, with a judge model for the easy ones                   | [![npm](https://img.shields.io/npm/v/@adeildo/pi-ask-permission)](https://www.npmjs.com/package/@adeildo/pi-ask-permission) |
-| [`@adeildo/pi-harness`](packages/harness)               | Everything else: the look, providers, and what comes next, one extension per feature | [![npm](https://img.shields.io/npm/v/@adeildo/pi-harness)](https://www.npmjs.com/package/@adeildo/pi-harness)               |
-| [`@adeildo/pi-kit`](packages/kit)                       | The app builder, settings and event bus the other packages share                     | [![npm](https://img.shields.io/npm/v/@adeildo/pi-kit)](https://www.npmjs.com/package/@adeildo/pi-kit)                       |
-
-Two packages ship. The permission dialog makes sense on its own, so it has its own. Every other feature lives in the harness, and `pi config` turns any of them off. The kit is the base under both.
-
-## How the packages fit
-
-Every feature is built with `@adeildo/pi-kit`:
-
-```ts
-export default (pi: ExtensionAPI) => createApp(pi).use(subscription).build();
+```bash
+pi install npm:@adeildo/pi-harness
 ```
 
-Every feature reads the same settings file. Features that need each other talk over typed events on `pi.events`, never through each other's state, so a feature can move out of the harness into a package of its own without changing.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/preview.png" alt="Pi with the look: the start card with the model, the folder, the branch and the keys, and below it the framed editor with the branch and folder in its top border and the model and context in its bottom border." width="860">
+</p>
+
+## What comes in it
+
+| Piece                                 | What it does                                                                                                                                                             |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [Permission](packages/ask-permission) | Asks before a tool call runs. Answer yes, always yes or deny, with a note the model reads. A judge model can answer the routine calls for you                            |
+| [Look](packages/look)                 | The start card, a framed editor with the branch, the model and the context in its borders, the time and speed of each answer, and the session's cost. Only theme colours |
+| [Providers](packages/providers)       | Bills Anthropic OAuth requests to the Claude Pro or Max plan instead of extra usage                                                                                      |
+
+Each piece is its own extension, so `pi config` turns one off. Each is also a package of its own, for when you want only that one: `pi install npm:@adeildo/pi-look` brings the look and nothing else. Every piece's page has its install line.
+
+All packages share one version. A release is one tag, one entry in [CHANGELOG.md](CHANGELOG.md), and one publish of every package from CI, with npm provenance.
+
+## What comes next
+
+Questions the agent asks with options and a preview, several accounts per provider with rotation when one hits its limit, usage per plan and per project, and sessions that name themselves and talk to each other. The order and the reasons are in [ROADMAP.md](ROADMAP.md).
+
+## Contributing
+
+[CONTRIBUTING.md](CONTRIBUTING.md) covers the setup, how a piece is written on [`@adeildo/pi-kit`](packages/kit), and how a release goes out.
 
 ## License
 
-[MIT](LICENSE) © Felipe Adeildo
+[MIT](LICENSE) © adeildo
