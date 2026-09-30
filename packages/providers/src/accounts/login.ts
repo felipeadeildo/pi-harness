@@ -15,8 +15,10 @@ export interface LoginMethod {
 /** Every way this provider logs in, OAuth first. */
 export function loginMethods(provider: Provider): LoginMethod[] {
 	const methods: LoginMethod[] = [];
-	if (provider.auth.oauth !== undefined)
-		methods.push({ provider, authType: "oauth", label: provider.auth.oauth.name });
+	const oauth = provider.auth.oauth;
+	if (oauth !== undefined) {
+		methods.push({ provider, authType: "oauth", label: oauth.loginLabel ?? oauth.name });
+	}
 	const apiKey = provider.auth.apiKey;
 	if (apiKey?.login !== undefined)
 		methods.push({ provider, authType: "api_key", label: apiKey.name });

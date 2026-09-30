@@ -1,6 +1,4 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { createApp } from "@adeildo/pi-kit";
@@ -12,28 +10,26 @@ import {
 } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { accounts, credentialOf } from "../src/accounts/feature.ts";
+import { activeAccount } from "../src/accounts/active.ts";
+import { accounts } from "../src/accounts/feature.ts";
 import { nativeOf } from "../src/accounts/lift.ts";
 import type { Pins } from "../src/accounts/pins.ts";
 import { AccountStore } from "../src/accounts/store.ts";
+import { agentDirFixture } from "./helpers.ts";
 
 const OAUTH: Credential = { type: "oauth", access: "a", refresh: "r", expires: 0 };
 const OTHER: Credential = { type: "api_key", key: "k" };
 
 let dir: string;
-let previous: string | undefined;
+let restore: () => void;
 
 beforeEach(() => {
-	previous = process.env.PI_CODING_AGENT_DIR;
-	dir = mkdtempSync(join(tmpdir(), "pi-accounts-feature-"));
-	process.env.PI_CODING_AGENT_DIR = dir;
+	const fixture = agentDirFixture("pi-accounts-feature-");
+	dir = fixture.dir;
+	restore = fixture.restore;
 });
 
-afterEach(() => {
-	if (previous === undefined) delete process.env.PI_CODING_AGENT_DIR;
-	else process.env.PI_CODING_AGENT_DIR = previous;
-	rmSync(dir, { recursive: true, force: true });
-});
+afterEach(() => restore());
 
 function native(): Provider {
 	return {
@@ -131,11 +127,11 @@ test("the session pin overrides the store default, and null means pi's own crede
 	const work = store.accounts("anthropic").at(-1);
 	const pins: Pins = new Map([["anthropic", work?.id ?? ""]]);
 
-	expect(credentialOf(store, pins, "anthropic")).toEqual(OTHER);
+	expect(activeAccount(store, pins, "anthropic")?.credential).toEqual(OTHER);
 	pins.set("anthropic", null);
-	expect(credentialOf(store, pins, "anthropic")).toBeUndefined();
+	expect(activeAccount(store, pins, "anthropic")?.credential).toBeUndefined();
 	pins.delete("anthropic");
-	expect(credentialOf(store, pins, "anthropic")).toBeUndefined();
+	expect(activeAccount(store, pins, "anthropic")?.credential).toBeUndefined();
 	store.setActive("anthropic", store.accounts("anthropic")[0]?.id);
-	expect(credentialOf(store, pins, "anthropic")).toEqual(OAUTH);
+	expect(activeAccount(store, pins, "anthropic")?.credential).toEqual(OAUTH);
 });

@@ -1,23 +1,26 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { Credential } from "@earendil-works/pi-ai";
 
 import { AccountStore } from "../src/accounts/store.ts";
+import { agentDirFixture } from "./helpers.ts";
 
 const OAUTH: Credential = { type: "oauth", access: "a", refresh: "r", expires: 0 };
 
 let dir: string;
 let path: string;
+let restore: () => void;
 
 beforeEach(() => {
-	dir = mkdtempSync(join(tmpdir(), "pi-accounts-"));
+	const fixture = agentDirFixture("pi-accounts-");
+	dir = fixture.dir;
+	restore = fixture.restore;
 	path = join(dir, "accounts.json");
 });
 
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => restore());
 
 function addWork(store: AccountStore): string {
 	store.add("anthropic", "work", OAUTH);
@@ -26,7 +29,9 @@ function addWork(store: AccountStore): string {
 
 test("an account is added, listed and pinned", () => {
 	const store = new AccountStore(path);
-	expect(store.add("anthropic", "personal", OAUTH)).toBeUndefined();
+	const added = store.add("anthropic", "personal", OAUTH);
+	expect(added.problem).toBeUndefined();
+	expect(added.account?.label).toBe("personal");
 	expect(store.has("anthropic")).toBe(true);
 	// No choice yet, so pi's own credential stays the one a request uses.
 	expect(store.active("anthropic")).toBeUndefined();
@@ -80,9 +85,9 @@ test("a hand edit that does not parse is never overwritten", () => {
 	writeFileSync(path, "{ not json");
 	const store = new AccountStore(path);
 
-	expect(store.reload()[0]).toContain("could not parse");
+	expect(store.reload()[0]).toContain("could not be read");
 	expect(store.has("anthropic")).toBe(false);
-	expect(store.add("anthropic", "personal", OAUTH)).toContain("could not parse");
+	expect(store.add("anthropic", "personal", OAUTH).problem).toContain("could not be read");
 	expect(readFileSync(path, "utf8")).toBe("{ not json");
 });
 

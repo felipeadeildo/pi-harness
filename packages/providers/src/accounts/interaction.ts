@@ -3,7 +3,7 @@
 import type { AuthEvent, ProviderAuthInteraction } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-export const LOGIN_KEY = "pi-providers:login";
+import { LOGIN_KEY } from "./names.ts";
 
 export function interactionFor(
 	ctx: ExtensionContext,

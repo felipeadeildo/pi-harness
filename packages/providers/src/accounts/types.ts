@@ -1,6 +1,6 @@
 import type { Credential } from "@earendil-works/pi-ai";
 
-/** One credential with a name. Pi's own credential is the first account of its provider. */
+/** One extra credential with a name. Pi's own credential stays in pi's store, not here. */
 export interface Account {
 	/** Stable id, so renaming an account keeps a session pinned to it. */
 	id: string;
@@ -8,14 +8,14 @@ export interface Account {
 	credential: Credential;
 }
 
-/** The accounts of one provider, and which one a request uses. */
+/** The extra accounts of one provider, and the one the store prefers. */
 export interface ProviderAccounts {
-	/** The id of the account a request uses. Absent means the first. */
+	/** The id of the account the store prefers. Absent means pi's own credential. */
 	active?: string;
 	accounts: Account[];
 }
 
-export interface AccountsFile {
+export type AccountsFile = {
 	version: 1;
 	providers: Record<string, ProviderAccounts>;
-}
+};

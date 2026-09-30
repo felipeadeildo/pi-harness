@@ -3,7 +3,7 @@
 import { isObject } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-export const SESSION_ENTRY = "pi-providers:accounts";
+import { SESSION_ENTRY } from "./names.ts";
 
 /** The account pinned for a provider. `null` means the credential pi itself has. */
 export type Pins = Map<string, string | null>;

@@ -1,14 +1,17 @@
-// The Accounts rows of the settings screen: pick the account of a provider for this session,
-// rename one, or remove one. Adding stays on `/accounts`, which needs the provider's login dialogs.
+// The Accounts rows of the settings screen: choose the account of a provider, rename one, or remove
+// one. Adding stays on `/accounts`, which needs the provider's login dialogs.
 import type { FeatureScope, Json, ScreenEntry } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
+import { activeAccount } from "./active.ts";
+import { STATUS_KEY } from "./names.ts";
 import { pin, type Pins } from "./pins.ts";
-import { AccountStore } from "./store.ts";
+import type { AccountStore } from "./store.ts";
 import type { Account } from "./types.ts";
 
+/** The value of the choice that means pi's own credential. */
+export const DEFAULT_ACCOUNT = "default";
 export const DEFAULT_LABEL = "pi default";
-export const STATUS_KEY = "pi-providers:accounts";
 const SECTION = "Accounts";
 
 export function accountRows(pi: FeatureScope, store: AccountStore, pins: Pins): ScreenEntry[] {
@@ -20,25 +23,24 @@ export function accountRows(pi: FeatureScope, store: AccountStore, pins: Pins): 
 			id: `accounts.${providerId}.active`,
 			section: SECTION,
 			label: `${providerId} account`,
-			description: `${describeCount(accounts.length)} for ${providerId}. ${DEFAULT_LABEL} is the credential of /login.`,
+			description: `${describeCount(accounts.length)} for ${providerId}. The choice is kept, and ${DEFAULT_LABEL} is the credential of /login.`,
 			control: {
 				type: "choice",
 				options: [
-					{ value: "default", label: DEFAULT_LABEL },
+					{ value: DEFAULT_ACCOUNT, label: DEFAULT_LABEL },
 					...accounts.map((account) => ({ value: account.id, label: account.label })),
 				],
 			},
-			get: () => current(store, pins, providerId, accounts),
+			get: () => activeAccount(store, pins, providerId)?.id ?? DEFAULT_ACCOUNT,
 			set: (value, ctx) => {
-				if (value === "default") {
-					pin(pi, pins, providerId, null);
-					refreshStatus(store, pins, ctx);
-					return undefined;
-				}
-				if (typeof value !== "string" || !accounts.some((account) => account.id === value)) {
-					return "pick an account";
-				}
-				pin(pi, pins, providerId, value);
+				const chosen =
+					value === DEFAULT_ACCOUNT ||
+					(typeof value === "string" && accounts.some((a) => a.id === value))
+						? value
+						: undefined;
+				if (chosen === undefined) return "pick an account";
+				store.setActive(providerId, chosen === DEFAULT_ACCOUNT ? undefined : chosen);
+				pin(pi, pins, providerId, chosen === DEFAULT_ACCOUNT ? null : chosen);
 				refreshStatus(store, pins, ctx);
 				return undefined;
 			},
@@ -97,28 +99,13 @@ export function accountStatus(
 ): string | undefined {
 	const providerId = ctx.model?.provider;
 	if (providerId === undefined) return undefined;
-	const accounts = store.accounts(providerId);
-	if (accounts.length === 0) return undefined;
-	const pinned = pins.has(providerId) ? pins.get(providerId) : store.active(providerId)?.id;
-	if (pinned === null || pinned === undefined) return "pi";
-	return accounts.find((account) => account.id === pinned)?.label ?? "pi";
+	if (store.accounts(providerId).length === 0) return undefined;
+	return activeAccount(store, pins, providerId)?.label ?? "pi";
 }
 
 /** Publishes the account next to the model, where every other piece reads it. */
 export function refreshStatus(store: AccountStore, pins: Pins, ctx: ExtensionContext): void {
 	ctx.ui.setStatus(STATUS_KEY, accountStatus(store, pins, ctx));
-}
-
-/** The value the choice shows: the session pin, else the store's default, else `default`. */
-function current(
-	store: AccountStore,
-	pins: Pins,
-	providerId: string,
-	accounts: readonly Account[],
-): string {
-	const pinned = pins.has(providerId) ? pins.get(providerId) : store.active(providerId)?.id;
-	if (pinned === null || pinned === undefined) return "default";
-	return accounts.some((account) => account.id === pinned) ? pinned : "default";
 }
 
 function describeCount(count: number): string {

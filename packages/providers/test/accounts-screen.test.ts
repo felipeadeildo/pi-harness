@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { fakePi, fakeScope } from "@adeildo/pi-kit/testing";
 import type { Credential } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { SESSION_ENTRY, type Pins } from "../src/accounts/pins.ts";
+import { SESSION_ENTRY } from "../src/accounts/names.ts";
+import type { Pins } from "../src/accounts/pins.ts";
 import { accountRows, accountStatus } from "../src/accounts/screen.ts";
 import { AccountStore } from "../src/accounts/store.ts";
+import { agentDirFixture } from "./helpers.ts";
 
 const OAUTH: Credential = { type: "oauth", access: "a", refresh: "r", expires: 0 };
 const KEY: Credential = { type: "api_key", key: "k" };
@@ -19,19 +19,15 @@ const CTX = {
 } as unknown as ExtensionContext;
 
 let dir: string;
-let previous: string | undefined;
+let restore: () => void;
 
 beforeEach(() => {
-	previous = process.env.PI_CODING_AGENT_DIR;
-	dir = mkdtempSync(join(tmpdir(), "pi-accounts-screen-"));
-	process.env.PI_CODING_AGENT_DIR = dir;
+	const fixture = agentDirFixture("pi-accounts-screen-");
+	dir = fixture.dir;
+	restore = fixture.restore;
 });
 
-afterEach(() => {
-	if (previous === undefined) delete process.env.PI_CODING_AGENT_DIR;
-	else process.env.PI_CODING_AGENT_DIR = previous;
-	rmSync(dir, { recursive: true, force: true });
-});
+afterEach(() => restore());
 
 function setup() {
 	const store = new AccountStore();
@@ -61,6 +57,7 @@ test("picking an account pins it for the session, and default clears the pin", (
 	expect(active.get(CTX)).toBe("default");
 	expect(active.set(work.id, CTX)).toBeUndefined();
 	expect(pins.get("anthropic")).toBe(work.id);
+	expect(store.active("anthropic")?.id).toBe(work.id);
 	expect(active.get(CTX)).toBe(work.id);
 	expect(fake.entries).toContainEqual({
 		customType: SESSION_ENTRY,
@@ -69,6 +66,7 @@ test("picking an account pins it for the session, and default clears the pin", (
 
 	expect(active.set("default", CTX)).toBeUndefined();
 	expect(pins.get("anthropic")).toBeNull();
+	expect(store.active("anthropic")).toBeUndefined();
 	expect(active.set("nope", CTX)).toBe("pick an account");
 });
 

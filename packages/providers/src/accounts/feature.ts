@@ -1,17 +1,18 @@
 import { defineFeature, literal, setting } from "@adeildo/pi-kit";
 import type { FeatureScope } from "@adeildo/pi-kit";
-import type { Credential, Provider } from "@earendil-works/pi-ai";
+import type { Provider } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Key } from "@earendil-works/pi-tui";
 
-import { interactionFor, LOGIN_KEY } from "./interaction.ts";
+import { activeAccount } from "./active.ts";
+import { reason } from "./describe.ts";
+import { interactionFor } from "./interaction.ts";
 import { liftProvider, nativeOf, type AccountSession } from "./lift.ts";
 import { login, loginMethods, type LoginMethod } from "./login.ts";
+import { LOGIN_KEY, NAME, STATUS_KEY } from "./names.ts";
 import { pin, replay, type Pins } from "./pins.ts";
-import { accountRows, DEFAULT_LABEL, refreshStatus, STATUS_KEY } from "./screen.ts";
+import { accountRows, DEFAULT_ACCOUNT, DEFAULT_LABEL, refreshStatus } from "./screen.ts";
 import { AccountStore } from "./store.ts";
-
-const NAME = "pi-providers";
 
 /** What happens when an account hits the limit of its plan. */
 export const WHEN_LIMITED = ["ask", "switch", "stop"] as const;
@@ -21,19 +22,6 @@ export const onLimit = setting<WhenLimited>({
 	id: "accounts.onLimit",
 	default: "ask",
 	decoder: literal(...WHEN_LIMITED),
-	ui: {
-		section: "Accounts",
-		label: "When an account hits its limit",
-		description: "Ask me first, switch on its own, or stop and tell me.",
-		control: {
-			type: "choice",
-			options: [
-				{ value: "ask", label: "ask me first" },
-				{ value: "switch", label: "switch on its own" },
-				{ value: "stop", label: "stop and tell me" },
-			],
-		},
-	},
 });
 
 export const accounts = defineFeature({
@@ -46,7 +34,6 @@ export const accounts = defineFeature({
 		const pins: Pins = new Map();
 
 		scope.screen.rows(() => accountRows(scope, store, pins));
-
 		scope.on("model_select", (_event, ctx) => refreshStatus(store, pins, ctx));
 		scope.on("session_shutdown", (_event, ctx) => ctx.ui.setStatus(STATUS_KEY, undefined));
 
@@ -74,29 +61,13 @@ export const accounts = defineFeature({
 	},
 });
 
-/** The credential the next request uses: the session pin, or the store's default. */
-export function credentialOf(
-	store: AccountStore,
-	pins: Pins,
-	providerId: string,
-): Credential | undefined {
-	if (pins.has(providerId)) {
-		const id = pins.get(providerId);
-		if (id === null || id === undefined) return undefined;
-		return store.accounts(providerId).find((account) => account.id === id)?.credential;
-	}
-	return store.active(providerId)?.credential;
-}
-
 function sessionFor(store: AccountStore, pins: Pins, providerId: string): AccountSession {
 	return {
-		credential: () => credentialOf(store, pins, providerId),
-		saveCredential: (credential) => {
-			const pinned = pins.has(providerId) ? pins.get(providerId) : store.active(providerId)?.id;
-			if (pinned !== undefined && pinned !== null) {
-				void store.setCredential(providerId, pinned, credential);
-			}
+		resolve: () => {
+			const account = activeAccount(store, pins, providerId);
+			return account === undefined ? undefined : { id: account.id, credential: account.credential };
 		},
+		save: (id, credential) => void store.setCredential(providerId, id, credential),
 	};
 }
 
@@ -107,6 +78,10 @@ function lift(
 	ctx: ExtensionContext,
 	providerId: string,
 ): void {
+	// A pin with no account left behind it injects nothing, so re-registering it would only cost a
+	// model-registry rebuild.
+	if (!store.has(providerId)) return;
+
 	// `getProvider` returns the lifted provider once we registered one, so unwrap it before wrapping
 	// again. After a `/reload` it returns the built-in one, which is unwrapped too.
 	const provider = ctx.modelRegistry.getProvider(providerId);
@@ -139,11 +114,9 @@ async function pickAccount(
 		return;
 	}
 
-	const pinned = pins.has(providerId) ? pins.get(providerId) : store.active(providerId)?.id;
-	const current = pinned ?? "default";
-
+	const current = activeAccount(store, pins, providerId)?.id ?? DEFAULT_ACCOUNT;
 	const choices = [
-		{ id: "default", label: DEFAULT_LABEL, kind: "login" },
+		{ id: DEFAULT_ACCOUNT, label: DEFAULT_LABEL, kind: "login" },
 		...entries.map((account) => ({
 			id: account.id,
 			label: account.label,
@@ -161,7 +134,7 @@ async function pickAccount(
 
 	const choice = choices[index];
 	if (choice === undefined) return;
-	pin(scope, pins, providerId, choice.id === "default" ? null : choice.id);
+	pin(scope, pins, providerId, choice.id === DEFAULT_ACCOUNT ? null : choice.id);
 	refreshStatus(store, pins, ctx);
 	ctx.ui.notify(`${NAME}: ${providerId} uses ${choice.label}`, "info");
 }
@@ -195,15 +168,16 @@ async function addAccount(
 			method,
 			interactionFor(ctx, providerId, new AbortController().signal),
 		);
-		const problem = store.add(providerId, label, credential);
-		if (problem !== undefined) {
-			ctx.ui.notify(`${NAME}: ${problem}`, "error");
+		const added = store.add(providerId, label, credential);
+		if (added.account === undefined) {
+			ctx.ui.notify(`${NAME}: ${added.problem}`, "error");
 			return;
 		}
-		const added = store.accounts(providerId).at(-1);
-		if (added !== undefined) pin(scope, pins, providerId, added.id);
+		store.setActive(providerId, added.account.id);
+		pin(scope, pins, providerId, added.account.id);
 		// The first account of a provider was not lifted at session start, so lift it now.
-		lift(scope, store, pins, ctx, providerId);
+		if (store.accounts(providerId).length === 1) lift(scope, store, pins, ctx, providerId);
+		refreshStatus(store, pins, ctx);
 		ctx.ui.notify(`${NAME}: ${providerId} account "${label}" added`, "info");
 	} catch (error) {
 		ctx.ui.notify(`${NAME}: ${reason(error)}`, "error");
@@ -213,14 +187,12 @@ async function addAccount(
 }
 
 async function pickProvider(ctx: ExtensionContext): Promise<string | undefined> {
-	const candidates = new Set<string>();
-	for (const model of ctx.modelRegistry.getAll()) {
-		const provider = ctx.modelRegistry.getProvider(model.provider);
-		if (provider !== undefined && loginMethods(provider).length > 0) {
-			candidates.add(model.provider);
-		}
+	const candidates: string[] = [];
+	for (const providerId of new Set(ctx.modelRegistry.getAll().map((model) => model.provider))) {
+		const provider = ctx.modelRegistry.getProvider(providerId);
+		if (provider !== undefined && loginMethods(provider).length > 0) candidates.push(providerId);
 	}
-	const list = [...candidates].toSorted();
+	const list = candidates.toSorted();
 	if (list.length === 0) {
 		ctx.ui.notify(`${NAME}: no provider offers a login`, "warning");
 		return undefined;
@@ -243,8 +215,4 @@ async function pickMethod(
 	const labels = methods.map((method) => method.label);
 	const picked = await ctx.ui.select(`${provider.id} login`, labels);
 	return methods.find((method) => method.label === picked);
-}
-
-function reason(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

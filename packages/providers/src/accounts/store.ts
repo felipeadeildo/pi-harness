@@ -1,18 +1,24 @@
-// The accounts live beside the settings, one file for every provider. Pi's own credential is the
-// first account of its provider, and the others come from the provider's login, so no OAuth here.
+// The extra accounts live beside the settings, one file for every provider. Pi's own credential is
+// not copied here: it stays in pi's store, and is what a request uses when no account is chosen.
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { globalSettingsPath, isObject } from "@adeildo/pi-kit";
+import { globalSettingsPath, isObject, readSettingsFile, writeSettingsFile } from "@adeildo/pi-kit";
 import type { Credential } from "@earendil-works/pi-ai";
 
+import { reason } from "./describe.ts";
 import type { Account, AccountsFile, ProviderAccounts } from "./types.ts";
 
 export const ACCOUNTS_FILE = "accounts.json";
 
 export function accountsPath(): string {
 	return join(dirname(globalSettingsPath()), ACCOUNTS_FILE);
+}
+
+/** What an add produced: the account it wrote, or why it did not. */
+export interface Added {
+	account?: Account;
+	problem?: string;
 }
 
 export class AccountStore {
@@ -43,23 +49,21 @@ export class AccountStore {
 		return this.accounts(providerId).length > 0;
 	}
 
-	/**
-	 * The account the store uses, when one is set. Without a choice the feature keeps pi's own
-	 * credential, so adding an account never takes over a session by itself.
-	 */
+	/** The account the store prefers. Without one the feature keeps pi's own credential. */
 	active(providerId: string): Account | undefined {
 		const entry = this.file().providers[providerId];
 		if (entry?.active === undefined) return undefined;
 		return entry.accounts.find((account) => account.id === entry.active);
 	}
 
-	/** Returns why it was not saved. */
-	add(providerId: string, label: string, credential: Credential): string | undefined {
-		return this.edit((providers) => {
+	add(providerId: string, label: string, credential: Credential): Added {
+		const account: Account = { id: randomUUID(), label: label.trim() || providerId, credential };
+		const problem = this.edit((providers) => {
 			const entry = providers[providerId] ?? { accounts: [] };
-			entry.accounts.push({ id: randomUUID(), label: label.trim() || providerId, credential });
+			entry.accounts.push(account);
 			providers[providerId] = entry;
 		});
+		return problem === undefined ? { account } : { problem };
 	}
 
 	remove(providerId: string, id: string): string | undefined {
@@ -79,7 +83,7 @@ export class AccountStore {
 		});
 	}
 
-	/** Pins the account a request uses, or clears the pin with undefined. */
+	/** Sets the account the store prefers, or clears the choice with undefined. */
 	setActive(providerId: string, id: string | undefined): string | undefined {
 		return this.edit((providers) => {
 			const entry = providers[providerId];
@@ -117,19 +121,14 @@ function readAccounts(path: string): {
 	providers: Record<string, ProviderAccounts>;
 	warnings: string[];
 } {
-	if (!existsSync(path)) return { providers: {}, warnings: [] };
+	const file = readSettingsFile(path);
+	if (file.warnings.length > 0) return { providers: {}, warnings: file.warnings };
 
-	let raw: unknown;
-	try {
-		raw = JSON.parse(readFileSync(path, "utf8"));
-	} catch (error) {
-		return { providers: {}, warnings: [`could not parse ${path}: ${reason(error)}`] };
-	}
-	if (!isObject(raw)) return { providers: {}, warnings: [`${path} must contain a JSON object`] };
-	if (!isObject(raw.providers)) return { providers: {}, warnings: [] };
+	const source = file.data.providers;
+	if (!isObject(source)) return { providers: {}, warnings: [] };
 
 	const providers: Record<string, ProviderAccounts> = {};
-	for (const [providerId, value] of Object.entries(raw.providers)) {
+	for (const [providerId, value] of Object.entries(source)) {
 		if (!isObject(value) || !Array.isArray(value.accounts)) continue;
 		const accounts = value.accounts.filter(isAccount);
 		if (accounts.length === 0) continue;
@@ -143,13 +142,7 @@ function readAccounts(path: string): {
 
 function writeAccounts(path: string, data: AccountsFile): string | undefined {
 	try {
-		mkdirSync(dirname(path), { recursive: true });
-		const temporary = `${path}.${process.pid}.tmp`;
-		writeFileSync(temporary, `${JSON.stringify(data, null, "\t")}\n`, {
-			encoding: "utf8",
-			mode: 0o600,
-		});
-		renameSync(temporary, path);
+		writeSettingsFile(path, data, { mode: 0o600 });
 		return undefined;
 	} catch (error) {
 		return reason(error);
@@ -171,8 +164,4 @@ function isCredential(input: unknown): input is Credential {
 		return typeof input.access === "string" && typeof input.refresh === "string";
 	if (input.type === "api_key") return input.key === undefined || typeof input.key === "string";
 	return false;
-}
-
-function reason(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

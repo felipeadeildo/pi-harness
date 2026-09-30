@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 
-import { SESSION_ENTRY, replay } from "../src/accounts/pins.ts";
+import { SESSION_ENTRY } from "../src/accounts/names.ts";
+import { replay } from "../src/accounts/pins.ts";
 
 function entry(data: unknown): unknown {
 	return { type: "custom", customType: SESSION_ENTRY, data };

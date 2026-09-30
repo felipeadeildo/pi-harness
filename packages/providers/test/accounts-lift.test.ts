@@ -69,12 +69,14 @@ function fake(): Fake {
 	};
 }
 
-function session(credential: Credential | undefined): AccountSession & { saved: Credential[] } {
-	const saved: Credential[] = [];
+function session(
+	credential: Credential | undefined,
+): AccountSession & { saved: { id: string; credential: Credential }[] } {
+	const saved: { id: string; credential: Credential }[] = [];
 	return {
 		saved,
-		credential: () => credential,
-		saveCredential: (next) => void saved.push(next),
+		resolve: () => (credential === undefined ? undefined : { id: ACCOUNT_ID, credential }),
+		save: (id, next) => void saved.push({ id, credential: next }),
 	};
 }
 
@@ -84,6 +86,7 @@ async function settle(): Promise<void> {
 }
 
 const CONTEXT = { messages: [] } as unknown as TranscriptContext;
+const ACCOUNT_ID = "acct";
 
 test("an OAuth account replaces the api key of the request", async () => {
 	const { provider, seen } = fake();
@@ -139,7 +142,21 @@ test("an expired token is refreshed once and saved, with the request's signal", 
 	expect(refreshes()).toBe(1);
 	expect(refreshedWith[0]).toBe(signal);
 	expect(state.saved).toHaveLength(1);
+	expect(state.saved[0]?.id).toBe(ACCOUNT_ID);
+	expect(state.saved[0]?.credential).toMatchObject({ access: "refreshed" });
 	expect(seen[0]?.apiKey).toBe("oauth:refreshed");
+});
+
+test("two requests share one refresh of an expired token", async () => {
+	const { provider, refreshes } = fake();
+	const account: Credential = { type: "oauth", access: "old", refresh: "r", expires: 0 };
+	const lifted = liftProvider(provider, session(account));
+
+	lifted.streamSimple(MODEL, CONTEXT);
+	lifted.streamSimple(MODEL, CONTEXT);
+	await settle();
+
+	expect(refreshes()).toBe(1);
 });
 
 test("without an account the native request goes through untouched", async () => {

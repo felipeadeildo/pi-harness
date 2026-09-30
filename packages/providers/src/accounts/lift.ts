@@ -21,10 +21,10 @@ import {
 	type TranscriptContext,
 } from "@earendil-works/pi-ai";
 
-/** Where a refreshed token lands, so the next request does not refresh again. */
+/** The account the next request uses, and where a refreshed token is kept. */
 export interface AccountSession {
-	credential(): Credential | undefined;
-	saveCredential(credential: Credential): void;
+	resolve(): { id: string; credential: Credential } | undefined;
+	save(id: string, credential: Credential): void;
 }
 
 /** The native provider behind a lifted one, so lifting twice wraps the same object. */
@@ -37,7 +37,8 @@ export function nativeOf(provider: Provider): Provider {
 
 export function liftProvider(provider: Provider, session: AccountSession): Provider {
 	// Every method is delegated by hand, not by spread: the native may keep methods on a prototype,
-	// and a copied method would lose its `this`.
+	// and a copied method would lose its `this`. One refresh runs per account at a time.
+	const refreshing = new Map<string, Promise<OAuthCredential>>();
 	const getAllModels = provider.getAllModels;
 	const refreshModels = provider.refreshModels;
 	const filterModels = provider.filterModels;
@@ -67,10 +68,10 @@ export function liftProvider(provider: Provider, session: AccountSession): Provi
 			context: TranscriptContext,
 			options?: ApiStreamOptions<T>,
 		) {
-			return accountStream(provider, session, "stream", model, context, options);
+			return accountStream(provider, session, refreshing, "stream", model, context, options);
 		},
 		streamSimple(model, context, options) {
-			return accountStream(provider, session, "streamSimple", model, context, options);
+			return accountStream(provider, session, refreshing, "streamSimple", model, context, options);
 		},
 		...(fetchDeferred === undefined
 			? {}
@@ -94,16 +95,17 @@ type Options = StreamOptions;
 function accountStream(
 	provider: Provider,
 	session: AccountSession,
+	refreshing: Map<string, Promise<OAuthCredential>>,
 	kind: "stream" | "streamSimple",
 	model: Model<Api>,
 	context: TranscriptContext,
 	options?: Options,
 ): AssistantMessageEventStream {
-	const credential = session.credential();
-	if (credential === undefined) return call(provider, kind, model, context, options ?? {});
+	const account = session.resolve();
+	if (account === undefined) return call(provider, kind, model, context, options ?? {});
 
 	return lazyStream(model, async () => {
-		const resolved = await resolveAuth(provider, session, credential, options?.signal);
+		const resolved = await resolveAuth(provider, session, refreshing, account, options?.signal);
 		const withAuth = applyAuth(resolved, model, options ?? {});
 		return call(provider, kind, withAuth.model, context, withAuth.options);
 	});
@@ -129,14 +131,22 @@ interface ResolvedAuth {
 async function resolveAuth(
 	provider: Provider,
 	session: AccountSession,
-	credential: Credential,
+	refreshing: Map<string, Promise<OAuthCredential>>,
+	account: { id: string; credential: Credential },
 	signal: AbortSignal | undefined,
 ): Promise<ResolvedAuth> {
 	const abort = signal ?? new AbortController().signal;
-	if (credential.type === "oauth") {
+	if (account.credential.type === "oauth") {
 		const oauth = provider.auth.oauth;
 		if (oauth === undefined) return { auth: {} };
-		const fresh = await refreshToken(oauth, session, credential, abort);
+		const fresh = await refreshToken(
+			oauth,
+			session,
+			refreshing,
+			account.id,
+			account.credential,
+			abort,
+		);
 		return { auth: await oauth.toAuth(fresh) };
 	}
 
@@ -144,25 +154,39 @@ async function resolveAuth(
 	if (apiKey === undefined) return { auth: {} };
 	const resolved = await apiKey.resolve({
 		ctx: defaultProviderAuthContext(),
-		credential,
+		credential: account.credential,
 		signal: abort,
 	});
 	return resolved === undefined ? { auth: {} } : { auth: resolved.auth, env: resolved.env };
 }
 
-// Pi refreshes its own token under the store lock. Ours is ours to refresh, five minutes early.
+// Pi refreshes its own token under the store lock, five minutes early. Ours is ours to refresh, and
+// one refresh per account is shared, so two requests cannot rotate the token twice.
 const REFRESH_MARGIN_MS = 5 * 60 * 1000;
 
 async function refreshToken(
 	oauth: OAuthAuth,
 	session: AccountSession,
+	refreshing: Map<string, Promise<OAuthCredential>>,
+	accountId: string,
 	credential: OAuthCredential,
 	signal: AbortSignal,
 ): Promise<OAuthCredential> {
 	if (credential.expires > Date.now() + REFRESH_MARGIN_MS) return credential;
-	const fresh = await oauth.refresh(credential, signal);
-	session.saveCredential(fresh);
-	return fresh;
+
+	const inFlight = refreshing.get(accountId);
+	if (inFlight !== undefined) return await inFlight;
+
+	const task = oauth.refresh(credential, signal).then((fresh) => {
+		session.save(accountId, fresh);
+		return fresh;
+	});
+	refreshing.set(accountId, task);
+	try {
+		return await task;
+	} finally {
+		refreshing.delete(accountId);
+	}
 }
 
 function applyAuth(
@@ -215,12 +239,12 @@ function liftedAuth(provider: Provider, session: AccountSession): ProviderAuth {
 			name: original?.name ?? `${provider.name} accounts`,
 			...(login === undefined ? {} : { login: (interaction) => login(interaction) }),
 			async check(input) {
-				const credential = session.credential();
-				if (credential !== undefined) return { type: credential.type, source: "account" };
+				const account = session.resolve();
+				if (account !== undefined) return { type: account.credential.type, source: "account" };
 				return original?.check?.(input);
 			},
 			async resolve(input) {
-				if (session.credential() !== undefined) return { auth: {}, source: "account" };
+				if (session.resolve() !== undefined) return { auth: {}, source: "account" };
 				return original?.resolve(input);
 			},
 		},
