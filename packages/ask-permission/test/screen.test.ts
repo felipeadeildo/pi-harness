@@ -14,7 +14,7 @@ import {
 	RUN,
 	type TabView,
 } from "@adeildo/pi-kit";
-import { fakePi } from "@adeildo/pi-kit/testing";
+import { fakePi, toolInfo } from "@adeildo/pi-kit/testing";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import piAskPermission from "../src/index.ts";
@@ -87,6 +87,7 @@ test("the tab lists its sections in order", async () => {
 		"This session",
 		"New sessions",
 		"Workspace",
+		"MCP servers",
 		"Reads",
 		"Dialog",
 		"Judge",
@@ -158,5 +159,72 @@ test("a folder row names the one open folder, and closing asks first", async () 
 	expect(await run("folders.session")).toEqual({
 		request: "r1",
 		error: "no folder open for this session",
+	});
+});
+
+test("a row per MCP server, with what it declares and the policy it follows", async () => {
+	const { fake, tab, apply } = await started();
+	const servers = () =>
+		tab().rows.filter((entry) => entry.section === "MCP servers" && entry.id !== "mcp.none");
+
+	expect(tab().rows.find((entry) => entry.id === "mcp.none")?.text).toBe("none connected");
+
+	fake.allTools.push(
+		toolInfo("mcp__sauron__query_loki_logs", {
+			namespace: { name: "mcp__sauron" },
+			annotations: { readOnlyHint: true },
+		}),
+		toolInfo("mcp__sauron__delete_dashboard", {
+			namespace: { name: "mcp__sauron" },
+			annotations: { destructiveHint: true },
+		}),
+		toolInfo("mcp__dorothy__list_domains", { namespace: { name: "mcp__dorothy" } }),
+	);
+
+	expect(servers().map((entry) => entry.id)).toEqual(["mcp.dorothy", "mcp.sauron"]);
+	expect(tab().rows.some((entry) => entry.id === "mcp.none")).toBe(false);
+	expect(servers()[1]).toMatchObject({
+		kind: "value",
+		label: "sauron",
+		value: "hints",
+		control: { type: "choice" },
+		description:
+			"2 tools, 1 that read, 1 destructive. A call the server says only reads runs; the rest follows the mode.",
+		meta: "saved for every project",
+	});
+
+	expect(apply("mcp.sauron", "deny")).toEqual({ error: undefined });
+	expect(servers()[1]).toMatchObject({ value: "deny" });
+	expect(JSON.parse(readFileSync(globalSettingsPath(), "utf8"))).toEqual({
+		permission: { mcp: { servers: { sauron: "deny" } } },
+	});
+	expect(apply("mcp.sauron", "sometimes")).toEqual({ error: "not an MCP policy" });
+});
+
+test("a server the settings name but nothing connected is still listed", async () => {
+	const { row } = await started({ permission: { mcp: { servers: { sauron: "deny" } } } });
+
+	expect(row("mcp.sauron")).toMatchObject({
+		value: "deny",
+		description: "not connected now, so the policy waits. Every call is blocked.",
+	});
+});
+
+test("a connected server follows the policy saved for it", async () => {
+	const { fake, row, tab, apply } = await started({
+		permission: { mcp: { servers: { "dev-radius": "allow" } } },
+	});
+	fake.allTools.push(
+		toolInfo("mcp__dev_radius__read_file", { namespace: { name: "mcp__dev_radius" } }),
+	);
+
+	const servers = () => tab().rows.filter((entry) => entry.section === "MCP servers");
+	expect(servers().map((entry) => entry.id)).toEqual(["mcp.dev_radius"]);
+	expect(row("mcp.dev_radius")).toMatchObject({ value: "allow" });
+
+	// The name it is saved under follows the setting, not the way it was typed before.
+	expect(apply("mcp.dev_radius", "ask")).toEqual({ error: undefined });
+	expect(JSON.parse(readFileSync(globalSettingsPath(), "utf8"))).toEqual({
+		permission: { mcp: { servers: { dev_radius: "ask" } } },
 	});
 });

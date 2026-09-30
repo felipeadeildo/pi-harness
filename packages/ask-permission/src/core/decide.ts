@@ -1,8 +1,20 @@
 // The first layer with an answer decides, so the order is the policy. The caller adds the judge.
+import type { ToolAnnotations } from "@earendil-works/pi-coding-agent";
+
 import type { AlwaysYes } from "#core/always-yes.ts";
 import { isAllowed } from "#core/config/patterns.ts";
 import type { OutsideScope, PermissionConfig } from "#core/config/schema.ts";
 import type { Access, OpenFolders } from "#core/folders.ts";
+import {
+	denyReason,
+	hintsOf,
+	isOrchestrator,
+	type McpCall,
+	type McpPolicy,
+	mcpCallOf,
+	policyFor,
+	type ToolFacts,
+} from "#core/mcp.ts";
 import { MODES, type ModeRules, type PermissionMode } from "#core/mode.ts";
 import {
 	asToolInput,
@@ -22,6 +34,12 @@ export interface Call {
 	target: CallDescriptor;
 	tool: ToolAdapter;
 	reach: Reach;
+	/** Set for a call to an MCP server. */
+	mcp?: McpCall;
+	/** What the tool declares about itself, whatever registered it. */
+	hints: ToolAnnotations;
+	/** Issued by another tool, as in a codemode script, not by the model. */
+	nested: boolean;
 }
 
 export type Verdict =
@@ -46,17 +64,41 @@ export interface GateState {
 
 const ALLOW: Verdict = { action: "allow" };
 
+/** What the caller knows about the tool itself, which the input does not say. */
+export interface CallExtras {
+	/** Adapters other extensions registered over `pi-ask-permission:tool`. */
+	custom?: CustomTools;
+	facts?: ToolFacts;
+	/** The call came from another tool. */
+	nested?: boolean;
+}
+
 export function describeCall(
 	toolName: string,
 	rawInput: unknown,
 	cwd: string,
 	config: PermissionConfig,
-	custom?: CustomTools,
+	extras: CallExtras = {},
 ): Call {
 	const input = asToolInput(rawInput);
-	const tool = toolAdapter(toolName, custom);
+	const tool = toolAdapter(toolName, extras.custom);
 	const reach = reachOf(config.workspace.roots, cwd, tool.paths(input));
-	return { toolName, input, tool, target: tool.describe(input), reach };
+	const facts: ToolFacts = extras.facts ?? (() => undefined);
+	const fact = facts(toolName);
+	const mcp = mcpCallOf(toolName, facts);
+	const target = tool.describe(input);
+
+	return {
+		toolName,
+		input,
+		tool,
+		// The registered name is `mcp__<server>__<tool>`; the caller reads it as `sauron:query`.
+		target: mcp ? { ...target, levels: [`${mcp.server}:${mcp.tool}`] } : target,
+		reach,
+		mcp,
+		hints: hintsOf(fact),
+		nested: extras.nested === true,
+	};
 }
 
 export function gateLayers(state: GateState): Layer[] {
@@ -68,8 +110,24 @@ export function gateLayers(state: GateState): Layer[] {
 				state.alwaysYes.has(call.toolName, call.target.levels) ? ALLOW : undefined,
 		},
 		{
+			// A script and a search are a way of calling other tools, and each of those calls reaches
+			// the gate on its own. Asking about the wrapper would ask twice for one thing.
+			name: "codemode",
+			decide: (call) => (isOrchestrator(call.toolName) ? ALLOW : undefined),
+		},
+		{
 			name: "workspace",
 			decide: (call) => workspaceVerdict(call, rules, state),
+		},
+		{
+			name: "mcp",
+			decide: (call) => mcpVerdict(call, state.config.mcp.servers),
+		},
+		{
+			// A tool the author says only reads is not worth asking about. The hint is not verified,
+			// which is why a server can still be told to ask for everything.
+			name: "read-only hint",
+			decide: (call) => (call.hints.readOnlyHint === true ? ALLOW : undefined),
 		},
 		{
 			name: "mode",
@@ -100,6 +158,23 @@ export async function decide(call: Call, layers: Layer[]): Promise<Decision> {
 export function accessOf(call: Call): Access {
 	if (call.tool.onlyReads === true) return "read";
 	return call.tool.readOnly?.(call.input) === true ? "read" : "write";
+}
+
+// The server's policy runs before the mode, so a denied server stays denied in every mode, and an
+// allowed one skips the judge. `hints` decides nothing here: it lets the read-only layer in.
+function mcpVerdict(call: Call, servers: Readonly<Record<string, McpPolicy>>): Verdict | undefined {
+	if (call.mcp === undefined) return undefined;
+
+	switch (policyFor(servers, call.mcp.server)) {
+		case "allow":
+			return ALLOW;
+		case "deny":
+			return { action: "block", reason: denyReason(call.mcp.server) };
+		case "ask":
+			return { action: "ask", reason: `every call to ${call.mcp.server} asks` };
+		case "hints":
+			return undefined;
+	}
 }
 
 // Asking here keeps the judge from approving a call that left.

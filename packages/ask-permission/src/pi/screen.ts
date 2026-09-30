@@ -1,19 +1,27 @@
-import type { FeatureScope } from "@adeildo/pi-kit";
+import type { FeatureScope, Json, ScreenEntry } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { type Scope, SCOPE_LABEL } from "#core/always-yes.ts";
-import { isOutsideScope } from "#core/config/schema.ts";
-import { MODE_CONTROL, OUTSIDE_CONTROL } from "#core/config/settings.ts";
+import { isMcpPolicy, isOutsideScope } from "#core/config/schema.ts";
+import {
+	MCP_POLICY_CONTROL,
+	MODE_CONTROL,
+	OUTSIDE_CONTROL,
+	setMcpPolicy,
+} from "#core/config/settings.ts";
 import { globalAlwaysYesPath, projectAlwaysYesPath } from "#core/config/store.ts";
 import { TYPESAFE_PROVIDER } from "#core/judge/backends/jev.ts";
 import { probeJudge } from "#core/judge/probe.ts";
 import { judgeLogText } from "#core/judge/report.ts";
+import { MCP_POLICY_TEXT, type McpServer, mcpServers, policyFor, sameServer } from "#core/mcp.ts";
 import { parseMode } from "#core/mode.ts";
 import { shortenHome } from "#core/tools.ts";
 import { renderStatus, setSessionMode, setSessionOutside } from "#pi/mode.ts";
 import { closeFolders, forgetAlwaysYes, resetJudgeHealth, type SessionState } from "#pi/session.ts";
 
 export function registerScreen(scope: FeatureScope, state: SessionState): void {
+	scope.screen.rows(() => mcpRows(scope, state));
+
 	scope.screen.value({
 		id: "session.mode",
 		section: "This session",
@@ -84,6 +92,59 @@ export function registerScreen(scope: FeatureScope, state: SessionState): void {
 			run: (ctx) => close(scope, state, ctx, where),
 		});
 	}
+}
+
+// One row per server pi is connected to, plus any server the settings still name. The rows are
+// built when the screen opens, because a server connects after the session starts.
+function mcpRows(scope: FeatureScope, state: SessionState): ScreenEntry[] {
+	const connected = mcpServers(scope.getAllTools());
+	const gone = Object.keys(state.config.mcp.servers).filter(
+		(name) => !connected.some((entry) => sameServer(entry.server, name)),
+	);
+
+	if (connected.length === 0 && gone.length === 0) {
+		return [
+			{
+				kind: "info",
+				id: "mcp.none",
+				section: "MCP servers",
+				label: "Servers",
+				description:
+					"The MCP servers pi connects to. Each one follows the policy set here, whatever the mode.",
+				text: () => "none connected",
+			},
+		];
+	}
+
+	return [
+		...connected.map((entry) => mcpRow(scope, state, entry)),
+		...gone.map((server) => mcpRow(scope, state, { server, tools: 0, reads: 0, destructive: 0 })),
+	];
+}
+
+function mcpRow(scope: FeatureScope, state: SessionState, entry: McpServer): ScreenEntry {
+	const policy = policyFor(state.config.mcp.servers, entry.server);
+
+	return {
+		kind: "value",
+		id: `mcp.${entry.server}`,
+		section: "MCP servers",
+		label: entry.server,
+		description: `${describeServer(entry)}. ${capitalize(MCP_POLICY_TEXT[policy].description)}.`,
+		meta: "saved for every project",
+		control: MCP_POLICY_CONTROL,
+		get: () => policy,
+		set: (value: Json) => {
+			if (!isMcpPolicy(value)) return "not an MCP policy";
+			return setMcpPolicy(scope, entry.server, value);
+		},
+	};
+}
+
+function describeServer(entry: McpServer): string {
+	if (entry.tools === 0) return "not connected now, so the policy waits";
+	const tools = entry.tools === 1 ? "1 tool" : `${entry.tools} tools`;
+	return `${tools}, ${entry.reads} that read, ${entry.destructive} destructive`;
 }
 
 // With one folder open, the row names it.

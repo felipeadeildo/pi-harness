@@ -18,7 +18,7 @@ import {
 	unit,
 } from "@adeildo/pi-kit";
 
-import { mode, type NoUIConfig, noUI } from "#core/config/decode.ts";
+import { mode, type NoUIConfig, noUI, mcpServers } from "#core/config/decode.ts";
 import {
 	DEFAULT_CONFIG,
 	DEFAULT_TYPING,
@@ -37,6 +37,7 @@ import {
 	type JudgeFallback,
 } from "#core/judge/config.ts";
 import { POLICY_PRESETS } from "#core/judge/policy.ts";
+import { MCP_POLICIES, MCP_POLICY_TEXT, type McpPolicy, sameServer } from "#core/mcp.ts";
 import { DEFAULT_MODE, MODES, PERMISSION_MODES, type PermissionMode } from "#core/mode.ts";
 import { OUTSIDE_DESCRIPTION, OUTSIDE_SCOPES } from "#core/workspace.ts";
 
@@ -44,6 +45,7 @@ export const SECTIONS = [
 	"This session",
 	"New sessions",
 	"Workspace",
+	"MCP servers",
 	"Reads",
 	"Dialog",
 	"Judge",
@@ -63,6 +65,20 @@ function leaf<T>(entry: Leaf<T>): Setting<T> {
 	const { id, fallback, decoder, ...ui } = entry;
 	return setting({ id: `permission.${id}`, default: fallback, decoder, ui });
 }
+
+/** A setting with no row of its own: the screen builds one row per server. */
+function hiddenLeaf<T>(id: string, fallback: T, decoder: Decoder<T>): Setting<T> {
+	return setting({ id: `permission.${id}`, default: fallback, decoder });
+}
+
+export const MCP_POLICY_CONTROL: Control = {
+	type: "choice",
+	options: MCP_POLICIES.map((value) => ({
+		value,
+		label: MCP_POLICY_TEXT[value].label,
+		description: MCP_POLICY_TEXT[value].description,
+	})),
+};
 
 export const MODE_CONTROL: Control = {
 	type: "choice",
@@ -111,6 +127,7 @@ const PERMISSION_LEAVES = {
 		label: "Roots",
 		description: "The folders the project is made of. Relative, absolute and ~ work.",
 	}),
+	servers: hiddenLeaf<Record<string, McpPolicy>>("mcp.servers", {}, mcpServers),
 	allow: leaf({
 		id: "allow",
 		fallback: DEFAULT_CONFIG.allow,
@@ -346,6 +363,7 @@ export function readConfig(scope: SettingsScope): PermissionConfig {
 		readOnlyBash: leaves.readOnlyBash.get(scope),
 		workspace: workspaceOf(scope),
 		typing: typingOf(scope),
+		mcp: { servers: { ...leaves.servers.get(scope) } },
 		judge: {
 			provider: judge.provider.get(scope),
 			model: judge.model.get(scope),
@@ -367,6 +385,22 @@ export function readConfig(scope: SettingsScope): PermissionConfig {
 
 export function writeConfig(scope: SettingsScope, config: PermissionConfig): string | undefined {
 	return scope.settings.setAll(toEntries(config));
+}
+
+/** The policy one MCP server follows, keeping the others. */
+export function setMcpPolicy(
+	scope: SettingsScope,
+	server: string,
+	policy: McpPolicy,
+): string | undefined {
+	const entry = PERMISSION_LEAVES.servers;
+	const servers: Record<string, McpPolicy> = {};
+	// A name that pi sanitized one way and a hand edit wrote the other way are one server.
+	for (const [name, value] of Object.entries(entry.get(scope))) {
+		if (!sameServer(name, server)) servers[name] = value;
+	}
+	servers[server] = policy;
+	return scope.settings.set(entry, servers);
 }
 
 /** Moves the 3.x config.json into the shared settings and keeps it as a `.bak`. */
@@ -413,6 +447,7 @@ function toEntries(config: PermissionConfig): (readonly [Setting<unknown>, unkno
 		[leaves.readOnlyBash, config.readOnlyBash],
 		[leaves.roots, config.workspace.roots],
 		[leaves.outside, config.workspace.outside],
+		[leaves.servers, config.mcp.servers],
 		[leaves.pause, config.typing.pause],
 		[leaves.maxWait, config.typing.maxWait],
 		[judge.provider, config.judge.provider],

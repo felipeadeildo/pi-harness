@@ -138,6 +138,15 @@ describe("buildJudgeState", () => {
 		expect(Object.keys(state.project as Record<string, unknown>)).toEqual(["root"]);
 	});
 
+	test("says where the call comes from when the tool name does not", () => {
+		const state = buildJudgeState(
+			judgeInput({ source: 'MCP server "sauron", which declares the tool reads' }),
+		);
+		expect((state.call as Record<string, unknown>).source).toBe(
+			'MCP server "sauron", which declares the tool reads',
+		);
+	});
+
 	test("caps an oversized input", () => {
 		const state = buildJudgeState(judgeInput({ rawInput: "x".repeat(20_000) }));
 		const input = (state.call as Record<string, unknown>).input as string;

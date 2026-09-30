@@ -7,6 +7,8 @@ export interface JudgeInput {
 	rawInput: unknown;
 	cwd: string;
 	policy: string;
+	/** Where the call comes from, when the tool name does not say it. */
+	source?: string;
 }
 
 export type JudgeChoice = "allow" | "deny" | "needs_human";

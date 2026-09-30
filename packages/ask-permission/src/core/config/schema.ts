@@ -1,4 +1,5 @@
 import { DEFAULT_JUDGE, defaultJudge, type JudgeConfig } from "#core/judge/config.ts";
+import { MCP_POLICIES, type McpPolicy } from "#core/mcp.ts";
 import { DEFAULT_MODE, type PermissionMode } from "#core/mode.ts";
 
 export type NoUIMode = "allow" | "deny";
@@ -17,6 +18,11 @@ export interface TypingConfig {
 	maxWait: number | null;
 }
 
+export interface McpConfig {
+	/** The policy per server, by server name. A server not listed follows the default. */
+	servers: Record<string, McpPolicy>;
+}
+
 export interface PermissionConfig {
 	allow: string[];
 	noUI: NoUIMode | Record<string, NoUIMode>;
@@ -26,6 +32,7 @@ export interface PermissionConfig {
 	workspace: WorkspaceConfig;
 	typing: TypingConfig;
 	judge: JudgeConfig;
+	mcp: McpConfig;
 }
 
 export const DEFAULT_TYPING: TypingConfig = {
@@ -47,6 +54,7 @@ export const DEFAULT_CONFIG: PermissionConfig = {
 	workspace: DEFAULT_WORKSPACE,
 	typing: DEFAULT_TYPING,
 	judge: DEFAULT_JUDGE,
+	mcp: { servers: {} },
 };
 
 export function defaultConfig(): PermissionConfig {
@@ -56,7 +64,12 @@ export function defaultConfig(): PermissionConfig {
 		workspace: { ...DEFAULT_WORKSPACE, roots: [...DEFAULT_WORKSPACE.roots] },
 		typing: { ...DEFAULT_CONFIG.typing },
 		judge: defaultJudge(),
+		mcp: { servers: {} },
 	};
+}
+
+export function isMcpPolicy(value: unknown): value is McpPolicy {
+	return MCP_POLICIES.some((policy) => policy === value);
 }
 
 export function isNoUIMode(value: unknown): value is NoUIMode {

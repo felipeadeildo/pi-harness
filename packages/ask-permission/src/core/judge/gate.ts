@@ -13,6 +13,8 @@ export interface JudgeGateOptions {
 	toolName: string;
 	target: CallDescriptor;
 	rawInput: unknown;
+	/** Where the call comes from, when the tool name does not say it. */
+	source?: string;
 	cache: Map<string, JudgeOutcome>;
 
 	onStatus: (status: string | undefined) => void;
@@ -28,6 +30,7 @@ export async function judgeGate(options: JudgeGateOptions): Promise<JudgeOutcome
 		rawInput: options.rawInput,
 		cwd: ctx.cwd,
 		policy: config.judge.policy,
+		source: options.source,
 	};
 
 	const key = cacheKey(config, input);

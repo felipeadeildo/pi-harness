@@ -1,4 +1,4 @@
-import { renderDiff, type Theme } from "@earendil-works/pi-coding-agent";
+import { renderDiff, type Theme, type ToolAnnotations } from "@earendil-works/pi-coding-agent";
 import {
 	type Component,
 	type Focusable,
@@ -13,6 +13,7 @@ import {
 
 import { type Scope, SCOPE_LABEL, SCOPES } from "#core/always-yes.ts";
 import type { DialogAnswer, FolderOffer } from "#core/answer.ts";
+import { describeHints, type McpCall } from "#core/mcp.ts";
 import type { CallDescriptor } from "#core/tools.ts";
 import { readClipboard } from "#ui/clipboard.ts";
 import { type Choice, choicesFor, openLabel } from "#ui/decision-options.ts";
@@ -39,6 +40,12 @@ interface AskDialogOptions {
 	theme: Theme;
 	toolName: string;
 	target: CallDescriptor;
+	/** Set for a call to an MCP server. */
+	mcp?: McpCall;
+	/** What the tool declares about itself, whatever registered it. */
+	hints?: ToolAnnotations;
+	/** Issued by another tool, as in a codemode script. */
+	nested?: boolean;
 	diff?: string;
 	/** Why the call asks, when a layer said. */
 	reason?: string;
@@ -50,7 +57,10 @@ interface AskDialogOptions {
 
 export class AskDialog implements Component, Focusable {
 	private readonly theme: Theme;
-	private readonly toolName: string;
+	private readonly title: string;
+	private readonly mcp: McpCall | undefined;
+	private readonly hints: ToolAnnotations;
+	private readonly nested: boolean;
 	private readonly target: CallDescriptor;
 	private readonly diff: string | undefined;
 	private readonly reason: string | undefined;
@@ -92,7 +102,10 @@ export class AskDialog implements Component, Focusable {
 
 	constructor(options: AskDialogOptions) {
 		this.theme = options.theme;
-		this.toolName = options.toolName;
+		this.title = options.mcp ? `${options.mcp.server}:${options.mcp.tool}` : options.toolName;
+		this.mcp = options.mcp;
+		this.hints = options.hints ?? {};
+		this.nested = options.nested === true;
 		this.target = options.target;
 		this.diff = options.diff;
 		this.reason = options.reason;
@@ -131,6 +144,7 @@ export class AskDialog implements Component, Focusable {
 		const inner = Math.max(1, width - 4);
 		const lines: string[] = [
 			...this.summaryLines(inner),
+			...this.sourceLines(),
 			...this.reasonLines(),
 			...this.diffLines(),
 		];
@@ -146,7 +160,7 @@ export class AskDialog implements Component, Focusable {
 			lines.push(this.theme.fg("dim", this.hint()));
 		}
 
-		return this.frame(lines, width, inner, `permission \u00b7 ${this.toolName}`);
+		return this.frame(lines, width, inner, `permission \u00b7 ${this.title}`);
 	}
 
 	private dispatch(data: string): void {
@@ -417,6 +431,15 @@ export class AskDialog implements Component, Focusable {
 		if (active && this.folder !== undefined && this.folder === this.offer.repoRoot)
 			tags.push(this.theme.fg("dim", "repo root"));
 		return tags.length === 0 ? "" : `  ${tags.join(this.theme.fg("dim", " \u00b7 "))}`;
+	}
+
+	// Where the call comes from, when that is worth saying: the server's own hint about the tool, and
+	// the script that issued it.
+	private sourceLines(): string[] {
+		const parts: string[] = [];
+		if (this.mcp) parts.push(`${this.mcp.server} \u00b7 ${describeHints(this.hints)}`);
+		if (this.nested) parts.push("from a codemode script");
+		return parts.length === 0 ? [] : [this.theme.fg("dim", parts.join("   "))];
 	}
 
 	private reasonLines(): string[] {

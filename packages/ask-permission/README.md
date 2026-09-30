@@ -122,6 +122,36 @@ A write outside gets `yes, and add … to the workspace` instead, and the cursor
 
 The status bar counts the open folders, like `+1 folder`. The `Folders` section of the settings screen closes them.
 
+### Calls to an MCP server
+
+Pi registers each tool an MCP server offers as `mcp__<server>__<tool>`. The settings screen has a row per server under `MCP servers`, and each one follows a policy of its own:
+
+| Policy        | Runs without asking                                                        |
+| ------------- | -------------------------------------------------------------------------- |
+| `ask me`      | Nothing, in any mode. Every call comes to you                              |
+| `trust hints` | A call the server declares read-only. The rest follows the mode you are in |
+| `allow`       | Every call                                                                 |
+| `deny`        | Nothing. Every call is blocked, whatever the mode says                     |
+
+`trust hints` is the default, and the hint is what the server claims about its own tool. Pi does not verify it, so a server you do not fully trust belongs on `ask me`. A server that declares nothing reads as a writer, so with `trust hints` the mode decides: `manual` and `edits` ask, `judge` judges, `full` runs.
+
+`deny` and `ask me` outrank the mode, `full` included. The `allow` list does not bring a denied server back.
+
+The dialog names the server and repeats what it declares, and says when a script issued the call:
+
+```text
+╭─ permission · sauron:delete_dashboard ──────────────────────╮
+│ {"uid":"abc","id":12}                                       │
+│ sauron · destructive                                        │
+│                                                             │
+│   1  yes                                                    │
+│   2  always yes                                             │
+│ ❯ 3  deny                                                   │
+╰─────────────────────────────────────────────────────────────╯
+```
+
+Pi's `codemode` tool runs a script that calls other tools, and `tool_search` loads a tool for the next call. Both run without asking, because every call they make reaches this gate on its own, and the dialog says it came from a script.
+
 ### Correct the agent
 
 A note on `deny` tells the agent what to do instead. A note on `yes` adds context, like `and update the snapshot`. Both reach the model with the tool result.
@@ -163,6 +193,7 @@ If calls come back as `the judge could not decide`, run `Test the judge` in the 
 | This session | Mode and outside policy for this session          |
 | New sessions | The mode and outside policy a session starts with |
 | Workspace    | The project folders                               |
+| MCP servers  | One row per server, with its policy               |
 | Reads        | Tools that never ask, read-only bash              |
 | Dialog       | Notes, no-dialog behavior, typing pause           |
 | Judge        | Model, policy, thresholds, a test, the log        |
@@ -189,7 +220,7 @@ A long paste collapses to `[paste #1 +48 lines]` and expands when you confirm.
 
 ### Configuration
 
-The settings live in the file every piece shares, `~/.pi/agent/extensions/pi-harness/settings.json`, under a `permission.` prefix. Every key has a row on the settings screen, which shows the key under its description. Only what you change is written, so a new default reaches you.
+The settings live in the file every piece shares, `~/.pi/agent/extensions/pi-harness/settings.json`, under a `permission.` prefix. Every key has a row on the settings screen, which shows the key under its description, except `mcp.servers`, which gets one row per connected server. Only what you change is written, so a new default reaches you.
 
 ```json
 {
@@ -205,17 +236,18 @@ The settings live in the file every piece shares, `~/.pi/agent/extensions/pi-har
 
 The ids below leave out the `permission.` prefix.
 
-| Key                 | Does                                                                                                                                   |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `allow`             | Tools that never ask. `mcp_*` matches a family. It matches the tool name, so `bash` allows every command                               |
-| `mode`              | The mode a new session starts in: `"manual"`, `"edits"`, `"judge"`, or `"full"`                                                        |
-| `readOnlyBash`      | Run bash commands that only read without asking                                                                                        |
-| `notes`             | `"result"` adds a note to the tool result. `"message"` sends it as its own message                                                     |
-| `noUI`              | `"allow"` or `"deny"` when nobody can answer, as in print mode or a subagent. Takes a per-tool map: `{ "*": "allow", "bash": "deny" }` |
-| `workspace.roots`   | Paths that count as the project. Relative, absolute, and `~` work                                                                      |
-| `workspace.outside` | Where a new session starts for a call outside the roots: `"ask"` you, `"deny"` it, or `"allow"` it like any other                      |
-| `typing.pause`      | Milliseconds of quiet before the dialog opens while you type                                                                           |
-| `typing.maxWait`    | The longest the dialog waits for you to stop typing. `null` waits forever                                                              |
+| Key                 | Does                                                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `allow`             | Tools that never ask. `mcp__*` matches a family. It matches the tool name, so `bash` allows every command. An MCP server policy comes first |
+| `mode`              | The mode a new session starts in: `"manual"`, `"edits"`, `"judge"`, or `"full"`                                                             |
+| `readOnlyBash`      | Run bash commands that only read without asking                                                                                             |
+| `notes`             | `"result"` adds a note to the tool result. `"message"` sends it as its own message                                                          |
+| `noUI`              | `"allow"` or `"deny"` when nobody can answer, as in print mode or a subagent. Takes a per-tool map: `{ "*": "allow", "bash": "deny" }`      |
+| `workspace.roots`   | Paths that count as the project. Relative, absolute, and `~` work                                                                           |
+| `workspace.outside` | Where a new session starts for a call outside the roots: `"ask"` you, `"deny"` it, or `"allow"` it like any other                           |
+| `typing.pause`      | Milliseconds of quiet before the dialog opens while you type                                                                                |
+| `typing.maxWait`    | The longest the dialog waits for you to stop typing. `null` waits forever                                                                   |
+| `mcp.servers`       | The policy per MCP server, like `{ "sauron": "deny" }`. The row per server on the settings screen writes this one                           |
 
 The `judge` block:
 
@@ -244,14 +276,17 @@ If `~/.pi/agent/extensions/pi-ask-permission/config.json` exists, the next sessi
 The first step that answers wins.
 
 1. **Always yes** matches the tool and level: run it.
-2. **Workspace**: a call outside `workspace.roots` asks you, or is blocked with this session's outside set to `deny`. Nothing below can approve it. The call goes on with `allow`, or when every path it reaches is in a folder you opened.
-3. **Mode**: `full` runs it, `edits` and `judge` run an edit.
-4. **Allow list**: the tool is in `allow`, run it.
-5. **Read-only bash**: the command only reads, and its paths can be read, run it.
-6. **Judge**, in the `judge` mode: a confident yes runs it, a confident no blocks it.
-7. **No UI**: `noUI` decides.
-8. **Edit check**: an `edit` that cannot apply is blocked with pi's own error, so you never approve a failure.
-9. **You**, in the dialog.
+2. **Codemode**: `codemode` and `tool_search` themselves run. Every call inside is decided on its own.
+3. **Workspace**: a call outside `workspace.roots` asks you, or is blocked with this session's outside set to `deny`. Nothing below can approve it. The call goes on with `allow`, or when every path it reaches is in a folder you opened.
+4. **MCP**: the policy of the server. `deny` blocks, `allow` runs, `ask` asks, and `trust hints` decides nothing here.
+5. **Read-only hint**: the tool declares that it only reads, run it.
+6. **Mode**: `full` runs it, `edits` and `judge` run an edit.
+7. **Allow list**: the tool is in `allow`, run it.
+8. **Read-only bash**: the command only reads, and its paths can be read, run it.
+9. **Judge**, in the `judge` mode: a confident yes runs it, a confident no blocks it.
+10. **No UI**: `noUI` decides.
+11. **Edit check**: an `edit` that cannot apply is blocked with pi's own error, so you never approve a failure.
+12. **You**, in the dialog.
 
 The judge answers three questions: a verdict, how reversible the call is, and whether it touches secrets. Code combines them into `risk = 0.6 × reversibility + 0.4 × sensitive` and approves only when the verdict is `allow`, confidence clears `thresholds.allow`, and risk is at most `riskCeiling`. The judge treats the tool call as data, so a command cannot talk its way past the policy or `alwaysAsk`.
 
@@ -261,7 +296,7 @@ The judge answers three questions: a verdict, how reversible the call is, and wh
 - A bash path hidden behind `$HOME`, `$SECRET`, or `"$@"` counts as outside in `manual` and `edits`. In `judge` the judge decides it, even when the command only reads. In `full` it runs. Redirects to `/dev/null` and the other device files stay inside.
 - The read-only check is a classifier, not a sandbox. It trusts the command name as written and does not resolve `PATH`. It refuses anything it cannot prove harmless, so a few safe commands still ask.
 - The judge is a model, and it can be wrong. It sees the tool call, so do not judge calls that carry secrets you would not send to its provider.
-- Pi's `codemode` tool runs a script that calls other tools. The dialog asks about the script, and every call the script makes goes through the same steps on its own.
+- Pi's `codemode` tool runs a script that calls other tools. The script itself does not ask, and every call it makes goes through the same steps on its own, saying so in the dialog. The judge reads the arguments of an MCP call as data, like any other call.
 - If you want deterministic rules and no human in the loop, use a sandbox instead.
 
 ### For other extensions

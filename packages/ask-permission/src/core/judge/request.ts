@@ -5,7 +5,11 @@ const MAX_INPUT_CHARS = 8000;
 export function buildJudgeState(input: JudgeInput): Record<string, unknown> {
 	return {
 		policy: input.policy.trim() || "(no policy provided)",
-		call: { tool: input.toolName, input: describeInput(input.rawInput) },
+		call: {
+			tool: input.toolName,
+			input: describeInput(input.rawInput),
+			...(input.source === undefined ? {} : { source: input.source }),
+		},
 		project: { root: input.cwd },
 	};
 }

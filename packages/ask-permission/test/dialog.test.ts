@@ -1,10 +1,11 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 
-import { initTheme, type Theme } from "@earendil-works/pi-coding-agent";
+import { initTheme, type Theme, type ToolAnnotations } from "@earendil-works/pi-coding-agent";
 import { CURSOR_MARKER, type KeybindingsManager, visibleWidth } from "@earendil-works/pi-tui";
 
 import type { Scope } from "#core/always-yes.ts";
 import type { DialogAnswer } from "#core/answer.ts";
+import type { McpCall } from "#core/mcp.ts";
 import { asToolInput, toolAdapter } from "#core/tools.ts";
 import { FALLBACK_CHOICES } from "#ui/decision-options.ts";
 import { AskDialog } from "#ui/dialog.ts";
@@ -27,6 +28,7 @@ function open(
 	toolName = "bash",
 	input: unknown = { command: "git status --short" },
 	diff?: string,
+	extra: { mcp?: McpCall; hints?: ToolAnnotations; nested?: boolean } = {},
 ) {
 	const decisions: DialogAnswer[] = [];
 	let renders = 0;
@@ -35,6 +37,7 @@ function open(
 		toolName,
 		target: toolAdapter(toolName).describe(asToolInput(input)),
 		diff,
+		...extra,
 		keybindings: NO_PASTE,
 		requestRender: () => {
 			renders++;
@@ -425,5 +428,36 @@ describe("rendering", () => {
 		const before = renders();
 		press(dialog, "x", KEYS.down, KEYS.tab);
 		expect(renders()).toBeGreaterThan(before + 2);
+	});
+});
+
+describe("an MCP call, and a call a script made", () => {
+	const sauron: McpCall = { server: "sauron", tool: "delete_dashboard" };
+
+	test("the title names the server, and the hint and the script are said", () => {
+		const { dialog } = open("mcp__sauron__delete_dashboard", { dashboard: "1" }, undefined, {
+			mcp: sauron,
+			hints: { destructiveHint: true },
+			nested: true,
+		});
+		const text = dialog.render(80).join("\n");
+
+		expect(text).toContain("permission \u00b7 sauron:delete_dashboard");
+		expect(text).toContain("sauron \u00b7 destructive   from a codemode script");
+		expect(text).toContain('{"dashboard":"1"}');
+	});
+
+	test("a server that declares nothing says so", () => {
+		const { dialog } = open("mcp__dorothy__list_domains", {}, undefined, {
+			mcp: { server: "dorothy", tool: "list_domains" },
+		});
+		expect(dialog.render(80).join("\n")).toContain("dorothy \u00b7 does not say it reads");
+	});
+
+	test("a plain tool says nothing about servers or scripts", () => {
+		const text = open().dialog.render(80).join("\n");
+		expect(text).toContain("permission \u00b7 bash");
+		expect(text).not.toContain("does not say it reads");
+		expect(text).not.toContain("codemode");
 	});
 });

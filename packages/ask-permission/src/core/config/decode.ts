@@ -22,6 +22,7 @@ import {
 	DEFAULT_TYPING,
 	DEFAULT_WORKSPACE,
 	defaultConfig,
+	isMcpPolicy,
 	type NoUIMode,
 	type PermissionConfig,
 	type TypingConfig,
@@ -29,6 +30,7 @@ import {
 } from "#core/config/schema.ts";
 import { defaultJudge } from "#core/judge/config.ts";
 import { judgeConfig } from "#core/judge/decode.ts";
+import { MCP_POLICIES, type McpPolicy } from "#core/mcp.ts";
 import { DEFAULT_MODE, parseMode, PERMISSION_MODES, type PermissionMode } from "#core/mode.ts";
 
 export type NoUIConfig = NoUIMode | Record<string, NoUIMode>;
@@ -56,6 +58,24 @@ export const mode: Decoder<PermissionMode> = {
 	},
 };
 
+/** The policy per MCP server, keyed by server name. */
+export const mcpServers: Decoder<Record<string, McpPolicy>> = {
+	decode(input, path) {
+		if (!isObject(input)) return fail(problem(path, "expected a map of server to policy"));
+
+		const problems: Problem[] = [];
+		const value: Record<string, McpPolicy> = {};
+		for (const [server, entry] of Object.entries(input)) {
+			if (isMcpPolicy(entry)) value[server] = entry;
+			else
+				problems.push(
+					problem(fieldPath(path, server), `expected one of ${MCP_POLICIES.join(", ")}`),
+				);
+		}
+		return pass(value, problems);
+	},
+};
+
 const typing: Decoder<TypingConfig> = object({
 	pause: withDefault(duration, DEFAULT_TYPING.pause),
 	maxWait: withDefault(nullable(duration), DEFAULT_TYPING.maxWait),
@@ -78,6 +98,7 @@ const config: Decoder<PermissionConfig> = object({
 	})),
 	typing: withDefaultOf(typing, () => ({ ...DEFAULT_TYPING })),
 	judge: withDefaultOf(judgeConfig, defaultJudge),
+	mcp: withDefaultOf(object({ servers: withDefault(mcpServers, {}) }), () => ({ servers: {} })),
 });
 
 export function decodeConfig(input: unknown, warnings: string[] = []): PermissionConfig {

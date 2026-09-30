@@ -19,6 +19,7 @@ import {
 } from "#core/decide.ts";
 import { judgeGate } from "#core/judge/gate.ts";
 import { judgeVerdictText, remember, warnOnce } from "#core/judge/report.ts";
+import { describeHints, type ToolFacts } from "#core/mcp.ts";
 import { MODES } from "#core/mode.ts";
 import { shortenHome } from "#core/tools.ts";
 import { folderChoices } from "#core/workspace.ts";
@@ -64,13 +65,11 @@ export function registerEvents(scope: FeatureScope, state: SessionState): void {
 	});
 
 	scope.on("tool_call", async (event, ctx) => {
-		const call = describeCall(
-			event.toolName,
-			event.input,
-			ctx.cwd,
-			state.config,
-			state.customTools,
-		);
+		const call = describeCall(event.toolName, event.input, ctx.cwd, state.config, {
+			custom: state.customTools,
+			facts: toolFacts(scope),
+			nested: event.parentToolCallId !== undefined,
+		});
 		const outcome = await gate(scope, state, ctx, call, event);
 
 		announce(scope, {
@@ -102,6 +101,12 @@ export function registerEvents(scope: FeatureScope, state: SessionState): void {
 }
 
 type Outcome = Pick<Decided, "action" | "by" | "reason" | "note">;
+
+/** What pi reports about a tool beside its name: the server it belongs to, and its own hints. */
+function toolFacts(pi: ExtensionAPI): ToolFacts {
+	const tools = pi.getAllTools();
+	return (toolName) => tools.find((tool) => tool.name === toolName);
+}
 
 async function gate(
 	pi: ExtensionAPI,
@@ -195,6 +200,7 @@ async function runJudge(
 		toolName: call.toolName,
 		target: call.target,
 		rawInput: call.input,
+		source: judgeSource(call),
 		cache: state.judgeCache,
 		onStatus: (status) => ctx.ui.setStatus(JUDGE_STATUS, status),
 	});
@@ -230,6 +236,19 @@ async function runJudge(
 	return undefined;
 }
 
+// What the tool name does not say: the server behind an MCP tool and what it declares, and a call
+// that a script issued rather than the model. The judge reads both as data.
+function judgeSource(call: Call): string | undefined {
+	const parts: string[] = [];
+	if (call.mcp) {
+		parts.push(
+			`MCP server "${call.mcp.server}", which declares the tool ${describeHints(call.hints)}`,
+		);
+	}
+	if (call.nested) parts.push("issued by a codemode script, not by the model");
+	return parts.length === 0 ? undefined : parts.join("; ");
+}
+
 // No offer when folderChoices finds nothing to open, like a path in the home itself.
 function offerFor(call: Call): FolderOffer | undefined {
 	if (call.reach.kind !== "outside") return undefined;
@@ -253,6 +272,8 @@ async function ask(ctx: ExtensionContext, call: Call, extras: AskExtras): Promis
 						theme,
 						toolName,
 						target,
+						mcp: call.mcp,
+						nested: call.nested,
 						...extras,
 						keybindings,
 						requestRender: () => tui.requestRender(),

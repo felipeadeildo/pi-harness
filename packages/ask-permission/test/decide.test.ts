@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { tmpdir } from "node:os";
 
+import { toolInfo } from "@adeildo/pi-kit/testing";
+
 import { defaultConfig } from "#core/config/schema.ts";
 import {
 	decide,
@@ -10,6 +12,7 @@ import {
 	gateLayers,
 	type Layer,
 } from "#core/decide.ts";
+import type { McpPolicy } from "#core/mcp.ts";
 import type { PermissionMode } from "#core/mode.ts";
 
 const CWD = tmpdir();
@@ -66,7 +69,7 @@ describe("decide", () => {
 		["judge", "bash", { command: "git status" }, "read-only bash"],
 		["judge", "bash", { command: "rm -rf build" }, undefined],
 		["full", "bash", { command: "rm -rf build" }, "mode"],
-		["full", "codemode", { code: "x" }, "mode"],
+		["full", "codemode", { code: "x" }, "codemode"],
 	])("%s: %s %j decides by %s", async (mode, toolName, input, layer) => {
 		expect(await decidedBy(toolName, input, gate({ mode }))).toBe(layer);
 	});
@@ -142,5 +145,92 @@ describe("the workspace, in every mode", () => {
 		}
 		expect(await decidedBy("bash", command, gate({ mode: "judge" }), [judge])).toBe("judge");
 		expect(await decidedBy("bash", command, gate({ mode: "full" }))).toBe("mode");
+	});
+});
+
+describe("the MCP policy", () => {
+	const reads = toolInfo("mcp__sauron__query_loki_logs", {
+		namespace: { name: "mcp__sauron" },
+		annotations: { readOnlyHint: true },
+	});
+	const destructive = toolInfo("mcp__sauron__delete_dashboard", {
+		namespace: { name: "mcp__sauron" },
+		annotations: { destructiveHint: true },
+	});
+	const silent = toolInfo("mcp__dorothy__list_domains", { namespace: { name: "mcp__dorothy" } });
+	const all = [reads, destructive, silent];
+	const facts = (toolName: string) => all.find((tool) => tool.name === toolName);
+
+	function mcpGate(policies: Record<string, McpPolicy> = {}, mode: PermissionMode = "manual") {
+		return gate({ config: { ...defaultConfig(), mcp: { servers: policies } }, mode });
+	}
+
+	async function mcpDecidedBy(
+		toolName: string,
+		state: GateState,
+		extra: Layer[] = [],
+		nested = false,
+	): Promise<string | undefined> {
+		const call = describeCall(toolName, { dashboard: "x" }, CWD, state.config, { facts, nested });
+		const result = await decide(call, [...gateLayers(state), ...extra]);
+		return "by" in result ? result.by : undefined;
+	}
+
+	test("a call the server says only reads runs, and the others do not", async () => {
+		expect(await mcpDecidedBy(reads.name, mcpGate())).toBe("read-only hint");
+		expect(await mcpDecidedBy(destructive.name, mcpGate())).toBeUndefined();
+		expect(await mcpDecidedBy(silent.name, mcpGate())).toBeUndefined();
+	});
+
+	test("a server that declares nothing is judged, not trusted", async () => {
+		expect(await mcpDecidedBy(silent.name, mcpGate({}, "judge"), [judge])).toBe("judge");
+	});
+
+	test("allow runs every call of the server, destructive included", async () => {
+		expect(await mcpDecidedBy(destructive.name, mcpGate({ sauron: "allow" }))).toBe("mcp");
+	});
+
+	test("ask asks for every call, even in full and even for a read", async () => {
+		const state = mcpGate({ sauron: "ask" }, "full");
+		expect(await mcpDecidedBy(reads.name, state)).toBe("mcp");
+		expect(await mcpDecidedBy(destructive.name, state)).toBe("mcp");
+	});
+
+	test("deny blocks, and outranks the mode", async () => {
+		const state = mcpGate({ sauron: "deny" }, "full");
+		const result = await mcpDecidedBy(reads.name, state);
+		expect(result).toBe("mcp");
+
+		const call = describeCall(reads.name, {}, CWD, state.config, { facts });
+		const verdict = await decide(call, gateLayers(state));
+		expect(verdict).toMatchObject({ action: "block", by: "mcp" });
+	});
+
+	test("one server's policy leaves the others alone", async () => {
+		const state = mcpGate({ sauron: "deny" });
+		expect(await mcpDecidedBy(reads.name, state)).toBe("mcp");
+		expect(await mcpDecidedBy(silent.name, state)).toBeUndefined();
+	});
+
+	test("the policy also decides a call a script issued", async () => {
+		expect(
+			await mcpDecidedBy(destructive.name, mcpGate({ sauron: "deny" }, "full"), [], true),
+		).toBe("mcp");
+		expect(await mcpDecidedBy(destructive.name, mcpGate(), [], true)).toBeUndefined();
+	});
+
+	test("a script and a search run without asking, wherever they sit", async () => {
+		expect(await mcpDecidedBy("codemode", mcpGate(), [], true)).toBe("codemode");
+		expect(await mcpDecidedBy("tool_search", mcpGate())).toBe("codemode");
+	});
+
+	test("always yes has the last word, and names the tool as the dialog shows it", async () => {
+		const call = describeCall(reads.name, { dashboard: "x" }, CWD, defaultConfig(), { facts });
+		expect(call.target.levels).toEqual(["sauron:query_loki_logs"]);
+
+		const state = gate({
+			alwaysYes: { has: (_toolName, levels) => levels.includes("sauron:query_loki_logs") },
+		});
+		expect(await mcpDecidedBy(reads.name, state)).toBe("always yes");
 	});
 });
