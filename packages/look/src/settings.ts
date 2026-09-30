@@ -15,6 +15,12 @@ import type { IconMode } from "./render/glyphs.ts";
 import { isSegmentId, SEGMENT_IDS, SEGMENTS, type SegmentId } from "./render/segments.ts";
 
 const PERMISSION_STATUS: SegmentId = "status:pi-ask-permission:mode";
+const ACCOUNT_STATUS: SegmentId = "status:pi-providers:accounts";
+
+const STATUS_LABELS: Partial<Record<string, string>> = {
+	[PERMISSION_STATUS]: "permission mode",
+	[ACCOUNT_STATUS]: "account",
+};
 
 export const SECTIONS = [
 	"Editor",
@@ -59,14 +65,18 @@ function segments(fallback: readonly SegmentId[]): Decoder<SegmentId[]> {
 
 // Any other package's status can have a slot of its own, so the ones already placed are offered too.
 function slotControl(fallback: readonly SegmentId[]): Control {
-	const statuses = [PERMISSION_STATUS, ...fallback.filter((id) => id.startsWith("status:"))];
+	const statuses = [
+		PERMISSION_STATUS,
+		ACCOUNT_STATUS,
+		...fallback.filter((id) => id.startsWith("status:")),
+	];
 	return {
 		type: "list",
 		options: [
 			...SEGMENT_IDS.map((id) => ({ value: id, description: SEGMENTS[id].describe })),
 			...[...new Set(statuses)].map((id) => ({
 				value: id,
-				label: id === PERMISSION_STATUS ? "permission mode" : id.slice("status:".length),
+				label: STATUS_LABELS[id] ?? id.slice("status:".length),
 				description: `what ${id.slice("status:".length)} reports`,
 			})),
 		],
@@ -103,7 +113,7 @@ export const bottomLeft = slot(
 	"frame.bottomLeft",
 	"Frame, bottom left",
 	"How what you type is handled, and who does the work.",
-	[PERMISSION_MODE, "model", "effort"],
+	[PERMISSION_MODE, "model", ACCOUNT_STATUS, "effort"],
 );
 export const bottomRight = slot("frame.bottomRight", "Frame, bottom right", "How full it is.", [
 	"context",
