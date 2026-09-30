@@ -1,19 +1,27 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { type Scope, SCOPE_LABEL, SCOPES } from "#core/always-yes.ts";
-import type { DialogAnswer } from "#core/answer.ts";
+import type { DialogAnswer, FolderOffer } from "#core/answer.ts";
 import type { CallDescriptor } from "#core/tools.ts";
-import { FALLBACK_CHOICES } from "#ui/decision-options.ts";
+import { fallbackChoices } from "#ui/decision-options.ts";
 
 export async function askViaSelector(
 	ctx: ExtensionContext,
 	toolName: string,
 	target: CallDescriptor,
+	offer?: FolderOffer,
 ): Promise<DialogAnswer> {
-	const labels = FALLBACK_CHOICES.map((option) => `${option.key}. ${option.label}`);
+	const choices = fallbackChoices(offer);
+	const labels = choices.map((option) => `${option.key}. ${option.label}`);
 	const choice = await ctx.ui.select(`Allow ${toolName}?\n${target.summary}`, labels);
-	const option = choice ? FALLBACK_CHOICES[labels.indexOf(choice)] : undefined;
+	const option = choice ? choices[labels.indexOf(choice)] : undefined;
 	if (!option) return { decision: "deny" };
+
+	const folder = offer?.folders[offer.suggested];
+	const open =
+		option.open && offer && folder !== undefined
+			? { path: folder, access: offer.access, scope: "session" as const }
+			: undefined;
 
 	let remember: string | undefined;
 	let scope: Scope | undefined;
@@ -38,5 +46,5 @@ export async function askViaSelector(
 		note = (await ctx.ui.input(prompt))?.trim() || undefined;
 	}
 
-	return { decision: option.decision, note, remember, scope };
+	return { decision: option.decision, note, remember, scope, open };
 }

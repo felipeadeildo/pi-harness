@@ -70,16 +70,26 @@ export function clearStatus(ctx: ExtensionContext): void {
 
 export function renderStatus(
 	ctx: ExtensionContext,
-	state: Pick<SessionState, "mode" | "outside">,
+	state: Pick<SessionState, "mode" | "outside" | "folders">,
 ): void {
 	const tag = OUTSIDE_TAG[state.outside];
-	if (state.mode === "manual" && tag === undefined) {
+	const folders = state.folders.total();
+	const quiet = state.mode === "manual" && tag === undefined;
+	if (quiet && folders === 0) {
 		clearStatus(ctx);
 		return;
 	}
 	if (!ctx.hasUI) return;
 
-	const label = tag === undefined ? state.mode : `${state.mode} \u00b7 ${tag}`;
-	const color = state.outside === "allow" ? "error" : "warning";
-	ctx.ui.setStatus(MODE_STATUS, ctx.ui.theme.fg(color, `${ARROW[state.mode]}${label}`));
+	const theme = ctx.ui.theme;
+	const parts: string[] = [];
+	if (!quiet) {
+		const label = tag === undefined ? state.mode : `${state.mode} \u00b7 ${tag}`;
+		const color = state.outside === "allow" ? "error" : "warning";
+		parts.push(theme.fg(color, `${ARROW[state.mode]}${label}`));
+	}
+	// The workspace grew, so it says so, quietly.
+	if (folders > 0)
+		parts.push(theme.fg("dim", `+${folders} ${folders === 1 ? "folder" : "folders"}`));
+	ctx.ui.setStatus(MODE_STATUS, parts.join(theme.fg("dim", " \u00b7 ")));
 }

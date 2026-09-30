@@ -98,6 +98,28 @@ The workspace comes before the mode. A call outside `workspace.roots` asks you i
 
 A resumed session keeps its mode and its `Alt+W` choice. A new one starts from `mode` and `workspace.outside` in the settings.
 
+### Read a folder next door
+
+In a monorepo, a session in `apps/api` that reads `apps/web` leaves the workspace. The dialog says so and offers the folder, with the cursor already on it:
+
+```text
+╭─ permission · bash ──────────────────────────────────────────╮
+│ cd ~/Projects/grace/apps/web && git status --short | head    │
+│ ▲ reads outside the workspace                                │
+│                                                              │
+│   1  yes                                                     │
+│ ❯ 2  yes, and allow reads in ~/Projects/grace  repo root     │
+│   3  always yes                                              │
+│   4  deny                                                    │
+│                                                              │
+│ ←→ folder   s keep for this project   tab note   esc deny    │
+╰──────────────────────────────────────────────────────────────╯
+```
+
+`enter` opens the repository for reads until the session ends, so the next reads there run without asking. `←` and `→` pick a folder higher or lower, and `s` keeps it for every session in this project. A write outside offers `yes, and add … to the workspace` instead, and the cursor stays on the plain `yes`. The folder is never your home or anything above it.
+
+The status bar counts the open folders, like `+1 folder`, and the `Folders` section of the settings screen closes them.
+
 ### Correct the agent
 
 A note on `deny` tells the agent what to do instead. A note on `yes` adds context, like `and update the snapshot`. Both reach the model with the tool result.
@@ -143,6 +165,7 @@ If calls come back as `the judge could not decide`, run `Test the judge` in the 
 | Dialog       | Notes, no-dialog behavior, typing pause           |
 | Judge        | Model, policy, thresholds, a test, the log        |
 | Always yes   | Rule counts, and forget                           |
+| Folders      | Folders opened from the dialog, and close         |
 
 Type to search. `Delete` resets a value.
 
@@ -154,6 +177,8 @@ Type to search. `Delete` resets a value.
 | ---------------------- | ---------------------------------------------------- |
 | `↑` `↓` or `1` `2` `3` | Move the highlight                                   |
 | `enter`                | Confirm the highlighted row                          |
+| `←` `→`                | Pick the folder to open, on the folder row           |
+| `s`                    | Keep the folder for this project, on the folder row  |
 | `tab`                  | Open or close a note, or change the always yes scope |
 | `esc`                  | Close the note, or deny                              |
 | `ctrl+v`               | Paste a clipboard image as its file path             |
@@ -217,7 +242,7 @@ If `~/.pi/agent/extensions/pi-ask-permission/config.json` exists, the next sessi
 The first step that answers wins.
 
 1. **Always yes** matches the tool and level: run it.
-2. **Workspace**: a call outside `workspace.roots` asks you, or is blocked with this session's outside set to `deny`. Nothing below can approve it. With `allow`, the call goes on.
+2. **Workspace**: a call outside `workspace.roots` asks you, or is blocked with this session's outside set to `deny`. Nothing below can approve it. With `allow`, or when every path it reaches is in a folder you opened for it, the call goes on.
 3. **Mode**: `full` runs it, `edits` and `judge` run an edit.
 4. **Allow list**: the tool is in `allow`, run it.
 5. **Read-only bash**: the command only reads, and its paths can be read, run it.

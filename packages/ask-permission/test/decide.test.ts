@@ -20,6 +20,7 @@ function gate(overrides: Partial<GateState> = {}): GateState {
 		mode: "manual",
 		outside: "ask",
 		alwaysYes: { has: () => false },
+		folders: { covers: () => false },
 		...overrides,
 	};
 }

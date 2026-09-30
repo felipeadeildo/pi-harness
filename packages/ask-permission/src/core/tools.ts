@@ -15,6 +15,8 @@ export interface ToolAdapter {
 	/** Undefined when the paths cannot be read. */
 	paths(input: ToolInput): string[] | undefined;
 	edits?: boolean;
+	/** Never writes, whatever the input. Unlike `readOnly`, it does not pass the read-only bash layer. */
+	onlyReads?: boolean;
 	readOnly?(input: ToolInput): boolean;
 }
 
@@ -39,9 +41,10 @@ const fileReader: ToolAdapter = {
 		return { summary: path.trim() || "(no path)", levels: pathLevels(path) };
 	},
 	paths: (input) => [text(input.path)?.trim() || "."],
+	onlyReads: true,
 };
 
-const fileWriter: ToolAdapter = { ...fileReader, edits: true };
+const fileWriter: ToolAdapter = { ...fileReader, edits: true, onlyReads: false };
 
 const mcp: ToolAdapter = {
 	describe: mcpTarget,

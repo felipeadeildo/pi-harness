@@ -10,8 +10,8 @@ import { probeJudge } from "#core/judge/probe.ts";
 import { judgeLogText } from "#core/judge/report.ts";
 import { parseMode } from "#core/mode.ts";
 import { shortenHome } from "#core/tools.ts";
-import { setSessionMode, setSessionOutside } from "#pi/mode.ts";
-import { forgetAlwaysYes, resetJudgeHealth, type SessionState } from "#pi/session.ts";
+import { renderStatus, setSessionMode, setSessionOutside } from "#pi/mode.ts";
+import { closeFolders, forgetAlwaysYes, resetJudgeHealth, type SessionState } from "#pi/session.ts";
 
 export function registerScreen(scope: FeatureScope, state: SessionState): void {
 	scope.screen.value({
@@ -72,6 +72,39 @@ export function registerScreen(scope: FeatureScope, state: SessionState): void {
 			run: (ctx) => forget(scope, state, ctx, where),
 		});
 	}
+
+	for (const where of ["session", "project", "global"] as const) {
+		scope.screen.action({
+			id: `folders.${where}`,
+			section: "Folders",
+			label: capitalize(SCOPE_LABEL[where]),
+			description: `Folders outside the workspace you opened from the dialog, ${SCOPE_LABEL[where]}. A call that reaches only these counts as inside. Enter closes them.`,
+			text: () => foldersText(state, where),
+			confirm: `Close every folder open for ${SCOPE_LABEL[where]}?`,
+			run: (ctx) => close(scope, state, ctx, where),
+		});
+	}
+}
+
+// One folder is named, so the row says what is open without opening anything.
+function foldersText(state: SessionState, where: Scope): string {
+	const folders = state.folders.list(where);
+	const only = folders[0];
+	if (folders.length === 0) return "none";
+	if (folders.length > 1 || only === undefined) return `${folders.length} folders`;
+	return only.access === "read" ? `${shortenHome(only.path)}, reads` : shortenHome(only.path);
+}
+
+function close(
+	scope: FeatureScope,
+	state: SessionState,
+	ctx: ExtensionContext,
+	where: Scope,
+): string | undefined {
+	const removed = closeFolders(scope, state, ctx, where);
+	if (removed === 0) throw new Error(`no folder open for ${SCOPE_LABEL[where]}`);
+	renderStatus(ctx, state);
+	return undefined;
 }
 
 async function testJudge(state: SessionState, ctx: ExtensionContext): Promise<string> {

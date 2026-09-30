@@ -134,6 +134,7 @@ describe("what a command reaches", () => {
 		expect(reachOfCall("bash", { command: "cat /dev/sda" })).toEqual({
 			kind: "outside",
 			path: "/dev/sda",
+			paths: ["/dev/sda"],
 		});
 	});
 

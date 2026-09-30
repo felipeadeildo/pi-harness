@@ -8,6 +8,7 @@ import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { ALWAYS_YES_FILE } from "#core/always-yes.ts";
 import { decodeConfig } from "#core/config/decode.ts";
 import { defaultConfig, type PermissionConfig } from "#core/config/schema.ts";
+import { FOLDERS_FILE } from "#core/folders.ts";
 import { CONFIG_DIR } from "#identity";
 import { describe, isRecord } from "#util/primitives.ts";
 
@@ -27,6 +28,14 @@ export function globalAlwaysYesPath(): string {
 
 export function projectAlwaysYesPath(cwd: string): string {
 	return join(cwd, CONFIG_DIR_NAME, "extensions", CONFIG_DIR, ALWAYS_YES_FILE);
+}
+
+export function globalFoldersPath(): string {
+	return join(getAgentDir(), "extensions", CONFIG_DIR, FOLDERS_FILE);
+}
+
+export function projectFoldersPath(cwd: string): string {
+	return join(cwd, CONFIG_DIR_NAME, "extensions", CONFIG_DIR, FOLDERS_FILE);
 }
 
 export function readLegacyConfig(): LegacyConfig {

@@ -2,6 +2,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { isOutsideScope, type OutsideScope } from "#core/config/schema.ts";
+import type { Access, OpenFolder } from "#core/folders.ts";
 import { parseMode, type PermissionMode } from "#core/mode.ts";
 import { NAME } from "#identity";
 import type { SessionState } from "#pi/session.ts";
@@ -13,12 +14,15 @@ export type SessionEntry =
 	| { kind: "mode"; mode: PermissionMode }
 	| { kind: "outside"; outside: OutsideScope }
 	| { kind: "always-yes"; toolName: string; level: string }
-	| { kind: "forget-always-yes" };
+	| { kind: "forget-always-yes" }
+	| { kind: "folder"; path: string; access: Access }
+	| { kind: "close-folders" };
 
 export interface SessionSnapshot {
 	mode: PermissionMode;
 	outside: OutsideScope;
 	alwaysYes: { toolName: string; level: string }[];
+	folders: OpenFolder[];
 }
 
 export function record(pi: ExtensionAPI, entry: SessionEntry): void {
@@ -29,7 +33,7 @@ export function replay(
 	branch: readonly unknown[],
 	start: Pick<SessionSnapshot, "mode" | "outside">,
 ): SessionSnapshot {
-	const snapshot: SessionSnapshot = { ...start, alwaysYes: [] };
+	const snapshot: SessionSnapshot = { ...start, alwaysYes: [], folders: [] };
 
 	for (const item of branch) {
 		const entry = sessionEntry(item);
@@ -45,6 +49,12 @@ export function replay(
 				break;
 			case "forget-always-yes":
 				snapshot.alwaysYes = [];
+				break;
+			case "folder":
+				snapshot.folders.push({ path: entry.path, access: entry.access });
+				break;
+			case "close-folders":
+				snapshot.folders = [];
 				break;
 		}
 	}
@@ -63,6 +73,8 @@ export function restoreSession(state: SessionState, ctx: ExtensionContext): void
 	for (const { toolName, level } of snapshot.alwaysYes) {
 		state.alwaysYes.add("session", toolName, level);
 	}
+	state.folders.forget("session");
+	for (const { path, access } of snapshot.folders) state.folders.add("session", path, access);
 }
 
 function sessionEntry(item: unknown): SessionEntry | undefined {
@@ -84,6 +96,14 @@ function sessionEntry(item: unknown): SessionEntry | undefined {
 		return { kind: "always-yes", toolName: data.toolName, level: data.level };
 	}
 	if (data.kind === "forget-always-yes") return { kind: "forget-always-yes" };
+	if (
+		data.kind === "folder" &&
+		isText(data.path) &&
+		(data.access === "read" || data.access === "write")
+	) {
+		return { kind: "folder", path: data.path, access: data.access };
+	}
+	if (data.kind === "close-folders") return { kind: "close-folders" };
 	return undefined;
 }
 

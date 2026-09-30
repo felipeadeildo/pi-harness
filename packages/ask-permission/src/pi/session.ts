@@ -4,7 +4,13 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { AlwaysYes, savedFileExists, type Scope } from "#core/always-yes.ts";
 import { defaultConfig, type OutsideScope, type PermissionConfig } from "#core/config/schema.ts";
 import { migrateConfig, readConfig } from "#core/config/settings.ts";
-import { globalAlwaysYesPath, projectAlwaysYesPath } from "#core/config/store.ts";
+import {
+	globalAlwaysYesPath,
+	globalFoldersPath,
+	projectAlwaysYesPath,
+	projectFoldersPath,
+} from "#core/config/store.ts";
+import { type Access, OpenFolders } from "#core/folders.ts";
 import type { JudgeOutcome, JudgeRecord } from "#core/judge/types.ts";
 import type { PermissionMode } from "#core/mode.ts";
 import type { ToolAdapter } from "#core/tools.ts";
@@ -26,6 +32,7 @@ export interface SessionState {
 	mode: PermissionMode;
 	outside: OutsideScope;
 	alwaysYes: AlwaysYes;
+	folders: OpenFolders;
 	pendingNotes: Map<string, string>;
 	judgeCache: Map<string, JudgeOutcome>;
 	judgeLog: JudgeRecord[];
@@ -44,6 +51,7 @@ export function createSession(): SessionState {
 		mode: config.mode,
 		outside: config.workspace.outside,
 		alwaysYes: new AlwaysYes(),
+		folders: new OpenFolders(),
 		pendingNotes: new Map(),
 		judgeCache: new Map(),
 		judgeLog: [],
@@ -93,10 +101,45 @@ export function openAlwaysYes(state: SessionState, ctx: ExtensionContext): void 
 		project: trusted ? project : undefined,
 	});
 
+	const folders = projectFoldersPath(ctx.cwd);
+	warnings.push(
+		...state.folders.open({
+			global: globalFoldersPath(),
+			project: trusted ? folders : undefined,
+		}),
+	);
+
 	for (const warning of warnings) ctx.ui.notify(`${NAME}: ${warning}`, "warning");
-	if (!trusted && savedFileExists(project)) {
-		ctx.ui.notify(`${NAME}: ${project} skipped, this project is not trusted`, "warning");
+	for (const file of [project, folders]) {
+		if (trusted || !savedFileExists(file)) continue;
+		ctx.ui.notify(`${NAME}: ${file} skipped, this project is not trusted`, "warning");
 	}
+}
+
+export function openFolder(
+	pi: ExtensionAPI,
+	state: SessionState,
+	ctx: ExtensionContext,
+	scope: Scope,
+	path: string,
+	access: Access,
+): void {
+	if (scope === "session") record(pi, { kind: "folder", path, access });
+	const problem = state.folders.add(scope, path, access);
+	if (problem) ctx.ui.notify(`${NAME}: could not save the folder: ${problem}`, "warning");
+}
+
+export function closeFolders(
+	pi: ExtensionAPI,
+	state: SessionState,
+	ctx: ExtensionContext,
+	scope: Scope,
+): number {
+	if (scope === "session") record(pi, { kind: "close-folders" });
+	const { removed, errors } = state.folders.forget(scope);
+	for (const error of errors)
+		ctx.ui.notify(`${NAME}: could not close the folders: ${error}`, "error");
+	return removed;
 }
 
 export function rememberAlwaysYes(

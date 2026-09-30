@@ -1,4 +1,4 @@
-import { realpathSync } from "node:fs";
+import { existsSync, realpathSync, statSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join, normalize, resolve, sep } from "node:path";
 
@@ -26,8 +26,19 @@ const DEVICES = new Set([
 	"/dev/stderr",
 ]);
 
-/** `unknown`: the paths hide behind `$VAR` or `$(...)`. */
-export type Reach = { kind: "inside" } | { kind: "outside"; path: string } | { kind: "unknown" };
+/** `unknown`: the paths hide behind `$VAR` or `$(...)`. `outside` holds every path that left,
+ * canonical, and `path` is the first one as written. */
+export type Reach =
+	| { kind: "inside" }
+	| { kind: "outside"; path: string; paths: string[] }
+	| { kind: "unknown" };
+
+/** The folders the dialog offers to open, shallow to deep. */
+export interface FolderChoices {
+	folders: string[];
+	suggested: number;
+	repoRoot: string | undefined;
+}
 
 /** Alt+W. It never lands on `deny`, which takes the command. */
 export function toggleOutside(outside: OutsideScope): OutsideScope {
@@ -40,6 +51,8 @@ export function reachOf(roots: string[], cwd: string, paths: string[] | undefine
 
 	const resolved = resolveRoots(roots, cwd);
 	const temp = canonical(tmpdir());
+	let first: string | undefined;
+	const outside: string[] = [];
 	for (const path of paths) {
 		const lexical = normalize(resolvePath(path, cwd));
 		// realpath turns /dev/stdout into the terminal's device.
@@ -47,9 +60,60 @@ export function reachOf(roots: string[], cwd: string, paths: string[] | undefine
 
 		const absolute = canonical(lexical);
 		if (isPastedFile(absolute, temp)) continue;
-		if (!isInside(absolute, resolved)) return { kind: "outside", path };
+		if (isInside(absolute, resolved)) continue;
+		first ??= path;
+		if (!outside.includes(absolute)) outside.push(absolute);
 	}
-	return { kind: "inside" };
+	return first === undefined
+		? { kind: "inside" }
+		: { kind: "outside", path: first, paths: outside };
+}
+
+/** A folder that holds every path, up to the home but never the home itself, so opening it
+ * stays narrow. The suggestion is the repository the paths live in, when there is one. */
+export function folderChoices(paths: string[]): FolderChoices | undefined {
+	const common = commonFolder(paths.map(folderOf));
+	if (common === undefined) return undefined;
+
+	const home = canonical(homedir());
+	const folders: string[] = [];
+	for (let folder = common; isOpenable(folder, home); folder = dirname(folder)) {
+		folders.unshift(folder);
+	}
+	if (folders.length === 0) return undefined;
+
+	const repoRoot = folders.findLast((folder) => existsSync(join(folder, ".git")));
+	const suggested = repoRoot === undefined ? folders.length - 1 : folders.indexOf(repoRoot);
+	return { folders, suggested, repoRoot };
+}
+
+export function isWithin(path: string, folder: string): boolean {
+	return isInside(path, [folder]);
+}
+
+function folderOf(path: string): string {
+	try {
+		return statSync(path).isDirectory() ? path : dirname(path);
+	} catch {
+		return dirname(path);
+	}
+}
+
+function commonFolder(folders: string[]): string | undefined {
+	let common = folders[0];
+	for (const folder of folders.slice(1)) {
+		while (common !== undefined && !isInside(folder, [common])) {
+			const parent = dirname(common);
+			common = parent === common ? undefined : parent;
+		}
+	}
+	return common;
+}
+
+// Never the root, the home, or a folder that holds the home.
+function isOpenable(folder: string, home: string): boolean {
+	if (folder === dirname(folder)) return false;
+	return !isInside(home, [folder]);
 }
 
 export function resolveRoots(roots: string[], cwd: string): string[] {

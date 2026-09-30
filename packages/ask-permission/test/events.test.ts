@@ -7,6 +7,7 @@ import { AlwaysYes } from "#core/always-yes.ts";
 import type { DialogAnswer } from "#core/answer.ts";
 import { defaultConfig } from "#core/config/schema.ts";
 import type { OutsideScope } from "#core/config/schema.ts";
+import { OpenFolders } from "#core/folders.ts";
 import type { PermissionMode } from "#core/mode.ts";
 import { DECIDED_EVENT } from "#pi/api.ts";
 import { registerEvents } from "#pi/events.ts";
@@ -31,6 +32,7 @@ function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask")
 		mode,
 		outside,
 		alwaysYes: new AlwaysYes(),
+		folders: new OpenFolders(),
 		customTools: new Map(),
 		pendingWrites: new Map(),
 		pendingNotes: new Map<string, string>(),
@@ -69,6 +71,7 @@ function fakeContext(
 		signal: undefined,
 		modelRegistry: {},
 		ui: {
+			theme: { fg: (_color: string, text: string) => text },
 			notify: () => {},
 			setStatus: () => {},
 			custom: async () => {
@@ -320,6 +323,60 @@ describe("workspace scope", () => {
 
 		expect(result).toBeUndefined();
 		expect(opened).toBe(false);
+	});
+
+	test("a folder opened from the dialog lets the next reads there run", async () => {
+		const { entries, state, toolCall } = harness("manual");
+		const answer: DialogAnswer = {
+			decision: "allow",
+			open: { path: "/etc", access: "read", scope: "session" },
+		};
+		await toolCall(
+			judgeCall("call-1", "cat /etc/hostname"),
+			fakeContext(() => {}, answer),
+		);
+
+		expect(state.folders.covers("/etc/passwd", "read")).toBe(true);
+		expect(entries).toContainEqual({
+			customType: "pi-ask-permission:session",
+			data: { kind: "folder", path: "/etc", access: "read" },
+		});
+
+		let opened = false;
+		const result = await toolCall(
+			judgeCall("call-2", "cat /etc/passwd"),
+			fakeContext(() => {
+				opened = true;
+			}),
+		);
+		expect(result).toBeUndefined();
+		expect(opened).toBe(false);
+	});
+
+	test("the folder is offered only when the workspace is what asks", async () => {
+		const shown: string[] = [];
+		const ctx = (): ExtensionContext => {
+			const base = fakeContext();
+			const theme = { fg: (_color: string, text: string) => text };
+			base.ui.custom = (async (
+				factory: (...args: unknown[]) => { render(width: number): string[] },
+			) => {
+				shown.push(
+					factory({ requestRender: () => {} }, theme, {}, () => {})
+						.render(80)
+						.join("\n"),
+				);
+				return { decision: "allow" };
+			}) as typeof base.ui.custom;
+			return base;
+		};
+
+		await harness("manual").toolCall(judgeCall("call-1", "cat /etc/hostname"), ctx());
+		await harness("manual", "allow").toolCall(writeCall("call-2", "/etc/x.conf"), ctx());
+
+		expect(shown[0]).toContain("yes, and allow reads in /etc");
+		expect(shown[1]).not.toContain("/etc to the workspace");
+		expect(shown[1]).not.toContain("outside the workspace");
 	});
 
 	test("outside deny blocks before the dialog", async () => {

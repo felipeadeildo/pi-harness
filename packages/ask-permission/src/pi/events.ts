@@ -7,13 +7,21 @@ import {
 } from "@earendil-works/pi-coding-agent";
 
 import { SCOPE_LABEL } from "#core/always-yes.ts";
-import type { DialogAnswer } from "#core/answer.ts";
+import type { DialogAnswer, FolderOffer } from "#core/answer.ts";
 import { noUIMode } from "#core/config/patterns.ts";
-import { type Call, decide, describeCall, gateLayers, type Verdict } from "#core/decide.ts";
+import {
+	accessOf,
+	type Call,
+	decide,
+	describeCall,
+	gateLayers,
+	type Verdict,
+} from "#core/decide.ts";
 import { judgeGate } from "#core/judge/gate.ts";
 import { judgeVerdictText, remember, warnOnce } from "#core/judge/report.ts";
 import { MODES } from "#core/mode.ts";
-import type { CallDescriptor } from "#core/tools.ts";
+import { shortenHome } from "#core/tools.ts";
+import { folderChoices } from "#core/workspace.ts";
 import { NAME } from "#identity";
 import { announce, type Decided } from "#pi/api.ts";
 import { clearStatus, notifyJudgePolicyWarning, renderStatus } from "#pi/mode.ts";
@@ -22,6 +30,7 @@ import { restoreSession } from "#pi/session-entries.ts";
 import {
 	loadSessionConfig,
 	openAlwaysYes,
+	openFolder,
 	noteJudgeFailure,
 	rememberAlwaysYes,
 	resetJudgeHealth,
@@ -125,9 +134,13 @@ async function gate(
 	});
 
 	state.typing.pause();
-	const answer = await ask(ctx, call.toolName, call.target, change?.diff).finally(() =>
-		state.typing.resume(),
-	);
+	const reason = "reason" in decision ? decision.reason : undefined;
+	const leaving = "by" in decision && decision.by === "workspace";
+	const answer = await ask(ctx, call, {
+		diff: change?.diff,
+		reason,
+		offer: leaving ? offerFor(call) : undefined,
+	}).finally(() => state.typing.resume());
 
 	if (answer.decision === "deny") {
 		return { action: "block", by: "you", reason: denyReason(answer.note), note: answer.note };
@@ -140,6 +153,17 @@ async function gate(
 			`${NAME}: always yes for ${call.toolName} \u00b7 ${answer.remember} (${SCOPE_LABEL[scope]})`,
 			"info",
 		);
+	}
+
+	if (answer.open) {
+		const { path, access, scope } = answer.open;
+		openFolder(pi, state, ctx, scope, path, access);
+		renderStatus(ctx, state);
+		const what =
+			access === "read"
+				? `reads open in ${shortenHome(path)}`
+				: `${shortenHome(path)} joins the workspace`;
+		ctx.ui.notify(`${NAME}: ${what}, ${SCOPE_LABEL[scope]}`, "info");
 	}
 
 	if (change)
@@ -206,12 +230,21 @@ async function runJudge(
 	return undefined;
 }
 
-async function ask(
-	ctx: ExtensionContext,
-	toolName: string,
-	target: CallDescriptor,
-	diff: string | undefined,
-): Promise<DialogAnswer> {
+// Only a call that left for somewhere nameable gets a folder to open.
+function offerFor(call: Call): FolderOffer | undefined {
+	if (call.reach.kind !== "outside") return undefined;
+	const choices = folderChoices(call.reach.paths);
+	return choices && { ...choices, access: accessOf(call) };
+}
+
+interface AskExtras {
+	diff?: string;
+	reason?: string;
+	offer?: FolderOffer;
+}
+
+async function ask(ctx: ExtensionContext, call: Call, extras: AskExtras): Promise<DialogAnswer> {
+	const { toolName, target } = call;
 	if (ctx.mode === "tui") {
 		try {
 			const answer = await ctx.ui.custom<DialogAnswer>(
@@ -220,7 +253,7 @@ async function ask(
 						theme,
 						toolName,
 						target,
-						diff,
+						...extras,
 						keybindings,
 						requestRender: () => tui.requestRender(),
 						complete: done,
@@ -232,7 +265,7 @@ async function ask(
 		}
 	}
 
-	return askViaSelector(ctx, toolName, target);
+	return askViaSelector(ctx, toolName, target, extras.offer);
 }
 
 function sendNote(pi: ExtensionAPI, note: string, toolName: string): void {

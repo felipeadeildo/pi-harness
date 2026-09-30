@@ -12,10 +12,10 @@ import {
 } from "@earendil-works/pi-tui";
 
 import { type Scope, SCOPE_LABEL, SCOPES } from "#core/always-yes.ts";
-import type { DialogAnswer } from "#core/answer.ts";
+import type { DialogAnswer, FolderOffer } from "#core/answer.ts";
 import type { CallDescriptor } from "#core/tools.ts";
 import { readClipboard } from "#ui/clipboard.ts";
-import { CHOICES, type Choice } from "#ui/decision-options.ts";
+import { type Choice, choicesFor, openLabel } from "#ui/decision-options.ts";
 import {
 	cleanPaste,
 	expandPastes,
@@ -40,6 +40,9 @@ interface AskDialogOptions {
 	toolName: string;
 	target: CallDescriptor;
 	diff?: string;
+	/** Why the call asks, when a layer said. */
+	reason?: string;
+	offer?: FolderOffer;
 	keybindings: KeybindingsManager;
 	requestRender: () => void;
 	complete: (answer: DialogAnswer) => void;
@@ -50,6 +53,9 @@ export class AskDialog implements Component, Focusable {
 	private readonly toolName: string;
 	private readonly target: CallDescriptor;
 	private readonly diff: string | undefined;
+	private readonly reason: string | undefined;
+	private readonly offer: FolderOffer | undefined;
+	private readonly choices: Choice[];
 	private readonly requestRender: () => void;
 	private readonly complete: (answer: DialogAnswer) => void;
 	private readonly keybindings: KeybindingsManager;
@@ -66,6 +72,8 @@ export class AskDialog implements Component, Focusable {
 	private scopeIndex = 0;
 	private pending: Choice | null = null;
 	private noteIndex: number | null = null;
+	private folderIndex = 0;
+	private openScope: "session" | "project" = "session";
 
 	private pendingNote: string | undefined;
 
@@ -87,11 +95,17 @@ export class AskDialog implements Component, Focusable {
 		this.toolName = options.toolName;
 		this.target = options.target;
 		this.diff = options.diff;
+		this.reason = options.reason;
+		this.offer = options.offer;
+		this.choices = choicesFor(options.offer);
+		this.folderIndex = options.offer?.suggested ?? 0;
+		// Reading a sibling folder is the common case, so its answer is where the cursor starts.
+		if (options.offer?.access === "read") this.selected = 1;
 		this.requestRender = options.requestRender;
 		this.complete = options.complete;
 		this.keybindings = options.keybindings;
 
-		this.noteInputs = [...CHOICES.keys()].map((index) => {
+		this.noteInputs = [...this.choices.keys()].map((index) => {
 			const input = new Input({ prompt: "", placeholder: "" });
 			input.onSubmit = () => this.choose(index);
 			input.onEscape = () => {
@@ -115,24 +129,21 @@ export class AskDialog implements Component, Focusable {
 
 	render(width: number): string[] {
 		const inner = Math.max(1, width - 4);
-		const lines: string[] = [...this.summaryLines(inner), ...this.diffLines()];
+		const lines: string[] = [
+			...this.summaryLines(inner),
+			...this.reasonLines(),
+			...this.diffLines(),
+		];
 		lines.push("");
 
 		if (this.phase === "levels") {
 			lines.push(...this.levelLines());
 		} else {
-			for (const [index, option] of CHOICES.entries()) {
+			for (const [index, option] of this.choices.entries()) {
 				lines.push(this.renderOption(option, index, inner));
 			}
 			lines.push("");
-			lines.push(
-				this.theme.fg(
-					"dim",
-					this.noteIndex === null
-						? "\u2191\u2193 or 1-3 pick   enter confirm   tab note   esc deny"
-						: "\u2191\u2193 pick   enter confirm   esc back",
-				),
-			);
+			lines.push(this.theme.fg("dim", this.hint()));
 		}
 
 		return this.frame(lines, width, inner, `permission \u00b7 ${this.toolName}`);
@@ -177,13 +188,47 @@ export class AskDialog implements Component, Focusable {
 			this.complete({ decision: "deny" });
 			return;
 		}
+		if (this.onOpenChoice && this.adjustFolder(data)) return;
 
-		const picked = CHOICES.findIndex((option) => option.key === data);
+		const picked = this.choices.findIndex((option) => option.key === data);
 		if (picked >= 0) this.selected = picked;
 	}
 
+	private get onOpenChoice(): boolean {
+		return this.choices[this.selected]?.open === true;
+	}
+
+	// Left goes up toward the root, right back down toward the paths.
+	private adjustFolder(data: string): boolean {
+		const last = (this.offer?.folders.length ?? 1) - 1;
+		if (matchesKey(data, Key.left)) {
+			this.folderIndex = Math.max(0, this.folderIndex - 1);
+			return true;
+		}
+		if (matchesKey(data, Key.right)) {
+			this.folderIndex = Math.min(last, this.folderIndex + 1);
+			return true;
+		}
+		if (data === "s") {
+			this.openScope = this.openScope === "session" ? "project" : "session";
+			return true;
+		}
+		return false;
+	}
+
+	private hint(): string {
+		if (this.noteIndex !== null) return "\u2191\u2193 pick   enter confirm   esc back";
+
+		const pick = `\u2191\u2193 or 1-${this.choices.length} pick`;
+		if (!this.onOpenChoice) return `${pick}   enter confirm   tab note   esc deny`;
+
+		const folders = (this.offer?.folders.length ?? 0) > 1 ? "\u2190\u2192 folder   " : "";
+		const scope = this.openScope === "session" ? "keep for this project" : "only this session";
+		return `${folders}s ${scope}   tab note   esc deny`;
+	}
+
 	private moveSelection(delta: number): void {
-		const count = CHOICES.length;
+		const count = this.choices.length;
 		this.selected = (this.selected + delta + count) % count;
 	}
 
@@ -194,9 +239,19 @@ export class AskDialog implements Component, Focusable {
 	}
 
 	private choose(index: number): void {
-		const option = CHOICES[index];
+		const option = this.choices[index];
 		if (!option) return;
 		this.selected = index;
+
+		const folder = this.offer?.folders[this.folderIndex];
+		if (option.open && this.offer && folder !== undefined) {
+			this.complete({
+				decision: "allow",
+				note: this.draftNote(),
+				open: { path: folder, access: this.offer.access, scope: this.openScope },
+			});
+			return;
+		}
 
 		if (option.always) {
 			this.pending = option;
@@ -327,19 +382,45 @@ export class AskDialog implements Component, Focusable {
 		const marker = active ? this.theme.fg("accent", "\u276f ") : "  ";
 		const key = this.theme.fg(active ? "accent" : "dim", option.key);
 		const prefix = `${marker}${key}  `;
+		const text = this.labelOf(option);
 
 		if (!editing && !draft) {
-			return `${prefix}${this.theme.fg(active ? option.tone : "text", option.label)}`;
+			const head = this.theme.fg(active ? option.tone : "text", text);
+			return truncateToWidth(`${prefix}${head}${this.openTags(option, active)}`, inner);
 		}
 
 		const room = Math.max(1, inner - visibleWidth(prefix));
-		const label = truncateToWidth(`${option.label}, `, room);
+		const label = truncateToWidth(`${text}, `, room);
 		const noteRoom = Math.max(1, room - visibleWidth(label));
 		const note = editing
 			? (input?.render(noteRoom)[0] ?? "")
 			: this.theme.fg("dim", truncateToWidth(draft, noteRoom));
 		const head = this.theme.fg(active ? option.tone : "text", label);
 		return truncateToWidth(`${prefix}${head}${note}`, inner);
+	}
+
+	private labelOf(option: Choice): string {
+		const folder = this.offer?.folders[this.folderIndex];
+		if (!option.open || !this.offer || folder === undefined) return option.label;
+		return openLabel(this.offer, folder);
+	}
+
+	// The scope shows once it is not the default, and the repository tag only where it helps.
+	private openTags(option: Choice, active: boolean): string {
+		if (!option.open || !this.offer) return "";
+		const tags: string[] = [];
+		if (this.openScope === "project") tags.push(this.theme.fg("accent", "for this project"));
+		const folder = this.offer.folders[this.folderIndex];
+		if (active && folder !== undefined && folder === this.offer.repoRoot)
+			tags.push(this.theme.fg("dim", "repo root"));
+		return tags.length === 0 ? "" : `  ${tags.join(this.theme.fg("dim", " \u00b7 "))}`;
+	}
+
+	private reasonLines(): string[] {
+		const text = this.offer
+			? `${this.offer.access === "read" ? "reads" : "writes"} outside the workspace`
+			: this.reason;
+		return text === undefined ? [] : [this.theme.fg("warning", `\u25b2 ${text}`)];
 	}
 
 	private diffLines(): string[] {

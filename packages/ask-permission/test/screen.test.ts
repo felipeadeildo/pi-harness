@@ -91,6 +91,7 @@ test("the tab lists its sections in order", async () => {
 		"Dialog",
 		"Judge",
 		"Always yes",
+		"Folders",
 	]);
 });
 
@@ -148,4 +149,14 @@ test("forgetting always yes asks first and empties the list", async () => {
 test("the judge log opens as text", async () => {
 	const { run } = await started();
 	expect(await run("judge.log")).toMatchObject({ request: "r1", text: expect.any(String) });
+});
+
+test("a folder row names the one open folder, and closing asks first", async () => {
+	const { row, run } = await started();
+	expect(row("folders.session")).toMatchObject({ text: "none", kind: "action" });
+	expect(row("folders.session").confirm).toContain("Close every folder");
+	expect(await run("folders.session")).toEqual({
+		request: "r1",
+		error: "no folder open for this session",
+	});
 });
