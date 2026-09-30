@@ -1,5 +1,4 @@
 import { defineFeature, literal, setting } from "@adeildo/pi-kit";
-import type { Provider } from "@earendil-works/pi-ai";
 
 import { liftProvider, nativeOf, type AccountSession } from "./lift.ts";
 import { AccountStore } from "./store.ts";
@@ -34,19 +33,18 @@ export const accounts = defineFeature({
 	settings: [onLimit],
 	setup(scope) {
 		const store = new AccountStore();
-		const native = new Map<string, Provider>();
 
 		scope.onSessionStart((ctx) => {
 			for (const warning of store.reload()) scope.warn(warning);
 			for (const providerId of store.providerIds()) {
-				const current = native.get(providerId) ?? ctx.modelRegistry.getProvider(providerId);
-				if (current === undefined) {
+				// `getProvider` returns the lifted provider once we registered one, so unwrap it before
+				// wrapping again. After a `/reload` it returns the built-in one, which is unwrapped too.
+				const provider = ctx.modelRegistry.getProvider(providerId);
+				if (provider === undefined) {
 					scope.warn(`no provider "${providerId}", so its accounts do nothing`);
 					continue;
 				}
-				const base = nativeOf(current);
-				native.set(providerId, base);
-				scope.registerProvider(liftProvider(base, session(store, providerId)));
+				scope.registerProvider(liftProvider(nativeOf(provider), session(store, providerId)));
 			}
 		});
 	},

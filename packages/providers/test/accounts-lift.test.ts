@@ -23,11 +23,13 @@ interface Fake {
 	provider: Provider;
 	seen: StreamOptions[];
 	refreshes(): number;
+	refreshedWith: AbortSignal[];
 }
 
 function fake(): Fake {
 	const seen: StreamOptions[] = [];
 	const state = { refreshes: 0 };
+	const refreshedWith: AbortSignal[] = [];
 	const provider: Provider = {
 		id: "anthropic",
 		name: "Anthropic",
@@ -41,8 +43,9 @@ function fake(): Fake {
 			oauth: {
 				name: "Claude Pro/Max",
 				login: async () => ({ type: "oauth", access: "a", refresh: "r", expires: Date.now() }),
-				refresh: async (credential) => {
+				refresh: async (credential, signal) => {
 					state.refreshes += 1;
+					refreshedWith.push(signal);
 					return { ...credential, access: "refreshed", expires: Date.now() + 3_600_000 };
 				},
 				toAuth: async (credential) => ({ apiKey: `oauth:${credential.access}` }),
@@ -62,6 +65,7 @@ function fake(): Fake {
 		provider,
 		seen,
 		refreshes: () => state.refreshes,
+		refreshedWith,
 	};
 }
 
@@ -122,16 +126,18 @@ test("an api key account brings its env, and its headers win", async () => {
 	expect(seen[0]?.headers).toEqual({ "x-account": "b", keep: "1" });
 });
 
-test("an expired token is refreshed once and saved", async () => {
-	const { provider, seen, refreshes } = fake();
+test("an expired token is refreshed once and saved, with the request's signal", async () => {
+	const { provider, seen, refreshes, refreshedWith } = fake();
 	const account: Credential = { type: "oauth", access: "old", refresh: "r", expires: 0 };
 	const state = session(account);
 	const lifted = liftProvider(provider, state);
+	const signal = new AbortController().signal;
 
-	lifted.streamSimple(MODEL, CONTEXT);
+	lifted.streamSimple(MODEL, CONTEXT, { signal });
 	await settle();
 
 	expect(refreshes()).toBe(1);
+	expect(refreshedWith[0]).toBe(signal);
 	expect(state.saved).toHaveLength(1);
 	expect(seen[0]?.apiKey).toBe("oauth:refreshed");
 });
@@ -160,7 +166,7 @@ test("the provider reports configured while an account exists", async () => {
 			ctx: { env: async () => undefined, fileExists: async () => false },
 			signal: new AbortController().signal,
 		}),
-	).toEqual({
+	).toMatchObject({
 		type: "oauth",
 	});
 	expect(

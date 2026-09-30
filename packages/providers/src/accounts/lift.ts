@@ -36,9 +36,32 @@ export function nativeOf(provider: Provider): Provider {
 }
 
 export function liftProvider(provider: Provider, session: AccountSession): Provider {
+	// Every method is delegated by hand, not by spread: the native may keep methods on a prototype,
+	// and a copied method would lose its `this`.
+	const getAllModels = provider.getAllModels;
+	const refreshModels = provider.refreshModels;
+	const filterModels = provider.filterModels;
+	const filterAllModels = provider.filterAllModels;
+	const fetchDeferred = provider.fetchDeferred;
+	const cancelDeferred = provider.cancelDeferred;
+	const generateImages = provider.generateImages;
+	const classify = provider.classify;
+
 	const lifted: Provider = {
-		...provider,
+		id: provider.id,
+		name: provider.name,
+		...(provider.baseUrl === undefined ? {} : { baseUrl: provider.baseUrl }),
+		...(provider.headers === undefined ? {} : { headers: provider.headers }),
 		auth: liftedAuth(provider, session),
+		getModels: () => provider.getModels(),
+		...(getAllModels === undefined ? {} : { getAllModels: () => getAllModels() }),
+		...(refreshModels === undefined ? {} : { refreshModels: (context) => refreshModels(context) }),
+		...(filterModels === undefined
+			? {}
+			: { filterModels: (models, credential) => filterModels(models, credential) }),
+		...(filterAllModels === undefined
+			? {}
+			: { filterAllModels: (models, credential) => filterAllModels(models, credential) }),
 		stream<T extends Api>(
 			model: Model<T>,
 			context: TranscriptContext,
@@ -49,6 +72,18 @@ export function liftProvider(provider: Provider, session: AccountSession): Provi
 		streamSimple(model, context, options) {
 			return accountStream(provider, session, "streamSimple", model, context, options);
 		},
+		...(fetchDeferred === undefined
+			? {}
+			: { fetchDeferred: (model, handle, options) => fetchDeferred(model, handle, options) }),
+		...(cancelDeferred === undefined
+			? {}
+			: { cancelDeferred: (model, handle, options) => cancelDeferred(model, handle, options) }),
+		...(generateImages === undefined
+			? {}
+			: { generateImages: (model, context, options) => generateImages(model, context, options) }),
+		...(classify === undefined
+			? {}
+			: { classify: (model, context, options) => classify(model, context, options) }),
 	};
 	Object.defineProperty(lifted, NATIVE, { value: provider, enumerable: false });
 	return lifted;
@@ -66,8 +101,9 @@ function accountStream(
 ): AssistantMessageEventStream {
 	const credential = session.credential();
 	if (credential === undefined) return call(provider, kind, model, context, options ?? {});
+
 	return lazyStream(model, async () => {
-		const resolved = await resolveAuth(provider, session, credential);
+		const resolved = await resolveAuth(provider, session, credential, options?.signal);
 		const withAuth = applyAuth(resolved, model, options ?? {});
 		return call(provider, kind, withAuth.model, context, withAuth.options);
 	});
@@ -94,11 +130,13 @@ async function resolveAuth(
 	provider: Provider,
 	session: AccountSession,
 	credential: Credential,
+	signal: AbortSignal | undefined,
 ): Promise<ResolvedAuth> {
+	const abort = signal ?? new AbortController().signal;
 	if (credential.type === "oauth") {
 		const oauth = provider.auth.oauth;
 		if (oauth === undefined) return { auth: {} };
-		const fresh = await refreshToken(oauth, session, credential);
+		const fresh = await refreshToken(oauth, session, credential, abort);
 		return { auth: await oauth.toAuth(fresh) };
 	}
 
@@ -107,7 +145,7 @@ async function resolveAuth(
 	const resolved = await apiKey.resolve({
 		ctx: defaultProviderAuthContext(),
 		credential,
-		signal: new AbortController().signal,
+		signal: abort,
 	});
 	return resolved === undefined ? { auth: {} } : { auth: resolved.auth, env: resolved.env };
 }
@@ -119,9 +157,10 @@ async function refreshToken(
 	oauth: OAuthAuth,
 	session: AccountSession,
 	credential: OAuthCredential,
+	signal: AbortSignal,
 ): Promise<OAuthCredential> {
 	if (credential.expires > Date.now() + REFRESH_MARGIN_MS) return credential;
-	const fresh = await oauth.refresh(credential, new AbortController().signal);
+	const fresh = await oauth.refresh(credential, signal);
 	session.saveCredential(fresh);
 	return fresh;
 }
@@ -166,7 +205,8 @@ function mergeHeaders(
 }
 
 // The runtime reads auth from the provider, so it has to report configured when an account exists,
-// even though the credential itself is injected into the request by `accountStream`.
+// even though the credential itself is injected into the request by `accountStream`. Reporting the
+// account's own type keeps `isUsingOAuth` honest, which is what bills a subscription request.
 function liftedAuth(provider: Provider, session: AccountSession): ProviderAuth {
 	const original = provider.auth.apiKey;
 	const login = original?.login;
@@ -175,15 +215,13 @@ function liftedAuth(provider: Provider, session: AccountSession): ProviderAuth {
 			name: original?.name ?? `${provider.name} accounts`,
 			...(login === undefined ? {} : { login: (interaction) => login(interaction) }),
 			async check(input) {
-				const checked = await original?.check?.(input);
-				if (checked !== undefined) return checked;
 				const credential = session.credential();
-				return credential === undefined ? undefined : { type: credential.type };
+				if (credential !== undefined) return { type: credential.type, source: "account" };
+				return original?.check?.(input);
 			},
 			async resolve(input) {
-				const resolved = await original?.resolve(input);
-				if (resolved !== undefined) return resolved;
-				return session.credential() === undefined ? undefined : { auth: {}, source: "account" };
+				if (session.credential() !== undefined) return { auth: {}, source: "account" };
+				return original?.resolve(input);
 			},
 		},
 		...(provider.auth.oauth === undefined ? {} : { oauth: provider.auth.oauth }),
