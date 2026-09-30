@@ -13,6 +13,15 @@ import type { Account } from "./types.ts";
 export const DEFAULT_ACCOUNT = "default";
 export const DEFAULT_LABEL = "pi default";
 
+/** Everything a provider's rows share. The label is the section header. */
+interface ProviderGroup {
+	pi: FeatureScope;
+	store: AccountStore;
+	pins: Pins;
+	providerId: string;
+	label: string;
+}
+
 export function accountRows(
 	pi: FeatureScope,
 	store: AccountStore,
@@ -21,27 +30,25 @@ export function accountRows(
 ): ScreenEntry[] {
 	const rows: ScreenEntry[] = [];
 	for (const providerId of store.providerIds().toSorted()) {
-		const section = ctx.modelRegistry.getProviderDisplayName(providerId);
+		const group: ProviderGroup = {
+			pi,
+			store,
+			pins,
+			providerId,
+			label: ctx.modelRegistry.getProviderDisplayName(providerId),
+		};
 		const accounts = store.accounts(providerId);
-		rows.push(activeRow(pi, store, pins, providerId, section, accounts));
-		for (const account of accounts)
-			rows.push(...accountGroup(pi, store, pins, providerId, section, account));
+		rows.push(accountChoice(group, accounts));
+		for (const account of accounts) rows.push(...accountBlock(group, account));
 	}
 	return rows;
 }
 
-function activeRow(
-	pi: FeatureScope,
-	store: AccountStore,
-	pins: Pins,
-	providerId: string,
-	section: string,
-	accounts: readonly Account[],
-): ScreenEntry {
+function accountChoice(group: ProviderGroup, accounts: readonly Account[]): ScreenEntry {
 	return {
 		kind: "value",
-		id: `accounts.${providerId}.active`,
-		section,
+		id: `accounts.${group.providerId}.active`,
+		section: group.label,
 		label: "Account",
 		description:
 			"The credential a request uses. Switching mid-conversation re-sends it without its prompt cache.",
@@ -52,68 +59,64 @@ function activeRow(
 				...accounts.map((account) => ({ value: account.id, label: account.label })),
 			],
 		},
-		get: () => activeAccount(store, pins, providerId)?.id ?? DEFAULT_ACCOUNT,
+		get: () => activeAccount(group.store, group.pins, group.providerId)?.id ?? DEFAULT_ACCOUNT,
 		set: (value, ctx) => {
-			const chosen =
-				value === DEFAULT_ACCOUNT ||
-				(typeof value === "string" && accounts.some((a) => a.id === value))
-					? value
-					: undefined;
-			if (chosen === undefined) return "pick an account";
-			store.setActive(providerId, chosen === DEFAULT_ACCOUNT ? undefined : chosen);
-			pin(pi, pins, providerId, chosen === DEFAULT_ACCOUNT ? null : chosen);
-			refreshStatus(store, pins, ctx);
+			const known =
+				typeof value === "string" &&
+				(value === DEFAULT_ACCOUNT || accounts.some((account) => account.id === value));
+			if (!known) return "pick an account";
+
+			const chosen = value === DEFAULT_ACCOUNT ? null : value;
+			group.store.setActive(group.providerId, chosen ?? undefined);
+			pin(group.pi, group.pins, group.providerId, chosen);
+			refreshStatus(group.store, group.pins, ctx);
 			return undefined;
 		},
 	};
 }
 
 /** One account, as its own block: what it is, what to call it, and how to drop it. */
-function accountGroup(
-	pi: FeatureScope,
-	store: AccountStore,
-	pins: Pins,
-	providerId: string,
-	section: string,
-	account: Account,
-): ScreenEntry[] {
+function accountBlock(group: ProviderGroup, account: Account): ScreenEntry[] {
+	const subscription = account.credential.type === "oauth";
 	return [
 		{
 			kind: "info",
-			id: `accounts.${providerId}.${account.id}.kind`,
-			section,
+			id: `accounts.${group.providerId}.${account.id}.kind`,
+			section: group.label,
 			label: account.label,
-			description: `Saved ${account.credential.type === "oauth" ? "from a subscription login" : "as an API key"}.`,
-			text: () => (account.credential.type === "oauth" ? "subscription" : "api key"),
+			description: subscription ? "Saved from a subscription login." : "Saved as an API key.",
+			text: () => (subscription ? "subscription" : "api key"),
 		},
 		{
 			kind: "value",
-			id: `accounts.${providerId}.${account.id}.label`,
-			section,
+			id: `accounts.${group.providerId}.${account.id}.label`,
+			section: group.label,
 			label: "Rename",
 			description: "What this account is called in the picker.",
 			control: { type: "text" },
 			get: () => account.label,
 			set: (value: Json, ctx) => {
 				if (typeof value !== "string") return "name it";
-				const problem = store.rename(providerId, account.id, value);
-				if (problem === undefined) refreshStatus(store, pins, ctx);
+				const problem = group.store.rename(group.providerId, account.id, value);
+				if (problem === undefined) refreshStatus(group.store, group.pins, ctx);
 				return problem;
 			},
 		},
 		{
 			kind: "action",
-			id: `accounts.${providerId}.${account.id}.remove`,
-			section,
+			id: `accounts.${group.providerId}.${account.id}.remove`,
+			section: group.label,
 			label: "Remove",
 			description: `Forget the "${account.label}" credential.`,
 			text: () => account.label,
-			confirm: `Remove the ${providerId} account "${account.label}"?`,
+			confirm: `Remove the ${group.providerId} account "${account.label}"?`,
 			run: (ctx) => {
-				const problem = store.remove(providerId, account.id);
+				const problem = group.store.remove(group.providerId, account.id);
 				if (problem !== undefined) return problem;
-				if (pins.get(providerId) === account.id) pin(pi, pins, providerId, null);
-				refreshStatus(store, pins, ctx);
+				if (group.pins.get(group.providerId) === account.id) {
+					pin(group.pi, group.pins, group.providerId, null);
+				}
+				refreshStatus(group.store, group.pins, ctx);
 				return `${account.label} removed`;
 			},
 		},
