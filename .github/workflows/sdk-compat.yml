@@ -97,7 +97,9 @@ jobs:
             @earendil-works/pi-ai@latest \
             @earendil-works/pi-coding-agent@latest \
             @earendil-works/pi-tui@latest
-          if git diff --quiet -- package.json bun.lock; then
+          # Only the pins count. bun.lock can differ for other reasons, like a release
+          # that bumped the workspace versions, and that is not a new SDK.
+          if git diff --quiet -- package.json; then
             echo "bumped=false" >> "$GITHUB_OUTPUT"
           else
             echo "bumped=true" >> "$GITHUB_OUTPUT"
