@@ -117,34 +117,39 @@ function mcpRows(scope: FeatureScope, state: SessionState): ScreenEntry[] {
 	}
 
 	return [
-		...connected.map((entry) => mcpRow(scope, state, entry)),
-		...gone.map((server) => mcpRow(scope, state, { server, tools: 0, reads: 0, destructive: 0 })),
+		...connected.map((entry) => mcpRow(scope, state, entry.server, entry)),
+		...gone.map((server) => mcpRow(scope, state, server)),
 	];
 }
 
-function mcpRow(scope: FeatureScope, state: SessionState, entry: McpServer): ScreenEntry {
-	const policy = policyFor(state.config.mcp.servers, entry.server);
+function mcpRow(
+	scope: FeatureScope,
+	state: SessionState,
+	server: string,
+	connected?: McpServer,
+): ScreenEntry {
+	const policy = policyFor(state.config.mcp.servers, server);
 
 	return {
 		kind: "value",
-		id: `mcp.${entry.server}`,
+		id: `mcp.${server}`,
 		section: "MCP servers",
-		label: entry.server,
-		description: `${describeServer(entry)}. ${capitalize(MCP_POLICY_TEXT[policy].description)}.`,
+		label: server,
+		description: `${describeServer(connected)}. ${capitalize(MCP_POLICY_TEXT[policy].description)}.`,
 		meta: "saved for every project",
 		control: MCP_POLICY_CONTROL,
 		get: () => policy,
 		set: (value: Json) => {
 			if (!isMcpPolicy(value)) return "not an MCP policy";
-			return setMcpPolicy(scope, entry.server, value);
+			return setMcpPolicy(scope, server, value);
 		},
 	};
 }
 
-function describeServer(entry: McpServer): string {
-	if (entry.tools === 0) return "not connected now, so the policy waits";
-	const tools = entry.tools === 1 ? "1 tool" : `${entry.tools} tools`;
-	return `${tools}, ${entry.reads} that read, ${entry.destructive} destructive`;
+function describeServer(server: McpServer | undefined): string {
+	if (server === undefined) return "not connected now, so the policy waits";
+	const tools = server.tools === 1 ? "1 tool" : `${server.tools} tools`;
+	return `${tools}, ${server.reads} that read, ${server.destructive} destructive`;
 }
 
 // With one folder open, the row names it.

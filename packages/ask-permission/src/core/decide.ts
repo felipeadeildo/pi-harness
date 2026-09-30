@@ -85,7 +85,7 @@ export function describeCall(
 	const reach = reachOf(config.workspace.roots, cwd, tool.paths(input));
 	const facts: ToolFacts = extras.facts ?? (() => undefined);
 	const fact = facts(toolName);
-	const mcp = mcpCallOf(toolName, facts);
+	const mcp = mcpCallOf(toolName, fact);
 	const target = tool.describe(input);
 
 	return {

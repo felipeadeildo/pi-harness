@@ -7,31 +7,27 @@ import {
 	mcpCallOf,
 	mcpServers,
 	policyFor,
-	type ToolFact,
 } from "#core/mcp.ts";
-
-function facts(tools: Record<string, ToolFact>) {
-	return (toolName: string): ToolFact | undefined => tools[toolName];
-}
 
 describe("mcpCallOf", () => {
 	test("reads the server and the tool out of the registered name", () => {
-		const call = mcpCallOf("mcp__sauron__query_loki_logs", facts({}));
+		const call = mcpCallOf("mcp__sauron__query_loki_logs", undefined);
 		expect(call).toEqual({ server: "sauron", tool: "query_loki_logs" });
 	});
 
 	test("the namespace names the server when the tool name is ambiguous", () => {
-		const call = mcpCallOf(
-			"mcp__dev_radius__read_file",
-			facts({ mcp__dev_radius__read_file: { namespace: { name: "mcp__dev-radius" } } }),
-		);
+		const call = mcpCallOf("mcp__dev_radius__read_file", {
+			namespace: { name: "mcp__dev-radius" },
+		});
 		expect(call?.server).toBe("dev-radius");
 	});
 
 	test("a tool that is not from a server is not an MCP call", () => {
-		expect(mcpCallOf("bash", facts({}))).toBeUndefined();
-		expect(mcpCallOf("mcp", facts({}))).toBeUndefined();
-		expect(mcpCallOf("list_mcp_resources", facts({}))).toBeUndefined();
+		expect(mcpCallOf("bash", undefined)).toBeUndefined();
+		expect(mcpCallOf("mcp", undefined)).toBeUndefined();
+		expect(
+			mcpCallOf("list_mcp_resources", { annotations: { readOnlyHint: true } }),
+		).toBeUndefined();
 	});
 });
 

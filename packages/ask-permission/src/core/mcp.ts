@@ -44,14 +44,12 @@ export interface ToolFact {
 }
 
 export type ToolFacts = (toolName: string) => ToolFact | undefined;
-
 export function isOrchestrator(toolName: string): boolean {
 	return ORCHESTRATORS.includes(toolName);
 }
 
 /** The MCP call behind a tool name, or undefined for anything else. */
-export function mcpCallOf(toolName: string, facts: ToolFacts): McpCall | undefined {
-	const fact = facts(toolName);
+export function mcpCallOf(toolName: string, fact: ToolFact | undefined): McpCall | undefined {
 	const server = serverOf(toolName, fact);
 	if (server === undefined) return undefined;
 
