@@ -34,10 +34,17 @@ export function readSettingsFile(path: string): SettingsFile {
 	}
 }
 
-export function writeSettingsFile(path: string, data: SettingsData): void {
+export function writeSettingsFile(
+	path: string,
+	data: SettingsData,
+	options: { mode?: number } = {},
+): void {
 	mkdirSync(dirname(path), { recursive: true });
 	const temporary = `${path}.${process.pid}.tmp`;
-	writeFileSync(temporary, `${JSON.stringify(data, null, "\t")}\n`, "utf8");
+	writeFileSync(temporary, `${JSON.stringify(data, null, "\t")}\n`, {
+		encoding: "utf8",
+		mode: options.mode,
+	});
 	renameSync(temporary, path);
 }
 
