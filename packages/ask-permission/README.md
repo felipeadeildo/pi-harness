@@ -137,6 +137,8 @@ Pi registers each tool an MCP server offers as `mcp__<server>__<tool>`. The sett
 
 `deny` and `ask me` outrank the mode, `full` included. The `allow` list does not bring a denied server back.
 
+The resource tools pi adds for reading resources name the server in their arguments rather than in the tool name, so no server policy covers them: `list_mcp_resources`, `list_mcp_resource_templates` and `read_mcp_resource`. They declare themselves read-only, so the read-only layer runs them whatever the mode.
+
 The dialog names the server and repeats what it declares, and says when a script issued the call:
 
 ```text
@@ -251,21 +253,21 @@ The ids below leave out the `permission.` prefix.
 
 The `judge` block:
 
-| Key                 | Default        | Does                                                  |
-| ------------------- | -------------- | ----------------------------------------------------- |
-| `provider`          | `"jev"`        | `"jev"`, or `"pi"` for a model you set up in pi       |
-| `model`             | `"jev-latest"` | A Jev alias, or `provider/modelId` for a pi model     |
-| `policy`            | Standard       | The rules the judge follows                           |
-| `canDeny`           | `true`         | A confident no blocks the call. Off, it asks you      |
-| `whenUnsure`        | `"ask"`        | `"ask"`, `"allow"`, or `"deny"`                       |
-| `whenItFails`       | `"ask"`        | The same, for a timeout, an error, or a missing key   |
-| `alwaysAsk`         | `[]`           | Patterns the judge never approves, like `"git push*"` |
-| `dryRun`            | `false`        | Show the verdict, and still ask you                   |
-| `noUI`              | `false`        | Also judge print, JSON, and subagent runs             |
-| `rememberApprovals` | `false`        | A judge approval becomes always yes for this session  |
-| `thresholds`        | `0.85` / `0.8` | Confidence needed to allow / deny                     |
-| `riskCeiling`       | `0.45`         | Highest risk the judge may approve                    |
-| `timeoutMs`         | `5000`         | How long to wait for an answer                        |
+| Key                 | Default        | Does                                                                                                                           |
+| ------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `provider`          | `"jev"`        | `"jev"`, or `"pi"` for a model you set up in pi                                                                                |
+| `model`             | `"jev-latest"` | A Jev alias, or `provider/modelId` for a pi model                                                                              |
+| `policy`            | Standard       | The rules the judge follows                                                                                                    |
+| `canDeny`           | `true`         | A confident no blocks the call. Off, it asks you                                                                               |
+| `whenUnsure`        | `"ask"`        | `"ask"`, `"allow"`, or `"deny"`                                                                                                |
+| `whenItFails`       | `"ask"`        | The same, for a timeout, an error, or a missing key                                                                            |
+| `alwaysAsk`         | `[]`           | Patterns the judge never approves, like `"git push*"`. A pattern matches the tool name too, so `mcp__*` catches every MCP call |
+| `dryRun`            | `false`        | Show the verdict, and still ask you                                                                                            |
+| `noUI`              | `false`        | Also judge print, JSON, and subagent runs                                                                                      |
+| `rememberApprovals` | `false`        | A judge approval becomes always yes for this session                                                                           |
+| `thresholds`        | `0.85` / `0.8` | Confidence needed to allow / deny                                                                                              |
+| `riskCeiling`       | `0.45`         | Highest risk the judge may approve                                                                                             |
+| `timeoutMs`         | `5000`         | How long to wait for an answer                                                                                                 |
 
 A malformed value falls back and says what it dropped, so a typo never lets more through. Keys under an older name are read under the current one. `PI_CODING_AGENT_DIR` moves the file with the rest of the agent directory.
 
