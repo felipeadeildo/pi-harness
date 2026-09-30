@@ -70,10 +70,7 @@ function tabOf(host: Host, feature: Feature, ctx: ExtensionContext | undefined):
 		if (row !== undefined) rows.push(row);
 	}
 	if (ctx !== undefined) {
-		for (const entry of host.screen.get(feature.id) ?? [])
-			rows.push(screenRow(feature, entry, ctx));
-		for (const group of host.screenGroups.get(feature.id) ?? [])
-			for (const entry of group(ctx)) rows.push(screenRow(feature, entry, ctx));
+		for (const entry of entriesOf(host, feature.id, ctx)) rows.push(screenRow(feature, entry, ctx));
 	}
 
 	const sections = [...(feature.sections ?? [])];
@@ -158,21 +155,23 @@ function apply(host: Host, feature: Feature, request: ApplyRequest): string | un
 	return row.set(request.value ?? null, ctx);
 }
 
-/** A static row wins over a built one; only the screen provider knows what exists at this moment. */
+/** The rows a feature has at this moment: the ones it declared, then the ones it builds. */
+function entriesOf(host: Host, feature: string, ctx: ExtensionContext): ScreenEntry[] {
+	return [
+		...(host.screen.get(feature) ?? []),
+		...(host.screenGroups.get(feature) ?? []).flatMap((group) => group(ctx)),
+	];
+}
+
+/** An action can sit on a built row too, so the lookup walks the same two places. */
 function findRow(
 	host: Host,
 	feature: string,
 	id: string,
 	ctx: ExtensionContext | undefined,
 ): ScreenEntry | undefined {
-	const fixed = host.screen.get(feature)?.find((candidate) => candidate.id === id);
-	if (fixed !== undefined || ctx === undefined) return fixed;
-
-	for (const group of host.screenGroups.get(feature) ?? []) {
-		const row = group(ctx).find((candidate) => candidate.id === id);
-		if (row !== undefined) return row;
-	}
-	return undefined;
+	if (ctx === undefined) return host.screen.get(feature)?.find((candidate) => candidate.id === id);
+	return entriesOf(host, feature, ctx).find((candidate) => candidate.id === id);
 }
 
 async function runAction(
