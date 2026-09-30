@@ -1,5 +1,25 @@
 # Changelog
 
+## [4.0.0](https://github.com/felipeadeildo/pi-harness/compare/@adeildo/pi-ask-permission-v3.0.0...@adeildo/pi-ask-permission-v4.0.0) (2026-09-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **ask-permission:** publish as @adeildo/pi-ask-permission
+* **ask-permission:** read the config from the shared settings file
+
+### Features
+
+* **ask-permission:** publish as @adeildo/pi-ask-permission ([dac6462](https://github.com/felipeadeildo/pi-harness/commit/dac646269680dbd7af76c7fd174b6d49ef7e7c19))
+* **ask-permission:** read the config from the shared settings file ([0e9de2b](https://github.com/felipeadeildo/pi-harness/commit/0e9de2b4b779b010c1cfea07d0d736bf4ccd07b8))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @adeildo/pi-kit bumped to 0.2.0
+
 ## [3.0.0](https://github.com/felipeadeildo/pi-ask-permission/compare/v2.0.1...v3.0.0) (2026-09-23)
 
 

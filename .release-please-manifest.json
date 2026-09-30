@@ -1,5 +1,5 @@
 {
-	"packages/ask-permission": "3.0.0",
-	"packages/kit": "0.1.0",
-	"packages/harness": "0.0.0"
+	"packages/ask-permission": "4.0.0",
+	"packages/kit": "0.2.0",
+	"packages/harness": "0.1.0"
 }
