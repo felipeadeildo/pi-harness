@@ -1,6 +1,6 @@
 # Look
 
-[Pi](https://pi.dev)'s start screen, editor, footer and working line, redrawn around the data I want in front of me, and painted only with the colours of the theme that is on.
+Part of [`@adeildo/pi-harness`](../README.md). [Pi](https://pi.dev)'s start screen, editor, footer and working line, redrawn around the data I want in front of me, and painted only with the colours of the theme that is on.
 
 ```
 ╭─ π pi v0.99.1 ──────────────────────────────────────────────────────────────────╮
@@ -49,7 +49,7 @@ Every finished answer leaves a small entry in the session with its time to first
 
 ## Colours
 
-The look never names a colour. Every piece names a **theme token**, so it follows whatever theme pi runs: `dark`, `light`, a JSON of yours, or the desktop theme below. Change the theme and every piece moves with it.
+The look never names a colour. Every piece names a **theme token**, so it follows whatever theme pi runs: `system`, `dark`, `light`, a JSON of yours, or the desktop theme below. Change the theme and every piece moves with it.
 
 | What                                          | Token                                                       |
 | --------------------------------------------- | ----------------------------------------------------------- |
@@ -68,11 +68,13 @@ The look never names a colour. Every piece names a **theme token**, so it follow
 | Labels, units, separators                     | `dim`                                                       |
 | Editor frame                                  | pi's effort border colour                                   |
 
-Syntax tokens are borrowed on purpose: a theme spends its hues there, so they give the line variety that stays in the theme's family. The table lives in `src/render/paint.ts` as `ROLE_TOKENS`, and a test fails if any entry is ever a colour instead of a token.
+Syntax tokens are borrowed on purpose: a theme spends its hues there, so they give the line variety that stays in the theme's family. The table lives in `src/look/render/paint.ts` as `ROLE_TOKENS`, and a test fails if any entry is ever a colour instead of a token.
 
 ### The desktop theme
 
 If you run [DankMaterialShell](https://github.com/AvengeMedia/DankMaterialShell), matugen already made a palette from your wallpaper: the Material roles for dark and light, and sixteen terminal colours, in `~/.cache/DankMaterialShell/dms-colors.json`. The look turns that file into the pi theme `desktop`, writes it to `~/.pi/agent/themes/desktop.json`, and rewrites it whenever the file changes. Pi reloads the active theme from that folder by itself, so a new wallpaper recolours a running pi.
+
+Pi's own `system` theme builds its colours from the terminal's palette. If your terminal already follows matugen, `system` gets close without this, with fewer colours to work from: the sixteen terminal colours instead of the Material roles.
 
 ```
 /look explain    what every piece on screen is, with its current value
@@ -95,7 +97,7 @@ The mapping, from the Material roles and the terminal colours:
 
 Material has no success, warning or diff roles, so the terminal colours of that hue stand in. The top of the effort ramp uses the terminal reds on purpose: they keep their meaning whatever the wallpaper, so the frame still reads hot at `xhigh` and `max`.
 
-Another palette source is a new file next to `src/desktop/palette.ts`: a parser into Material roles and terminal colours, and the same mapping does the rest.
+Another palette source is a new file next to `src/look/desktop/palette.ts`: a parser into Material roles and terminal colours, and the same mapping does the rest.
 
 ## Settings
 
@@ -150,7 +152,7 @@ Any segment goes in any slot, in the order the slot lists them.
 | `statuses`     | What other packages report through `setStatus`, minus the ones placed on their own                    |
 | `status:<key>` | One package's status, by the key it passes to `setStatus`                                             |
 
-A `status:<key>` segment is how a package gets a place of its own. `pi-ask-permission` reports its mode as `pi-ask-permission:mode`, and the mode says what happens to what you type, so by default it sits in the frame next to the model instead of in the footer with everything else.
+A `status:<key>` segment is how a package gets a place of its own. [`@adeildo/pi-ask-permission`](../../ask-permission) reports its mode as `pi-ask-permission:mode`, and the mode says what happens to what you type, so by default it sits in the frame next to the model instead of in the footer with everything else.
 
 ## How it fits
 

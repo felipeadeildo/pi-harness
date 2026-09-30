@@ -15,7 +15,7 @@
 	"bugs": "https://github.com/felipeadeildo/pi-harness/issues",
 	"license": "MIT",
 	"author": {
-		"name": "Felipe Adeildo",
+		"name": "adeildo",
 		"email": "contato@felipeadeildo.com",
 		"url": "https://github.com/felipeadeildo"
 	},
@@ -38,6 +38,9 @@
 		"#pi/*": "./src/pi/*",
 		"#ui/*": "./src/ui/*",
 		"#util/*": "./src/util/*"
+	},
+	"exports": {
+		".": "./src/index.ts"
 	},
 	"publishConfig": {
 		"access": "public"

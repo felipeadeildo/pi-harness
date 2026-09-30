@@ -6,5 +6,5 @@ import { subscription } from "./subscription/feature.ts";
 export { claudeCodeVersion, subscription } from "./subscription/feature.ts";
 
 export default function piProviders(pi: ExtensionAPI): void {
-	createApp(pi, { name: "pi-harness" }).use(subscription).build();
+	createApp(pi, { name: "pi-providers" }).use(subscription).build();
 }

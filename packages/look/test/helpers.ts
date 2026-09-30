@@ -1,11 +1,11 @@
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 
-import { emptySnapshot, type Snapshot } from "../../src/look/data/snapshot.ts";
-import { ASCII, type Glyphs } from "../../src/look/render/glyphs.ts";
-import { PLAIN, type Paint } from "../../src/look/render/paint.ts";
-import type { SegmentId } from "../../src/look/render/segments.ts";
-import { SEPARATORS } from "../../src/look/settings.ts";
-import type { Screen, SlotName } from "../../src/look/ui/screen.ts";
+import { emptySnapshot, type Snapshot } from "../src/data/snapshot.ts";
+import { ASCII, type Glyphs } from "../src/render/glyphs.ts";
+import { PLAIN, type Paint } from "../src/render/paint.ts";
+import type { SegmentId } from "../src/render/segments.ts";
+import { SEPARATORS } from "../src/settings.ts";
+import type { Screen, SlotName } from "../src/ui/screen.ts";
 
 export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 	return {

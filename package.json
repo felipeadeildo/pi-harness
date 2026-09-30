@@ -2,10 +2,10 @@
 	"name": "pi-harness",
 	"version": "4.0.0",
 	"private": true,
-	"description": "Felipe Adeildo's Pi harness: the extensions, settings and look he runs Pi with, each installable on its own.",
+	"description": "The Pi extensions adeildo runs Pi with: one package with everything, and each piece on its own.",
 	"license": "MIT",
 	"author": {
-		"name": "Felipe Adeildo",
+		"name": "adeildo",
 		"email": "contato@felipeadeildo.com",
 		"url": "https://github.com/felipeadeildo"
 	},

@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 
-import { ASCII, NERD } from "../../src/look/render/glyphs.ts";
-import { PLAIN, type Paint } from "../../src/look/render/paint.ts";
+import { ASCII, NERD } from "../src/render/glyphs.ts";
+import { PLAIN, type Paint } from "../src/render/paint.ts";
 import {
 	claimedStatuses,
 	isSegmentId,
 	renderSegments,
 	SEGMENT_IDS,
 	type SegmentId,
-} from "../../src/look/render/segments.ts";
+} from "../src/render/segments.ts";
 import { snapshot } from "./helpers.ts";
 
 const options = { pathLength: 40, gaugeCells: 8, claimed: new Set<string>(), labels: false };

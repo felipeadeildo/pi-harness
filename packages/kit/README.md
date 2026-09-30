@@ -1,11 +1,14 @@
 # @adeildo/pi-kit
 
-What every pi-harness package is built on. It's a library, not a Pi package, so installing it adds nothing to Pi.
+[![npm](https://img.shields.io/npm/v/@adeildo/pi-kit)](https://www.npmjs.com/package/@adeildo/pi-kit)
+
+What [`@adeildo/pi-ask-permission`](../ask-permission) and [`@adeildo/pi-harness`](../harness) are built on. It's a library, not a Pi package, so installing it adds nothing to Pi. It's on npm because both packages need it at runtime, and its API follows what they need, with no promise to anyone else.
 
 ## An app, and features in it
 
 ```ts
 import { createApp, defineFeature, matching, setting } from "@adeildo/pi-kit";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 export const version = setting({
 	id: "subscription.claudeCodeVersion",
@@ -25,11 +28,11 @@ export const subscription = defineFeature({
 });
 
 export default function (pi: ExtensionAPI): void {
-	createApp(pi, { name: "pi-providers" }).use(subscription).build();
+	createApp(pi, { name: "pi-harness" }).use(subscription).build();
 }
 ```
 
-A package is one app. The harness will be one app with every feature in it, and Pi loads it as a single extension.
+Each extension a package declares is one app with one or more features. The app's `name` goes in front of every warning. The harness declares one extension per feature, so `pi config` turns each off on its own, and all of them share the settings file below.
 
 ## What a feature gets
 
@@ -44,7 +47,7 @@ A package is one app. The harness will be one app with every feature in it, and 
 | `scope.warn`            | Shows a notification when there's a UI and writes to stderr when there isn't. Messages sent before a session starts are held until it does.                                                              |
 | everything else         | The scope **is** the extension API, so `scope.registerTool`, `scope.appendEntry`, `scope.events` and the rest work as they always did.                                                                   |
 
-A feature whose `setup` throws turns into a warning, and the other features still mount. If the same feature runs in two apps of one Pi process, say the harness and a standalone package, the first app runs it and the second one logs who has it.
+A feature whose `setup` throws turns into a warning, and the other features still mount. If the same feature id is mounted by two apps in one Pi process, say from two copies of a package, the first app runs it and the second one logs who has it.
 
 ## Settings
 
@@ -77,7 +80,7 @@ These rules hold for every event that crosses packages:
 
 ## Testing
 
-`@adeildo/pi-kit/testing` has `fakePi()` and `fakeContext()`. Two fakes built on one `createEventBus()` behave like two extensions in the same Pi process. `fire` runs the handlers in order and returns what each one returned.
+`@adeildo/pi-kit/testing` has `fakePi()`, `fakeScope()` and `fakeContext()`. Two fakes built on one `createEventBus()` behave like two extensions in the same Pi process. `fire` runs the handlers in order and returns what each one returned.
 
 ## License
 

@@ -1,0 +1,51 @@
+{
+	"name": "@adeildo/pi-providers",
+	"version": "4.0.0",
+	"description": "Provider features for Pi. Bills Anthropic OAuth requests to the Claude Pro or Max plan instead of extra usage.",
+	"keywords": [
+		"anthropic",
+		"claude",
+		"pi",
+		"pi-coding-agent",
+		"pi-extension",
+		"pi-package",
+		"subscription"
+	],
+	"homepage": "https://github.com/felipeadeildo/pi-harness/tree/main/packages/providers#readme",
+	"bugs": "https://github.com/felipeadeildo/pi-harness/issues",
+	"license": "MIT",
+	"author": {
+		"name": "adeildo",
+		"email": "contato@felipeadeildo.com",
+		"url": "https://github.com/felipeadeildo"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/felipeadeildo/pi-harness.git",
+		"directory": "packages/providers"
+	},
+	"files": [
+		"src",
+		"README.md",
+		"LICENSE"
+	],
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"dependencies": {
+		"@adeildo/pi-kit": "workspace:*"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-ai": "*",
+		"@earendil-works/pi-coding-agent": "*"
+	},
+	"pi": {
+		"extensions": [
+			"./src/index.ts"
+		]
+	}
+}

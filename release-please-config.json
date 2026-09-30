@@ -19,6 +19,16 @@
 				},
 				{
 					"type": "json",
+					"path": "packages/look/package.json",
+					"jsonpath": "$.version"
+				},
+				{
+					"type": "json",
+					"path": "packages/providers/package.json",
+					"jsonpath": "$.version"
+				},
+				{
+					"type": "json",
 					"path": "packages/harness/package.json",
 					"jsonpath": "$.version"
 				}

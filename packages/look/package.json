@@ -1,18 +1,17 @@
 {
-	"name": "@adeildo/pi-harness",
+	"name": "@adeildo/pi-look",
 	"version": "4.0.0",
-	"description": "Every adeildo Pi extension in one install: the permission dialog, the look and the providers. Each is its own extension, so pi config turns one off.",
+	"description": "Pi's start screen, a framed editor and the footer, redrawn around the data that matters and painted only with the theme's colours.",
 	"keywords": [
-		"anthropic",
-		"permission",
 		"pi",
 		"pi-coding-agent",
 		"pi-extension",
 		"pi-package",
 		"statusline",
-		"theme"
+		"theme",
+		"tui"
 	],
-	"homepage": "https://github.com/felipeadeildo/pi-harness/tree/main/packages/harness#readme",
+	"homepage": "https://github.com/felipeadeildo/pi-harness/tree/main/packages/look#readme",
 	"bugs": "https://github.com/felipeadeildo/pi-harness/issues",
 	"license": "MIT",
 	"author": {
@@ -23,7 +22,7 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/felipeadeildo/pi-harness.git",
-		"directory": "packages/harness"
+		"directory": "packages/look"
 	},
 	"files": [
 		"src",
@@ -31,14 +30,14 @@
 		"LICENSE"
 	],
 	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
 	"publishConfig": {
 		"access": "public"
 	},
 	"dependencies": {
-		"@adeildo/pi-ask-permission": "workspace:*",
-		"@adeildo/pi-kit": "workspace:*",
-		"@adeildo/pi-look": "workspace:*",
-		"@adeildo/pi-providers": "workspace:*"
+		"@adeildo/pi-kit": "workspace:*"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-ai": "*",
@@ -47,9 +46,7 @@
 	},
 	"pi": {
 		"extensions": [
-			"./src/permission.ts",
-			"./src/look.ts",
-			"./src/providers.ts"
+			"./src/index.ts"
 		]
 	}
 }

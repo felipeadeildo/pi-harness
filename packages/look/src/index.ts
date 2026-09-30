@@ -444,5 +444,5 @@ function stopTicking(live: Live): void {
 }
 
 export default function piLook(pi: ExtensionAPI): void {
-	createApp(pi, { name: "pi-harness" }).use(look).build();
+	createApp(pi, { name: "pi-look" }).use(look).build();
 }

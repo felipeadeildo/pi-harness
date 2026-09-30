@@ -7,8 +7,8 @@ import { createApp } from "@adeildo/pi-kit";
 import { type FakePi, fakeContext, fakePi } from "@adeildo/pi-kit/testing";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { CLAUDE_CODE_IDENTITY } from "../../src/providers/subscription/billing.ts";
-import { subscription } from "../../src/providers/subscription/feature.ts";
+import { CLAUDE_CODE_IDENTITY } from "../src/subscription/billing.ts";
+import { subscription } from "../src/subscription/feature.ts";
 
 let dir: string;
 let settingsPath: string;

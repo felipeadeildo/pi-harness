@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { visibleWidth } from "@earendil-works/pi-tui";
 
-import { fitLine, fitRegions, type Piece } from "../../src/look/render/fit.ts";
+import { fitLine, fitRegions, type Piece } from "../src/render/fit.ts";
 import {
 	count,
 	duration,
@@ -13,10 +13,10 @@ import {
 	rate,
 	shortenPath,
 	truncateTail,
-} from "../../src/look/render/format.ts";
-import { BOXES, border } from "../../src/look/render/frame.ts";
-import { ASCII, NERD, resolveIcons, UNICODE } from "../../src/look/render/glyphs.ts";
-import { ROLE_TOKENS } from "../../src/look/render/paint.ts";
+} from "../src/render/format.ts";
+import { BOXES, border } from "../src/render/frame.ts";
+import { ASCII, NERD, resolveIcons, UNICODE } from "../src/render/glyphs.ts";
+import { ROLE_TOKENS } from "../src/render/paint.ts";
 import { plain } from "./helpers.ts";
 
 describe("format", () => {
