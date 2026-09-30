@@ -14,7 +14,8 @@
 		},
 		"packages/harness": {
 			"release-type": "node",
-			"component": "@adeildo/pi-harness"
+			"component": "@adeildo/pi-harness",
+			"initial-version": "0.1.0"
 		}
 	},
 	"bump-minor-pre-major": true
