@@ -3,7 +3,7 @@
 import type { AuthEvent, ProviderAuthInteraction } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-const STATUS_KEY = "pi-providers:accounts";
+export const LOGIN_KEY = "pi-providers:login";
 
 export function interactionFor(
 	ctx: ExtensionContext,
@@ -46,7 +46,7 @@ function show(ctx: ExtensionContext, event: AuthEvent): void {
 			ctx.ui.notify(`Enter ${event.userCode} at ${event.verificationUri}`, "info");
 			break;
 		case "progress":
-			ctx.ui.setStatus(STATUS_KEY, event.message);
+			ctx.ui.setStatus(LOGIN_KEY, event.message);
 			break;
 	}
 }

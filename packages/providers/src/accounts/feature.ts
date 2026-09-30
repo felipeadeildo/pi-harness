@@ -4,11 +4,11 @@ import type { Credential, Provider } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Key } from "@earendil-works/pi-tui";
 
-import { interactionFor } from "./interaction.ts";
+import { interactionFor, LOGIN_KEY } from "./interaction.ts";
 import { liftProvider, nativeOf, type AccountSession } from "./lift.ts";
 import { login, loginMethods, type LoginMethod } from "./login.ts";
 import { pin, replay, type Pins } from "./pins.ts";
-import { accountRows, DEFAULT_LABEL } from "./screen.ts";
+import { accountRows, DEFAULT_LABEL, refreshStatus, STATUS_KEY } from "./screen.ts";
 import { AccountStore } from "./store.ts";
 
 const NAME = "pi-providers";
@@ -47,6 +47,9 @@ export const accounts = defineFeature({
 
 		scope.screen.rows(() => accountRows(scope, store, pins));
 
+		scope.on("model_select", (_event, ctx) => refreshStatus(store, pins, ctx));
+		scope.on("session_shutdown", (_event, ctx) => ctx.ui.setStatus(STATUS_KEY, undefined));
+
 		scope.onSessionStart((ctx) => {
 			for (const warning of store.reload()) scope.warn(warning);
 			pins.clear();
@@ -56,6 +59,7 @@ export const accounts = defineFeature({
 			for (const providerId of new Set([...store.providerIds(), ...pins.keys()])) {
 				lift(scope, store, pins, ctx, providerId);
 			}
+			refreshStatus(store, pins, ctx);
 		});
 
 		scope.registerShortcut(Key.alt("a"), {
@@ -135,18 +139,31 @@ async function pickAccount(
 		return;
 	}
 
-	const options = [
-		DEFAULT_LABEL,
-		...entries.map((account, index) => `${index + 1}. ${account.label}`),
+	const pinned = pins.has(providerId) ? pins.get(providerId) : store.active(providerId)?.id;
+	const current = pinned ?? "default";
+
+	const choices = [
+		{ id: "default", label: DEFAULT_LABEL, kind: "login" },
+		...entries.map((account) => ({
+			id: account.id,
+			label: account.label,
+			kind: account.credential.type === "oauth" ? "oauth" : "key",
+		})),
 	];
-	const picked = await ctx.ui.select(`${providerId} account`, options);
+	const options = choices.map((choice, index) => {
+		const here = choice.id === current ? " ✓" : "";
+		return `${index + 1}  ${choice.label} · ${choice.kind}${here}`;
+	});
+
+	const picked = await ctx.ui.select(`Account for ${providerId}`, options);
 	const index = picked === undefined ? -1 : options.indexOf(picked);
 	if (index < 0) return;
 
-	const accountId = index === 0 ? null : (entries[index - 1]?.id ?? null);
-	pin(scope, pins, providerId, accountId);
-	const label = index === 0 ? DEFAULT_LABEL : entries[index - 1]?.label;
-	ctx.ui.notify(`${NAME}: ${providerId} uses ${label}`, "info");
+	const choice = choices[index];
+	if (choice === undefined) return;
+	pin(scope, pins, providerId, choice.id === "default" ? null : choice.id);
+	refreshStatus(store, pins, ctx);
+	ctx.ui.notify(`${NAME}: ${providerId} uses ${choice.label}`, "info");
 }
 
 async function addAccount(
@@ -191,7 +208,7 @@ async function addAccount(
 	} catch (error) {
 		ctx.ui.notify(`${NAME}: ${reason(error)}`, "error");
 	} finally {
-		ctx.ui.setStatus("pi-providers:accounts", undefined);
+		ctx.ui.setStatus(LOGIN_KEY, undefined);
 	}
 }
 

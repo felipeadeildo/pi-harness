@@ -1,12 +1,14 @@
 // The Accounts rows of the settings screen: pick the account of a provider for this session,
 // rename one, or remove one. Adding stays on `/accounts`, which needs the provider's login dialogs.
 import type { FeatureScope, Json, ScreenEntry } from "@adeildo/pi-kit";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { pin, type Pins } from "./pins.ts";
 import { AccountStore } from "./store.ts";
 import type { Account } from "./types.ts";
 
 export const DEFAULT_LABEL = "pi default";
+export const STATUS_KEY = "pi-providers:accounts";
 const SECTION = "Accounts";
 
 export function accountRows(pi: FeatureScope, store: AccountStore, pins: Pins): ScreenEntry[] {
@@ -27,15 +29,17 @@ export function accountRows(pi: FeatureScope, store: AccountStore, pins: Pins): 
 				],
 			},
 			get: () => current(store, pins, providerId, accounts),
-			set: (value) => {
+			set: (value, ctx) => {
 				if (value === "default") {
 					pin(pi, pins, providerId, null);
+					refreshStatus(store, pins, ctx);
 					return undefined;
 				}
 				if (typeof value !== "string" || !accounts.some((account) => account.id === value)) {
 					return "pick an account";
 				}
 				pin(pi, pins, providerId, value);
+				refreshStatus(store, pins, ctx);
 				return undefined;
 			},
 		});
@@ -60,8 +64,12 @@ function accountRow(
 			description: `${account.credential.type === "oauth" ? "OAuth" : "API key"} credential, named ${account.label}.`,
 			control: { type: "text" },
 			get: () => account.label,
-			set: (value: Json) =>
-				typeof value === "string" ? store.rename(providerId, account.id, value) : "name it",
+			set: (value: Json, ctx) => {
+				if (typeof value !== "string") return "name it";
+				const problem = store.rename(providerId, account.id, value);
+				if (problem === undefined) refreshStatus(store, pins, ctx);
+				return problem;
+			},
 		},
 		{
 			kind: "action",
@@ -70,14 +78,35 @@ function accountRow(
 			label: `Remove ${account.label}`,
 			description: `${providerId} loses this credential for good.`,
 			confirm: `Remove the ${providerId} account "${account.label}"?`,
-			run: () => {
+			run: (ctx) => {
 				const problem = store.remove(providerId, account.id);
 				if (problem !== undefined) return problem;
 				if (pins.get(providerId) === account.id) pin(pi, pins, providerId, null);
+				refreshStatus(store, pins, ctx);
 				return `${account.label} removed`;
 			},
 		},
 	];
+}
+
+/** The label of the account the current model uses, or undefined when there is nothing to say. */
+export function accountStatus(
+	store: AccountStore,
+	pins: Pins,
+	ctx: ExtensionContext,
+): string | undefined {
+	const providerId = ctx.model?.provider;
+	if (providerId === undefined) return undefined;
+	const accounts = store.accounts(providerId);
+	if (accounts.length === 0) return undefined;
+	const pinned = pins.has(providerId) ? pins.get(providerId) : store.active(providerId)?.id;
+	if (pinned === null || pinned === undefined) return "pi";
+	return accounts.find((account) => account.id === pinned)?.label ?? "pi";
+}
+
+/** Publishes the account next to the model, where every other piece reads it. */
+export function refreshStatus(store: AccountStore, pins: Pins, ctx: ExtensionContext): void {
+	ctx.ui.setStatus(STATUS_KEY, accountStatus(store, pins, ctx));
 }
 
 /** The value the choice shows: the session pin, else the store's default, else `default`. */
