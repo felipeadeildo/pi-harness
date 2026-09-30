@@ -372,7 +372,7 @@ describe("workspace scope", () => {
 		};
 
 		await harness("manual").toolCall(judgeCall("call-1", "cat /etc/hostname"), ctx());
-		await harness("manual", "allow").toolCall(writeCall("call-2", "/etc/x.conf"), ctx());
+		await harness("manual", "allow").toolCall(judgeCall("call-2", "touch /etc/x.conf"), ctx());
 
 		expect(shown[0]).toContain("yes, and allow reads in /etc");
 		expect(shown[1]).not.toContain("/etc to the workspace");
