@@ -2,6 +2,22 @@
 
 Since 4.0.0, `@adeildo/pi-kit`, `@adeildo/pi-ask-permission` and `@adeildo/pi-harness` share one version, one tag and this changelog. The entries below 4.0.0 are `pi-ask-permission`'s.
 
+## [4.1.0](https://github.com/felipeadeildo/pi-harness/compare/v4.0.0...v4.1.0) (2026-09-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **harness:** bring every feature in the harness, with look and providers as packages of their own
+
+### Features
+
+* **harness:** bring every feature in the harness, with look and providers as packages of their own ([693b946](https://github.com/felipeadeildo/pi-harness/commit/693b9464149de87e375054f505891ee82ec8a8a1))
+
+
+### Bug Fixes
+
+* **release:** hand the terminal to npm so publish and trust can ask for 2FA ([45f0d3e](https://github.com/felipeadeildo/pi-harness/commit/45f0d3ef7881e1d3444dc57c0a70ea2c844dc98d))
+
 ## 4.0.0 (2026-09-30)
 
 ### ⚠ BREAKING CHANGES

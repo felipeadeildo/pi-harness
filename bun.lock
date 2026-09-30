@@ -18,7 +18,7 @@
     },
     "packages/ask-permission": {
       "name": "@adeildo/pi-ask-permission",
-      "version": "4.0.0",
+      "version": "4.1.0",
       "dependencies": {
         "@adeildo/pi-kit": "workspace:*",
         "shell-quote": "^1.10.0",
@@ -31,7 +31,7 @@
     },
     "packages/harness": {
       "name": "@adeildo/pi-harness",
-      "version": "4.0.0",
+      "version": "4.1.0",
       "dependencies": {
         "@adeildo/pi-ask-permission": "workspace:*",
         "@adeildo/pi-kit": "workspace:*",
@@ -46,14 +46,14 @@
     },
     "packages/kit": {
       "name": "@adeildo/pi-kit",
-      "version": "4.0.0",
+      "version": "4.1.0",
       "peerDependencies": {
         "@earendil-works/pi-coding-agent": "*",
       },
     },
     "packages/look": {
       "name": "@adeildo/pi-look",
-      "version": "4.0.0",
+      "version": "4.1.0",
       "dependencies": {
         "@adeildo/pi-kit": "workspace:*",
       },
@@ -65,7 +65,7 @@
     },
     "packages/providers": {
       "name": "@adeildo/pi-providers",
-      "version": "4.0.0",
+      "version": "4.1.0",
       "dependencies": {
         "@adeildo/pi-kit": "workspace:*",
       },

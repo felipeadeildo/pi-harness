@@ -1,6 +1,6 @@
 {
 	"name": "@adeildo/pi-harness",
-	"version": "4.0.0",
+	"version": "4.1.0",
 	"description": "Every adeildo Pi extension in one install: the permission dialog, the look and the providers. Each is its own extension, so pi config turns one off.",
 	"keywords": [
 		"anthropic",
