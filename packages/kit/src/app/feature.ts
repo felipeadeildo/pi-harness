@@ -50,6 +50,8 @@ interface ScreenRow {
 	section: string;
 	label: string;
 	description: string;
+	/** How deep the row sits under its section. Each step indents two columns. */
+	indent?: number;
 }
 
 export interface ScreenValue extends ScreenRow {

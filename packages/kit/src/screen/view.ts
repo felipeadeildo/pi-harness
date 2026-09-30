@@ -501,7 +501,9 @@ export class ScreenView implements Component {
 			Math.floor((width - 4) / 2),
 			Math.max(
 				12,
-				...lines.map((line) => (line.kind === "row" ? visibleWidth(line.row.label) : 0)),
+				...lines.map((line) =>
+					line.kind === "row" ? visibleWidth(line.row.label) + (line.row.indent ?? 0) * 2 : 0,
+				),
 			) + 2,
 		);
 		const bar = scrollbar(lines.length, height, this.#scroll);
@@ -523,13 +525,15 @@ export class ScreenView implements Component {
 		if (line.kind === "heading") return `  ${theme.underline(theme.fg("muted", line.title))}`;
 
 		const row = line.row;
+		const indent = "  ".repeat(row.indent ?? 0);
 		const cursor = selected ? theme.fg("accent", "\u276f ") : "  ";
-		const label = truncateToWidth(row.label, labelWidth - 1, "\u2026");
-		const pad = " ".repeat(Math.max(1, labelWidth - visibleWidth(label)));
+		const room = Math.max(1, labelWidth - 1 - visibleWidth(indent));
+		const label = truncateToWidth(row.label, room, "\u2026");
+		const pad = " ".repeat(Math.max(1, labelWidth - visibleWidth(indent) - visibleWidth(label)));
 		const labelText = selected
 			? theme.fg("accent", theme.bold(label))
 			: theme.fg(row.kind === "info" ? "muted" : "text", label);
-		return ` ${cursor}${labelText}${pad}${this.#value(row, selected)}`;
+		return ` ${cursor}${indent}${labelText}${pad}${this.#value(row, selected)}`;
 	}
 
 	#value(row: RowView, selected: boolean): string {

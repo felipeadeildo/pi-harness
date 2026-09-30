@@ -22,6 +22,8 @@ export interface RowView {
 	value?: Json;
 	text?: string;
 	confirm?: string;
+	/** How deep the row sits under its section. Each step indents two columns. */
+	indent?: number;
 	/** Where a value row applies, when that is not this session. */
 	meta?: string;
 	layer?: Layer;

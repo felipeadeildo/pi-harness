@@ -117,6 +117,7 @@ function screenRow(feature: Feature, entry: ScreenEntry, ctx: ExtensionContext):
 		label: entry.label,
 		description: entry.description,
 	};
+	if (entry.indent !== undefined) row.indent = entry.indent;
 	switch (entry.kind) {
 		case "value":
 			row.control = typeof entry.control === "function" ? entry.control(ctx) : entry.control;

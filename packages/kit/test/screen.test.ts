@@ -195,6 +195,7 @@ function providersFeature(): Feature {
 				section: "Anthropic",
 				label: "Plan",
 				description: "What the account pays for.",
+				indent: 1,
 				text: () => "max",
 			});
 		},
@@ -433,6 +434,16 @@ describe("the screen view", () => {
 		const lines = screen.render(100);
 		expect(lines).toHaveLength(30);
 		for (const line of lines) expect([...line].length).toBe(100);
+	});
+
+	test("a row with an indent sits two columns deeper", async () => {
+		const { screen } = await view();
+		const lines = screen.render(100);
+		const count = lines.find((line) => line.includes("Count"));
+		const plan = lines.find((line) => line.includes("Plan"));
+		if (count === undefined || plan === undefined) throw new Error("no rows");
+
+		expect(plan.indexOf("Plan") - count.indexOf("Count")).toBe(2);
 	});
 
 	test("space moves a choice to its next value, and delete takes it back to the default", async () => {
