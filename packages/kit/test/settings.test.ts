@@ -172,6 +172,16 @@ describe("writing", () => {
 		});
 	});
 
+	test("a setting no feature declared throws, on read and on write", () => {
+		write(globalPath, { subscription: { enabled: false } });
+		const settings = store(version);
+		expect(() => enabled.get({ settings })).toThrow('"subscription.enabled" was not declared');
+		expect(() => settings.set(enabled, true)).toThrow('"subscription.enabled" was not declared');
+		expect(JSON.parse(readFileSync(globalPath, "utf8"))).toEqual({
+			subscription: { enabled: false },
+		});
+	});
+
 	test("a project value still wins after a global write", () => {
 		write(projectPath, { statusline: { preset: "minimal" } });
 		const settings = store(preset);

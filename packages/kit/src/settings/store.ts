@@ -29,7 +29,9 @@ export class SettingsStore {
 		this.#loaded = false;
 	}
 
+	/** Throws for a setting no feature declared, which would otherwise read its default forever. */
 	get<T>(entry: Setting<T>): T {
+		this.#assertKnown(entry);
 		if (!this.#loaded) this.load(this.#projectPath);
 		// Only `load` writes to #values, and always with a value this setting's decoder produced.
 		return this.#values.has(entry.id) ? (this.#values.get(entry.id) as T) : entry.default;
@@ -86,6 +88,7 @@ export class SettingsStore {
 	 * default, which would freeze them.
 	 */
 	setAll(entries: readonly (readonly [Setting<unknown>, unknown])[]): string | undefined {
+		for (const [entry] of entries) this.#assertKnown(entry);
 		const changed = entries.filter(([entry, value]) => !same(this.get(entry), value));
 		if (changed.length === 0) return undefined;
 
@@ -98,6 +101,11 @@ export class SettingsStore {
 		}
 		this.load(this.#projectPath);
 		return undefined;
+	}
+
+	#assertKnown(entry: Setting<unknown>): void {
+		if (this.#known.get(entry.id) !== entry)
+			throw new Error(`the setting "${entry.id}" was not declared by any feature of this app`);
 	}
 
 	#update(entry: Setting<unknown>, value: unknown): void {
