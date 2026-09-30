@@ -17,13 +17,15 @@ import type { Json } from "../control.ts";
 import { formatProblems, isObject } from "../decode.ts";
 import { controlOf, type Setting } from "../settings/setting.ts";
 import type { SettingsStore } from "../settings/store.ts";
-import type { Feature, ScreenEntry } from "./feature.ts";
+import type { Feature, ScreenEntry, ScreenGroup } from "./feature.ts";
 
 export interface Host {
 	pi: ExtensionAPI;
 	settings: SettingsStore;
 	features: () => readonly Feature[];
 	screen: ReadonlyMap<string, ScreenEntry[]>;
+	/** Rows a feature builds when the screen opens. */
+	screenGroups: ReadonlyMap<string, ScreenGroup[]>;
 	session: () => ExtensionContext | undefined;
 	isLive: () => boolean;
 }
@@ -47,10 +49,10 @@ export function serveScreen(host: Host): void {
 		const request = asRun(data);
 		if (request === undefined || !host.isLive()) return;
 		if (!host.features().some((entry) => entry.id === request.feature)) return;
-		const row = host.screen.get(request.feature)?.find((entry) => entry.id === request.id);
+		const ctx = host.session();
+		const row = findRow(host, request.feature, request.id, ctx);
 		if (row === undefined) return;
 
-		const ctx = host.session();
 		if (row.kind !== "action" || ctx === undefined) {
 			request.answer = { error: "nothing to run" };
 			return;
@@ -70,6 +72,8 @@ function tabOf(host: Host, feature: Feature, ctx: ExtensionContext | undefined):
 	if (ctx !== undefined) {
 		for (const entry of host.screen.get(feature.id) ?? [])
 			rows.push(screenRow(feature, entry, ctx));
+		for (const group of host.screenGroups.get(feature.id) ?? [])
+			for (const entry of group(ctx)) rows.push(screenRow(feature, entry, ctx));
 	}
 
 	const sections = [...(feature.sections ?? [])];
@@ -120,6 +124,7 @@ function screenRow(feature: Feature, entry: ScreenEntry, ctx: ExtensionContext):
 		case "value":
 			row.control = typeof entry.control === "function" ? entry.control(ctx) : entry.control;
 			row.value = entry.get(ctx);
+			if (entry.meta !== undefined) row.meta = entry.meta;
 			break;
 		case "action": {
 			const text = entry.text?.(ctx);
@@ -146,11 +151,28 @@ function apply(host: Host, feature: Feature, request: ApplyRequest): string | un
 		return host.settings.set(entry, decoded.value);
 	}
 
-	const row = host.screen.get(feature.id)?.find((candidate) => candidate.id === request.id);
 	const ctx = host.session();
+	const row = findRow(host, feature.id, request.id, ctx);
 	if (row?.kind !== "value" || ctx === undefined) return "this row cannot change";
 	if (request.op === "unset") return "this row has no default to go back to";
 	return row.set(request.value ?? null, ctx);
+}
+
+/** A static row wins over a built one; only the screen provider knows what exists at this moment. */
+function findRow(
+	host: Host,
+	feature: string,
+	id: string,
+	ctx: ExtensionContext | undefined,
+): ScreenEntry | undefined {
+	const fixed = host.screen.get(feature)?.find((candidate) => candidate.id === id);
+	if (fixed !== undefined || ctx === undefined) return fixed;
+
+	for (const group of host.screenGroups.get(feature) ?? []) {
+		const row = group(ctx).find((candidate) => candidate.id === id);
+		if (row !== undefined) return row;
+	}
+	return undefined;
 }
 
 async function runAction(

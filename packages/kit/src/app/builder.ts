@@ -76,6 +76,7 @@ function mount(pi: ExtensionAPI, options: AppOptions, features: readonly Feature
 		starts: [],
 		shutdowns: [],
 		screen: new Map(),
+		screenGroups: new Map(),
 		report: (source, message) => deliver(`${options.name}: ${source}: ${message}`),
 	};
 	const app: App = { name: options.name, settings, has: (id) => mounted.has(id) };
@@ -87,6 +88,7 @@ function mount(pi: ExtensionAPI, options: AppOptions, features: readonly Feature
 		settings,
 		features: () => running,
 		screen: state.screen,
+		screenGroups: state.screenGroups,
 		session: () => session,
 		isLive: () => live,
 	});

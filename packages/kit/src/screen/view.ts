@@ -690,7 +690,7 @@ function rowMeta(row: RowView): string {
 			parts.push(`this project sets it, global is ${global}`);
 		}
 		parts.push(`default ${fallback}`);
-	} else if (row.kind === "value") parts.push("this session only");
+	} else if (row.kind === "value") parts.push(row.meta ?? "this session only");
 	if (row.restart === true) parts.push("applies after /reload");
 	return parts.join(" \u00b7 ");
 }

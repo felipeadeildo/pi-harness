@@ -201,6 +201,34 @@ function providersFeature(): Feature {
 	});
 }
 
+/** Rows built when the screen opens, over what only then exists. */
+function dynamicFeature(): Feature {
+	let policy = "ask";
+	return defineFeature({
+		id: "mcp",
+		description: "servers",
+		setup(scope) {
+			scope.screen.rows(() => [
+				{
+					kind: "value",
+					id: "server.filesystem",
+					section: "Servers",
+					label: "filesystem",
+					description: "Connected.",
+					meta: "saved for every project",
+					control: { type: "choice", options: [{ value: "ask" }, { value: "allow" }] },
+					get: () => policy,
+					set: (value) => {
+						if (typeof value !== "string") return "not a policy";
+						policy = value;
+						return undefined;
+					},
+				},
+			]);
+		},
+	});
+}
+
 /** Two packages on one bus, the way the harness mounts them. */
 async function twoApps() {
 	const bus = createEventBus();
@@ -277,6 +305,25 @@ describe("the screen contract", () => {
 		const tabs = listTabs(events);
 		expect(await runRow(events, rowOf(tabs, "explain"))).toEqual({ text: "a card and a frame" });
 		expect(await runRow(events, rowOf(tabs, "broken"))).toEqual({ error: "it broke" });
+	});
+
+	test("rows built when the screen opens are listed, and a change to them lands", async () => {
+		const bus = createEventBus();
+		const pi = fakePi(bus);
+		createApp(pi.pi, { name: "one", settingsPath: globalPath }).use(dynamicFeature()).build();
+		await pi.fire("session_start", {}, ctx());
+
+		const tabs = listTabs(bus);
+		expect(tabs[0]?.sections).toEqual(["Servers"]);
+		expect(rowOf(tabs, "server.filesystem")).toMatchObject({
+			kind: "value",
+			value: "ask",
+			meta: "saved for every project",
+		});
+
+		expect(applyRow(bus, rowOf(tabs, "server.filesystem"), "set", "allow")).toBeUndefined();
+		expect(rowOf(listTabs(bus), "server.filesystem").value).toBe("allow");
+		expect(applyRow(bus, rowOf(tabs, "server.filesystem"), "set", 3)).toBe("not a policy");
 	});
 });
 

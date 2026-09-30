@@ -57,6 +57,8 @@ export interface ScreenValue extends ScreenRow {
 	get(ctx: ExtensionContext): Json;
 	/** Returns why the value was refused. */
 	set(value: Json, ctx: ExtensionContext): string | undefined;
+	/** Where the value applies, when that is not this session. */
+	meta?: string;
 }
 
 export interface ScreenAction extends ScreenRow {
@@ -75,10 +77,15 @@ export type ScreenEntry =
 	| ({ kind: "action" } & ScreenAction)
 	| ({ kind: "info" } & ScreenInfo);
 
+/** Rows a feature builds when the screen opens, for what is only known then. */
+export type ScreenGroup = (ctx: ExtensionContext) => ScreenEntry[];
+
 export interface ScreenRows {
 	value(row: ScreenValue): void;
 	action(row: ScreenAction): void;
 	info(row: ScreenInfo): void;
+	/** One call, many rows: the provider runs every time the screen opens. */
+	rows(provider: ScreenGroup): void;
 }
 
 export function defineFeature(feature: Feature): Feature {

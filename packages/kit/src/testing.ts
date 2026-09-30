@@ -5,16 +5,30 @@ import { join } from "node:path";
 
 import {
 	createEventBus,
+	createSyntheticSourceInfo,
 	type EntryRenderer,
 	type EventBus,
 	type ExtensionAPI,
 	type ExtensionContext,
 	type RegisteredCommand,
 	type ToolDefinition,
+	type ToolInfo,
 } from "@earendil-works/pi-coding-agent";
 
-import type { FeatureScope, ScreenEntry } from "./app/feature.ts";
+import type { FeatureScope, ScreenEntry, ScreenGroup } from "./app/feature.ts";
 import { SettingsStore } from "./settings/store.ts";
+
+/** A tool as `getAllTools` reports it, with the fields the callers read. */
+export function toolInfo(name: string, extra: Partial<ToolInfo> = {}): ToolInfo {
+	return {
+		name,
+		description: "",
+		parameters: { type: "object" } as ToolInfo["parameters"],
+		exposure: "direct",
+		sourceInfo: createSyntheticSourceInfo(`<test:${name}>`, { source: "test" }),
+		...extra,
+	};
+}
 
 export type FakeHandler = (event: unknown, ctx: ExtensionContext) => unknown;
 type CommandOptions = Omit<RegisteredCommand, "name" | "sourceInfo">;
@@ -25,6 +39,8 @@ export interface FakePi {
 	commands: Map<string, CommandOptions>;
 	shortcuts: string[];
 	tools: ToolDefinition[];
+	/** Every registered tool, as `getAllTools` reports it. */
+	allTools: ToolInfo[];
 	providers: { name: string; config: unknown }[];
 	renderers: Map<string, EntryRenderer>;
 	entries: { customType: string; data: unknown }[];
@@ -43,6 +59,7 @@ export function fakePi(bus: EventBus = createEventBus()): FakePi {
 		commands,
 		shortcuts: [],
 		tools: [],
+		allTools: [],
 		providers: [],
 		renderers: new Map(),
 		entries: [],
@@ -67,6 +84,7 @@ export function fakePi(bus: EventBus = createEventBus()): FakePi {
 		registerCommand: (name: string, options: CommandOptions) => void commands.set(name, options),
 		registerShortcut: (shortcut: unknown) => void fake.shortcuts.push(String(shortcut)),
 		registerTool: (tool: ToolDefinition) => void fake.tools.push(tool),
+		getAllTools: () => fake.allTools,
 		registerProvider: (name: unknown, config?: unknown) =>
 			void fake.providers.push({ name: String(name), config }),
 		registerEntryRenderer: (customType: string, renderer: EntryRenderer) =>
@@ -87,6 +105,8 @@ export interface FakeScopeOptions {
 	settingsPath?: string;
 	/** Collects the rows the feature adds to the settings screen. */
 	screen?: ScreenEntry[];
+	/** Collects the row providers, for the screen to run. */
+	screenGroups?: ScreenGroup[];
 }
 
 /**
@@ -98,6 +118,7 @@ export function fakeScope(options: FakeScopeOptions = {}): FeatureScope {
 	const fake = options.pi ?? fakePi();
 	const notes = options.notes ?? [];
 	const rows = options.screen ?? [];
+	const groups = options.screenGroups ?? [];
 	const settings = new SettingsStore(
 		options.settingsPath ?? join(tmpdir(), `pi-kit-scope-${process.pid}-${Math.random()}.json`),
 	);
@@ -116,6 +137,7 @@ export function fakeScope(options: FakeScopeOptions = {}): FeatureScope {
 			value: (row) => void rows.push({ kind: "value", ...row }),
 			action: (row) => void rows.push({ kind: "action", ...row }),
 			info: (row) => void rows.push({ kind: "info", ...row }),
+			rows: (provider) => void groups.push(provider),
 		},
 	};
 }

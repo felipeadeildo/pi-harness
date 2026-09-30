@@ -22,6 +22,8 @@ export interface RowView {
 	value?: Json;
 	text?: string;
 	confirm?: string;
+	/** Where a value row applies, when that is not this session. */
+	meta?: string;
 	layer?: Layer;
 	fallback?: Json;
 	/** The global value a project value hides. */
