@@ -33,7 +33,6 @@ import {
 	LOOK_SETTINGS,
 	pathLength,
 	peek,
-	prompt,
 	separator,
 	SEPARATORS,
 	strip,
@@ -337,7 +336,6 @@ function createScreen(
 		}),
 		slot: (name) => slots[name].get(scope),
 		frameStyle: () => frame.get(scope),
-		prompt: () => prompt.get(scope),
 		cursor: () => cursor.get(scope),
 	};
 }

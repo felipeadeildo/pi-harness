@@ -65,7 +65,7 @@ describe("editor", () => {
 
 		expect(widths(lines)).toEqual([60, 60, 60]);
 		expect(plain(lines[0] ?? "")).toMatch(/^╭─ main ─+ ~\/Projects\/pi-harness ─╮$/);
-		expect(plain(lines[1] ?? "")).toMatch(/^│ > hello +│$/);
+		expect(plain(lines[1] ?? "")).toMatch(/^│ hello +│$/);
 		// At 60 columns the effort meter drops its label, and the context keeps everything.
 		expect(plain(lines[2] ?? "")).toBe(
 			"╰─ Anthropic/Opus 5.5 · |||||| ─ ctx 43% ###----- 431k/1M ─╯",
@@ -75,12 +75,12 @@ describe("editor", () => {
 		);
 	});
 
-	test("the second line lines up under the first, past the prompt", () => {
+	test("the second line lines up under the first", () => {
 		const view = editor();
 		view.setText("one\ntwo");
 		const lines = view.render(40).map(plain);
-		expect(lines[1]?.startsWith("│ > one")).toBe(true);
-		expect(lines[2]?.startsWith("│   two")).toBe(true);
+		expect(lines[1]?.startsWith("│ one")).toBe(true);
+		expect(lines[2]?.startsWith("│ two")).toBe(true);
 	});
 
 	test("puts the working spinner after the branch, so the branch never moves", () => {
@@ -98,7 +98,7 @@ describe("editor", () => {
 		view.setText("hi");
 		const lines = view.render(50).map(plain);
 		expect(lines[0]).toMatch(/^── main ─+ ~\/Projects\/pi-harness ──$/);
-		expect(lines[1]).toMatch(/^> hi/);
+		expect(lines[1]).toMatch(/^hi/);
 	});
 
 	test("off leaves pi's editor exactly as it is", () => {
@@ -112,13 +112,13 @@ describe("editor", () => {
 		const view = editor();
 		view.setText("abcdef");
 		view.render(40);
-		// Column 4 is the rail, its space and the prompt: the first character.
+		// Column 2 is the rail and its space: the first character.
 		view.handleMouse({
 			type: "click",
 			button: "left",
-			x: 6,
+			x: 4,
 			y: 1,
-			screenX: 6,
+			screenX: 4,
 			screenY: 1,
 			width: 40,
 			height: 3,

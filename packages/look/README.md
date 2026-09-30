@@ -15,7 +15,7 @@
 
    0:12 · 3 calls · last call 1.7s wait · ↓906 tok/s
 ╭─ ⠋ Thinking · check the frame first ·  main* ────── ~/Projects/pi-harness ·  ghost ─╮
-│ ❯ what you type                                                                          │
+│ what you type                                                                            │
 ╰─ ⏵⏵ auto · anywhere · 󰚩 Anthropic/Claude Opus 5.5 · ▂▃▄▅ high ─── 󰍛 49% ━━━━━━━━ 489k/1M ─╯
   $0.497 sub · ↑368k in ↓1.7k out ·  98% cached · avg ↓290 ↑31k tok/s ·  mem 12
 ```
@@ -111,7 +111,6 @@ They live in the shared file, `~/.pi/agent/extensions/pi-harness/settings.json`,
 | `below`             | `["cost", "tokens", "cache", "average", "statuses"]`   | The line below the editor. _project_                                                                                                                             |
 | `labels`            | `true`                                                 | A short word before each number: `out`, `in`, `ttft`, `time`, `ctx`, `cache`. Off is denser, with only the glyphs. _project_                                     |
 | `frame.style`       | `"rounded"`                                            | `rounded`, `square`, `heavy`, `line` (pi's two rules, written into), or `off`, which leaves pi's editor alone and moves the frame slots to the footer. _project_ |
-| `frame.prompt`      | `true`                                                 | A `❯` before the first line. _project_                                                                                                                           |
 | `frame.cursor`      | `"bar"`                                                | `block`, `bar` or `underline`. The last two use the terminal's own cursor                                                                                        |
 | `header`            | `"card"`                                               | `card`, `compact` (two lines) or `off` (pi's own). _project_                                                                                                     |
 | `icons`             | `"auto"`                                               | `nerd`, `unicode` or `ascii`. Auto uses Nerd Font glyphs locally and plain Unicode over SSH, where the font lives on the other machine                           |

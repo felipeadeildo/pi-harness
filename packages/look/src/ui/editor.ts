@@ -1,6 +1,5 @@
 // The editor, framed. Pi's editor draws a rule above and below the text; this one draws a box, writes
-// four slots into its borders, puts the working spinner in the top-left corner, and a prompt glyph in
-// front of the first line. Typing, history, autocomplete and every app key stay pi's: the class only
+// four slots into its borders, and puts the working spinner in the top-left corner. Typing, history, autocomplete and every app key stay pi's: the class only
 // changes what the lines look like, and shifts mouse clicks by the width of the frame.
 import { CustomEditor, type KeybindingsManager } from "@earendil-works/pi-coding-agent";
 import {
@@ -41,9 +40,8 @@ export class LookEditor extends CustomEditor {
 	#framing = false;
 	#hiddenAbove = 0;
 	#hiddenBelow = 0;
-	/** Columns the frame takes on the left, for mouse clicks. */
+	/** Columns the frame takes on each side, for mouse clicks. */
 	#inset = 0;
-	#outset = 0;
 
 	constructor(
 		tui: TUI,
@@ -68,11 +66,11 @@ export class LookEditor extends CustomEditor {
 	}
 
 	override handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
-		if (this.#inset === 0 && this.#outset === 0) return super.handleMouse(event);
+		if (this.#inset === 0) return super.handleMouse(event);
 		return super.handleMouse({
 			...event,
 			x: event.x - this.#inset,
-			width: Math.max(1, event.width - this.#inset - this.#outset),
+			width: Math.max(1, event.width - 2 * this.#inset),
 		});
 	}
 
@@ -92,18 +90,13 @@ export class LookEditor extends CustomEditor {
 		const style = this.#screen.frameStyle();
 		if (style === "off" || width < MIN_WIDTH) {
 			this.#inset = 0;
-			this.#outset = 0;
 			return super.render(width);
 		}
 
 		const box = BOXES[style];
-		const sides = box.vertical === "" ? 0 : 2;
 		const glyphs = this.#screen.glyphs();
-		const prompt = this.#screen.prompt() ? `${glyphs.prompt} ` : "";
-		const promptWidth = visibleWidth(prompt);
-		this.#inset = sides + promptWidth;
-		this.#outset = sides;
-		const inner = Math.max(1, width - this.#inset - this.#outset);
+		this.#inset = box.vertical === "" ? 0 : 2;
+		const inner = Math.max(1, width - 2 * this.#inset);
 
 		const cursor = this.#screen.cursor();
 		// Pi puts its own cursor setting back after a reload, which would hide a bar cursor.
@@ -127,10 +120,8 @@ export class LookEditor extends CustomEditor {
 
 		const left = style === "line" ? "" : `${paint.frame(box.vertical)} `;
 		const right = style === "line" ? "" : ` ${paint.frame(box.vertical)}`;
-		const gutter = " ".repeat(promptWidth);
 		const result: string[] = [];
 		let inside = false;
-		let first = true;
 
 		for (const line of lines) {
 			if (line === TOP) {
@@ -161,10 +152,8 @@ export class LookEditor extends CustomEditor {
 				);
 				inside = false;
 			} else if (inside) {
-				const lead = first ? this.borderColor(prompt) : gutter;
-				first = false;
 				const text = cursor === "block" ? line : withoutSoftwareCursor(line);
-				result.push(`${left}${lead}${fill(text, inner)}${right}`);
+				result.push(`${left}${fill(text, inner)}${right}`);
 			} else {
 				// The autocomplete list, lined up with the text so clicks land where they look.
 				result.push(`${" ".repeat(this.#inset)}${line}`);

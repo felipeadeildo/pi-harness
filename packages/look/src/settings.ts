@@ -106,14 +106,6 @@ export const frame = setting<FrameStyle | "off">({
 	},
 });
 
-export const prompt = setting({
-	id: "look.frame.prompt",
-	default: true,
-	decoder: boolean,
-	project: true,
-	ui: { group: GROUP, label: "Prompt glyph", description: "A ❯ in front of the first line." },
-});
-
 export const cursor = setting<CursorStyle>({
 	id: "look.frame.cursor",
 	default: "bar",
@@ -232,7 +224,6 @@ export const LOOK_SETTINGS = [
 	bottomRight,
 	below,
 	frame,
-	prompt,
 	cursor,
 	header,
 	icons,

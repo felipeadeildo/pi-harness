@@ -45,7 +45,6 @@ export function screen(
 		options: () => ({ pathLength: 40, gaugeCells: 8, claimed: new Set<string>(), labels: false }),
 		slot: (name) => slots[name],
 		frameStyle: () => "rounded",
-		prompt: () => true,
 		cursor: () => "block",
 		...overrides,
 	};

@@ -20,7 +20,6 @@ export interface Screen {
 	options(): SegmentOptions;
 	slot(name: SlotName): readonly SegmentId[];
 	frameStyle(): FrameStyle | "off";
-	prompt(): boolean;
 	cursor(): CursorStyle;
 }
 

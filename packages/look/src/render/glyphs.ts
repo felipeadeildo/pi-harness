@@ -24,7 +24,6 @@ export interface Glyphs {
 	cost: string;
 	clock: string;
 	plug: string;
-	prompt: string;
 	ahead: string;
 	behind: string;
 	staged: string;
@@ -71,7 +70,6 @@ export const NERD: Glyphs = {
 	cost: "$",
 	clock: "\u{f017}", // nf-fa-clock_o
 	plug: "\u{f1e6}", // nf-fa-plug
-	prompt: "❯",
 	stashed: "\u{f01c}", // nf-fa-inbox
 	fill: "█",
 	empty: "░",
@@ -100,7 +98,6 @@ export const UNICODE: Glyphs = {
 	cost: "$",
 	clock: "◷",
 	plug: "≫",
-	prompt: "❯",
 	stashed: "≡",
 	fill: "█",
 	empty: "░",
@@ -129,7 +126,6 @@ export const ASCII: Glyphs = {
 	cost: "$",
 	clock: "",
 	plug: ">>",
-	prompt: ">",
 	ahead: "^",
 	behind: "v",
 	staged: "+",
