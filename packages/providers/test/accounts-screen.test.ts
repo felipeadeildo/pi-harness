@@ -39,43 +39,43 @@ function setup() {
 	return { store, pins, fake, rows: accountRows(fakeScope({ pi: fake }), store, pins, CTX) };
 }
 
-test("the screen lists a choice row per provider and a block per account", () => {
+test("the screen reads as a tree per provider", () => {
 	const { rows } = setup();
 	const ids = rows.map((row) => row.id);
 
-	expect(ids).toContain("accounts.anthropic.active");
+	expect(ids).toContain("accounts.anthropic.default");
+	expect(ids.filter((id) => id.endsWith(".use"))).toHaveLength(2);
 	expect(ids.filter((id) => id.endsWith(".label"))).toHaveLength(2);
 	expect(ids.filter((id) => id.endsWith(".remove"))).toHaveLength(2);
-	expect(rows[0]).toMatchObject({ section: "Anthropic", label: "Account" });
-	expect(rows.filter((row) => row.label === "Rename")).toHaveLength(2);
-	expect(rows.filter((row) => row.label === "Remove")).toHaveLength(2);
-	expect(rows.filter((row) => row.kind === "info").map((row) => row.text(CTX))).toEqual([
-		"subscription",
-		"api key",
+	expect(rows.every((row) => row.section === "Anthropic")).toBe(true);
+	expect(rows[0]).toMatchObject({ label: "pi default", indent: 1 });
+	expect(rows.filter((row) => row.indent === 2).map((row) => row.label)).toEqual([
+		"Rename",
+		"Remove",
+		"Rename",
+		"Remove",
 	]);
 });
 
-test("picking an account pins it for the session, and default clears the pin", () => {
+test("using an account pins it for the session and remembers it, and default clears both", () => {
 	const { store, pins, fake, rows } = setup();
 	const work = store.accounts("anthropic").at(1);
 	if (work === undefined) throw new Error("no second account");
-	const active = rows.find((row) => row.id === "accounts.anthropic.active");
-	if (active?.kind !== "value") throw new Error("no choice row");
+	const use = rows.find((row) => row.id === `accounts.anthropic.${work.id}.use`);
+	const fallback = rows.find((row) => row.id === "accounts.anthropic.default");
+	if (use?.kind !== "action" || fallback?.kind !== "action") throw new Error("no rows");
 
-	expect(active.get(CTX)).toBe("default");
-	expect(active.set(work.id, CTX)).toBeUndefined();
+	use.run(CTX);
 	expect(pins.get("anthropic")).toBe(work.id);
 	expect(store.active("anthropic")?.id).toBe(work.id);
-	expect(active.get(CTX)).toBe(work.id);
 	expect(fake.entries).toContainEqual({
 		customType: SESSION_ENTRY,
 		data: { kind: "account", provider: "anthropic", account: work.id },
 	});
 
-	expect(active.set("default", CTX)).toBeUndefined();
+	fallback.run(CTX);
 	expect(pins.get("anthropic")).toBeNull();
 	expect(store.active("anthropic")).toBeUndefined();
-	expect(active.set("nope", CTX)).toBe("pick an account");
 });
 
 test("renaming an account writes the store, and removing it clears its pin", () => {
