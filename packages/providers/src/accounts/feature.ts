@@ -193,6 +193,8 @@ async function addAccount(
 		}
 		const added = store.accounts(providerId).at(-1);
 		if (added !== undefined) pin(scope, pins, providerId, added.id);
+		// The first account of a provider was not lifted at session start, so lift it now.
+		lift(scope, store, pins, ctx, providerId);
 		ctx.ui.notify(`${NAME}: ${providerId} account "${label}" added`, "info");
 	} catch (error) {
 		ctx.ui.notify(`${NAME}: ${reason(error)}`, "error");
