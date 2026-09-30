@@ -323,6 +323,28 @@ describe("judgeToolCall", () => {
 		expect(outcome.record).toBeDefined();
 	});
 
+	test("a pattern on the registered name still matches an MCP tool", async () => {
+		const config = { ...defaultJudge(), alwaysAsk: ["mcp__*"] };
+		const backend: JudgeBackend = {
+			id: "jev",
+			assess: async () => {
+				throw new Error("the backend must not run");
+			},
+		};
+
+		const outcome = await judgeToolCall({
+			config,
+			backend,
+			input: judgeInput({
+				toolName: "mcp__sauron__delete_dashboard",
+				target: { summary: '{"id":12}', levels: ["sauron:delete_dashboard"] },
+			}),
+		});
+
+		expect(outcome.action).toBe("ask");
+		expect(outcome.reason).toBe("matches judge.alwaysAsk");
+	});
+
 	test("allows, denies, and escalates by verdict", async () => {
 		const allow = await judgeToolCall({
 			config: defaultJudge(),

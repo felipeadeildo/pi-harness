@@ -25,7 +25,9 @@ export interface JudgeCallOptions {
 export async function judgeToolCall(options: JudgeCallOptions): Promise<JudgeOutcome> {
 	const { config, backend, input } = options;
 
-	const values = [input.target.summary, ...input.target.levels];
+	// A readable label replaces the registered name in `levels` for an MCP call, so the tool name is
+	// matched on its own.
+	const values = [input.toolName, input.target.summary, ...input.target.levels];
 	if (alwaysAskMatches(config, values)) {
 		const reason = "matches judge.alwaysAsk";
 		return { action: "ask", reason, record: blankRecord(config, input, reason) };

@@ -273,6 +273,7 @@ async function ask(ctx: ExtensionContext, call: Call, extras: AskExtras): Promis
 						toolName,
 						target,
 						mcp: call.mcp,
+						hints: call.hints,
 						nested: call.nested,
 						...extras,
 						keybindings,

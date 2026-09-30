@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { fakePi, fakeScope } from "@adeildo/pi-kit/testing";
+import { fakePi, fakeScope, toolInfo } from "@adeildo/pi-kit/testing";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { AlwaysYes } from "#core/always-yes.ts";
@@ -56,7 +56,7 @@ function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask")
 
 	const entries = fake.entries;
 	const cards = () => entries.filter((entry) => entry.customType === "pi-ask-permission:judge");
-	return { entries, cards, decided, state, toolCall };
+	return { entries, cards, decided, state, toolCall, fake };
 }
 
 /** `onDialog` runs when the permission dialog opens, before it is answered. */
@@ -401,5 +401,43 @@ describe("workspace scope", () => {
 
 		expect(result).toBeUndefined();
 		expect(opened).toBe(false);
+	});
+});
+
+describe("an MCP call in the dialog", () => {
+	test("the hint the server declares reaches the dialog", async () => {
+		const { fake, toolCall } = harness("manual");
+		fake.allTools.push(
+			toolInfo("mcp__sauron__delete_dashboard", {
+				namespace: { name: "mcp__sauron" },
+				annotations: { destructiveHint: true },
+			}),
+		);
+
+		const shown: string[] = [];
+		const ctx = fakeContext();
+		ctx.ui.custom = (async (
+			factory: (...args: unknown[]) => { render(width: number): string[] },
+		) => {
+			shown.push(
+				factory(
+					{ requestRender: () => {} },
+					{ fg: (_color: string, text: string) => text },
+					{},
+					() => {},
+				)
+					.render(100)
+					.join("\n"),
+			);
+			return { decision: "allow" };
+		}) as typeof ctx.ui.custom;
+
+		await toolCall(
+			{ toolName: "mcp__sauron__delete_dashboard", toolCallId: "call-1", input: { id: 12 } },
+			ctx,
+		);
+
+		expect(shown[0]).toContain("permission \u00b7 sauron:delete_dashboard");
+		expect(shown[0]).toContain("sauron \u00b7 destructive");
 	});
 });
