@@ -26,7 +26,7 @@ pi install npm:@adeildo/pi-ask-permission
 
 Then start pi as usual. There is nothing to configure.
 
-Up to 3.0 the package was `pi-ask-permission`. Only the name on npm changed, so your config, your grants and your old sessions keep working. Swap the install:
+`pi-ask-permission` on npm is this same extension under an older name, and it reads the same config, grants and sessions. To switch:
 
 ```bash
 pi remove npm:pi-ask-permission
