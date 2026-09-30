@@ -1,4 +1,4 @@
-# @adeildo/pi-providers
+# Providers
 
 Provider features for [Pi](https://pi.dev). For now it has one: `subscription`.
 
@@ -33,7 +33,3 @@ Then turn off Pi's extra usage warning in `~/.pi/agent/settings.json`:
 ## Credit
 
 The idea and the fingerprint come from [pi-claude-max](https://github.com/bradennss/pi-claude-max) by Braden Lamb, MIT. This is a rewrite. It reads the version from settings, carries pi's cache breakpoints over instead of dropping the one-hour TTL, moves every system block after the identity instead of only the second, and checks for an OAuth token instead of the provider name.
-
-## License
-
-[MIT](LICENSE)

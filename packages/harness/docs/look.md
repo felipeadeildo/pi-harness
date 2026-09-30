@@ -1,4 +1,4 @@
-# @adeildo/pi-look
+# Look
 
 [Pi](https://pi.dev)'s start screen, editor, footer and working line, redrawn around the data I want in front of me, and painted only with the colours of the theme that is on.
 
@@ -161,7 +161,3 @@ The frame is the editor pi already has. Typing, history, autocomplete and every 
 ## Credit
 
 The framed editor and the idea of writing into its borders come from [pi-open-tui](https://github.com/OldSuns/pi-open-tui), which this replaces. The segments with priorities, and the status line in the editor border, come from [oh-my-pi](https://github.com/can1357/oh-my-pi).
-
-## License
-
-[MIT](LICENSE)

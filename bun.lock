@@ -29,15 +29,8 @@
         "@earendil-works/pi-tui": "*",
       },
     },
-    "packages/kit": {
-      "name": "@adeildo/pi-kit",
-      "version": "0.1.0",
-      "peerDependencies": {
-        "@earendil-works/pi-coding-agent": "*",
-      },
-    },
-    "packages/look": {
-      "name": "@adeildo/pi-look",
+    "packages/harness": {
+      "name": "@adeildo/pi-harness",
       "version": "0.1.0",
       "dependencies": {
         "@adeildo/pi-kit": "workspace:*",
@@ -48,14 +41,10 @@
         "@earendil-works/pi-tui": "*",
       },
     },
-    "packages/providers": {
-      "name": "@adeildo/pi-providers",
+    "packages/kit": {
+      "name": "@adeildo/pi-kit",
       "version": "0.1.0",
-      "dependencies": {
-        "@adeildo/pi-kit": "^0.1.0",
-      },
       "peerDependencies": {
-        "@earendil-works/pi-ai": "*",
         "@earendil-works/pi-coding-agent": "*",
       },
     },
@@ -66,11 +55,9 @@
   "packages": {
     "@adeildo/pi-ask-permission": ["@adeildo/pi-ask-permission@workspace:packages/ask-permission"],
 
+    "@adeildo/pi-harness": ["@adeildo/pi-harness@workspace:packages/harness"],
+
     "@adeildo/pi-kit": ["@adeildo/pi-kit@workspace:packages/kit"],
-
-    "@adeildo/pi-look": ["@adeildo/pi-look@workspace:packages/look"],
-
-    "@adeildo/pi-providers": ["@adeildo/pi-providers@workspace:packages/providers"],
 
     "@anthropic-ai/sdk": ["@anthropic-ai/sdk@0.124.0", "", { "dependencies": { "json-schema-to-ts": "^3.1.1", "standardwebhooks": "^1.0.0" }, "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" }, "optionalPeers": ["zod"], "bin": { "anthropic-ai-sdk": "bin/cli" } }, "sha512-cN5O8i9UVxHeOQAzj/XjshWXG8KiibJDw9OGpH2Z/eR3n/RBxdoLxDJOcfqAJWvjaMDFfHTBADU04hWRJVkDyA=="],
 

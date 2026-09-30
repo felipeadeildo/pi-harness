@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 
-import { billingAttribution, fingerprint, userAgent } from "../src/subscription/billing.ts";
+import {
+	billingAttribution,
+	fingerprint,
+	userAgent,
+} from "../../src/providers/subscription/billing.ts";
 
 test("the user agent reads like Claude Code's", () => {
 	expect(userAgent("2.1.280")).toBe("claude-cli/2.1.280 (external, cli)");

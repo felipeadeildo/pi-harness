@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { billingAttribution, CLAUDE_CODE_IDENTITY } from "../src/subscription/billing.ts";
-import { billToPlan } from "../src/subscription/payload.ts";
+import {
+	billingAttribution,
+	CLAUDE_CODE_IDENTITY,
+} from "../../src/providers/subscription/billing.ts";
+import { billToPlan } from "../../src/providers/subscription/payload.ts";
 
 const HOUR = { type: "ephemeral", ttl: "1h" };
 const PROMPT = "You are pi. Follow AGENTS.md.";

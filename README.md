@@ -10,14 +10,13 @@ The extensions I run [Pi](https://pi.dev) with, in one repository. Pi stays Pi. 
 
 ## Packages
 
-| Package                                                 | What it does                                                              | Status                                                                                                                      |
-| ------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| [`@adeildo/pi-ask-permission`](packages/ask-permission) | Asks before a tool call runs, with a judge model for the easy ones        | [![npm](https://img.shields.io/npm/v/@adeildo/pi-ask-permission)](https://www.npmjs.com/package/@adeildo/pi-ask-permission) |
-| [`@adeildo/pi-look`](packages/look)                     | The start screen, a framed editor and the footer, in your theme's colours | not published yet                                                                                                           |
-| [`@adeildo/pi-providers`](packages/providers)           | Bills Anthropic OAuth requests to the Claude plan                         | not published yet                                                                                                           |
-| [`@adeildo/pi-kit`](packages/kit)                       | The app builder, settings and event bus the other packages share          | not published yet                                                                                                           |
+| Package                                                 | What it does                                                                         | Status                                                                                                                      |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| [`@adeildo/pi-ask-permission`](packages/ask-permission) | Asks before a tool call runs, with a judge model for the easy ones                   | [![npm](https://img.shields.io/npm/v/@adeildo/pi-ask-permission)](https://www.npmjs.com/package/@adeildo/pi-ask-permission) |
+| [`@adeildo/pi-harness`](packages/harness)               | Everything else: the look, providers, and what comes next, one extension per feature | not published yet                                                                                                           |
+| [`@adeildo/pi-kit`](packages/kit)                       | The app builder, settings and event bus the other packages share                     | not published yet                                                                                                           |
 
-A package stays private until I use it every day. `@adeildo/pi-harness`, which brings every package in with my defaults, comes once there is more than one to bring.
+Two packages ship. The permission dialog makes sense on its own, so it has its own. Every other feature lives in the harness, and `pi config` turns any of them off. The kit is the base under both.
 
 ## How the packages fit
 
@@ -27,7 +26,7 @@ Every feature is built with `@adeildo/pi-kit`:
 export default (pi: ExtensionAPI) => createApp(pi).use(subscription).build();
 ```
 
-A standalone package is an app with its own features. The harness will be one app with all of them, so they share one settings file, one settings screen and one footer. Features that need each other talk over typed events on `pi.events`, which works the same whether they share an app or not.
+Every feature reads the same settings file. Features that need each other talk over typed events on `pi.events`, never through each other's state, so a feature can move out of the harness into a package of its own without changing.
 
 ## License
 

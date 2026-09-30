@@ -15,16 +15,16 @@ import {
 	missingColors,
 	mix,
 	parseDesktopColors,
-} from "../src/desktop/palette.ts";
-import { LookEditor } from "../src/ui/editor.ts";
-import { FooterComponent, StripComponent } from "../src/ui/footer.ts";
-import { halfBlocks, HeaderComponent } from "../src/ui/header.ts";
+} from "../../src/look/desktop/palette.ts";
+import { LookEditor } from "../../src/look/ui/editor.ts";
+import { FooterComponent, StripComponent } from "../../src/look/ui/footer.ts";
+import { halfBlocks, HeaderComponent } from "../../src/look/ui/header.ts";
 import {
 	callingTool,
 	describe as describeActivity,
 	thinkingTail,
 	toolDetail,
-} from "../src/ui/working.ts";
+} from "../../src/look/ui/working.ts";
 import { plain, screen, snapshot, widths } from "./helpers.ts";
 
 function fakeTui(): TUI {

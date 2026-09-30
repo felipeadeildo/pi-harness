@@ -1,16 +1,17 @@
 {
-	"name": "@adeildo/pi-providers",
+	"name": "@adeildo/pi-harness",
 	"version": "0.1.0",
 	"private": true,
-	"description": "Provider features for the Pi coding agent. Bills Anthropic OAuth requests to the Claude Pro/Max plan instead of extra usage.",
+	"description": "Felipe Adeildo's Pi harness: a start screen, framed editor and footer in your theme's colours, and Anthropic OAuth billed to the Claude plan. Each feature is its own extension, so pi config turns one off.",
 	"keywords": [
 		"anthropic",
-		"claude",
 		"pi",
 		"pi-coding-agent",
 		"pi-extension",
 		"pi-package",
-		"subscription"
+		"statusline",
+		"subscription",
+		"theme"
 	],
 	"license": "MIT",
 	"author": {
@@ -21,16 +22,18 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/felipeadeildo/pi-harness.git",
-		"directory": "packages/providers"
+		"directory": "packages/harness"
 	},
 	"files": [
 		"src",
+		"docs",
 		"README.md",
 		"LICENSE"
 	],
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts"
+		"./look": "./src/look/index.ts",
+		"./providers": "./src/providers/index.ts"
 	},
 	"publishConfig": {
 		"access": "public"
@@ -40,11 +43,13 @@
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-ai": "*",
-		"@earendil-works/pi-coding-agent": "*"
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
 	},
 	"pi": {
 		"extensions": [
-			"./src/index.ts"
+			"./src/look/index.ts",
+			"./src/providers/index.ts"
 		]
 	}
 }

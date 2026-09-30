@@ -2,15 +2,15 @@ import { describe, expect, test } from "bun:test";
 
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 
-import { emptyGit, parseStatus } from "../src/data/git.ts";
-import { Telemetry } from "../src/data/telemetry.ts";
+import { emptyGit, parseStatus } from "../../src/look/data/git.ts";
+import { Telemetry } from "../../src/look/data/telemetry.ts";
 import {
 	averagesOf,
 	cacheHitPercent,
 	REQUEST_ENTRY,
 	totalsOf,
 	type Totals,
-} from "../src/data/totals.ts";
+} from "../../src/look/data/totals.ts";
 
 function usage(values: Partial<Totals> = {}) {
 	const { cost = 0, ...tokens } = values;

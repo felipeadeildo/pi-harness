@@ -18,14 +18,16 @@ Lefthook formats and lints staged files on commit, type-checks the repository, a
 
 ```text
 packages/
-  ask-permission/   # @adeildo/pi-ask-permission, published
+  ask-permission/   # @adeildo/pi-ask-permission
+  harness/          # @adeildo/pi-harness: every other feature, one folder each under src/
   kit/              # @adeildo/pi-kit: app builder, feature scope, settings, events, contracts
-  providers/        # @adeildo/pi-providers: subscription billing
 ```
 
 Tooling lives at the root: one `tsconfig.json`, one oxlint and oxfmt config, one lockfile. The pi SDK versions are pinned in the root `package.json`, which is what the SDK compat workflow bumps. Packages declare the pi SDK as `peerDependencies` with `"*"`.
 
-Internal dependencies use a plain version range, not `workspace:*`, because `npm publish` does not rewrite the workspace protocol. Bun still links the local package.
+Internal dependencies use `workspace:*`. Publishing goes through `bun pm pack`, which writes the real version into the tarball, and `bun run smoke` fails if a `workspace:` range is left in one.
+
+A new feature is a folder under `packages/harness/src/` with its own `index.ts`, listed in the harness's `pi.extensions`, and its tests under `packages/harness/test/<feature>/`. It becomes a package of its own only when someone would install it alone.
 
 Each package has its own README and CONTRIBUTING with the parts that are only about it.
 
