@@ -31,6 +31,7 @@ import {
 	pathLength,
 	peek,
 	separator,
+	SECTIONS,
 	SEPARATORS,
 	strip,
 	topLeft,
@@ -66,6 +67,7 @@ export const look = defineFeature({
 	id: "look",
 	description:
 		"The start screen, a framed editor, the footer and a working line that says what runs",
+	sections: SECTIONS,
 	settings: LOOK_SETTINGS,
 	setup(scope) {
 		const telemetry = new Telemetry();
@@ -196,40 +198,34 @@ export const look = defineFeature({
 		scope.on("session_compact", repaint);
 		scope.on("session_tree", repaint);
 
-		scope.registerCommand("look", {
-			description:
-				"Look: `explain` says what every piece on screen is, `theme` switches to the desktop theme",
-			getArgumentCompletions: (prefix) =>
-				["explain", "theme"]
-					.filter((name) => name.startsWith(prefix.trim()))
-					.map((name) => ({ value: name, label: name })),
-			handler: async (args, ctx) => {
-				const action = args.trim();
-				if (action === "" || action === "explain") {
-					ctx.ui.notify(explain(screen), "info");
-					return;
-				}
-				if (action !== "theme") {
-					ctx.ui.notify("usage: /look explain | /look theme", "info");
-					return;
-				}
-				const result = await syncDesktopTheme(desktopSource.get(scope));
-				if (result.kind === "missing" || result.kind === "invalid") {
-					const why = result.kind === "missing" ? "no palette file" : result.reason;
-					ctx.ui.notify(`look: cannot build the desktop theme: ${why}`, "warning");
-					return;
-				}
-				const switched = ctx.ui.setTheme(DESKTOP_THEME);
-				ctx.ui.notify(
-					switched.success
-						? `look: now on the ${DESKTOP_THEME} theme, from ${desktopSource.get(scope)}`
-						: `look: wrote ${result.path}, but pi did not load it: ${switched.error ?? "unknown"}`,
-					switched.success ? "info" : "warning",
-				);
-			},
+		scope.screen.action({
+			id: "explain",
+			section: "Slots",
+			label: "What is on screen",
+			description: "Every piece the slots show right now, and what it means.",
+			run: () => explain(screen),
+		});
+
+		scope.screen.action({
+			id: "desktop.apply",
+			section: "Desktop theme",
+			label: "Switch to it now",
+			description: "Builds the desktop theme from the palette file and makes it pi's theme.",
+			run: (ctx) => switchToDesktopTheme(ctx, scope),
 		});
 	},
 });
+
+async function switchToDesktopTheme(ctx: ExtensionContext, scope: FeatureScope): Promise<string> {
+	const source = desktopSource.get(scope);
+	const result = await syncDesktopTheme(source);
+	if (result.kind === "missing") throw new Error(`no palette at ${source}`);
+	if (result.kind === "invalid") throw new Error(`cannot build the theme: ${result.reason}`);
+	const switched = ctx.ui.setTheme(DESKTOP_THEME);
+	if (!switched.success)
+		throw new Error(`wrote ${result.path}, but pi did not load it: ${switched.error ?? "unknown"}`);
+	return `Now on the ${DESKTOP_THEME} theme, built from ${source}.`;
+}
 
 const SLOT_TITLES: Record<SlotName, string> = {
 	strip: "Above the editor, this answer",

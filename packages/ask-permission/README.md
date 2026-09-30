@@ -81,7 +81,7 @@ We recommend the narrowest level, which is preselected. `pnpm` would also approv
 | this project | every session in this project            | `.pi/extensions/pi-ask-permission/always-yes.json`         |
 | everywhere   | every session                            | `~/.pi/agent/extensions/pi-ask-permission/always-yes.json` |
 
-Run `/perm forget` to drop this session's, or `/perm forget project` for the project's.
+The `Always yes` section of the settings screen shows how many rules each scope holds, and forgets them.
 
 ### Let the agent work
 
@@ -109,7 +109,7 @@ If you are typing in the editor when a call arrives, the dialog waits until you 
 In the `judge` mode, a model answers every call that is not a read or an edit. You only see the ones it is unsure about. We recommend this setup:
 
 1. Run `/login typesafe` to use Jev, a fast model that answers with a confidence. Any model you set up in pi works too.
-2. Switch to `judge` with `Alt+M`, open `/perm`, and turn on `Judge · Dry run`. The judge now shows its verdict as a card, and you still decide.
+2. Switch to `judge` with `Alt+M`, open the settings with `Alt+S`, and turn on `Dry run` in `Judge`. The judge now shows its verdict as a card, and you still decide.
 3. Pick a policy. `Standard development` allows edits, tests, builds, and local git, and asks about installs, network, and anything destructive.
 4. After a few sessions of agreeing with it, turn off `Dry run`.
 
@@ -128,24 +128,23 @@ The policy is plain text, so you can start from a preset and edit it:
 Ask me.
 ```
 
-If calls come back as `the judge could not decide`, run `/perm judge test`. It sends one request and reports the model, the latency, and the error.
+If calls come back as `the judge could not decide`, run `Test the judge` in the `Judge` section. It sends one request and reports the model, the latency, and the error.
 
-## Commands
+## Settings
 
-Type `/perm ` and the editor suggests the rest.
+`Alt+S` opens them. The Permission tab:
 
-| Command                | Does                                                        |
-| ---------------------- | ----------------------------------------------------------- |
-| `/perm`                | Open the settings                                           |
-| `/perm mode`           | Switch to the next mode (also `Alt+M`)                      |
-| `/perm mode judge`     | Switch to a mode (also `manual`, `edits`, `full`)           |
-| `/perm outside`        | Ask or allow outside the workspace, this session (`Alt+W`)  |
-| `/perm outside deny`   | Block every call outside the workspace, this session        |
-| `/perm status`         | Show the config, always yes, and file paths                 |
-| `/perm forget`         | Forget this session's always yes                            |
-| `/perm forget project` | Forget this project's always yes (also `everywhere`, `all`) |
-| `/perm judge log`      | Show this session's judge decisions                         |
-| `/perm judge test`     | Send one real request and report what happened              |
+| Section      | Has                                               |
+| ------------ | ------------------------------------------------- |
+| This session | Mode and outside policy for this session          |
+| New sessions | The mode and outside policy a session starts with |
+| Workspace    | The project folders                               |
+| Reads        | Tools that never ask, read-only bash              |
+| Dialog       | Notes, no-dialog behavior, typing pause           |
+| Judge        | Model, policy, thresholds, a test, the log        |
+| Always yes   | Rule counts, and forget                           |
+
+Type to search. `Delete` resets a value.
 
 ## Reference
 
@@ -163,7 +162,7 @@ A long paste collapses to `[paste #1 +48 lines]` and expands when you confirm.
 
 ### Configuration
 
-The settings live in the file every piece shares, `~/.pi/agent/extensions/pi-harness/settings.json`, under a `permission.` prefix. Every key has a row of the same name in `/perm`, and only what you change is written, so a new default reaches you.
+The settings live in the file every piece shares, `~/.pi/agent/extensions/pi-harness/settings.json`, under a `permission.` prefix. Every key has a row on the settings screen, which shows the key under its description. Only what you change is written, so a new default reaches you.
 
 ```json
 {

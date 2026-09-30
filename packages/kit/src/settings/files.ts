@@ -50,6 +50,20 @@ export function lookup(data: SettingsData, id: string): unknown {
 	return node;
 }
 
+/** Deletes the key, and every object it leaves empty. */
+export function remove(data: SettingsData, id: string): void {
+	const [key, ...rest] = id.split(".");
+	if (key === undefined || !(key in data)) return;
+	if (rest.length === 0) {
+		delete data[key];
+		return;
+	}
+	const child = data[key];
+	if (!isObject(child)) return;
+	remove(child, rest.join("."));
+	if (Object.keys(child).length === 0) delete data[key];
+}
+
 export function assign(data: SettingsData, id: string, value: unknown): void {
 	const keys = id.split(".");
 	const last = keys.pop();

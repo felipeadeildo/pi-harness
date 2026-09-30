@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/@adeildo/pi-kit)](https://www.npmjs.com/package/@adeildo/pi-kit)
 
-What [`@adeildo/pi-ask-permission`](../ask-permission) and [`@adeildo/pi-harness`](../harness) are built on. It's a library, not a Pi package, so installing it adds nothing to Pi. It's on npm because both packages need it at runtime, and its API follows what they need, with no promise to anyone else.
+What [`@adeildo/pi-ask-permission`](../ask-permission) and [`@adeildo/pi-harness`](../harness) are built on. It's a library, not a Pi package. The one thing it adds to Pi is the settings screen. It's on npm because the packages need it at runtime, and its API follows what they need, with no promise to anyone else.
 
 ## An app, and features in it
 
@@ -44,6 +44,7 @@ Each extension a package declares is one app with one or more features. The app'
 | `scope.registerCommand` | `pi.registerCommand`. If another feature in the same app already took the name, this one is skipped with a warning.                                                                                      |
 | `scope.onSessionStart`  | Runs once the session's settings are loaded. Anything that lasts, like a watcher, a server or a child process, starts here and never in `setup`.                                                         |
 | `scope.onShutdown`      | Runs once per session, newest first, even when pi fires `session_shutdown` twice.                                                                                                                        |
+| `scope.screen`          | Rows on the settings screen that are not settings. See below.                                                                                                                                            |
 | `scope.warn`            | Shows a notification when there's a UI and writes to stderr when there isn't. Messages sent before a session starts are held until it does.                                                              |
 | everything else         | The scope **is** the extension API, so `scope.registerTool`, `scope.appendEntry`, `scope.events` and the rest work as they always did.                                                                   |
 
@@ -58,6 +59,39 @@ Every app reads `~/.pi/agent/extensions/pi-harness/settings.json`. A setting's `
 A setting declared with `project: true` also reads `<project>/.pi/extensions/pi-harness/settings.json`, but only once pi trusts the project, and there the project value wins. Anything without that flag can only be set globally. A project file that tries to set it gets a warning, so a cloned repository can't loosen what runs without asking.
 
 A value that fails to decode is ignored, and the warning names the file and the key.
+
+## The settings screen
+
+`Alt+S` or `/harness` opens it. Each feature is a tab, and the rows come from two places.
+
+A setting with a `ui` gets a row:
+
+```ts
+export const cursor = setting({
+	id: "look.frame.cursor",
+	default: "bar",
+	decoder: literal("block", "bar", "underline"),
+	ui: { section: "Editor", label: "Cursor", description: "The editor's cursor." },
+});
+```
+
+The decoder picks the editor. `boolean` is a toggle, `literal` a choice, `integer` a number, `stringList` a list. Set `ui.control` to label the options or add presets.
+
+Anything else goes through `scope.screen`: `value` for session state, `action` for something to run, `info` for a fact.
+
+```ts
+scope.screen.action({
+	id: "judge.test",
+	section: "Judge",
+	label: "Test the judge",
+	description: "Sends one real request.",
+	run: (ctx) => probe(ctx),
+});
+```
+
+A value typed on the screen goes through the same decoder as the file. Feature options `tab` and `sections` set the tab name and the section order.
+
+## Turning a feature off
 
 Every feature also gets `features.<id>.enabled`, which defaults to on. A feature that's off never runs `setup`, so it registers nothing and costs nothing. The change takes effect on the next `/reload`.
 

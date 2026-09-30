@@ -36,9 +36,21 @@ describe("the harness", () => {
 		harnessLook(look.pi);
 		harnessProviders(providers.pi);
 
-		expect(permission.commands.has("perm")).toBe(true);
-		expect(look.commands.has("look")).toBe(true);
+		expect(permission.shortcuts).toEqual(["alt+s", "alt+m", "alt+w"]);
+		expect(look.count("agent_end")).toBe(1);
 		expect(providers.count("before_provider_request")).toBe(1);
+	});
+
+	test("the first extension draws the settings screen, and only it", () => {
+		const bus = createEventBus();
+		const permission = fakePi(bus);
+		const look = fakePi(bus);
+		harnessPermission(permission.pi);
+		harnessLook(look.pi);
+
+		expect(permission.commands.has("harness")).toBe(true);
+		expect(look.commands.has("harness")).toBe(false);
+		expect(look.shortcuts).toEqual([]);
 	});
 
 	test("with a standalone package installed too, only the first copy runs", async () => {
@@ -49,8 +61,8 @@ describe("the harness", () => {
 		harnessPermission(harness.pi);
 		piAskPermission(standalone.pi);
 
-		expect(harness.commands.has("perm")).toBe(true);
-		expect(standalone.commands.has("perm")).toBe(false);
+		expect(harness.shortcuts).toEqual(["alt+s", "alt+m", "alt+w"]);
+		expect(standalone.shortcuts).toEqual([]);
 
 		const notes: string[] = [];
 		await standalone.fire("session_start", {}, fakeContext(notes));

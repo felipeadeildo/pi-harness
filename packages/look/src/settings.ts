@@ -1,5 +1,6 @@
 import {
 	boolean,
+	type Control,
 	type Decoder,
 	integer,
 	literal,
@@ -11,9 +12,18 @@ import {
 
 import type { FrameStyle } from "./render/frame.ts";
 import type { IconMode } from "./render/glyphs.ts";
-import { isSegmentId, type SegmentId } from "./render/segments.ts";
+import { isSegmentId, SEGMENT_IDS, SEGMENTS, type SegmentId } from "./render/segments.ts";
 
-const GROUP = "Look";
+const PERMISSION_STATUS: SegmentId = "status:pi-ask-permission:mode";
+
+export const SECTIONS = [
+	"Editor",
+	"Slots",
+	"Footer",
+	"Start screen",
+	"Working line",
+	"Desktop theme",
+];
 
 export type HeaderStyle = "card" | "compact" | "off";
 export type SeparatorStyle = "dot" | "bar" | "slash" | "space";
@@ -47,13 +57,29 @@ function segments(fallback: readonly SegmentId[]): Decoder<SegmentId[]> {
 	};
 }
 
+// Any other package's status can have a slot of its own, so the ones already placed are offered too.
+function slotControl(fallback: readonly SegmentId[]): Control {
+	const statuses = [PERMISSION_STATUS, ...fallback.filter((id) => id.startsWith("status:"))];
+	return {
+		type: "list",
+		options: [
+			...SEGMENT_IDS.map((id) => ({ value: id, description: SEGMENTS[id].describe })),
+			...[...new Set(statuses)].map((id) => ({
+				value: id,
+				label: id === PERMISSION_STATUS ? "permission mode" : id.slice("status:".length),
+				description: `what ${id.slice("status:".length)} reports`,
+			})),
+		],
+	};
+}
+
 function slot(id: string, label: string, description: string, fallback: readonly SegmentId[]) {
 	return setting<SegmentId[]>({
 		id: `look.${id}`,
 		default: [...fallback],
 		decoder: segments(fallback),
 		project: true,
-		ui: { group: GROUP, label, description },
+		ui: { section: "Slots", label, description, control: slotControl(fallback) },
 	});
 }
 
@@ -71,7 +97,7 @@ export const topRight = slot("frame.topRight", "Frame, top right", "Where you ar
 	"path",
 	"host",
 ]);
-export const PERMISSION_MODE: SegmentId = "status:pi-ask-permission:mode";
+export const PERMISSION_MODE: SegmentId = PERMISSION_STATUS;
 
 export const bottomLeft = slot(
 	"frame.bottomLeft",
@@ -95,7 +121,7 @@ export const frame = setting<FrameStyle | "off">({
 	decoder: literal("rounded", "square", "heavy", "line", "off"),
 	project: true,
 	ui: {
-		group: GROUP,
+		section: "Editor",
 		label: "Frame",
 		description:
 			"The box around the editor. `line` keeps pi's two rules, `off` leaves the editor alone and moves the frame slots to the footer.",
@@ -107,7 +133,7 @@ export const cursor = setting<CursorStyle>({
 	default: "bar",
 	decoder: literal("block", "bar", "underline"),
 	ui: {
-		group: GROUP,
+		section: "Editor",
 		label: "Cursor",
 		description: "Bar and underline use the terminal's own cursor, so it blinks the way it does.",
 	},
@@ -119,7 +145,7 @@ export const header = setting<HeaderStyle>({
 	decoder: literal("card", "compact", "off"),
 	project: true,
 	ui: {
-		group: GROUP,
+		section: "Start screen",
 		label: "Start screen",
 		description: "The card pi opens with. Off keeps pi's own.",
 	},
@@ -130,7 +156,7 @@ export const icons = setting<IconMode>({
 	default: "auto",
 	decoder: literal("auto", "nerd", "unicode", "ascii"),
 	ui: {
-		group: GROUP,
+		section: "Footer",
 		label: "Icons",
 		description: "Auto uses Nerd Font glyphs locally, plain Unicode over SSH.",
 	},
@@ -141,7 +167,7 @@ export const separator = setting<SeparatorStyle>({
 	default: "dot",
 	decoder: literal("dot", "bar", "slash", "space"),
 	project: true,
-	ui: { group: GROUP, label: "Separator", description: "Between the pieces of a slot." },
+	ui: { section: "Footer", label: "Separator", description: "Between the pieces of a slot." },
 });
 
 export const pathLength = setting({
@@ -150,7 +176,7 @@ export const pathLength = setting({
 	decoder: integer(0, 500),
 	project: true,
 	ui: {
-		group: GROUP,
+		section: "Footer",
 		label: "Path length",
 		description: "Longest the folder may be before it is shortened from the left. 0 keeps it all.",
 	},
@@ -161,7 +187,7 @@ export const gaugeCells = setting({
 	default: 8,
 	decoder: integer(0, 40),
 	project: true,
-	ui: { group: GROUP, label: "Gauge", description: "Cells in the context gauge. 0 hides it." },
+	ui: { section: "Footer", label: "Gauge", description: "Cells in the context gauge. 0 hides it." },
 });
 
 export const labels = setting({
@@ -170,7 +196,7 @@ export const labels = setting({
 	decoder: boolean,
 	project: true,
 	ui: {
-		group: GROUP,
+		section: "Footer",
 		label: "Labels",
 		description:
 			"A short word before each number (out, in, ttft, took, ctx, cache). Off is denser.",
@@ -182,7 +208,7 @@ export const peek = setting({
 	default: true,
 	decoder: boolean,
 	ui: {
-		group: GROUP,
+		section: "Working line",
 		label: "Working line",
 		description:
 			"The spinner names the state: waiting, thinking, writing, drafting a tool call, running it.",
@@ -194,7 +220,7 @@ export const desktop = setting({
 	default: true,
 	decoder: boolean,
 	ui: {
-		group: GROUP,
+		section: "Desktop theme",
 		label: "Desktop theme",
 		description:
 			"Write the matugen palette from DankMaterialShell as the pi theme `desktop`, and keep it in sync.",
@@ -206,7 +232,7 @@ export const desktopSource = setting({
 	default: "~/.cache/DankMaterialShell/dms-colors.json",
 	decoder: string,
 	ui: {
-		group: GROUP,
+		section: "Desktop theme",
 		label: "Desktop palette",
 		description: "The DankMaterialShell colour file the desktop theme is made from.",
 	},

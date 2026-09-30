@@ -16,7 +16,7 @@ import { MODES } from "#core/mode.ts";
 import type { CallDescriptor } from "#core/tools.ts";
 import { NAME } from "#identity";
 import { announce, type Decided } from "#pi/api.ts";
-import { clearStatus, renderStatus } from "#pi/mode.ts";
+import { clearStatus, notifyJudgePolicyWarning, renderStatus } from "#pi/mode.ts";
 import { type FileChange, type PendingWrites, previewEdit, previewWrite } from "#pi/preview.ts";
 import { restoreSession } from "#pi/session-entries.ts";
 import {
@@ -30,7 +30,6 @@ import {
 import { AskDialog } from "#ui/dialog.ts";
 import { appendJudgeEntry } from "#ui/judge-entry.ts";
 import { askViaSelector } from "#ui/selector.ts";
-import { notifyJudgePolicyWarning } from "#ui/settings/status.ts";
 
 const JUDGE_STATUS = `${NAME}:judge`;
 const TYPING_STATUS = "waiting for you to finish typing";

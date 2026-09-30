@@ -96,15 +96,11 @@ describe("turning a feature off", () => {
 		expect(app.has("memory")).toBe(false);
 	});
 
-	test("its switch is labeled for the settings screen with the feature's description", () => {
+	test("its switch lives in the file and not on the settings screen", () => {
 		const toggle = enabledSetting(feature("memory"));
 		expect(toggle.id).toBe("features.memory.enabled");
 		expect(toggle.default).toBe(true);
-		expect(toggle.ui).toEqual({
-			group: "Features",
-			label: "memory",
-			description: "the memory feature",
-		});
+		expect(toggle.ui).toBeUndefined();
 	});
 });
 
@@ -157,7 +153,7 @@ describe("the feature scope", () => {
 			.use(feature("second", (scope) => scope.registerCommand("perm", { handler: async () => {} })))
 			.build();
 
-		expect(registered).toEqual(["perm"]);
+		expect(registered).toEqual(["harness", "perm"]);
 		const notes: string[] = [];
 		await fire("session_start", {}, fakeContext(notes));
 		expect(notes).toEqual(["test: second: /perm is already registered by first; skipped"]);

@@ -2,21 +2,41 @@
 // first layer with a valid one: project (for settings that accept it, in a trusted project),
 // global, default.
 import { formatProblems } from "../decode.ts";
-import { assign, lookup, readSettingsFile, type SettingsData, writeSettingsFile } from "./files.ts";
+import {
+	assign,
+	lookup,
+	readSettingsFile,
+	remove,
+	type SettingsData,
+	writeSettingsFile,
+} from "./files.ts";
 import type { Setting } from "./setting.ts";
 
+export type Layer = "default" | "global" | "project";
+
 type Found<T> = { found: true; value: T } | { found: false };
+
+interface Loaded {
+	value: unknown;
+	layer: Layer;
+	global?: unknown;
+}
 
 export class SettingsStore {
 	readonly globalPath: string;
 	#projectPath: string | undefined;
 	#known = new Map<string, Setting<unknown>>();
-	#values = new Map<string, unknown>();
+	#loaded = new Map<string, Loaded>();
 	#listeners = new Map<string, Set<(value: unknown) => void>>();
-	#loaded = false;
+	#writeListeners = new Set<() => void>();
+	#fresh = false;
 
 	constructor(globalPath: string) {
 		this.globalPath = globalPath;
+	}
+
+	get projectPath(): string | undefined {
+		return this.#projectPath;
 	}
 
 	register(settings: readonly Setting<unknown>[]): void {
@@ -26,15 +46,25 @@ export class SettingsStore {
 				throw new Error(`two settings are named "${entry.id}"`);
 			this.#known.set(entry.id, entry);
 		}
-		this.#loaded = false;
+		this.#fresh = false;
+	}
+
+	known(): Setting<unknown>[] {
+		return [...this.#known.values()];
 	}
 
 	/** Throws for a setting no feature declared, which would otherwise read its default forever. */
 	get<T>(entry: Setting<T>): T {
-		this.#assertKnown(entry);
-		if (!this.#loaded) this.load(this.#projectPath);
-		// Only `load` writes to #values, and always with a value this setting's decoder produced.
-		return this.#values.has(entry.id) ? (this.#values.get(entry.id) as T) : entry.default;
+		// Only `load` fills #loaded, and always with a value this setting's decoder produced.
+		return this.#read(entry).value as T;
+	}
+
+	layer(entry: Setting<unknown>): Layer {
+		return this.#read(entry).layer;
+	}
+
+	hidden(entry: Setting<unknown>): unknown {
+		return this.#read(entry).global;
 	}
 
 	listen<T>(entry: Setting<T>, listener: (value: T) => void): () => void {
@@ -46,24 +76,31 @@ export class SettingsStore {
 		return () => listeners.delete(untyped);
 	}
 
+	/** Lets other stores on the same files read them again. */
+	onWrite(listener: () => void): () => void {
+		this.#writeListeners.add(listener);
+		return () => this.#writeListeners.delete(listener);
+	}
+
 	/** Reads the files again. Pass the project file only when pi trusts the project. */
 	load(projectPath?: string): string[] {
-		this.#loaded = true;
+		this.#fresh = true;
 		this.#projectPath = projectPath;
 		const global = readSettingsFile(this.globalPath);
 		const project = projectPath === undefined ? undefined : readSettingsFile(projectPath);
 		const warnings = [...global.warnings, ...(project?.warnings ?? [])];
 
 		for (const entry of this.#known.values()) {
-			let value = entry.default;
+			let loaded: Loaded = { value: entry.default, layer: "default" };
 
 			const fromGlobal = decodeAt(entry, global.data, this.globalPath, warnings);
-			if (fromGlobal.found) value = fromGlobal.value;
+			if (fromGlobal.found) loaded = { value: fromGlobal.value, layer: "global" };
 
 			if (project !== undefined && projectPath !== undefined) {
 				if (entry.project) {
 					const fromProject = decodeAt(entry, project.data, projectPath, warnings);
-					if (fromProject.found) value = fromProject.value;
+					if (fromProject.found)
+						loaded = { value: fromProject.value, layer: "project", global: loaded.value };
 				} else if (lookup(project.data, entry.id) !== undefined) {
 					warnings.push(
 						`${projectPath}: ${entry.id}: only the global settings file can set this; ignored`,
@@ -71,7 +108,7 @@ export class SettingsStore {
 				}
 			}
 
-			this.#update(entry, value);
+			this.#update(entry, loaded);
 		}
 
 		return warnings;
@@ -89,18 +126,43 @@ export class SettingsStore {
 	 */
 	setAll(entries: readonly (readonly [Setting<unknown>, unknown])[]): string | undefined {
 		for (const [entry] of entries) this.#assertKnown(entry);
-		const changed = entries.filter(([entry, value]) => !same(this.get(entry), value));
+		const changed = entries.filter(([entry, value]) => !same(this.#globalOf(entry), value));
 		if (changed.length === 0) return undefined;
 
-		const { data } = readSettingsFile(this.globalPath);
-		for (const [entry, value] of changed) assign(data, entry.id, value);
+		return this.#edit(this.globalPath, (data) => {
+			for (const [entry, value] of changed) assign(data, entry.id, value);
+		});
+	}
+
+	unset(entry: Setting<unknown>, layer: Exclude<Layer, "default">): string | undefined {
+		this.#assertKnown(entry);
+		const path = layer === "global" ? this.globalPath : this.#projectPath;
+		if (path === undefined) return "no trusted project to change";
+		return this.#edit(path, (data) => remove(data, entry.id));
+	}
+
+	#edit(path: string, change: (data: SettingsData) => void): string | undefined {
+		const { data } = readSettingsFile(path);
+		change(data);
 		try {
-			writeSettingsFile(this.globalPath, data);
+			writeSettingsFile(path, data);
 		} catch (error) {
 			return error instanceof Error ? error.message : String(error);
 		}
 		this.load(this.#projectPath);
+		for (const listener of this.#writeListeners) listener();
 		return undefined;
+	}
+
+	#globalOf(entry: Setting<unknown>): unknown {
+		const loaded = this.#read(entry);
+		return loaded.layer === "project" ? loaded.global : loaded.value;
+	}
+
+	#read(entry: Setting<unknown>): Loaded {
+		this.#assertKnown(entry);
+		if (!this.#fresh) this.load(this.#projectPath);
+		return this.#loaded.get(entry.id) ?? { value: entry.default, layer: "default" };
 	}
 
 	#assertKnown(entry: Setting<unknown>): void {
@@ -108,11 +170,11 @@ export class SettingsStore {
 			throw new Error(`the setting "${entry.id}" was not declared by any feature of this app`);
 	}
 
-	#update(entry: Setting<unknown>, value: unknown): void {
-		const previous = this.#values.has(entry.id) ? this.#values.get(entry.id) : entry.default;
-		this.#values.set(entry.id, value);
-		if (same(previous, value)) return;
-		for (const listener of this.#listeners.get(entry.id) ?? []) listener(value);
+	#update(entry: Setting<unknown>, loaded: Loaded): void {
+		const previous = this.#loaded.get(entry.id)?.value ?? entry.default;
+		this.#loaded.set(entry.id, loaded);
+		if (same(previous, loaded.value)) return;
+		for (const listener of this.#listeners.get(entry.id) ?? []) listener(loaded.value);
 	}
 }
 

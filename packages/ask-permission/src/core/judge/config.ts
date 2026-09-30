@@ -4,6 +4,8 @@ export type JudgeBackendId = "jev" | "pi";
 
 export type JudgeFallback = "ask" | "allow" | "deny";
 
+export const JEV_MODELS = ["jev-latest", "jev-preview", "jev-1.13.0"];
+
 export interface JudgeThresholds {
 	allow: number;
 	deny: number;

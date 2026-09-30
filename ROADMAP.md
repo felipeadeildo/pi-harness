@@ -19,25 +19,25 @@ Status is one of `done`, `next`, `planned`, `later`, `drop`. "Replaces" names th
 
 One install brings everything: `@adeildo/pi-harness`. Every piece is also a package of its own, for whoever wants only that one, and all of them share one version.
 
-| Package                      | What it is                                         |
-| ---------------------------- | -------------------------------------------------- |
-| `@adeildo/pi-harness`        | Every piece below, one extension each              |
-| `@adeildo/pi-ask-permission` | The permission dialog and the judge                |
-| `@adeildo/pi-look`           | The start card, the framed editor and the footer   |
-| `@adeildo/pi-providers`      | Subscription billing, and the account work to come |
-| `@adeildo/pi-kit`            | The library under all of them. Adds nothing to Pi  |
+| Package                      | What it is                                             |
+| ---------------------------- | ------------------------------------------------------ |
+| `@adeildo/pi-harness`        | Every piece below, one extension each                  |
+| `@adeildo/pi-ask-permission` | The permission dialog and the judge                    |
+| `@adeildo/pi-look`           | The start card, the framed editor and the footer       |
+| `@adeildo/pi-providers`      | Subscription billing, and the account work to come     |
+| `@adeildo/pi-kit`            | The library under all of them, and the settings screen |
 
 A new piece is a package under `packages/`, and the harness mounts the same feature object from a file of its own. With a piece installed twice, standalone and in the harness, the kit's claim on `pi.events` lets the first copy run it and keeps the other off.
 
-| Item                                  | Status  | Notes                                                                                                                                                                  |
-| ------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Monorepo, bun workspaces, the kit     | done    | App, feature scope, settings, events. `pi-ask-permission` moved in with its history                                                                                    |
-| Release pipeline                      | done    | See [Releases](#releases)                                                                                                                                              |
-| One package per piece                 | done    | `look` and `providers` are packages, and the harness depends on every piece and mounts each as its own extension                                                       |
-| Publish look and providers            | next    | `@adeildo/pi-look` and `@adeildo/pi-providers` are new names on npm, so their first publish is by hand with 2FA, then `bun run trust`                                  |
-| First publish                         | done    | 4.0.0 of the kit, permission and the harness is on npm, with trusted publishing pointed at `release.yml`. `pi-ask-permission` is deprecated with the command to switch |
-| `/harness setup`                      | planned | Applies the pi settings a package can't set by itself: `tuiMode`, `outputPad`, the extra usage warning. Tools go through `defaultTools` with `+name` now               |
-| Settings screen from the kit registry | planned | Only for the features' own settings. Turning a feature on and off is `pi config` now, so the `features.<id>.enabled` switches can go                                   |
+| Item                              | Status  | Notes                                                                                                                                                                  |
+| --------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Monorepo, bun workspaces, the kit | done    | App, feature scope, settings, events. `pi-ask-permission` moved in with its history                                                                                    |
+| Release pipeline                  | done    | See [Releases](#releases)                                                                                                                                              |
+| One package per piece             | done    | `look` and `providers` are packages, and the harness depends on every piece and mounts each as its own extension                                                       |
+| Publish look and providers        | done    | On npm since 4.1.0, published by `release.yml` with provenance                                                                                                         |
+| First publish                     | done    | 4.0.0 of the kit, permission and the harness is on npm, with trusted publishing pointed at `release.yml`. `pi-ask-permission` is deprecated with the command to switch |
+| `/harness setup`                  | planned | Applies the pi settings a package can't set by itself: `tuiMode`, `outputPad`, the extra usage warning. Tools go through `defaultTools` with `+name` now               |
+| Settings screen                   | done    | `Alt+S` or `/harness`, a tab per piece. Replaces `/perm` and `/look`. Pi's own settings stay in `/settings`                                                            |
 
 ## Permission. `@adeildo/pi-ask-permission`
 

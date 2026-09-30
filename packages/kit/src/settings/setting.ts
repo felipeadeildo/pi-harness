@@ -1,13 +1,20 @@
 // A setting is declared next to the feature that reads it. The declaration is plain data plus two
 // helpers, so one handle works against any app.
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+
+import type { Control } from "../control.ts";
 import type { Decoder } from "../decode.ts";
 import type { SettingsStore } from "./store.ts";
 
-/** How a setting shows up on a settings screen. */
+/** The setting's row on the settings screen. */
 export interface SettingUi {
-	group: string;
+	section: string;
 	label: string;
 	description: string;
+	/** Overrides the decoder's. A function runs each time the screen opens. */
+	control?: Control | ((ctx: ExtensionContext) => Control);
+	/** Applies only after `/reload`. */
+	restart?: boolean;
 }
 
 export interface SettingDefinition<T> {
@@ -36,4 +43,14 @@ export function setting<T>(definition: SettingDefinition<T>): Setting<T> {
 		listen: (scope, listener) => scope.settings.listen(handle, listener),
 	};
 	return handle;
+}
+
+export function controlOf(
+	entry: Setting<unknown>,
+	ctx: ExtensionContext | undefined,
+): Control | undefined {
+	const declared = entry.ui?.control;
+	if (typeof declared === "function")
+		return ctx === undefined ? entry.decoder.control : declared(ctx);
+	return declared ?? entry.decoder.control;
 }

@@ -4,6 +4,7 @@ import type {
 	RegisteredCommand,
 } from "@earendil-works/pi-coding-agent";
 
+import type { Control, Json } from "../control.ts";
 import type { Setting, SettingsScope } from "../settings/setting.ts";
 import type { SettingsStore } from "../settings/store.ts";
 
@@ -16,6 +17,10 @@ export interface Feature {
 	id: string;
 	/** One line for the settings screen. */
 	description: string;
+	/** The settings tab. Features with the same tab share it. Defaults to the id. */
+	tab?: string;
+	/** Section order on the tab. Sections not listed come after. */
+	sections?: readonly string[];
 	settings?: readonly Setting<unknown>[];
 	/** Registers handlers, commands and providers. Starts nothing: that goes in `onSessionStart`. */
 	setup(scope: FeatureScope): void;
@@ -37,6 +42,43 @@ export interface FeatureScope extends ExtensionAPI, SettingsScope {
 	warn(message: string): void;
 	/** True when this app runs a feature with that id. */
 	has(featureId: string): boolean;
+	readonly screen: ScreenRows;
+}
+
+interface ScreenRow {
+	id: string;
+	section: string;
+	label: string;
+	description: string;
+}
+
+export interface ScreenValue extends ScreenRow {
+	control: Control | ((ctx: ExtensionContext) => Control);
+	get(ctx: ExtensionContext): Json;
+	/** Returns why the value was refused. */
+	set(value: Json, ctx: ExtensionContext): string | undefined;
+}
+
+export interface ScreenAction extends ScreenRow {
+	text?(ctx: ExtensionContext): string;
+	confirm?: string;
+	/** Returned text opens in the screen. A throw shows as an error. */
+	run(ctx: ExtensionContext): string | undefined | Promise<string | undefined>;
+}
+
+export interface ScreenInfo extends ScreenRow {
+	text(ctx: ExtensionContext): string;
+}
+
+export type ScreenEntry =
+	| ({ kind: "value" } & ScreenValue)
+	| ({ kind: "action" } & ScreenAction)
+	| ({ kind: "info" } & ScreenInfo);
+
+export interface ScreenRows {
+	value(row: ScreenValue): void;
+	action(row: ScreenAction): void;
+	info(row: ScreenInfo): void;
 }
 
 export function defineFeature(feature: Feature): Feature {

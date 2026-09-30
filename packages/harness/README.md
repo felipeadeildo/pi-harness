@@ -37,7 +37,7 @@ To have only one piece, install its own package instead. With both installed, th
 
 ## Settings
 
-Every piece reads `~/.pi/agent/extensions/pi-harness/settings.json`. A setting marked _project_ is also read from `.pi/extensions/pi-harness/settings.json` in a project Pi trusts, and the project value wins. Each piece's page lists its settings.
+`Alt+S` opens the settings of every piece. They live in `~/.pi/agent/extensions/pi-harness/settings.json`. A setting marked _project_ is also read from `.pi/extensions/pi-harness/settings.json` in a project Pi trusts, and the project value wins. Each piece's page lists its settings.
 
 ## License
 

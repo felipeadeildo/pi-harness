@@ -1,12 +1,12 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import type { OutsideScope } from "#core/config/schema.ts";
+import { policyWarning } from "#core/judge/policy.ts";
 import { MODES, type PermissionMode } from "#core/mode.ts";
 import { OUTSIDE_DESCRIPTION } from "#core/workspace.ts";
 import { NAME } from "#identity";
 import { record } from "#pi/session-entries.ts";
 import type { SessionState } from "#pi/session.ts";
-import { notifyJudgePolicyWarning } from "#ui/settings/status.ts";
 
 export const MODE_STATUS = `${NAME}:mode`;
 
@@ -52,6 +52,15 @@ export function setSessionOutside(
 
 	if (!announce) return;
 	ctx.ui.notify(`${NAME}: outside ${outside} \u00b7 ${OUTSIDE_DESCRIPTION[outside]}`, "info");
+}
+
+export function notifyJudgePolicyWarning(
+	state: Pick<SessionState, "config" | "mode">,
+	ctx: ExtensionContext,
+): void {
+	if (state.mode !== "judge") return;
+	const warning = policyWarning(state.config.judge.policy);
+	if (warning) ctx.ui.notify(`${NAME}: ${warning}`, "warning");
 }
 
 export function clearStatus(ctx: ExtensionContext): void {

@@ -25,7 +25,7 @@ pi install npm:@adeildo/pi-harness
 | [Look](packages/look)                 | The start card, a framed editor with the branch, the model and the context in its borders, the time and speed of each answer, and the session's cost. Only theme colours |
 | [Providers](packages/providers)       | Bills Anthropic OAuth requests to the Claude Pro or Max plan instead of extra usage                                                                                      |
 
-Each piece is its own extension, so `pi config` turns one off. Each is also a package of its own, for when you want only that one: `pi install npm:@adeildo/pi-look` brings the look and nothing else. Every piece's page has its install line.
+`Alt+S` opens the settings of every piece. Each piece is its own extension, so `pi config` turns one off. Each is also a package of its own, for when you want only that one: `pi install npm:@adeildo/pi-look` brings the look and nothing else. Every piece's page has its install line.
 
 All packages share one version. A release is one tag, one entry in [CHANGELOG.md](CHANGELOG.md), and one publish of every package from CI, with npm provenance.
 

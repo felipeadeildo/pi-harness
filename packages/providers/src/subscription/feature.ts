@@ -9,7 +9,7 @@ export const claudeCodeVersion = setting({
 	default: "2.1.280",
 	decoder: matching(/^\d+\.\d+\.\d+$/, "a Claude Code version like 2.1.280"),
 	ui: {
-		group: "Providers",
+		section: "Anthropic subscription",
 		label: "Claude Code version",
 		description:
 			"The Claude Code version pi reports to Anthropic. Anthropic refuses newer models to versions it considers too old.",
@@ -19,6 +19,7 @@ export const claudeCodeVersion = setting({
 export const subscription = defineFeature({
 	id: "subscription",
 	description: "Bill Anthropic OAuth requests to the Claude plan instead of extra usage",
+	tab: "Providers",
 	settings: [claudeCodeVersion],
 	setup(scope) {
 		scope.on("before_provider_headers", (event, ctx) => {

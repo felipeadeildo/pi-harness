@@ -2,7 +2,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import type { SettingsStore } from "../settings/store.ts";
 import { attributed } from "./attribution.ts";
-import type { FeatureScope, SessionHook, ShutdownHook } from "./feature.ts";
+import type { FeatureScope, ScreenEntry, SessionHook, ShutdownHook } from "./feature.ts";
 
 export interface Hook<T> {
 	/** The feature that registered it, named when it fails. */
@@ -20,11 +20,21 @@ export interface AppState {
 	commands: Map<string, string>;
 	starts: Hook<SessionHook>[];
 	shutdowns: Hook<ShutdownHook>[];
+	screen: Map<string, ScreenEntry[]>;
 	report(source: string, message: string): void;
 }
 
 export function createScope(state: AppState, featureId: string): FeatureScope {
 	const label = `${state.name}: ${featureId}`;
+	const rows: ScreenEntry[] = state.screen.get(featureId) ?? [];
+	state.screen.set(featureId, rows);
+	const add = (row: ScreenEntry): void => {
+		if (rows.some((entry) => entry.id === row.id)) {
+			state.report(featureId, `the screen row "${row.id}" was added twice; keeping the first`);
+			return;
+		}
+		rows.push(row);
+	};
 
 	return {
 		...state.pi,
@@ -47,6 +57,11 @@ export function createScope(state: AppState, featureId: string): FeatureScope {
 		onShutdown: (run) => state.shutdowns.push({ source: featureId, run }),
 		warn: (message) => state.report(featureId, message),
 		has: (id) => state.mounted.has(id),
+		screen: {
+			value: (row) => add({ kind: "value", ...row }),
+			action: (row) => add({ kind: "action", ...row }),
+			info: (row) => add({ kind: "info", ...row }),
+		},
 	} as FeatureScope;
 }
 

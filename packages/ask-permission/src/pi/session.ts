@@ -3,7 +3,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 
 import { AlwaysYes, savedFileExists, type Scope } from "#core/always-yes.ts";
 import { defaultConfig, type OutsideScope, type PermissionConfig } from "#core/config/schema.ts";
-import { migrateConfig, readConfig, writeConfig } from "#core/config/settings.ts";
+import { migrateConfig, readConfig } from "#core/config/settings.ts";
 import { globalAlwaysYesPath, projectAlwaysYesPath } from "#core/config/store.ts";
 import type { JudgeOutcome, JudgeRecord } from "#core/judge/types.ts";
 import type { PermissionMode } from "#core/mode.ts";
@@ -83,11 +83,6 @@ export function loadSessionConfig(
 	state.config = readConfig(scope);
 	state.typing.stop();
 	state.typing = new TypingMonitor(state.config.typing.pause, state.config.typing.maxWait);
-}
-
-export function saveConfig(scope: FeatureScope, state: SessionState, ctx: ExtensionContext): void {
-	const error = writeConfig(scope, state.config);
-	if (error) ctx.ui.notify(`${NAME}: could not save the settings: ${error}`, "error");
 }
 
 export function openAlwaysYes(state: SessionState, ctx: ExtensionContext): void {

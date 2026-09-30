@@ -13,7 +13,7 @@ import {
 	type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 
-import type { FeatureScope } from "./app/feature.ts";
+import type { FeatureScope, ScreenEntry } from "./app/feature.ts";
 import { SettingsStore } from "./settings/store.ts";
 
 export type FakeHandler = (event: unknown, ctx: ExtensionContext) => unknown;
@@ -85,6 +85,8 @@ export interface FakeScopeOptions {
 	/** Collects what the feature warned about. */
 	notes?: string[];
 	settingsPath?: string;
+	/** Collects the rows the feature adds to the settings screen. */
+	screen?: ScreenEntry[];
 }
 
 /**
@@ -95,6 +97,7 @@ export interface FakeScopeOptions {
 export function fakeScope(options: FakeScopeOptions = {}): FeatureScope {
 	const fake = options.pi ?? fakePi();
 	const notes = options.notes ?? [];
+	const rows = options.screen ?? [];
 	const settings = new SettingsStore(
 		options.settingsPath ?? join(tmpdir(), `pi-kit-scope-${process.pid}-${Math.random()}.json`),
 	);
@@ -109,6 +112,11 @@ export function fakeScope(options: FakeScopeOptions = {}): FeatureScope {
 		onShutdown: (run) => void fake.pi.on("session_shutdown", () => run()),
 		warn: (message) => void notes.push(message),
 		has: () => false,
+		screen: {
+			value: (row) => void rows.push({ kind: "value", ...row }),
+			action: (row) => void rows.push({ kind: "action", ...row }),
+			info: (row) => void rows.push({ kind: "info", ...row }),
+		},
 	};
 }
 

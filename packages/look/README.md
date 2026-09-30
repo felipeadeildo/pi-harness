@@ -27,7 +27,7 @@ It also comes in [`@adeildo/pi-harness`](../harness), with the rest of the piece
 
 The live pieces, which move with every token, go in any slot too: `speed`, `wait`, `request` and `costRate`.
 
-The arrows are from where you sit: `↑ in` is what goes to the model, `↓ out` is what comes back. `/look explain` lists every piece on screen with its current value and what it means.
+The arrows are from where you sit: `↑ in` is what goes to the model, `↓ out` is what comes back. `What is on screen`, in the Slots section of the settings (`Alt+S`), lists every piece with its current value and what it means.
 
 **The frame** has four slots. By default: the branch with its distance and changes on the top left, after the spinner; the folder and the machine on the top right; the permission mode, the model and the effort meter on the bottom left; the context on the bottom right. The border is drawn in pi's own effort colour, so it warms up as the model thinks harder, and turns to the bash colour in shell mode.
 
@@ -70,10 +70,7 @@ If you run [DankMaterialShell](https://github.com/AvengeMedia/DankMaterialShell)
 
 Pi's own `system` theme builds its colours from the terminal's palette. If your terminal already follows matugen, `system` gets close without this, with fewer colours to work from: the sixteen terminal colours instead of the Material roles.
 
-```
-/look explain    what every piece on screen is, with its current value
-/look theme      write the desktop theme and switch to it
-```
+`Switch to it now`, in the Desktop theme section of the settings (`Alt+S`), writes the theme and makes it pi's.
 
 The mapping, from the Material roles and the terminal colours:
 
