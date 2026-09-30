@@ -1,18 +1,13 @@
 # Changelog
 
-Since 4.0.0, `@adeildo/pi-kit`, `@adeildo/pi-ask-permission` and `@adeildo/pi-harness` share one version, one tag and this changelog. The entries below 4.0.0 are `pi-ask-permission`'s.
+Every `@adeildo/` package in this repository shares one version, one tag and this changelog. The entries below 4.0.0 are from before, when `pi-ask-permission` was the only package.
 
 ## [4.1.0](https://github.com/felipeadeildo/pi-harness/compare/v4.0.0...v4.1.0) (2026-09-30)
 
-
-### ⚠ BREAKING CHANGES
-
-* **harness:** bring every feature in the harness, with look and providers as packages of their own
-
 ### Features
 
-* **harness:** bring every feature in the harness, with look and providers as packages of their own ([693b946](https://github.com/felipeadeildo/pi-harness/commit/693b9464149de87e375054f505891ee82ec8a8a1))
-
+* **harness:** `@adeildo/pi-harness` brings every piece: the permission dialog, the look and providers, one extension each, so `pi config` turns any of them off ([693b946](https://github.com/felipeadeildo/pi-harness/commit/693b9464149de87e375054f505891ee82ec8a8a1))
+* **look, providers:** each piece is also a package of its own, `@adeildo/pi-look` and `@adeildo/pi-providers`, for whoever wants only that one. With a piece installed both ways, the first copy runs and the other stays off ([693b946](https://github.com/felipeadeildo/pi-harness/commit/693b9464149de87e375054f505891ee82ec8a8a1))
 
 ### Bug Fixes
 
