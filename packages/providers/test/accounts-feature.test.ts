@@ -12,11 +12,13 @@ import {
 } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { accounts } from "../src/accounts/feature.ts";
+import { accounts, credentialOf } from "../src/accounts/feature.ts";
 import { nativeOf } from "../src/accounts/lift.ts";
+import type { Pins } from "../src/accounts/pins.ts";
 import { AccountStore } from "../src/accounts/store.ts";
 
 const OAUTH: Credential = { type: "oauth", access: "a", refresh: "r", expires: 0 };
+const OTHER: Credential = { type: "api_key", key: "k" };
 
 let dir: string;
 let previous: string | undefined;
@@ -57,6 +59,7 @@ test("a session lifts every provider that has accounts", async () => {
 	const provider = native();
 	const ctx = fakeContext([], true, {
 		modelRegistry: { getProvider: (id: string) => (id === "anthropic" ? provider : undefined) },
+		sessionManager: { getBranch: () => [] },
 	}) as ExtensionContext;
 	await fake.fire("session_start", {}, ctx);
 
@@ -74,8 +77,23 @@ test("a provider without accounts is left alone", async () => {
 
 	const ctx = fakeContext([], true, {
 		modelRegistry: { getProvider: () => native() },
+		sessionManager: { getBranch: () => [] },
 	}) as ExtensionContext;
 	await fake.fire("session_start", {}, ctx);
 
 	expect(captured).toHaveLength(0);
+});
+
+test("the session pin overrides the store default, and null means pi's own credential", () => {
+	const store = new AccountStore();
+	store.add("anthropic", "personal", OAUTH);
+	store.add("anthropic", "work", OTHER);
+	const work = store.accounts("anthropic").at(-1);
+	const pins: Pins = new Map([["anthropic", work?.id ?? ""]]);
+
+	expect(credentialOf(store, pins, "anthropic")).toEqual(OTHER);
+	pins.set("anthropic", null);
+	expect(credentialOf(store, pins, "anthropic")).toBeUndefined();
+	pins.delete("anthropic");
+	expect(credentialOf(store, pins, "anthropic")).toEqual(OAUTH);
 });

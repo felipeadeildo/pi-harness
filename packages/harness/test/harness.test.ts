@@ -39,6 +39,8 @@ describe("the harness", () => {
 		expect(permission.shortcuts).toEqual(["alt+s", "alt+m", "alt+w"]);
 		expect(look.count("agent_end")).toBe(1);
 		expect(providers.count("before_provider_request")).toBe(1);
+		expect(providers.shortcuts).toContain("alt+a");
+		expect(providers.commands.has("accounts")).toBe(true);
 	});
 
 	test("the first extension draws the settings screen, and only it", () => {
