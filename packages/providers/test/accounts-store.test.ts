@@ -1,0 +1,99 @@
+import { afterEach, beforeEach, expect, test } from "bun:test";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import type { Credential } from "@earendil-works/pi-ai";
+
+import { AccountStore } from "../src/accounts/store.ts";
+
+const OAUTH: Credential = { type: "oauth", access: "a", refresh: "r", expires: 0 };
+
+let dir: string;
+let path: string;
+
+beforeEach(() => {
+	dir = mkdtempSync(join(tmpdir(), "pi-accounts-"));
+	path = join(dir, "accounts.json");
+});
+
+afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+function addWork(store: AccountStore): string {
+	store.add("anthropic", "work", OAUTH);
+	return store.accounts("anthropic").at(-1)?.id ?? "";
+}
+
+test("an account is added, listed and pinned", () => {
+	const store = new AccountStore(path);
+	expect(store.add("anthropic", "personal", OAUTH)).toBeUndefined();
+	expect(store.has("anthropic")).toBe(true);
+	expect(store.active("anthropic")?.label).toBe("personal");
+
+	const work = addWork(store);
+	expect(store.active("anthropic")?.label).toBe("personal");
+	expect(store.setActive("anthropic", work)).toBeUndefined();
+	expect(store.active("anthropic")?.label).toBe("work");
+	expect(store.setActive("anthropic", undefined)).toBeUndefined();
+	expect(store.active("anthropic")?.label).toBe("personal");
+});
+
+test("a rename keeps the account, and a removal takes the pin with it", () => {
+	const store = new AccountStore(path);
+	store.add("anthropic", "personal", OAUTH);
+	const id = store.accounts("anthropic")[0]?.id ?? "";
+	store.setActive("anthropic", id);
+
+	expect(store.rename("anthropic", id, "home")).toBeUndefined();
+	expect(store.active("anthropic")?.label).toBe("home");
+
+	expect(store.remove("anthropic", id)).toBeUndefined();
+	expect(store.has("anthropic")).toBe(false);
+	expect(store.providerIds()).toEqual([]);
+});
+
+test("a refreshed credential is kept", () => {
+	const store = new AccountStore(path);
+	store.add("anthropic", "personal", OAUTH);
+	const id = store.accounts("anthropic")[0]?.id ?? "";
+	const fresh: Credential = { type: "oauth", access: "new", refresh: "r", expires: 42 };
+
+	expect(store.setCredential("anthropic", id, fresh)).toBeUndefined();
+	expect(store.active("anthropic")?.credential).toEqual(fresh);
+});
+
+test("the file is the only place an account lives", () => {
+	const store = new AccountStore(path);
+	store.add("anthropic", "personal", OAUTH);
+	const id = store.accounts("anthropic")[0]?.id ?? "";
+
+	const again = new AccountStore(path);
+	again.reload();
+	expect(again.active("anthropic")?.id).toBe(id);
+	expect(JSON.parse(readFileSync(path, "utf8"))).toMatchObject({
+		version: 1,
+		providers: { anthropic: { accounts: [{ label: "personal" }] } },
+	});
+});
+
+test("a hand edit that does not parse is never overwritten", () => {
+	writeFileSync(path, "{ not json");
+	const store = new AccountStore(path);
+
+	expect(store.reload()[0]).toContain("could not parse");
+	expect(store.has("anthropic")).toBe(false);
+	expect(store.add("anthropic", "personal", OAUTH)).toContain("could not parse");
+	expect(readFileSync(path, "utf8")).toBe("{ not json");
+});
+
+test("an entry that is not a credential is dropped", () => {
+	writeFileSync(
+		path,
+		JSON.stringify({
+			version: 1,
+			providers: { anthropic: { accounts: [{ id: "x", label: "x" }] } },
+		}),
+	);
+	const store = new AccountStore(path);
+	expect(store.has("anthropic")).toBe(false);
+});
