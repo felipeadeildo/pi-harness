@@ -19,12 +19,7 @@ import {
 import { LookEditor } from "../src/ui/editor.ts";
 import { FooterComponent, StripComponent } from "../src/ui/footer.ts";
 import { halfBlocks, HeaderComponent } from "../src/ui/header.ts";
-import {
-	callingTool,
-	describe as describeActivity,
-	thinkingTail,
-	toolDetail,
-} from "../src/ui/working.ts";
+import { draftedTool, describe as describeActivity } from "../src/ui/working.ts";
 import { plain, screen, snapshot, widths } from "./helpers.ts";
 
 function fakeTui(): TUI {
@@ -86,11 +81,11 @@ describe("editor", () => {
 	test("puts the working spinner after the branch, so the branch never moves", () => {
 		const view = editor();
 		view.setWorkingStatusIndicator({
-			renderInBorder: () => "* Thinking · about frames",
+			renderInBorder: () => "* thinking",
 			renderSpinnerInBorder: () => "*",
 		} as unknown as Parameters<LookEditor["setWorkingStatusIndicator"]>[0]);
 		const [top] = view.render(80).map(plain);
-		expect(top).toMatch(/^╭─ main · \* Thinking · about frames ─+ ~\/Projects\/pi-harness ─╮$/);
+		expect(top).toMatch(/^╭─ main · \* thinking ─+ ~\/Projects\/pi-harness ─╮$/);
 	});
 
 	test("the line style keeps pi's two rules and writes into them", () => {
@@ -198,27 +193,18 @@ describe("header", () => {
 });
 
 describe("working line", () => {
-	test("says what the model is doing", () => {
-		expect(describeActivity({ kind: "thinking", tail: "look at the frame" })).toBe(
-			"Thinking · look at the frame",
-		);
-		expect(describeActivity({ kind: "running", tool: "bash", detail: "git status" })).toBe(
-			"bash · git status",
-		);
-		expect(describeActivity({ kind: "calling", tool: "edit" })).toBe("Calling edit");
+	test("names the state, in lower case, and never repeats the call", () => {
+		expect(describeActivity({ kind: "waiting" })).toBe("waiting");
+		expect(describeActivity({ kind: "thinking" })).toBe("thinking");
+		expect(describeActivity({ kind: "writing" })).toBe("writing");
+		expect(describeActivity({ kind: "drafting", tool: "Bash" })).toBe("drafting bash");
+		expect(describeActivity({ kind: "running", tool: "edit" })).toBe("running edit");
 	});
 
-	test("the thinking tail is its newest line, cleaned", () => {
-		const content = [{ type: "thinking", thinking: "first\n\nsecond \x1b[31mred\x1b[0m\n" }];
-		expect(thinkingTail(content)).toBe("second red");
-		expect(thinkingTail("not content")).toBe("");
-	});
-
-	test("the tool detail is the argument that says the most", () => {
-		expect(toolDetail({ command: "\n  bun test\nmore" })).toBe("bun test");
-		expect(toolDetail({ path: "src/index.ts", content: "..." })).toBe("src/index.ts");
-		expect(toolDetail(undefined)).toBe("");
-		expect(callingTool([{ type: "text" }, { type: "toolCall", name: "read" }])).toBe("read");
+	test("the drafted tool is the call the model is writing last", () => {
+		expect(draftedTool([{ type: "text" }, { type: "toolCall", name: "read" }])).toBe("read");
+		expect(draftedTool([{ type: "toolCall", name: "read" }, { type: "text" }])).toBeUndefined();
+		expect(draftedTool("not content")).toBeUndefined();
 	});
 });
 

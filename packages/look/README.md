@@ -31,13 +31,13 @@ The arrows are from where you sit: `↑ in` is what goes to the model, `↓ out`
 
 **The frame** has four slots. By default: the branch with its distance and changes on the top left, after the spinner; the folder and the machine on the top right; the permission mode, the model and the effort meter on the bottom left; the context on the bottom right. The border is drawn in pi's own effort colour, so it warms up as the model thinks harder, and turns to the bash colour in shell mode.
 
-**The spinner** says what is happening instead of "Working": the newest line of the thinking, the tool call being written, or the command running with its first argument (`bash · git status`, `edit · src/index.ts`).
+**The spinner** names the state instead of saying "Working": `waiting` for the first token, `thinking`, `writing`, `drafting bash` while the model writes the call, `running bash` while it runs. The thinking and the call are already in the transcript, so the spinner never repeats them.
 
 **The footer** is the session: the cost (`sub` when the figure is what a subscription would have paid), tokens sent and received, where sent counts the cached part too, the cache hit of the last prompt, the average speeds of the whole session, and last, what other packages report, because it changes the most.
 
 ### It holds still
 
-Numbers change on every frame, and the screen must not move with them. Every number sits in a cell of fixed width (`  17` and `2.8k` take the same room), a value that is not known yet shows as `–` in its cell instead of appearing later in the middle of the line, the working time is a stopwatch (`0:59`, `1:00`) instead of `59s` then `1m 0s`, and an estimate is drawn quieter instead of gaining a `~`. The spinner's message, which grows with every token of thinking, comes after the branch and only takes the room the slots leave. The strip and the footer keep their line from the start, so the editor does not jump when the first answer arrives.
+Numbers change on every frame, and the screen must not move with them. Every number sits in a cell of fixed width (`  17` and `2.8k` take the same room), a value that is not known yet shows as `–` in its cell instead of appearing later in the middle of the line, the working time is a stopwatch (`0:59`, `1:00`) instead of `59s` then `1m 0s`, and an estimate is drawn quieter instead of gaining a `~`. The spinner's message comes after the branch and only takes the room the slots leave. The strip and the footer keep their line from the start, so the editor does not jump when the first answer arrives.
 
 Every finished answer leaves a small entry in the session with its time to first token and writing time, because pi records usage without a duration. That is what keeps the averages right after a resume.
 
@@ -113,7 +113,7 @@ They live in the file every piece shares, `~/.pi/agent/extensions/pi-harness/set
 | `separator`         | `"dot"`                                                | `dot`, `bar`, `slash` or `space`. _project_                                                                                                                      |
 | `pathLength`        | `40`                                                   | Longest the folder may be before it loses folders from the left. _project_                                                                                       |
 | `gaugeCells`        | `8`                                                    | Cells in the context gauge. `0` hides it. _project_                                                                                                              |
-| `peek`              | `true`                                                 | The spinner says what runs. Off, it says what pi says                                                                                                            |
+| `peek`              | `true`                                                 | The spinner names the state. Off, it says what pi says                                                                                                           |
 | `desktop.theme`     | `true`                                                 | Keep the desktop theme written. Nothing happens without the palette file                                                                                         |
 | `desktop.source`    | `"~/.cache/DankMaterialShell/dms-colors.json"`         | Where the palette is                                                                                                                                             |
 

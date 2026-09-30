@@ -189,7 +189,7 @@ export const peek = setting({
 		group: GROUP,
 		label: "Working line",
 		description:
-			"The spinner says what the model is doing: the tail of its thinking, the tool it calls.",
+			"The spinner names the state: waiting, thinking, writing, drafting a tool call, running it.",
 	},
 });
 

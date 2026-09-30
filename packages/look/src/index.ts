@@ -43,7 +43,7 @@ import { applyCursor, LookEditor } from "./ui/editor.ts";
 import { FooterComponent, StripComponent } from "./ui/footer.ts";
 import { HeaderComponent, type LoadedCounts } from "./ui/header.ts";
 import type { Screen, SlotName } from "./ui/screen.ts";
-import { type Activity, callingTool, describe, thinkingTail, toolDetail } from "./ui/working.ts";
+import { type Activity, describe, draftedTool } from "./ui/working.ts";
 
 export { SEGMENT_IDS, SEGMENTS, type SegmentId } from "./render/segments.ts";
 export { ROLE_TOKENS } from "./render/paint.ts";
@@ -52,7 +52,6 @@ export { desktopTheme, parseDesktopColors } from "./desktop/palette.ts";
 const STRIP_WIDGET = "pi-look:strip";
 const TICK_MS = 500;
 /** The thinking tail changes on every token; the spinner line does not need to. */
-const PEEK_MS = 120;
 
 interface Live {
 	ctx: ExtensionContext | undefined;
@@ -66,7 +65,6 @@ interface Live {
 	/** The frame's snapshot, shared by every component drawn in the same frame. */
 	frame: Snapshot | undefined;
 	activity: string | undefined;
-	peekAt: number;
 }
 
 export const look = defineFeature({
@@ -88,7 +86,6 @@ export const look = defineFeature({
 			stopWatching: undefined,
 			frame: undefined,
 			activity: undefined,
-			peekAt: 0,
 		};
 
 		const screen = createScreen(scope, live, reader, telemetry);
@@ -166,16 +163,13 @@ export const look = defineFeature({
 			const delta = "delta" in update ? update.delta : "";
 			telemetry.answerGrew(delta, message.usage);
 
-			if (update.type === "thinking_delta") {
-				const now = Date.now();
-				if (now - live.peekAt < PEEK_MS) return;
-				live.peekAt = now;
-				setActivity(live, scope, { kind: "thinking", tail: thinkingTail(message.content) });
+			if (update.type === "thinking_start" || update.type === "thinking_delta") {
+				setActivity(live, scope, { kind: "thinking" });
 			} else if (update.type === "text_delta" || update.type === "text_start") {
 				setActivity(live, scope, { kind: "writing" });
 			} else if (update.type === "toolcall_start" || update.type === "toolcall_delta") {
-				const tool = callingTool(message.content);
-				if (tool !== undefined) setActivity(live, scope, { kind: "calling", tool });
+				const tool = draftedTool(message.content);
+				if (tool !== undefined) setActivity(live, scope, { kind: "drafting", tool });
 			}
 		});
 
@@ -189,11 +183,7 @@ export const look = defineFeature({
 		});
 
 		scope.on("tool_execution_start", (event) => {
-			setActivity(live, scope, {
-				kind: "running",
-				tool: event.toolName,
-				detail: toolDetail(event.args),
-			});
+			setActivity(live, scope, { kind: "running", tool: event.toolName });
 		});
 
 		// A command may have moved the branch or touched the tree.
