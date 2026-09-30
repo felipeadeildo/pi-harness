@@ -43,7 +43,7 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`, even when 
 
 ## Commit and release
 
-Commits follow [Conventional Commits](https://www.conventionalcommits.org), scoped by package when they touch one (`feat(providers): ...`). [release-please](https://github.com/googleapis/release-please) runs in manifest mode: `release-please-config.json` lists the packages that release, `.release-please-manifest.json` holds their versions, and one release PR carries every bump and changelog. Merging it tags each release as `<package>-v<version>`, and the same workflow publishes to npm.
+Commits follow [Conventional Commits](https://www.conventionalcommits.org), scoped by package when they touch one (`feat(providers): ...`). Every package ships at one version, the way pi does. [release-please](https://github.com/googleapis/release-please) has one component, the repository root: `.release-please-manifest.json` holds the version, and `extra-files` in `release-please-config.json` writes it into each package's `package.json`. One release PR carries the bump and the root `CHANGELOG.md`. Merging it tags `v<version>`, writes one GitHub release, and the same workflow publishes every package to npm.
 
 Auth is [trusted publishing](https://docs.npmjs.com/trusted-publishers/) over OIDC, so there is no `NPM_TOKEN` secret.
 
@@ -55,6 +55,6 @@ bun run trust        # point npm's trusted publisher at release.yml, per package
 
 A trusted publisher can only be added to a package that already exists, so a new package goes out like this:
 
-1. `npm publish --access public` by hand, from the package folder.
-2. `bun run trust --only <package>`.
-3. Add it to `release-please-config.json` and `.release-please-manifest.json`.
+1. Set its `version` to the repository's and add its `package.json` to `extra-files` in `release-please-config.json`.
+2. `bun run publish` by hand, which publishes what is missing and asks for 2FA.
+3. `bun run trust --only <package>`.

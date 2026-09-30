@@ -1,6 +1,6 @@
 {
 	"name": "@adeildo/pi-harness",
-	"version": "0.1.0",
+	"version": "4.0.0",
 	"description": "Felipe Adeildo's Pi harness: a start screen, framed editor and footer in your theme's colours, and Anthropic OAuth billed to the Claude plan. Each feature is its own extension, so pi config turns one off.",
 	"keywords": [
 		"anthropic",

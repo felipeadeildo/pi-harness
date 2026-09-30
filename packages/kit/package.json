@@ -1,6 +1,6 @@
 {
 	"name": "@adeildo/pi-kit",
-	"version": "0.2.0",
+	"version": "4.0.0",
 	"description": "The app builder, settings and events that pi-harness packages are built on.",
 	"license": "MIT",
 	"author": {

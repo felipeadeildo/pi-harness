@@ -31,7 +31,7 @@
     },
     "packages/harness": {
       "name": "@adeildo/pi-harness",
-      "version": "0.1.0",
+      "version": "4.0.0",
       "dependencies": {
         "@adeildo/pi-kit": "workspace:*",
       },
@@ -43,7 +43,7 @@
     },
     "packages/kit": {
       "name": "@adeildo/pi-kit",
-      "version": "0.2.0",
+      "version": "4.0.0",
       "peerDependencies": {
         "@earendil-works/pi-coding-agent": "*",
       },

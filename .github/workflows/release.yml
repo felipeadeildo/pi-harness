@@ -1,9 +1,10 @@
 # Releases and publishes in one run. Publishing on the `release` event would not fire, because
 # GitHub does not trigger workflows from events created with the default GITHUB_TOKEN.
 #
-# release-please reads release-please-config.json and .release-please-manifest.json, so a package
-# only releases once it is listed there. Merging its release PR tags each package as
-# `<component>-v<version>`; the same run then verifies and publishes to npm.
+# Every package ships at one version, the way pi does. release-please has one component, the
+# repository root, and bumps each package.json through `extra-files`. Merging its release PR tags
+# `v<version>` and writes one GitHub release from CHANGELOG.md; the same run then verifies and
+# publishes every package to npm.
 #
 # Publishing is npm trusted publishing over OIDC, so there is no NPM_TOKEN secret. Each package
 # needs its own trusted publisher pointing at this workflow: `bun run trust`, run locally.
@@ -12,11 +13,8 @@ name: Release
 on:
   push:
     branches: [main]
+  # Publishes whatever version is on main and not on npm yet, like after a publish that failed.
   workflow_dispatch:
-    inputs:
-      paths:
-        description: 'Package folders to publish, as a JSON array, e.g. ["packages/kit"]'
-        required: true
 
 permissions:
   contents: write
@@ -27,7 +25,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       created: ${{ steps.release.outputs.releases_created }}
-      paths: ${{ steps.release.outputs.paths_released }}
       pr: ${{ steps.release.outputs.pr }}
     steps:
       - id: release
@@ -99,7 +96,4 @@ jobs:
 
       # Publishes in dependency order and skips versions that are already on npm, so a run that
       # died halfway can be started again.
-      - name: Publish
-        env:
-          PATHS: ${{ github.event_name == 'workflow_dispatch' && inputs.paths || needs.release.outputs.paths }}
-        run: bun scripts/publish.ts --paths "$(echo "$PATHS" | jq -r 'join(",")')"
+      - run: bun scripts/publish.ts

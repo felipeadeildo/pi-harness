@@ -1,24 +1,35 @@
 # Changelog
 
-## [4.0.0](https://github.com/felipeadeildo/pi-harness/compare/@adeildo/pi-ask-permission-v3.0.0...@adeildo/pi-ask-permission-v4.0.0) (2026-09-30)
+Since 4.0.0, `@adeildo/pi-kit`, `@adeildo/pi-ask-permission` and `@adeildo/pi-harness` share one version, one tag and this changelog. The entries below 4.0.0 are `pi-ask-permission`'s.
 
+## 4.0.0 (2026-09-30)
 
 ### ⚠ BREAKING CHANGES
 
-* **ask-permission:** publish as @adeildo/pi-ask-permission
-* **ask-permission:** read the config from the shared settings file
+* **ask-permission:** publish as `@adeildo/pi-ask-permission`. `pi-ask-permission` stays on npm at 3.0.0, deprecated. The config, the grants and the old sessions keep working ([dac6462](https://github.com/felipeadeildo/pi-harness/commit/dac646269680dbd7af76c7fd174b6d49ef7e7c19))
+* **ask-permission:** read the config from the shared settings file ([0e9de2b](https://github.com/felipeadeildo/pi-harness/commit/0e9de2b4b779b010c1cfea07d0d736bf4ccd07b8))
+* **look:** drop the prompt glyph in front of the editor, and the `look.frame.prompt` setting with it ([53fcfff](https://github.com/felipeadeildo/pi-harness/commit/53fcfff7758b7a1876ac2beb292949231922e926))
 
 ### Features
 
-* **ask-permission:** publish as @adeildo/pi-ask-permission ([dac6462](https://github.com/felipeadeildo/pi-harness/commit/dac646269680dbd7af76c7fd174b6d49ef7e7c19))
-* **ask-permission:** read the config from the shared settings file ([0e9de2b](https://github.com/felipeadeildo/pi-harness/commit/0e9de2b4b779b010c1cfea07d0d736bf4ccd07b8))
+* **harness:** first release of `@adeildo/pi-harness`, with the look and providers as one extension each, so `pi config` turns either off ([64b24b2](https://github.com/felipeadeildo/pi-harness/commit/64b24b272d3e9b17e041dba070f6a935c3d16f79))
+* **look:** replace the statusline with the whole look, from the start card to a framed editor ([f603bd2](https://github.com/felipeadeildo/pi-harness/commit/f603bd2010e7ea969b6bb341a2d63dc22e95c532))
+* **look:** show the answer being written, its cost per million and the session speed ([71994d0](https://github.com/felipeadeildo/pi-harness/commit/71994d054f9b5dbe47114fed662488e6d295965c))
+* **look:** give every effort level its own bar, paint the data and give every piece its own glyph ([b259aad](https://github.com/felipeadeildo/pi-harness/commit/b259aad8607f4f7941c9e3e85fb40338690ac25e))
+* **look:** draw the git distance and the icons, and drop a zero cost ([8280954](https://github.com/felipeadeildo/pi-harness/commit/828095499d92a0af50b3fca451eaa75d9f6bb8de))
+* **look:** show which pi version drew the line ([ad44468](https://github.com/felipeadeildo/pi-harness/commit/ad44468da2937bf4652a2bb05e0bc2af225306f5))
+* **providers:** bill Anthropic OAuth requests to the Claude plan ([1a26543](https://github.com/felipeadeildo/pi-harness/commit/1a265438427054268429771156f3d83363d6d785))
+* **kit:** add the app builder, settings and events that features are built on ([b5be12e](https://github.com/felipeadeildo/pi-harness/commit/b5be12e5145fcd7c99677bc83247675bbf359903))
+* **kit:** give each feature its own scope, an on/off switch and project settings ([cb4eda4](https://github.com/felipeadeildo/pi-harness/commit/cb4eda4aaed4877bf66a4a364d357bddd3abe939))
+* publish the workspace packages in dependency order, with a smoke test ([98f72d9](https://github.com/felipeadeildo/pi-harness/commit/98f72d97a313b8f6182e297e5b2444af0292038d))
 
+### Bug Fixes
 
-### Dependencies
+* **release:** refresh bun.lock on the release PR and refuse a stale workspace version ([e5656aa](https://github.com/felipeadeildo/pi-harness/commit/e5656aadcbce1e76a13c3b80429ab8dbe93151ca))
 
-* The following workspace dependencies were updated
-  * dependencies
-    * @adeildo/pi-kit bumped to 0.2.0
+### Build
+
+* the pi SDK is 0.99.1 ([33007a3](https://github.com/felipeadeildo/pi-harness/commit/33007a3b690e50bdeca3132d912105b4fb0d7f25))
 
 ## [3.0.0](https://github.com/felipeadeildo/pi-ask-permission/compare/v2.0.1...v3.0.0) (2026-09-23)
 

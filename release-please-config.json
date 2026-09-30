@@ -1,22 +1,28 @@
 {
 	"$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
-	"bootstrap-sha": "9d38e8c7db052241ec9c28af2817bc8dd3af2252",
-	"include-component-in-tag": true,
-	"plugins": ["node-workspace"],
+	"bootstrap-sha": "e5656aadcbce1e76a13c3b80429ab8dbe93151ca",
+	"release-type": "node",
+	"include-component-in-tag": false,
 	"packages": {
-		"packages/ask-permission": {
-			"release-type": "node",
-			"component": "@adeildo/pi-ask-permission"
-		},
-		"packages/kit": {
-			"release-type": "node",
-			"component": "@adeildo/pi-kit"
-		},
-		"packages/harness": {
-			"release-type": "node",
-			"component": "@adeildo/pi-harness",
-			"initial-version": "0.1.0"
+		".": {
+			"package-name": "pi-harness",
+			"extra-files": [
+				{
+					"type": "json",
+					"path": "packages/kit/package.json",
+					"jsonpath": "$.version"
+				},
+				{
+					"type": "json",
+					"path": "packages/ask-permission/package.json",
+					"jsonpath": "$.version"
+				},
+				{
+					"type": "json",
+					"path": "packages/harness/package.json",
+					"jsonpath": "$.version"
+				}
+			]
 		}
-	},
-	"bump-minor-pre-major": true
+	}
 }

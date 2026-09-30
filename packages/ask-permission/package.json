@@ -29,8 +29,7 @@
 		"assets/preview.png",
 		"README.md",
 		"CONTRIBUTING.md",
-		"LICENSE",
-		"CHANGELOG.md"
+		"LICENSE"
 	],
 	"type": "module",
 	"imports": {
