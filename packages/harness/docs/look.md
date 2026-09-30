@@ -3,7 +3,7 @@
 [Pi](https://pi.dev)'s start screen, editor, footer and working line, redrawn around the data I want in front of me, and painted only with the colours of the theme that is on.
 
 ```
-╭─ π pi v0.87.1 ──────────────────────────────────────────────────────────────────╮
+╭─ π pi v0.99.1 ──────────────────────────────────────────────────────────────────╮
 │      ▄▄▄▄▄▄▄▄▄▄▄▄      │ 󰚩 Anthropic/Claude Opus 5.5 · ▂▃▄▅▆▇ high              │
 │     ▀▀▀██▀▀▀▀██▀▀▀     │  ~/Projects/pi-harness ·  main ↑22 +14 ~2 ?2         │
 │        ██    ██        │  ghost · 18 tools · 9 skills · 6 prompts · 10 ext    │

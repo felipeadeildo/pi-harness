@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { fakePi, fakeScope } from "@adeildo/pi-kit/testing";
-import type { ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
+import type { ExtensionToolContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
 
 import { registerBashTimer } from "#pi/bash-timer.ts";
 
@@ -42,7 +42,7 @@ async function run(trusted: boolean): Promise<string> {
 		cwd: join(root, "project"),
 		isProjectTrusted: () => trusted,
 		sessionManager: { getSessionId: () => "session", getSessionFile: () => undefined },
-	} as unknown as ExtensionContext;
+	} as unknown as ExtensionToolContext;
 
 	const result = await registeredBash().execute(
 		"call",

@@ -7,6 +7,7 @@ import {
 	createEditToolDefinition,
 	type EditToolInput,
 	type ExtensionContext,
+	type ExtensionToolContext,
 	generateDiffString,
 	type WriteToolInput,
 } from "@earendil-works/pi-coding-agent";
@@ -44,12 +45,24 @@ export async function previewEdit(
 	});
 
 	try {
-		await dryRun.execute("preview", input, ctx.signal, undefined, ctx);
+		await dryRun.execute("preview", input, ctx.signal, undefined, previewContext(ctx));
 	} catch (error) {
 		return { error: describe(error) };
 	}
 	if (!written) return { error: "the edit changed nothing" };
 	return { ...written, diff: generateDiffString(before, written.after).diff };
+}
+
+/**
+ * A tool runs with a context that can call other tools. The preview runs from a `tool_call` handler,
+ * which has none, and a dry run must not start real calls, so it gets no tools and any call fails
+ * the preview. The session context stays the prototype, so its getters keep reading live state.
+ */
+function previewContext(ctx: ExtensionContext): ExtensionToolContext {
+	return Object.assign(Object.create(ctx) as ExtensionContext, {
+		tools: [],
+		executeTool: (name: string) => Promise.reject(new Error(`a preview cannot call ${name}`)),
+	});
 }
 
 export async function previewWrite(
