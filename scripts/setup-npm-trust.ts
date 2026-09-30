@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-
 /**
  * Point npm's trusted publisher at this repository's release workflow, for every package.
  *
@@ -10,8 +9,8 @@ import { resolve } from "node:path";
  *
  * Usage: bun scripts/setup-npm-trust.ts [--list] [--dry-run] [--only a,b]
  */
-import { $ } from "bun";
 
+import { interactive } from "./interactive.ts";
 import { workspacePackages } from "./packages.ts";
 
 const WORKFLOW = "release.yml";
@@ -19,9 +18,12 @@ const ENVIRONMENT = "npm-publish";
 
 function repository(root: string): string {
 	const manifest = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")) as {
-		repository: string;
+		repository?: string | { url?: string };
 	};
-	const match = /github\.com[/:]([^/]+\/[^/.]+)/.exec(manifest.repository);
+	// npm accepts both `"repository": "<url>"` and `"repository": { "url": "<url>" }`.
+	const url =
+		typeof manifest.repository === "string" ? manifest.repository : manifest.repository?.url;
+	const match = /github\.com[/:]([^/]+\/[^/.]+)/.exec(url ?? "");
 	if (match?.[1] === undefined) throw new Error("package.json has no GitHub repository");
 	return match[1];
 }
@@ -43,11 +45,25 @@ async function main(): Promise<void> {
 		console.log(`\n${pkg.name}`);
 		if (list) {
 			// oxlint-disable-next-line no-await-in-loop -- npm trust is interactive, so one at a time
-			await $`npm trust list ${pkg.name}`.nothrow();
+			await interactive(["npm", "trust", "list", pkg.name]);
 			continue;
 		}
 		// oxlint-disable-next-line no-await-in-loop -- npm trust is interactive, so one at a time
-		await $`npm trust github ${pkg.name} --file ${WORKFLOW} --repo ${repo} --env ${ENVIRONMENT} --allow-publish --yes ${dryRun}`.nothrow();
+		await interactive([
+			"npm",
+			"trust",
+			"github",
+			pkg.name,
+			"--file",
+			WORKFLOW,
+			"--repo",
+			repo,
+			"--env",
+			ENVIRONMENT,
+			"--allow-publish",
+			"--yes",
+			...dryRun,
+		]);
 	}
 }
 

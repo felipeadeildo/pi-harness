@@ -17,6 +17,7 @@ import { join, resolve } from "node:path";
  */
 import { $ } from "bun";
 
+import { interactive } from "./interactive.ts";
 import { publishablePackages, type WorkspacePackage, workspacePackages } from "./packages.ts";
 import { checkTarballs, packAll, tarballVersion, type PackedPackage } from "./tarballs.ts";
 
@@ -127,8 +128,7 @@ async function main(): Promise<void> {
 
 async function publish(entry: PackedPackage): Promise<number> {
 	const provenance = process.env.GITHUB_ACTIONS === "true" ? ["--provenance"] : [];
-	const result = await $`npm publish ${entry.tarball} --access public ${provenance}`.nothrow();
-	return result.exitCode;
+	return await interactive(["npm", "publish", entry.tarball, "--access", "public", ...provenance]);
 }
 
 await main();
