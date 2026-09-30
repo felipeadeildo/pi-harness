@@ -5,7 +5,7 @@ The extensions I run [Pi](https://pi.dev) with, as one package. Each feature is 
 | Feature                        | What it does                                                                                            |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------- |
 | [Look](docs/look.md)           | The start card, a framed editor, the answer strip and the footer, painted only with the theme's colours |
-| [Providers](docs/providers.md) | `subscription`: bills Anthropic OAuth requests to the Claude Pro or Max plan instead of extra usage     |
+| [Providers](docs/providers.md) | Bills Anthropic OAuth requests to the Claude Pro or Max plan instead of extra usage                     |
 
 The permission dialog is its own package, [`@adeildo/pi-ask-permission`](../ask-permission), because it makes sense without the rest.
 

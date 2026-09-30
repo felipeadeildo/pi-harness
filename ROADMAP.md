@@ -25,7 +25,7 @@ The repository is a monorepo so the features can share the kit and one test run.
 | `@adeildo/pi-harness`        | Everything else: the look, providers, questions, sessions, ... | One version, one changelog, one install. Its manifest lists one extension per feature, so `pi config` and pi's package filters turn a feature off without my code |
 | `@adeildo/pi-kit`            | The base both are built on                                     | Published only because `@adeildo/pi-ask-permission` needs it at runtime. Promises nothing to anyone else                                                          |
 
-A feature leaves the harness for a package of its own only when someone would install it alone, the way `pi-ask-permission` earned it. Until then it is a folder under `packages/harness/src/`, with its own tests.
+A feature leaves the harness for a package of its own only when someone would install it alone, the way `@adeildo/pi-ask-permission` earned it. Until then it is a folder under `packages/harness/src/`, with its own tests.
 
 Everything ships under `@adeildo/`. The harness depends on `@adeildo/pi-ask-permission`, bundled in its tarball and loaded from `node_modules`, as pi's package docs ask. Installing both stays safe, because the kit's claim on `pi.events` keeps a feature from mounting twice.
 
@@ -159,9 +159,11 @@ What each pi release took off the plan, or changed in it.
 Modeled on how oh-my-pi and pi itself release, because both solved the same problem: a monorepo where more than one package ships.
 
 1. Work lands on `main` as one-line conventional commits, scoped by feature: `feat(look)`, `fix(ask-permission)`.
-2. Every package ships at one version, the way pi does. release-please has one component, the repository root, and opens a release PR with the bump and the root `CHANGELOG.md`. `extra-files` writes the version into each package's `package.json`, and a job in `release.yml` refreshes `bun.lock` on the PR, because `bun pm pack` takes the version of a workspace dependency from the lockfile. Merging the PR tags `v<version>` and writes one GitHub release. The cost: every release publishes all three, even the ones that didn't change.
-3. The same run verifies, then runs `bun run smoke`, which packs every package, installs the tarballs outside the repository and loads them. A missing file in `files`, an unresolved `workspace:` range or a dependency that only exists in the workspace fails there instead of on someone else's machine.
-4. `scripts/publish.ts` publishes in dependency order (kit, then `@adeildo/pi-ask-permission`, then the harness), skips a version already on npm, and leaves the dependents of a failure alone. Trusted publishing over OIDC gives provenance and no stored token.
+2. Every package ships at one version, the way pi does. release-please has one component, the repository root, and opens a release PR with the bump and the root `CHANGELOG.md`. `extra-files` writes the version into each package's `package.json`.
+3. A job in `release.yml` refreshes `bun.lock` on that PR. Without it the tarballs would depend on the old kit, because `bun pm pack` takes a workspace dependency's version from the lockfile.
+4. Merging the PR tags `v<version>` and writes one GitHub release. Every release publishes all three packages, even the ones that didn't change, and that is the price of one version.
+5. The same run verifies, then runs `bun run smoke`, which packs every package, installs the tarballs outside the repository and loads them. A missing file in `files`, an unresolved `workspace:` range, a dependency on an old workspace version or one that only exists in the workspace fails there instead of on someone else's machine.
+6. `scripts/publish.ts` publishes in dependency order (kit, then `@adeildo/pi-ask-permission`, then the harness), skips a version already on npm, and leaves the dependents of a failure alone. Trusted publishing over OIDC gives provenance and no stored token.
 
 A package that doesn't exist on npm yet can't have a trusted publisher, so the first publish of each `@adeildo/` name is done by hand with 2FA, and `bun run trust` runs after it.
 

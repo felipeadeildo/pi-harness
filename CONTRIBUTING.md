@@ -43,7 +43,7 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`, even when 
 
 ## Commit and release
 
-Commits follow [Conventional Commits](https://www.conventionalcommits.org), scoped by package when they touch one (`feat(providers): ...`). Every package ships at one version, the way pi does. [release-please](https://github.com/googleapis/release-please) has one component, the repository root: `.release-please-manifest.json` holds the version, and `extra-files` in `release-please-config.json` writes it into each package's `package.json`. One release PR carries the bump and the root `CHANGELOG.md`. Merging it tags `v<version>`, writes one GitHub release, and the same workflow publishes every package to npm.
+Commits follow [Conventional Commits](https://www.conventionalcommits.org), scoped by feature (`feat(look): ...`, `fix(ask-permission): ...`). Every package ships at one version, the way pi does. [release-please](https://github.com/googleapis/release-please) has one component, the repository root. `.release-please-manifest.json` holds the version, and `extra-files` in `release-please-config.json` writes it into each package's `package.json`. One release PR carries the bump and the root `CHANGELOG.md`. Merging it tags `v<version>`, writes one GitHub release, and the same workflow publishes every package to npm.
 
 Auth is [trusted publishing](https://docs.npmjs.com/trusted-publishers/) over OIDC, so there is no `NPM_TOKEN` secret.
 
