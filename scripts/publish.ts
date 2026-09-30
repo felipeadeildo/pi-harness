@@ -17,7 +17,7 @@ import { join, resolve } from "node:path";
  */
 import { $ } from "bun";
 
-import { publishablePackages, type WorkspacePackage } from "./packages.ts";
+import { publishablePackages, type WorkspacePackage, workspacePackages } from "./packages.ts";
 import { checkTarball, packAll, tarballVersion, type PackedPackage } from "./tarballs.ts";
 
 interface Options {
@@ -75,7 +75,10 @@ async function main(): Promise<void> {
 	const read = await Promise.all(packed.map((entry) => tarballVersion(entry)));
 	const versions = new Map(packed.map((entry, index) => [entry.pkg.name, read[index] ?? ""]));
 
-	const problems = (await Promise.all(packed.map(checkTarball))).flat();
+	const workspaceVersions = new Map(workspacePackages(root).map((pkg) => [pkg.name, pkg.version]));
+	const problems = (
+		await Promise.all(packed.map((entry) => checkTarball(entry, workspaceVersions)))
+	).flat();
 	if (problems.length > 0) {
 		for (const problem of problems) console.error(`  ${problem}`);
 		throw new Error("the tarballs are not publishable");

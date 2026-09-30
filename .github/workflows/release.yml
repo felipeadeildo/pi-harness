@@ -28,9 +28,35 @@ jobs:
     outputs:
       created: ${{ steps.release.outputs.releases_created }}
       paths: ${{ steps.release.outputs.paths_released }}
+      pr: ${{ steps.release.outputs.pr }}
     steps:
       - id: release
         uses: googleapis/release-please-action@v4
+
+  # release-please bumps every package.json but can't run bun, so bun.lock keeps the old versions
+  # of the workspace packages, and `bun pm pack` writes the dependency version from the lockfile.
+  # This commits the refreshed lockfile onto the release PR's branch. A push made with GITHUB_TOKEN
+  # triggers no workflow, and release-please rewrites the branch on its next run, so this runs again.
+  lockfile:
+    needs: release
+    if: ${{ needs.release.outputs.pr != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ fromJSON(needs.release.outputs.pr).headBranchName }}
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install
+
+      - name: Commit bun.lock
+        run: |
+          git diff --quiet bun.lock && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: refresh bun.lock" bun.lock
+          git push
 
   verify:
     needs: release

@@ -37,9 +37,15 @@ export async function packAll(
 	return packed;
 }
 
-// The two ways a package breaks without anyone noticing: an unresolved `workspace:` range, and a
-// `pi` manifest pointing at a file the tarball does not carry.
-export async function checkTarball(packed: PackedPackage): Promise<string[]> {
+// The ways a package breaks without anyone noticing: an unresolved `workspace:` range, a range on
+// a workspace package that is not the version being released, and a `pi` manifest pointing at a
+// file the tarball does not carry. The second one happens when release-please bumps the
+// package.json files and bun.lock still has the old versions, because `bun pm pack` reads the
+// version it writes from the lockfile.
+export async function checkTarball(
+	packed: PackedPackage,
+	workspace: ReadonlyMap<string, string>,
+): Promise<string[]> {
 	const problems: string[] = [];
 	const manifest = JSON.parse(await tarRead(packed.tarball, "package/package.json")) as Record<
 		string,
@@ -50,8 +56,16 @@ export async function checkTarball(packed: PackedPackage): Promise<string[]> {
 		for (const [name, range] of Object.entries(
 			(manifest[section] ?? {}) as Record<string, unknown>,
 		)) {
-			if (typeof range === "string" && range.startsWith("workspace:")) {
+			if (typeof range !== "string") continue;
+			if (range.startsWith("workspace:")) {
 				problems.push(`${section}.${name} is still ${range}`);
+				continue;
+			}
+			const current = workspace.get(name);
+			if (current !== undefined && range !== current) {
+				problems.push(
+					`${section}.${name} is ${range}, but the workspace has ${current}: run bun install to refresh bun.lock`,
+				);
 			}
 		}
 	}

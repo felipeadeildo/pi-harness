@@ -32,7 +32,8 @@ process.env.PI_CODING_AGENT_DIR = agentDir;
 const packages = workspacePackages(root);
 const packed = await packAll(root, packages);
 
-const problems = (await Promise.all(packed.map(checkTarball))).flat();
+const versions = new Map(packages.map((pkg) => [pkg.name, pkg.version]));
+const problems = (await Promise.all(packed.map((entry) => checkTarball(entry, versions)))).flat();
 if (problems.length > 0) {
 	for (const problem of problems) console.error(`  ${problem}`);
 	process.exit(1);
