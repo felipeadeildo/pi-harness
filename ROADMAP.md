@@ -29,14 +29,14 @@ A feature leaves the harness for a package of its own only when someone would in
 
 Everything ships under `@adeildo/`. The harness depends on `@adeildo/pi-ask-permission`, bundled in its tarball and loaded from `node_modules`, as pi's package docs ask. Installing both stays safe, because the kit's claim on `pi.events` keeps a feature from mounting twice.
 
-| Item                                  | Status  | Notes                                                                                                                                                                                                                                      |
-| ------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Monorepo, bun workspaces, the kit     | done    | App, feature scope, settings, events. `pi-ask-permission` moved in with its history                                                                                                                                                        |
-| Release pipeline                      | done    | See [Releases](#releases)                                                                                                                                                                                                                  |
-| Fold `look` and `providers` in        | done    | They are folders of `packages/harness` now, one extension each in its manifest                                                                                                                                                             |
-| First publish                         | next    | 4.0.0 of all three goes to npm by hand with 2FA, because a name that doesn't exist can't have a trusted publisher. Then `bun run trust`, and `npm deprecate` on the old `pi-ask-permission`. Until then a release PR would fail to publish |
-| `/harness setup`                      | planned | Applies the pi settings a package can't set by itself: `tuiMode`, `outputPad`, the extra usage warning. Tools go through `defaultTools` with `+name` now                                                                                   |
-| Settings screen from the kit registry | planned | Only for the features' own settings. Turning a feature on and off is `pi config` now, so the `features.<id>.enabled` switches can go                                                                                                       |
+| Item                                  | Status  | Notes                                                                                                                                                    |
+| ------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Monorepo, bun workspaces, the kit     | done    | App, feature scope, settings, events. `pi-ask-permission` moved in with its history                                                                      |
+| Release pipeline                      | done    | See [Releases](#releases)                                                                                                                                |
+| Fold `look` and `providers` in        | done    | They are folders of `packages/harness` now, one extension each in its manifest                                                                           |
+| First publish                         | done    | 4.0.0 of all three is on npm, with trusted publishing pointed at `release.yml`. `pi-ask-permission` is deprecated with the command to switch             |
+| `/harness setup`                      | planned | Applies the pi settings a package can't set by itself: `tuiMode`, `outputPad`, the extra usage warning. Tools go through `defaultTools` with `+name` now |
+| Settings screen from the kit registry | planned | Only for the features' own settings. Turning a feature on and off is `pi config` now, so the `features.<id>.enabled` switches can go                     |
 
 ## Permission. `@adeildo/pi-ask-permission`
 
