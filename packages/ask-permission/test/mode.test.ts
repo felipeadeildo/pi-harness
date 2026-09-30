@@ -1,51 +1,41 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-	MODE_LABEL,
-	modeApproves,
-	modeFromLabel,
-	nextMode,
-	parseMode,
-	PERMISSION_MODES,
-} from "#core/mode.ts";
+import { nextMode, parseMode } from "#core/mode.ts";
+import { toggleOutside } from "#core/workspace.ts";
 
 describe("nextMode", () => {
-	test("cycles manual, accept edits, auto, and back", () => {
-		expect(nextMode("manual")).toBe("accept-edits");
-		expect(nextMode("accept-edits")).toBe("auto");
-		expect(nextMode("auto")).toBe("manual");
+	test("cycles manual, edits, judge, full, and back", () => {
+		expect(nextMode("manual")).toBe("edits");
+		expect(nextMode("edits")).toBe("judge");
+		expect(nextMode("judge")).toBe("full");
+		expect(nextMode("full")).toBe("manual");
 	});
 });
 
-describe("modeApproves", () => {
-	test("auto approves every tool", () => {
-		expect(modeApproves("auto", false)).toBe(true);
-		expect(modeApproves("auto", true)).toBe(true);
+describe("parseMode", () => {
+	test("takes every mode by name", () => {
+		expect(parseMode("manual")).toBe("manual");
+		expect(parseMode(" Judge ")).toBe("judge");
+		expect(parseMode("full")).toBe("full");
 	});
 
-	test("accept edits approves edits only", () => {
-		expect(modeApproves("accept-edits", true)).toBe(true);
-		expect(modeApproves("accept-edits", false)).toBe(false);
+	test("takes the 4.x names still in settings files and saved sessions", () => {
+		expect(parseMode("accept-edits")).toBe("edits");
+		expect(parseMode("accept edits")).toBe("edits");
+		expect(parseMode("auto")).toBe("full");
+		expect(parseMode("yolo")).toBe("full");
 	});
 
-	test("manual approves nothing on its own", () => {
-		expect(modeApproves("manual", true)).toBe(false);
-		expect(modeApproves("manual", false)).toBe(false);
-	});
-});
-
-describe("mode labels", () => {
-	test("every mode round-trips through its label", () => {
-		for (const mode of PERMISSION_MODES) {
-			expect(modeFromLabel(MODE_LABEL[mode])).toBe(mode);
-		}
-	});
-
-	test("parseMode tolerates spellings", () => {
-		expect(parseMode("accept")).toBe("accept-edits");
-		expect(parseMode("edits")).toBe("accept-edits");
-		expect(parseMode("auto")).toBe("auto");
-		expect(parseMode("yolo")).toBeUndefined();
+	test("rejects anything else", () => {
 		expect(parseMode("nope")).toBeUndefined();
+		expect(parseMode("")).toBeUndefined();
+	});
+});
+
+describe("toggleOutside", () => {
+	test("Alt+W moves between asking and no boundary, and out of deny", () => {
+		expect(toggleOutside("ask")).toBe("allow");
+		expect(toggleOutside("allow")).toBe("ask");
+		expect(toggleOutside("deny")).toBe("allow");
 	});
 });

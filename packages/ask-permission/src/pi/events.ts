@@ -9,20 +9,14 @@ import {
 import { SCOPE_LABEL } from "#core/always-yes.ts";
 import type { DialogAnswer } from "#core/answer.ts";
 import { noUIMode } from "#core/config/patterns.ts";
-import {
-	type Call,
-	decide,
-	describeCall,
-	gateLayers,
-	type Layer,
-	type Verdict,
-} from "#core/decide.ts";
+import { type Call, decide, describeCall, gateLayers, type Verdict } from "#core/decide.ts";
 import { judgeGate } from "#core/judge/gate.ts";
 import { judgeVerdictText, remember, warnOnce } from "#core/judge/report.ts";
+import { MODES } from "#core/mode.ts";
 import type { CallDescriptor } from "#core/tools.ts";
 import { NAME } from "#identity";
 import { announce, type Decided } from "#pi/api.ts";
-import { clearModeStatus, renderModeStatus } from "#pi/mode.ts";
+import { clearStatus, renderStatus } from "#pi/mode.ts";
 import { type FileChange, type PendingWrites, previewEdit, previewWrite } from "#pi/preview.ts";
 import { restoreSession } from "#pi/session-entries.ts";
 import {
@@ -46,18 +40,18 @@ export function registerEvents(scope: FeatureScope, state: SessionState): void {
 		loadSessionConfig(scope, state, ctx);
 		openAlwaysYes(state, ctx);
 		restoreSession(state, ctx);
-		notifyJudgePolicyWarning(state.config, ctx);
-		renderModeStatus(ctx, state.mode, state.config.workspace.outside);
+		notifyJudgePolicyWarning(state, ctx);
+		renderStatus(ctx, state);
 		state.typing.start(ctx);
 	});
 
 	scope.on("session_tree", (_event, ctx) => {
 		restoreSession(state, ctx);
-		renderModeStatus(ctx, state.mode, state.config.workspace.outside);
+		renderStatus(ctx, state);
 	});
 
 	scope.on("session_shutdown", (_event, ctx) => {
-		clearModeStatus(ctx);
+		clearStatus(ctx);
 		state.typing.stop();
 	});
 
@@ -108,8 +102,11 @@ async function gate(
 	call: Call,
 	event: ToolCallEvent,
 ): Promise<Outcome> {
-	const judge: Layer = { name: "judge", decide: (next) => runJudge(state, pi, ctx, next) };
-	const decision = await decide(call, [...gateLayers(state), judge]);
+	const layers = gateLayers(state);
+	if (MODES[state.mode].judge) {
+		layers.push({ name: "judge", decide: (next) => runJudge(state, pi, ctx, next) });
+	}
+	const decision = await decide(call, layers);
 
 	if (decision.action === "allow") return { action: "allow", by: decision.by };
 	if (decision.action === "block")

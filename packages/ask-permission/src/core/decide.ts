@@ -1,7 +1,8 @@
+// The first layer with an answer decides, so the order is the policy. The caller adds the judge.
 import type { AlwaysYes } from "#core/always-yes.ts";
 import { isAllowed } from "#core/config/patterns.ts";
 import type { OutsideScope, PermissionConfig } from "#core/config/schema.ts";
-import { modeApproves, type PermissionMode } from "#core/mode.ts";
+import { MODES, type ModeRules, type PermissionMode } from "#core/mode.ts";
 import {
 	asToolInput,
 	type CallDescriptor,
@@ -11,7 +12,7 @@ import {
 	toolAdapter,
 	type ToolInput,
 } from "#core/tools.ts";
-import { checkWorkspace } from "#core/workspace.ts";
+import { type Reach, reachOf } from "#core/workspace.ts";
 import { NAME } from "#identity";
 
 export interface Call {
@@ -19,8 +20,7 @@ export interface Call {
 	input: ToolInput;
 	target: CallDescriptor;
 	tool: ToolAdapter;
-	outside: boolean;
-	outsidePath?: string;
+	reach: Reach;
 }
 
 export type Verdict =
@@ -38,6 +38,7 @@ export interface Layer {
 export interface GateState {
 	config: PermissionConfig;
 	mode: PermissionMode;
+	outside: OutsideScope;
 	alwaysYes: Pick<AlwaysYes, "has">;
 }
 
@@ -52,14 +53,12 @@ export function describeCall(
 ): Call {
 	const input = asToolInput(rawInput);
 	const tool = toolAdapter(toolName, custom);
-	const call: Call = { toolName, input, tool, target: tool.describe(input), outside: false };
-	if (config.workspace.outside === "allow") return call;
-
-	const workspace = checkWorkspace(config.workspace, cwd, tool.paths(input));
-	return { ...call, outside: workspace.outside, outsidePath: workspace.path };
+	const reach = reachOf(config.workspace.roots, cwd, tool.paths(input));
+	return { toolName, input, tool, target: tool.describe(input), reach };
 }
 
 export function gateLayers(state: GateState): Layer[] {
+	const rules = MODES[state.mode];
 	return [
 		{
 			name: "always yes",
@@ -68,11 +67,12 @@ export function gateLayers(state: GateState): Layer[] {
 		},
 		{
 			name: "workspace",
-			decide: (call) => outsideVerdict(call, state.config.workspace.outside),
+			decide: (call) => workspaceVerdict(call, rules, state.outside),
 		},
 		{
 			name: "mode",
-			decide: (call) => (modeApproves(state.mode, call.tool.edits === true) ? ALLOW : undefined),
+			decide: (call) =>
+				rules.everything || (rules.edits && call.tool.edits === true) ? ALLOW : undefined,
 		},
 		{
 			name: "allow list",
@@ -80,8 +80,7 @@ export function gateLayers(state: GateState): Layer[] {
 		},
 		{
 			name: "read-only bash",
-			decide: (call) =>
-				state.config.readOnlyBash && call.tool.readOnly?.(call.input) ? ALLOW : undefined,
+			decide: (call) => (isReadOnlyBash(call, state) ? ALLOW : undefined),
 		},
 	];
 }
@@ -96,11 +95,31 @@ export async function decide(call: Call, layers: Layer[]): Promise<Decision> {
 }
 
 // Asking here keeps the judge from approving a call that left.
-function outsideVerdict(call: Call, outside: OutsideScope): Verdict | undefined {
-	if (!call.outside) return undefined;
-
-	const where = call.outsidePath === undefined ? "" : ` (${shortenHome(call.outsidePath)})`;
-	const reason = `outside the workspace${where}`;
+function workspaceVerdict(
+	call: Call,
+	rules: ModeRules,
+	outside: OutsideScope,
+): Verdict | undefined {
+	const reason = leavingReason(call.reach, rules);
+	if (reason === undefined || outside === "allow") return undefined;
 	if (outside === "deny") return { action: "block", reason: `${NAME}: ${reason}` };
 	return { action: "ask", reason };
+}
+
+function leavingReason(reach: Reach, rules: ModeRules): string | undefined {
+	switch (reach.kind) {
+		case "inside":
+			return undefined;
+		case "outside":
+			return `outside the workspace (${shortenHome(reach.path)})`;
+		case "unknown":
+			return rules.unknownIsOutside ? "cannot tell which paths this command reaches" : undefined;
+	}
+}
+
+// `cat "$HOME/.ssh/id_rsa"` only reads, but nothing here can tell what. The judge decides it.
+function isReadOnlyBash(call: Call, state: GateState): boolean {
+	if (!state.config.readOnlyBash) return false;
+	if (call.reach.kind === "unknown" && state.outside !== "allow") return false;
+	return call.tool.readOnly?.(call.input) === true;
 }

@@ -1,30 +1,50 @@
 import { describe, expect, test } from "bun:test";
+import { tmpdir } from "node:os";
 
-import { defaultConfig, type PermissionConfig } from "#core/config/schema.ts";
-import { decide, describeCall, type GateState, gateLayers, type Layer } from "#core/decide.ts";
+import { defaultConfig } from "#core/config/schema.ts";
+import {
+	decide,
+	type Decision,
+	describeCall,
+	type GateState,
+	gateLayers,
+	type Layer,
+} from "#core/decide.ts";
 import type { PermissionMode } from "#core/mode.ts";
 
-const CWD = "/repo";
+const CWD = tmpdir();
 
 function gate(overrides: Partial<GateState> = {}): GateState {
-	return { config: defaultConfig(), mode: "manual", alwaysYes: { has: () => false }, ...overrides };
+	return {
+		config: defaultConfig(),
+		mode: "manual",
+		outside: "ask",
+		alwaysYes: { has: () => false },
+		...overrides,
+	};
+}
+
+async function decision(
+	toolName: string,
+	input: unknown,
+	state: GateState = gate(),
+	extra: Layer[] = [],
+): Promise<Decision> {
+	const call = describeCall(toolName, input, CWD, state.config);
+	return decide(call, [...gateLayers(state), ...extra]);
 }
 
 async function decidedBy(
 	toolName: string,
 	input: unknown,
-	state: GateState = gate(),
-	extra: Layer[] = [],
+	state?: GateState,
+	extra?: Layer[],
 ): Promise<string | undefined> {
-	const call = describeCall(toolName, input, CWD, state.config);
-	const decision = await decide(call, [...gateLayers(state), ...extra]);
-	return "by" in decision ? decision.by : undefined;
+	const result = await decision(toolName, input, state, extra);
+	return "by" in result ? result.by : undefined;
 }
 
-function withOutside(outside: PermissionConfig["workspace"]["outside"]): PermissionConfig {
-	const config = defaultConfig();
-	return { ...config, workspace: { ...config.workspace, outside } };
-}
+const judge: Layer = { name: "judge", decide: () => ({ action: "allow" }) };
 
 describe("decide", () => {
 	test("always yes wins before anything else", async () => {
@@ -32,24 +52,27 @@ describe("decide", () => {
 		expect(await decidedBy("bash", { command: "cat /etc/passwd" }, state)).toBe("always yes");
 	});
 
-	test("a call outside the workspace stops at the workspace layer", async () => {
-		const state = gate({ mode: "auto" });
-		expect(await decidedBy("bash", { command: "cat /etc/passwd" }, state)).toBe("workspace");
-	});
-
-	test("outside allow lets the mode decide", async () => {
-		const state = gate({ mode: "auto", config: withOutside("allow") });
-		expect(await decidedBy("bash", { command: "cat /etc/passwd" }, state)).toBe("mode");
-	});
-
 	test.each<[PermissionMode, string, unknown, string | undefined]>([
-		["auto", "bash", { command: "rm -rf build" }, "mode"],
-		["accept-edits", "write", { path: "a.ts" }, "mode"],
 		["manual", "read", { path: "a.ts" }, "allow list"],
 		["manual", "bash", { command: "git status" }, "read-only bash"],
+		["manual", "write", { path: "a.ts" }, undefined],
 		["manual", "bash", { command: "rm -rf build" }, undefined],
-	])("%s %s decides by %s", async (mode, toolName, input, layer) => {
+		["edits", "write", { path: "a.ts" }, "mode"],
+		["edits", "edit", { path: "a.ts" }, "mode"],
+		["edits", "read", { path: "a.ts" }, "allow list"],
+		["edits", "bash", { command: "rm -rf build" }, undefined],
+		["judge", "edit", { path: "a.ts" }, "mode"],
+		["judge", "bash", { command: "git status" }, "read-only bash"],
+		["judge", "bash", { command: "rm -rf build" }, undefined],
+		["full", "bash", { command: "rm -rf build" }, "mode"],
+		["full", "codemode", { code: "x" }, "mode"],
+	])("%s: %s %j decides by %s", async (mode, toolName, input, layer) => {
 		expect(await decidedBy(toolName, input, gate({ mode }))).toBe(layer);
+	});
+
+	test("full runs everything, the allow list and read-only bash off included", async () => {
+		const config = { ...defaultConfig(), allow: [], readOnlyBash: false };
+		expect(await decidedBy("read", { path: "a.ts" }, gate({ mode: "full", config }))).toBe("mode");
 	});
 
 	test("a later layer runs only when the earlier ones pass", async () => {
@@ -65,5 +88,58 @@ describe("decide", () => {
 		await decidedBy("bash", { command: "git status" }, gate(), [spy]);
 		await decidedBy("bash", { command: "rm -rf build" }, gate(), [spy]);
 		expect(seen).toEqual(["rm -rf build"]);
+	});
+});
+
+describe("the workspace, in every mode", () => {
+	const modes: PermissionMode[] = ["manual", "edits", "judge", "full"];
+
+	test.each(modes)("%s asks before a path outside, and the judge never sees it", async (mode) => {
+		const result = await decision("bash", { command: "rm /etc/hosts" }, gate({ mode }), [judge]);
+		expect(result).toEqual({
+			action: "ask",
+			reason: "outside the workspace (/etc/hosts)",
+			by: "workspace",
+		});
+	});
+
+	test.each(modes)("%s blocks a path outside when the session denies it", async (mode) => {
+		const state = gate({ mode, outside: "deny" });
+		const result = await decision("write", { path: "/etc/hosts" }, state);
+		expect(result.action).toBe("block");
+	});
+
+	test("with outside allow, the mode decides wherever the call goes", async () => {
+		const state = gate({ mode: "full", outside: "allow" });
+		expect(await decidedBy("bash", { command: "cat /etc/passwd" }, state)).toBe("mode");
+		const edits = gate({ mode: "edits", outside: "allow" });
+		expect(await decidedBy("edit", { path: "/etc/hosts" }, edits)).toBe("mode");
+	});
+
+	test("redirects to /dev/null and URLs do not leave the workspace", async () => {
+		const state = gate({ mode: "full" });
+		expect(await decidedBy("bash", { command: "bun test 2>/dev/null" }, state)).toBe("mode");
+		expect(await decidedBy("bash", { command: "ls >/dev/stdout" }, state)).toBe("mode");
+		expect(await decidedBy("bash", { command: "curl -sS https://example.com/a" }, state)).toBe(
+			"mode",
+		);
+	});
+
+	test("a command whose paths cannot be read leaves in manual and edits only", async () => {
+		const command = { command: 'cat "$HOME/.ssh/id_rsa"' };
+		const results = await Promise.all(
+			(["manual", "edits"] as const).map((mode) =>
+				decision("bash", command, gate({ mode }), [judge]),
+			),
+		);
+		for (const result of results) {
+			expect(result).toEqual({
+				action: "ask",
+				reason: "cannot tell which paths this command reaches",
+				by: "workspace",
+			});
+		}
+		expect(await decidedBy("bash", command, gate({ mode: "judge" }), [judge])).toBe("judge");
+		expect(await decidedBy("bash", command, gate({ mode: "full" }))).toBe("mode");
 	});
 });

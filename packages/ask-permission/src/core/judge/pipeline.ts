@@ -80,7 +80,7 @@ function resolveAction(
 	return { action: dryRun ? "ask" : wouldAct, dryRun };
 }
 
-/** An empty policy is the usual reason nothing gets approved, so say it plainly. */
+// An empty policy is the usual reason the judge approves nothing.
 function describeOutcome(
 	reason: string,
 	decision: ComposedVerdict["decision"],

@@ -13,6 +13,7 @@ function perm() {
 	const state = {
 		config: defaultConfig(),
 		mode: "manual",
+		outside: "ask",
 		alwaysYes: new AlwaysYes(),
 	} as unknown as SessionState;
 	registerCommands(fakeScope({ pi: fake }), state);
@@ -27,7 +28,13 @@ function perm() {
 		ui: { notify: (text: string) => notes.push(text), setStatus: () => {} },
 	} as unknown as ExtensionCommandContext;
 
-	return { command, state, notes, run: (args: string) => command?.handler(args, ctx) };
+	return {
+		command,
+		state,
+		notes,
+		entries: fake.entries,
+		run: (args: string) => command?.handler(args, ctx),
+	};
 }
 
 describe("/perm", () => {
@@ -63,6 +70,38 @@ describe("/perm", () => {
 	test("an unknown subcommand lists the real ones", async () => {
 		const { notes, run } = perm();
 		await run("reset");
-		expect(notes.at(-1)).toContain("/perm takes mode, status, forget, judge");
+		expect(notes.at(-1)).toContain("/perm takes mode, outside, status, forget, judge");
+	});
+
+	test("mode takes a name, the 4.x names too, and cycles without one", async () => {
+		const { state, run } = perm();
+
+		await run("mode judge");
+		expect(state.mode).toBe("judge");
+		await run("mode accept-edits");
+		expect(state.mode).toBe("edits");
+		await run("mode");
+		expect(state.mode).toBe("judge");
+	});
+
+	test("outside changes only this session, and the session remembers it", async () => {
+		const { state, entries, run } = perm();
+
+		await run("outside");
+		expect(state.outside).toBe("allow");
+		await run("outside deny");
+		expect(state.outside).toBe("deny");
+		expect(state.config.workspace.outside).toBe("ask");
+		expect(entries).toEqual([
+			{ customType: "pi-ask-permission:session", data: { kind: "outside", outside: "allow" } },
+			{ customType: "pi-ask-permission:session", data: { kind: "outside", outside: "deny" } },
+		]);
+	});
+
+	test("outside rejects a value it does not know", async () => {
+		const { state, notes, run } = perm();
+		await run("outside sometimes");
+		expect(state.outside).toBe("ask");
+		expect(notes.at(-1)).toContain("outside takes ask, allow, deny");
 	});
 });

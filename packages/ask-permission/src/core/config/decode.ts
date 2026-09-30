@@ -29,7 +29,7 @@ import {
 } from "#core/config/schema.ts";
 import { defaultJudge } from "#core/judge/config.ts";
 import { judgeConfig } from "#core/judge/decode.ts";
-import { DEFAULT_MODE } from "#core/mode.ts";
+import { DEFAULT_MODE, parseMode, PERMISSION_MODES, type PermissionMode } from "#core/mode.ts";
 
 export type NoUIConfig = NoUIMode | Record<string, NoUIMode>;
 
@@ -48,6 +48,14 @@ export const noUI: Decoder<NoUIConfig> = {
 	},
 };
 
+export const mode: Decoder<PermissionMode> = {
+	decode(input, path) {
+		const value = typeof input === "string" ? parseMode(input) : undefined;
+		if (value !== undefined) return pass(value);
+		return fail(problem(path, `expected one of ${PERMISSION_MODES.join(", ")}`));
+	},
+};
+
 const typing: Decoder<TypingConfig> = object({
 	pause: withDefault(duration, DEFAULT_TYPING.pause),
 	maxWait: withDefault(nullable(duration), DEFAULT_TYPING.maxWait),
@@ -62,7 +70,7 @@ const config: Decoder<PermissionConfig> = object({
 	allow: withDefaultOf(stringList("tool names"), () => [...DEFAULT_CONFIG.allow]),
 	noUI: withDefaultOf(noUI, () => DEFAULT_CONFIG.noUI),
 	notes: withDefault(literal("result", "message"), DEFAULT_CONFIG.notes),
-	mode: withDefault(literal("manual", "accept-edits", "auto"), DEFAULT_MODE),
+	mode: withDefault(mode, DEFAULT_MODE),
 	readOnlyBash: withDefault(boolean, DEFAULT_CONFIG.readOnlyBash),
 	workspace: withDefaultOf(workspace, () => ({
 		...DEFAULT_WORKSPACE,
@@ -91,7 +99,6 @@ const RENAMED: [section: "judge" | undefined, from: string, to: string][] = [
 	["judge", "grant", "rememberApprovals"],
 ];
 
-// A rename keeps the value and says nothing. The migration writes the new names.
 function migrate(input: unknown, warnings: string[]): unknown {
 	if (!isObject(input)) return input;
 
@@ -107,8 +114,15 @@ function migrate(input: unknown, warnings: string[]): unknown {
 	}
 
 	if (next.mode === "yolo") {
-		next.mode = "auto";
-		warnings.push('mode "yolo" is now "auto", with workspace.outside "allow" for the same reach');
+		next.mode = "full";
+		warnings.push('mode "yolo" is now "full", with workspace.outside "allow" for the same reach');
+	}
+	// A judge switched on in 3.x becomes the judge mode.
+	if (isObject(next.judge) && "enabled" in next.judge) {
+		if (next.judge.enabled === true && (next.mode === undefined || next.mode === "manual")) {
+			next.mode = "judge";
+		}
+		delete next.judge.enabled;
 	}
 	if ("yolo" in next) {
 		delete next.yolo;

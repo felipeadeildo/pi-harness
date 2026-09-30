@@ -16,9 +16,9 @@ import type { SessionState } from "#pi/session.ts";
  * An alwaysAsk rule makes the judge answer without a backend, so these
  * tests exercise the real `runJudge` path with no network or API key.
  */
-function enabledJudge(): SessionState["config"] {
+function judgeThatAsks(): SessionState["config"] {
 	const config = defaultConfig();
-	return { ...config, judge: { ...config.judge, enabled: true, alwaysAsk: ["*"] } };
+	return { ...config, judge: { ...config.judge, alwaysAsk: ["*"] } };
 }
 
 function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask") {
@@ -27,8 +27,9 @@ function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask")
 	fake.pi.events.on(DECIDED_EVENT, (data: unknown) => decided.push(data));
 
 	const state = {
-		config: { ...enabledJudge(), workspace: { roots: ["."], outside } },
+		config: { ...judgeThatAsks(), workspace: { roots: ["."], outside } },
 		mode,
+		outside,
 		alwaysYes: new AlwaysYes(),
 		customTools: new Map(),
 		pendingWrites: new Map(),
@@ -88,7 +89,7 @@ function writeCall(id: string, path = "a.ts") {
 
 describe("judge cards in the transcript", () => {
 	test("the card is already there when the permission dialog opens", async () => {
-		const { cards, toolCall } = harness();
+		const { cards, toolCall } = harness("judge");
 		let cardsOnDialog = -1;
 
 		await toolCall(
@@ -107,7 +108,7 @@ describe("judge cards in the transcript", () => {
 	});
 
 	test("each decision is written as it is made, not batched to the turn end", async () => {
-		const { cards, toolCall } = harness();
+		const { cards, toolCall } = harness("judge");
 
 		await toolCall(judgeCall("call-1", "git push origin main"), fakeContext());
 		expect(cards()).toHaveLength(1);
@@ -118,8 +119,29 @@ describe("judge cards in the transcript", () => {
 });
 
 describe("session modes", () => {
-	test("auto runs a bash call without opening the dialog", async () => {
-		const { toolCall } = harness("auto");
+	test("manual never asks the judge", async () => {
+		const { cards, toolCall } = harness("manual");
+		await toolCall(judgeCall("call-1", "git push origin main"), fakeContext());
+		expect(cards()).toHaveLength(0);
+	});
+
+	test("full runs a command whose paths it cannot read", async () => {
+		const { toolCall } = harness("full");
+		let opened = false;
+
+		const result = await toolCall(
+			judgeCall("call-1", `cat "$SECRET"`),
+			fakeContext(() => {
+				opened = true;
+			}),
+		);
+
+		expect(result).toBeUndefined();
+		expect(opened).toBe(false);
+	});
+
+	test("full runs a bash call without opening the dialog", async () => {
+		const { toolCall } = harness("full");
 		let opened = false;
 
 		const result = await toolCall(
@@ -133,8 +155,8 @@ describe("session modes", () => {
 		expect(opened).toBe(false);
 	});
 
-	test("auto still asks before powershell, whose paths it cannot read", async () => {
-		const { toolCall } = harness("auto");
+	test("edits still asks before powershell, whose paths it cannot read", async () => {
+		const { toolCall } = harness("edits");
 		let opened = false;
 
 		await toolCall(
@@ -147,8 +169,8 @@ describe("session modes", () => {
 		expect(opened).toBe(true);
 	});
 
-	test("accept edits runs a write without opening the dialog", async () => {
-		const { toolCall } = harness("accept-edits");
+	test("edits runs a write without opening the dialog", async () => {
+		const { toolCall } = harness("edits");
 		let opened = false;
 
 		const result = await toolCall(
@@ -162,8 +184,8 @@ describe("session modes", () => {
 		expect(opened).toBe(false);
 	});
 
-	test("accept edits still gates bash", async () => {
-		const { toolCall } = harness("accept-edits");
+	test("edits still gates bash", async () => {
+		const { toolCall } = harness("edits");
 		let opened = false;
 
 		await toolCall(
@@ -192,8 +214,8 @@ describe("session modes", () => {
 });
 
 describe("workspace scope", () => {
-	test("auto does not approve a call outside the workspace", async () => {
-		const { cards, toolCall } = harness("auto");
+	test("full does not approve a call outside the workspace", async () => {
+		const { cards, toolCall } = harness("full");
 		let opened = false;
 
 		await toolCall(
@@ -207,8 +229,8 @@ describe("workspace scope", () => {
 		expect(cards()).toHaveLength(0);
 	});
 
-	test("accept edits does not approve a write outside the workspace", async () => {
-		const { toolCall } = harness("accept-edits");
+	test("edits does not approve a write outside the workspace", async () => {
+		const { toolCall } = harness("edits");
 		let opened = false;
 
 		await toolCall(
@@ -222,7 +244,7 @@ describe("workspace scope", () => {
 	});
 
 	test("a reference resolves through the loop that owns it", async () => {
-		const { toolCall } = harness("auto");
+		const { toolCall } = harness("full");
 		let opened = false;
 
 		const result = await toolCall(
@@ -236,8 +258,8 @@ describe("workspace scope", () => {
 		expect(opened).toBe(false);
 	});
 
-	test("a reference the loop cannot resolve still asks", async () => {
-		const { toolCall } = harness("auto");
+	test("a reference the loop cannot resolve still asks in edits", async () => {
+		const { toolCall } = harness("edits");
 		let opened = false;
 
 		await toolCall(
@@ -301,7 +323,7 @@ describe("workspace scope", () => {
 	});
 
 	test("outside deny blocks before the dialog", async () => {
-		const { entries, toolCall } = harness("auto", "deny");
+		const { entries, toolCall } = harness("full", "deny");
 
 		const result = await toolCall(judgeCall("call-1", "cat /etc/passwd"), fakeContext());
 
@@ -309,8 +331,8 @@ describe("workspace scope", () => {
 		expect(entries).toHaveLength(0);
 	});
 
-	test("outside allow is what yolo used to be", async () => {
-		const { toolCall } = harness("auto", "allow");
+	test("outside allow lets full run anywhere", async () => {
+		const { toolCall } = harness("full", "allow");
 		let opened = false;
 
 		const result = await toolCall(

@@ -23,17 +23,6 @@ const FALLBACK_LABEL: Record<JudgeFallback, string> = {
 
 export const JEV_MODELS = ["jev-latest", "jev-preview", "jev-1.13.0"];
 
-interface ToolPreset {
-	label: string;
-	tools: string[];
-}
-
-const TOOL_PRESETS: ToolPreset[] = [
-	{ label: "Bash only", tools: ["bash"] },
-	{ label: "Bash and file writes", tools: ["bash", "write", "edit"] },
-	{ label: "Every tool", tools: ["*"] },
-];
-
 export interface JudgeSettingsHooks {
 	config: JudgeConfig;
 	theme: Theme;
@@ -93,12 +82,6 @@ export function buildJudgeSettings(hooks: JudgeSettingsHooks): JudgeSettings {
 				fallbacks,
 				"On a timeout, an error, or a missing key.",
 			),
-			choice(
-				"judge.tools",
-				"Tools",
-				TOOL_PRESETS.map((preset) => preset.label),
-				"The judge decides these. The rest come to you.",
-			),
 			{
 				...item("judge.policy", "Policy", policyDescription(hooks.config.policy)),
 				submenu: (_current, done) => policyPicker(hooks, done),
@@ -124,7 +107,6 @@ export type JudgeSettingId =
 	| "judge.canDeny"
 	| "judge.whenUnsure"
 	| "judge.whenItFails"
-	| "judge.tools"
 	| "judge.policy"
 	| "judge.dryRun"
 	| "judge.noUI"
@@ -137,7 +119,6 @@ export function judgeValues(config: JudgeConfig): Record<JudgeSettingId, string>
 		"judge.canDeny": toggle(config.canDeny),
 		"judge.whenUnsure": FALLBACK_LABEL[config.whenUnsure],
 		"judge.whenItFails": FALLBACK_LABEL[config.whenItFails],
-		"judge.tools": toolsLabel(config.tools),
 		"judge.policy": policyLabel(config.policy),
 		"judge.dryRun": toggle(config.dryRun),
 		"judge.noUI": toggle(config.noUI),
@@ -164,9 +145,6 @@ function apply(hooks: JudgeSettingsHooks, id: string, value: string): void {
 			return;
 		case "judge.whenItFails":
 			judge.whenItFails = fallbackFromLabel(value);
-			return;
-		case "judge.tools":
-			judge.tools = toolsFromLabel(value) ?? judge.tools;
 			return;
 		case "judge.policy": {
 			const preset = POLICY_PRESETS.find((entry) => entry.label === value);
@@ -270,19 +248,6 @@ function fallbackFromLabel(label: string): JudgeFallback {
 	if (label === "Allow") return "allow";
 	if (label === "Deny") return "deny";
 	return "ask";
-}
-
-function toolsLabel(tools: string[]): string {
-	const match = TOOL_PRESETS.find((preset) => sameList(preset.tools, tools));
-	return match?.label ?? "Custom";
-}
-
-function toolsFromLabel(label: string): string[] | undefined {
-	return TOOL_PRESETS.find((preset) => preset.label === label)?.tools;
-}
-
-function sameList(left: string[], right: string[]): boolean {
-	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function policyLabel(policy: string): string {

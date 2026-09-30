@@ -21,12 +21,6 @@ export function isAllowed(config: PermissionConfig, toolName: string): boolean {
 	return config.allow.some((pattern) => matchesPattern(pattern, toolName));
 }
 
-export function isJudged(config: PermissionConfig, toolName: string): boolean {
-	return (
-		config.judge.enabled && config.judge.tools.some((pattern) => matchesPattern(pattern, toolName))
-	);
-}
-
 export function noUIMode(config: PermissionConfig, toolName: string): NoUIMode {
 	if (typeof config.noUI === "string") return config.noUI;
 

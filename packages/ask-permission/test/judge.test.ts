@@ -588,22 +588,9 @@ describe("judge report", () => {
 describe("judgeGate", () => {
 	const target = { summary: "pnpm test", levels: ["pnpm", "pnpm test"] };
 
-	test("skips the judge while it is disabled", async () => {
-		const outcome = await judgeGate({
-			config: askConfig(),
-			ctx: fakeContext(allowMessage),
-			toolName: "bash",
-			target,
-			rawInput: {},
-			cache: new Map(),
-			onStatus: () => {},
-		});
-		expect(outcome).toBeUndefined();
-	});
-
 	test("skips the judge without a UI unless headless judging is on", async () => {
 		const outcome = await judgeGate({
-			config: askConfig({ enabled: true, provider: "pi", model: "p/m" }),
+			config: askConfig({ provider: "pi", model: "p/m" }),
 			ctx: fakeContext(allowMessage, false),
 			toolName: "bash",
 			target,
@@ -615,7 +602,7 @@ describe("judgeGate", () => {
 	});
 
 	test("runs the pi judge, reports status, and caches a clean verdict", async () => {
-		const config = askConfig({ enabled: true, provider: "pi", model: "p/m" });
+		const config = askConfig({ provider: "pi", model: "p/m" });
 		const cache = new Map<string, NonNullable<Awaited<ReturnType<typeof judgeGate>>>>();
 		const statuses: (string | undefined)[] = [];
 		let calls = 0;

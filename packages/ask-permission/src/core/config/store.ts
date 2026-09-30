@@ -1,6 +1,5 @@
-// Where 3.x kept its files. The config is read once by the migration and then retired to a `.bak`.
-// Grants stay here, because they are state and not settings, and a project grant has to live in the
-// project it belongs to.
+// The 3.x config.json, which only the migration reads. Always yes files stay here: they are state,
+// and a project's has to live in that project.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -30,7 +29,6 @@ export function projectAlwaysYesPath(cwd: string): string {
 	return join(cwd, CONFIG_DIR_NAME, "extensions", CONFIG_DIR, ALWAYS_YES_FILE);
 }
 
-/** Reads the config.json of 3.x. Only the migration reads it, and only while the file exists. */
 export function readLegacyConfig(): LegacyConfig {
 	const path = configPath();
 	if (!existsSync(path)) return { config: defaultConfig(), path, warnings: [] };

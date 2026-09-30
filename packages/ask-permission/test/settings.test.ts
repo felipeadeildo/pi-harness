@@ -2,17 +2,11 @@ import { describe, expect, test } from "bun:test";
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
-import { DEFAULT_CONFIG, defaultConfig } from "#core/config/schema.ts";
+import { defaultConfig } from "#core/config/schema.ts";
 import { defaultJudge } from "#core/judge/config.ts";
-import { MODE_LABEL, PERMISSION_MODES, type PermissionMode } from "#core/mode.ts";
+import { PERMISSION_MODES } from "#core/mode.ts";
 import { buildJudgeSettings, judgeValues } from "#ui/settings/judge.ts";
-import {
-	judgeToggleItem,
-	modeItem,
-	outsideItem,
-	readOnlyBashItem,
-	topLevelItems,
-} from "#ui/settings/screen.ts";
+import { topLevelItems } from "#ui/settings/screen.ts";
 
 function judgeScreen(): ReturnType<typeof buildJudgeSettings> {
 	return buildJudgeSettings({
@@ -25,86 +19,61 @@ function judgeScreen(): ReturnType<typeof buildJudgeSettings> {
 	});
 }
 
-const rowIds = (mode: PermissionMode) =>
-	topLevelItems(defaultConfig(), mode, []).map((item) => item.id);
+function rows(config = defaultConfig(), session = { mode: "edits", outside: "allow" } as const) {
+	return topLevelItems(config, session, []);
+}
 
 describe("settings layout", () => {
-	test("the enable toggle is a direct on/off row on the parent", () => {
-		const off = judgeToggleItem(DEFAULT_CONFIG);
-		expect(off.values).toEqual(["off", "on"]);
-		expect(off.submenu).toBeUndefined();
-		expect(off.currentValue).toBe("off");
-
-		const enabled = { ...DEFAULT_CONFIG, judge: { ...defaultJudge(), enabled: true } };
-		expect(judgeToggleItem(enabled).currentValue).toBe("on");
+	test("the session rows come first, then the defaults for new sessions", () => {
+		expect(rows().map((item) => item.id)).toEqual([
+			"session.mode",
+			"session.outside",
+			"mode",
+			"workspace.outside",
+			"readOnlyBash",
+			"notes",
+			"noUI",
+		]);
 	});
 
-	test("the child rows never repeat the enable toggle", () => {
-		const ids = judgeScreen().items.map((item) => item.id);
-		expect(ids).not.toContain("judge.enabled");
-		expect(ids).toEqual(Object.keys(judgeValues(defaultJudge())));
+	test("the session rows show the session, the defaults show the config", () => {
+		const config = defaultConfig();
+		config.mode = "judge";
+		config.workspace.outside = "deny";
+		const byId = new Map(rows(config).map((item) => [item.id, item.currentValue]));
+
+		expect(byId.get("session.mode")).toBe("edits");
+		expect(byId.get("session.outside")).toBe("allow");
+		expect(byId.get("mode")).toBe("judge");
+		expect(byId.get("workspace.outside")).toBe("deny");
 	});
 
-	test("every child row explains itself", () => {
-		for (const item of judgeScreen().items) {
-			expect(item.label.trim().length).toBeGreaterThan(0);
-			expect(item.description?.length ?? 0).toBeGreaterThan(0);
-		}
-	});
-
-	test("the tools row cycles through every preset without sticking", () => {
-		const config = defaultJudge();
-		const screen = buildJudgeSettings({
-			config,
-			theme: {} as Theme,
-			piModels: [],
-			save: () => {},
-			editPolicy: () => {},
-			editModel: () => {},
-		});
-		const tools = screen.items.find((item) => item.id === "judge.tools");
-
-		expect(tools?.values).toEqual(["Bash only", "Bash and file writes", "Every tool"]);
-		for (const value of tools?.values ?? []) {
-			screen.onChange("judge.tools", value);
-			expect(judgeValues(config)["judge.tools"]).toBe(value);
-		}
-	});
-
-	test("a hand-edited tools list reads as Custom", () => {
-		expect(judgeValues({ ...defaultJudge(), tools: ["mcp_*"] })["judge.tools"]).toBe("Custom");
-	});
-
-	test("the mode row offers every mode and marks the session value", () => {
-		for (const mode of PERMISSION_MODES) {
-			const item = modeItem(mode);
-			expect(item.values).toEqual(PERMISSION_MODES.map((entry) => MODE_LABEL[entry]));
-			expect(item.values).toContain(item.currentValue);
-			expect(item.currentValue).toBe(MODE_LABEL[mode]);
-		}
-	});
-
-	test("the workspace row offers every scope and marks the config", () => {
-		for (const outside of ["ask", "deny", "allow"] as const) {
-			const config = defaultConfig();
-			config.workspace.outside = outside;
-			const item = outsideItem(config);
-
-			expect(item.values).toEqual(["ask", "deny", "allow"]);
-			expect(item.currentValue).toBe(outside);
+	test("the mode rows offer every mode, the outside rows every scope", () => {
+		for (const item of rows()) {
+			if (item.id.endsWith("mode")) expect(item.values).toEqual([...PERMISSION_MODES]);
+			if (item.id.endsWith("outside")) expect(item.values).toEqual(["ask", "allow", "deny"]);
 			expect(item.description).toBeTruthy();
 		}
 	});
 
 	test("the read-only row marks the config", () => {
-		expect(readOnlyBashItem(defaultConfig()).currentValue).toBe("on");
-		expect(readOnlyBashItem({ ...defaultConfig(), readOnlyBash: false }).currentValue).toBe("off");
+		const find = (config = defaultConfig()) =>
+			rows(config).find((item) => item.id === "readOnlyBash")?.currentValue;
+		expect(find()).toBe("on");
+		expect(find({ ...defaultConfig(), readOnlyBash: false })).toBe("off");
 	});
 
-	test("the read-only row hides under auto, where nothing consults it", () => {
-		expect(rowIds("manual")).toContain("readOnlyBash");
-		expect(rowIds("accept-edits")).toContain("readOnlyBash");
-		expect(rowIds("auto")).not.toContain("readOnlyBash");
-		expect(rowIds("auto")).toEqual(["mode", "workspace.outside", "notes", "judge.enabled", "noUI"]);
+	test("the judge rows are the ones judgeValues knows, and none switches the judge on", () => {
+		const ids = judgeScreen().items.map((item) => item.id);
+		expect(ids).toEqual(Object.keys(judgeValues(defaultJudge())));
+		expect(ids).not.toContain("judge.enabled");
+		expect(ids).not.toContain("judge.tools");
+	});
+
+	test("every judge row explains itself", () => {
+		for (const item of judgeScreen().items) {
+			expect(item.label.trim().length).toBeGreaterThan(0);
+			expect(item.description?.length ?? 0).toBeGreaterThan(0);
+		}
 	});
 });

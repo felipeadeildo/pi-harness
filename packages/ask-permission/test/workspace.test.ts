@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { DEFAULT_WORKSPACE, type WorkspaceConfig } from "#core/config/schema.ts";
 import { asToolInput, toolAdapter } from "#core/tools.ts";
-import { checkWorkspace, resolveRoots } from "#core/workspace.ts";
+import { reachOf, resolveRoots } from "#core/workspace.ts";
 
 function workspace(overrides: Partial<WorkspaceConfig> = {}): WorkspaceConfig {
 	return { ...DEFAULT_WORKSPACE, ...overrides };
@@ -120,6 +120,36 @@ describe("bash", () => {
 	});
 });
 
+describe("what a command reaches", () => {
+	test("device files are nobody's, so a redirect to them stays inside", () => {
+		for (const command of [
+			"bun test 2>/dev/null",
+			"ls > /dev/stdout",
+			"cat /dev/stdin",
+			"head -c 8 /dev/urandom",
+			"cmd 2>/dev/fd/1",
+		]) {
+			expect(reachOfCall("bash", { command })).toEqual({ kind: "inside" });
+		}
+		expect(reachOfCall("bash", { command: "cat /dev/sda" })).toEqual({
+			kind: "outside",
+			path: "/dev/sda",
+		});
+	});
+
+	test("a URL is not a path", () => {
+		expect(reachOfCall("bash", { command: "curl -sS https://example.com/a/b" })).toEqual({
+			kind: "inside",
+		});
+	});
+
+	test("a reference or a substitution is unknown, not outside", () => {
+		expect(reachOfCall("bash", { command: `cat "$HOME/x"` })).toEqual({ kind: "unknown" });
+		expect(reachOfCall("bash", { command: "echo $(date)" })).toEqual({ kind: "unknown" });
+		expect(reachOfCall("powershell", { command: "ls" })).toEqual({ kind: "unknown" });
+	});
+});
+
 describe("roots", () => {
 	test("an extra root widens the workspace", () => {
 		const config = workspace({ roots: [".", outside] });
@@ -137,12 +167,17 @@ describe("roots", () => {
 	});
 });
 
+// As manual sees it: a command whose paths cannot be read counts as outside.
 function outcome(
 	toolName: string,
 	input: unknown,
 	config: WorkspaceConfig = workspace(),
-): { outside: boolean } {
-	const paths = toolAdapter(toolName).paths(asToolInput(input));
-	const verdict = checkWorkspace(config, root, paths);
-	return verdict.path === undefined ? { outside: verdict.outside } : verdict;
+): { outside: boolean; path?: string } {
+	const reach = reachOfCall(toolName, input, config);
+	if (reach.kind === "outside") return { outside: true, path: reach.path };
+	return { outside: reach.kind === "unknown" };
+}
+
+function reachOfCall(toolName: string, input: unknown, config: WorkspaceConfig = workspace()) {
+	return reachOf(config.roots, root, toolAdapter(toolName).paths(asToolInput(input)));
 }

@@ -1,6 +1,7 @@
 import { createApp, defineFeature } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
+import { PERMISSION_SETTINGS } from "#core/config/settings.ts";
 import { listenForTools } from "#pi/api.ts";
 import { registerBashTimer } from "#pi/bash-timer.ts";
 import { registerCommands } from "#pi/commands.ts";
@@ -12,6 +13,7 @@ import { registerJudgeEntry } from "#ui/judge-entry.ts";
 export const permission = defineFeature({
 	id: "permission",
 	description: "Ask before a tool call runs, with a judge model for the routine ones",
+	settings: PERMISSION_SETTINGS,
 	setup(scope) {
 		registerBashTimer(scope);
 		registerTypesafeProvider(scope);

@@ -2,7 +2,7 @@ import { type FeatureScope } from "@adeildo/pi-kit";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { AlwaysYes, savedFileExists, type Scope } from "#core/always-yes.ts";
-import { defaultConfig, type PermissionConfig } from "#core/config/schema.ts";
+import { defaultConfig, type OutsideScope, type PermissionConfig } from "#core/config/schema.ts";
 import { migrateConfig, readConfig, writeConfig } from "#core/config/settings.ts";
 import { globalAlwaysYesPath, projectAlwaysYesPath } from "#core/config/store.ts";
 import type { JudgeOutcome, JudgeRecord } from "#core/judge/types.ts";
@@ -24,6 +24,7 @@ export interface JudgeHealth {
 export interface SessionState {
 	config: PermissionConfig;
 	mode: PermissionMode;
+	outside: OutsideScope;
 	alwaysYes: AlwaysYes;
 	pendingNotes: Map<string, string>;
 	judgeCache: Map<string, JudgeOutcome>;
@@ -41,6 +42,7 @@ export function createSession(): SessionState {
 	return {
 		config,
 		mode: config.mode,
+		outside: config.workspace.outside,
 		alwaysYes: new AlwaysYes(),
 		pendingNotes: new Map(),
 		judgeCache: new Map(),

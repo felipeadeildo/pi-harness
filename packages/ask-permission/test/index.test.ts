@@ -62,3 +62,30 @@ test("the first session moves an old config into the shared settings", async () 
 		permission: { notes: "message" },
 	});
 });
+
+test("a session starts from the saved settings", async () => {
+	mkdirSync(dirname(globalSettingsPath()), { recursive: true });
+	writeFileSync(
+		globalSettingsPath(),
+		JSON.stringify({ permission: { mode: "edits", workspace: { outside: "allow" } } }),
+	);
+
+	const notes: string[] = [];
+	const next = fakePi();
+	piAskPermission(next.pi);
+	const ctx = {
+		...session(),
+		ui: { notify: (text: string) => notes.push(text), setStatus: () => {} },
+	};
+	await next.fire("session_start", {}, ctx as unknown as ExtensionContext);
+	await next.commands.get("perm")?.handler("status", ctx as never);
+
+	expect(notes.at(-1)).toContain("this session: mode edits \u00b7 outside allow");
+	expect(notes.at(-1)).toContain("new sessions: mode edits \u00b7 outside allow");
+});
+
+test("Alt+M and Alt+W are both registered", () => {
+	const fake = fakePi();
+	piAskPermission(fake.pi);
+	expect(fake.shortcuts).toEqual(["alt+m", "alt+w"]);
+});

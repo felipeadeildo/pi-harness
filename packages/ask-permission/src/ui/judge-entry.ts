@@ -23,7 +23,7 @@ export function registerJudgeEntry(scope: FeatureScope): void {
 	});
 }
 
-/** Early versions persisted one record per entry; now a turn's records share one. */
+/** Old sessions hold one record per entry, newer ones an array. */
 export function toRecords(data: unknown): JudgeRecord[] {
 	const list = Array.isArray(data) ? data : [data];
 	return list.filter(isJudgeRecord);
@@ -35,12 +35,7 @@ function isJudgeRecord(value: unknown): value is JudgeRecord {
 	return typeof record.summary === "string" && typeof record.toolName === "string";
 }
 
-/**
- * One entry per decision, written as soon as the judge answers. Waiting for
- * the turn to end held the card back until after execution, so a parallel
- * call hid every verdict behind the slowest command. The array shape is kept
- * because sessions written before this grouped a turn's records into one.
- */
+/** Written when the judge answers, so the card shows before the call runs. */
 export function appendJudgeEntry(pi: ExtensionAPI, record: JudgeRecord): void {
 	pi.appendEntry(JUDGE_ENTRY, [record]);
 }
@@ -84,12 +79,7 @@ class JudgeEntry implements Component {
 		return lines;
 	}
 
-	/**
-	 * Widths come from this card's own records, so a lone `ask you` is not
-	 * charged for a `would ask you` that lives in someone else's card. The
-	 * extra column keeps at least one space before the next field: a tool
-	 * named `webfetch` used to run straight into its target.
-	 */
+	/** From this card's records only, plus one column so a field never touches the next. */
 	private columns(): Columns {
 		const action = Math.max(...this.records.map((r) => judgeActionLabel(r).length));
 		const tool = Math.max(...this.records.map((r) => r.toolName.length));

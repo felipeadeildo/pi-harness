@@ -12,13 +12,14 @@ export type ToolInput = Record<string, unknown>;
 
 export interface ToolAdapter {
 	describe(input: ToolInput): CallDescriptor;
-	/** Undefined counts as outside the workspace. */
+	/** Undefined when the paths cannot be read. */
 	paths(input: ToolInput): string[] | undefined;
 	edits?: boolean;
 	readOnly?(input: ToolInput): boolean;
 }
 
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
+const URL_SCHEME = /^[a-z][a-z0-9+.-]*:\/\//i;
 const INPUT_SUMMARY_MAX = 400;
 
 const bash: ToolAdapter = {
@@ -124,7 +125,7 @@ export function commandPaths(command: string): string[] | undefined {
 
 function pathValue(word: string): string | undefined {
 	const value = word.startsWith("-") ? word.slice(word.indexOf("=") + 1) : word;
-	if (value === "" || value.startsWith("-")) return undefined;
+	if (value === "" || value.startsWith("-") || URL_SCHEME.test(value)) return undefined;
 	return /^(~|\/|\.\.?$|\.\.?\/)/.test(value) || value.includes("/") ? value : undefined;
 }
 

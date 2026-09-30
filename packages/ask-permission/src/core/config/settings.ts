@@ -1,6 +1,5 @@
-// The permission config lives in the shared settings file, one key per leaf, so the settings screen
-// comes from these declarations instead of a screen written by hand. The nested config the rest of
-// the package reads is assembled here, and writing maps back to the same keys.
+// One setting per leaf of the config, so any settings screen can list them. `readConfig` builds the
+// nested config back from them.
 import { existsSync, renameSync } from "node:fs";
 
 import {
@@ -18,7 +17,7 @@ import {
 	unit,
 } from "@adeildo/pi-kit";
 
-import { type NoUIConfig, noUI } from "#core/config/decode.ts";
+import { mode, type NoUIConfig, noUI } from "#core/config/decode.ts";
 import {
 	DEFAULT_CONFIG,
 	DEFAULT_TYPING,
@@ -31,7 +30,7 @@ import {
 } from "#core/config/schema.ts";
 import { configPath, readLegacyConfig } from "#core/config/store.ts";
 import { DEFAULT_JUDGE, type JudgeBackendId, type JudgeFallback } from "#core/judge/config.ts";
-import { DEFAULT_MODE, PERMISSION_MODES, type PermissionMode } from "#core/mode.ts";
+import { DEFAULT_MODE, type PermissionMode } from "#core/mode.ts";
 
 const PERMISSION = "Permission";
 const JUDGE = "Permission judge";
@@ -77,7 +76,7 @@ const PERMISSION_LEAVES = {
 	mode: leaf<PermissionMode>(
 		"mode",
 		DEFAULT_MODE,
-		literal(...PERMISSION_MODES),
+		mode,
 		"Default mode",
 		"The mode a new session starts in.",
 	),
@@ -99,8 +98,8 @@ const PERMISSION_LEAVES = {
 		"workspace.outside",
 		DEFAULT_WORKSPACE.outside,
 		literal("ask", "deny", "allow"),
-		"Outside the workspace",
-		"What to do with a path outside the roots.",
+		"Default outside policy",
+		"What a new session does with a call outside the roots. Alt+W changes it for one session.",
 	),
 	pause: leaf(
 		"typing.pause",
@@ -119,14 +118,6 @@ const PERMISSION_LEAVES = {
 };
 
 const JUDGE_LEAVES = {
-	enabled: leaf(
-		"judge.enabled",
-		DEFAULT_JUDGE.enabled,
-		boolean,
-		"Judge enabled",
-		"Let a model decide the routine calls.",
-		JUDGE,
-	),
 	provider: leaf<JudgeBackendId>(
 		"judge.provider",
 		DEFAULT_JUDGE.provider,
@@ -141,14 +132,6 @@ const JUDGE_LEAVES = {
 		trimmedString,
 		"Judge model",
 		"A Jev alias, or provider/modelId for the pi backend.",
-		JUDGE,
-	),
-	tools: leaf(
-		"judge.tools",
-		DEFAULT_JUDGE.tools,
-		stringList("patterns"),
-		"Judged tools",
-		"Tool patterns the judge may decide. Empty means it never runs.",
 		JUDGE,
 	),
 	alwaysAsk: leaf(
@@ -262,7 +245,7 @@ export const PERMISSION_SETTINGS: readonly Setting<unknown>[] = [
 	...Object.values(JUDGE_LEAVES),
 ];
 
-/** A fresh object every read, so a caller that mutates one cannot change the defaults. */
+/** A fresh object every read, so a caller can mutate it. */
 export function readConfig(scope: SettingsScope): PermissionConfig {
 	const leaves = PERMISSION_LEAVES;
 	const judge = JUDGE_LEAVES;
@@ -276,10 +259,8 @@ export function readConfig(scope: SettingsScope): PermissionConfig {
 		workspace: workspaceOf(scope),
 		typing: typingOf(scope),
 		judge: {
-			enabled: judge.enabled.get(scope),
 			provider: judge.provider.get(scope),
 			model: judge.model.get(scope),
-			tools: [...judge.tools.get(scope)],
 			alwaysAsk: [...judge.alwaysAsk.get(scope)],
 			thresholds: { allow: judge.allowThreshold.get(scope), deny: judge.denyThreshold.get(scope) },
 			riskCeiling: judge.riskCeiling.get(scope),
@@ -300,10 +281,7 @@ export function writeConfig(scope: SettingsScope, config: PermissionConfig): str
 	return scope.settings.setAll(toEntries(config));
 }
 
-/**
- * Moves the pre-4.0 config.json into the shared settings and keeps it as a `.bak`. A value that
- * already reads the same is not written, so migrating a default config leaves no keys behind.
- */
+/** Moves the 3.x config.json into the shared settings and keeps it as a `.bak`. */
 export function migrateConfig(scope: SettingsScope): string[] {
 	const path = configPath();
 	if (!existsSync(path)) return [];
@@ -349,10 +327,8 @@ function toEntries(config: PermissionConfig): (readonly [Setting<unknown>, unkno
 		[leaves.outside, config.workspace.outside],
 		[leaves.pause, config.typing.pause],
 		[leaves.maxWait, config.typing.maxWait],
-		[judge.enabled, config.judge.enabled],
 		[judge.provider, config.judge.provider],
 		[judge.model, config.judge.model],
-		[judge.tools, config.judge.tools],
 		[judge.alwaysAsk, config.judge.alwaysAsk],
 		[judge.allowThreshold, config.judge.thresholds.allow],
 		[judge.denyThreshold, config.judge.thresholds.deny],

@@ -10,12 +10,9 @@ export interface JudgeThresholds {
 }
 
 export interface JudgeConfig {
-	enabled: boolean;
 	provider: JudgeBackendId;
 	/** A Jev alias or pinned id, or `provider/modelId` for a pi model. */
 	model: string;
-	/** Tool patterns the judge may decide. Empty means it never runs. */
-	tools: string[];
 	alwaysAsk: string[];
 	thresholds: JudgeThresholds;
 	riskCeiling: number;
@@ -27,15 +24,12 @@ export interface JudgeConfig {
 	rememberApprovals: boolean;
 	timeoutMs: number;
 	cache: boolean;
-	/** Operator rulebook for what may run. */
 	policy: string;
 }
 
 export const DEFAULT_JUDGE: JudgeConfig = {
-	enabled: false,
 	provider: "jev",
 	model: "jev-latest",
-	tools: ["bash"],
 	alwaysAsk: [],
 	thresholds: { allow: 0.85, deny: 0.8 },
 	riskCeiling: 0.45,
@@ -54,7 +48,6 @@ export function defaultJudge(): JudgeConfig {
 	return {
 		...DEFAULT_JUDGE,
 		thresholds: { ...DEFAULT_JUDGE.thresholds },
-		tools: [...DEFAULT_JUDGE.tools],
 		alwaysAsk: [...DEFAULT_JUDGE.alwaysAsk],
 	};
 }

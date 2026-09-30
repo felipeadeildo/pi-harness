@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { SettingsStore, type SettingsScope, globalSettingsPath } from "@adeildo/pi-kit";
 
 import { decodeConfig } from "#core/config/decode.ts";
-import { noUIMode, isAllowed, isJudged, matchesPattern } from "#core/config/patterns.ts";
+import { noUIMode, isAllowed, matchesPattern } from "#core/config/patterns.ts";
 import { DEFAULT_CONFIG, DEFAULT_WORKSPACE, type PermissionConfig } from "#core/config/schema.ts";
 import {
 	migrateConfig,
@@ -70,10 +70,18 @@ describe("decodeConfig", () => {
 		expect(warnings).toHaveLength(1);
 	});
 
-	test("reads a valid mode", () => {
+	test("reads a valid mode, and the 4.x names as the new ones", () => {
 		const warnings: string[] = [];
-		expect(decodeConfig({ mode: "accept-edits" }, warnings).mode).toBe("accept-edits");
+		expect(decodeConfig({ mode: "judge" }, warnings).mode).toBe("judge");
+		expect(decodeConfig({ mode: "accept-edits" }, warnings).mode).toBe("edits");
+		expect(decodeConfig({ mode: "auto" }, warnings).mode).toBe("full");
 		expect(warnings).toEqual([]);
+	});
+
+	test("a judge that was switched on becomes the judge mode", () => {
+		expect(decodeConfig({ judge: { enabled: true } }).mode).toBe("judge");
+		expect(decodeConfig({ mode: "accept-edits", judge: { enabled: true } }).mode).toBe("edits");
+		expect(decodeConfig({ judge: { enabled: false } }).mode).toBe("manual");
 	});
 
 	test("drops the removed yolo key and warns", () => {
@@ -82,11 +90,11 @@ describe("decodeConfig", () => {
 		expect(warnings).toContain("yolo is gone, the mode is picked per session");
 	});
 
-	test("moves a persisted yolo mode to auto and warns", () => {
+	test("moves a persisted yolo mode to full and warns", () => {
 		const warnings: string[] = [];
-		expect(decodeConfig({ mode: "yolo" }, warnings).mode).toBe("auto");
+		expect(decodeConfig({ mode: "yolo" }, warnings).mode).toBe("full");
 		expect(warnings).toContain(
-			'mode "yolo" is now "auto", with workspace.outside "allow" for the same reach',
+			'mode "yolo" is now "full", with workspace.outside "allow" for the same reach',
 		);
 	});
 
@@ -157,17 +165,6 @@ describe("isAllowed", () => {
 	});
 });
 
-describe("isJudged", () => {
-	test("is false until the judge is enabled and the tool matches", () => {
-		const off = { ...DEFAULT_CONFIG, judge: { ...DEFAULT_JUDGE, tools: ["bash"] } };
-		expect(isJudged(off, "bash")).toBe(false);
-
-		const on = { ...off, judge: { ...off.judge, enabled: true } };
-		expect(isJudged(on, "bash")).toBe(true);
-		expect(isJudged(on, "write")).toBe(false);
-	});
-});
-
 describe("decodeJudge", () => {
 	test("an empty block yields the defaults", () => {
 		expect(decodeJudge({}, [])).toEqual(DEFAULT_JUDGE);
@@ -177,10 +174,8 @@ describe("decodeJudge", () => {
 		const warnings: string[] = [];
 		const judge = decodeJudge(
 			{
-				enabled: true,
 				provider: "pi",
 				model: "anthropic/claude",
-				tools: ["bash", "write"],
 				alwaysAsk: ["rm -rf*"],
 				thresholds: { allow: 0.9, deny: 0.7 },
 				riskCeiling: 0.3,
@@ -199,10 +194,8 @@ describe("decodeJudge", () => {
 
 		expect(warnings).toEqual([]);
 		expect(judge).toEqual({
-			enabled: true,
 			provider: "pi",
 			model: "anthropic/claude",
-			tools: ["bash", "write"],
 			alwaysAsk: ["rm -rf*"],
 			thresholds: { allow: 0.9, deny: 0.7 },
 			riskCeiling: 0.3,
@@ -222,31 +215,25 @@ describe("decodeJudge", () => {
 		const warnings: string[] = [];
 		const judge = decodeJudge(
 			{
-				enabled: "yes",
 				provider: "nope",
 				thresholds: { allow: 2 },
-				tools: "bash",
 				alwaysAsk: ["ok", 3, ""],
 			},
 			warnings,
 		);
 
-		expect(judge.enabled).toBe(false);
 		expect(judge.provider).toBe("jev");
 		expect(judge.thresholds.allow).toBe(DEFAULT_JUDGE.thresholds.allow);
-		expect(judge.tools).toEqual([]);
 		expect(judge.alwaysAsk).toEqual(["ok"]);
-		expect(warnings).toContain("judge.enabled: expected a boolean");
 		expect(warnings).toContain('judge.provider: expected "jev" or "pi"');
 		expect(warnings).toContain("judge.thresholds.allow: expected a number from 0 to 1");
-		expect(warnings).toContain("judge.tools: expected an array of tool name patterns");
 		expect(warnings).toContain("judge.alwaysAsk: ignored entries that are not non-empty strings");
 	});
 
 	test("decodeConfig carries the judge block", () => {
-		const config = decodeConfig({ judge: { enabled: true } }, []);
-		expect(config.judge.enabled).toBe(true);
-		expect(config.judge.model).toBe("jev-latest");
+		const config = decodeConfig({ judge: { model: "jev-x" } }, []);
+		expect(config.judge.model).toBe("jev-x");
+		expect(config.judge.cache).toBe(true);
 	});
 
 	test("a non-object judge block falls back to the defaults", () => {
@@ -343,7 +330,7 @@ describe("config file", () => {
 		const config = readConfig(scope);
 		expect(config.notes).toBe("message");
 		expect(config.allow).toEqual(["bash"]);
-		expect(config.judge.enabled).toBe(true);
+		expect(config.mode).toBe("judge");
 		expect(config.judge.model).toBe("jev-x");
 		expect(config.judge.timeoutMs).toBe(DEFAULT_JUDGE.timeoutMs);
 	});
@@ -369,6 +356,7 @@ describe("config file", () => {
 	test("a written config reads back the same", () => {
 		const config: PermissionConfig = {
 			...DEFAULT_CONFIG,
+			mode: "judge",
 			allow: ["read", "bash"],
 			noUI: { bash: "allow" },
 			readOnlyBash: false,
@@ -376,7 +364,6 @@ describe("config file", () => {
 			typing: { pause: 500, maxWait: 10_000 },
 			judge: {
 				...DEFAULT_JUDGE,
-				enabled: true,
 				policy: "só leitura",
 				thresholds: { allow: 0.9, deny: 0.7 },
 				alwaysAsk: ["sudo*"],
@@ -391,10 +378,10 @@ describe("config file", () => {
 		const config = readConfig(scopeWithSettings());
 		config.allow.push("bash");
 		config.workspace.roots.push("..");
-		config.judge.tools.push("write");
+		config.judge.alwaysAsk.push("sudo*");
 
 		expect(DEFAULT_CONFIG.allow).not.toContain("bash");
 		expect(DEFAULT_WORKSPACE.roots).not.toContain("..");
-		expect(DEFAULT_JUDGE.tools).not.toContain("write");
+		expect(DEFAULT_JUDGE.alwaysAsk).not.toContain("sudo*");
 	});
 });

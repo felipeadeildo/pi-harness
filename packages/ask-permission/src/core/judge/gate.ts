@@ -1,6 +1,5 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { isJudged } from "#core/config/patterns.ts";
 import type { PermissionConfig } from "#core/config/schema.ts";
 import { createJudgeBackend } from "#core/judge/backends/factory.ts";
 import { TYPESAFE_PROVIDER } from "#core/judge/backends/jev.ts";
@@ -21,8 +20,6 @@ export interface JudgeGateOptions {
 
 export async function judgeGate(options: JudgeGateOptions): Promise<JudgeOutcome | undefined> {
 	const { config, ctx, toolName, target } = options;
-	if (!isJudged(config, toolName)) return undefined;
-
 	if (!ctx.hasUI && !config.judge.noUI) return undefined;
 
 	const input: JudgeInput = {

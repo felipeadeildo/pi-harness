@@ -11,7 +11,6 @@ export function alwaysAskMatches(config: JudgeConfig, values: string[]): boolean
 	return config.alwaysAsk.some((pattern) => values.some((value) => matchesPattern(pattern, value)));
 }
 
-// The old 0.45 to 0.30 ratio, once the workspace term moves out.
 export function judgeRisk(answers: JudgeAnswers): number | undefined {
 	const { reversibility, sensitive_access } = answers;
 	if (reversibility === undefined || sensitive_access === undefined) return undefined;

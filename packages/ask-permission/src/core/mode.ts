@@ -1,42 +1,64 @@
-export const PERMISSION_MODES = ["manual", "accept-edits", "auto"] as const;
+export const PERMISSION_MODES = ["manual", "edits", "judge", "full"] as const;
 
 export type PermissionMode = (typeof PERMISSION_MODES)[number];
 
 export const DEFAULT_MODE: PermissionMode = "manual";
 
-export const MODE_LABEL: Record<PermissionMode, string> = {
-	manual: "manual",
-	"accept-edits": "accept edits",
-	auto: "auto",
-};
-
-export const MODE_DESCRIPTION: Record<PermissionMode, string> = {
-	manual: "ask before anything the allow list, always yes, and read-only bash do not cover",
-	"accept-edits": "run file edits and writes in the workspace without asking",
-	auto: "run every call in the workspace without asking; outside follows workspace.outside",
-};
-
-export function isPermissionMode(value: unknown): value is PermissionMode {
-	return PERMISSION_MODES.some((mode) => mode === value);
+export interface ModeRules {
+	description: string;
+	edits: boolean;
+	judge: boolean;
+	everything: boolean;
+	/** A bash command with paths it cannot read, like `$VAR`, counts as outside. */
+	unknownIsOutside: boolean;
 }
 
-export function modeFromLabel(label: string): PermissionMode | undefined {
-	return PERMISSION_MODES.find((mode) => MODE_LABEL[mode] === label);
-}
+export const MODES: Record<PermissionMode, ModeRules> = {
+	manual: {
+		description: "reads run, everything else asks",
+		edits: false,
+		judge: false,
+		everything: false,
+		unknownIsOutside: true,
+	},
+	edits: {
+		description: "reads and file edits run, everything else asks",
+		edits: true,
+		judge: false,
+		everything: false,
+		unknownIsOutside: true,
+	},
+	judge: {
+		description: "reads and file edits run, the judge decides the rest",
+		edits: true,
+		judge: true,
+		everything: false,
+		unknownIsOutside: false,
+	},
+	full: {
+		description: "every call runs",
+		edits: true,
+		judge: false,
+		everything: true,
+		unknownIsOutside: false,
+	},
+};
+
+// 4.x names, still in settings files and saved sessions.
+const ALIASES: Record<string, PermissionMode> = {
+	"accept-edits": "edits",
+	"accept edits": "edits",
+	accept: "edits",
+	auto: "full",
+	yolo: "full",
+};
 
 export function parseMode(text: string): PermissionMode | undefined {
 	const value = text.trim().toLowerCase();
-	if (value === "accept" || value === "edits" || value === "accept edits") return "accept-edits";
-	return isPermissionMode(value) ? value : undefined;
+	return PERMISSION_MODES.find((mode) => mode === value) ?? ALIASES[value];
 }
 
 export function nextMode(mode: PermissionMode): PermissionMode {
 	const index = PERMISSION_MODES.indexOf(mode);
 	return PERMISSION_MODES[(index + 1) % PERMISSION_MODES.length] ?? DEFAULT_MODE;
-}
-
-export function modeApproves(mode: PermissionMode, edits: boolean): boolean {
-	if (mode === "auto") return true;
-	if (mode === "accept-edits") return edits;
-	return false;
 }
