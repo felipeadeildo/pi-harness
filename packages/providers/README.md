@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/@adeildo/pi-providers)](https://www.npmjs.com/package/@adeildo/pi-providers)
 
-Provider features for [Pi](https://pi.dev). It has one, `subscription`.
+Provider features for [Pi](https://pi.dev). It has two, `subscription` and `accounts`.
 
 ```bash
 pi install npm:@adeildo/pi-providers
@@ -43,6 +43,29 @@ When a request comes back with `400 claude_code_version_too_old`, raise the vers
 ```json
 { "subscription": { "claudeCodeVersion": "2.1.280" } }
 ```
+
+## accounts
+
+Pi keeps one credential per provider: the one `/login` wrote. `accounts` keeps more. The credential of `/login` stays as `pi default`, and every other account is an extra credential with a name.
+
+```
+/accounts anthropic
+```
+
+Picks the provider and its login method, asks for a name, and runs the login Pi already has, so no OAuth lives in this package. An account shows a short kind:
+
+- `login` is the credential of `/login`, which cannot be copied out of `auth.json`.
+- `oauth` is a subscription token, billed to its own plan.
+- `key` is an API key.
+
+Switch the account:
+
+- `alt+a` picks the account of the current model's provider.
+- The Providers tab of `Alt+S` lists the accounts: choose the one to use, rename one, or remove one.
+
+The account in use shows next to the model. The session remembers its choice, so a resume or a fork comes back with the same one, and `pi default` is what a request uses until you choose another.
+
+Only the chat streams are lifted. Image generation, classifier calls and deferred responses of the provider still use pi's own credential.
 
 ## Credit
 
