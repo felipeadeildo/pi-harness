@@ -1,5 +1,3 @@
-// Keeps `~/.pi/agent/themes/desktop.json` equal to the desktop palette. Pi reloads the active theme
-// from that folder by itself, so changing the wallpaper recolours a running pi with no restart.
 import { type FSWatcher, watch } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -9,7 +7,6 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 
 import { DESKTOP_THEME, desktopTheme, missingColors, parseDesktopColors } from "./palette.ts";
 
-/** matugen writes a few files in a burst; one rewrite per burst is enough. */
 const SETTLE_MS = 250;
 
 export type SyncResult =
@@ -26,7 +23,6 @@ export function expandHome(path: string): string {
 	return path === "~" || path.startsWith("~/") ? join(homedir(), path.slice(1)) : path;
 }
 
-/** Writes the theme when the palette differs from what is on disk. */
 export async function syncDesktopTheme(source: string): Promise<SyncResult> {
 	let raw: string;
 	try {
@@ -57,10 +53,7 @@ export async function syncDesktopTheme(source: string): Promise<SyncResult> {
 	return { kind: "written", path };
 }
 
-/**
- * Watches the folder rather than the file: tools that write atomically replace the file, and a
- * watch on the old one goes quiet.
- */
+/** Watches the folder: an atomic write replaces the file, and a watch on the old one goes quiet. */
 export function watchDesktopPalette(source: string, changed: () => void): () => void {
 	const path = expandHome(source);
 	let timer: ReturnType<typeof setTimeout> | undefined;

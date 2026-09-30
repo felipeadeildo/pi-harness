@@ -1,5 +1,3 @@
-// Borders with something written in them: `╭─ left ────── right ─╮`. The frame is the one place
-// that knows the box characters, so a new style is one entry here.
 import { visibleWidth } from "@earendil-works/pi-tui";
 
 import { type FitOptions, fitRegions, type Piece } from "./fit.ts";
@@ -40,7 +38,6 @@ export const BOXES: Record<FrameStyle, BoxChars> = {
 		horizontal: "━",
 		vertical: "┃",
 	},
-	// Only the horizontal rules, the way pi draws its editor, with the data written into them.
 	line: {
 		topLeft: "─",
 		topRight: "─",
@@ -54,23 +51,14 @@ export const BOXES: Record<FrameStyle, BoxChars> = {
 export interface BorderOptions extends Pick<FitOptions, "separator" | "ellipsis"> {
 	box: BoxChars;
 	edge: "top" | "bottom";
-	/** Paints the rule and the corners. */
 	paint: (text: string) => string;
-	/**
-	 * Text that follows the left pieces and takes whatever room is left, like the working spinner.
-	 * It goes after them because it changes width all the time, and the pieces must not move.
-	 */
 	lead?: ((budget: number) => string | undefined) | undefined;
-	/** Room kept for the lead, so the pieces never squeeze it out. */
 	leadMin?: number;
 }
 
-/** Corners, one rule cell each side, and one rule cell between the two regions at least. */
 const FIXED = 5;
-/** A space on each side of a region's text. */
 const PADDING = 2;
 
-/** One border line of exactly `width` columns, with both regions fitted into it. */
 export function border(
 	width: number,
 	left: readonly Piece[],

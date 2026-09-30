@@ -1,21 +1,12 @@
-// The desktop palette as a pi theme. DankMaterialShell runs matugen over the wallpaper and keeps the
-// result in one file: the Material roles for dark and light, and sixteen terminal colours. Pi wants
-// 51 tokens. This maps one onto the other, so the terminal, the shell and pi share one palette.
-//
-// Every value comes from the file. Where Material has no role, like success or a diff line, the
-// terminal colour of that hue stands in, and tinted backgrounds are a surface mixed with that hue.
 import type { ThemeColor } from "@earendil-works/pi-coding-agent";
 
 export const DESKTOP_THEME = "desktop";
 
 export type Mode = "dark" | "light";
 
-/** The parts of `dms-colors.json` the theme reads. */
 export interface DesktopColors {
 	mode: Mode;
-	/** Material roles, like `primary` and `surface_container_high`. */
 	roles: Readonly<Record<string, string>>;
-	/** The sixteen terminal colours, `color0` to `color15`, for this mode. */
 	terminal: Readonly<Record<string, string>>;
 }
 
@@ -29,7 +20,6 @@ export interface ThemeJson {
 
 const HEX = /^#[0-9a-f]{6}$/i;
 
-/** Reads the file's JSON. Undefined when it is not the shape DankMaterialShell writes. */
 export function parseDesktopColors(json: unknown, mode?: Mode): DesktopColors | undefined {
 	if (!isRecord(json) || !isRecord(json.colors) || !isRecord(json.dank16)) return undefined;
 	const chosen: Mode = mode ?? (json.mode === "light" ? "light" : "dark");
@@ -49,7 +39,6 @@ export function parseDesktopColors(json: unknown, mode?: Mode): DesktopColors | 
 	return { mode: chosen, roles: material, terminal };
 }
 
-/** The roles and colours the mapping needs. A file missing any of them does not become a theme. */
 const REQUIRED_ROLES = [
 	"primary",
 	"secondary",
@@ -157,8 +146,6 @@ export function desktopTheme(colors: DesktopColors): ThemeJson {
 		syntaxOperator: "subtext",
 		syntaxPunctuation: "subtext",
 
-		// The effort ramp runs from the quiet outline through the palette's own hues to the terminal
-		// reds, which keep their meaning whatever the wallpaper, so the frame warms up with the effort.
 		thinkingOff: "outlineVariant",
 		thinkingMinimal: "outline",
 		thinkingLow: "secondary",
@@ -189,7 +176,6 @@ type BackgroundToken =
 	| "toolSuccessBg"
 	| "toolErrorBg";
 
-/** `base` moved `amount` of the way towards `tint`, in sRGB, which is enough for a faint wash. */
 export function mix(base: string, tint: string, amount: number): string {
 	const a = channels(base);
 	const b = channels(tint);

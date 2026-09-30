@@ -1,9 +1,5 @@
-// Colour, without a single colour value. Every role names a token of the active pi theme, so the look
-// follows whatever theme is on: the built-in ones, a custom JSON, or the desktop palette this package
-// writes from matugen. Change the theme and every piece moves with it.
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 
-/** What a piece of text is. The table below says which theme token paints it. */
 export type Role =
 	| "path"
 	| "branch"
@@ -29,10 +25,6 @@ export type Role =
 	| "clock"
 	| "brand";
 
-/**
- * The palette, as theme tokens. Syntax tokens are borrowed on purpose: a theme spends its hues there,
- * so they give the line variety that stays in the theme's family.
- */
 export const ROLE_TOKENS: Record<Role, ThemeColor> = {
 	path: "accent",
 	branch: "syntaxFunction",
@@ -59,7 +51,6 @@ export const ROLE_TOKENS: Record<Role, ThemeColor> = {
 	brand: "accent",
 };
 
-/** Pi gives every effort level its own token, which a theme draws as a ramp from cool to hot. */
 const EFFORT_TOKENS: Record<string, ThemeColor> = {
 	off: "thinkingOff",
 	minimal: "thinkingMinimal",
@@ -73,21 +64,15 @@ const EFFORT_TOKENS: Record<string, ThemeColor> = {
 export const EFFORT_LEVELS = ["minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
 export interface Paint {
-	/** Separators, units and labels sit back, so the data reads first. */
 	dim(text: string): string;
-	/** Quieter data. */
 	muted(text: string): string;
 	text(text: string): string;
 	bold(text: string): string;
 	italic(text: string): string;
 	role(role: Role, text: string): string;
-	/** The colour of one effort level. */
 	effort(level: string, text: string): string;
-	/** Calm under half, warm past 70%, alarming past 90%. */
 	stress(percent: number, text: string): string;
-	/** Money reads calm until it adds up. */
 	money(amount: number, text: string): string;
-	/** The editor frame, which pi recolours with the effort level and for bash mode. */
 	frame(text: string): string;
 }
 
@@ -118,7 +103,6 @@ function moneyToken(amount: number): ThemeColor {
 	return ROLE_TOKENS.cost;
 }
 
-/** Used by tests and by anything drawing without a theme. */
 export const PLAIN: Paint = {
 	dim: identity,
 	muted: identity,

@@ -1,5 +1,3 @@
-// Everything the look can show, read once per frame. Segments are pure functions of this, so the
-// whole screen can be drawn and tested without a terminal or a session.
 import { hostname } from "node:os";
 
 import { VERSION, type ExtensionContext, type SessionEntry } from "@earendil-works/pi-coding-agent";
@@ -18,7 +16,6 @@ import {
 
 export interface ModelInfo {
 	name: string;
-	/** As the provider wants to be written, not the id pi routes by. */
 	provider: string;
 	reasoning: boolean;
 }
@@ -34,7 +31,6 @@ export interface Snapshot {
 	cwd: string;
 	home: string | undefined;
 	branch: string | null;
-	/** Undefined outside a repository or before the first probe. */
 	git: GitState | undefined;
 	host: string | undefined;
 	sessionName: string | undefined;
@@ -44,16 +40,12 @@ export interface Snapshot {
 	context: ContextInfo | undefined;
 	totals: Totals;
 	cacheHit: number | undefined;
-	/** The last prompt was written to the cache and nothing was read: the first call, not a miss. */
 	cacheWarming: boolean;
-	/** The dollar figure is what the tokens would have cost, not what was billed. */
 	subscription: boolean;
 	request: RequestView | undefined;
-	/** The last request that finished: its numbers are final. */
 	last: RequestView | undefined;
 	run: RunView | undefined;
 	averages: Averages;
-	/** What other packages report through `setStatus`, by key, in key order. */
 	statuses: ReadonlyMap<string, string>;
 }
 
@@ -98,10 +90,6 @@ interface Derived {
 	averages: Averages;
 }
 
-/**
- * Reads the session once per frame. The sums walk the whole branch, so they are kept until the leaf
- * moves.
- */
 export class SnapshotReader {
 	#key: string | undefined;
 	#derived: Derived | undefined;
@@ -167,7 +155,6 @@ function contextOf(ctx: ExtensionContext): ContextInfo | undefined {
 	return { percent: usage.percent, tokens: usage.tokens, window: usage.contextWindow };
 }
 
-/** A status is one line: newlines and tabs from another package would break the frame. */
 function sanitize(text: string): string {
 	return text.replace(/[\r\n\t]+/g, " ").trim();
 }

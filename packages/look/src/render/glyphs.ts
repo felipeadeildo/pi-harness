@@ -1,5 +1,3 @@
-// One glyph per kind of data, in three sets. Nerd Font glyphs live in the private use area, so they
-// are written as escapes: a font without them shows a box, and a reviewer sees which code point it is.
 export type IconMode = "auto" | "nerd" | "unicode" | "ascii";
 export type IconSet = Exclude<IconMode, "auto">;
 
@@ -31,10 +29,8 @@ export interface Glyphs {
 	untracked: string;
 	conflicted: string;
 	stashed: string;
-	/** Full and empty cells of a gauge. Blocks, so the gauge never reads as part of a border rule. */
 	fill: string;
 	empty: string;
-	/** Six rising bars, one per effort level from minimal to max. */
 	levels: readonly string[];
 	ellipsis: string;
 }
@@ -77,7 +73,6 @@ export const NERD: Glyphs = {
 	ellipsis: "…",
 };
 
-/** Symbols every monospace font with decent Unicode coverage has, all one column wide. */
 export const UNICODE: Glyphs = {
 	...COMMON,
 	set: "unicode",
@@ -141,10 +136,6 @@ export const ASCII: Glyphs = {
 
 const SETS: Record<IconSet, Glyphs> = { nerd: NERD, unicode: UNICODE, ascii: ASCII };
 
-/**
- * Auto trusts a local UTF-8 terminal to have a Nerd Font. Over SSH the font lives on the other
- * machine, so it drops to plain Unicode, and a terminal that does not speak UTF-8 gets ASCII.
- */
 export function resolveIcons(mode: IconMode, env: NodeJS.ProcessEnv = process.env): Glyphs {
 	if (mode !== "auto") return SETS[mode];
 	if (env.TERM === "dumb") return ASCII;

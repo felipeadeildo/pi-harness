@@ -1,6 +1,3 @@
-// The look: pi's start screen, editor, footer and working line, redrawn around the data I want in
-// front of me, in the colours of whatever theme is on. One feature, because the pieces share one clock
-// and one git probe; each piece has its own switch in the settings.
 import { createApp, defineFeature, type FeatureScope } from "@adeildo/pi-kit";
 import type {
 	ExtensionAPI,
@@ -51,7 +48,6 @@ export { desktopTheme, parseDesktopColors } from "./desktop/palette.ts";
 
 const STRIP_WIDGET = "pi-look:strip";
 const TICK_MS = 500;
-/** The thinking tail changes on every token; the spinner line does not need to. */
 
 interface Live {
 	ctx: ExtensionContext | undefined;
@@ -62,7 +58,6 @@ interface Live {
 	probing: boolean;
 	ticker: ReturnType<typeof setInterval> | undefined;
 	stopWatching: (() => void) | undefined;
-	/** The frame's snapshot, shared by every component drawn in the same frame. */
 	frame: Snapshot | undefined;
 	activity: string | undefined;
 }
@@ -176,8 +171,7 @@ export const look = defineFeature({
 		scope.on("message_end", (event) => {
 			if (event.message.role !== "assistant") return;
 			const record = telemetry.answerEnded(event.message.usage);
-			// Kept in the session, so the average speeds survive a resume, and the usage ledger gets a
-			// duration, which pi does not record.
+			// Pi records usage without a duration, so the session keeps it for the speeds after a resume.
 			if (record !== undefined) scope.appendEntry<RequestRecord>(REQUEST_ENTRY, record);
 			repaint();
 		});
@@ -186,7 +180,6 @@ export const look = defineFeature({
 			setActivity(live, scope, { kind: "running", tool: event.toolName });
 		});
 
-		// A command may have moved the branch or touched the tree.
 		scope.on("tool_execution_end", () => void probeGit(live));
 
 		scope.on("agent_end", () => {
@@ -247,7 +240,6 @@ const SLOT_TITLES: Record<SlotName, string> = {
 	below: "Below the editor, the session",
 };
 
-/** Every piece on screen, where it is, what it shows now and what it means. */
 function explain(screen: Screen): string {
 	const snapshot = screen.snapshot();
 	const paint = screen.paint();
@@ -299,7 +291,6 @@ function createScreen(
 		snapshot() {
 			const ctx = live.ctx;
 			if (ctx === undefined) return emptySnapshot();
-			// Every component of one frame renders in the same tick, so they share one read.
 			if (live.frame !== undefined) return live.frame;
 			const snapshot = reader.read(ctx, {
 				branch: live.footerData?.getGitBranch() ?? null,
@@ -363,7 +354,6 @@ function installHeader(ctx: ExtensionContext, screen: Screen, scope: FeatureScop
 	);
 }
 
-/** What loaded, from pi's own lists: active tools, skill and prompt commands, extension files. */
 function loadedCounts(pi: ExtensionAPI): LoadedCounts {
 	const commands = pi.getCommands();
 	const extensions = new Set<string>();
@@ -407,7 +397,6 @@ function setActivity(live: Live, scope: FeatureScope, activity: Activity): void 
 	live.ctx?.ui.setWorkingMessage(message);
 }
 
-/** Only one at a time, and never while a render is waiting on it. */
 async function probeGit(live: Live): Promise<void> {
 	const ctx = live.ctx;
 	if (ctx === undefined || live.probing) return;
@@ -420,7 +409,6 @@ async function probeGit(live: Live): Promise<void> {
 	}
 }
 
-/** The clocks have to move on their own while the model thinks and nothing else happens. */
 function startTicking(live: Live): void {
 	stopTicking(live);
 	live.ticker = setInterval(() => live.repaint?.(), TICK_MS);

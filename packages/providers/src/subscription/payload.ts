@@ -1,7 +1,3 @@
-// Rewrites the request pi builds for an Anthropic OAuth token. Anthropic's billing classifier reads
-// `system`, and any text there that Claude Code would not send costs extra usage. So `system` keeps
-// the attribution and the identity, and pi's prompt moves into the first user message, where the
-// model still follows it.
 import { isObject } from "@adeildo/pi-kit";
 
 import { billingAttribution, CLAUDE_CODE_IDENTITY } from "./billing.ts";
@@ -62,8 +58,7 @@ function prependInstructions(messages: readonly unknown[], moved: readonly TextB
 		.join("\n\n");
 	if (text === "") return [...messages];
 
-	// The moved prompt takes over the cache breakpoint pi put on it, so the request keeps the same
-	// number of breakpoints and the prompt stays cached on its own.
+	// The moved prompt takes over pi's cache breakpoint, so the breakpoint count stays the same.
 	const cacheControl = moved.findLast((block) => block.cache_control !== undefined)?.cache_control;
 	const instructions: TextBlock = {
 		type: "text",

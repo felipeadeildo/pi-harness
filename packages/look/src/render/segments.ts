@@ -1,6 +1,3 @@
-// What each piece says. A segment is a pure function of the snapshot: it returns a piece, with an
-// optional shorter form and a priority, or nothing when it has nothing to say. Where a segment goes is
-// the layout's business, so any segment can sit in any slot.
 import type { Snapshot } from "../data/snapshot.ts";
 import { promptOf, tokensOf, type Totals } from "../data/totals.ts";
 import type { Piece } from "./fit.ts";
@@ -47,12 +44,10 @@ export const SEGMENT_IDS = [
 ] as const;
 
 export type BuiltinSegment = (typeof SEGMENT_IDS)[number];
-/** One package's status on its own, by the key it passes to `setStatus`. */
 export type StatusSegment = `status:${string}`;
 export type SegmentId = BuiltinSegment | StatusSegment;
 
 const STATUS_PREFIX = "status:";
-/** A status placed on its own is something its package wants seen, like the permission mode. */
 const STATUS_PRIORITY = 95;
 
 export function isSegmentId(value: string): value is SegmentId {
@@ -62,7 +57,6 @@ export function isSegmentId(value: string): value is SegmentId {
 	);
 }
 
-/** The status keys a layout places on their own, which the `statuses` segment then leaves out. */
 export function claimedStatuses(slots: readonly (readonly SegmentId[])[]): Set<string> {
 	const claimed = new Set<string>();
 	for (const ids of slots) {
@@ -73,13 +67,9 @@ export function claimedStatuses(slots: readonly (readonly SegmentId[])[]): Set<s
 }
 
 export interface SegmentOptions {
-	/** Longest the folder may be before it is shortened from the left. 0 keeps all of it. */
 	pathLength: number;
-	/** Cells in the context gauge. 0 draws no gauge. */
 	gaugeCells: number;
-	/** Status keys placed on their own somewhere in the layout. */
 	claimed: ReadonlySet<string>;
-	/** A short word before each number, saying what it is. */
 	labels: boolean;
 }
 
@@ -93,9 +83,7 @@ export interface SegmentInput {
 type Rendered = Omit<Piece, "priority"> | undefined;
 
 interface Segment {
-	/** Higher stays longer when the line runs out of room. */
 	priority: number;
-	/** One line for the docs and the settings screen. */
 	describe: string;
 	render(input: SegmentInput): Rendered;
 }
@@ -201,7 +189,6 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 		},
 	},
 	effort: {
-		// The frame is already painted in the effort colour, so the meter can go before the context.
 		priority: 80,
 		describe: "how hard the model thinks, as a meter that warms with the level",
 		render: ({ snapshot, glyphs, paint }) => {
@@ -242,7 +229,6 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 		render: ({ snapshot, glyphs, paint, options }) => {
 			const request = snapshot.request;
 			if (request === undefined) return undefined;
-			// An estimate is drawn quieter until the provider says the real count; a `~` would change the width.
 			const out = speedCell(request.decode);
 			const value = request.estimated ? paint.muted(out) : paint.bold(paint.role("speed", out));
 			const down = `${flow("received", glyphs, paint, options)}${value}`;
@@ -275,7 +261,6 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 			if (run === undefined) return undefined;
 			const role: Role = run.running ? "running" : "done";
 			const icon = mark(run.running ? glyphs.running : glyphs.done, paint, role);
-			// A stopwatch keeps its shape as it counts, so the line does not move while it ticks.
 			const time = paint.role(role, stopwatch(run.elapsedMs));
 			const calls =
 				run.requests <= 1
@@ -318,7 +303,6 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 			const sent = usage.input + usage.cacheRead + usage.cacheWrite;
 			const up = `${flow("sent", glyphs, paint, options)}${tokenCell(sent)}`;
 			const down = `${flow("received", glyphs, paint, options)}${tokenCell(usage.output)}`;
-			// Both cache cells are always there, so the breakdown never appears in the middle of the line.
 			const cache = cacheParts(usage, glyphs, paint, options, true);
 			return {
 				text: `${up} ${paint.dim("(")}${cache}${paint.dim(")")} ${down}`,
@@ -431,7 +415,6 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 	},
 };
 
-/** The pieces for one slot, in the order the slot lists them. */
 export function renderSegments(ids: readonly SegmentId[], input: SegmentInput): Piece[] {
 	return ids.flatMap((id): Piece[] => {
 		if (id.startsWith(STATUS_PREFIX)) {
@@ -452,10 +435,6 @@ function counted(value: number, glyph: string, role: Role, paint: Paint): string
 	return value > 0 ? paint.role(role, `${glyph}${value}`) : "";
 }
 
-/**
- * Read from the cache, and written to it. With labels: `cache read 80k · wrote 1.3k`. `fixed` keeps both
- * cells with a dash for zero, for a line that must not change shape.
- */
 function cacheParts(
 	usage: Totals,
 	glyphs: Glyphs,
@@ -481,10 +460,6 @@ function cacheParts(
 		.join(" ");
 }
 
-/**
- * The direction of a flow of tokens, from where you sit: ↑ in, what is sent to the model, and ↓ out,
- * what comes back. With labels the word follows the arrow.
- */
 function flow(
 	role: "sent" | "received",
 	glyphs: Glyphs,
@@ -496,7 +471,6 @@ function flow(
 	return paint.role(role, options.labels ? `${arrow}${name} ` : arrow);
 }
 
-/** A dim word in front of a value, when labels are on. `skip` when the glyph already is the word. */
 function word(options: SegmentOptions, text: string, paint: Paint, skip = false): string {
 	return options.labels && !skip && text !== "" ? paint.dim(`${text} `) : "";
 }

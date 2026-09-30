@@ -1,6 +1,3 @@
-// What the components read. The feature implements it over the live session and the settings; tests
-// implement it over a fixed snapshot. Everything is read at render time, so a setting or theme change
-// shows on the next frame with nothing to invalidate.
 import type { Snapshot } from "../data/snapshot.ts";
 import type { Piece } from "../render/fit.ts";
 import type { FrameStyle } from "../render/frame.ts";
@@ -14,7 +11,6 @@ export type SlotName = "strip" | "topLeft" | "topRight" | "bottomLeft" | "bottom
 export interface Screen {
 	snapshot(): Snapshot;
 	glyphs(): Glyphs;
-	/** Paints with the active theme. `frame` overrides the border colour, which the editor owns. */
 	paint(frame?: (text: string) => string): Paint;
 	separator(): string;
 	options(): SegmentOptions;
@@ -23,7 +19,6 @@ export interface Screen {
 	cursor(): CursorStyle;
 }
 
-/** The rendered pieces of one slot. The separator is painted here, once, for everyone. */
 export function slotPieces(
 	screen: Screen,
 	name: SlotName,

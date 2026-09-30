@@ -1,6 +1,3 @@
-// The start screen. A card with the π drawn in blocks, coloured along the theme's effort ramp, next to
-// what the session starts with: the model, the folder, the machine, what loaded, and the keys worth
-// knowing. Narrow terminals get two plain lines instead.
 import { keyText } from "@earendil-works/pi-coding-agent";
 import { type Component, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
@@ -10,7 +7,6 @@ import { renderSegments, type SegmentId } from "../render/segments.ts";
 import type { HeaderStyle } from "../settings.ts";
 import type { Screen } from "./screen.ts";
 
-/** The π, one character per pixel, drawn two pixels per row with half blocks. */
 const PIXELS = [
 	"..............",
 	".############.",
@@ -24,10 +20,8 @@ const PIXELS = [
 	".##.......####",
 ];
 const LOGO = halfBlocks(PIXELS);
-/** One effort level per row, from cool at the top to hot at the bottom. */
 const LOGO_RAMP = EFFORT_LEVELS.slice(1);
 const LOGO_COLUMN = 20;
-/** Under this the right column is too cramped to share with the logo. */
 const MIN_RIGHT = 34;
 const MIN_CARD = 48;
 
@@ -150,7 +144,6 @@ export class HeaderComponent implements Component {
 		return parts.filter((part) => part !== "").join(paint.dim(this.#screen.separator()));
 	}
 
-	/** Three rows of two hints each, or one column when narrow. */
 	#hints(paint: Paint, width: number): string[] {
 		const hints = HINTS();
 		const keyWidth = Math.max(...hints.map((hint) => visibleWidth(hint.key)));
@@ -171,7 +164,6 @@ export class HeaderComponent implements Component {
 	}
 }
 
-/** Read on every render, so a remapped key shows the new binding. */
 function HINTS(): Hint[] {
 	return [
 		{ key: keyText("app.model.select") || "/model", does: "model" },

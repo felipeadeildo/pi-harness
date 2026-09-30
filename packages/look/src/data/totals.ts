@@ -1,5 +1,3 @@
-// What a session spent and how fast it went, added up from its own entries. Pi keeps the same totals
-// for its footer but does not export the helper, so this is the one place that sums them.
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 
 export interface Totals {
@@ -18,18 +16,10 @@ interface UsageLike {
 	cost: { total: number };
 }
 
-/**
- * What one request to the model left behind. Pi records usage without a duration, so this entry is
- * where the session speeds come from after a resume.
- */
 export interface RequestRecord {
-	/** Tokens the model wrote. */
 	output: number;
-	/** Tokens sent: fresh input plus what was read from and written to the cache. */
 	prompt: number;
-	/** From the request leaving to the first piece of the answer. */
 	firstTokenMs: number;
-	/** From the first piece of the answer to the last. */
 	generationMs: number;
 }
 
@@ -38,9 +28,7 @@ export const REQUEST_ENTRY = "pi-look:request";
 const LEGACY_ENTRY = "pi-statusline:turn";
 
 export interface Averages {
-	/** Output tokens per second of writing, across the branch. */
 	decode: number | undefined;
-	/** Prompt tokens per second of waiting for the first token, across the branch. */
 	prefill: number | undefined;
 }
 
@@ -62,7 +50,6 @@ export function usageTotals(usage: UsageLike): Totals {
 	return totals;
 }
 
-/** The whole branch, not just the messages after the last compaction. */
 export function totalsOf(entries: readonly SessionEntry[]): Totals {
 	const totals = emptyTotals();
 
@@ -79,7 +66,6 @@ export function totalsOf(entries: readonly SessionEntry[]): Totals {
 	return totals;
 }
 
-/** How much of the last prompt came from the cache, the way pi's own footer reports it. */
 export function cacheHitPercent(entries: readonly SessionEntry[]): number | undefined {
 	for (let index = entries.length - 1; index >= 0; index--) {
 		const entry = entries[index];

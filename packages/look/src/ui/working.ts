@@ -1,8 +1,3 @@
-// What the spinner says. Pi's says "Working" for the whole run; this one names the state: waiting
-// for the first token, thinking, writing, drafting a tool call, running it. The call itself and the
-// thinking are already in the transcript above, so the line never repeats them. It only speaks
-// through pi's public `setWorkingMessage`, so pi still owns the spinner and where it sits.
-
 export type Activity =
 	| { kind: "waiting" }
 	| { kind: "thinking" }
@@ -10,7 +5,6 @@ export type Activity =
 	| { kind: "drafting"; tool: string }
 	| { kind: "running"; tool: string };
 
-/** One short line, lower case: pi paints the message itself. */
 export function describe(activity: Activity): string {
 	switch (activity.kind) {
 		case "waiting":
@@ -24,7 +18,6 @@ export function describe(activity: Activity): string {
 	}
 }
 
-/** The name of the tool call being written, when the model is writing one. */
 export function draftedTool(content: unknown): string | undefined {
 	if (!Array.isArray(content)) return undefined;
 	const part = content.at(-1) as { type?: unknown; name?: unknown } | undefined;

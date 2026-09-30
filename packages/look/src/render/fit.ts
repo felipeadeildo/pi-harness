@@ -1,20 +1,13 @@
-// Making pieces fit. Every piece has a priority and may have a shorter form. When a line is too wide,
-// the least important pieces shorten first, then leave, one at a time, until it fits. Regions that
-// share a line (the left and right of a border) compete for the same width, so an unimportant piece on
-// the right leaves before an important one on the left.
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 export interface Piece {
 	text: string;
-	/** A shorter form, used before the piece is dropped. */
 	compact?: string | undefined;
-	/** Higher stays longer. */
 	priority: number;
 }
 
 export interface FitOptions {
 	separator: string;
-	/** Width a region costs on top of its pieces when it has any, like the padding around it. */
 	regionOverhead?: number;
 	ellipsis?: string;
 }
@@ -27,7 +20,6 @@ interface Slot {
 	dropped: boolean;
 }
 
-/** One string per region, each the kept pieces joined by the separator. */
 export function fitRegions(
 	regions: readonly (readonly Piece[])[],
 	width: number,
@@ -53,7 +45,6 @@ export function fitRegions(
 	const joined = join(regions.length, slots, options.separator);
 	if (measure() <= width) return joined;
 
-	// One piece left and still too wide: cut it, keeping the overhead of its region.
 	const overhead = options.regionOverhead ?? 0;
 	return joined.map((text) =>
 		text === ""
@@ -62,7 +53,6 @@ export function fitRegions(
 	);
 }
 
-/** A single run of pieces, as one string. */
 export function fitLine(pieces: readonly Piece[], width: number, options: FitOptions): string {
 	return fitRegions([pieces], width, options)[0] ?? "";
 }

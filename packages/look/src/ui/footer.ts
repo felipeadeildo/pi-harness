@@ -1,6 +1,3 @@
-// The lines around the editor that are not the frame. The strip above it is the answer being written;
-// the footer below it is the session. With the frame off, the footer also carries the four frame
-// slots, so turning the box off never hides data.
 import type { ReadonlyFooterDataProvider } from "@earendil-works/pi-coding-agent";
 import { type Component, type TUI, visibleWidth } from "@earendil-works/pi-tui";
 
@@ -8,16 +5,13 @@ import { fitLine, fitRegions, type Piece } from "../render/fit.ts";
 import type { Paint } from "../render/paint.ts";
 import { type Screen, type SlotName, slotPieces } from "./screen.ts";
 
-/** At least this much between a left and a right group sharing a line. */
 const GAP = 3;
 
-/** Where the text starts, so the strip and the footer line up with the text inside the frame. */
 export function indentOf(screen: Screen): number {
 	const style = screen.frameStyle();
 	return style === "off" || style === "line" ? 1 : 2;
 }
 
-/** The strip above the editor. Blank until the first answer, but its line is always there. */
 export class StripComponent implements Component {
 	readonly #screen: Screen;
 
@@ -36,7 +30,6 @@ export class StripComponent implements Component {
 }
 
 export interface FooterHooks {
-	/** The footer data is where the branch and other packages' statuses come from. */
 	attach(data: ReadonlyFooterDataProvider, repaint: () => void): void;
 	detach(): void;
 }
@@ -67,7 +60,6 @@ export class FooterComponent implements Component {
 		lines.push(renderSlot(screen, "below", room));
 
 		const kept = lines.filter((line) => line !== "").map((line) => `${pad}${line}`);
-		// At least one line, for the same reason as the strip: the editor must not jump when it fills.
 		return kept.length === 0 ? [""] : kept;
 	}
 
@@ -86,7 +78,6 @@ function renderSlot(screen: Screen, name: SlotName, width: number): string {
 	return fitLine(pieces, width, fitOptions(screen, paint));
 }
 
-/** A left group and a right group on one line, pushed apart. */
 function spread(screen: Screen, leftSlot: SlotName, rightSlot: SlotName, width: number): string {
 	if (width <= 0) return "";
 	const paint = screen.paint();

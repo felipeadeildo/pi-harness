@@ -1,14 +1,9 @@
-// The working tree, in one call: `git status --porcelain=v2 --branch --show-stash` says how far the
-// branch is from its upstream and what changed, file by file. The parse is pure so it can be tested
-// against captured output.
 import { execFile } from "node:child_process";
 
 export interface GitState {
 	ahead: number;
 	behind: number;
-	/** In the index, ready to commit. */
 	staged: number;
-	/** Changed in the tree and not staged. */
 	modified: number;
 	untracked: number;
 	conflicted: number;
@@ -45,7 +40,6 @@ export function parseStatus(output: string): GitState {
 	return state;
 }
 
-/** Undefined outside a repository, or when git is missing or slow. */
 export function readGit(cwd: string): Promise<GitState | undefined> {
 	return new Promise((resolve) => {
 		execFile(

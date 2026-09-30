@@ -1,5 +1,3 @@
-// Every setting of the look, under `look.` in the shared settings file. The slots are plain lists of
-// segment ids, so moving a piece from the frame to the footer is editing one array.
 import {
 	boolean,
 	type Decoder,
@@ -28,7 +26,6 @@ export const SEPARATORS: Record<SeparatorStyle, string> = {
 	space: "  ",
 };
 
-/** A list of known segment ids. Unknown ones are dropped with a warning, not the whole list. */
 function segments(fallback: readonly SegmentId[]): Decoder<SegmentId[]> {
 	return {
 		decode(input, path) {
@@ -74,7 +71,6 @@ export const topRight = slot("frame.topRight", "Frame, top right", "Where you ar
 	"path",
 	"host",
 ]);
-/** Where pi-ask-permission reports its mode. It says what happens to what you type, so it sits by the editor. */
 export const PERMISSION_MODE: SegmentId = "status:pi-ask-permission:mode";
 
 export const bottomLeft = slot(

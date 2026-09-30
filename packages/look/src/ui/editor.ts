@@ -1,6 +1,3 @@
-// The editor, framed. Pi's editor draws a rule above and below the text; this one draws a box, writes
-// four slots into its borders, and puts the working spinner in the top-left corner. Typing, history, autocomplete and every app key stay pi's: the class only
-// changes what the lines look like, and shifts mouse clicks by the width of the frame.
 import { CustomEditor, type KeybindingsManager } from "@earendil-works/pi-coding-agent";
 import {
 	type EditorTheme,
@@ -18,14 +15,12 @@ import { type Screen, type SlotName, slotPieces } from "./screen.ts";
 
 type WorkingIndicator = Parameters<CustomEditor["setWorkingStatusIndicator"]>[0];
 
-/** Pi calls the border hooks inside its render; these stand in for the lines this class draws. */
+/** Pi calls the border hooks inside its render; these mark where this class draws its own lines. */
 const TOP = "\u0000look:top\u0000";
 const BOTTOM = "\u0000look:bottom\u0000";
 // oxlint-disable-next-line no-control-regex -- pi's software cursor is an escape sequence
 const INVERTED_CELL = /\x1b\[7m([\s\S]*?)\x1b\[0m/;
-/** Below this the frame is noise, so pi's plain editor draws instead. */
 const MIN_WIDTH = 24;
-/** The spinner always gets this much of the top border, enough for "⠋ Thinking". */
 const LEAD_MIN = 10;
 
 const CURSOR_SEQUENCES: Record<CursorStyle, string> = {
@@ -40,7 +35,6 @@ export class LookEditor extends CustomEditor {
 	#framing = false;
 	#hiddenAbove = 0;
 	#hiddenBelow = 0;
-	/** Columns the frame takes on each side, for mouse clicks. */
 	#inset = 0;
 
 	constructor(
@@ -155,7 +149,6 @@ export class LookEditor extends CustomEditor {
 				const text = cursor === "block" ? line : withoutSoftwareCursor(line);
 				result.push(`${left}${fill(text, inner)}${right}`);
 			} else {
-				// The autocomplete list, lined up with the text so clicks land where they look.
 				result.push(`${" ".repeat(this.#inset)}${line}`);
 			}
 		}
@@ -163,7 +156,6 @@ export class LookEditor extends CustomEditor {
 		return result.map((line) => truncateToWidth(line, width, ""));
 	}
 
-	/** The spinner and its message, in the room the slots left. Just the spinner when it is tight. */
 	#lead(budget: number): string | undefined {
 		const indicator = this.#indicator;
 		if (indicator === undefined) return undefined;
@@ -173,21 +165,16 @@ export class LookEditor extends CustomEditor {
 	}
 }
 
-/**
- * Pi draws its cursor as an inverted cell. With the terminal's own cursor showing, that would be two
- * cursors, so the inversion goes and the character stays.
- */
+/** With the terminal's cursor showing, pi's inverted cell would be a second cursor. */
 function withoutSoftwareCursor(line: string): string {
 	return line.replace(INVERTED_CELL, "$1");
 }
 
-/** Pads a content line to the inner width, so the right rail stays straight. */
 function fill(line: string, width: number): string {
 	const clipped = truncateToWidth(line, width, "");
 	return `${clipped}${" ".repeat(Math.max(0, width - visibleWidth(clipped)))}`;
 }
 
-/** Sets the terminal cursor shape. Pi draws its own block cursor, so the others need the hardware one. */
 export function applyCursor(tui: TUI, style: CursorStyle): void {
 	if (style !== "block") tui.setShowHardwareCursor(true);
 	tui.terminal.write(CURSOR_SEQUENCES[style]);
