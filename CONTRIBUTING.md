@@ -20,7 +20,8 @@ Lefthook formats and lints staged files on commit, type-checks the repository, a
 packages/
   ask-permission/   # @adeildo/pi-ask-permission: the permission dialog and the judge
   look/             # @adeildo/pi-look: start card, framed editor, footer
-  providers/        # @adeildo/pi-providers: subscription billing
+  providers/        # @adeildo/pi-providers: subscription billing and accounts
+  ask-questions/    # @adeildo/pi-ask-questions: the ask_user_question tool and its dialog
   harness/          # @adeildo/pi-harness: every piece above, one extension each
   kit/              # @adeildo/pi-kit: app builder, feature scope, settings, events
 ```

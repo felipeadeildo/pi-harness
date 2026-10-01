@@ -1,18 +1,16 @@
 {
-	"name": "@adeildo/pi-harness",
+	"name": "@adeildo/pi-ask-questions",
 	"version": "4.1.0",
-	"description": "Every adeildo Pi extension in one install: the permission dialog, the look, the providers and the questions. Each is its own extension, so pi config turns one off.",
+	"description": "Lets the model ask you instead of guessing: options with a preview of each, a note on any of them, and your own answer, in a dialog that scrolls with the chat.",
 	"keywords": [
-		"anthropic",
-		"permission",
+		"ask-user-question",
 		"pi",
 		"pi-coding-agent",
 		"pi-extension",
 		"pi-package",
-		"statusline",
-		"theme"
+		"questionnaire"
 	],
-	"homepage": "https://github.com/felipeadeildo/pi-harness/tree/main/packages/harness#readme",
+	"homepage": "https://github.com/felipeadeildo/pi-harness/tree/main/packages/ask-questions#readme",
 	"bugs": "https://github.com/felipeadeildo/pi-harness/issues",
 	"license": "MIT",
 	"author": {
@@ -23,7 +21,7 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/felipeadeildo/pi-harness.git",
-		"directory": "packages/harness"
+		"directory": "packages/ask-questions"
 	},
 	"files": [
 		"src",
@@ -31,15 +29,14 @@
 		"LICENSE"
 	],
 	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
 	"publishConfig": {
 		"access": "public"
 	},
 	"dependencies": {
-		"@adeildo/pi-ask-permission": "workspace:*",
-		"@adeildo/pi-ask-questions": "workspace:*",
-		"@adeildo/pi-kit": "workspace:*",
-		"@adeildo/pi-look": "workspace:*",
-		"@adeildo/pi-providers": "workspace:*"
+		"@adeildo/pi-kit": "workspace:*"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-ai": "*",
@@ -48,10 +45,7 @@
 	},
 	"pi": {
 		"extensions": [
-			"./src/permission.ts",
-			"./src/look.ts",
-			"./src/providers.ts",
-			"./src/questions.ts"
+			"./src/index.ts"
 		]
 	}
 }

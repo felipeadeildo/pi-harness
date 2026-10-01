@@ -15,6 +15,7 @@ pi install npm:@adeildo/pi-harness
 | [Permission](../ask-permission) | Asks before a tool call runs. Answer yes, always yes or deny, with a note the model reads. A judge model can answer the routine calls for you                            |
 | [Look](../look)                 | The start card, a framed editor with the branch, the model and the context in its borders, the time and speed of each answer, and the session's cost. Only theme colours |
 | [Providers](../providers)       | Bills Anthropic OAuth requests to the Claude Pro or Max plan instead of extra usage                                                                                      |
+| [Questions](../ask-questions)   | The model asks instead of guessing: options with a preview of each, a note on any of them, and your own answer                                                           |
 
 All of them are on once the package is installed.
 
@@ -31,7 +32,7 @@ The settings file has a switch per feature too, read on the next `/reload`:
 { "features": { "subscription": { "enabled": false } } }
 ```
 
-The feature ids are `permission`, `look` and `subscription`.
+The feature ids are `permission`, `look`, `subscription`, `accounts` and `questions`.
 
 To have only one piece, install its own package instead. With both installed, the first copy that loads runs the feature and the other one stays off.
 

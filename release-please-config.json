@@ -29,6 +29,11 @@
 				},
 				{
 					"type": "json",
+					"path": "packages/ask-questions/package.json",
+					"jsonpath": "$.version"
+				},
+				{
+					"type": "json",
 					"path": "packages/harness/package.json",
 					"jsonpath": "$.version"
 				}
