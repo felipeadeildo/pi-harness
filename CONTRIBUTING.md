@@ -46,7 +46,7 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
 
 ## Commit and release
 
-Commits follow [Conventional Commits](https://www.conventionalcommits.org), scoped by feature (`feat(look): ...`, `fix(ask-permission): ...`). Every package ships at one version, the way pi does. [release-please](https://github.com/googleapis/release-please) has one component, the repository root. `.release-please-manifest.json` holds the version, and `extra-files` in `release-please-config.json` writes it into each package's `package.json`. One release PR carries the bump and the root `CHANGELOG.md`. Merging it tags `v<version>`, writes one GitHub release, and the same workflow publishes every package to npm.
+Commits follow [Conventional Commits](https://www.conventionalcommits.org), scoped by feature (`feat(look): ...`, `fix(ask-permission): ...`). A dependency bump is typed `deps` rather than `chore(deps)`, because the changelog groups by type and a bump that changes what pi version is needed has to be readable. Every package ships at one version, the way pi does. [release-please](https://github.com/googleapis/release-please) has one component, the repository root. `.release-please-manifest.json` holds the version, and `extra-files` in `release-please-config.json` writes it into each package's `package.json`. One release PR carries the bump and the root `CHANGELOG.md`. Merging it tags `v<version>`, writes one GitHub release, and the same workflow publishes every package to npm.
 
 Auth is [trusted publishing](https://docs.npmjs.com/trusted-publishers/) over OIDC, so there is no `NPM_TOKEN` secret.
 
@@ -61,3 +61,9 @@ A trusted publisher can only be added to a package that already exists, so a new
 1. Set its `version` to the repository's and add its `package.json` to `extra-files` in `release-please-config.json`.
 2. `bun run publish` by hand, which publishes what is missing and asks for 2FA.
 3. `bun run trust --only <package>`.
+
+### The notes
+
+`changelog-sections` in `release-please-config.json` decides what the release notes show: features, fixes, performance, reverts and dependencies. Everything else, refactors, docs, tests and chores among them, stays in the git log.
+
+The entries themselves are written by hand after the release. The bot groups commits and repeats their subjects, which reads like a commit log, so the released section is rewritten to say what the release adds and what it asks of the user. `2e05d37` and the 4.1.0 entry are the shape to follow. It has to happen after the merge, because release-please rebuilds the pending section on every push to `main`. Two things the bot never knows, so they belong in that pass: a package that is new to the release, and a new requirement, like the pi version a release needs.
