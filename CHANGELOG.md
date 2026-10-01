@@ -4,45 +4,38 @@ Every `@adeildo/` package in this repository shares one version, one tag and thi
 
 ## [5.0.0](https://github.com/felipeadeildo/pi-harness/compare/v4.1.0...v5.0.0) (2026-10-01)
 
+Every piece lives on one settings screen now, and a new package joins the set: the model asks with options instead of guessing.
+
+This release needs **pi 0.99.2**, which is what MCP and the tool annotations come from.
 
 ### ⚠ BREAKING CHANGES
 
-* **ask-permission:** set the judge with a model, a policy and a rigor, and let it read your last message
-* one settings screen for every piece on Alt+S, in place of /perm and /look
-* **ask-permission:** four modes, manual, edits, judge and full, with Alt+W for outside the workspace
+* **ask-permission:** the judge is set with a model, a policy and a rigor, and it reads your last message as the intent behind the call. `judge.provider`, `judge.enabled` and `judge.tools` are gone, and the retired keys are removed from the settings file on the next session, with a notice ([87014f3](https://github.com/felipeadeildo/pi-harness/commit/87014f3623604d8ed496b8e0a0645b05a1ed188f))
+* **every piece:** one settings screen on `Alt+S`, a tab per piece, in place of `/perm` and `/look` ([9cc50c0](https://github.com/felipeadeildo/pi-harness/commit/9cc50c05650c900265d08d00e151f9053c21b34a))
+* **ask-permission:** four modes, manual, edits, judge and full, with `Alt+W` for calls outside the workspace ([3f0348a](https://github.com/felipeadeildo/pi-harness/commit/3f0348ab164f758ff470758dfc69b30daf0dc753))
 
 ### Features
 
-* **ask-permission:** ask through the questions dialog, so both are one channel ([0ebcec2](https://github.com/felipeadeildo/pi-harness/commit/0ebcec283b409f7771505098803003d6353150c2))
-* **ask-permission:** decide an MCP call by the policy of its server, and stop asking twice for a script ([08e3810](https://github.com/felipeadeildo/pi-harness/commit/08e38104297e274e05fa355155c532904d07af4b))
-* **ask-permission:** four modes, manual, edits, judge and full, with Alt+W for outside the workspace ([3f0348a](https://github.com/felipeadeildo/pi-harness/commit/3f0348ab164f758ff470758dfc69b30daf0dc753))
-* **ask-permission:** open a folder outside the workspace for reads, right from the dialog ([09cc796](https://github.com/felipeadeildo/pi-harness/commit/09cc79648768d888e1230d35f0fd5cca9e05dcd0))
-* **ask-permission:** set the judge with a model, a policy and a rigor, and let it read your last message ([87014f3](https://github.com/felipeadeildo/pi-harness/commit/87014f3623604d8ed496b8e0a0645b05a1ed188f))
-* **ask-questions:** ask with options, a preview of each, a note on any option and your own answer, in a dialog that scrolls ([95fc137](https://github.com/felipeadeildo/pi-harness/commit/95fc137404b348bb8f1c1774a4e7dda75f70c980))
-* drop the middle dots from dialogs, hints and status, and default the footer separator to space ([a3814b4](https://github.com/felipeadeildo/pi-harness/commit/a3814b4cbd177579a46fbb548c8274ff59ce3096))
-* **kit:** let a feature build screen rows when the screen opens, and say where a value applies ([4780365](https://github.com/felipeadeildo/pi-harness/commit/478036504ded26af3f90e382da56a1c93cd0c26e))
-* **kit:** let a screen row sit indented under its section ([ae0b449](https://github.com/felipeadeildo/pi-harness/commit/ae0b449cc029dee21d932d91d5e0ed5bd9ec5bf7))
-* **look:** name the state in the working line, in lower case, without repeating the call ([f689c2d](https://github.com/felipeadeildo/pi-harness/commit/f689c2d87be7701dd92aa8b379c6b98b8d23f6f8))
-* **look:** place the account status next to the model ([4ef6328](https://github.com/felipeadeildo/pi-harness/commit/4ef632884a9c47681dfb30d4af9813909d5dc138))
-* one settings screen for every piece on Alt+S, in place of /perm and /look ([9cc50c0](https://github.com/felipeadeildo/pi-harness/commit/9cc50c05650c900265d08d00e151f9053c21b34a))
-* **providers:** add an account through the provider's own login, and pin it per session ([2e8ef4b](https://github.com/felipeadeildo/pi-harness/commit/2e8ef4b0497896ed6228cd48515f5523bad4f29e))
-* **providers:** lift a provider per account, without duplicating its models ([133dd64](https://github.com/felipeadeildo/pi-harness/commit/133dd6492c62f261f30239e7f37787c35b64cf23))
-* **providers:** manage accounts on the settings screen, and keep pi's credential as the default ([09049cf](https://github.com/felipeadeildo/pi-harness/commit/09049cfbe32c656c468c926ffc770360b684308d))
-* **providers:** mark the current account in the picker, and report it as a status ([9413b9a](https://github.com/felipeadeildo/pi-harness/commit/9413b9a4830b8cda106558b677474012a2f58151))
-* **providers:** read the accounts screen as a tree of provider, account and actions ([0a7e938](https://github.com/felipeadeildo/pi-harness/commit/0a7e938c116cd8954c7435f3b681ebd57b1de3a2))
-* **providers:** switch to another account when one hits its limit ([5adbfb0](https://github.com/felipeadeildo/pi-harness/commit/5adbfb0a020d37d5a8a2b4c33509fb2f50a6f897))
+* **ask-questions:** a new package, `@adeildo/pi-ask-questions`, with the `ask_questions` tool. Every question comes with options, a preview of the option under the cursor, a note on any option whether it was picked or not, and a row for your own answer. The dialog is drawn in the flow of the screen instead of over the chat, so a tall one scrolls with the terminal ([95fc137](https://github.com/felipeadeildo/pi-harness/commit/95fc137404b348bb8f1c1774a4e7dda75f70c980))
+* **ask-permission, ask-questions:** one dialog for both. The permission ask goes through the questions package, with the call, the reason and the diff riding in the question. `always yes` then asks which calls to remember and for how long, and an answer typed in your own words blocks the call, with the text as the reason the model reads ([0ebcec2](https://github.com/felipeadeildo/pi-harness/commit/0ebcec283b409f7771505098803003d6353150c2))
+* **ask-permission:** a call to an MCP server follows the policy of its server, set on the Permission tab, and a call a codemode script made is decided on its own, instead of asking twice for one thing ([08e3810](https://github.com/felipeadeildo/pi-harness/commit/08e38104297e274e05fa355155c532904d07af4b))
+* **ask-permission:** a call that leaves the workspace offers to open that folder, for reads or as part of the workspace ([09cc796](https://github.com/felipeadeildo/pi-harness/commit/09cc79648768d888e1230d35f0fd5cca9e05dcd0))
+* **providers:** several accounts per provider. The pi login becomes the first account, another comes from the provider's own login, the active one is a session entry so a resume restores who paid, and `Alt+A` cycles them ([09049cf](https://github.com/felipeadeildo/pi-harness/commit/09049cfbe32c656c468c926ffc770360b684308d), [2e8ef4b](https://github.com/felipeadeildo/pi-harness/commit/2e8ef4b0497896ed6228cd48515f5523bad4f29e))
+* **providers:** an account that hits its limit hands over to the next one, asking first by default ([5adbfb0](https://github.com/felipeadeildo/pi-harness/commit/5adbfb0a020d37d5a8a2b4c33509fb2f50a6f897))
+* **look:** the account sits next to the model, and the working line names the state in lower case instead of repeating the call being drafted ([4ef6328](https://github.com/felipeadeildo/pi-harness/commit/4ef632884a9c47681dfb30d4af9813909d5dc138), [f689c2d](https://github.com/felipeadeildo/pi-harness/commit/f689c2d87be7701dd92aa8b379c6b98b8d23f6f8))
+* **look:** the wait is timed from the moment the request leaves the machine, and the token speed uses the ratio the session measured, in place of a flat four characters per token ([29e74b4](https://github.com/felipeadeildo/pi-harness/commit/29e74b471cd9ee6dd72a62ac99ec163f7ba96957))
+* **every piece:** the middle dots are gone from the dialogs, the hints and the status lines, and the footer separator defaults to a space ([a3814b4](https://github.com/felipeadeildo/pi-harness/commit/a3814b4cbd177579a46fbb548c8274ff59ce3096))
 
+### Dependencies
+
+* the pi SDK is bumped to 0.99.2, which this release needs ([b600128](https://github.com/felipeadeildo/pi-harness/commit/b600128))
 
 ### Bug Fixes
 
-* **ask-permission:** read a bash command that sets a shell variable before it reads ([cd7da40](https://github.com/felipeadeildo/pi-harness/commit/cd7da405f5da4dfcbbc053013148b5a3c262a09a))
-* **ask-permission:** show the MCP hints in the dialog, and keep the registered name in alwaysAsk ([b4cec5f](https://github.com/felipeadeildo/pi-harness/commit/b4cec5f53a65f11095293c9f6349400d15d9d5fb))
-* **ask-permission:** trust a shell variable only where bash surely set it and nothing else can change it ([0387aa9](https://github.com/felipeadeildo/pi-harness/commit/0387aa9eab80cefc9dc5ceadd290aebbb7fbfe7c))
-* **kit:** throw when a feature reads or writes a setting it never declared ([e8a9bc8](https://github.com/felipeadeildo/pi-harness/commit/e8a9bc81ccabd26c97ab0c00199926259668f766))
-* **look:** time the wait from the request leaving, and count tokens with the ratio the session measured ([29e74b4](https://github.com/felipeadeildo/pi-harness/commit/29e74b471cd9ee6dd72a62ac99ec163f7ba96957))
-* **providers:** delegate the lifted methods, keep the request signal, and stop caching the native ([4254a3d](https://github.com/felipeadeildo/pi-harness/commit/4254a3d6d677c541c5351b2600ceafeab9925a54))
-* **providers:** keep a refreshed token on its own account, and one rule for the active one ([1e04718](https://github.com/felipeadeildo/pi-harness/commit/1e0471869ae515222fbc27ec557d998a8d43e5ca))
-* **providers:** lift a provider when its first account arrives, not only at session start ([1068ef4](https://github.com/felipeadeildo/pi-harness/commit/1068ef48378a21fd2693afd2a1345e42a9dac17c))
+* **ask-permission:** read a bash command that sets a shell variable before it reads it, and then trust that variable only where bash surely set it and nothing else can change it afterwards ([cd7da40](https://github.com/felipeadeildo/pi-harness/commit/cd7da405f5da4dfcbbc053013148b5a3c262a09a), [0387aa9](https://github.com/felipeadeildo/pi-harness/commit/0387aa9eab80cefc9dc5ceadd290aebbb7fbfe7c))
+* **ask-permission:** show what an MCP server declares in the dialog, and keep the registered tool name in `alwaysAsk` ([b4cec5f](https://github.com/felipeadeildo/pi-harness/commit/b4cec5f53a65f11095293c9f6349400d15d9d5fb))
+* **providers:** keep a refreshed token on the account it came from, lift a provider when its first account arrives rather than only at session start, and stop caching the native methods ([1e04718](https://github.com/felipeadeildo/pi-harness/commit/1e0471869ae515222fbc27ec557d998a8d43e5ca), [1068ef4](https://github.com/felipeadeildo/pi-harness/commit/1068ef48378a21fd2693afd2a1345e42a9dac17c), [4254a3d](https://github.com/felipeadeildo/pi-harness/commit/4254a3d6d677c541c5351b2600ceafeab9925a54))
+* **kit:** a feature that reads or writes a setting it never declared now throws, instead of reading a default forever ([e8a9bc8](https://github.com/felipeadeildo/pi-harness/commit/e8a9bc81ccabd26c97ab0c00199926259668f766))
 
 ## [4.1.0](https://github.com/felipeadeildo/pi-harness/compare/v4.0.0...v4.1.0) (2026-09-30)
 
