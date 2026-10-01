@@ -59,6 +59,7 @@ export function judgeSignalText(record: JudgeRecord): string {
 		parts.push(`reversibility ${answers.reversibility.toFixed(2)}`);
 	if (answers.sensitive_access !== undefined)
 		parts.push(`sensitive ${answers.sensitive_access.toFixed(2)}`);
+	if (record.withIntent) parts.push("saw your last message");
 
 	return parts.join(" \u00b7 ") || "no signals";
 }

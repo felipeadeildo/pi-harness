@@ -169,6 +169,26 @@ In the `judge` mode, a model answers every call that is not a read or an edit. Y
 3. Pick a policy. `Standard development` allows edits, tests, builds, and local git, and asks about installs, network, and anything destructive.
 4. After a few sessions of agreeing with it, turn off `Dry run`.
 
+The `Judge` section has five settings, then `Test the judge` and the session's verdicts.
+
+| Row           | Does                                                                                        |
+| ------------- | ------------------------------------------------------------------------------------------- |
+| Model         | Who judges. A Jev name goes to TypeSafe, and `provider/model` is any model you set up in pi |
+| Policy        | The rules the judge follows, in plain English                                               |
+| Always ask me | Patterns the judge never approves, like `git push*`                                         |
+| Rigor         | How sure the judge must be before a call runs without you                                   |
+| Dry run       | Show the verdict, and still ask you                                                         |
+
+A call runs when the judge approves it with at least the rigor's confidence, and its risk stays at or below the ceiling. Anything else asks you.
+
+| Rigor                  | Confidence | Risk ceiling |
+| ---------------------- | ---------- | ------------ |
+| `cautious`             | 85%        | 0.45         |
+| `balanced`, by default | 70%        | 0.50         |
+| `relaxed`              | 55%        | 0.60         |
+
+The judge also reads your last message, to tell whether a call is a step of what you asked. The policy still decides, and nothing in the message overrides `Always ask me`. The card says `saw your last message` when the request carried it.
+
 The policy is plain text, so you can start from a preset and edit it:
 
 ```text
@@ -198,7 +218,7 @@ If calls come back as `the judge could not decide`, run `Test the judge` in the 
 | MCP servers  | One row per server, with its policy               |
 | Reads        | Tools that never ask, read-only bash              |
 | Dialog       | Notes, no-dialog behavior, typing pause           |
-| Judge        | Model, policy, thresholds, a test, the log        |
+| Judge        | Model, policy, rigor, dry run, a test, the log    |
 | Always yes   | Rule counts, and forget                           |
 | Folders      | Folders opened from the dialog, and close         |
 
@@ -222,7 +242,7 @@ A long paste collapses to `[paste #1 +48 lines]` and expands when you confirm.
 
 ### Configuration
 
-The settings live in the file every piece shares, `~/.pi/agent/extensions/pi-harness/settings.json`, under a `permission.` prefix. Every key has a row on the settings screen, which shows the key under its description, except `mcp.servers`, which gets one row per connected server. Only what you change is written, so a new default reaches you.
+The settings live in the file every piece shares, `~/.pi/agent/extensions/pi-harness/settings.json`, under a `permission.` prefix. Most keys have a row on the settings screen, which shows the key under its description. `mcp.servers` gets one row per connected server, and the finer judge keys below live in the file only. Only what you change is written, so a new default reaches you.
 
 ```json
 {
@@ -253,21 +273,24 @@ The ids below leave out the `permission.` prefix.
 
 The `judge` block:
 
-| Key                 | Default        | Does                                                                                                                           |
-| ------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `provider`          | `"jev"`        | `"jev"`, or `"pi"` for a model you set up in pi                                                                                |
-| `model`             | `"jev-latest"` | A Jev alias, or `provider/modelId` for a pi model                                                                              |
-| `policy`            | Standard       | The rules the judge follows                                                                                                    |
-| `canDeny`           | `true`         | A confident no blocks the call. Off, it asks you                                                                               |
-| `whenUnsure`        | `"ask"`        | `"ask"`, `"allow"`, or `"deny"`                                                                                                |
-| `whenItFails`       | `"ask"`        | The same, for a timeout, an error, or a missing key                                                                            |
-| `alwaysAsk`         | `[]`           | Patterns the judge never approves, like `"git push*"`. A pattern matches the tool name too, so `mcp__*` catches every MCP call |
-| `dryRun`            | `false`        | Show the verdict, and still ask you                                                                                            |
-| `noUI`              | `false`        | Also judge print, JSON, and subagent runs                                                                                      |
-| `rememberApprovals` | `false`        | A judge approval becomes always yes for this session                                                                           |
-| `thresholds`        | `0.85` / `0.8` | Confidence needed to allow / deny                                                                                              |
-| `riskCeiling`       | `0.45`         | Highest risk the judge may approve                                                                                             |
-| `timeoutMs`         | `5000`         | How long to wait for an answer                                                                                                 |
+| Key                 | Default        | Does                                                                                                                                  |
+| ------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `model`             | `"jev-latest"` | A name that starts with `jev` goes to TypeSafe. Anything else is a pi model, as `provider/modelId` or a bare id                       |
+| `policy`            | Standard       | The rules the judge follows                                                                                                           |
+| `alwaysAsk`         | `[]`           | Patterns the judge never approves, like `"git push*"`. A pattern matches the tool name too, so `mcp__*` catches every MCP call        |
+| `rigor`             | `"balanced"`   | `"cautious"`, `"balanced"`, or `"relaxed"`. Sets `thresholds` and `riskCeiling`                                                       |
+| `dryRun`            | `false`        | Show the verdict, and still ask you                                                                                                   |
+| `thresholds`        | from `rigor`   | Confidence needed to allow / deny. File only. Set here, it wins over `rigor`, and the Rigor row reads `custom` until you pick a rigor |
+| `riskCeiling`       | from `rigor`   | Highest risk the judge may approve. File only, and it wins over `rigor` the same way                                                  |
+| `canDeny`           | `true`         | A confident no blocks the call. Off, it asks you. File only                                                                           |
+| `whenUnsure`        | `"ask"`        | `"ask"`, `"allow"`, or `"deny"`. File only                                                                                            |
+| `whenItFails`       | `"ask"`        | The same, for a timeout, an error, or a missing key. File only                                                                        |
+| `noUI`              | `false`        | Also judge print, JSON, and subagent runs. File only                                                                                  |
+| `rememberApprovals` | `false`        | A judge approval becomes always yes for this session. File only                                                                       |
+| `timeoutMs`         | `5000`         | How long to wait for an answer. File only                                                                                             |
+| `cache`             | `true`         | Reuse a verdict for the same call and the same last message in one session. File only                                                 |
+
+`judge.enabled`, `judge.tools`, and `judge.provider` are gone. A session that finds them removes them from the file and says so. If `judge.enabled` was `true` and no `mode` was set, it writes `"mode": "judge"`.
 
 A malformed value falls back and says what it dropped, so a typo never lets more through. Keys under an older name are read under the current one. `PI_CODING_AGENT_DIR` moves the file with the rest of the agent directory.
 
@@ -297,7 +320,7 @@ The judge answers three questions: a verdict, how reversible the call is, and wh
 - Always yes matches text. `cd /repo && pnpm test` offers `cd`, `cd /repo`, and the whole line, not `pnpm test`.
 - A bash path hidden behind `$HOME`, `$SECRET`, or `"$@"` counts as outside in `manual` and `edits`. In `judge` the judge decides it, even when the command only reads. In `full` it runs. Redirects to `/dev/null` and the other device files stay inside.
 - The read-only check is a classifier, not a sandbox. It trusts the command name as written and does not resolve `PATH`. It refuses anything it cannot prove harmless, so a few safe commands still ask.
-- The judge is a model, and it can be wrong. It sees the tool call, so do not judge calls that carry secrets you would not send to its provider.
+- The judge is a model, and it can be wrong. It sees the tool call and your last message, so do not judge calls or messages that carry secrets you would not send to its provider.
 - Pi's `codemode` tool runs a script that calls other tools. The script itself does not ask, and every call it makes goes through the same steps on its own, saying so in the dialog. The judge reads the arguments of an MCP call as data, like any other call.
 - If you want deterministic rules and no human in the loop, use a sandbox instead.
 

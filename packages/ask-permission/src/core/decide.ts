@@ -19,6 +19,7 @@ import {
 	asToolInput,
 	type CallDescriptor,
 	type CustomTools,
+	isBuiltInTool,
 	shortenHome,
 	type ToolAdapter,
 	toolAdapter,
@@ -39,6 +40,8 @@ export interface Call {
 	hints: ToolAnnotations;
 	/** Issued by another tool, as in a codemode script, not by the model. */
 	nested: boolean;
+	/** What an extension's tool says it does, unverified. Unset for the built-in tools. */
+	description?: string;
 }
 
 export type Verdict =
@@ -96,6 +99,7 @@ export function describeCall(
 		mcp,
 		hints: hintsOf(fact),
 		nested: extras.nested === true,
+		description: isBuiltInTool(toolName) ? undefined : fact?.description,
 	};
 }
 

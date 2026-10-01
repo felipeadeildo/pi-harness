@@ -36,7 +36,8 @@ export interface McpCall {
 	tool: string;
 }
 
-export type ToolFact = Pick<ToolInfo, "namespace" | "annotations">;
+export type ToolFact = Pick<ToolInfo, "namespace" | "annotations"> &
+	Partial<Pick<ToolInfo, "description">>;
 
 export type ToolFacts = (toolName: string) => ToolFact | undefined;
 

@@ -111,7 +111,6 @@ export function decodeConfig(input: unknown, warnings: string[] = []): Permissio
 const RENAMED: [section: "judge" | undefined, from: string, to: string][] = [
 	[undefined, "followup", "notes"],
 	[undefined, "headless", "noUI"],
-	["judge", "backend", "provider"],
 	["judge", "autoDeny", "canDeny"],
 	["judge", "onUncertain", "whenUnsure"],
 	["judge", "onError", "whenItFails"],

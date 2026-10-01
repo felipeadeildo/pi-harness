@@ -34,7 +34,7 @@ afterEach(() => {
 	rmSync(dir, { recursive: true, force: true });
 });
 
-async function started(settings?: unknown) {
+async function started(settings?: unknown, notes: string[] = []) {
 	if (settings !== undefined) {
 		mkdirSync(dirname(globalSettingsPath()), { recursive: true });
 		writeFileSync(globalSettingsPath(), JSON.stringify(settings));
@@ -48,7 +48,7 @@ async function started(settings?: unknown) {
 		isProjectTrusted: () => false,
 		sessionManager: { getBranch: () => [] },
 		modelRegistry: { getAvailable: () => [] },
-		ui: { notify: () => {}, setStatus: () => {} },
+		ui: { notify: (text: string) => notes.push(text), setStatus: () => {} },
 	} as unknown as ExtensionContext;
 	await fake.fire("session_start", {}, ctx);
 
@@ -94,6 +94,59 @@ test("the tab lists its sections in order", async () => {
 		"Always yes",
 		"Folders",
 	]);
+});
+
+test("the judge section is a model, a policy, a rigor, and a way to try it", async () => {
+	const { tab } = await started();
+	const judge = tab()
+		.rows.filter((entry) => entry.section === "Judge")
+		.map((entry) => entry.label);
+	expect(judge).toEqual([
+		"Model",
+		"Policy",
+		"Always ask me",
+		"Rigor",
+		"Dry run",
+		"Test the judge",
+		"This session's verdicts",
+	]);
+});
+
+test("a rigor stands for the thresholds, and picking one drops the numbers set by hand", async () => {
+	const { row, apply } = await started({
+		permission: { judge: { thresholds: { allow: 0.9 }, riskCeiling: 0.75 } },
+	});
+	expect(row("judge.rigor").value).toBe("custom");
+
+	expect(apply("judge.rigor", "custom")?.error).toContain("set by hand");
+	expect(apply("judge.rigor", "strict")?.error).toBe("not a rigor");
+	expect(apply("judge.rigor", "cautious")).toEqual({ error: undefined });
+	expect(row("judge.rigor").value).toBe("cautious");
+	expect(JSON.parse(readFileSync(globalSettingsPath(), "utf8"))).toEqual({
+		permission: { judge: { rigor: "cautious" } },
+	});
+});
+
+test("dry run is saved for every project", async () => {
+	const { row, apply } = await started();
+	expect(row("judge.dryRun")).toMatchObject({ value: false, meta: "saved for every project" });
+	expect(apply("judge.dryRun", true)).toEqual({ error: undefined });
+	expect(row("judge.dryRun").value).toBe(true);
+	expect(apply("judge.dryRun", "yes")?.error).toBe("expected on or off");
+});
+
+test("the retired judge keys leave the file, and a judge that was on keeps its mode", async () => {
+	const notes: string[] = [];
+	const { row } = await started(
+		{ permission: { judge: { enabled: true, tools: ["bash"], timeoutMs: 2000 } } },
+		notes,
+	);
+	expect(JSON.parse(readFileSync(globalSettingsPath(), "utf8"))).toEqual({
+		permission: { judge: { timeoutMs: 2000 }, mode: "judge" },
+	});
+	expect(row("session.mode").value).toBe("judge");
+	expect(notes.some((note) => note.includes("removed judge.enabled"))).toBe(true);
+	expect(notes.some((note) => note.includes("removed judge.tools"))).toBe(true);
 });
 
 test("a session starts from the saved settings, and says where each value comes from", async () => {

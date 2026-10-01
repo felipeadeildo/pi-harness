@@ -70,6 +70,7 @@ function fakeContext(
 		cwd: "/repo",
 		signal: undefined,
 		modelRegistry: {},
+		sessionManager: { getBranch: () => [] },
 		ui: {
 			theme: { fg: (_color: string, text: string) => text },
 			notify: () => {},

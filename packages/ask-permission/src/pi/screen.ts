@@ -1,4 +1,4 @@
-import type { FeatureScope, Json, ScreenEntry } from "@adeildo/pi-kit";
+import type { Control, FeatureScope, Json, ScreenEntry } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { type Scope, SCOPE_LABEL } from "#core/always-yes.ts";
@@ -7,10 +7,20 @@ import {
 	MCP_POLICY_CONTROL,
 	MODE_CONTROL,
 	OUTSIDE_CONTROL,
+	readDryRun,
+	readRigor,
 	setMcpPolicy,
+	writeDryRun,
+	writeRigor,
 } from "#core/config/settings.ts";
 import { globalAlwaysYesPath, projectAlwaysYesPath } from "#core/config/store.ts";
 import { TYPESAFE_PROVIDER } from "#core/judge/backends/jev.ts";
+import {
+	describeRigor,
+	JUDGE_RIGORS,
+	judgeBackendOf,
+	type JudgeRigor,
+} from "#core/judge/config.ts";
 import { probeJudge } from "#core/judge/probe.ts";
 import { judgeLogText } from "#core/judge/report.ts";
 import { MCP_POLICY_TEXT, type McpServer, mcpServers, policyFor, sameServer } from "#core/mcp.ts";
@@ -49,6 +59,35 @@ export function registerScreen(scope: FeatureScope, state: SessionState): void {
 			setSessionOutside(scope, state, value, ctx, false);
 			return undefined;
 		},
+	});
+
+	scope.screen.value({
+		id: "judge.rigor",
+		section: "Judge",
+		label: "Rigor",
+		description:
+			"How sure the judge must be before a call runs without you. Below that, it asks you.",
+		meta: "saved for every project",
+		control: () => rigorControl(readRigor(scope)),
+		get: () => readRigor(scope),
+		set: (value) => {
+			if (value === "custom")
+				return "custom is what judge.thresholds and judge.riskCeiling set by hand";
+			if (!isRigor(value)) return "not a rigor";
+			return writeRigor(scope, value);
+		},
+	});
+
+	scope.screen.value({
+		id: "judge.dryRun",
+		section: "Judge",
+		label: "Dry run",
+		description:
+			"The judge shows its verdict, and you still decide. Try a policy or a rigor this way first.",
+		meta: "saved for every project",
+		control: { type: "toggle" },
+		get: () => readDryRun(scope),
+		set: (value) => (typeof value === "boolean" ? writeDryRun(scope, value) : "expected on or off"),
 	});
 
 	scope.screen.action({
@@ -152,6 +191,25 @@ function describeServer(server: McpServer | undefined): string {
 	return `${tools}, ${server.reads} that read, ${server.destructive} destructive`;
 }
 
+function isRigor(value: Json): value is JudgeRigor {
+	return JUDGE_RIGORS.some((rigor) => rigor === value);
+}
+
+// `custom` is listed only while it is the value, so the row can show it.
+function rigorControl(current: JudgeRigor | "custom"): Control {
+	const options: { value: string; description: string }[] = JUDGE_RIGORS.map((value) => ({
+		value,
+		description: describeRigor(value),
+	}));
+	if (current === "custom")
+		options.push({
+			value: "custom",
+			description:
+				"the settings file sets judge.thresholds or judge.riskCeiling. Pick a rigor to drop them",
+		});
+	return { type: "choice", options };
+}
+
 // With one folder open, the row names it.
 function foldersText(state: SessionState, where: Scope): string {
 	const [first, ...rest] = state.folders.list(where);
@@ -189,7 +247,7 @@ async function testJudge(state: SessionState, ctx: ExtensionContext): Promise<st
 			? `key from ${auth.label ?? auth.source}`
 			: "no key, run /login typesafe";
 		throw new Error(
-			`the judge failed: ${probe.detail}${judge.provider === "jev" ? ` (${key})` : ""}`,
+			`the judge failed: ${probe.detail}${judgeBackendOf(judge.model) === "jev" ? ` (${key})` : ""}`,
 		);
 	}
 

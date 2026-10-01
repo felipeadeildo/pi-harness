@@ -4,7 +4,7 @@ import {
 	alwaysAskMatches,
 	type ComposedVerdict,
 } from "#core/judge/compose.ts";
-import type { JudgeConfig } from "#core/judge/config.ts";
+import { judgeBackendOf, type JudgeConfig } from "#core/judge/config.ts";
 import {
 	JudgeError,
 	type JudgeAction,
@@ -69,6 +69,7 @@ export async function judgeToolCall(options: JudgeCallOptions): Promise<JudgeOut
 		action: wouldAct,
 		reason,
 		dryRun: dryRun || undefined,
+		withIntent: input.intent?.trim() ? true : undefined,
 	};
 
 	return { action, reason, record };
@@ -95,7 +96,7 @@ function describeOutcome(
 
 function blankRecord(config: JudgeConfig, input: JudgeInput, reason: string): JudgeRecord {
 	return {
-		backend: config.provider,
+		backend: judgeBackendOf(config.model),
 		model: config.model,
 		answers: {},
 		elapsedMs: 0,

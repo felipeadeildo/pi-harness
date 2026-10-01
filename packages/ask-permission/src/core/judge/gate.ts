@@ -15,6 +15,8 @@ export interface JudgeGateOptions {
 	rawInput: unknown;
 	/** Where the call comes from, when the tool name does not say it. */
 	source?: string;
+	toolDescription?: string;
+	intent?: string;
 	cache: Map<string, JudgeOutcome>;
 
 	onStatus: (status: string | undefined) => void;
@@ -31,6 +33,8 @@ export async function judgeGate(options: JudgeGateOptions): Promise<JudgeOutcome
 		cwd: ctx.cwd,
 		policy: config.judge.policy,
 		source: options.source,
+		toolDescription: options.toolDescription,
+		intent: options.intent,
 	};
 
 	const key = cacheKey(config, input);
@@ -59,10 +63,11 @@ export async function judgeGate(options: JudgeGateOptions): Promise<JudgeOutcome
 	return outcome;
 }
 
+// The verdict depends on the intent. A call that serves one request may not serve the next.
 function cacheKey(config: PermissionConfig, input: JudgeInput): string {
 	return [
-		config.judge.provider,
 		config.judge.model,
+		input.intent ?? "",
 		input.toolName,
 		input.target.summary,
 		input.target.levels.join("\u0001"),

@@ -6,8 +6,10 @@ import {
 	type Control,
 	type Decoder,
 	duration,
+	isObject,
 	literal,
 	nullable,
+	readSettingsFile,
 	type Setting,
 	setting,
 	type SettingsScope,
@@ -16,6 +18,7 @@ import {
 	stringList,
 	trimmedString,
 	unit,
+	writeSettingsFile,
 } from "@adeildo/pi-kit";
 
 import { mode, type NoUIConfig, noUI, mcpPolicies } from "#core/config/decode.ts";
@@ -32,9 +35,12 @@ import {
 import { configPath, readLegacyConfig } from "#core/config/store.ts";
 import {
 	DEFAULT_JUDGE,
+	DEFAULT_RIGOR,
 	JEV_MODELS,
-	type JudgeBackendId,
+	JUDGE_RIGORS,
 	type JudgeFallback,
+	type JudgeRigor,
+	RIGOR,
 } from "#core/judge/config.ts";
 import { POLICY_PRESETS } from "#core/judge/policy.ts";
 import { MCP_POLICIES, MCP_POLICY_TEXT, type McpPolicy, sameServer } from "#core/mcp.ts";
@@ -90,14 +96,7 @@ export const OUTSIDE_CONTROL: Control = {
 	options: OUTSIDE_SCOPES.map((value) => ({ value, description: OUTSIDE_DESCRIPTION[value] })),
 };
 
-const FALLBACK_CONTROL: Control = {
-	type: "choice",
-	options: [
-		{ value: "ask", label: "ask me" },
-		{ value: "allow", label: "allow" },
-		{ value: "deny", label: "deny" },
-	],
-};
+const fallback = literal("ask", "allow", "deny");
 
 const PERMISSION_LEAVES = {
 	mode: leaf<PermissionMode>({
@@ -189,37 +188,18 @@ const PERMISSION_LEAVES = {
 };
 
 const JUDGE_LEAVES = {
-	provider: leaf<JudgeBackendId>({
-		id: "judge.provider",
-		fallback: DEFAULT_JUDGE.provider,
-		decoder: literal("jev", "pi"),
-		section: "Judge",
-		label: "Provider",
-		description: "Who judges. Jev is fast and answers with a confidence.",
-		control: {
-			type: "choice",
-			options: [
-				{
-					value: "jev",
-					label: "Jev",
-					description: "TypeSafe's judge model, after /login typesafe",
-				},
-				{ value: "pi", label: "a pi model", description: "any model you set up in pi" },
-			],
-		},
-	}),
 	model: leaf({
 		id: "judge.model",
 		fallback: DEFAULT_JUDGE.model,
 		decoder: trimmedString,
 		section: "Judge",
 		label: "Model",
-		description: "A Jev alias for Jev, provider/model for a pi model.",
+		description: "Who judges. Jev answers fast, after /login typesafe. Any pi model works too.",
 		control: (ctx) => ({
 			type: "choice",
 			custom: true,
 			options: [
-				...JEV_MODELS.map((value) => ({ value, description: "Jev" })),
+				...JEV_MODELS.map((value) => ({ value, description: "Jev, by TypeSafe" })),
 				...ctx.modelRegistry
 					.getAvailable()
 					.map((model) => `${model.provider}/${model.id}`)
@@ -245,32 +225,6 @@ const JUDGE_LEAVES = {
 			})),
 		},
 	}),
-	canDeny: leaf({
-		id: "judge.canDeny",
-		fallback: DEFAULT_JUDGE.canDeny,
-		decoder: boolean,
-		section: "Judge",
-		label: "Can deny",
-		description: "A confident no blocks the call. Off, it comes to you.",
-	}),
-	whenUnsure: leaf<JudgeFallback>({
-		id: "judge.whenUnsure",
-		fallback: DEFAULT_JUDGE.whenUnsure,
-		decoder: literal("ask", "allow", "deny"),
-		section: "Judge",
-		label: "When unsure",
-		description: "What happens when the judge is not confident either way.",
-		control: FALLBACK_CONTROL,
-	}),
-	whenItFails: leaf<JudgeFallback>({
-		id: "judge.whenItFails",
-		fallback: DEFAULT_JUDGE.whenItFails,
-		decoder: literal("ask", "allow", "deny"),
-		section: "Judge",
-		label: "When it fails",
-		description: "What happens on a timeout, an error or a missing key.",
-		control: FALLBACK_CONTROL,
-	}),
 	alwaysAsk: leaf({
 		id: "judge.alwaysAsk",
 		fallback: DEFAULT_JUDGE.alwaysAsk,
@@ -279,71 +233,57 @@ const JUDGE_LEAVES = {
 		label: "Always ask me",
 		description: 'Patterns the judge never approves, like "git push*".',
 	}),
-	allowThreshold: leaf({
-		id: "judge.thresholds.allow",
-		fallback: DEFAULT_JUDGE.thresholds.allow,
-		decoder: unit,
-		section: "Judge",
-		label: "Confidence to allow",
-		description: "How sure the judge has to be before a call runs.",
-	}),
-	denyThreshold: leaf({
-		id: "judge.thresholds.deny",
-		fallback: DEFAULT_JUDGE.thresholds.deny,
-		decoder: unit,
-		section: "Judge",
-		label: "Confidence to deny",
-		description: "How sure the judge has to be before it blocks a call.",
-	}),
-	riskCeiling: leaf({
-		id: "judge.riskCeiling",
-		fallback: DEFAULT_JUDGE.riskCeiling,
-		decoder: unit,
-		section: "Judge",
-		label: "Risk ceiling",
-		description: "Above this risk the call comes to you, however sure the judge is.",
-	}),
-	dryRun: leaf({
-		id: "judge.dryRun",
-		fallback: DEFAULT_JUDGE.dryRun,
-		decoder: boolean,
-		section: "Judge",
-		label: "Dry run",
-		description: "The judge shows its verdict, and you still decide.",
-	}),
-	noUI: leaf({
-		id: "judge.noUI",
-		fallback: DEFAULT_JUDGE.noUI,
-		decoder: boolean,
-		section: "Judge",
-		label: "Judge with no dialog",
-		description: "Also judge print, JSON and subagent runs.",
-	}),
-	rememberApprovals: leaf({
-		id: "judge.rememberApprovals",
-		fallback: DEFAULT_JUDGE.rememberApprovals,
-		decoder: boolean,
-		section: "Judge",
-		label: "Remember approvals",
-		description: "A judge approval becomes always yes for this session.",
-	}),
-	timeoutMs: leaf({
-		id: "judge.timeoutMs",
-		fallback: DEFAULT_JUDGE.timeoutMs,
-		decoder: duration,
-		section: "Judge",
-		label: "Timeout",
-		description: "How long to wait for the judge before the call comes to you.",
-	}),
-	cache: leaf({
-		id: "judge.cache",
-		fallback: DEFAULT_JUDGE.cache,
-		decoder: boolean,
-		section: "Judge",
-		label: "Cache",
-		description: "Reuse a verdict for the same call in one session.",
-	}),
+	// The screen builds these two rows itself. That keeps them after the policy, and lets picking a
+	// rigor drop the numbers set by hand.
+	rigor: hiddenLeaf<JudgeRigor>("judge.rigor", DEFAULT_RIGOR, literal(...JUDGE_RIGORS)),
+	dryRun: hiddenLeaf("judge.dryRun", DEFAULT_JUDGE.dryRun, boolean),
+	// File only. A threshold or a ceiling set here overrides the rigor.
+	allowThreshold: hiddenLeaf("judge.thresholds.allow", DEFAULT_JUDGE.thresholds.allow, unit),
+	denyThreshold: hiddenLeaf("judge.thresholds.deny", DEFAULT_JUDGE.thresholds.deny, unit),
+	riskCeiling: hiddenLeaf("judge.riskCeiling", DEFAULT_JUDGE.riskCeiling, unit),
+	canDeny: hiddenLeaf("judge.canDeny", DEFAULT_JUDGE.canDeny, boolean),
+	whenUnsure: hiddenLeaf<JudgeFallback>("judge.whenUnsure", DEFAULT_JUDGE.whenUnsure, fallback),
+	whenItFails: hiddenLeaf<JudgeFallback>("judge.whenItFails", DEFAULT_JUDGE.whenItFails, fallback),
+	noUI: hiddenLeaf("judge.noUI", DEFAULT_JUDGE.noUI, boolean),
+	rememberApprovals: hiddenLeaf(
+		"judge.rememberApprovals",
+		DEFAULT_JUDGE.rememberApprovals,
+		boolean,
+	),
+	timeoutMs: hiddenLeaf("judge.timeoutMs", DEFAULT_JUDGE.timeoutMs, duration),
+	cache: hiddenLeaf("judge.cache", DEFAULT_JUDGE.cache, boolean),
 };
+
+/** The numbers a rigor stands for, when the settings file sets none of them itself. */
+const RIGOR_NUMBERS = [
+	JUDGE_LEAVES.allowThreshold,
+	JUDGE_LEAVES.denyThreshold,
+	JUDGE_LEAVES.riskCeiling,
+] as const;
+
+/** The rigor in force, or `custom` when the settings file sets the numbers by hand. */
+export function readRigor(scope: SettingsScope): JudgeRigor | "custom" {
+	if (RIGOR_NUMBERS.some((entry) => scope.settings.layer(entry) !== "default")) return "custom";
+	return JUDGE_LEAVES.rigor.get(scope);
+}
+
+/** Picks a rigor and drops the numbers set by hand, which would otherwise win over it. */
+export function writeRigor(scope: SettingsScope, rigor: JudgeRigor): string | undefined {
+	for (const entry of RIGOR_NUMBERS) {
+		if (scope.settings.layer(entry) === "default") continue;
+		const failure = scope.settings.unset(entry, "global");
+		if (failure !== undefined) return failure;
+	}
+	return scope.settings.set(JUDGE_LEAVES.rigor, rigor);
+}
+
+export function readDryRun(scope: SettingsScope): boolean {
+	return JUDGE_LEAVES.dryRun.get(scope);
+}
+
+export function writeDryRun(scope: SettingsScope, dryRun: boolean): string | undefined {
+	return scope.settings.set(JUDGE_LEAVES.dryRun, dryRun);
+}
 
 export const PERMISSION_SETTINGS: readonly Setting<unknown>[] = [
 	...Object.values(PERMISSION_LEAVES),
@@ -354,6 +294,7 @@ export const PERMISSION_SETTINGS: readonly Setting<unknown>[] = [
 export function readConfig(scope: SettingsScope): PermissionConfig {
 	const leaves = PERMISSION_LEAVES;
 	const judge = JUDGE_LEAVES;
+	const rigor = RIGOR[judge.rigor.get(scope)];
 
 	return {
 		allow: [...leaves.allow.get(scope)],
@@ -365,11 +306,13 @@ export function readConfig(scope: SettingsScope): PermissionConfig {
 		typing: typingOf(scope),
 		mcp: { servers: { ...leaves.servers.get(scope) } },
 		judge: {
-			provider: judge.provider.get(scope),
 			model: judge.model.get(scope),
 			alwaysAsk: [...judge.alwaysAsk.get(scope)],
-			thresholds: { allow: judge.allowThreshold.get(scope), deny: judge.denyThreshold.get(scope) },
-			riskCeiling: judge.riskCeiling.get(scope),
+			thresholds: {
+				allow: byHand(scope, judge.allowThreshold) ?? rigor.thresholds.allow,
+				deny: byHand(scope, judge.denyThreshold) ?? rigor.thresholds.deny,
+			},
+			riskCeiling: byHand(scope, judge.riskCeiling) ?? rigor.riskCeiling,
 			whenUnsure: judge.whenUnsure.get(scope),
 			canDeny: judge.canDeny.get(scope),
 			whenItFails: judge.whenItFails.get(scope),
@@ -422,6 +365,45 @@ export function migrateConfig(scope: SettingsScope): string[] {
 	return [...loaded.warnings, `moved the config to the shared settings, keeping ${backup}`];
 }
 
+// Keys an older version read and this one ignores. Left in the file, they look like they work.
+const RETIRED_JUDGE_KEYS: Record<string, string> = {
+	enabled: "pick the judge mode with Alt+M, or under New sessions",
+	tools: "the judge mode judges every call that is not a read or an edit",
+	provider: "the model name picks the provider",
+};
+
+/** Removes the retired judge keys from the global file, and says what each one became. */
+export function dropRetiredKeys(scope: SettingsScope): string[] {
+	const path = scope.settings.globalPath;
+	const { data } = readSettingsFile(path);
+	const permission = isObject(data.permission) ? data.permission : undefined;
+	const judge = isObject(permission?.judge) ? permission.judge : undefined;
+	if (permission === undefined || judge === undefined) return [];
+
+	const retired = Object.keys(RETIRED_JUDGE_KEYS).filter((key) => key in judge);
+	if (retired.length === 0) return [];
+
+	// In 3.x a judge switched on with no mode meant the judge mode, so new sessions keep starting in it.
+	const switchedOn = judge.enabled === true && permission.mode === undefined;
+	if (switchedOn) permission.mode = "judge";
+	for (const key of retired) delete judge[key];
+
+	try {
+		writeSettingsFile(path, data);
+	} catch (error) {
+		return [`could not remove the retired judge keys from ${path}: ${describeError(error)}`];
+	}
+	scope.settings.load(scope.settings.projectPath);
+
+	const lines = retired.map((key) => `removed judge.${key}, ${RETIRED_JUDGE_KEYS[key]}`);
+	if (switchedOn) lines.push("new sessions start in the judge mode, as judge.enabled said");
+	return lines;
+}
+
+function byHand<T>(scope: SettingsScope, entry: Setting<T>): T | undefined {
+	return scope.settings.layer(entry) === "default" ? undefined : entry.get(scope);
+}
+
 function workspaceOf(scope: SettingsScope): WorkspaceConfig {
 	return {
 		roots: [...PERMISSION_LEAVES.roots.get(scope)],
@@ -450,7 +432,6 @@ function toEntries(config: PermissionConfig): (readonly [Setting<unknown>, unkno
 		[leaves.servers, config.mcp.servers],
 		[leaves.pause, config.typing.pause],
 		[leaves.maxWait, config.typing.maxWait],
-		[judge.provider, config.judge.provider],
 		[judge.model, config.judge.model],
 		[judge.alwaysAsk, config.judge.alwaysAsk],
 		[judge.allowThreshold, config.judge.thresholds.allow],

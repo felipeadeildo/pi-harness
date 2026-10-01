@@ -26,7 +26,6 @@ const thresholds: Decoder<JudgeThresholds> = object({
 });
 
 export const judgeConfig: Decoder<JudgeConfig> = object({
-	provider: withDefault(literal("jev", "pi"), DEFAULT_JUDGE.provider),
 	model: withDefault(trimmedString, DEFAULT_JUDGE.model),
 	alwaysAsk: stringListOrEmpty(DEFAULT_JUDGE.alwaysAsk, "tool name patterns"),
 	thresholds: withDefaultOf(thresholds, () => ({ ...DEFAULT_JUDGE.thresholds })),

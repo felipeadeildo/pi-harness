@@ -3,7 +3,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 
 import { AlwaysYes, savedFileExists, type Scope } from "#core/always-yes.ts";
 import { defaultConfig, type OutsideScope, type PermissionConfig } from "#core/config/schema.ts";
-import { migrateConfig, readConfig } from "#core/config/settings.ts";
+import { dropRetiredKeys, migrateConfig, readConfig } from "#core/config/settings.ts";
 import {
 	globalAlwaysYesPath,
 	globalFoldersPath,
@@ -75,7 +75,7 @@ export function noteJudgeFailure(state: SessionState, ctx: ExtensionContext): vo
 	state.judgeHealth.failures = 0;
 	state.judgeHealth.retryAt = Date.now() + JUDGE_RETRY_MS;
 	ctx.ui.notify(
-		`${NAME}: judge paused for ${JUDGE_RETRY_MS / 1000}s after repeated failures; run /perm judge test`,
+		`${NAME}: judge paused for ${JUDGE_RETRY_MS / 1000}s after repeated failures; try Test the judge on Alt+S`,
 		"warning",
 	);
 }
@@ -87,6 +87,7 @@ export function loadSessionConfig(
 	ctx: ExtensionContext,
 ): void {
 	for (const warning of migrateConfig(scope)) ctx.ui.notify(`${NAME}: ${warning}`, "warning");
+	for (const line of dropRetiredKeys(scope)) ctx.ui.notify(`${NAME}: ${line}`, "info");
 
 	state.config = readConfig(scope);
 	state.typing.stop();

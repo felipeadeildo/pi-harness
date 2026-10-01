@@ -6,7 +6,7 @@ import { DEFAULT_CONFIG, type PermissionConfig } from "#core/config/schema.ts";
 import { createJevBackend, parseJevResponse, toAnswers } from "#core/judge/backends/jev.ts";
 import { parseJudgeJson, toAnswersFromJson } from "#core/judge/backends/pi-model.ts";
 import { composeVerdict, judgeRisk, alwaysAskMatches, RISK_WEIGHTS } from "#core/judge/compose.ts";
-import { defaultJudge, type JudgeConfig } from "#core/judge/config.ts";
+import { defaultJudge, judgeBackendOf, type JudgeConfig } from "#core/judge/config.ts";
 import { judgeGate } from "#core/judge/gate.ts";
 import { judgeToolCall } from "#core/judge/pipeline.ts";
 import {
@@ -147,11 +147,36 @@ describe("buildJudgeState", () => {
 		);
 	});
 
+	test("carries the intent as context, and the description of a tool it cannot know", () => {
+		const state = buildJudgeState(
+			judgeInput({ intent: "  fix the flaky test  ", toolDescription: "Searches the memory" }),
+		);
+		expect(state.intent).toBe("fix the flaky test");
+		expect((state.call as Record<string, unknown>).tool_says).toBe("Searches the memory");
+		expect(Object.keys(buildJudgeState(judgeInput({ intent: " " })))).not.toContain("intent");
+	});
+
+	test("caps an oversized intent", () => {
+		const state = buildJudgeState(judgeInput({ intent: "y".repeat(10_000) }));
+		expect((state.intent as string).length).toBeLessThan(10_000);
+	});
+
 	test("caps an oversized input", () => {
 		const state = buildJudgeState(judgeInput({ rawInput: "x".repeat(20_000) }));
 		const input = (state.call as Record<string, unknown>).input as string;
 		expect(input.length).toBeLessThan(20_000);
 		expect(input.endsWith("...")).toBe(true);
+	});
+});
+
+describe("judgeBackendOf", () => {
+	test("a Jev name goes to TypeSafe, and anything else is a pi model", () => {
+		expect(judgeBackendOf("jev-latest")).toBe("jev");
+		expect(judgeBackendOf("jev-1.13.0")).toBe("jev");
+		expect(judgeBackendOf("anthropic/claude-haiku")).toBe("pi");
+		// A bare id is how a pi model was named before the provider went away.
+		expect(judgeBackendOf("claude-haiku")).toBe("pi");
+		expect(judgeBackendOf("jevons/model")).toBe("pi");
 	});
 });
 
@@ -614,6 +639,11 @@ describe("judge report", () => {
 
 		expect(judgeSignalText(record)).toBe("reversibility 0.20 \u00b7 sensitive 0.00");
 	});
+
+	test("says when the judge saw the last message", () => {
+		const record: JudgeRecord = { ...base, answers: {}, withIntent: true };
+		expect(judgeSignalText(record)).toBe("saw your last message");
+	});
 });
 
 describe("judgeGate", () => {
@@ -621,7 +651,7 @@ describe("judgeGate", () => {
 
 	test("skips the judge without a UI unless headless judging is on", async () => {
 		const outcome = await judgeGate({
-			config: askConfig({ provider: "pi", model: "p/m" }),
+			config: askConfig({ model: "p/m" }),
 			ctx: fakeContext(allowMessage, false),
 			toolName: "bash",
 			target,
@@ -633,7 +663,7 @@ describe("judgeGate", () => {
 	});
 
 	test("runs the pi judge, reports status, and caches a clean verdict", async () => {
-		const config = askConfig({ provider: "pi", model: "p/m" });
+		const config = askConfig({ model: "p/m" });
 		const cache = new Map<string, NonNullable<Awaited<ReturnType<typeof judgeGate>>>>();
 		const statuses: (string | undefined)[] = [];
 		let calls = 0;

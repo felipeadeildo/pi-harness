@@ -2,7 +2,7 @@ import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 
 import { createJevBackend, type JudgeFetch } from "#core/judge/backends/jev.ts";
 import { createPiBackend } from "#core/judge/backends/pi-model.ts";
-import type { JudgeConfig } from "#core/judge/config.ts";
+import { judgeBackendOf, type JudgeConfig } from "#core/judge/config.ts";
 import type { JudgeBackend } from "#core/judge/types.ts";
 
 export interface JudgeDeps {
@@ -13,7 +13,7 @@ export interface JudgeDeps {
 }
 
 export function createJudgeBackend(config: JudgeConfig, deps: JudgeDeps): JudgeBackend {
-	if (config.provider === "pi") {
+	if (judgeBackendOf(config.model) === "pi") {
 		return createPiBackend({
 			model: config.model,
 			timeoutMs: config.timeoutMs,

@@ -15,7 +15,7 @@ import {
 	writeConfig,
 } from "#core/config/settings.ts";
 import { configPath } from "#core/config/store.ts";
-import { DEFAULT_JUDGE } from "#core/judge/config.ts";
+import { DEFAULT_JUDGE, RIGOR } from "#core/judge/config.ts";
 import { decodeJudge } from "#core/judge/decode.ts";
 
 describe("matchesPattern", () => {
@@ -184,7 +184,6 @@ describe("decodeJudge", () => {
 		const warnings: string[] = [];
 		const judge = decodeJudge(
 			{
-				provider: "pi",
 				model: "anthropic/claude",
 				alwaysAsk: ["rm -rf*"],
 				thresholds: { allow: 0.9, deny: 0.7 },
@@ -204,7 +203,6 @@ describe("decodeJudge", () => {
 
 		expect(warnings).toEqual([]);
 		expect(judge).toEqual({
-			provider: "pi",
 			model: "anthropic/claude",
 			alwaysAsk: ["rm -rf*"],
 			thresholds: { allow: 0.9, deny: 0.7 },
@@ -225,17 +223,14 @@ describe("decodeJudge", () => {
 		const warnings: string[] = [];
 		const judge = decodeJudge(
 			{
-				provider: "nope",
 				thresholds: { allow: 2 },
 				alwaysAsk: ["ok", 3, ""],
 			},
 			warnings,
 		);
 
-		expect(judge.provider).toBe("jev");
 		expect(judge.thresholds.allow).toBe(DEFAULT_JUDGE.thresholds.allow);
 		expect(judge.alwaysAsk).toEqual(["ok"]);
-		expect(warnings).toContain('judge.provider: expected "jev" or "pi"');
 		expect(warnings).toContain("judge.thresholds.allow: expected a number from 0 to 1");
 		expect(warnings).toContain("judge.alwaysAsk: ignored entries that are not non-empty strings");
 	});
@@ -312,6 +307,27 @@ describe("config file", () => {
 
 	test("config lives outside the checkout, under the agent dir", () => {
 		expect(configPath()).toBe(join(dir, "extensions", "pi-ask-permission", "config.json"));
+	});
+
+	test("the rigor sets the numbers, unless the file sets one by hand", () => {
+		const settingsWith = (judge: unknown) => {
+			mkdirSync(dirname(globalSettingsPath()), { recursive: true });
+			writeFileSync(globalSettingsPath(), JSON.stringify({ permission: { judge } }));
+			return readConfig(scopeWithSettings()).judge;
+		};
+
+		expect(settingsWith({})).toMatchObject({
+			thresholds: RIGOR.balanced.thresholds,
+			riskCeiling: RIGOR.balanced.riskCeiling,
+		});
+		expect(settingsWith({ rigor: "cautious" })).toMatchObject({
+			thresholds: { allow: 0.85, deny: 0.8 },
+			riskCeiling: 0.45,
+		});
+		expect(settingsWith({ rigor: "relaxed", riskCeiling: 0.3 })).toMatchObject({
+			thresholds: RIGOR.relaxed.thresholds,
+			riskCeiling: 0.3,
+		});
 	});
 
 	test("without an old file nothing is migrated and nothing is written", () => {

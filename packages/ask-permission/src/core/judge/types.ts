@@ -9,6 +9,13 @@ export interface JudgeInput {
 	policy: string;
 	/** Where the call comes from, when the tool name does not say it. */
 	source?: string;
+	/** What the tool says it does, for a tool the judge cannot know by name. Not verified. */
+	toolDescription?: string;
+	/**
+	 * What the user is after right now. The judge reads it as context and never as a permission, so
+	 * the policy still decides. The judge does not know where it comes from.
+	 */
+	intent?: string;
 }
 
 export type JudgeChoice = "allow" | "deny" | "needs_human";
@@ -55,6 +62,8 @@ export interface JudgeRecord extends JudgeAssessment {
 	error?: string;
 
 	dryRun?: boolean;
+	/** The request carried the intent, so the card says it went to the judge's provider. */
+	withIntent?: boolean;
 }
 
 export interface JudgeOutcome {
