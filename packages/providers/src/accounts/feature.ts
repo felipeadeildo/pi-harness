@@ -88,8 +88,8 @@ function sessionFor(
 			return account === undefined ? undefined : { id: account.id, credential: account.credential };
 		},
 		save: (id, credential) => void store.setCredential(providerId, id, credential),
-		afterLimit: (currentId, reason) =>
-			afterLimit(scope, store, pins, ctx, providerId, currentId, reason),
+		afterLimit: (currentId, detail) =>
+			afterLimit(scope, store, pins, ctx, providerId, currentId, detail),
 	};
 }
 
@@ -101,7 +101,7 @@ export async function afterLimit(
 	ctx: ExtensionContext,
 	providerId: string,
 	currentId: string,
-	reason: string,
+	detail: string,
 ): Promise<{ id: string; credential: Credential } | undefined> {
 	const mode = onLimit.get(scope);
 	if (mode === "stop") return undefined;
@@ -119,15 +119,15 @@ export async function afterLimit(
 
 	pin(scope, pins, providerId, next.id);
 	refreshStatus(store, pins, ctx);
-	ctx.ui.notify(`${NAME}: ${providerId} now uses ${next.label} (${reason})`, "warning");
+	ctx.ui.notify(`${NAME}: ${providerId} now uses ${next.label} (${detail})`, "warning");
 	return { id: next.id, credential: next.credential };
 }
 
 /** The account after this one in the list, so a limit moves on instead of repeating. */
-function nextAccount(accounts: readonly Account[], currentId: string): Account | undefined {
-	if (accounts.length < 2) return undefined;
-	const index = accounts.findIndex((account) => account.id === currentId);
-	return accounts[(index + 1) % accounts.length];
+function nextAccount(list: readonly Account[], currentId: string): Account | undefined {
+	if (list.length < 2) return undefined;
+	const index = list.findIndex((account) => account.id === currentId);
+	return list[(index + 1) % list.length];
 }
 
 function lift(

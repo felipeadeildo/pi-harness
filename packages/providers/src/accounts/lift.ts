@@ -30,7 +30,7 @@ export interface AccountSession {
 	/** The account to try after this one hit a limit, or undefined to surface the error. */
 	afterLimit(
 		currentId: string,
-		reason: string,
+		detail: string,
 	): Promise<{ id: string; credential: Credential } | undefined>;
 }
 
@@ -136,6 +136,7 @@ async function* attempts(
 	let account = first;
 
 	for (let attempt = 1; ; attempt++) {
+		// oxlint-disable-next-line no-await-in-loop -- an attempt starts only after the one before it.
 		const resolved = await resolveAuth(provider, session, refreshing, account, options.signal);
 		const withAuth = applyAuth(resolved, model, options);
 		const source = call(provider, kind, withAuth.model, context, withAuth.options);
@@ -147,6 +148,7 @@ async function* attempts(
 		let failure: AssistantMessage | undefined;
 		let thrown: unknown;
 		try {
+			// oxlint-disable-next-line no-await-in-loop -- a stream is read one event at a time.
 			for await (const event of source) {
 				if (isContent(event)) {
 					if (!output) {
@@ -168,6 +170,7 @@ async function* attempts(
 		if (!output && attempt < MAX_ATTEMPTS && failure !== undefined) {
 			const text = failure.errorMessage;
 			if (text !== undefined && LIMIT_PATTERN.test(text)) {
+				// oxlint-disable-next-line no-await-in-loop -- the answer comes from the user.
 				const next = await session.afterLimit(account.id, text);
 				if (next !== undefined) {
 					account = next;
