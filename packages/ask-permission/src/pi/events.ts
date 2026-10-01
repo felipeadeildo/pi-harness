@@ -1,4 +1,4 @@
-import type { FeatureScope } from "@adeildo/pi-kit";
+import { canAsk, type FeatureScope } from "@adeildo/pi-kit";
 import {
 	type ExtensionAPI,
 	type ExtensionContext,
@@ -40,6 +40,7 @@ import {
 } from "#pi/session.ts";
 import { AskDialog } from "#ui/dialog.ts";
 import { appendJudgeEntry } from "#ui/judge-entry.ts";
+import { askThroughQuestions, type AskExtras } from "#ui/questions.ts";
 import { askViaSelector } from "#ui/selector.ts";
 
 const JUDGE_STATUS = `${NAME}:judge`;
@@ -142,7 +143,7 @@ async function gate(
 	state.typing.pause();
 	const reason = "reason" in decision ? decision.reason : undefined;
 	const leaving = "by" in decision && decision.by === "workspace";
-	const answer = await ask(ctx, call, {
+	const answer = await ask(pi, ctx, call, {
 		diff: change?.diff,
 		reason,
 		offer: leaving ? offerFor(call) : undefined,
@@ -259,14 +260,18 @@ function offerFor(call: Call): FolderOffer | undefined {
 	return choices && { ...choices, access: accessOf(call) };
 }
 
-interface AskExtras {
-	diff?: string;
-	reason?: string;
-	offer?: FolderOffer;
-}
-
-async function ask(ctx: ExtensionContext, call: Call, extras: AskExtras): Promise<DialogAnswer> {
+async function ask(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	call: Call,
+	extras: AskExtras,
+): Promise<DialogAnswer> {
 	const { toolName, target } = call;
+	// One dialog for both: the questions feature draws this when it is installed.
+	if (ctx.mode === "tui" && canAsk(pi.events)) {
+		const answer = await askThroughQuestions(pi.events, call, extras);
+		if (answer !== undefined) return answer;
+	}
 	if (ctx.mode === "tui") {
 		try {
 			const answer = await ctx.ui.custom<DialogAnswer>(

@@ -1,4 +1,6 @@
-// Ported from rpiv-ask-user-question.
+// Ported from rpiv-ask-user-question. The schema is what pi validates; the types are the kit
+// contract, so an agent question and a permission question are the same shape everywhere.
+import type { AskOption, AskQuestion } from "@adeildo/pi-kit";
 import { Type } from "@earendil-works/pi-ai";
 
 export const TOOL_NAME = "ask_questions";
@@ -14,19 +16,8 @@ export const TYPED_LABEL = "Type something.";
 // Labels models use for a free answer, which the dialog already has.
 export const RESERVED_LABELS: readonly string[] = ["Other", TYPED_LABEL, "Type an answer"];
 
-export interface Option {
-	label: string;
-	description: string;
-	preview?: string;
-}
-
-export interface Question {
-	question: string;
-	header: string;
-	options: Option[];
-	multiSelect?: boolean;
-}
-
+export type Option = AskOption;
+export type Question = AskQuestion;
 export interface QuestionParams {
 	questions: Question[];
 }

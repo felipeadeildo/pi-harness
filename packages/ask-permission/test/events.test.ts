@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
+import { ANSWER, ASK, type AskRequest, type AskResult, AVAILABLE } from "@adeildo/pi-kit";
 import { fakePi, fakeScope, toolInfo } from "@adeildo/pi-kit/testing";
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import {
+	createEventBus,
+	type EventBus,
+	type ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 
 import { AlwaysYes } from "#core/always-yes.ts";
 import type { DialogAnswer } from "#core/answer.ts";
@@ -22,9 +27,9 @@ function judgeThatAsks(): SessionState["config"] {
 	return { ...config, judge: { ...config.judge, alwaysAsk: ["*"] } };
 }
 
-function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask") {
+function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask", bus?: EventBus) {
 	const decided: unknown[] = [];
-	const fake = fakePi();
+	const fake = fakePi(bus);
 	fake.pi.events.on(DECIDED_EVENT, (data: unknown) => decided.push(data));
 
 	const state = {
@@ -119,6 +124,76 @@ describe("judge cards in the transcript", () => {
 
 		await toolCall(judgeCall("call-2", "git push --force origin main"), fakeContext());
 		expect(cards()).toHaveLength(2);
+	});
+});
+
+/** A questions feature in the same process: it says it is there, and answers with `script`. */
+function questionsProvider(script: AskResult[]): { bus: EventBus; asked: AskRequest[] } {
+	const bus = createEventBus();
+	const asked: AskRequest[] = [];
+	bus.on(AVAILABLE, (data: unknown) => void ((data as { available: boolean }).available = true));
+	bus.on(ASK, (data: unknown) => {
+		const request = data as AskRequest;
+		asked.push(request);
+		bus.emit(ANSWER, {
+			id: request.id,
+			result: script.shift() ?? { answers: [], cancelled: true },
+		});
+	});
+	return { bus, asked };
+}
+
+function answerTo(picked: string): AskResult {
+	return {
+		answers: [{ question: "q", header: "permission", picked: [picked], notes: [] }],
+		cancelled: false,
+	};
+}
+
+describe("one dialog for the permission and the questions", () => {
+	test("the gate asks there, and the old dialog never opens", async () => {
+		const { bus, asked } = questionsProvider([answerTo("yes, run it")]);
+		const { toolCall } = harness("judge", "ask", bus);
+		let opened = 0;
+
+		await toolCall(
+			judgeCall("call-1", "git push origin main"),
+			fakeContext(() => void opened++),
+		);
+
+		expect(opened).toBe(0);
+		expect(asked[0]?.questions[0]?.question).toContain("git push origin main");
+	});
+
+	test("the answer comes back to the gate: no blocks the call", async () => {
+		const { bus } = questionsProvider([answerTo("no")]);
+		const { toolCall } = harness("judge", "ask", bus);
+		const result = await toolCall(judgeCall("call-1", "git push origin main"), fakeContext());
+		expect(result).toEqual({ block: true, reason: expect.stringContaining("denied by the user") });
+	});
+
+	test("always yes remembers at the level and the scope that were picked", async () => {
+		const { bus, asked } = questionsProvider([
+			answerTo("always yes"),
+			answerTo("git push"),
+			answerTo("this project"),
+		]);
+		const { toolCall, state } = harness("judge", "ask", bus);
+
+		await toolCall(judgeCall("call-1", "git push origin main"), fakeContext());
+
+		expect(state.alwaysYes.has("bash", ["git push"])).toBe(true);
+		expect(asked).toHaveLength(3);
+	});
+
+	test("with no questions feature the old dialog still opens", async () => {
+		const { toolCall } = harness("judge", "ask");
+		let opened = 0;
+		await toolCall(
+			judgeCall("call-1", "git push origin main"),
+			fakeContext(() => void opened++),
+		);
+		expect(opened).toBe(1);
 	});
 });
 

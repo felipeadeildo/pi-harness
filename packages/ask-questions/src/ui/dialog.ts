@@ -1,3 +1,4 @@
+import type { AskAnswer, AskResult } from "@adeildo/pi-kit";
 // Drawn inline instead of as an overlay, so a tall dialog scrolls with the terminal.
 import { getSelectListTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import {
@@ -15,7 +16,7 @@ import {
 	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 
-import { type Answer, answerSummary, isAnswered, type QuestionsResult } from "../answers.ts";
+import { answerSummary, isAnswered } from "../answers.ts";
 import { type Question, TYPED_LABEL } from "../schema.ts";
 import {
 	besideColumns,
@@ -47,7 +48,7 @@ export interface QuestionDialogOptions {
 	markdownTheme: MarkdownTheme;
 	keybindings: KeybindingsManager;
 	questions: readonly Question[];
-	complete: (result: QuestionsResult) => void;
+	complete: (result: AskResult) => void;
 }
 
 export class QuestionDialog implements Component, Focusable {
@@ -57,7 +58,7 @@ export class QuestionDialog implements Component, Focusable {
 	private readonly previews: PreviewCache;
 	private readonly keybindings: KeybindingsManager;
 	private readonly requestRender: () => void;
-	private readonly complete: (result: QuestionsResult) => void;
+	private readonly complete: (result: AskResult) => void;
 
 	/** The question shown, or `questions.length` for the submit tab. */
 	private tab = 0;
@@ -301,8 +302,8 @@ export class QuestionDialog implements Component, Focusable {
 		this.complete({ answers: this.collect(), cancelled });
 	}
 
-	private collect(): Answer[] {
-		const answers: Answer[] = [];
+	private collect(): AskAnswer[] {
+		const answers: AskAnswer[] = [];
 		for (const [index, question] of this.questions.entries()) {
 			const answer = this.answerOf(index);
 			const notes = this.notesOf(index);
@@ -313,7 +314,7 @@ export class QuestionDialog implements Component, Focusable {
 		return answers;
 	}
 
-	private answerOf(index: number): Answer | undefined {
+	private answerOf(index: number): AskAnswer | undefined {
 		const question = this.questions[index];
 		const draft = this.drafts[index];
 		if (question === undefined || draft === undefined || !draft.answered) return undefined;
@@ -321,7 +322,7 @@ export class QuestionDialog implements Component, Focusable {
 		const picked = question.options
 			.filter((_, row) => draft.picked.has(row))
 			.map((option) => option.label);
-		const answer: Answer = {
+		const answer: AskAnswer = {
 			question: question.question,
 			header: question.header,
 			picked,
@@ -332,7 +333,7 @@ export class QuestionDialog implements Component, Focusable {
 		return isAnswered(answer) ? answer : undefined;
 	}
 
-	private notesOf(index: number): Answer["notes"] {
+	private notesOf(index: number): AskAnswer["notes"] {
 		const question = this.questions[index];
 		const draft = this.drafts[index];
 		if (question === undefined || draft === undefined) return [];
@@ -402,7 +403,7 @@ export class QuestionDialog implements Component, Focusable {
 				lines.push(this.rowHead(row, option.label, picked && draft.answered, width));
 			}
 
-			for (const line of wrapTextWithAnsi(option.description, room))
+			for (const line of wrapTextWithAnsi(option.description ?? "", room))
 				lines.push(INDENT + this.theme.fg("muted", line));
 			lines.push(...this.noteLines(draft, row, room));
 		}

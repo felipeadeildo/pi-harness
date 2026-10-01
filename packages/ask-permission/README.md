@@ -53,6 +53,32 @@ Ask the agent to do something that writes, like `run the tests`. The dialog open
 
 Reads inside the project never ask. `read`, `grep`, `find`, `ls`, and bash commands that only read, like `cat`, `git log`, or `rg`, run on their own. An `edit` or `write` shows the diff it would make.
 
+## One dialog for everything
+
+With [`@adeildo/pi-ask-questions`](../ask-questions) installed, this package does not draw this dialog itself: it asks through the questions package, so the permission ask and the questions the agent asks are one dialog, with the same keys and a note on any option.
+
+```
+╭─ permission ─────────────────────────────────────────╮
+│ bash wants to run:                                   │
+│                                                      │
+│   git push --force origin main                        │
+│                                                      │
+│ ▲ the judge leaned deny but was only 61% confident   │
+│                                                      │
+│ ❯ 1  yes, run it                                     │
+│      Run this call now, and ask again next time.      │
+│   2  always yes                                      │
+│   3  no                                               │
+│   4  Type something.                                 │
+│                                                      │
+│ ↑↓ or 1-4 move   enter choose   tab note   esc cancel │
+╰──────────────────────────────────────────────────────╯
+```
+
+Everything the dialog showed before is still there, as an option or in the question: the call, the summary, the reason it is asking and the diff of the change. `always yes` asks two more questions, which calls to remember and for how long. An answer typed in your own words instead of a pick blocks the call and becomes the reason the model reads.
+
+Without that package the dialog below is the one you get, and RPC hosts always get it, since they cannot draw a terminal component.
+
 ## Everyday use
 
 ### Stop answering the same question

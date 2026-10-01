@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
-import { type Answer, answerText } from "../src/answers.ts";
+import type { AskAnswer } from "@adeildo/pi-kit";
+
+import { answerText } from "../src/answers.ts";
 import { askOverRpc, type DialogUI } from "../src/rpc.ts";
 import type { Question } from "../src/schema.ts";
 import { normalizeParams, problemWith } from "../src/validate.ts";
@@ -52,7 +54,7 @@ describe("validation", () => {
 });
 
 describe("the text the model reads", () => {
-	const picked: Answer = {
+	const picked: AskAnswer = {
 		question: AUTH.question,
 		header: "Auth",
 		picked: ["OAuth"],
@@ -81,7 +83,7 @@ describe("the text the model reads", () => {
 	});
 
 	test("a typed answer reads in the user's words", () => {
-		const typed: Answer = { ...picked, picked: [], typed: "mTLS", notes: [] };
+		const typed: AskAnswer = { ...picked, picked: [], typed: "mTLS", notes: [] };
 		expect(answerText({ answers: [typed], cancelled: false }, [AUTH])).toContain(
 			'→ in their words: "mTLS"',
 		);
@@ -99,19 +101,19 @@ describe("the text the model reads", () => {
 	});
 });
 
-describe("over RPC", () => {
-	function scripted(replies: (string | undefined)[]): DialogUI & { titles: string[] } {
-		const titles: string[] = [];
-		const next = async (title: string) => {
-			titles.push(title);
-			return replies.shift();
-		};
-		return { titles, select: next, input: next };
-	}
+function scripted(replies: (string | undefined)[]): DialogUI & { titles: string[] } {
+	const titles: string[] = [];
+	const next = async (title: string) => {
+		titles.push(title);
+		return replies.shift();
+	};
+	return { titles, select: next, input: next };
+}
 
+describe("over RPC", () => {
 	test("a single choice is a select", async () => {
 		const ui = scripted(["2. API key: env"]);
-		const result = await askOverRpc(ui, { questions: [AUTH] });
+		const result = await askOverRpc(ui, [AUTH]);
 		expect(result).toEqual({
 			cancelled: false,
 			answers: [{ question: AUTH.question, header: "Auth", picked: ["API key"], notes: [] }],
@@ -120,23 +122,20 @@ describe("over RPC", () => {
 
 	test("the last row asks for a typed answer", async () => {
 		const ui = scripted(["3. Type something.", "mTLS"]);
-		const result = await askOverRpc(ui, { questions: [AUTH] });
+		const result = await askOverRpc(ui, [AUTH]);
 		expect(result.answers[0]?.typed).toBe("mTLS");
 	});
 
 	test("several picks are numbers, anything else is a typed answer", async () => {
-		expect(
-			(await askOverRpc(scripted(["1, 2"]), { questions: [MANY] })).answers[0]?.picked,
-		).toEqual(["OAuth", "API key"]);
-		expect((await askOverRpc(scripted(["both"]), { questions: [MANY] })).answers[0]?.typed).toBe(
-			"both",
-		);
+		expect((await askOverRpc(scripted(["1, 2"]), [MANY])).answers[0]?.picked).toEqual([
+			"OAuth",
+			"API key",
+		]);
+		expect((await askOverRpc(scripted(["both"]), [MANY])).answers[0]?.typed).toBe("both");
 	});
 
 	test("a dismissed dialog cancels the rest", async () => {
-		const result = await askOverRpc(scripted(["1. OAuth: login", undefined]), {
-			questions: [AUTH, MANY],
-		});
+		const result = await askOverRpc(scripted(["1. OAuth: login", undefined]), [AUTH, MANY]);
 		expect(result.cancelled).toBe(true);
 		expect(result.answers).toHaveLength(1);
 	});

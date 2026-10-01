@@ -46,6 +46,22 @@ Pi draws the dialog in the flow of the screen, like the permission dialog, and n
 
 Over RPC, in an editor plugin or an ACP client, the questions go one at a time through the host's own select and input dialogs. There's no preview pane and no notes there. With no UI at all, the model never sees the tool.
 
+## The permission dialog
+
+With [`@adeildo/pi-ask-permission`](../ask-permission) installed, its dialog is this one. The permission ask becomes a question, so both use the same keys and the same notes, and `always yes` asks two more questions: which calls to remember, and for how long. The call, the summary, the reason and the diff of the change ride in the question and the option previews.
+
+Ask through it from another package with the kit's contract:
+
+```ts
+import { askQuestions, canAsk } from "@adeildo/pi-kit";
+
+if (canAsk(scope.events)) {
+	const result = await askQuestions(scope.events, questions);
+}
+```
+
+`canAsk` is a synchronous probe: with no one to draw the dialog, `askQuestions` would never settle, so check first. The provider always answers, even when the dialog fails, and the answer carries the error.
+
 ## What the model reads
 
 ```text

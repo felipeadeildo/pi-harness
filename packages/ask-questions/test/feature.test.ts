@@ -3,8 +3,9 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createApp } from "@adeildo/pi-kit";
+import { ASK, ANSWER, type AskRequest, canAsk, createApp } from "@adeildo/pi-kit";
 import { type FakePi, fakeContext, fakePi } from "@adeildo/pi-kit/testing";
+import { createEventBus } from "@earendil-works/pi-coding-agent";
 import type {
 	ExtensionContext,
 	ExtensionToolContext,
@@ -147,6 +148,79 @@ test("the answer from the dialog is the result's details", async () => {
 			text: 'The user answered:\n- Pick: "Which?" → "B"\nContinue with these answers in mind.',
 		},
 	]);
+});
+
+test("another package asks through the same dialog", async () => {
+	const answer = {
+		answers: [{ question: "Which?", header: "Pick", picked: ["A"], notes: [] }],
+		cancelled: false,
+	};
+	const bus = createEventBus();
+	const fake = fakePi(bus);
+	const ctx = fakeContext([], true, { ui: { custom: async () => answer } });
+	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
+	await fake.fire("session_start", {}, ctx);
+
+	expect(canAsk(bus)).toBe(true);
+	const request: AskRequest = {
+		id: "ask-1",
+		questions: [{ header: "Pick", question: "Which?", options: [{ label: "A" }] }],
+	};
+	const answered = new Promise<unknown>((resolve) => {
+		bus.on(ANSWER, (data: unknown) => resolve(data));
+	});
+	bus.emit(ASK, request);
+	expect(answered).resolves.toEqual({ id: "ask-1", result: answer });
+});
+
+test("with no session nothing is available, and a request is left alone", async () => {
+	const bus = createEventBus();
+	const fake = fakePi(bus);
+	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
+	expect(canAsk(bus)).toBe(false);
+	let seen = 0;
+	bus.on(ANSWER, () => void seen++);
+	bus.emit(ASK, { id: "ask-1", questions: [] });
+	await Promise.resolve();
+	expect(seen).toBe(0);
+});
+
+test("a request that does not decode is answered with the reason", async () => {
+	const bus = createEventBus();
+	const fake = fakePi(bus);
+	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
+	await fake.fire("session_start", {}, fakeContext());
+
+	const answered = new Promise<{ result: { error?: string; cancelled: boolean } }>((resolve) => {
+		bus.on(ANSWER, (data: unknown) => resolve(data as never));
+	});
+	bus.emit(ASK, { id: "ask-1", questions: [{ header: "Pick", question: "Which?" }] });
+	const { result } = await answered;
+	expect(result.cancelled).toBe(true);
+	expect(result.error).toContain("did not decode");
+});
+
+test("a dialog that throws still answers the asker", async () => {
+	const bus = createEventBus();
+	const fake = fakePi(bus);
+	const ctx = fakeContext([], true, {
+		ui: {
+			custom: async () => {
+				throw new Error("boom");
+			},
+		},
+	});
+	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
+	await fake.fire("session_start", {}, ctx);
+
+	const answered = new Promise<{ result: { error?: string } }>((resolve) => {
+		bus.on(ANSWER, (data: unknown) => resolve(data as never));
+	});
+	bus.emit(ASK, {
+		id: "ask-1",
+		questions: [{ header: "Pick", question: "Which?", options: [{ label: "A" }] }],
+	});
+	expect((await answered).result.error).toContain("boom");
 });
 
 test("over RPC the questions go through the host's own dialogs", async () => {

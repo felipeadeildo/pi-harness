@@ -1,9 +1,9 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 
+import type { AskResult } from "@adeildo/pi-kit";
 import { getMarkdownTheme, initTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import { type KeybindingsManager, type TUI, visibleWidth } from "@earendil-works/pi-tui";
 
-import type { QuestionsResult } from "../src/answers.ts";
 import type { Question } from "../src/schema.ts";
 import { QuestionDialog } from "../src/ui/dialog.ts";
 
@@ -54,7 +54,7 @@ const FEATURES: Question = {
 beforeAll(() => initTheme("dark", false));
 
 function open(...questions: Question[]) {
-	const results: QuestionsResult[] = [];
+	const results: AskResult[] = [];
 	const dialog = new QuestionDialog({
 		tui: TUI_STUB,
 		theme: plain,
@@ -201,7 +201,10 @@ describe("several questions", () => {
 		press(dialog, KEYS.enter);
 		expect(dialog.render(80).join("\n")).toContain("Review your answers");
 		press(dialog, KEYS.enter);
-		expect(results[0]?.answers.map((answer) => answer.picked)).toEqual([["OAuth"], ["Search"]]);
+		expect(results[0]?.answers.map((answer: { picked: string[] }) => answer.picked)).toEqual([
+			["OAuth"],
+			["Search"],
+		]);
 		expect(results[0]?.cancelled).toBe(false);
 	});
 

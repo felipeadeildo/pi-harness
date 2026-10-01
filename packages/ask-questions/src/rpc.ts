@@ -1,7 +1,8 @@
 // RPC hosts draw pi's select and input dialogs but not terminal components, so the questions go one
 // dialog at a time, without previews or notes. Ported from rpiv-ask-user-question.
-import type { Answer, QuestionsResult } from "./answers.ts";
-import { type Question, type QuestionParams, TYPED_LABEL } from "./schema.ts";
+import type { AskAnswer, AskQuestion, AskResult } from "@adeildo/pi-kit";
+
+import { TYPED_LABEL } from "./schema.ts";
 
 export interface DialogUI {
 	select(title: string, options: string[]): Promise<string | undefined>;
@@ -10,9 +11,12 @@ export interface DialogUI {
 
 const MAX_PREVIEW_CHARS = 600;
 
-export async function askOverRpc(ui: DialogUI, params: QuestionParams): Promise<QuestionsResult> {
-	const answers: Answer[] = [];
-	for (const question of params.questions) {
+export async function askOverRpc(
+	ui: DialogUI,
+	questions: readonly AskQuestion[],
+): Promise<AskResult> {
+	const answers: AskAnswer[] = [];
+	for (const question of questions) {
 		const ask = question.multiSelect ? askMany : askOne;
 		// oxlint-disable-next-line no-await-in-loop -- one dialog at a time, in the order asked
 		const answer = await ask(ui, question);
@@ -22,16 +26,17 @@ export async function askOverRpc(ui: DialogUI, params: QuestionParams): Promise<
 	return { answers, cancelled: false };
 }
 
-function titleOf(question: Question): string {
+function titleOf(question: AskQuestion): string {
 	return question.header ? `[${question.header}] ${question.question}` : question.question;
 }
 
-function optionLine(question: Question, index: number): string {
+function optionLine(question: AskQuestion, index: number): string {
 	const option = question.options[index];
-	return option === undefined ? "" : `${index + 1}. ${option.label}: ${option.description}`;
+	if (option === undefined) return "";
+	return `${index + 1}. ${option.label}: ${option.description ?? ""}`.trim();
 }
 
-function previews(question: Question): string {
+function previews(question: AskQuestion): string {
 	const blocks = question.options.flatMap((option, index) =>
 		option.preview
 			? [`--- ${index + 1}. ${option.label} ---\n${option.preview.slice(0, MAX_PREVIEW_CHARS)}`]
@@ -40,11 +45,11 @@ function previews(question: Question): string {
 	return blocks.length === 0 ? "" : `\n\n${blocks.join("\n\n")}`;
 }
 
-function blank(question: Question): Answer {
+function blank(question: AskQuestion): AskAnswer {
 	return { question: question.question, header: question.header, picked: [], notes: [] };
 }
 
-async function askOne(ui: DialogUI, question: Question): Promise<Answer | undefined> {
+async function askOne(ui: DialogUI, question: AskQuestion): Promise<AskAnswer | undefined> {
 	const lines = question.options.map((_, index) => optionLine(question, index));
 	lines.push(`${question.options.length + 1}. ${TYPED_LABEL}`);
 
@@ -62,7 +67,7 @@ async function askOne(ui: DialogUI, question: Question): Promise<Answer | undefi
 	return { ...blank(question), typed };
 }
 
-async function askMany(ui: DialogUI, question: Question): Promise<Answer | undefined> {
+async function askMany(ui: DialogUI, question: AskQuestion): Promise<AskAnswer | undefined> {
 	const list = question.options.map((_, index) => optionLine(question, index)).join("\n");
 	const value = await ui.input(
 		`${titleOf(question)}\n\n${list}\n\nThe numbers of every one that applies, like "1,3", or your own answer.`,
@@ -80,7 +85,7 @@ async function askMany(ui: DialogUI, question: Question): Promise<Answer | undef
 }
 
 // Undefined when the text is not a list of option numbers.
-function pickedLabels(question: Question, text: string): string[] | undefined {
+function pickedLabels(question: AskQuestion, text: string): string[] | undefined {
 	const picked: string[] = [];
 	for (const token of text.split(/[,\s]+/).filter(Boolean)) {
 		if (!/^\d+\.?$/.test(token)) return undefined;

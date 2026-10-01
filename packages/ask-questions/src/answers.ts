@@ -1,38 +1,13 @@
-// The tool result's `details`, so each answer is stored in the session with the call that asked it.
-import type { Question } from "./schema.ts";
+import type { AskAnswer, AskQuestion, AskResult } from "@adeildo/pi-kit";
 
-export interface OptionNote {
-	option: string;
-	note: string;
-}
-
-export interface Answer {
-	question: string;
-	header: string;
-	/** The labels picked. One at most for a single choice, and none when only a typed answer came. */
-	picked: string[];
-	typed?: string;
-	/** A note on any option, picked or not. */
-	notes: OptionNote[];
-}
-
-export interface QuestionsResult {
-	/** Only the answered questions, in the order asked. */
-	answers: Answer[];
-	cancelled: boolean;
-	/** Why the questions never reached the user. */
-	error?: string;
-}
-
-export function isAnswered(answer: Answer | undefined): answer is Answer {
-	if (answer === undefined) return false;
+export function isAnswered(answer: AskAnswer): boolean {
 	return answer.picked.length > 0 || (answer.typed ?? "").trim() !== "";
 }
 
 const NOT_SEEN =
 	"The user never saw the questions, so this is not a decline. Ask them in the chat instead.";
 
-export function answerText(result: QuestionsResult, questions: readonly Question[]): string {
+export function answerText(result: AskResult, questions: readonly AskQuestion[]): string {
 	if (result.error !== undefined) return `${result.error}. ${NOT_SEEN}`;
 
 	const answered = result.answers.filter(isAnswered);
@@ -46,7 +21,7 @@ export function answerText(result: QuestionsResult, questions: readonly Question
 
 	const lines = ["The user answered:", ...answerLines(answered)];
 	const skipped = questions.filter(
-		(question) => !answered.some((a) => a.question === question.question),
+		(question) => !answered.some((answer) => answer.question === question.question),
 	);
 	if (skipped.length > 0)
 		lines.push(
@@ -56,10 +31,10 @@ export function answerText(result: QuestionsResult, questions: readonly Question
 	return lines.join("\n");
 }
 
-function answerLines(answers: readonly Answer[]): string[] {
+function answerLines(answers: readonly AskAnswer[]): string[] {
 	const lines: string[] = [];
 	for (const answer of answers) {
-		lines.push(`- ${answer.header}: "${answer.question}" → ${answerSummary(answer)}`);
+		lines.push(`- ${answer.header}: "${answer.question}" \u2192 ${answerSummary(answer)}`);
 		for (const { option, note } of answer.notes) {
 			const tag = answer.picked.includes(option) ? "" : " (not picked)";
 			lines.push(`  note on "${option}"${tag}: ${note}`);
@@ -68,7 +43,7 @@ function answerLines(answers: readonly Answer[]): string[] {
 	return lines;
 }
 
-export function answerSummary(answer: Answer): string {
+export function answerSummary(answer: AskAnswer): string {
 	const parts = answer.picked.map((label) => `"${label}"`);
 	const typed = answer.typed?.trim();
 	if (typed) parts.push(`in their words: "${typed}"`);

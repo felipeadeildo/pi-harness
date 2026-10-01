@@ -26,10 +26,8 @@ export function normalizeParams(params: QuestionParams): QuestionParams {
 }
 
 function normalizeOption(option: Option): Option {
-	const clean: Option = {
-		label: normalizeText(option.label),
-		description: normalizeText(option.description),
-	};
+	const clean: Option = { label: normalizeText(option.label) };
+	if (option.description !== undefined) clean.description = normalizeText(option.description);
 	if (option.preview !== undefined) clean.preview = normalizeText(option.preview);
 	return clean;
 }
