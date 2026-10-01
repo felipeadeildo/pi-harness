@@ -19,11 +19,12 @@ pi install npm:@adeildo/pi-harness
 
 ## What comes in it
 
-| Piece                                 | What it does                                                                                                                                                             |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [Permission](packages/ask-permission) | Asks before a tool call runs. Answer yes, always yes or deny, with a note the model reads. A judge model can answer the routine calls for you                            |
-| [Look](packages/look)                 | The start card, a framed editor with the branch, the model and the context in its borders, the time and speed of each answer, and the session's cost. Only theme colours |
-| [Providers](packages/providers)       | Bills Anthropic OAuth requests to the Claude Pro or Max plan instead of extra usage                                                                                      |
+| Piece                                 | What it does                                                                                                                                                                                      |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Permission](packages/ask-permission) | Asks before a tool call runs. Answer yes, always yes or deny, with a note the model reads. A judge model can answer the routine calls for you                                                     |
+| [Look](packages/look)                 | The start card, a framed editor with the branch, the model and the context in its borders, the time and speed of each answer, and the session's cost. Only theme colours                          |
+| [Providers](packages/providers)       | Bills Anthropic OAuth requests to the Claude Pro or Max plan instead of extra usage. Holds several accounts per provider, pinned per session, and offers the next account when one hits its limit |
+| [Questions](packages/ask-questions)   | The model asks instead of guessing, with options, a preview of each, a note on any of them, and your own answer                                                                                   |
 
 `Alt+S` opens the settings of every piece. Each piece is its own extension, so `pi config` turns one off. Each is also a package of its own, for when you want only that one: `pi install npm:@adeildo/pi-look` brings the look and nothing else. Every piece's page has its install line.
 
@@ -31,7 +32,7 @@ All packages share one version. A release is one tag, one entry in [CHANGELOG.md
 
 ## What comes next
 
-Questions the agent asks with options and a preview, several accounts per provider with rotation when one hits its limit, usage per plan and per project, and sessions that name themselves and talk to each other. The order and the reasons are in [ROADMAP.md](ROADMAP.md).
+The judge asking through the same dialog as the questions, the model a virtual model routed to shown in the footer, usage per plan and per project, and sessions that name themselves and talk to each other. The order and the reasons are in [ROADMAP.md](ROADMAP.md).
 
 ## Contributing
 

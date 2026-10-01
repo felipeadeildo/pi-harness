@@ -10,12 +10,12 @@ pi install npm:@adeildo/pi-harness
 
 ## What comes in it
 
-| Piece                           | What it does                                                                                                                                                             |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [Permission](../ask-permission) | Asks before a tool call runs. Answer yes, always yes or deny, with a note the model reads. A judge model can answer the routine calls for you                            |
-| [Look](../look)                 | The start card, a framed editor with the branch, the model and the context in its borders, the time and speed of each answer, and the session's cost. Only theme colours |
-| [Providers](../providers)       | Bills Anthropic OAuth requests to the Claude Pro or Max plan instead of extra usage                                                                                      |
-| [Questions](../ask-questions)   | The model asks instead of guessing: options with a preview of each, a note on any of them, and your own answer                                                           |
+| Piece                           | What it does                                                                                                                                                                                      |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Permission](../ask-permission) | Asks before a tool call runs. Answer yes, always yes or deny, with a note the model reads. A judge model can answer the routine calls for you                                                     |
+| [Look](../look)                 | The start card, a framed editor with the branch, the model and the context in its borders, the time and speed of each answer, and the session's cost. Only theme colours                          |
+| [Providers](../providers)       | Bills Anthropic OAuth requests to the Claude Pro or Max plan instead of extra usage. Holds several accounts per provider, pinned per session, and offers the next account when one hits its limit |
+| [Questions](../ask-questions)   | The model asks instead of guessing, with options, a preview of each, a note on any of them, and your own answer                                                                                   |
 
 All of them are on once the package is installed.
 
