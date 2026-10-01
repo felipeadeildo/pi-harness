@@ -9,6 +9,7 @@ import type { TUI } from "@earendil-works/pi-tui";
 import { type GitState, readGit } from "./data/git.ts";
 import { emptySnapshot, type Snapshot, SnapshotReader } from "./data/snapshot.ts";
 import { Telemetry } from "./data/telemetry.ts";
+import type { DeltaKind } from "./data/telemetry.ts";
 import { REQUEST_ENTRY, type RequestRecord } from "./data/totals.ts";
 import { DESKTOP_THEME } from "./desktop/palette.ts";
 import { syncDesktopTheme, watchDesktopPalette } from "./desktop/sync.ts";
@@ -138,6 +139,11 @@ export const look = defineFeature({
 			live.tui = undefined;
 		});
 
+		// These two fire for the calls the agent makes, and not for pi's cache warming, which calls the
+		// provider on its own: the marks always belong to the answer being measured.
+		scope.on("before_provider_request", () => telemetry.providerRequestSent());
+		scope.on("after_provider_response", () => telemetry.providerResponseArrived());
+
 		scope.on("agent_start", () => {
 			telemetry.runStarted();
 			setActivity(live, scope, { kind: "waiting" });
@@ -158,7 +164,8 @@ export const look = defineFeature({
 			if (message.role !== "assistant") return;
 			const update = event.assistantMessageEvent;
 			const delta = "delta" in update ? update.delta : "";
-			telemetry.answerGrew(delta, message.usage);
+			const kind: DeltaKind = update.type.startsWith("thinking") ? "thinking" : "writing";
+			telemetry.answerGrew(delta, message.usage, kind);
 
 			if (update.type === "thinking_start" || update.type === "thinking_delta") {
 				setActivity(live, scope, { kind: "thinking" });

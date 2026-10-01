@@ -39,7 +39,7 @@ describe("telemetry", () => {
 		expect(telemetry.request()?.waiting).toBe(true);
 		expect(telemetry.request()?.elapsedMs).toBe(2_000);
 
-		telemetry.answerGrew("Hello", usage({ input: 100, cacheRead: 99_900 }));
+		telemetry.answerGrew("Hello", usage({ input: 100, cacheRead: 99_900 }), "writing");
 		time.advance(4_000);
 		const record = telemetry.answerEnded(usage({ input: 100, cacheRead: 99_900, output: 800 }));
 
@@ -61,23 +61,104 @@ describe("telemetry", () => {
 		const telemetry = new Telemetry(time.now);
 		telemetry.requestStarted();
 		time.advance(500);
-		telemetry.answerGrew("x".repeat(40), usage());
+		telemetry.answerGrew("x".repeat(40), usage(), "writing");
 		time.advance(1_000);
-		telemetry.answerGrew("y".repeat(360), usage());
+		telemetry.answerGrew("y".repeat(360), usage(), "writing");
 
 		const view = telemetry.request();
 		expect(view?.estimated).toBe(true);
-		expect(view?.usage.output).toBe(100);
-		expect(view?.decode).toBe(100);
+		// 400 characters over the ratio measured on real answers (2.9), not a flat 4.
+		expect(view?.usage.output).toBe(138);
+		expect(view?.decode).toBe(138);
+	});
+
+	test("the estimate uses the ratio this session measured", () => {
+		const time = clock();
+		const telemetry = new Telemetry(time.now);
+		telemetry.requestStarted();
+		telemetry.answerGrew("a".repeat(200), usage({ output: 100 }), "writing");
+		telemetry.answerEnded(usage({ output: 100 }));
+
+		// Two characters per token, from that answer: 400 characters is 200 tokens.
+		telemetry.requestStarted();
+		time.advance(500);
+		telemetry.answerGrew("b".repeat(400), usage(), "writing");
+		time.advance(1_000);
+		expect(telemetry.request()?.usage.output).toBe(200);
 	});
 
 	test("waits for a real sample before it shows a live speed", () => {
 		const time = clock();
 		const telemetry = new Telemetry(time.now);
 		telemetry.requestStarted();
-		telemetry.answerGrew("x", usage());
+		telemetry.answerGrew("x", usage(), "writing");
 		time.advance(100);
 		expect(telemetry.request()?.decode).toBeUndefined();
+	});
+
+	test("the wait starts when the request leaves, not when the turn does", () => {
+		const time = clock();
+		const telemetry = new Telemetry(time.now);
+		telemetry.runStarted();
+		telemetry.requestStarted();
+		time.advance(100);
+		telemetry.providerRequestSent();
+		time.advance(400);
+		telemetry.providerResponseArrived();
+		time.advance(300);
+		telemetry.answerGrew("hi", usage({ input: 1_000 }), "writing");
+		time.advance(1_000);
+
+		const record = telemetry.answerEnded(usage({ input: 1_000, output: 50 }));
+		// 400ms to the headers plus 300ms to the first token: the 100ms of building the request is out.
+		expect(record?.firstTokenMs).toBe(700);
+		expect(telemetry.request()?.serverMs).toBe(400);
+		expect(telemetry.request()?.prefillMs).toBe(300);
+	});
+
+	test("a call that left before pi opened its message still has its marks", () => {
+		const time = clock();
+		const telemetry = new Telemetry(time.now);
+		telemetry.runStarted();
+		telemetry.requestStarted();
+		telemetry.answerGrew("x", usage(), "writing");
+		telemetry.answerEnded(usage({ output: 1 }));
+
+		time.advance(5_000);
+		telemetry.providerRequestSent();
+		time.advance(200);
+		telemetry.providerResponseArrived();
+		time.advance(300);
+		telemetry.answerStarted();
+		telemetry.answerGrew("y", usage(), "writing");
+
+		expect(telemetry.request()?.waitMs).toBe(500);
+		expect(telemetry.request()?.serverMs).toBe(200);
+		expect(telemetry.request()?.prefillMs).toBe(300);
+	});
+
+	test("tells the time it thought from the time it waited", () => {
+		const time = clock();
+		const telemetry = new Telemetry(time.now);
+		telemetry.requestStarted();
+		telemetry.providerRequestSent();
+		time.advance(200);
+		telemetry.answerGrew("th", usage(), "thinking");
+		time.advance(900);
+		telemetry.answerGrew("hi", usage(), "writing");
+
+		expect(telemetry.request()?.waitMs).toBe(200);
+		expect(telemetry.request()?.thoughtMs).toBe(900);
+	});
+
+	test("an answer that wrote without thinking has no thought time", () => {
+		const time = clock();
+		const telemetry = new Telemetry(time.now);
+		telemetry.requestStarted();
+		telemetry.providerRequestSent();
+		time.advance(200);
+		telemetry.answerGrew("hi", usage(), "writing");
+		expect(telemetry.request()?.thoughtMs).toBeUndefined();
 	});
 
 	test("counts the requests of a run and freezes its time when it ends", () => {

@@ -32,6 +32,7 @@ export const SEGMENT_IDS = [
 	"context",
 	"speed",
 	"wait",
+	"server",
 	"elapsed",
 	"last",
 	"request",
@@ -240,11 +241,12 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 	},
 	wait: {
 		priority: 55,
-		describe: "time to first token (ttft): how long the model took to start answering",
+		describe:
+			"time to first token (ttft): from the request leaving to the model writing its first token",
 		render: ({ snapshot, glyphs, paint, options }) => {
 			const request = snapshot.request;
 			if (request === undefined) return undefined;
-			const ms = request.waiting ? request.elapsedMs : request.firstTokenMs;
+			const ms = request.waiting ? request.waitingMs : request.waitMs;
 			const icon = glyphs.wait === "" ? "" : `${paint.role("wait", glyphs.wait)} `;
 			const value = cell(ms === undefined ? UNKNOWN : latency(ms), CELL.latency);
 			return {
@@ -272,17 +274,23 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 	last: {
 		priority: 55,
 		describe:
-			"the last call to the model that finished: its wait for the first token and its writing speed",
+			"the last call that finished: how long the model took to start, how long it thought, and how fast it wrote",
 		render: ({ snapshot, glyphs, paint, options }) => {
 			const last = snapshot.last;
 			if (last === undefined) return undefined;
 			const parts: string[] = [];
-			if (last.firstTokenMs !== undefined) {
-				const wait = paint.role("wait", latency(last.firstTokenMs));
+			if (last.waitMs !== undefined) {
+				const wait = paint.role("wait", latency(last.waitMs));
 				parts.push(
 					options.labels
 						? `${wait}${paint.dim(" wait")}`
 						: `${mark(glyphs.wait, paint, "wait")}${wait}`,
+				);
+			}
+			if (last.thoughtMs !== undefined) {
+				const thought = paint.role("wait", latency(last.thoughtMs));
+				parts.push(
+					options.labels ? `${thought}${paint.dim(" thought")}` : `${thought}${paint.dim(" th")}`,
 				);
 			}
 			if (last.decode !== undefined) {
@@ -292,6 +300,16 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 			if (parts.length === 0) return undefined;
 			const label = options.labels ? paint.dim("last call ") : "";
 			return { text: `${label}${parts.join("  ")}`, compact: parts[0] };
+		},
+	},
+	server: {
+		priority: 53,
+		describe:
+			"how long the provider took to answer the request, before the model wrote anything: send to headers",
+		render: ({ snapshot, paint }) => {
+			const ms = snapshot.last?.serverMs;
+			if (ms === undefined) return undefined;
+			return { text: `${paint.role("wait", latency(ms))}${paint.dim(" server")}` };
 		},
 	},
 	request: {

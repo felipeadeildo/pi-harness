@@ -20,12 +20,12 @@ It also comes in [`@adeildo/pi-harness`](../harness), with the rest of the piece
 
 **The strip above the editor** is calm on purpose: nothing in it moves while the model streams except the stopwatch.
 
-| Piece                             | Means                                                                                                                            |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `0:12  3 calls`                   | How long the agent has worked on this prompt, and how many calls to the model it made                                            |
-| `last call 1.7s wait  ↓906 tok/s` | The last call that finished: how long it waited for the first token, and how fast it wrote. Final numbers, never a partial count |
+| Piece                                            | Means                                                                                                                                                          |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0:12  3 calls`                                  | How long the agent has worked on this prompt, and how many calls to the model it made                                                                          |
+| `last call 1.7s wait  900ms thought  ↓906 tok/s` | The last call that finished: how long the model took to start, how long it thought before writing, and how fast it wrote. Final numbers, never a partial count |
 
-The live pieces, which move with every token, go in any slot too: `speed`, `wait`, `request` and `costRate`.
+The wait runs from the moment the request leaves, which pi reports on `before_provider_request`, to the first token of any kind. `thought` is the part of that wait spent thinking before the first word, and only appears when the model thought. The pieces that split it further, `server` (the request leaving to the response headers, which is the provider's own latency) and `prefill` (the headers to the first token, the model reading the prompt), go in any slot. So do the live pieces, which move with every token: `speed`, `wait`, `request` and `costRate`.
 
 The arrows are from where you sit: `↑ in` is what goes to the model, `↓ out` is what comes back. `What is on screen`, in the Slots section of the settings (`Alt+S`), lists every piece with its current value and what it means.
 
@@ -102,7 +102,7 @@ They live in the file every piece shares, `~/.pi/agent/extensions/pi-harness/set
 | `frame.bottomLeft`  | `["status:pi-ask-permission:mode", "model", "status:pi-providers:account", "effort"]` | _project_                                                                                                                                                        |
 | `frame.bottomRight` | `["context"]`                                                                         | _project_                                                                                                                                                        |
 | `below`             | `["cost", "tokens", "cache", "average", "statuses"]`                                  | The line below the editor. _project_                                                                                                                             |
-| `labels`            | `true`                                                                                | A short word before each number: `out`, `in`, `ttft`, `time`, `ctx`, `cache`. Off is denser, with only the glyphs. _project_                                     |
+| `labels`            | `true`                                                                                | A short word before each number: `out`, `in`, `ttft`, `wait`, `thought`, `server`, `time`, `ctx`, `cache`. Off is denser, with only the glyphs. _project_        |
 | `frame.style`       | `"rounded"`                                                                           | `rounded`, `square`, `heavy`, `line` (pi's two rules, written into), or `off`, which leaves pi's editor alone and moves the frame slots to the footer. _project_ |
 | `frame.cursor`      | `"bar"`                                                                               | `block`, `bar` or `underline`. The last two use the terminal's own cursor                                                                                        |
 | `header`            | `"card"`                                                                              | `card`, `compact` (two lines) or `off` (pi's own). _project_                                                                                                     |
@@ -132,8 +132,9 @@ Any segment goes in any slot, in the order the slot lists them.
 | `context`      | Context used, the gauge, tokens over the window                                                       |
 | `speed`        | This answer's speeds, received `↓` and sent `↑`                                                       |
 | `wait`         | Time to the first token                                                                               |
+| `server`       | The last call's time from the request leaving to the response headers                                 |
 | `elapsed`      | The agent's working time, as a stopwatch, and its calls                                               |
-| `last`         | The last finished call: wait for the first token and writing speed                                    |
+| `last`         | The last finished call: its wait, its thought time and its writing speed                              |
 | `request`      | This answer's tokens, with the cache                                                                  |
 | `costRate`     | This answer's cost per million tokens                                                                 |
 | `cost`         | The session's cost                                                                                    |

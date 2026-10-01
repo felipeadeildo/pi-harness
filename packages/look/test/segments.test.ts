@@ -84,7 +84,11 @@ describe("segments", () => {
 				streaming: true,
 				waiting: false,
 				elapsedMs: 4_000,
-				firstTokenMs: 1_700,
+				waitMs: 1_700,
+				waitingMs: 1_700,
+				serverMs: 400,
+				prefillMs: 1_300,
+				thoughtMs: 600,
 				decode: 906,
 				prefill: 48_000,
 				usage: { input: 2, output: 230, cacheRead: 80_000, cacheWrite: 1_300, cost: 0.027 },
@@ -105,7 +109,11 @@ describe("segments", () => {
 				streaming: true,
 				waiting: true,
 				elapsedMs: 3_400,
-				firstTokenMs: undefined,
+				waitMs: undefined,
+				waitingMs: 3_400,
+				serverMs: undefined,
+				prefillMs: undefined,
+				thoughtMs: undefined,
 				decode: undefined,
 				prefill: undefined,
 				usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
@@ -165,15 +173,19 @@ describe("segments", () => {
 	});
 });
 
-const request = (decode: number | undefined, firstTokenMs: number | undefined, output: number) =>
+const request = (decode: number | undefined, waitMs: number | undefined, output: number) =>
 	snapshot({
 		request: {
 			streaming: true,
-			waiting: firstTokenMs === undefined,
+			waiting: waitMs === undefined,
 			elapsedMs: 900,
-			firstTokenMs,
+			waitMs,
+			waitingMs: 900,
+			serverMs: undefined,
+			prefillMs: undefined,
+			thoughtMs: undefined,
 			decode,
-			prefill: firstTokenMs === undefined ? undefined : 48_000,
+			prefill: waitMs === undefined ? undefined : 48_000,
 			usage: { input: 2, output, cacheRead: 80_000, cacheWrite: 0, cost: 0 },
 			estimated: false,
 		},
@@ -204,7 +216,11 @@ describe("labels", () => {
 			streaming: false,
 			waiting: false,
 			elapsedMs: 8_000,
-			firstTokenMs: 1_400,
+			waitMs: 1_400,
+			waitingMs: 1_400,
+			serverMs: 300,
+			prefillMs: 1_100,
+			thoughtMs: 900,
 			decode: 31,
 			prefill: 59_000,
 			usage: { input: 1_200, output: 230, cacheRead: 80_000, cacheWrite: 1_300, cost: 0.06 },
@@ -218,7 +234,7 @@ describe("labels", () => {
 		expect(text(["elapsed", "last", "tokens", "cache", "context"], data, { labels: true })).toEqual(
 			[
 				"0:08  2 calls",
-				"last call 1.4s wait  v31 tok/s",
+				"last call 1.4s wait  900ms thought  v31 tok/s",
 				"^85k in v347 out",
 				"R 97% cached",
 				"ctx 43% ###----- 431k/1M",
