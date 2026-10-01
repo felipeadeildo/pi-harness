@@ -198,7 +198,7 @@ export function isReadOnlyCommand(command: string, env: NodeJS.ProcessEnv = proc
 
 	const expanded = expandLoops(tokens);
 	if (expanded === undefined) return false;
-	tokens = expanded;
+	tokens = expandAssignments(expanded, env);
 
 	let segment: string[] = [];
 	for (let index = 0; index < tokens.length; index++) {
@@ -381,6 +381,66 @@ function expandLoops(tokens: ParseEntry[], depth = 0): ParseEntry[] | undefined 
 	return expanded;
 }
 
+// Names whose value changes what a command does, not only what it reads.
+const SHELL_NAMES = new Set([
+	"IFS",
+	"PATH",
+	"CDPATH",
+	"ENV",
+	"BASH_ENV",
+	"PS4",
+	"HOME",
+	"OLDPWD",
+	"PWD",
+]);
+const ASSIGNMENT = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/s;
+
+// `D=/x; cat "$D/a"` sets a shell variable and reads with it, so the value goes back in like a loop
+// word. Only a plain assignment on its own counts, never `export`, and never a name the environment
+// already has: a child would see that one, and `PATH=...` would change which program runs.
+function expandAssignments(tokens: ParseEntry[], env: NodeJS.ProcessEnv): ParseEntry[] {
+	const values = new Map<string, string>();
+	const expanded: ParseEntry[] = [];
+
+	for (let index = 0; index < tokens.length; index++) {
+		let token = tokens[index];
+		if (token === undefined) continue;
+		for (const [name, value] of values) token = substitute(token, markerFor(name), value);
+
+		const assignment =
+			typeof token === "string" ? plainAssignment(tokens, index, token, env) : undefined;
+		if (assignment === undefined) {
+			expanded.push(token);
+			continue;
+		}
+
+		values.set(assignment.name, assignment.value);
+		// The separator after it goes too, so `D=x; cat` leaves `cat` at the start of its segment.
+		if (tokens[index + 1] !== undefined) index++;
+	}
+	return expanded;
+}
+
+function plainAssignment(
+	tokens: ParseEntry[],
+	index: number,
+	word: string,
+	env: NodeJS.ProcessEnv,
+): { name: string; value: string } | undefined {
+	const match = ASSIGNMENT.exec(word);
+	if (!match) return undefined;
+
+	const [, name = "", value = ""] = match;
+	// The loop word alphabet: no space, so an unquoted `$D` cannot split into paths the check never saw.
+	if (SHELL_NAMES.has(name) || env[name] !== undefined || !LOOP_WORD.test(value)) return undefined;
+
+	// Alone in its segment, and the next one runs after it: `a || D=x` may never set it.
+	const before = index === 0 ? ";" : operatorOf(tokens[index - 1]);
+	const after = index + 1 >= tokens.length ? ";" : operatorOf(tokens[index + 1]);
+	const sequential = (op: string | undefined) => op === ";" || op === "&&";
+	return sequential(before) && sequential(after) ? { name, value } : undefined;
+}
+
 function substitute(token: ParseEntry, marker: string, word: string): ParseEntry {
 	if (typeof token === "string") return token.replaceAll(marker, word);
 	return "pattern" in token ? { ...token, pattern: token.pattern.replaceAll(marker, word) } : token;
@@ -409,7 +469,7 @@ export function commandWords(
 	if (expanded === undefined) return undefined;
 
 	const words: string[] = [];
-	for (const token of expanded) {
+	for (const token of expandAssignments(expanded, env)) {
 		const word = typeof token === "string" ? token : "pattern" in token ? token.pattern : undefined;
 		if (word === undefined) continue;
 		if (word.includes(REFERENCE)) return undefined;

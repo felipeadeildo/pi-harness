@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { isReadOnlyCommand } from "#core/readonly-bash.ts";
+import { commandWords, isReadOnlyCommand } from "#core/readonly-bash.ts";
 
 /** Runs against an empty environment so the tests never depend on the machine. */
 function ro(command: string, env: NodeJS.ProcessEnv = {}): boolean {
@@ -61,6 +61,17 @@ describe("read-only chains", () => {
 		).toBe(true);
 	});
 
+	test("reads with a shell variable set earlier in the command", () => {
+		expect(ro(`D=/tmp/x; grep -n foo "$D/a.md"`)).toBe(true);
+		expect(ro(`D=/tmp/x && cat "$D/a" "$D/b"`)).toBe(true);
+		expect(ro("D=/a; D=$D/b; cat $D")).toBe(true);
+		expect(commandWords(`D=/tmp/x; grep foo "$D/a.md"`, {})).toEqual([
+			"grep",
+			"foo",
+			"/tmp/x/a.md",
+		]);
+	});
+
 	test("a bare newline separates commands", () => {
 		expect(ro("cd /repo\ncat a.tsx")).toBe(true);
 		expect(ro("cat a.tsx\nhead -n 5 b.tsx")).toBe(true);
@@ -73,6 +84,22 @@ describe("read-only chains", () => {
 });
 
 describe("read-only refusals", () => {
+	test("a variable that changes what runs, or that a child would see", () => {
+		expect(ro("PATH=/evil; ls")).toBe(false);
+		expect(ro("IFS=/; cat $D")).toBe(false);
+		expect(ro("export D=/x; cat $D")).toBe(false);
+		expect(ro("PAGER=x; git log", { PAGER: "less" })).toBe(false);
+		expect(ro("D=x cat a")).toBe(false);
+		expect(ro("false || D=/x; cat $D")).toBe(false);
+	});
+
+	test("a variable that hides a flag, a write, or extra words", () => {
+		expect(ro(`D=-i; sed $D f`)).toBe(false);
+		expect(ro("D=x; rm -rf $D")).toBe(false);
+		expect(ro(`D="./a /etc/shadow"; cat $D`)).toBe(false);
+		expect(ro("D=x | cat")).toBe(false);
+	});
+
 	test("redirection, substitution, and subshells", () => {
 		expect(ro("cat > out.ts")).toBe(false);
 		expect(ro("echo hi >> log")).toBe(false);
