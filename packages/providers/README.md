@@ -37,6 +37,7 @@ In `~/.pi/agent/extensions/pi-harness/settings.json`:
 | Key                              | Default     | Does                                                                                                    |
 | -------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------- |
 | `subscription.claudeCodeVersion` | `"2.1.280"` | The Claude Code version Pi reports. Anthropic won't serve newer models to versions it considers too old |
+| `accounts.onLimit`               | `"ask"`     | What a quota or rate limit does when another account exists: `"ask"`, `"switch"`, or `"stop"`           |
 
 When a request comes back with `400 claude_code_version_too_old`, raise the version:
 
@@ -62,6 +63,8 @@ Switch the account:
 
 - `alt+a` picks the account of the current model's provider.
 - The Providers tab of `Alt+S` lists the accounts: choose the one to use, rename one, or remove one.
+
+When a request is refused for a quota or a rate limit, and another account of that provider exists, `accounts.onLimit` decides what happens: `ask` opens a dialog, with the option to always switch from then on; `switch` moves on its own; `stop` leaves the error in front of you. Only a limit that arrives before anything was shown switches, so the retry never repeats output you already saw.
 
 The account in use shows next to the model. The session remembers its choice, so a resume or a fork comes back with the same one, and `pi default` is what a request uses until you choose another.
 
