@@ -10,8 +10,8 @@ export function buildJudgeState(input: JudgeInput): Record<string, unknown> {
 		input: describeInput(input.rawInput),
 	};
 	if (input.source !== undefined) call.source = input.source;
-	if (input.toolDescription?.trim())
-		call.tool_says = truncate(input.toolDescription.trim(), MAX_DESCRIPTION_CHARS);
+	const description = input.toolDescription?.trim();
+	if (description) call.tool_says = truncate(description, MAX_DESCRIPTION_CHARS);
 
 	const state: Record<string, unknown> = {
 		policy: input.policy.trim() || "(no policy provided)",

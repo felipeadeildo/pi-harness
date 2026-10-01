@@ -72,7 +72,7 @@ function leaf<T>(entry: Leaf<T>): Setting<T> {
 	return setting({ id: `permission.${id}`, default: fallback, decoder, ui });
 }
 
-/** A setting with no row of its own: the screen builds one row per server. */
+/** A setting with no row of its own: the screen builds its row, or only the file sets it. */
 function hiddenLeaf<T>(id: string, fallback: T, decoder: Decoder<T>): Setting<T> {
 	return setting({ id: `permission.${id}`, default: fallback, decoder });
 }
@@ -96,7 +96,7 @@ export const OUTSIDE_CONTROL: Control = {
 	options: OUTSIDE_SCOPES.map((value) => ({ value, description: OUTSIDE_DESCRIPTION[value] })),
 };
 
-const fallback = literal("ask", "allow", "deny");
+const judgeFallback = literal("ask", "allow", "deny");
 
 const PERMISSION_LEAVES = {
 	mode: leaf<PermissionMode>({
@@ -242,8 +242,16 @@ const JUDGE_LEAVES = {
 	denyThreshold: hiddenLeaf("judge.thresholds.deny", DEFAULT_JUDGE.thresholds.deny, unit),
 	riskCeiling: hiddenLeaf("judge.riskCeiling", DEFAULT_JUDGE.riskCeiling, unit),
 	canDeny: hiddenLeaf("judge.canDeny", DEFAULT_JUDGE.canDeny, boolean),
-	whenUnsure: hiddenLeaf<JudgeFallback>("judge.whenUnsure", DEFAULT_JUDGE.whenUnsure, fallback),
-	whenItFails: hiddenLeaf<JudgeFallback>("judge.whenItFails", DEFAULT_JUDGE.whenItFails, fallback),
+	whenUnsure: hiddenLeaf<JudgeFallback>(
+		"judge.whenUnsure",
+		DEFAULT_JUDGE.whenUnsure,
+		judgeFallback,
+	),
+	whenItFails: hiddenLeaf<JudgeFallback>(
+		"judge.whenItFails",
+		DEFAULT_JUDGE.whenItFails,
+		judgeFallback,
+	),
 	noUI: hiddenLeaf("judge.noUI", DEFAULT_JUDGE.noUI, boolean),
 	rememberApprovals: hiddenLeaf(
 		"judge.rememberApprovals",
@@ -263,14 +271,14 @@ const RIGOR_NUMBERS = [
 
 /** The rigor in force, or `custom` when the settings file sets the numbers by hand. */
 export function readRigor(scope: SettingsScope): JudgeRigor | "custom" {
-	if (RIGOR_NUMBERS.some((entry) => scope.settings.layer(entry) !== "default")) return "custom";
+	if (RIGOR_NUMBERS.some((entry) => isSetByHand(scope, entry))) return "custom";
 	return JUDGE_LEAVES.rigor.get(scope);
 }
 
 /** Picks a rigor and drops the numbers set by hand, which would otherwise win over it. */
 export function writeRigor(scope: SettingsScope, rigor: JudgeRigor): string | undefined {
 	for (const entry of RIGOR_NUMBERS) {
-		if (scope.settings.layer(entry) === "default") continue;
+		if (!isSetByHand(scope, entry)) continue;
 		const failure = scope.settings.unset(entry, "global");
 		if (failure !== undefined) return failure;
 	}
@@ -400,8 +408,12 @@ export function dropRetiredKeys(scope: SettingsScope): string[] {
 	return lines;
 }
 
+function isSetByHand(scope: SettingsScope, entry: Setting<unknown>): boolean {
+	return scope.settings.layer(entry) !== "default";
+}
+
 function byHand<T>(scope: SettingsScope, entry: Setting<T>): T | undefined {
-	return scope.settings.layer(entry) === "default" ? undefined : entry.get(scope);
+	return isSetByHand(scope, entry) ? entry.get(scope) : undefined;
 }
 
 function workspaceOf(scope: SettingsScope): WorkspaceConfig {
