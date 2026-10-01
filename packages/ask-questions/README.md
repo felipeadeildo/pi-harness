@@ -81,7 +81,7 @@ They live under `questions` in `~/.pi/agent/extensions/pi-harness/settings.json`
 
 ## Coming from rpiv-ask-user-question
 
-The tool keeps the name `ask_user_question` and the same parameters, so the model asks the way it always did. Remove the other package first, since both register the same tool:
+The tool is called `ask_questions` and takes the same parameters as `ask_user_question`. Remove the other package, or the model gets two tools that do the same thing:
 
 ```bash
 pi remove npm:@juicesharp/rpiv-ask-user-question

@@ -30,7 +30,7 @@ export const questions = defineFeature({
 	setup(scope) {
 		scope.registerTool<typeof PARAMETERS, QuestionsResult>({
 			name: TOOL_NAME,
-			label: "Ask User Question",
+			label: "Ask Questions",
 			description: DESCRIPTION,
 			promptSnippet: PROMPT_SNIPPET,
 			promptGuidelines: [...PROMPT_GUIDELINES],

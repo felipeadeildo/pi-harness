@@ -1,9 +1,9 @@
-import { MAX_OPTIONS, MAX_QUESTIONS, MIN_OPTIONS, TYPED_LABEL } from "./schema.ts";
+import { MAX_OPTIONS, MAX_QUESTIONS, MIN_OPTIONS, TOOL_NAME, TYPED_LABEL } from "./schema.ts";
 
 export const PROMPT_SNIPPET = `Ask the user up to ${MAX_QUESTIONS} structured questions (${MIN_OPTIONS}-${MAX_OPTIONS} options each) instead of guessing`;
 
 export const PROMPT_GUIDELINES: readonly string[] = [
-	"Use ask_user_question when the request is underspecified and a wrong guess would cost a redo. Group every open question into one call, never back-to-back calls.",
+	`Use ${TOOL_NAME} when the request is underspecified and a wrong guess would cost a redo. Group every open question into one call, never back-to-back calls.`,
 	`Each question has ${MIN_OPTIONS}-${MAX_OPTIONS} options with a short label (1-5 words) and a description of what the choice means or costs. The dialog adds a "${TYPED_LABEL}" row for the user's own answer, so never write "Other" or a free-answer option yourself.`,
 	"Give every option a preview whenever something can be shown: an ASCII mockup of the screen or layout, the code or config it leads to, a diagram, a diff. Skip it only when the label and description already say everything.",
 	'The user can leave a note on any option, picked or not, to say why yes or why not. Read the notes as part of the answer. If you recommend an option, list it first and end its label with "(Recommended)".',

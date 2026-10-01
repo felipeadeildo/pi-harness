@@ -1,7 +1,7 @@
-// Same shape as rpiv-ask-user-question, so a model that learned that tool asks the same way.
+// Ported from rpiv-ask-user-question.
 import { Type } from "@earendil-works/pi-ai";
 
-export const TOOL_NAME = "ask_user_question";
+export const TOOL_NAME = "ask_questions";
 
 export const MAX_QUESTIONS = 4;
 export const MIN_OPTIONS = 2;
