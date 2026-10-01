@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { join } from "node:path";
 
 import { createApp } from "@adeildo/pi-kit";
-import { fakeContext, fakePi } from "@adeildo/pi-kit/testing";
+import { fakeContext, fakePi, fakeScope } from "@adeildo/pi-kit/testing";
 import {
 	createAssistantMessageEventStream,
 	type Credential,
@@ -11,7 +11,7 @@ import {
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { activeAccount } from "../src/accounts/active.ts";
-import { accounts } from "../src/accounts/feature.ts";
+import { accounts, afterLimit, onLimit } from "../src/accounts/feature.ts";
 import { nativeOf } from "../src/accounts/lift.ts";
 import type { Pins } from "../src/accounts/pins.ts";
 import { AccountStore } from "../src/accounts/store.ts";
@@ -134,4 +134,58 @@ test("the session pin overrides the store default, and null means pi's own crede
 	expect(activeAccount(store, pins, "anthropic")?.credential).toBeUndefined();
 	store.setActive("anthropic", store.accounts("anthropic")[0]?.id);
 	expect(activeAccount(store, pins, "anthropic")?.credential).toEqual(OAUTH);
+});
+
+test("after a limit, ask switches and pins, and stop keeps the error", async () => {
+	const store = new AccountStore();
+	store.add("anthropic", "personal", OAUTH);
+	store.add("anthropic", "work", OTHER);
+	const [personal, work] = store.accounts("anthropic");
+	if (personal === undefined || work === undefined) throw new Error("no accounts");
+	const pins: Pins = new Map([["anthropic", personal.id]]);
+	const scope = fakeScope({ pi: fakePi() });
+	scope.settings.register([onLimit]);
+	const shown: string[] = [];
+	const ctx = fakeContext([], true, {
+		model: { provider: "anthropic" },
+		ui: {
+			setStatus: () => {},
+			notify: () => {},
+			select: async (_title: string, options: string[]) => {
+				shown.push(...options);
+				return options[0];
+			},
+		},
+	});
+
+	const moved = await afterLimit(scope, store, pins, ctx, "anthropic", personal.id, "429");
+	expect(moved?.id).toBe(work.id);
+	expect(pins.get("anthropic")).toBe(work.id);
+	expect(shown[0]).toContain("Switch to work");
+
+	scope.settings.set(onLimit, "stop");
+	expect(await afterLimit(scope, store, pins, ctx, "anthropic", work.id, "429")).toBeUndefined();
+});
+
+test("asking always turns the policy into switch", async () => {
+	const store = new AccountStore();
+	store.add("anthropic", "personal", OAUTH);
+	store.add("anthropic", "work", OTHER);
+	const [personal, work] = store.accounts("anthropic");
+	if (personal === undefined || work === undefined) throw new Error("no accounts");
+	const pins: Pins = new Map([["anthropic", personal.id]]);
+	const scope = fakeScope({ pi: fakePi() });
+	scope.settings.register([onLimit]);
+	const ctx = fakeContext([], true, {
+		model: { provider: "anthropic" },
+		ui: {
+			setStatus: () => {},
+			notify: () => {},
+			select: async (_t: string, options: string[]) => options[1],
+		},
+	});
+
+	await afterLimit(scope, store, pins, ctx, "anthropic", personal.id, "429");
+	expect(onLimit.get(scope)).toBe("switch");
+	expect(pins.get("anthropic")).toBe(work.id);
 });

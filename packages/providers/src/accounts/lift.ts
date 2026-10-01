@@ -6,6 +6,8 @@ import {
 	lazyStream,
 	type Api,
 	type ApiStreamOptions,
+	type AssistantMessage,
+	type AssistantMessageEvent,
 	type AssistantMessageEventStream,
 	type Credential,
 	type Model,
@@ -25,6 +27,11 @@ import {
 export interface AccountSession {
 	resolve(): { id: string; credential: Credential } | undefined;
 	save(id: string, credential: Credential): void;
+	/** The account to try after this one hit a limit, or undefined to surface the error. */
+	afterLimit(
+		currentId: string,
+		reason: string,
+	): Promise<{ id: string; credential: Credential } | undefined>;
 }
 
 /** The native provider behind a lifted one, so lifting twice wraps the same object. */
@@ -101,14 +108,82 @@ function accountStream(
 	context: TranscriptContext,
 	options?: Options,
 ): AssistantMessageEventStream {
-	const account = session.resolve();
-	if (account === undefined) return call(provider, kind, model, context, options ?? {});
+	const first = session.resolve();
+	if (first === undefined) return call(provider, kind, model, context, options ?? {});
 
-	return lazyStream(model, async () => {
-		const resolved = await resolveAuth(provider, session, refreshing, account, options?.signal);
-		const withAuth = applyAuth(resolved, model, options ?? {});
-		return call(provider, kind, withAuth.model, context, withAuth.options);
-	});
+	const settled = options ?? {};
+	return lazyStream(model, async () =>
+		attempts(provider, session, refreshing, kind, model, context, settled, first),
+	);
+}
+
+/** One account may serve a limit that another one does not have. */
+const MAX_ATTEMPTS = 3;
+
+// A quota or a rate limit belongs to the account, so another one can serve. A busy server cannot.
+const LIMIT_PATTERN = /quota|rate[ _-]?limit|too many requests|usage limit|429/i;
+
+async function* attempts(
+	provider: Provider,
+	session: AccountSession,
+	refreshing: Map<string, Promise<OAuthCredential>>,
+	kind: "stream" | "streamSimple",
+	model: Model<Api>,
+	context: TranscriptContext,
+	options: Options,
+	first: { id: string; credential: Credential },
+): AsyncGenerator<AssistantMessageEvent> {
+	let account = first;
+
+	for (let attempt = 1; ; attempt++) {
+		const resolved = await resolveAuth(provider, session, refreshing, account, options.signal);
+		const withAuth = applyAuth(resolved, model, options);
+		const source = call(provider, kind, withAuth.model, context, withAuth.options);
+
+		// Hold the events until something is visible: a retry on another account must not repeat a
+		// message the caller already saw.
+		const buffered: AssistantMessageEvent[] = [];
+		let output = false;
+		let failure: AssistantMessage | undefined;
+		let thrown: unknown;
+		try {
+			for await (const event of source) {
+				if (isContent(event)) {
+					if (!output) {
+						output = true;
+						yield* buffered;
+						buffered.length = 0;
+					}
+					yield event;
+					continue;
+				}
+				if (event.type === "error") failure = event.error;
+				if (output) yield event;
+				else buffered.push(event);
+			}
+		} catch (error) {
+			thrown = error;
+		}
+
+		if (!output && attempt < MAX_ATTEMPTS && failure !== undefined) {
+			const text = failure.errorMessage;
+			if (text !== undefined && LIMIT_PATTERN.test(text)) {
+				const next = await session.afterLimit(account.id, text);
+				if (next !== undefined) {
+					account = next;
+					continue;
+				}
+			}
+		}
+
+		yield* buffered;
+		if (thrown !== undefined) throw thrown;
+		return;
+	}
+}
+
+function isContent(event: AssistantMessageEvent): boolean {
+	return event.type !== "start" && event.type !== "done" && event.type !== "error";
 }
 
 function call(

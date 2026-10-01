@@ -1,6 +1,6 @@
 import { defineFeature, literal, setting } from "@adeildo/pi-kit";
 import type { FeatureScope } from "@adeildo/pi-kit";
-import type { Provider } from "@earendil-works/pi-ai";
+import type { Credential, Provider } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Key } from "@earendil-works/pi-tui";
 
@@ -13,6 +13,7 @@ import { LOGIN_KEY, NAME, STATUS_KEY } from "./names.ts";
 import { pin, replay, type Pins } from "./pins.ts";
 import { accountRows, DEFAULT_ACCOUNT, DEFAULT_LABEL, refreshStatus } from "./screen.ts";
 import { AccountStore } from "./store.ts";
+import type { Account } from "./types.ts";
 
 /** What happens when an account hits the limit of its plan. */
 export const WHEN_LIMITED = ["ask", "switch", "stop"] as const;
@@ -22,6 +23,19 @@ export const onLimit = setting<WhenLimited>({
 	id: "accounts.onLimit",
 	default: "ask",
 	decoder: literal(...WHEN_LIMITED),
+	ui: {
+		section: "Accounts",
+		label: "When an account hits its limit",
+		description: "Ask me first, switch on its own, or stop and tell me.",
+		control: {
+			type: "choice",
+			options: [
+				{ value: "ask", label: "ask me first" },
+				{ value: "switch", label: "switch on its own" },
+				{ value: "stop", label: "stop and tell me" },
+			],
+		},
+	},
 });
 
 export const accounts = defineFeature({
@@ -61,14 +75,59 @@ export const accounts = defineFeature({
 	},
 });
 
-function sessionFor(store: AccountStore, pins: Pins, providerId: string): AccountSession {
+function sessionFor(
+	scope: FeatureScope,
+	store: AccountStore,
+	pins: Pins,
+	ctx: ExtensionContext,
+	providerId: string,
+): AccountSession {
 	return {
 		resolve: () => {
 			const account = activeAccount(store, pins, providerId);
 			return account === undefined ? undefined : { id: account.id, credential: account.credential };
 		},
 		save: (id, credential) => void store.setCredential(providerId, id, credential),
+		afterLimit: (currentId, reason) =>
+			afterLimit(scope, store, pins, ctx, providerId, currentId, reason),
 	};
+}
+
+/** Follows the `accounts.onLimit` policy: ask, switch, or stop, and pins the account it moves to. */
+export async function afterLimit(
+	scope: FeatureScope,
+	store: AccountStore,
+	pins: Pins,
+	ctx: ExtensionContext,
+	providerId: string,
+	currentId: string,
+	reason: string,
+): Promise<{ id: string; credential: Credential } | undefined> {
+	const mode = onLimit.get(scope);
+	if (mode === "stop") return undefined;
+
+	const next = nextAccount(store.accounts(providerId), currentId);
+	if (next === undefined) return undefined;
+
+	if (mode === "ask") {
+		const once = `Switch to ${next.label}`;
+		const always = "Always switch when an account hits its limit";
+		const picked = await ctx.ui.select(`"${currentId}" hit its limit`, [once, always, "Stop here"]);
+		if (picked === always) scope.settings.set(onLimit, "switch");
+		else if (picked !== once) return undefined;
+	}
+
+	pin(scope, pins, providerId, next.id);
+	refreshStatus(store, pins, ctx);
+	ctx.ui.notify(`${NAME}: ${providerId} now uses ${next.label} (${reason})`, "warning");
+	return { id: next.id, credential: next.credential };
+}
+
+/** The account after this one in the list, so a limit moves on instead of repeating. */
+function nextAccount(accounts: readonly Account[], currentId: string): Account | undefined {
+	if (accounts.length < 2) return undefined;
+	const index = accounts.findIndex((account) => account.id === currentId);
+	return accounts[(index + 1) % accounts.length];
 }
 
 function lift(
@@ -89,7 +148,9 @@ function lift(
 		scope.warn(`no provider "${providerId}", so its accounts do nothing`);
 		return;
 	}
-	scope.registerProvider(liftProvider(nativeOf(provider), sessionFor(store, pins, providerId)));
+	scope.registerProvider(
+		liftProvider(nativeOf(provider), sessionFor(scope, store, pins, ctx, providerId)),
+	);
 }
 
 async function pickAccount(

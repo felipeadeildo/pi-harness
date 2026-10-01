@@ -3,6 +3,7 @@ import { expect, test } from "bun:test";
 import {
 	createAssistantMessageEventStream,
 	type Api,
+	type AssistantMessage,
 	type Credential,
 	type Model,
 	type Provider,
@@ -77,6 +78,7 @@ function session(
 		saved,
 		resolve: () => (credential === undefined ? undefined : { id: ACCOUNT_ID, credential }),
 		save: (id, next) => void saved.push({ id, credential: next }),
+		afterLimit: async () => undefined,
 	};
 }
 
@@ -87,6 +89,63 @@ async function settle(): Promise<void> {
 
 const CONTEXT = { messages: [] } as unknown as TranscriptContext;
 const ACCOUNT_ID = "acct";
+
+function assistant(stopReason: "stop" | "error", errorMessage?: string): AssistantMessage {
+	return {
+		role: "assistant",
+		content: [],
+		api: "anthropic-messages",
+		provider: "anthropic",
+		model: "claude",
+		usage: {
+			input: 0,
+			output: 0,
+			cacheRead: 0,
+			cacheWrite: 0,
+			totalTokens: 0,
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+		},
+		stopReason,
+		...(errorMessage === undefined ? {} : { errorMessage }),
+		timestamp: Date.now(),
+	};
+}
+
+/** Fails with a limit on the first credential, and answers on the second. */
+function limitThenAnswer(): Provider {
+	let calls = 0;
+	return {
+		id: "anthropic",
+		name: "Anthropic",
+		auth: { apiKey: { name: "key", resolve: async () => undefined } },
+		getModels: () => [],
+		stream: () => createAssistantMessageEventStream(),
+		streamSimple: () => {
+			calls += 1;
+			const stream = createAssistantMessageEventStream();
+			if (calls > 1) {
+				stream.push({ type: "start", partial: assistant("stop") });
+				stream.push({
+					type: "text_delta",
+					contentIndex: 0,
+					delta: "hi",
+					partial: assistant("stop"),
+				});
+				stream.push({ type: "done", reason: "stop", message: assistant("stop") });
+				stream.end(assistant("stop"));
+			} else {
+				stream.push({ type: "start", partial: assistant("error") });
+				stream.push({
+					type: "error",
+					reason: "error",
+					error: assistant("error", "429 rate limit"),
+				});
+				stream.end(assistant("error", "429 rate limit"));
+			}
+			return stream;
+		},
+	};
+}
 
 test("an OAuth account replaces the api key of the request", async () => {
 	const { provider, seen } = fake();
@@ -157,6 +216,58 @@ test("two requests share one refresh of an expired token", async () => {
 	await settle();
 
 	expect(refreshes()).toBe(1);
+});
+
+test("a limit before any output moves to the next account and answers there", async () => {
+	const first: Credential = { type: "api_key", key: "first" };
+	const second: Credential = { type: "api_key", key: "second" };
+	const asked: string[] = [];
+	const lifted = liftProvider(limitThenAnswer(), {
+		resolve: () => ({ id: "a", credential: first }),
+		save: () => {},
+		afterLimit: async (currentId, reason) => {
+			asked.push(`${currentId}:${reason}`);
+			return { id: "b", credential: second };
+		},
+	});
+
+	const events: string[] = [];
+	for await (const event of lifted.streamSimple(MODEL, CONTEXT)) events.push(event.type);
+
+	expect(asked).toEqual(["a:429 rate limit"]);
+	expect(events).toEqual(["start", "text_delta", "done"]);
+});
+
+test("a busy server is not a limit, so it surfaces instead of switching", async () => {
+	const provider: Provider = {
+		id: "anthropic",
+		name: "Anthropic",
+		auth: { apiKey: { name: "key", resolve: async () => undefined } },
+		getModels: () => [],
+		stream: () => createAssistantMessageEventStream(),
+		streamSimple: () => {
+			const stream = createAssistantMessageEventStream();
+			stream.push({ type: "start", partial: assistant("error") });
+			stream.push({ type: "error", reason: "error", error: assistant("error", "529 overloaded") });
+			stream.end(assistant("error", "529 overloaded"));
+			return stream;
+		},
+	};
+	let asked = false;
+	const lifted = liftProvider(provider, {
+		resolve: () => ({ id: "a", credential: { type: "api_key", key: "first" } }),
+		save: () => {},
+		afterLimit: async () => {
+			asked = true;
+			return undefined;
+		},
+	});
+
+	const events: string[] = [];
+	for await (const event of lifted.streamSimple(MODEL, CONTEXT)) events.push(event.type);
+
+	expect(asked).toBe(false);
+	expect(events).toEqual(["start", "error"]);
 });
 
 test("without an account the native request goes through untouched", async () => {
