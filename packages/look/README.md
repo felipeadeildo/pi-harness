@@ -20,10 +20,10 @@ It also comes in [`@adeildo/pi-harness`](../harness), with the rest of the piece
 
 **The strip above the editor** is calm on purpose: nothing in it moves while the model streams except the stopwatch.
 
-| Piece                              | Means                                                                                                                            |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `0:12 · 3 calls`                   | How long the agent has worked on this prompt, and how many calls to the model it made                                            |
-| `last call 1.7s wait · ↓906 tok/s` | The last call that finished: how long it waited for the first token, and how fast it wrote. Final numbers, never a partial count |
+| Piece                             | Means                                                                                                                            |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `0:12  3 calls`                   | How long the agent has worked on this prompt, and how many calls to the model it made                                            |
+| `last call 1.7s wait  ↓906 tok/s` | The last call that finished: how long it waited for the first token, and how fast it wrote. Final numbers, never a partial count |
 
 The live pieces, which move with every token, go in any slot too: `speed`, `wait`, `request` and `costRate`.
 
@@ -107,7 +107,7 @@ They live in the file every piece shares, `~/.pi/agent/extensions/pi-harness/set
 | `frame.cursor`      | `"bar"`                                                                               | `block`, `bar` or `underline`. The last two use the terminal's own cursor                                                                                        |
 | `header`            | `"card"`                                                                              | `card`, `compact` (two lines) or `off` (pi's own). _project_                                                                                                     |
 | `icons`             | `"auto"`                                                                              | `nerd`, `unicode` or `ascii`. Auto uses Nerd Font glyphs locally and plain Unicode over SSH, where the font lives on the other machine                           |
-| `separator`         | `"dot"`                                                                               | `dot`, `bar`, `slash` or `space`. _project_                                                                                                                      |
+| `separator`         | `"space"`                                                                             | `dot`, `bar`, `slash` or `space`. _project_                                                                                                                      |
 | `pathLength`        | `40`                                                                                  | Longest the folder may be before it loses folders from the left. _project_                                                                                       |
 | `gaugeCells`        | `8`                                                                                   | Cells in the context gauge. `0` hides it. _project_                                                                                                              |
 | `peek`              | `true`                                                                                | The spinner names the state. Off, it says what pi says                                                                                                           |

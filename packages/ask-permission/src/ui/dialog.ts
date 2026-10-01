@@ -160,7 +160,7 @@ export class AskDialog implements Component, Focusable {
 			lines.push(this.theme.fg("dim", this.hint()));
 		}
 
-		return this.frame(lines, width, inner, `permission \u00b7 ${this.title}`);
+		return this.frame(lines, width, inner, this.title);
 	}
 
 	private dispatch(data: string): void {
@@ -430,14 +430,14 @@ export class AskDialog implements Component, Focusable {
 		if (this.openScope === "project") tags.push(this.theme.fg("accent", "for this project"));
 		if (active && this.folder !== undefined && this.folder === this.offer.repoRoot)
 			tags.push(this.theme.fg("dim", "repo root"));
-		return tags.length === 0 ? "" : `  ${tags.join(this.theme.fg("dim", " \u00b7 "))}`;
+		return tags.length === 0 ? "" : `  ${tags.join("  ")}`;
 	}
 
 	// Where the call comes from, when that is worth saying: the server's own hint about the tool, and
 	// the script that issued it.
 	private sourceLines(): string[] {
 		const parts: string[] = [];
-		if (this.mcp) parts.push(`${this.mcp.server} \u00b7 ${describeHints(this.hints)}`);
+		if (this.mcp) parts.push(`${this.mcp.server}: ${describeHints(this.hints)}`);
 		if (this.nested) parts.push("from a codemode script");
 		return parts.length === 0 ? [] : [this.theme.fg("dim", parts.join("   "))];
 	}
@@ -490,7 +490,12 @@ export class AskDialog implements Component, Focusable {
 
 	private topBorder(width: number, title: string): string {
 		const room = Math.max(0, width - TITLE_CHROME_WIDTH);
-		const label = this.theme.fg("accent", truncateToWidth(title, Math.max(0, room - 3), "..."));
+		// The colour tells the dialog from the call, so the two words need nothing between them.
+		const label = truncateToWidth(
+			this.theme.fg("muted", "permission ") + this.theme.fg("accent", title),
+			Math.max(0, room - 3),
+			"...",
+		);
 		const dashes = Math.max(0, room - visibleWidth(label));
 
 		return (

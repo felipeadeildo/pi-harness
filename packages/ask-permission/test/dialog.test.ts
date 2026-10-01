@@ -442,8 +442,8 @@ describe("an MCP call, and a call a script made", () => {
 		});
 		const text = dialog.render(80).join("\n");
 
-		expect(text).toContain("permission \u00b7 sauron:delete_dashboard");
-		expect(text).toContain("sauron \u00b7 destructive   from a codemode script");
+		expect(text).toContain("permission sauron:delete_dashboard");
+		expect(text).toContain("sauron: destructive   from a codemode script");
 		expect(text).toContain('{"dashboard":"1"}');
 	});
 
@@ -451,12 +451,12 @@ describe("an MCP call, and a call a script made", () => {
 		const { dialog } = open("mcp__dorothy__list_domains", {}, undefined, {
 			mcp: { server: "dorothy", tool: "list_domains" },
 		});
-		expect(dialog.render(80).join("\n")).toContain("dorothy \u00b7 does not say it reads");
+		expect(dialog.render(80).join("\n")).toContain("dorothy: does not say it reads");
 	});
 
 	test("a plain tool says nothing about servers or scripts", () => {
 		const text = open().dialog.render(80).join("\n");
-		expect(text).toContain("permission \u00b7 bash");
+		expect(text).toContain("permission bash");
 		expect(text).not.toContain("does not say it reads");
 		expect(text).not.toContain("codemode");
 	});

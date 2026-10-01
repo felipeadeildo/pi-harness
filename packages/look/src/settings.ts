@@ -174,7 +174,7 @@ export const icons = setting<IconMode>({
 
 export const separator = setting<SeparatorStyle>({
 	id: "look.separator",
-	default: "dot",
+	default: "space",
 	decoder: literal("dot", "bar", "slash", "space"),
 	project: true,
 	ui: { section: "Footer", label: "Separator", description: "Between the pieces of a slot." },

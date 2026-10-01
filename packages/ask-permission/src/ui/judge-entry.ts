@@ -54,7 +54,7 @@ class JudgeEntry implements Component {
 		try {
 			return this.build(width);
 		} catch {
-			return [this.theme.fg("dim", `${NAME} \u00b7 judge \u00b7 unreadable entry`)];
+			return [this.theme.fg("dim", `${NAME} judge: unreadable entry`)];
 		}
 	}
 
@@ -64,8 +64,8 @@ class JudgeEntry implements Component {
 
 		if (this.records.length > 1) {
 			lines.push(
-				this.theme.fg("accent", this.theme.bold(`${NAME} \u00b7 judge`)) +
-					this.theme.fg("dim", ` \u00b7 ${this.records.length} decisions`),
+				this.theme.fg("accent", this.theme.bold(`${NAME} judge`)) +
+					this.theme.fg("dim", `  ${this.records.length} decisions`),
 			);
 		}
 

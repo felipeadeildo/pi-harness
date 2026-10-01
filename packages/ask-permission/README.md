@@ -38,7 +38,7 @@ pi install npm:@adeildo/pi-ask-permission
 Ask the agent to do something that writes, like `run the tests`. The dialog opens before the command runs:
 
 ```
-╭─ permission · bash ──────────────────────────────────╮
+╭─ permission bash ────────────────────────────────────╮
 │ pnpm test                                            │
 │                                                      │
 │ ❯ 1  yes                                             │
@@ -60,7 +60,7 @@ Reads inside the project never ask. `read`, `grep`, `find`, `ls`, and bash comma
 Pick `always yes`, then choose how much to remember and for how long:
 
 ```
-╭─ permission · bash ──────────────────────────────────╮
+╭─ permission bash ────────────────────────────────────╮
 │ pnpm test                                            │
 │                                                      │
 │ always yes for...                                    │
@@ -103,7 +103,7 @@ A resumed session keeps its mode and its `Alt+W` choice. A new one starts from `
 In a monorepo, a session in `apps/api` that reads `apps/web` leaves the workspace. The dialog says so and offers to open the repository for reads. The cursor starts on that answer:
 
 ```text
-╭─ permission · bash ──────────────────────────────────────────╮
+╭─ permission bash ────────────────────────────────────────────╮
 │ cd ~/Projects/grace/apps/web && git status --short | head    │
 │ ▲ reads outside the workspace                                │
 │                                                              │
@@ -142,9 +142,9 @@ The resource tools pi adds for reading resources name the server in their argume
 The dialog names the server and repeats what it declares, and says when a script issued the call:
 
 ```text
-╭─ permission · sauron:delete_dashboard ──────────────────────╮
+╭─ permission sauron:delete_dashboard ────────────────────────╮
 │ {"uid":"abc","id":12}                                       │
-│ sauron · destructive                                        │
+│ sauron: destructive                                         │
 │                                                             │
 │   1  yes                                                    │
 │   2  always yes                                             │

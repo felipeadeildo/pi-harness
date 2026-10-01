@@ -35,7 +35,7 @@ export function setSessionMode(
 	renderStatus(ctx, state);
 
 	if (!announce) return;
-	ctx.ui.notify(`${NAME}: ${mode} \u00b7 ${MODES[mode].description}`, "info");
+	ctx.ui.notify(`${NAME}: ${mode}, ${MODES[mode].description}`, "info");
 	notifyJudgePolicyWarning(state, ctx);
 }
 
@@ -51,7 +51,7 @@ export function setSessionOutside(
 	renderStatus(ctx, state);
 
 	if (!announce) return;
-	ctx.ui.notify(`${NAME}: outside ${outside} \u00b7 ${OUTSIDE_DESCRIPTION[outside]}`, "info");
+	ctx.ui.notify(`${NAME}: outside ${outside}, ${OUTSIDE_DESCRIPTION[outside]}`, "info");
 }
 
 export function notifyJudgePolicyWarning(
@@ -84,12 +84,12 @@ export function renderStatus(
 	const theme = ctx.ui.theme;
 	const parts: string[] = [];
 	if (!quiet) {
-		const label = tag === undefined ? state.mode : `${state.mode} \u00b7 ${tag}`;
+		const label = tag === undefined ? state.mode : `${state.mode} (${tag})`;
 		const color = state.outside === "allow" ? "error" : "warning";
 		parts.push(theme.fg(color, `${ARROW[state.mode]}${label}`));
 	}
 	// Open folders widen the workspace, so the status bar counts them.
 	if (folders > 0)
 		parts.push(theme.fg("dim", `+${folders} ${folders === 1 ? "folder" : "folders"}`));
-	ctx.ui.setStatus(MODE_STATUS, parts.join(theme.fg("dim", " \u00b7 ")));
+	ctx.ui.setStatus(MODE_STATUS, parts.join("  "));
 }

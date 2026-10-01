@@ -53,7 +53,7 @@ function defaultRow(group: ProviderGroup): ScreenEntry {
 		section: group.label,
 		label: DEFAULT_LABEL,
 		description: "The credential of /login, which stays in pi's own store.",
-		text: () => (inUse(group) ? "login · in use" : "login"),
+		text: () => (inUse(group) ? "login, in use" : "login"),
 		indent: 1,
 		run: (ctx) => {
 			group.store.setActive(group.providerId, undefined);
@@ -76,7 +76,7 @@ function accountBlock(group: ProviderGroup, account: Account): ScreenEntry[] {
 			description: subscription ? "Saved from a subscription login." : "Saved as an API key.",
 			text: () => {
 				const kind = subscription ? "subscription" : "api key";
-				return inUse(group, account) ? `${kind} · in use` : kind;
+				return inUse(group, account) ? `${kind}, in use` : kind;
 			},
 			indent: 1,
 			run: (ctx) => {

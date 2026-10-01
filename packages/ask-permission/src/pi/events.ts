@@ -156,7 +156,7 @@ async function gate(
 		const scope = answer.scope ?? "session";
 		rememberAlwaysYes(pi, state, ctx, scope, call.toolName, answer.remember);
 		ctx.ui.notify(
-			`${NAME}: always yes for ${call.toolName} \u00b7 ${answer.remember} (${SCOPE_LABEL[scope]})`,
+			`${NAME}: always yes for ${call.toolName}: ${answer.remember} (${SCOPE_LABEL[scope]})`,
 			"info",
 		);
 	}

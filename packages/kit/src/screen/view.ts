@@ -645,13 +645,13 @@ export class ScreenView implements Component {
 		const mode = this.#mode;
 		switch (mode.kind) {
 			case "pick":
-				return "\u2191\u2193 move \u00b7 \u21b5 pick \u00b7 esc back";
+				return "\u2191\u2193 move   \u21b5 pick   esc back";
 			case "check":
-				return "\u2191\u2193 move \u00b7 space check \u00b7 alt+\u2191\u2193 reorder \u00b7 \u21b5 save \u00b7 esc back";
+				return "\u2191\u2193 move   space check   alt+\u2191\u2193 reorder   \u21b5 save   esc back";
 			case "input":
-				return "\u21b5 save \u00b7 esc cancel";
+				return "\u21b5 save   esc cancel";
 			case "text":
-				return "\u2191\u2193 scroll \u00b7 esc back";
+				return "\u2191\u2193 scroll   esc back";
 			case "browse":
 				break;
 		}
@@ -667,7 +667,7 @@ export class ScreenView implements Component {
 		else if (row?.kind === "setting" && row.layer === "global") parts.push("del reset");
 		if (!model.searching) parts.push("\u2190\u2192 tabs", "\u21e5 section");
 		parts.push(model.searching ? "esc clear search" : "esc close");
-		return parts.join(" \u00b7 ");
+		return parts.join("   ");
 	}
 }
 
@@ -696,7 +696,7 @@ function rowMeta(row: RowView): string {
 		parts.push(`default ${fallback}`);
 	} else if (row.kind === "value") parts.push(row.meta ?? "this session only");
 	if (row.restart === true) parts.push("applies after /reload");
-	return parts.join(" \u00b7 ");
+	return parts.join(", ");
 }
 
 function valueColor(layer: Layer | undefined): "accent" | "warning" | "muted" | "text" {

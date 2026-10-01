@@ -71,7 +71,7 @@ describe("judge entry", () => {
 
 	test("degrades to a stub instead of throwing on drifted data", () => {
 		const broken = { ...record(), answers: undefined } as unknown as JudgeRecord;
-		expect(lines([broken])).toEqual(["pi-ask-permission \u00b7 judge \u00b7 unreadable entry"]);
+		expect(lines([broken])).toEqual(["pi-ask-permission judge: unreadable entry"]);
 	});
 
 	test("shows the reason and signals only when expanded", () => {

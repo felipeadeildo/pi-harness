@@ -438,7 +438,7 @@ describe("an MCP call in the dialog", () => {
 			ctx,
 		);
 
-		expect(shown[0]).toContain("permission \u00b7 sauron:delete_dashboard");
-		expect(shown[0]).toContain("sauron \u00b7 destructive");
+		expect(shown[0]).toContain("permission sauron:delete_dashboard");
+		expect(shown[0]).toContain("sauron: destructive");
 	});
 });

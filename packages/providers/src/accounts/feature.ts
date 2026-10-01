@@ -186,7 +186,7 @@ async function pickAccount(
 	];
 	const options = choices.map((choice, index) => {
 		const here = choice.id === current ? " ✓" : "";
-		return `${index + 1}  ${choice.label} · ${choice.kind}${here}`;
+		return `${index + 1}  ${choice.label} (${choice.kind})${here}`;
 	});
 
 	const picked = await ctx.ui.select(`Account for ${providerId}`, options);

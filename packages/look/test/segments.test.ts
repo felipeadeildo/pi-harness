@@ -217,8 +217,8 @@ describe("labels", () => {
 		});
 		expect(text(["elapsed", "last", "tokens", "cache", "context"], data, { labels: true })).toEqual(
 			[
-				"0:08 · 2 calls",
-				"last call 1.4s wait · v31 tok/s",
+				"0:08  2 calls",
+				"last call 1.4s wait  v31 tok/s",
 				"^85k in v347 out",
 				"R 97% cached",
 				"ctx 43% ###----- 431k/1M",

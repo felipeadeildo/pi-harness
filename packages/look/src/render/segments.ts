@@ -265,7 +265,7 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 			const calls =
 				run.requests <= 1
 					? ""
-					: paint.dim(options.labels ? ` · ${run.requests} calls` : ` ×${run.requests}`);
+					: paint.dim(options.labels ? `  ${run.requests} calls` : ` ×${run.requests}`);
 			return { text: `${icon}${time}${calls}`, compact: `${icon}${time}` };
 		},
 	},
@@ -291,7 +291,7 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 			}
 			if (parts.length === 0) return undefined;
 			const label = options.labels ? paint.dim("last call ") : "";
-			return { text: `${label}${parts.join(paint.dim(" · "))}`, compact: parts[0] };
+			return { text: `${label}${parts.join("  ")}`, compact: parts[0] };
 		},
 	},
 	request: {
@@ -408,7 +408,7 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 			if (texts.length === 0) return undefined;
 			const icon = glyphs.plug === "" ? "" : `${paint.dim(glyphs.plug)} `;
 			return {
-				text: `${icon}${texts.join(paint.dim(" · "))}`,
+				text: `${icon}${texts.join("  ")}`,
 				compact: `${icon}${texts[0] ?? ""}`,
 			};
 		},
@@ -450,7 +450,7 @@ function cacheParts(
 			read === "" ? "" : `${paint.dim("read ")}${paint.role("cache", read)}`,
 			write === "" ? "" : `${paint.dim("wrote ")}${paint.role("cache", write)}`,
 		].filter((part) => part !== "");
-		return parts.length === 0 ? "" : `${paint.dim("cache ")}${parts.join(paint.dim(" · "))}`;
+		return parts.length === 0 ? "" : `${paint.dim("cache ")}${parts.join("  ")}`;
 	}
 	return [
 		read === "" ? "" : `${paint.role("cache", glyphs.cacheRead)}${read}`,

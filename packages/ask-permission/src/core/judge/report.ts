@@ -26,7 +26,7 @@ export function judgeLogText(log: JudgeRecord[], limit = 10): string {
 }
 
 function describeJudgeRecord(record: JudgeRecord): string {
-	return `\u00b7 ${judgeActionLabel(record)} ${record.toolName}: ${oneLine(record.summary)}, ${record.reason} (${judgeStatText(record)} \u00b7 ${record.model})`;
+	return `${judgeActionLabel(record)} ${record.toolName}: ${oneLine(record.summary)}, ${record.reason} (${judgeStatText(record)}, ${record.model})`;
 }
 
 export function judgeActionLabel(record: JudgeRecord): string {
@@ -44,11 +44,11 @@ export function judgeStatText(record: JudgeRecord): string {
 	if (record.risk !== undefined) parts.push(`risk ${record.risk.toFixed(2)}`);
 	parts.push(`${record.elapsedMs}ms`);
 
-	return parts.join(" \u00b7 ");
+	return parts.join(", ");
 }
 
 export function judgeVerdictText(record: JudgeRecord): string {
-	return `${judgeActionLabel(record)} \u00b7 ${judgeStatText(record)} \u00b7 ${record.model}`;
+	return `${judgeActionLabel(record)}, ${judgeStatText(record)}, ${record.model}`;
 }
 
 export function judgeSignalText(record: JudgeRecord): string {
@@ -61,7 +61,7 @@ export function judgeSignalText(record: JudgeRecord): string {
 		parts.push(`sensitive ${answers.sensitive_access.toFixed(2)}`);
 	if (record.withIntent) parts.push("saw your last message");
 
-	return parts.join(" \u00b7 ") || "no signals";
+	return parts.join(", ") || "no signals";
 }
 
 export function flatten(text: string): string {

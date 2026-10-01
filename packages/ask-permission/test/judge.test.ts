@@ -623,9 +623,7 @@ describe("judge report", () => {
 			answers: { verdict: { choice: "allow", confidence: 0.94 } },
 		};
 
-		expect(judgeVerdictText(record)).toBe(
-			"would approve \u00b7 94% \u00b7 risk 0.12 \u00b7 312ms \u00b7 jev-1.13.0",
-		);
+		expect(judgeVerdictText(record)).toBe("would approve, 94%, risk 0.12, 312ms, jev-1.13.0");
 	});
 
 	test("lists the signals behind the verdict", () => {
@@ -637,7 +635,7 @@ describe("judge report", () => {
 			},
 		};
 
-		expect(judgeSignalText(record)).toBe("reversibility 0.20 \u00b7 sensitive 0.00");
+		expect(judgeSignalText(record)).toBe("reversibility 0.20, sensitive 0.00");
 	});
 
 	test("says when the judge saw the last message", () => {
