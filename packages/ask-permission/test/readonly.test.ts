@@ -7,6 +7,10 @@ function ro(command: string, env: NodeJS.ProcessEnv = {}): boolean {
 	return isReadOnlyCommand(command, env);
 }
 
+function words(command: string): string[] | undefined {
+	return commandWords(command, {});
+}
+
 describe("read-only chains", () => {
 	test("allows a chain of known read commands", () => {
 		expect(
@@ -95,9 +99,38 @@ describe("read-only refusals", () => {
 
 	test("a variable that hides a flag, a write, or extra words", () => {
 		expect(ro(`D=-i; sed $D f`)).toBe(false);
+		expect(ro("D=--list; git branch $D foo")).toBe(false);
 		expect(ro("D=x; rm -rf $D")).toBe(false);
 		expect(ro(`D="./a /etc/shadow"; cat $D`)).toBe(false);
 		expect(ro("D=x | cat")).toBe(false);
+	});
+
+	test("a variable bash would see with another value", () => {
+		// `$E` is empty when D is set, so bash runs `git push`.
+		expect(ro("D=$E; E=status; git $D push")).toBe(false);
+		expect(ro("D=$E; E=show; git remote $D add o u")).toBe(false);
+		expect(ro("D=$E; E=1p; sed $D 'w f'")).toBe(false);
+		// `false` fails, so D is never set.
+		expect(ro("false && D=show; git remote $D add o u")).toBe(false);
+		expect(ro("_=status; git $_ push")).toBe(false);
+	});
+
+	// The words decide the workspace, so a wrong value would let `rm -rf /etc` pass as `./a`.
+	test("no value is resolved where bash may have changed it", () => {
+		expect(words("D=/etc; true && D=./a; rm -rf $D")).toBeUndefined();
+		expect(words("D=/etc; for f in; do D=./a; done; rm -rf $D")).toBeUndefined();
+		expect(words("D=./a; printf -v D /etc; rm $D")).toBeUndefined();
+		expect(words("D=./a; read D; rm $D")).toBeUndefined();
+		expect(words("D=/etc; (true; D=./a; ); rm $D")).toBeUndefined();
+		expect(words("D=./a; trap 'D=/etc' DEBUG; rm $D")).toBeUndefined();
+		expect(commandWords("D=./a; f; rm $D", { "BASH_FUNC_f%%": "() { D=/etc; }" })).toBeUndefined();
+		// A sure assignment after an unsure one is known again.
+		expect(words("true && D=/etc; D=./a; rm $D")).toEqual(["true", "D=/etc", "rm", "./a"]);
+	});
+
+	test("text that looks like the classifier's own marker", () => {
+		expect(ro("D=--list; git branch AASKREFRAAASKREF")).toBe(false);
+		expect(ro("cat AASKREFRAAASKREF")).toBe(false);
 	});
 
 	test("redirection, substitution, and subshells", () => {
