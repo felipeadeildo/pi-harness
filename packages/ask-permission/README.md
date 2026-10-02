@@ -39,11 +39,10 @@ Ask the agent to do something that writes, like `run the tests`. The dialog open
 │ ▎                                                                                                │
 │ ▎ ▲ the judge leaned deny but was only 61% confident                                             │
 │                                                                                                  │
-│   1  yes, run it                    │ Block it. Anything you type becomes the reason the model   │
-│   2  always yes                     │ reads.                                                     │
+│   1  yes, run it                    │ Block it. A note on this answer becomes the reason the     │
+│   2  always yes                     │ model reads.                                               │
 │ ❯ 3  no  › use pnpm instead         │                                                            │
-│   4  Type something.                │ › use pnpm instead                                         │
-│                                     │                                                            │
+│                                     │ › use pnpm instead                                         │
 │                                                                                                  │
 │ ↑↓ move   enter choose   tab note   esc cancel                                                   │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
@@ -51,7 +50,7 @@ Ask the agent to do something that writes, like `run the tests`. The dialog open
 
 <!-- /docs -->
 
-`enter` picks the highlighted answer and `esc` cancels, which denies. `tab` writes a note on the highlighted answer. An answer typed in your own words instead of a pick blocks the call, and your words become the reason the model reads. A command longer than three lines shows its first three and how many are left.
+`enter` picks the highlighted answer and `esc` cancels, which denies. `tab` writes a note on the highlighted answer, and the note on `no` is the reason the model reads. A command longer than three lines shows its first three and how many are left.
 
 Reads inside the project never ask: `read`, `grep`, `find`, `ls`, and bash commands that only read, like `cat`, `git log` or `rg`. An `edit` or `write` shows the diff it would make.
 
@@ -70,8 +69,6 @@ Pick `always yes` and it asks what to remember, then for how long:
 │                                                                                                  │
 │ ❯ 1  pnpm test                     │ Only this exact call.                                       │
 │   2  pnpm                          │                                                             │
-│   3  Type something.               │                                                             │
-│                                    │                                                             │
 │                                    │                                                             │
 │                                                                                                  │
 │ ↑↓ move   enter choose   tab note   esc cancel                                                   │
@@ -121,7 +118,6 @@ In a monorepo, a session in `apps/api` that reads `apps/web` leaves the workspac
 │   2  always yes                             │                                                    │
 │ ❯ 3  yes, and allow reads in /home/me/Proj… │ Run it, and let later calls read there without     │
 │   4  no                                     │ asking.                                            │
-│   5  Type something.                        │                                                    │
 │                                             │                                                    │
 │                                             │                                                    │
 │                                                                                                  │

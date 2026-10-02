@@ -57,7 +57,7 @@ Several questions become tabs. `●` is where you are, `✓` is an answered ques
 
 ## Notes
 
-`tab` writes a note on the focused option, picked or not. The note shows next to the option and in full in the panel, and it goes back to the model with your answer. "Tree, but too long with five accounts" tells the model more than the pick alone.
+`tab` writes a note on the focused option, picked or not. You write it in the panel, where there is room, and it shows next to the option as you type. It goes back to the model with your answer. "Tree, but too long with five accounts" tells the model more than the pick alone.
 
 ## Several picks
 
@@ -142,6 +142,8 @@ if (canAsk(scope.events)) {
 	const result = await askQuestions(scope.events, questions);
 }
 ```
+
+A question can set `typed: false` to leave out the row for your own words, as the permission ask does. The model's tool always has the row.
 
 `canAsk` is a synchronous probe. With nobody to draw the dialog, `askQuestions` would never settle, so check first. The provider always answers, even when the dialog fails, and the answer carries the error.
 

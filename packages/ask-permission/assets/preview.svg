@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1256" height="506" viewBox="0 0 1256 506">
-<rect width="1256" height="506" rx="14" fill="#18181e"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1256" height="476" viewBox="0 0 1256 476">
+<rect width="1256" height="476" rx="14" fill="#18181e"/>
 <rect x="52.00" y="88" width="3.00" height="30" fill="#5fa8cc"/>
 <rect x="52.00" y="118" width="3.00" height="30" fill="#5fa8cc"/>
 <rect x="52.00" y="148" width="3.00" height="30" fill="#5fa8cc"/>
@@ -35,13 +35,13 @@
 <text x="76.00" y="259" fill="#7e888e">1</text>
 <text x="112.00" y="259" fill="#dee0e1">yes, run it</text>
 <text x="472.00" y="259" fill="#768186"> │ </text>
-<text x="508.00" y="259" fill="#dee0e1">Block it. Anything you type becomes the reason the model</text>
+<text x="508.00" y="259" fill="#dee0e1">Block it. A note on this answer becomes the reason the</text>
 <text x="1216.00" y="259" fill="#5fa8cc">│</text>
 <text x="28.00" y="289" fill="#5fa8cc">│</text>
 <text x="76.00" y="289" fill="#7e888e">2</text>
 <text x="112.00" y="289" fill="#dee0e1">always yes</text>
 <text x="472.00" y="289" fill="#768186"> │ </text>
-<text x="508.00" y="289" fill="#dee0e1">reads.</text>
+<text x="508.00" y="289" fill="#dee0e1">model reads.</text>
 <text x="1216.00" y="289" fill="#5fa8cc">│</text>
 <text x="28.00" y="319" fill="#5fa8cc">│</text>
 <text x="52.00" y="319" fill="#a798d7">❯ 3</text>
@@ -51,27 +51,22 @@
 <text x="472.00" y="319" fill="#768186"> │ </text>
 <text x="1216.00" y="319" fill="#5fa8cc">│</text>
 <text x="28.00" y="349" fill="#5fa8cc">│</text>
-<text x="76.00" y="349" fill="#7e888e">4</text>
-<text x="112.00" y="349" fill="#dee0e1">Type something.</text>
 <text x="472.00" y="349" fill="#768186"> │ </text>
 <text x="508.00" y="349" fill="#cd9a22">› </text>
 <text x="532.00" y="349" fill="#9da5a9">use pnpm instead</text>
 <text x="1216.00" y="349" fill="#5fa8cc">│</text>
 <text x="28.00" y="379" fill="#5fa8cc">│</text>
-<text x="472.00" y="379" fill="#768186"> │ </text>
 <text x="1216.00" y="379" fill="#5fa8cc">│</text>
 <text x="28.00" y="409" fill="#5fa8cc">│</text>
+<text x="52.00" y="409" fill="#9da5a9">↑↓</text>
+<text x="88.00" y="409" fill="#7e888e">move</text>
+<text x="172.00" y="409" fill="#9da5a9">enter</text>
+<text x="244.00" y="409" fill="#7e888e">choose</text>
+<text x="352.00" y="409" fill="#9da5a9">tab</text>
+<text x="400.00" y="409" fill="#7e888e">note</text>
+<text x="484.00" y="409" fill="#9da5a9">esc</text>
+<text x="532.00" y="409" fill="#7e888e">cancel</text>
 <text x="1216.00" y="409" fill="#5fa8cc">│</text>
-<text x="28.00" y="439" fill="#5fa8cc">│</text>
-<text x="52.00" y="439" fill="#9da5a9">↑↓</text>
-<text x="88.00" y="439" fill="#7e888e">move</text>
-<text x="172.00" y="439" fill="#9da5a9">enter</text>
-<text x="244.00" y="439" fill="#7e888e">choose</text>
-<text x="352.00" y="439" fill="#9da5a9">tab</text>
-<text x="400.00" y="439" fill="#7e888e">note</text>
-<text x="484.00" y="439" fill="#9da5a9">esc</text>
-<text x="532.00" y="439" fill="#7e888e">cancel</text>
-<text x="1216.00" y="439" fill="#5fa8cc">│</text>
-<text x="28.00" y="469" fill="#5fa8cc">╰──────────────────────────────────────────────────────────────────────────────────────────────────╯</text>
+<text x="28.00" y="439" fill="#5fa8cc">╰──────────────────────────────────────────────────────────────────────────────────────────────────╯</text>
 </g>
 </svg>
