@@ -19,7 +19,7 @@ src/
   core/         # policy and judging, no pi and no TUI
     config/     # schema, decode, store, patterns
     judge/      # pipeline, compose, request, policy, backends
-  ui/           # TUI: dialog, selector, settings, judge entry
+  ui/           # the permission question for the questions dialog, the host selector, the judge entry
   util/         # decoders and primitives
 ```
 

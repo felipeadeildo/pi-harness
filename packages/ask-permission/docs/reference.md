@@ -1,22 +1,6 @@
 # Permission reference
 
-Everything the [README](../README.md) leaves out: the keys, every setting, the order in which a call is decided, the limits, and the hooks for other extensions.
-
-## Dialog keys
-
-These are the keys of the permission dialog. With [`@adeildo/pi-ask-questions`](../../ask-questions) installed, that package draws it, and its keys are listed on its page. The classic dialog below is the fallback.
-
-| Key                    | Does                                                 |
-| ---------------------- | ---------------------------------------------------- |
-| `↑` `↓` or `1` `2` `3` | Move the highlight                                   |
-| `enter`                | Confirm the highlighted row                          |
-| `←` `→`                | Pick the folder to open, on the folder row           |
-| `s`                    | Keep the folder for this project, on the folder row  |
-| `tab`                  | Open or close a note, or change the always yes scope |
-| `esc`                  | Close the note, or deny                              |
-| `ctrl+v`               | Paste a clipboard image as its file path             |
-
-A long paste collapses to `[paste #1 +48 lines]` and expands when you confirm.
+Everything the [README](../README.md) leaves out: every setting, the order in which a call is decided, the limits, and the hooks for other extensions.
 
 ## Configuration
 

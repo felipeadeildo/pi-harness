@@ -21,7 +21,7 @@ Answer `yes`, `always yes` or `no`, and leave a note if you want. The note reach
 pi install npm:@adeildo/pi-ask-permission
 ```
 
-There is nothing to configure. It also comes in [`@adeildo/pi-harness`](../harness), with the rest of the pieces.
+There is nothing to configure, and the dialog comes with it. It also comes in [`@adeildo/pi-harness`](../harness), with the rest of the pieces.
 
 `pi-ask-permission` on npm is this same extension under an older name, and it reads the same settings, grants and sessions. To switch, run `pi remove npm:pi-ask-permission` and install this one.
 
@@ -54,7 +54,7 @@ Ask the agent to do something that writes, like `run the tests`. The dialog open
 
 Reads inside the project never ask: `read`, `grep`, `find`, `ls`, and bash commands that only read, like `cat`, `git log` or `rg`. An `edit` or `write` shows the diff it would make.
 
-This is the dialog of [`@adeildo/pi-ask-questions`](../ask-questions), so the permission ask and the model's questions share the same keys and notes. Without that package you get a classic dialog with the same answers, and RPC hosts always get it, since they cannot draw a terminal component. Its keys are in the [reference](docs/reference.md#dialog-keys).
+This is the dialog of [`@adeildo/pi-ask-questions`](../ask-questions), which comes with this package, so the permission ask and the model's questions share the same keys and notes. If you switch that feature off in `pi config`, and in RPC hosts that cannot draw a terminal component, Pi asks through its own selector, with the same answers and no panel.
 
 ## Stop answering the same question
 
