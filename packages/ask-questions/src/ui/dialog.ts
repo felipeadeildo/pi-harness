@@ -44,12 +44,10 @@ const TITLE_ROWS = 2;
 const ROW_PREFIX = 11;
 /** What the typed answer asks of the panel while it is still empty. */
 const TYPED_NEED = 5;
-/** Two spaces, the arrow of the note and a space, between the label and what you said. */
-const NOTE_LEAD = 4;
+/** The arrow that opens a note in the panel, and marks on its row that the option has one. */
+const NOTE_MARK = "\u203a";
 /** A blank line and the line of the note editor, under the detail of an option. */
 const NOTE_EDITOR_ROWS = 2;
-/** The room a note always leaves for the label. */
-const NOTE_ROOM = 8;
 
 /** The rows a body may use, and the rows its panel asks for. */
 interface BodySize {
@@ -549,26 +547,20 @@ export class QuestionDialog implements Component, Focusable {
 				: "";
 		const prefix = 2 + 1 + 2 + (box === "" ? 0 : 4);
 
+		// The note itself lives in the panel. The row only says there is one, with the same arrow.
 		const input = typed ? undefined : draft.notes[row];
-		const note = input?.getValue().trim() ?? "";
-		const hasNote = note !== "";
+		const hasNote = input !== undefined && input.getValue().trim() !== "";
+		const marker = hasNote ? ` ${this.theme.fg("warning", NOTE_MARK)}` : "";
 
 		const mark = done ? CHECK.length : 0;
-		const labelRoom = Math.max(6, width - prefix - mark - (hasNote ? NOTE_ROOM : 0));
+		const labelRoom = Math.max(6, width - prefix - mark - (hasNote ? NOTE_MARK.length + 1 : 0));
 		const text = truncateToWidth(label, Math.max(1, labelRoom), ELLIPSIS);
 		const styled = active
 			? this.theme.bold(this.theme.fg("text", text))
 			: this.theme.fg("text", text);
 		const check = done ? this.theme.fg("success", CHECK) : "";
-		const head = `${pointer}${number}  ${box}${styled}${check}`;
-		if (!hasNote) return this.focusRow(truncateToWidth(head, width), width, active);
-
-		// The label first, then what you said about it. While you type, the editor is in the panel and
-		// this line follows it.
-		const room = Math.max(1, width - prefix - visibleWidth(text) - mark - NOTE_LEAD);
-		const said = this.theme.fg("muted", truncateToWidth(note, room, ELLIPSIS));
-		const line = truncateToWidth(`${head}  ${this.theme.fg("warning", "\u203a")} ${said}`, width);
-		return this.focusRow(line, width, active);
+		const line = `${pointer}${number}  ${box}${styled}${check}${marker}`;
+		return this.focusRow(truncateToWidth(line, width), width, active);
 	}
 
 	/** The focused row is filled across the column, so the eye finds it without reading. */
@@ -619,7 +611,7 @@ export class QuestionDialog implements Component, Focusable {
 	private noteLines(draft: Draft, row: number, width: number): string[] {
 		const note = draft.notes[row]?.getValue().trim() ?? "";
 		if (note === "") return [];
-		const lead = this.theme.fg("warning", "\u203a ");
+		const lead = this.theme.fg("warning", `${NOTE_MARK} `);
 		return wrapTextWithAnsi(note, Math.max(1, width - 2)).map(
 			(line, index) => (index === 0 ? lead : "  ") + this.theme.fg("muted", line),
 		);
@@ -680,7 +672,7 @@ export class QuestionDialog implements Component, Focusable {
 	private noteEditor(draft: Draft, width: number): string[] {
 		const input = draft.notes[this.row];
 		if (input === undefined) return [];
-		const lead = this.theme.fg("warning", "\u203a ");
+		const lead = this.theme.fg("warning", `${NOTE_MARK} `);
 		return ["", lead + (input.render(Math.max(1, width - 2))[0] ?? "")];
 	}
 

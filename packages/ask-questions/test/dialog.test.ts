@@ -162,13 +162,15 @@ describe("notes", () => {
 		]);
 	});
 
-	test("a note is shown on its option's line", () => {
+	test("a note shows once, in the panel, and the option's row only marks it", () => {
 		const { dialog } = open(AUTH);
 		press(dialog, KEYS.tab);
 		type(dialog, "we already have it");
 		press(dialog, KEYS.enter);
-		const line = dialog.render(120).find((row) => row.includes("OAuth"));
-		expect(line).toContain("we already have it");
+		const lines = dialog.render(120);
+		expect(lines.join("\n").split("we already have it")).toHaveLength(2);
+		const row = lines.find((line) => line.includes("1  OAuth"));
+		expect(row?.split("\u2502")[1]).toContain("\u203a");
 	});
 });
 
@@ -373,16 +375,14 @@ describe("a question without a typed row", () => {
 });
 
 describe("notes", () => {
-	test("the note is written in the panel and follows on the option's row", () => {
+	test("the note is written in the panel, and only there", () => {
 		const { dialog } = open(AUTH);
 		press(dialog, KEYS.tab);
 		type(dialog, "mine");
 		const lines = dialog.render(120);
-		const row = lines.find((line) => line.includes("1  OAuth"));
-		expect(row).toContain("mine");
-		const editor = lines.findLast((line) => line.includes("\u203a "));
-		expect(editor).toContain("mine");
-		expect(editor?.indexOf("mine")).toBeGreaterThan(row?.indexOf("\u2502 ") ?? 0);
+		expect(lines.join("\n").split("mine")).toHaveLength(2);
+		const editor = lines.findLast((line) => line.includes("mine"));
+		expect(editor?.indexOf("mine")).toBeGreaterThan(editor?.indexOf("\u2502 ") ?? 0);
 	});
 
 	test("writing a note does not resize the dialog", () => {
