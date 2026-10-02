@@ -3,16 +3,6 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 
 const ESC = "\x1b";
 
-// oxlint-disable-next-line no-control-regex -- it matches the escape codes the dialogs write
-const CSI = /\x1b\[[0-9;]*[A-Za-z]/g;
-// oxlint-disable-next-line no-control-regex -- OSC and APC sequences end in BEL or ST
-const STRING_SEQUENCE = /\x1b[\]_][^\x07\x1b]*(?:\x07|\x1b\\)/g;
-
-/** What is left once the escape codes are gone. */
-export function stripAnsi(text: string): string {
-	return text.replace(CSI, "").replace(STRING_SEQUENCE, "");
-}
-
 export interface Style {
 	fg: string | undefined;
 	bg: string | undefined;

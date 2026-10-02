@@ -12,10 +12,9 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-import { colorToHex } from "@earendil-works/pi-tui";
+import { colorToHex, stripTerminalSequences } from "@earendil-works/pi-tui";
 import { $ } from "bun";
 
-import { stripAnsi } from "./ansi.ts";
 import { hasBlocks, markdownFiles, rewrite } from "./blocks.ts";
 import { SCENES, type Scene } from "./scenes.ts";
 import { toSvg } from "./svg.ts";
@@ -26,7 +25,7 @@ const args = new Set(process.argv.slice(2));
 
 async function drawText(scene: Scene): Promise<string> {
 	const lines = await scene.draw(plainTheme());
-	return lines.map((line) => stripAnsi(line).trimEnd()).join("\n");
+	return lines.map((line) => stripTerminalSequences(line).trimEnd()).join("\n");
 }
 
 /** Rewrites the blocks of every page and returns the pages that changed. */

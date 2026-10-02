@@ -121,8 +121,7 @@ function callOf(toolName: string, input: unknown): Call {
 	return describeCall(toolName, input, "/repo", defaultConfig());
 }
 
-function first(questions: AskQuestion[], what: string): AskQuestion {
-	const [question] = questions;
+function required(question: AskQuestion | undefined, what: string): AskQuestion {
 	if (question === undefined) throw new Error(`${what} did not ask`);
 	return question;
 }
@@ -133,7 +132,7 @@ async function permissionAsk(theme: Theme): Promise<string[]> {
 		{ reason: "the judge leaned deny but was only 61% confident" },
 		[chosen("permission", "no")],
 	);
-	const dialog = openDialog(theme, [first(questions, "the permission ask")]);
+	const dialog = openDialog(theme, [required(questions[0], "the permission ask")]);
 	press(dialog, KEYS.down, KEYS.down, KEYS.tab);
 	type(dialog, "use pnpm instead");
 	press(dialog, KEYS.enter);
@@ -149,7 +148,7 @@ async function permissionRemember(theme: Theme): Promise<string[]> {
 		chosen("where", SCOPE_LABEL.session),
 	]);
 	const remember = questions.find((question) => question.header === "remember");
-	return openDialog(theme, [first(remember ? [remember] : [], "always yes")]).render(WIDTH);
+	return openDialog(theme, [required(remember, "always yes")]).render(WIDTH);
 }
 
 async function permissionFolder(theme: Theme): Promise<string[]> {
@@ -164,7 +163,7 @@ async function permissionFolder(theme: Theme): Promise<string[]> {
 		{ reason: "reads outside the workspace", offer },
 		[chosen("permission", "no")],
 	);
-	const dialog = openDialog(theme, [first(questions, "the permission ask")]);
+	const dialog = openDialog(theme, [required(questions[0], "the permission ask")]);
 	press(dialog, KEYS.down, KEYS.down);
 	return dialog.render(WIDTH);
 }

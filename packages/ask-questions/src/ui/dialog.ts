@@ -17,16 +17,16 @@ import {
 } from "@earendil-works/pi-tui";
 
 import { answerSummary, isAnswered } from "../answers.ts";
-import { type Option, type Question, TYPED_LABEL } from "../schema.ts";
+import { hasTypedRow, type Option, type Question, TYPED_LABEL } from "../schema.ts";
 import {
-	type Layout,
+	bodyRows,
 	layoutFor,
 	leftWidth,
 	MAX_MEASURE,
 	mergeColumns,
-	PANEL_MIN_ROWS,
 	panelRows,
 	panelWidth,
+	questionRows,
 } from "./layout.ts";
 import { PreviewCache } from "./preview.ts";
 
@@ -34,14 +34,14 @@ const POINTER = "\u276f ";
 const RAIL = "\u258e ";
 const CHECK = " \u2713";
 const ELLIPSIS = "\u2026";
-/** A question never takes more than a quarter of the terminal; the rest becomes "n more lines". */
-function questionRows(terminalRows: number): number {
-	return Math.max(4, Math.min(10, Math.floor(terminalRows / 4)));
-}
 /** The name of the focused row in the panel, and the blank line under it. */
 const TITLE_ROWS = 2;
-/** The pointer, the number, the tick box and the answered mark that come before a label. */
-const ROW_PREFIX = 11;
+/** The pointer, the number and the gap before a label, in columns. */
+const ROW_LEAD = 5;
+/** The tick box of a multi-select option, with the space after it. */
+const BOX_WIDTH = 4;
+/** What can come before a label on a row: the lead, a tick box and the answered mark. */
+const ROW_PREFIX = ROW_LEAD + BOX_WIDTH + CHECK.length;
 /** What the typed answer asks of the panel while it is still empty. */
 const TYPED_NEED = 5;
 /** The arrow that opens a note in the panel, and marks on its row that the option has one. */
@@ -184,22 +184,17 @@ export class QuestionDialog implements Component, Focusable {
 	}
 
 	private rowCountOf(question: Question): number {
-		return question.options.length + (this.hasTyped(question) ? 1 : 0);
-	}
-
-	/** Whether the question ends in a row for an answer in the user's own words. */
-	private hasTyped(question: Question | undefined): boolean {
-		return question !== undefined && question.typed !== false;
+		return question.options.length + (hasTypedRow(question) ? 1 : 0);
 	}
 
 	private get onTypedRow(): boolean {
 		const question = this.question;
-		return this.hasTyped(question) && this.row === question?.options.length;
+		return question !== undefined && hasTypedRow(question) && this.row === question.options.length;
 	}
 
 	private get rowCount(): number {
 		const question = this.question;
-		return (question?.options.length ?? 0) + (this.hasTyped(question) ? 1 : 0);
+		return question === undefined ? 0 : this.rowCountOf(question);
 	}
 
 	private syncFocus(): void {
@@ -393,10 +388,7 @@ export class QuestionDialog implements Component, Focusable {
 	}
 
 	private answeredCount(): number {
-		let count = 0;
-		for (let index = 0; index < this.questions.length; index++)
-			if (this.answerOf(index) !== undefined) count++;
-		return count;
+		return this.questions.filter((_, index) => this.answerOf(index) !== undefined).length;
 	}
 
 	private notesOf(index: number): AskAnswer["notes"] {
@@ -468,8 +460,7 @@ export class QuestionDialog implements Component, Focusable {
 		if (question === undefined || draft === undefined) return [];
 
 		const asked = this.questionBlock(question, inner, terminalRows);
-		// The frame, the tabs or blank line, the blank under the question, the blank before the hint, and the hint.
-		const budget = Math.max(PANEL_MIN_ROWS, terminalRows - 6 - asked.length);
+		const budget = bodyRows(terminalRows, asked.length);
 
 		const key = `${this.tab}:${this.row}`;
 		if (key !== this.panelFor) {
@@ -477,7 +468,7 @@ export class QuestionDialog implements Component, Focusable {
 			this.panelTop = 0;
 		}
 
-		const layout: Layout = layoutFor(inner);
+		const layout = layoutFor(inner);
 		const labels = question.options.map((option) => option.label);
 		const left = layout === "beside" ? leftWidth(labels, inner) : inner;
 		const width = layout === "beside" ? panelWidth(inner, left) : inner;
@@ -545,7 +536,7 @@ export class QuestionDialog implements Component, Focusable {
 			!typed && question.multiSelect
 				? `${this.theme.fg(ticked ? "success" : "dim", ticked ? "[x]" : "[ ]")} `
 				: "";
-		const prefix = 2 + 1 + 2 + (box === "" ? 0 : 4);
+		const prefix = ROW_LEAD + (box === "" ? 0 : BOX_WIDTH);
 
 		// The note itself lives in the panel. The row only says there is one, with the same arrow.
 		const input = typed ? undefined : draft.notes[row];
@@ -594,7 +585,7 @@ export class QuestionDialog implements Component, Focusable {
 	 * while you write one.
 	 */
 	private tallestPanel(question: Question, draft: Draft, width: number): number {
-		let tallest = this.hasTyped(question) ? TYPED_NEED : 0;
+		let tallest = hasTypedRow(question) ? TYPED_NEED : 0;
 		for (const [row, option] of question.options.entries()) {
 			const detail = this.optionDetail(option, width);
 			const written = this.withNotes(detail, this.noteLines(draft, row, width));

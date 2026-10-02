@@ -13,6 +13,11 @@ export const MAX_LABEL_LENGTH = 60;
 
 export const TYPED_LABEL = "Type something.";
 
+/** Whether the question ends in a row for an answer in the user's own words. */
+export function hasTypedRow(question: Question): boolean {
+	return question.typed !== false;
+}
+
 // Labels models use for a free answer, which the dialog already has.
 export const RESERVED_LABELS: readonly string[] = ["Other", TYPED_LABEL, "Type an answer"];
 

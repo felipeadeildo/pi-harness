@@ -1,11 +1,9 @@
 // Ported from rpiv-ask-user-question.
-import { Markdown, type MarkdownTheme } from "@earendil-works/pi-tui";
+import { Markdown, type MarkdownTheme, stripTerminalSequences } from "@earendil-works/pi-tui";
 
 const FENCE = /^`{3}/;
-// oxlint-disable-next-line no-control-regex -- it matches the escape codes Markdown writes
-const ANSI = /\x1b\[[0-9;]*m|\x1b\]8;[^\x07\x1b]*(?:\x07|\x1b\\)/g;
 
-/** O markdown dos previews, desenhado uma vez por largura. */
+/** The markdown of the previews, drawn once per width. */
 export class PreviewCache {
 	private readonly rendered = new Map<string, string[]>();
 
@@ -18,9 +16,10 @@ export class PreviewCache {
 			// pi-tui prints the fence lines of code blocks.
 			lines = new Markdown(text, 0, 0, this.theme)
 				.render(Math.max(1, width))
-				.filter((line) => !FENCE.test(line.replace(ANSI, "")));
+				.filter((line) => !FENCE.test(stripTerminalSequences(line)));
 			// Markdown ends in blank lines that would pad the panel.
-			while (lines.length > 0 && (lines.at(-1) ?? "").replace(ANSI, "").trim() === "") lines.pop();
+			while (lines.length > 0 && stripTerminalSequences(lines.at(-1) ?? "").trim() === "")
+				lines.pop();
 			this.rendered.set(key, lines);
 		}
 		return lines;

@@ -2,7 +2,7 @@
 // dialog at a time, without previews or notes. Ported from rpiv-ask-user-question.
 import type { AskAnswer, AskQuestion, AskResult } from "@adeildo/pi-kit";
 
-import { TYPED_LABEL } from "./schema.ts";
+import { hasTypedRow, TYPED_LABEL } from "./schema.ts";
 
 export interface DialogUI {
 	select(title: string, options: string[]): Promise<string | undefined>;
@@ -51,7 +51,7 @@ function blank(question: AskQuestion): AskAnswer {
 
 async function askOne(ui: DialogUI, question: AskQuestion): Promise<AskAnswer | undefined> {
 	const lines = question.options.map((_, index) => optionLine(question, index));
-	if (question.typed !== false) lines.push(`${question.options.length + 1}. ${TYPED_LABEL}`);
+	if (hasTypedRow(question)) lines.push(`${question.options.length + 1}. ${TYPED_LABEL}`);
 
 	const chosen = await ui.select(`${titleOf(question)}${previews(question)}`, lines);
 	if (chosen === undefined) return undefined;

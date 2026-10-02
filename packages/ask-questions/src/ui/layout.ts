@@ -6,7 +6,7 @@ import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 export type Layout = "beside" | "below";
 
 /** The rule between the options and the panel, with a space on each side. */
-export const DIVIDER = " \u2502 ";
+const DIVIDER = " \u2502 ";
 const DIVIDER_WIDTH = 3;
 
 /** A line of prose longer than this is hard to follow, so descriptions wrap here on a wide panel. */
@@ -21,6 +21,18 @@ const LEFT_EXTRA = 24;
 /** The least room a body gets however short the terminal is, and the shortest cap of a panel. */
 export const PANEL_MIN_ROWS = 5;
 const PANEL_MAX_ROWS = 18;
+/** The frame, the tabs or the blank line, the blank under the question, the blank above the hint and the hint. */
+const CHROME_ROWS = 6;
+
+/** A question never takes more than a quarter of the terminal; the rest becomes "n more lines". */
+export function questionRows(terminalRows: number): number {
+	return Math.max(4, Math.min(10, Math.floor(terminalRows / 4)));
+}
+
+/** The rows left for the options and the panel once the frame and the question have theirs. */
+export function bodyRows(terminalRows: number, askedRows: number): number {
+	return Math.max(PANEL_MIN_ROWS, terminalRows - CHROME_ROWS - askedRows);
+}
 
 export function layoutFor(inner: number): Layout {
 	return inner + 4 >= MIN_BESIDE ? "beside" : "below";
