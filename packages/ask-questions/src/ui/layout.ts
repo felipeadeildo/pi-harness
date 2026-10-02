@@ -1,31 +1,32 @@
-// A geometria do diálogo. Tudo aqui é decidido pela pergunta e pelo terminal, nunca pela linha sob o
-// cursor: reservar o espaço antes de precisar é o que impede o diálogo de pular quando o foco anda.
+// The geometry of the dialog. The question and the terminal decide all of it, never the row under
+// the cursor: reserving the space before it is needed is what keeps the dialog from jumping when
+// the focus moves.
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 export type Layout = "beside" | "below";
 
-/** O filete entre as opções e o painel, com um espaço de cada lado. */
+/** The rule between the options and the panel, with a space on each side. */
 export const DIVIDER = " \u2502 ";
 const DIVIDER_WIDTH = 3;
 
-/** Mais largo que isto, o diálogo para de crescer e centraliza. */
+/** Wider than this, the dialog stops growing and centers. */
 const MAX_FRAME = 164;
-/** Abaixo disto o painel vai embaixo das opções, em vez de ao lado. */
+/** Narrower than this, the panel goes under the options instead of beside them. */
 const MIN_BESIDE = 100;
 const MIN_LEFT = 34;
 const MAX_LEFT_RATIO = 0.45;
-/** O ponteiro, o número e a marca de resposta, mais folga para a nota que fica na linha. */
+/** The pointer, the number and the answered mark, plus room for the note that sits on the line. */
 const LEFT_EXTRA = 24;
 
-/** O painel mais baixo que ainda comporta o título e o editor da resposta livre. */
-export const PANEL_MIN_ROWS = 7;
+/** The shortest panel that still holds the editor of the typed answer. */
+export const PANEL_MIN_ROWS = 5;
 const PANEL_MAX_ROWS = 18;
 
 export function layoutFor(inner: number): Layout {
 	return inner + 4 >= MIN_BESIDE ? "beside" : "below";
 }
 
-/** Cabe o label mais longo com folga para a nota, e nunca passa de 45% da largura. */
+/** Fits the longest label with room for a note, and never takes more than 45% of the width. */
 export function leftWidth(labels: readonly string[], inner: number): number {
 	const longest = Math.max(0, ...labels.map((label) => visibleWidth(label)));
 	return Math.max(MIN_LEFT, Math.min(longest + LEFT_EXTRA, Math.floor(inner * MAX_LEFT_RATIO)));
@@ -35,7 +36,7 @@ export function panelWidth(inner: number, left: number): number {
 	return Math.max(1, inner - left - DIVIDER_WIDTH);
 }
 
-/** A largura do próprio diálogo, limitada para um terminal de 250 colunas não esticá-lo. */
+/** The width of the dialog itself, capped so a 250-column terminal does not stretch it. */
 export function frameWidth(width: number): number {
 	return Math.min(width, MAX_FRAME);
 }
@@ -44,13 +45,13 @@ export function centerPad(width: number, frame: number): number {
 	return Math.max(0, Math.floor((width - frame) / 2));
 }
 
-/** Quantas linhas o painel pede: o título, um respiro e o conteúdo mais alto da pergunta. */
-export function panelRows(tallestContent: number, terminalRows: number): number {
+/** How many rows the panel asks for: its title, when it has one, and the tallest content of the question. */
+export function panelRows(tallestContent: number, titleRows: number, terminalRows: number): number {
 	const cap = Math.max(PANEL_MIN_ROWS, Math.min(PANEL_MAX_ROWS, Math.floor(terminalRows * 0.4)));
-	return Math.max(PANEL_MIN_ROWS, Math.min(tallestContent + 2, cap));
+	return Math.max(PANEL_MIN_ROWS, Math.min(tallestContent + titleRows, cap));
 }
 
-/** Duas colunas lado a lado com o filete no meio, até a mais alta e cortadas em `width`. */
+/** Two columns side by side with the rule between them, as tall as the taller and cut at `width`. */
 export function mergeColumns(
 	left: readonly string[],
 	right: readonly string[],

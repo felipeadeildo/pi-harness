@@ -275,6 +275,36 @@ describe("drawing", () => {
 		}
 	});
 
+	test("a confirmed note does not push the panel into scrolling", () => {
+		const question: Question = {
+			question: "Which one?",
+			header: "One",
+			options: [
+				{
+					label: "A",
+					description: "x",
+					preview: "```\none\ntwo\nthree\nfour\nfive\nsix\nseven\n```",
+				},
+				{ label: "B", description: "y" },
+			],
+		};
+		const { dialog } = open(question);
+		const before = dialog.render(120).length;
+		press(dialog, KEYS.tab);
+		type(dialog, "a note that is long enough to take a second line in the panel of the dialog");
+		press(dialog, KEYS.enter);
+		const text = dialog.render(120).join("\n");
+		expect(text).not.toMatch(/\u2191\d+ \u2193\d+/);
+		expect(dialog.render(120).length).toBeGreaterThanOrEqual(before);
+	});
+
+	test("a lone question has a blank line under the title, and tabs take that place", () => {
+		const alone = open(AUTH).dialog.render(80);
+		expect(alone[1]?.replace(/[\u2502\s]/g, "")).toBe("");
+		const several = open(AUTH, FEATURES).dialog.render(80);
+		expect(several[1]).toContain("Auth");
+	});
+
 	test("a wide terminal stops stretching the dialog", () => {
 		const { dialog } = open(AUTH);
 		const lines = dialog.render(250);
