@@ -10,21 +10,21 @@ pi install npm:@adeildo/pi-harness
 
 ## What comes in it
 
-| Piece                           | What it does                                                                                                                                                                                      |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Permission](../ask-permission) | Asks before a tool call runs. Answer yes, always yes or deny, with a note the model reads. A judge model can answer the routine calls for you                                                     |
-| [Look](../look)                 | The start card, a framed editor with the branch, the model and the context in its borders, the time and speed of each answer, and the session's cost. Only theme colours                          |
-| [Providers](../providers)       | Bills Anthropic OAuth requests to the Claude Pro or Max plan instead of extra usage. Holds several accounts per provider, pinned per session, and offers the next account when one hits its limit |
-| [Questions](../ask-questions)   | The model asks instead of guessing, with options, a preview of each, a note on any of them, and your own answer                                                                                   |
+| Piece                           | What it does                                                                                                     |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| [Permission](../ask-permission) | Asks before a tool call runs, with a note the model reads. A judge model answers the routine calls for you       |
+| [Questions](../ask-questions)   | The model asks instead of guessing, with options, a preview of each, a note on any and your own answer           |
+| [Look](../look)                 | The start card, a framed editor with the branch, model and context in its borders, and a screen that holds still |
+| [Providers](../providers)       | Bills Anthropic OAuth requests to your Claude plan, and keeps several accounts per provider                      |
 
 All of them are on once the package is installed.
 
 > [!WARNING]
-> Providers makes Pi introduce itself to Anthropic as Claude Code whenever a request uses an Anthropic OAuth token. Using a subscription from anything other than Claude Code may break Anthropic's terms. Turn it off, as below, if you don't want that. Requests with an API key go out untouched.
+> Providers makes Pi introduce itself to Anthropic as Claude Code whenever a request uses an Anthropic OAuth token. Using a subscription from anything other than Claude Code may break Anthropic's terms. Turn it off, as below, if you do not want that. Requests with an API key go out untouched.
 
 ## Turn a piece off
 
-Each piece is its own extension in this package. Run `pi config` and switch off the one you don't want, globally or for one project.
+Each piece is its own extension in this package. Run `pi config` and switch off the one you do not want, globally or for one project.
 
 The settings file has a switch per feature too, read on the next `/reload`:
 
@@ -34,7 +34,7 @@ The settings file has a switch per feature too, read on the next `/reload`:
 
 The feature ids are `permission`, `look`, `subscription`, `accounts` and `questions`.
 
-To have only one piece, install its own package instead. With both installed, the first copy that loads runs the feature and the other one stays off.
+To have only one piece, install its own package instead. With both installed, the first copy that loads runs the feature and the other stays off.
 
 ## Settings
 

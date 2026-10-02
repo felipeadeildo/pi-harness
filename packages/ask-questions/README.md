@@ -2,7 +2,11 @@
 
 [![npm](https://img.shields.io/npm/v/@adeildo/pi-ask-questions)](https://www.npmjs.com/package/@adeildo/pi-ask-questions)
 
-Lets the model in [Pi](https://pi.dev) ask you instead of guessing. Each question comes with options, a preview of what each option leads to, and a row for your own answer. You can leave a note on any option, picked or not, and every note goes back with the answer.
+The model in [Pi](https://pi.dev) asks instead of guessing. Every question comes with options, a live preview of what each one leads to, a note on any of them, and a row for your own answer.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-questions/assets/preview.png" alt="The question dialog: two questions as tabs, the options on the left, and on the right the description and the preview of the focused option." width="860">
+</p>
 
 ```bash
 pi install npm:@adeildo/pi-ask-questions
@@ -12,55 +16,98 @@ It also comes in [`@adeildo/pi-harness`](../harness), with the rest of the piece
 
 ## The dialog
 
+<!-- docs:ask-questions/dialog -->
+
 ```text
-╭─ questions ─────────────────────────────────────────────────────────────╮
-│ Layout   Scope   submit                                                 │
-│                                                                         │
-│ Which layout should the accounts section use?                           │
-│                                                                         │
-│ ❯ 1  Tree (Recommended)         ┌──────────────────────────────────────┐ │
-│      Provider, then accounts    │ Anthropic                            │ │
-│      note fits how I think      │   ● work   active                    │ │
-│   2  Flat list                  │   ○ home                             │ │
-│      One row per account        │   + add account                      │ │
-│   3  Type something.            └──────────────────────────────────────┘ │
-│                                                                         │
-│ ←→ question   ↑↓ or 1-3 move   enter choose   tab note   esc cancel     │
-╰─────────────────────────────────────────────────────────────────────────╯
+╭─ questions ──────────────────────────────────────────────────────────────────────────────────────╮
+│  ● Layout   ○ Scope   submit                                                                 0/2 │
+│ ▎ Which layout should the accounts section use?                                                  │
+│                                                                                                  │
+│ ❯ 1  Tree (Recommended)  › my pick         │ Provider first, then its accounts. Scales to many   │
+│   2  Flat list                             │ providers.                                          │
+│   3  Type something.                       │                                                     │
+│                                            │   Anthropic                                         │
+│                                            │     ● work   active                                 │
+│                                            │     ○ home                                          │
+│                                            │     + add account                                   │
+│                                            │   OpenAI                                            │
+│                                            │     ○ personal                                      │
+│                                            │                                                     │
+│                                            │ › my pick                                           │
+│                                                                                                  │
+│ ←→ question   ↑↓ move   enter choose   tab note   esc cancel                                     │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
-| Key               | Does                                                                              |
-| ----------------- | --------------------------------------------------------------------------------- |
-| `↑` `↓`, a number | Move between the options                                                          |
-| `enter`           | Choose the option. With several picks allowed, confirm the ones ticked            |
-| `space`           | Tick an option, when several can be picked                                        |
-| `tab`             | Write a note on the focused option, picked or not. `↑` `↓` move to the next one's |
-| `←` `→`           | Go to another question, or to the submit tab                                      |
-| `esc`             | Close without answering. On the typed row or in a note, step back                 |
+<!-- /docs -->
 
-The last row, **Type something.**, is an editor for an answer in your own words. `shift+enter` breaks a line. With several picks allowed, what you type goes along with the options you ticked.
+The options sit on the left, one line each. The panel on the right shows the focused option: what it means, then what it looks like. The panel is as tall as the tallest option of the question, so the dialog keeps its size while you move. A preview longer than the panel scrolls with `pgup` and `pgdn`.
 
-With more than one question, answering one opens the next. The submit tab lists what you said and names what is still blank, and `enter` sends it anyway.
+Several questions become tabs. `●` is where you are, `✓` is an answered question, and `submit` turns green once every question has an answer. Under 100 columns the panel moves below the options.
 
-Pi draws the dialog in the flow of the screen, like the permission dialog, and not as an overlay on top of the chat. A tall dialog scrolls with the terminal, and the chat above it stays in the scrollback.
+| Key               | Does                                                                   |
+| ----------------- | ---------------------------------------------------------------------- |
+| `↑` `↓`, a number | Move between the options                                               |
+| `enter`           | Choose the option. With several picks allowed, confirm the ones ticked |
+| `space`           | Tick an option, when several can be picked                             |
+| `tab`             | Write a note on the focused option                                     |
+| `←` `→`           | Go to another question, or to `submit`                                 |
+| `pgup` `pgdn`     | Scroll a long preview                                                  |
+| `esc`             | Close without answering. On the typed row or in a note, step back      |
 
-Over RPC, in an editor plugin or an ACP client, the questions go one at a time through the host's own select and input dialogs. There's no preview pane and no notes there. With no UI at all, the model never sees the tool.
+## Notes
 
-## The permission dialog
+`tab` writes a note on the focused option, picked or not. The note shows next to the option and in full in the panel, and it goes back to the model with your answer. "Tree, but too long with five accounts" tells the model more than the pick alone.
 
-With [`@adeildo/pi-ask-permission`](../ask-permission) installed, its dialog is this one. The permission ask becomes a question, so both use the same keys and the same notes, and `always yes` asks two more questions: which calls to remember, and for how long. The call, the summary, the reason and the diff of the change ride in the question and the option previews.
+## Several picks
 
-Ask through it from another package with the kit's contract:
+<!-- docs:ask-questions/multi -->
 
-```ts
-import { askQuestions, canAsk } from "@adeildo/pi-kit";
-
-if (canAsk(scope.events)) {
-	const result = await askQuestions(scope.events, questions);
-}
+```text
+╭─ questions ──────────────────────────────────────────────────────────────────────────────────────╮
+│  ✓ Layout   ✓ Rules   ✓ submit                                                               2/2 │
+│ ▎ Which of these rules should the docs follow?                                                   │
+│                                                                                                  │
+│   1  [x] Sentence case                      │ A generated example cannot go stale.               │
+│   2  [ ] One idea per sentence              │                                                    │
+│ ❯ 3  [x] Examples from the code             │                                                    │
+│   4  Type something.                        │                                                    │
+│                                             │                                                    │
+│                                                                                                  │
+│ ←→ question   ↑↓ move   space tick   enter confirm   tab note   esc cancel                       │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
-`canAsk` is a synchronous probe: with no one to draw the dialog, `askQuestions` would never settle, so check first. The provider always answers, even when the dialog fails, and the answer carries the error.
+<!-- /docs -->
+
+`space` ticks and `enter` confirms. A tick counts as an answer even if you leave the question with the arrows.
+
+## Your own words
+
+The last row, **Type something.**, opens an editor in the panel. `shift+enter` breaks a line. With several picks allowed, what you type goes along with the options you ticked.
+
+## Before it sends
+
+<!-- docs:ask-questions/review -->
+
+```text
+╭─ questions ──────────────────────────────────────────────────────────────────────────────────────╮
+│  ✓ Layout   ✓ Scope   ✓ Rules   submit                                                       3/3 │
+│ Review your answers                                                                              │
+│                                                                                                  │
+│ ✓ Layout  "Tree (Recommended)"                                                                   │
+│ ✓ Scope   "This session"                                                                         │
+│ ✓ Rules   "Sentence case"                                                                        │
+│                                                                                                  │
+│ ←→ question   enter submit   esc cancel                                                          │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+```
+
+<!-- /docs -->
+
+The review tab lists what you said and names what is still blank. `enter` sends it anyway, and the model is told which questions were left unanswered.
+
+Pi draws the dialog in the flow of the screen, like the permission dialog, so a tall dialog scrolls with the terminal and the chat above it stays in the scrollback. Over RPC, in an editor plugin or an ACP client, the questions go one at a time through the host's own select and input dialogs, without previews or notes. With no UI at all, the model never sees the tool.
 
 ## What the model reads
 
@@ -84,16 +131,28 @@ interface Answer {
 }
 ```
 
+## Ask from another package
+
+[`@adeildo/pi-ask-permission`](../ask-permission) draws its dialog with this one, so the permission ask and the model's questions share the same keys and notes. Any package can do the same through the kit:
+
+```ts
+import { askQuestions, canAsk } from "@adeildo/pi-kit";
+
+if (canAsk(scope.events)) {
+	const result = await askQuestions(scope.events, questions);
+}
+```
+
+`canAsk` is a synchronous probe. With nobody to draw the dialog, `askQuestions` would never settle, so check first. The provider always answers, even when the dialog fails, and the answer carries the error.
+
 ## Settings
 
-On the **Questions** tab of `Alt+S`:
+On the **Questions** tab of `Alt+S`, stored under `questions` in `~/.pi/agent/extensions/pi-harness/settings.json`:
 
-| Setting             | Default | What it does                                                                                          |
-| ------------------- | ------- | ----------------------------------------------------------------------------------------------------- |
-| When and how to ask | empty   | Your own words for the model, added to the tool's guidelines. Say when it should ask, or what to show |
-| Ring the bell       | on      | The terminal bell rings when the questions start waiting for you                                      |
-
-They live under `questions` in `~/.pi/agent/extensions/pi-harness/settings.json`.
+| Setting             | Default | Does                                                                                           |
+| ------------------- | ------- | ---------------------------------------------------------------------------------------------- |
+| When and how to ask | empty   | Your own words for the model, added to the tool's guidelines. Say when to ask, or what to show |
+| Ring the bell       | on      | The terminal bell rings when the questions start waiting for you                               |
 
 ## Coming from rpiv-ask-user-question
 
@@ -103,13 +162,7 @@ The tool is called `ask_questions` and takes the same parameters as `ask_user_qu
 pi remove npm:@juicesharp/rpiv-ask-user-question
 ```
 
-These things work differently:
-
-- A note goes on an option instead of on the question, and there's no note for the whole questionnaire.
-- The dialog scrolls with the terminal, so there's no key to fold it away.
-- A multi-select option can have a preview too.
-- The settings are on `Alt+S` instead of `~/.config/rpiv-ask-user-question/config.json`.
-- The interface is in English only.
+What works differently: a note belongs to an option and not to the question, there is no note for the whole questionnaire, the dialog scrolls with the terminal so there is no key to fold it, a multi-select option can have a preview, the settings are on `Alt+S`, and the interface is English only.
 
 ## Credits
 
