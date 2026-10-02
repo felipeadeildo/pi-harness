@@ -3,17 +3,10 @@ import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSy
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { Theme } from "@earendil-works/pi-coding-agent";
-import type { KeybindingsManager } from "@earendil-works/pi-tui";
-
-import type { DialogAnswer, FolderOffer } from "#core/answer.ts";
 import { defaultConfig } from "#core/config/schema.ts";
 import { decide, describeCall, gateLayers, type GateState } from "#core/decide.ts";
 import { OpenFolders } from "#core/folders.ts";
-import { asToolInput, toolAdapter } from "#core/tools.ts";
 import { folderChoices, reachOf } from "#core/workspace.ts";
-import { fallbackChoices } from "#ui/decision-options.ts";
-import { AskDialog } from "#ui/dialog.ts";
 
 let base: string;
 let repo: string;
@@ -170,110 +163,5 @@ describe("the gate", () => {
 		expect(await by(folders, "bash", { command: `cat ${web()}/a.tsx /etc/passwd` })).toBe(
 			"workspace",
 		);
-	});
-});
-
-const theme = {
-	fg: (_color: string, text: string) => text,
-	bold: (text: string) => text,
-} as unknown as Theme;
-
-const KEYS = { enter: "\r", left: "\x1b[D", right: "\x1b[C", esc: "\x1b", tab: "\t" };
-
-function offer(access: FolderOffer["access"] = "read"): FolderOffer {
-	const folders = [
-		"/home/me/Projects/grace",
-		"/home/me/Projects/grace/apps",
-		"/home/me/Projects/grace/apps/web",
-	];
-	return { folders, suggested: 0, repoRoot: folders[0], access };
-}
-
-describe("the dialog", () => {
-	function open(folderOffer?: FolderOffer, reason?: string) {
-		const answers: DialogAnswer[] = [];
-		const dialog = new AskDialog({
-			theme,
-			toolName: "bash",
-			target: toolAdapter("bash").describe(asToolInput({ command: "cat x" })),
-			reason,
-			offer: folderOffer,
-			keybindings: { matches: () => false } as unknown as KeybindingsManager,
-			requestRender: () => {},
-			complete: (answer) => answers.push(answer),
-		});
-		const press = (...keys: string[]) => {
-			for (const key of keys) dialog.handleInput(key);
-		};
-		return { dialog, answers, press, text: () => dialog.render(90).join("\n") };
-	}
-
-	test("a read outside starts on opening the suggested folder, for this session", () => {
-		const { answers, press, text } = open(offer());
-		expect(text()).toContain("\u25b2 reads outside the workspace");
-		expect(text()).toContain(
-			"\u276f 2  yes, and allow reads in /home/me/Projects/grace  repo root",
-		);
-		expect(text()).toContain("s keep for this project");
-
-		press(KEYS.enter);
-		expect(answers).toEqual([
-			{
-				decision: "allow",
-				note: undefined,
-				open: { path: "/home/me/Projects/grace", access: "read", scope: "session" },
-			},
-		]);
-	});
-
-	test("the arrows pick the folder and s keeps it for the project", () => {
-		const { answers, press, text } = open(offer());
-		press(KEYS.right, KEYS.right, KEYS.right, KEYS.left, "s");
-		expect(text()).toContain("allow reads in /home/me/Projects/grace/apps  for this project");
-		press(KEYS.enter);
-		expect(answers[0]?.open).toEqual({
-			path: "/home/me/Projects/grace/apps",
-			access: "read",
-			scope: "project",
-		});
-	});
-
-	test("a write outside offers the workspace and starts on the plain yes", () => {
-		const { answers, press, text } = open(offer("write"));
-		expect(text()).toContain("\u25b2 writes outside the workspace");
-		expect(text()).toContain("2  yes, and add /home/me/Projects/grace to the workspace");
-		press(KEYS.enter);
-		expect(answers).toEqual([{ decision: "allow", note: undefined, remember: undefined }]);
-	});
-
-	test("the arrows do nothing on the other answers, and the numbers shift by one", () => {
-		const { answers, press, text } = open(offer());
-		press("1", KEYS.right);
-		expect(text()).toContain("1-4 pick");
-		expect(text()).not.toContain("\u2190\u2192 folder");
-		press("4", KEYS.enter);
-		expect(answers).toEqual([{ decision: "deny", note: undefined, remember: undefined }]);
-	});
-
-	test("a note rides along with the folder", () => {
-		const { answers, press } = open(offer());
-		press(KEYS.tab, ..."ok", KEYS.enter);
-		expect(answers[0]).toMatchObject({ note: "ok", open: { path: "/home/me/Projects/grace" } });
-	});
-
-	test("without an offer the reason still shows and the menu is the usual one", () => {
-		const { text } = open(undefined, "cannot tell which paths this command reaches");
-		expect(text()).toContain("\u25b2 cannot tell which paths this command reaches");
-		expect(text()).toContain("1-3 pick");
-	});
-
-	test("the plain selector offers the suggested folder", () => {
-		const labels = fallbackChoices(offer()).map((choice) => choice.label);
-		expect(labels.slice(0, 4)).toEqual([
-			"yes",
-			"yes, with a note",
-			"yes, and allow reads in /home/me/Projects/grace",
-			"yes, and allow reads in /home/me/Projects/grace, with a note",
-		]);
 	});
 });

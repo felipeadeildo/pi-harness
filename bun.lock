@@ -20,6 +20,7 @@
       "name": "@adeildo/pi-ask-permission",
       "version": "5.0.0",
       "dependencies": {
+        "@adeildo/pi-ask-questions": "workspace:*",
         "@adeildo/pi-kit": "workspace:*",
         "shell-quote": "^1.10.0",
       },

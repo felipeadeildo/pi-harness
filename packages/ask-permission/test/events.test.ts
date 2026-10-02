@@ -8,7 +8,7 @@ import {
 	type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 
-import { AlwaysYes } from "#core/always-yes.ts";
+import { AlwaysYes, SCOPE_LABEL } from "#core/always-yes.ts";
 import type { DialogAnswer } from "#core/answer.ts";
 import { defaultConfig } from "#core/config/schema.ts";
 import type { OutsideScope } from "#core/config/schema.ts";
@@ -64,9 +64,21 @@ function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask",
 	return { entries, cards, decided, state, toolCall, fake };
 }
 
-/** `onDialog` runs when the permission dialog opens, before it is answered. */
+/** The label of `answer` among the choices of the host's selector, or undefined for a dismissal. */
+function choiceFor(labels: string[], answer: DialogAnswer): string | undefined {
+	if (answer.open) return labels.find((label) => /yes, and (allow reads in|add) /.test(label));
+	if (answer.decision === "deny") return labels.find((label) => label.endsWith(". deny"));
+	if (answer.remember !== undefined) return labels.find((label) => label.endsWith(". always yes"));
+	return labels.find((label) => /^\d+\. yes$/.test(label));
+}
+
+/**
+ * A context whose host answers through its own selector, which is where the gate asks when no
+ * questions feature draws the dialog. `onDialog` runs when the question opens, before it is
+ * answered, and receives the choices it shows.
+ */
 function fakeContext(
-	onDialog: () => void = () => {},
+	onDialog: (labels: string[]) => void = () => {},
 	answer: DialogAnswer = { decision: "allow" },
 ): ExtensionContext {
 	return {
@@ -80,9 +92,14 @@ function fakeContext(
 			theme: { fg: (_color: string, text: string) => text },
 			notify: () => {},
 			setStatus: () => {},
-			custom: async () => {
-				onDialog();
-				return answer;
+			input: async () => undefined,
+			select: async (title: string, labels: string[]) => {
+				if (title.startsWith("Allow ")) {
+					onDialog(labels);
+					return choiceFor(labels, answer);
+				}
+				if (title === "Always yes for...") return answer.remember;
+				return answer.scope === undefined ? undefined : SCOPE_LABEL[answer.scope];
 			},
 		},
 	} as unknown as ExtensionContext;
@@ -186,7 +203,7 @@ describe("one dialog for the permission and the questions", () => {
 		expect(asked).toHaveLength(3);
 	});
 
-	test("with no questions feature the old dialog still opens", async () => {
+	test("with no questions feature the host's selector asks", async () => {
 		const { toolCall } = harness("judge", "ask");
 		let opened = 0;
 		await toolCall(
@@ -431,28 +448,13 @@ describe("workspace scope", () => {
 
 	test("the folder is offered only when the workspace is what asks", async () => {
 		const shown: string[] = [];
-		const ctx = (): ExtensionContext => {
-			const base = fakeContext();
-			const theme = { fg: (_color: string, text: string) => text };
-			base.ui.custom = (async (
-				factory: (...args: unknown[]) => { render(width: number): string[] },
-			) => {
-				shown.push(
-					factory({ requestRender: () => {} }, theme, {}, () => {})
-						.render(80)
-						.join("\n"),
-				);
-				return { decision: "allow" };
-			}) as typeof base.ui.custom;
-			return base;
-		};
+		const ctx = (): ExtensionContext => fakeContext((labels) => shown.push(labels.join("\n")));
 
 		await harness("manual").toolCall(judgeCall("call-1", "cat /etc/hostname"), ctx());
 		await harness("manual", "allow").toolCall(judgeCall("call-2", "touch /etc/x.conf"), ctx());
 
 		expect(shown[0]).toContain("yes, and allow reads in /etc");
 		expect(shown[1]).not.toContain("/etc to the workspace");
-		expect(shown[1]).not.toContain("outside the workspace");
 	});
 
 	test("outside deny blocks before the dialog", async () => {
@@ -481,8 +483,9 @@ describe("workspace scope", () => {
 });
 
 describe("an MCP call in the dialog", () => {
-	test("the hint the server declares reaches the dialog", async () => {
-		const { fake, toolCall } = harness("manual");
+	test("the hint the server declares reaches the question", async () => {
+		const { bus, asked } = questionsProvider([answerTo("yes, run it")]);
+		const { fake, toolCall } = harness("manual", "ask", bus);
 		fake.allTools.push(
 			toolInfo("mcp__sauron__delete_dashboard", {
 				namespace: { name: "mcp__sauron" },
@@ -490,30 +493,11 @@ describe("an MCP call in the dialog", () => {
 			}),
 		);
 
-		const shown: string[] = [];
-		const ctx = fakeContext();
-		ctx.ui.custom = (async (
-			factory: (...args: unknown[]) => { render(width: number): string[] },
-		) => {
-			shown.push(
-				factory(
-					{ requestRender: () => {} },
-					{ fg: (_color: string, text: string) => text },
-					{},
-					() => {},
-				)
-					.render(100)
-					.join("\n"),
-			);
-			return { decision: "allow" };
-		}) as typeof ctx.ui.custom;
-
 		await toolCall(
 			{ toolName: "mcp__sauron__delete_dashboard", toolCallId: "call-1", input: { id: 12 } },
-			ctx,
+			fakeContext(),
 		);
 
-		expect(shown[0]).toContain("permission sauron:delete_dashboard");
-		expect(shown[0]).toContain("sauron: destructive");
+		expect(asked[0]?.questions[0]?.question).toContain("sauron:delete_dashboard (destructive");
 	});
 });

@@ -65,5 +65,3 @@ export function fallbackChoices(offer?: FolderOffer): (Choice & { note: boolean 
 		];
 	});
 }
-
-export const FALLBACK_CHOICES = fallbackChoices();

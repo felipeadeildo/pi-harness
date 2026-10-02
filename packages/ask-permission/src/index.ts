@@ -1,3 +1,4 @@
+import { questions } from "@adeildo/pi-ask-questions";
 import { createApp, defineFeature } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
@@ -38,5 +39,7 @@ export const permission = defineFeature({
 });
 
 export default function piAskPermission(pi: ExtensionAPI): void {
-	createApp(pi, { name: "pi-ask-permission" }).use(permission).build();
+	// The dialog is the questions feature's. It comes with the package, and the kit keeps it from
+	// running twice when the questions package or the harness is installed as well.
+	createApp(pi, { name: "pi-ask-permission" }).use(questions).use(permission).build();
 }

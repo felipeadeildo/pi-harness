@@ -38,7 +38,6 @@ import {
 	resetJudgeHealth,
 	type SessionState,
 } from "#pi/session.ts";
-import { AskDialog } from "#ui/dialog.ts";
 import { appendJudgeEntry } from "#ui/judge-entry.ts";
 import { askThroughQuestions, type AskExtras } from "#ui/questions.ts";
 import { askViaSelector } from "#ui/selector.ts";
@@ -267,32 +266,11 @@ async function ask(
 	extras: AskExtras,
 ): Promise<DialogAnswer> {
 	const { toolName, target } = call;
-	// One dialog for both: the questions feature draws this when it is installed.
+	// The questions feature draws the dialog. Without it, and in RPC hosts that cannot draw a
+	// terminal component, the host's own selector asks.
 	if (ctx.mode === "tui" && canAsk(pi.events)) {
 		const answer = await askThroughQuestions(pi.events, call, extras);
 		if (answer !== undefined) return answer;
-	}
-	if (ctx.mode === "tui") {
-		try {
-			const answer = await ctx.ui.custom<DialogAnswer>(
-				(tui, theme, keybindings, done) =>
-					new AskDialog({
-						theme,
-						toolName,
-						target,
-						mcp: call.mcp,
-						hints: call.hints,
-						nested: call.nested,
-						...extras,
-						keybindings,
-						requestRender: () => tui.requestRender(),
-						complete: done,
-					}),
-			);
-			if (answer) return answer;
-		} catch {
-			// The plain selector, not an open gate.
-		}
 	}
 
 	return askViaSelector(ctx, toolName, target, extras.offer);
