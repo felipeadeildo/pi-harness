@@ -151,8 +151,8 @@ async function askOverDialogs(
 	return askOverRpc(ui as DialogUI, asked);
 }
 
-function reply(result: AskResult, questions: readonly AskQuestion[]): Result {
-	return { content: [{ type: "text", text: answerText(result, questions) }], details: result };
+function reply(result: AskResult, asked: readonly AskQuestion[]): Result {
+	return { content: [{ type: "text", text: answerText(result, asked) }], details: result };
 }
 
 function failed(error: string): Result {
