@@ -2,6 +2,23 @@
 
 Every `@adeildo/` package in this repository shares one version, one tag and this changelog. The entries below 4.0.0 are from before, when `pi-ask-permission` was the only package.
 
+## [5.1.0](https://github.com/felipeadeildo/pi-harness/compare/v5.0.0...v5.1.0) (2026-10-02)
+
+
+### Features
+
+* **ask-permission:** bring the questions dialog with the package and drop the classic one ([8546f71](https://github.com/felipeadeildo/pi-harness/commit/8546f71dc06fdc32e4ddc052ee012c27db727bdb))
+* **ask-questions:** redesign the dialog with a fixed-size detail panel, inline notes and tabs that show what is answered ([8e83b4b](https://github.com/felipeadeildo/pi-harness/commit/8e83b4b0ffb1870cb46739e8ec3eba442c067b38))
+* **ask-questions:** write notes in the panel, fill the width, and let a question leave out the typed row ([0569f67](https://github.com/felipeadeildo/pi-harness/commit/0569f67febc328af03f1a4113744ff5d3d7d4771))
+
+
+### Bug Fixes
+
+* **ask-permission:** put the command right under what wants to run ([e226554](https://github.com/felipeadeildo/pi-harness/commit/e2265541b825ae826c5a3dbb0dfeada6e98ac05c))
+* **ask-permission:** show the first 3 lines of a long command and how many are left ([3bd672c](https://github.com/felipeadeildo/pi-harness/commit/3bd672c7a5a6a7cc6b5006270405759790bfeb57))
+* **ask-questions:** show a note once, in the panel, and mark its option with an arrow ([69b51a7](https://github.com/felipeadeildo/pi-harness/commit/69b51a71345cd1d55a0eeb98795f06e6d248ef0c))
+* **ask-questions:** size the panel for notes, name the row only when its label is cut, and drop the spare blank lines ([9f71fa0](https://github.com/felipeadeildo/pi-harness/commit/9f71fa0b3c7e860c7d09620ac7b8bd83346ca034))
+
 ## [5.0.0](https://github.com/felipeadeildo/pi-harness/compare/v4.1.0...v5.0.0) (2026-10-01)
 
 Every piece lives on one settings screen now, and a new package joins the set: the model asks with options instead of guessing.
