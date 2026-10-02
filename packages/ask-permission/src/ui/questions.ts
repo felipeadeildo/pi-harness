@@ -91,7 +91,6 @@ function clipSummary(summary: string): string[] {
 function questionText(call: Call, reason: string | undefined): string {
 	const lines = [
 		`${whereOf(call)} wants to run:`,
-		"",
 		...clipSummary(call.target.summary).map((line) => `  ${line}`),
 	];
 	if (reason !== undefined) lines.push("", `\u25b2 ${reason}`);
