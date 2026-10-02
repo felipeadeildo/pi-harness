@@ -78,8 +78,22 @@ function offerOptions(offer: FolderOffer | undefined): { label: string; descript
 	];
 }
 
+/** A heredoc or a long payload would fill the screen; a few lines say what the call is. */
+const SUMMARY_LINES = 3;
+
+function clipSummary(summary: string): string[] {
+	const lines = summary.split("\n");
+	if (lines.length <= SUMMARY_LINES) return lines;
+	const more = lines.length - SUMMARY_LINES;
+	return [...lines.slice(0, SUMMARY_LINES), `\u2026 ${more} more ${more === 1 ? "line" : "lines"}`];
+}
+
 function questionText(call: Call, reason: string | undefined): string {
-	const lines = [`${whereOf(call)} wants to run:`, "", `  ${call.target.summary}`];
+	const lines = [
+		`${whereOf(call)} wants to run:`,
+		"",
+		...clipSummary(call.target.summary).map((line) => `  ${line}`),
+	];
 	if (reason !== undefined) lines.push("", `\u25b2 ${reason}`);
 	return lines.join("\n");
 }

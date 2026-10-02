@@ -41,6 +41,17 @@ const OFFER: FolderOffer = {
 } as unknown as FolderOffer;
 
 describe("the first question", () => {
+	test("a long command shows its first lines and how many are left", async () => {
+		const { bus, asked } = provider([picked("no")]);
+		const command = Array.from({ length: 30 }, (_, index) => `echo ${index}`).join("\n");
+		await askThroughQuestions(bus, call("bash", { command }), {});
+
+		const text = asked[0]!.questions[0]!.question;
+		expect(text).toContain("echo 2");
+		expect(text).not.toContain("echo 3");
+		expect(text).toContain("\u2026 27 more lines");
+	});
+
 	test("says what wants to run, and why it is asking", async () => {
 		const { bus, asked } = provider([picked("no")]);
 		await askThroughQuestions(bus, call(), { reason: "pushing is not in the policy", diff: "+x" });
