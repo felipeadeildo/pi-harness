@@ -19,11 +19,10 @@ import {
 import { answerSummary, isAnswered } from "../answers.ts";
 import { type Option, type Question, TYPED_LABEL } from "../schema.ts";
 import {
-	centerPad,
-	frameWidth,
 	type Layout,
 	layoutFor,
 	leftWidth,
+	MAX_MEASURE,
 	mergeColumns,
 	PANEL_MIN_ROWS,
 	panelRows,
@@ -47,6 +46,8 @@ const ROW_PREFIX = 11;
 const TYPED_NEED = 5;
 /** Two spaces, the arrow of the note and a space, between the label and what you said. */
 const NOTE_LEAD = 4;
+/** A blank line and the line of the note editor, under the detail of an option. */
+const NOTE_EDITOR_ROWS = 2;
 /** The room a note always leaves for the label. */
 const NOTE_ROOM = 8;
 
@@ -158,8 +159,7 @@ export class QuestionDialog implements Component, Focusable {
 	}
 
 	render(width: number): string[] {
-		const frame = frameWidth(width);
-		const inner = Math.max(1, frame - 4);
+		const inner = Math.max(1, width - 4);
 		const lines: string[] = [];
 		// The tabs, or a blank line, so the question does not touch the title.
 		lines.push(this.questions.length > 1 ? this.tabBar(inner) : "");
@@ -170,7 +170,7 @@ export class QuestionDialog implements Component, Focusable {
 				: this.questionLines(inner, this.tui.terminal.rows)),
 		);
 		lines.push("", this.hint());
-		return this.frame(lines, width, frame, inner, this.title());
+		return this.frame(lines, width, inner, this.title());
 	}
 
 	private get onSubmitTab(): boolean {
@@ -185,13 +185,23 @@ export class QuestionDialog implements Component, Focusable {
 		return this.drafts[this.tab];
 	}
 
+	private rowCountOf(question: Question): number {
+		return question.options.length + (this.hasTyped(question) ? 1 : 0);
+	}
+
+	/** Whether the question ends in a row for an answer in the user's own words. */
+	private hasTyped(question: Question | undefined): boolean {
+		return question !== undefined && question.typed !== false;
+	}
+
 	private get onTypedRow(): boolean {
 		const question = this.question;
-		return question !== undefined && this.row === question.options.length;
+		return this.hasTyped(question) && this.row === question?.options.length;
 	}
 
 	private get rowCount(): number {
-		return (this.question?.options.length ?? 0) + 1;
+		const question = this.question;
+		return (question?.options.length ?? 0) + (this.hasTyped(question) ? 1 : 0);
 	}
 
 	private syncFocus(): void {
@@ -501,7 +511,7 @@ export class QuestionDialog implements Component, Focusable {
 
 	private belowBody(question: Question, draft: Draft, size: BodySize): string[] {
 		const options = this.optionLines(question, draft, size.inner);
-		const rows = Math.max(PANEL_MIN_ROWS, Math.min(size.wanted, size.budget - options.length - 1));
+		const rows = Math.min(size.wanted, Math.max(1, size.budget - options.length - 1));
 		const rule = this.theme.fg("borderMuted", "\u2500".repeat(size.inner));
 		return [...options, rule, ...this.panel(question, draft, size.inner, rows, size.titled)];
 	}
@@ -510,7 +520,7 @@ export class QuestionDialog implements Component, Focusable {
 
 	/** One line per option, and the typed row last. */
 	private optionLines(question: Question, draft: Draft, width: number): string[] {
-		const rows = Array.from({ length: question.options.length + 1 }, (_, row) => row);
+		const rows = Array.from({ length: this.rowCountOf(question) }, (_, row) => row);
 		return rows.map((row) => this.optionRow(question, draft, row, width));
 	}
 
@@ -540,9 +550,8 @@ export class QuestionDialog implements Component, Focusable {
 		const prefix = 2 + 1 + 2 + (box === "" ? 0 : 4);
 
 		const input = typed ? undefined : draft.notes[row];
-		const editing = this.noting && active && input !== undefined;
 		const note = input?.getValue().trim() ?? "";
-		const hasNote = editing || note !== "";
+		const hasNote = note !== "";
 
 		const mark = done ? CHECK.length : 0;
 		const labelRoom = Math.max(6, width - prefix - mark - (hasNote ? NOTE_ROOM : 0));
@@ -554,14 +563,12 @@ export class QuestionDialog implements Component, Focusable {
 		const head = `${pointer}${number}  ${box}${styled}${check}`;
 		if (!hasNote) return this.focusRow(truncateToWidth(head, width), width, active);
 
-		// The label first, then what you said about it.
+		// The label first, then what you said about it. While you type, the editor is in the panel and
+		// this line follows it.
 		const room = Math.max(1, width - prefix - visibleWidth(text) - mark - NOTE_LEAD);
-		const said = editing
-			? (input?.render(room)[0] ?? "")
-			: this.theme.fg("muted", truncateToWidth(note, room, ELLIPSIS));
+		const said = this.theme.fg("muted", truncateToWidth(note, room, ELLIPSIS));
 		const line = truncateToWidth(`${head}  ${this.theme.fg("warning", "\u203a")} ${said}`, width);
-		// The note editor draws its own cursor, and that resets the colors the fill relies on.
-		return this.focusRow(line, width, active && !editing);
+		return this.focusRow(line, width, active);
 	}
 
 	/** The focused row is filled across the column, so the eye finds it without reading. */
@@ -578,9 +585,10 @@ export class QuestionDialog implements Component, Focusable {
 
 	/** The detail of an option: what it means, then what it looks like. */
 	private optionDetail(option: Option, width: number): string[] {
-		const lines = wrapTextWithAnsi(option.description ?? "", Math.max(1, width)).map((line) =>
-			this.theme.fg("text", line),
-		);
+		const lines = wrapTextWithAnsi(
+			option.description ?? "",
+			Math.max(1, Math.min(width, MAX_MEASURE)),
+		).map((line) => this.theme.fg("text", line));
 		if (option.preview) {
 			if (lines.length > 0) lines.push("");
 			lines.push(...this.previews.lines(option.preview, width));
@@ -589,16 +597,16 @@ export class QuestionDialog implements Component, Focusable {
 	}
 
 	/**
-	 * The panel is as tall as the tallest detail of the question, notes included, so moving around
-	 * cannot resize it. The note being typed does not count until it is confirmed.
+	 * The panel is as tall as the tallest detail of the question, so moving around cannot resize it.
+	 * An option's detail is its description and preview, then its note, or the editor of the note
+	 * while you write one.
 	 */
 	private tallestPanel(question: Question, draft: Draft, width: number): number {
-		let tallest = TYPED_NEED;
+		let tallest = this.hasTyped(question) ? TYPED_NEED : 0;
 		for (const [row, option] of question.options.entries()) {
-			const editing = this.noting && row === this.row;
-			const notes = editing ? [] : this.noteLines(draft, row, width);
-			const lines = this.withNotes(this.optionDetail(option, width), notes);
-			tallest = Math.max(tallest, lines.length);
+			const detail = this.optionDetail(option, width);
+			const written = this.withNotes(detail, this.noteLines(draft, row, width));
+			tallest = Math.max(tallest, written.length, detail.length + NOTE_EDITOR_ROWS);
 		}
 		return tallest;
 	}
@@ -642,7 +650,8 @@ export class QuestionDialog implements Component, Focusable {
 		const out = titled
 			? [this.theme.bold(truncateToWidth(title, Math.max(1, width), ELLIPSIS)), ""]
 			: [];
-		const room = Math.max(1, rows - out.length);
+		const pinned = this.noting && !this.onTypedRow ? this.noteEditor(draft, width) : [];
+		const room = Math.max(1, rows - out.length - pinned.length);
 		this.panelRoom = room;
 
 		if (this.onTypedRow) {
@@ -663,8 +672,16 @@ export class QuestionDialog implements Component, Focusable {
 				this.overflow = true;
 			}
 		}
-		while (out.length < rows) out.push("");
-		return out;
+		while (out.length + pinned.length < rows) out.push("");
+		return [...out, ...pinned];
+	}
+
+	/** The note being written, pinned to the foot of the panel so a long preview cannot push it out. */
+	private noteEditor(draft: Draft, width: number): string[] {
+		const input = draft.notes[this.row];
+		if (input === undefined) return [];
+		const lead = this.theme.fg("warning", "\u203a ");
+		return ["", lead + (input.render(Math.max(1, width - 2))[0] ?? "")];
 	}
 
 	// ── the submit tab ──────────────────────────────────────────────────────────────────────
@@ -735,16 +752,10 @@ export class QuestionDialog implements Component, Focusable {
 			.join("   ");
 	}
 
-	private frame(
-		lines: string[],
-		width: number,
-		frame: number,
-		inner: number,
-		title: string,
-	): string[] {
+	private frame(lines: string[], width: number, inner: number, title: string): string[] {
 		const border = (text: string) => this.theme.fg("border", text);
 		// 5 columns for "╭─ ", the space after the title, and "╮".
-		const room = Math.max(0, frame - 5);
+		const room = Math.max(0, width - 5);
 		const label = this.theme.fg("accent", truncateToWidth(title, Math.max(0, room - 3), "..."));
 		const dashes = Math.max(0, room - visibleWidth(label));
 		const out = [
@@ -755,10 +766,7 @@ export class QuestionDialog implements Component, Focusable {
 			const pad = " ".repeat(Math.max(0, inner - visibleWidth(clipped)));
 			out.push(`${border("\u2502")} ${clipped}${pad} ${border("\u2502")}`);
 		}
-		out.push(border(`\u2570${"\u2500".repeat(Math.max(0, frame - 2))}\u256f`));
-
-		const left = centerPad(width, frame);
-		const right = Math.max(0, width - left - frame);
-		return out.map((line) => `${" ".repeat(left)}${line}${" ".repeat(right)}`);
+		out.push(border(`\u2570${"\u2500".repeat(Math.max(0, width - 2))}\u256f`));
+		return out;
 	}
 }

@@ -56,13 +56,22 @@ function firstQuestion(call: Call, extras: AskExtras): AskQuestion {
 				]
 			: []),
 		...offerOptions(extras.offer),
-		{ label: DENY, description: "Block it. Anything you type becomes the reason the model reads." },
+		{
+			label: DENY,
+			description: "Block it. A note on this answer becomes the reason the model reads.",
+		},
 	];
 
 	// Every option offers the same preview, whichever row the cursor is on.
 	if (extras.diff !== undefined) for (const option of options) option.preview = extras.diff;
 
-	return { header: "permission", question: questionText(call, extras.reason), options };
+	// The reason for a no is a note on it. A row of its own for words would say the same thing twice.
+	return {
+		header: "permission",
+		question: questionText(call, extras.reason),
+		options,
+		typed: false,
+	};
 }
 
 function offerOptions(offer: FolderOffer | undefined): { label: string; description: string }[] {
@@ -124,6 +133,7 @@ async function remember(
 	const picked = await askQuestions(events, [
 		{
 			header: "remember",
+			typed: false,
 			question: `Always say yes to which calls, from ${call.toolName}?`,
 			options: levels.map((level, index) => ({
 				label: level,
@@ -146,6 +156,7 @@ async function askScope(events: ExtensionAPI["events"], question: string): Promi
 	const result = await askQuestions(events, [
 		{
 			header: "where",
+			typed: false,
 			question,
 			options: SCOPES.map((scope) => ({
 				label: SCOPE_LABEL[scope],

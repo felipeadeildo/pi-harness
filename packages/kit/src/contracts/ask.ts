@@ -22,6 +22,8 @@ export interface AskQuestion {
 	question: string;
 	options: AskOption[];
 	multiSelect?: boolean;
+	/** A last row for an answer in the user's own words. On unless it is `false`. */
+	typed?: boolean;
 }
 
 export interface AskRequest {
@@ -70,6 +72,8 @@ export function decodeAskRequest(value: unknown): string | undefined {
 			return "a question has no header or text";
 		if (!Array.isArray(question.options) || question.options.length === 0)
 			return `"${question.header}" has no options`;
+		if (question.typed !== undefined && typeof question.typed !== "boolean")
+			return `"${question.header}" has a typed flag that is not a boolean`;
 		for (const option of question.options) {
 			if (!isObject(option) || typeof option.label !== "string")
 				return `"${question.header}" has an option with no label`;

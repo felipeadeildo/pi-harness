@@ -9,8 +9,8 @@ export type Layout = "beside" | "below";
 export const DIVIDER = " \u2502 ";
 const DIVIDER_WIDTH = 3;
 
-/** Wider than this, the dialog stops growing and centers. */
-const MAX_FRAME = 164;
+/** A line of prose longer than this is hard to follow, so descriptions wrap here on a wide panel. */
+export const MAX_MEASURE = 100;
 /** Narrower than this, the panel goes under the options instead of beside them. */
 const MIN_BESIDE = 100;
 const MIN_LEFT = 34;
@@ -18,7 +18,7 @@ const MAX_LEFT_RATIO = 0.45;
 /** The pointer, the number and the answered mark, plus room for the note that sits on the line. */
 const LEFT_EXTRA = 24;
 
-/** The shortest panel that still holds the editor of the typed answer. */
+/** The least room a body gets however short the terminal is, and the shortest cap of a panel. */
 export const PANEL_MIN_ROWS = 5;
 const PANEL_MAX_ROWS = 18;
 
@@ -36,19 +36,10 @@ export function panelWidth(inner: number, left: number): number {
 	return Math.max(1, inner - left - DIVIDER_WIDTH);
 }
 
-/** The width of the dialog itself, capped so a 250-column terminal does not stretch it. */
-export function frameWidth(width: number): number {
-	return Math.min(width, MAX_FRAME);
-}
-
-export function centerPad(width: number, frame: number): number {
-	return Math.max(0, Math.floor((width - frame) / 2));
-}
-
 /** How many rows the panel asks for: its title, when it has one, and the tallest content of the question. */
 export function panelRows(tallestContent: number, titleRows: number, terminalRows: number): number {
 	const cap = Math.max(PANEL_MIN_ROWS, Math.min(PANEL_MAX_ROWS, Math.floor(terminalRows * 0.4)));
-	return Math.max(PANEL_MIN_ROWS, Math.min(tallestContent + titleRows, cap));
+	return Math.max(1, Math.min(tallestContent + titleRows, cap));
 }
 
 /** Two columns side by side with the rule between them, as tall as the taller and cut at `width`. */

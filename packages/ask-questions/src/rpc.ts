@@ -51,7 +51,7 @@ function blank(question: AskQuestion): AskAnswer {
 
 async function askOne(ui: DialogUI, question: AskQuestion): Promise<AskAnswer | undefined> {
 	const lines = question.options.map((_, index) => optionLine(question, index));
-	lines.push(`${question.options.length + 1}. ${TYPED_LABEL}`);
+	if (question.typed !== false) lines.push(`${question.options.length + 1}. ${TYPED_LABEL}`);
 
 	const chosen = await ui.select(`${titleOf(question)}${previews(question)}`, lines);
 	if (chosen === undefined) return undefined;

@@ -305,11 +305,23 @@ describe("drawing", () => {
 		expect(several[1]).toContain("Auth");
 	});
 
-	test("a wide terminal stops stretching the dialog", () => {
-		const { dialog } = open(AUTH);
-		const lines = dialog.render(250);
+	test("a wide terminal fills the width and keeps prose to a readable line", () => {
+		const long: Question = {
+			question: "Which one?",
+			header: "One",
+			options: [
+				{ label: "A", description: "word ".repeat(60).trim() },
+				{ label: "B", description: "y" },
+			],
+		};
+		const lines = open(long).dialog.render(250);
 		for (const line of lines) expect(visibleWidth(line)).toBe(250);
-		expect(lines[0]?.startsWith(" ")).toBe(true);
+		expect(lines[0]?.startsWith("\u256d")).toBe(true);
+		const prose = lines
+			.map((line) => (line.split("\u2502 ")[2] ?? "").replace(/\s*\u2502$/, ""))
+			.filter((cell) => cell.includes("word"));
+		expect(prose.length).toBeGreaterThan(1);
+		for (const cell of prose) expect(visibleWidth(cell.trim())).toBeLessThanOrEqual(100);
 	});
 });
 
@@ -340,5 +352,44 @@ describe("answers", () => {
 		press(dialog, "3");
 		type(dialog, "mTLS");
 		expect(dialog.render(120).join("\n")).toContain("mTLS");
+	});
+});
+
+describe("a question without a typed row", () => {
+	const closed: Question = { ...AUTH, typed: false };
+
+	test("has no row for your own words, and the numbers stop at the options", () => {
+		const { dialog, results } = open(closed);
+		expect(dialog.render(120).join("\n")).not.toContain("Type something");
+		press(dialog, "3", KEYS.enter);
+		expect(results[0]?.answers[0]?.picked).toEqual(["OAuth"]);
+	});
+
+	test("down from the last option wraps to the first", () => {
+		const { dialog, results } = open(closed);
+		press(dialog, KEYS.down, KEYS.down, KEYS.enter);
+		expect(results[0]?.answers[0]?.picked).toEqual(["OAuth"]);
+	});
+});
+
+describe("notes", () => {
+	test("the note is written in the panel and follows on the option's row", () => {
+		const { dialog } = open(AUTH);
+		press(dialog, KEYS.tab);
+		type(dialog, "mine");
+		const lines = dialog.render(120);
+		const row = lines.find((line) => line.includes("1  OAuth"));
+		expect(row).toContain("mine");
+		const editor = lines.findLast((line) => line.includes("\u203a "));
+		expect(editor).toContain("mine");
+		expect(editor?.indexOf("mine")).toBeGreaterThan(row?.indexOf("\u2502 ") ?? 0);
+	});
+
+	test("writing a note does not resize the dialog", () => {
+		const { dialog } = open(AUTH);
+		const before = dialog.render(120).length;
+		press(dialog, KEYS.tab);
+		type(dialog, "a note");
+		expect(dialog.render(120).length).toBe(before);
 	});
 });
