@@ -19,3 +19,4 @@ jobs:
       - run: bun run lint
       - run: bun run fmt:check
       - run: bun run test
+      - run: bun run docs:check

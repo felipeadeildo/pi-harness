@@ -9,7 +9,8 @@ bun run check      # tsc --noEmit over every package
 bun run lint       # oxlint
 bun run fmt        # oxfmt (writes)
 bun run test       # bun test
-bun run verify     # all of the above
+bun run verify     # all of the above, and the docs check
+bun run docs       # redraw the examples in the docs from the code
 ```
 
 Lefthook formats and lints staged files on commit, type-checks the repository, and runs the full verify before a push.
@@ -33,6 +34,18 @@ Internal dependencies use `workspace:*`. Publishing goes through `bun pm pack`, 
 Every piece is a package of its own, so it installs alone, and the harness brings them all. A new piece is a folder under `packages/` whose `src/index.ts` exports its feature and a default extension that mounts it. The harness then gets a dependency on it and a file in `packages/harness/src/` that mounts the same feature, listed in its `pi.extensions`.
 
 Each package has its own README. `ask-permission` also has a CONTRIBUTING with the parts that are only about it.
+
+## The docs
+
+The dialogs in the READMEs are not typed by hand. A block between `<!-- docs:name -->` and `<!-- /docs -->` is drawn by the real dialog, from a scene in `scripts/docs/examples.ts`:
+
+```bash
+bun run docs          # rewrite every block
+bun run docs:check    # fail when one is out of date; verify and CI run it
+bun run docs:images   # redraw the preview images, which needs rsvg-convert and a JetBrains Mono font
+```
+
+Change a dialog, run `bun run docs`, and commit the result with it. A new example is a function in `examples.ts`, a line in `BLOCKS` in `scripts/docs/index.ts`, and a marker in the page. The preview images come from the same scenes, painted with pi's `dark` theme, and are not part of the check because a font can move a pixel.
 
 ## Writing a feature
 

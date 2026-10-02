@@ -20,7 +20,14 @@ pre-commit:
     types:
       glob: "*.ts"
       run: bun run check
+    docs:
+      # The dialogs in the docs are drawn by the code, so a change to a dialog or to a page redraws
+      # them. Only the pages are staged, which keeps the commit holding the code and its pictures.
+      # It runs last: a type error should stop the commit before anything is redrawn.
+      glob: "{packages/*/src/**/*.ts,scripts/docs/**/*.ts,README.md,packages/*/README.md,packages/*/docs/*.md}"
+      run: bun run docs && git add -u -- README.md 'packages/*/README.md' 'packages/*/docs/*.md'
 
+# verify ends with `docs:check`, so a push never carries a picture that is out of date.
 pre-push:
   commands:
     verify:
