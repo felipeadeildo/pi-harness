@@ -41,7 +41,7 @@ Ask the agent to do something that writes, like `run the tests`. The dialog open
 │                                                                                                  │
 │   1  yes, run it                    │ Block it. A note on this answer becomes the reason the     │
 │   2  always yes                     │ model reads.                                               │
-│ ❯ 3  no  › use pnpm instead         │                                                            │
+│ ❯ 3  no ›                           │                                                            │
 │                                     │ › use pnpm instead                                         │
 │                                                                                                  │
 │ ↑↓ move   enter choose   tab note   esc cancel                                                   │

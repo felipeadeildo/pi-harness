@@ -5,11 +5,9 @@
 <rect x="52.00" y="148" width="36.00" height="30" fill="#213b49"/>
 <rect x="88.00" y="148" width="24.00" height="30" fill="#213b49"/>
 <rect x="112.00" y="148" width="216.00" height="30" fill="#213b49"/>
-<rect x="328.00" y="148" width="24.00" height="30" fill="#213b49"/>
-<rect x="352.00" y="148" width="12.00" height="30" fill="#213b49"/>
-<rect x="364.00" y="148" width="12.00" height="30" fill="#213b49"/>
-<rect x="376.00" y="148" width="84.00" height="30" fill="#213b49"/>
-<rect x="460.00" y="148" width="96.00" height="30" fill="#213b49"/>
+<rect x="328.00" y="148" width="12.00" height="30" fill="#213b49"/>
+<rect x="340.00" y="148" width="12.00" height="30" fill="#213b49"/>
+<rect x="352.00" y="148" width="204.00" height="30" fill="#213b49"/>
 <g font-family="JetBrainsMono Nerd Font Mono, JetBrains Mono, DejaVu Sans Mono, monospace" font-size="20" xml:space="preserve">
 <text x="28.00" y="49" fill="#5fa8cc">╭─ </text>
 <text x="64.00" y="49" fill="#a798d7">questions</text>
@@ -28,8 +26,7 @@
 <text x="28.00" y="169" fill="#5fa8cc">│</text>
 <text x="52.00" y="169" fill="#a798d7">❯ 1</text>
 <text x="112.00" y="169" fill="#dee0e1">Tree (Recommended)</text>
-<text x="352.00" y="169" fill="#cd9a22">›</text>
-<text x="376.00" y="169" fill="#9da5a9">my pick</text>
+<text x="340.00" y="169" fill="#cd9a22">›</text>
 <text x="556.00" y="169" fill="#768186"> │ </text>
 <text x="592.00" y="169" fill="#dee0e1">Provider first, then its accounts. Scales to many</text>
 <text x="1216.00" y="169" fill="#5fa8cc">│</text>

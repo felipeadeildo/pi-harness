@@ -23,7 +23,7 @@ It also comes in [`@adeildo/pi-harness`](../harness), with the rest of the piece
 │  ● Layout   ○ Scope   submit                                                                 0/2 │
 │ ▎ Which layout should the accounts section use?                                                  │
 │                                                                                                  │
-│ ❯ 1  Tree (Recommended)  › my pick         │ Provider first, then its accounts. Scales to many   │
+│ ❯ 1  Tree (Recommended) ›                  │ Provider first, then its accounts. Scales to many   │
 │   2  Flat list                             │ providers.                                          │
 │   3  Type something.                       │                                                     │
 │                                            │   Anthropic                                         │
@@ -57,7 +57,7 @@ Several questions become tabs. `●` is where you are, `✓` is an answered ques
 
 ## Notes
 
-`tab` writes a note on the focused option, picked or not. You write it in the panel, where there is room, and it shows next to the option as you type. It goes back to the model with your answer. "Tree, but too long with five accounts" tells the model more than the pick alone.
+`tab` writes a note on the focused option, picked or not. You write it in the panel, where there is room, and it stays there under the description. The option gets a `›` while it has a note. It goes back to the model with your answer. "Tree, but too long with five accounts" tells the model more than the pick alone.
 
 ## Several picks
 
