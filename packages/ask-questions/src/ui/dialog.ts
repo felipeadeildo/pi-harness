@@ -17,27 +17,35 @@ import {
 } from "@earendil-works/pi-tui";
 
 import { answerSummary, isAnswered } from "../answers.ts";
-import { type Question, TYPED_LABEL } from "../schema.ts";
+import { type Option, type Question, TYPED_LABEL } from "../schema.ts";
 import {
-	besideColumns,
-	COLUMN_GAP,
+	centerPad,
+	frameWidth,
 	type Layout,
 	layoutFor,
 	leftWidth,
-	PreviewCache,
-	previewBox,
-} from "./preview.ts";
+	mergeColumns,
+	PANEL_MIN_ROWS,
+	panelRows,
+	panelWidth,
+} from "./layout.ts";
+import { PreviewCache } from "./preview.ts";
 
 const POINTER = "\u276f ";
-const INDENT = "     ";
-const NOTE_TAG = "note ";
+const RAIL = "\u258e ";
 const CHECK = " \u2713";
+const ELLIPSIS = "\u2026";
+/** Uma pergunta nunca passa de um quarto do terminal; o resto vira "n more lines". */
+function questionRows(terminalRows: number): number {
+	return Math.max(4, Math.min(10, Math.floor(terminalRows / 4)));
+}
+/** O que a resposta livre pede do painel quando ainda está vazia. */
+const TYPED_NEED = 5;
 
 interface Draft {
 	picked: Set<number>;
 	/** How a single choice was answered: an option, or the typed row. */
 	via: "option" | "typed" | undefined;
-	answered: boolean;
 	notes: Input[];
 	editor: Editor;
 }
@@ -57,7 +65,7 @@ export class QuestionDialog implements Component, Focusable {
 	private readonly drafts: Draft[];
 	private readonly previews: PreviewCache;
 	private readonly keybindings: KeybindingsManager;
-	private readonly requestRender: () => void;
+	private readonly tui: Pick<TUI, "requestRender" | "terminal">;
 	private readonly complete: (result: AskResult) => void;
 
 	/** The question shown, or `questions.length` for the submit tab. */
@@ -66,6 +74,12 @@ export class QuestionDialog implements Component, Focusable {
 	private row = 0;
 	private noting = false;
 	private done = false;
+
+	/** Where the panel is scrolled to, for the row it was scrolled on. */
+	private panelTop = 0;
+	private panelFor = "";
+	private panelRoom = 1;
+	private overflow = false;
 
 	private focusedFlag = false;
 	get focused(): boolean {
@@ -81,11 +95,11 @@ export class QuestionDialog implements Component, Focusable {
 		this.questions = options.questions;
 		this.keybindings = options.keybindings;
 		this.previews = new PreviewCache(options.markdownTheme);
-		this.requestRender = () => options.tui.requestRender();
+		this.tui = options.tui;
 		this.complete = options.complete;
 
 		const editorTheme = {
-			borderColor: (text: string) => this.theme.fg("border", text),
+			borderColor: (text: string) => this.theme.fg("borderMuted", text),
 			selectList: getSelectListTheme(),
 		};
 		// The editor reads only requestRender and terminal.rows.
@@ -96,8 +110,7 @@ export class QuestionDialog implements Component, Focusable {
 			return {
 				picked: new Set<number>(),
 				via: undefined,
-				answered: false,
-				notes: question.options.map(() => new Input()),
+				notes: question.options.map(() => new Input({ prompt: "", placeholder: "" })),
 				editor,
 			};
 		});
@@ -109,7 +122,7 @@ export class QuestionDialog implements Component, Focusable {
 			this.dispatch(data);
 		} finally {
 			this.syncFocus();
-			this.requestRender();
+			this.tui.requestRender();
 		}
 	}
 
@@ -122,12 +135,18 @@ export class QuestionDialog implements Component, Focusable {
 	}
 
 	render(width: number): string[] {
-		const inner = Math.max(1, width - 4);
+		const frame = frameWidth(width);
+		const inner = Math.max(1, frame - 4);
 		const lines: string[] = [];
 		if (this.questions.length > 1) lines.push(this.tabBar(inner), "");
-		lines.push(...(this.onSubmitTab ? this.submitLines(inner) : this.questionLines(inner)));
-		lines.push("", this.theme.fg("dim", this.hint()));
-		return this.frame(lines, width, inner, this.title());
+		this.overflow = false;
+		lines.push(
+			...(this.onSubmitTab
+				? this.submitLines(inner)
+				: this.questionLines(inner, this.tui.terminal.rows)),
+		);
+		lines.push("", this.hint());
+		return this.frame(lines, width, frame, inner, this.title());
 	}
 
 	private get onSubmitTab(): boolean {
@@ -177,6 +196,8 @@ export class QuestionDialog implements Component, Focusable {
 		if (matchesKey(data, Key.escape)) return this.finish(true);
 		if (matchesKey(data, Key.up)) return this.move(-1);
 		if (matchesKey(data, Key.down)) return this.move(1);
+		if (matchesKey(data, Key.pageUp)) return this.scrollPanel(-1);
+		if (matchesKey(data, Key.pageDown)) return this.scrollPanel(1);
 		if (this.switchTab(data)) return;
 		if (matchesKey(data, Key.tab)) {
 			this.noting = true;
@@ -240,6 +261,10 @@ export class QuestionDialog implements Component, Focusable {
 		this.row = (this.row + delta + this.rowCount) % this.rowCount;
 	}
 
+	private scrollPanel(direction: 1 | -1): void {
+		this.panelTop += direction * Math.max(1, Math.floor(this.panelRoom / 2));
+	}
+
 	private toggle(row: number): void {
 		const picked = this.draft?.picked;
 		if (picked === undefined) return;
@@ -256,7 +281,6 @@ export class QuestionDialog implements Component, Focusable {
 			draft.picked = new Set([this.row]);
 			draft.via = "option";
 		}
-		draft.answered = true;
 		this.advance();
 	}
 
@@ -273,7 +297,6 @@ export class QuestionDialog implements Component, Focusable {
 		}
 		// The editor clears itself on submit.
 		draft.editor.setText(typed);
-		draft.answered = true;
 		this.advance();
 	}
 
@@ -282,7 +305,7 @@ export class QuestionDialog implements Component, Focusable {
 		const total = this.questions.length;
 		for (let step = 1; step <= total; step++) {
 			const next = (this.tab + step) % total;
-			if (!this.drafts[next]?.answered) return this.goTo(next);
+			if (this.answerOf(next) === undefined) return this.goTo(next);
 		}
 		this.goTo(total);
 	}
@@ -314,10 +337,14 @@ export class QuestionDialog implements Component, Focusable {
 		return answers;
 	}
 
+	/**
+	 * What the question has now. Whether it counts as answered comes from what is in it, not from
+	 * having pressed enter: a multi-select with ticks is answered even if you moved on with the arrows.
+	 */
 	private answerOf(index: number): AskAnswer | undefined {
 		const question = this.questions[index];
 		const draft = this.drafts[index];
-		if (question === undefined || draft === undefined || !draft.answered) return undefined;
+		if (question === undefined || draft === undefined) return undefined;
 
 		const picked = question.options
 			.filter((_, row) => draft.picked.has(row))
@@ -331,6 +358,13 @@ export class QuestionDialog implements Component, Focusable {
 		const typed = draft.editor.getText().trim();
 		if (typed !== "" && (question.multiSelect || draft.via === "typed")) answer.typed = typed;
 		return isAnswered(answer) ? answer : undefined;
+	}
+
+	private answeredCount(): number {
+		let count = 0;
+		for (let index = 0; index < this.questions.length; index++)
+			if (this.answerOf(index) !== undefined) count++;
+		return count;
 	}
 
 	private notesOf(index: number): AskAnswer["notes"] {
@@ -348,125 +382,288 @@ export class QuestionDialog implements Component, Focusable {
 		return this.question?.header ?? "question";
 	}
 
+	// ── tabs ────────────────────────────────────────────────────────────────────────────────
+
 	private tabBar(inner: number): string {
-		const parts = this.questions.map((question, index) => {
-			const text = this.drafts[index]?.answered ? `${question.header}${CHECK}` : question.header;
-			return this.tabLabel(text, index === this.tab);
-		});
-		const submit = this.tabLabel("submit", this.onSubmitTab);
-		return truncateToWidth([...parts, submit].join("   "), inner);
+		const parts = this.questions.map((question, index) => this.tabLabel(question.header, index));
+		parts.push(this.submitLabel());
+		const tabs = parts.join(" ");
+
+		const count = this.theme.fg("dim", `${this.answeredCount()}/${this.questions.length}`);
+		const gap = inner - visibleWidth(tabs) - visibleWidth(count);
+		return gap >= 2 ? `${tabs}${" ".repeat(gap)}${count}` : truncateToWidth(tabs, inner);
 	}
 
-	private tabLabel(text: string, current: boolean): string {
-		return current ? this.theme.fg("accent", this.theme.bold(text)) : this.theme.fg("muted", text);
+	private pill(text: string): string {
+		const label = ` ${text} `;
+		return this.theme.bg("selectedBg", this.theme.bold(this.theme.fg("accent", label)));
 	}
 
-	private questionLines(inner: number): string[] {
+	// A glyph and a color say the same thing, so the state survives a terminal with no color.
+	private tabLabel(text: string, index: number): string {
+		const done = this.answerOf(index) !== undefined;
+		if (index === this.tab) return this.pill(`${done ? "\u2713" : "\u25cf"} ${text}`);
+		return done
+			? this.theme.fg("success", ` \u2713 ${text} `)
+			: this.theme.fg("muted", ` \u25cb ${text} `);
+	}
+
+	private submitLabel(): string {
+		if (this.onSubmitTab) return this.pill("submit");
+		const ready = this.answeredCount() === this.questions.length;
+		return ready ? this.theme.fg("success", " \u2713 submit ") : this.theme.fg("dim", " submit ");
+	}
+
+	// ── the question ────────────────────────────────────────────────────────────────────────
+
+	private questionBlock(question: Question, inner: number, terminalRows: number): string[] {
+		const rail = this.theme.fg("border", RAIL);
+		const wrapped = wrapTextWithAnsi(question.question, Math.max(1, inner - RAIL.length));
+		const cap = questionRows(terminalRows);
+		const shown =
+			wrapped.length > cap
+				? [
+						...wrapped.slice(0, cap - 1),
+						this.theme.fg("dim", `${ELLIPSIS} ${wrapped.length - cap + 1} more lines`),
+					]
+				: wrapped;
+		return shown.map((line) => rail + this.theme.fg("text", line));
+	}
+
+	private questionLines(inner: number, terminalRows: number): string[] {
 		const question = this.question;
-		if (question === undefined) return [];
-		const lines = wrapTextWithAnsi(question.question, inner).map((line) => this.theme.bold(line));
-		lines.push("");
-
-		if (this.onTypedRow || !question.options.some((option) => option.preview))
-			return [...lines, ...this.rowLines(question, inner)];
-
-		const preview = question.options[this.row]?.preview;
-		if (layoutFor(inner) === "below") {
-			const box = this.previewLines(preview, inner, "below");
-			return [...lines, ...this.rowLines(question, inner), "", ...box];
-		}
-
-		const left = leftWidth(
-			question.options.map((option) => option.label),
-			inner,
-		);
-		const box = this.previewLines(preview, Math.max(1, inner - left - COLUMN_GAP), "beside");
-		return [...lines, ...besideColumns(this.rowLines(question, left), box, left, inner)];
-	}
-
-	private previewLines(text: string | undefined, width: number, layout: Layout): string[] {
-		if (!text) return [this.theme.fg("dim", "no preview for this option")];
-		return previewBox(this.previews, text, width, layout, (line) => this.theme.fg("accent", line));
-	}
-
-	private rowLines(question: Question, width: number): string[] {
 		const draft = this.draft;
-		if (draft === undefined) return [];
-		const lines: string[] = [];
-		const room = Math.max(1, width - INDENT.length);
+		if (question === undefined || draft === undefined) return [];
 
-		for (const [row, option] of question.options.entries()) {
-			const picked = draft.picked.has(row);
-			if (question.multiSelect) {
-				lines.push(this.rowHead(row, `${picked ? "[x]" : "[ ]"} ${option.label}`, false, width));
-			} else {
-				lines.push(this.rowHead(row, option.label, picked && draft.answered, width));
-			}
+		const asked = this.questionBlock(question, inner, terminalRows);
+		const tabsRows = this.questions.length > 1 ? 2 : 0;
+		// The frame, the blank before the hint, the hint, and the blank after the question.
+		const budget = Math.max(PANEL_MIN_ROWS, terminalRows - 5 - tabsRows - asked.length);
 
-			for (const line of wrapTextWithAnsi(option.description ?? "", room))
-				lines.push(INDENT + this.theme.fg("muted", line));
-			lines.push(...this.noteLines(draft, row, room));
+		const key = `${this.tab}:${this.row}`;
+		if (key !== this.panelFor) {
+			this.panelFor = key;
+			this.panelTop = 0;
 		}
 
-		lines.push(...this.typedLines(question, draft, width));
-		return lines;
+		const layout: Layout = layoutFor(inner);
+		const labels = question.options.map((option) => option.label);
+		const left = layout === "beside" ? leftWidth(labels, inner) : inner;
+		const width = layout === "beside" ? panelWidth(inner, left) : inner;
+		const wanted = panelRows(this.tallestPanel(question, width), terminalRows);
+
+		const body =
+			layout === "beside"
+				? this.besideBody(question, draft, { left, width, inner, wanted, budget })
+				: this.belowBody(question, draft, { inner, wanted, budget });
+		return [...asked, "", ...body];
 	}
 
-	private noteLines(draft: Draft, row: number, room: number): string[] {
-		const input = draft.notes[row];
-		if (input === undefined) return [];
-		const editing = this.noting && row === this.row;
-		const text = input.getValue().trim();
-		if (!editing && text === "") return [];
-
-		const tag = this.theme.fg("warning", NOTE_TAG);
-		const space = Math.max(1, room - NOTE_TAG.length);
-		if (editing) return [INDENT + tag + (input.render(space)[0] ?? "")];
-		const pad = " ".repeat(NOTE_TAG.length);
-		return wrapTextWithAnsi(text, space).map(
-			(line, index) => INDENT + (index === 0 ? tag : pad) + this.theme.fg("dim", line),
+	private besideBody(
+		question: Question,
+		draft: Draft,
+		size: { left: number; width: number; inner: number; wanted: number; budget: number },
+	): string[] {
+		const options = this.optionLines(question, draft, size.left, true);
+		const rows = Math.min(size.budget, Math.max(options.length, size.wanted));
+		const panel = this.panel(question, draft, size.width, rows);
+		return mergeColumns(
+			options,
+			panel,
+			size.left,
+			(text) => this.theme.fg(this.onTypedRow ? "accent" : "borderMuted", text),
+			size.inner,
 		);
 	}
 
-	private typedLines(question: Question, draft: Draft, width: number): string[] {
-		const text = draft.editor.getText().trim();
-		const done =
-			draft.answered && text !== "" && (question.multiSelect === true || draft.via === "typed");
-		const lines = [this.rowHead(question.options.length, TYPED_LABEL, done, width)];
+	private belowBody(
+		question: Question,
+		draft: Draft,
+		size: { inner: number; wanted: number; budget: number },
+	): string[] {
+		const compact = this.optionLines(question, draft, size.inner, false);
+		const roomy = this.optionLines(question, draft, size.inner, true);
+		const spaced = roomy.length + 1 + size.wanted <= size.budget;
+		const options = spaced ? roomy : compact;
+		const rows = Math.max(PANEL_MIN_ROWS, Math.min(size.wanted, size.budget - options.length - 1));
+		const rule = this.theme.fg("borderMuted", "\u2500".repeat(size.inner));
+		return [...options, rule, ...this.panel(question, draft, size.inner, rows)];
+	}
 
-		const room = Math.max(1, width - INDENT.length);
-		if (this.onTypedRow) {
-			for (const line of draft.editor.render(room)) lines.push(INDENT + line);
-		} else if (text !== "") {
-			for (const line of wrapTextWithAnsi(text, room).slice(0, 3))
-				lines.push(INDENT + this.theme.fg("dim", line));
+	// ── the options ─────────────────────────────────────────────────────────────────────────
+
+	private optionLines(question: Question, draft: Draft, width: number, spaced: boolean): string[] {
+		const lines: string[] = [];
+		for (let row = 0; row <= question.options.length; row++) {
+			if (spaced && row > 0) lines.push("");
+			lines.push(this.optionRow(question, draft, row, width));
 		}
 		return lines;
 	}
 
-	private rowHead(row: number, label: string, done: boolean, width: number): string {
+	private rowDone(question: Question, draft: Draft, row: number): boolean {
+		if (row === question.options.length) {
+			const text = draft.editor.getText().trim();
+			return text !== "" && (question.multiSelect === true || draft.via === "typed");
+		}
+		// A multi-select shows its ticks in the box, so the check mark is for a single choice.
+		return !question.multiSelect && draft.picked.has(row) && draft.via === "option";
+	}
+
+	/** One line: the pointer, the number, the label, and the note after it, when there is one. */
+	private optionRow(question: Question, draft: Draft, row: number, width: number): string {
+		const typed = row === question.options.length;
+		const label = typed ? TYPED_LABEL : (question.options[row]?.label ?? "");
 		const active = row === this.row;
+		const done = this.rowDone(question, draft, row);
+
 		const pointer = active ? this.theme.fg("accent", POINTER) : "  ";
 		const number = this.theme.fg(active ? "accent" : "dim", String(row + 1));
-		const text = this.theme.fg(active ? "accent" : "text", label);
+		const ticked = draft.picked.has(row);
+		const box =
+			!typed && question.multiSelect
+				? `${this.theme.fg(ticked ? "success" : "dim", ticked ? "[x]" : "[ ]")} `
+				: "";
+		const prefix = 2 + 1 + 2 + (box === "" ? 0 : 4);
+
+		const input = typed ? undefined : draft.notes[row];
+		const editing = this.noting && active && input !== undefined;
+		const note = input?.getValue().trim() ?? "";
+		const hasNote = editing || note !== "";
+
+		const mark = done ? CHECK.length : 0;
+		const labelRoom = Math.max(6, width - prefix - mark - (hasNote ? 8 : 0));
+		const text = truncateToWidth(label, Math.max(1, labelRoom), ELLIPSIS);
+		const styled = active
+			? this.theme.bold(this.theme.fg("text", text))
+			: this.theme.fg("text", text);
 		const check = done ? this.theme.fg("success", CHECK) : "";
-		return truncateToWidth(`${pointer}${number}  ${text}${check}`, width);
+		const head = `${pointer}${number}  ${box}${styled}${check}`;
+		if (!hasNote) return this.focusRow(truncateToWidth(head, width), width, active);
+
+		// The label first, then what you said about it.
+		const room = Math.max(1, width - prefix - visibleWidth(text) - mark - 4);
+		const said = editing
+			? (input?.render(room)[0] ?? "")
+			: this.theme.fg("muted", truncateToWidth(note, room, ELLIPSIS));
+		const line = truncateToWidth(`${head}  ${this.theme.fg("warning", "\u203a")} ${said}`, width);
+		// The note editor draws its own cursor, and that resets the colors the fill relies on.
+		return this.focusRow(line, width, active && !editing);
 	}
+
+	/** The focused row is filled across the column, so the eye finds it without reading. */
+	private focusRow(line: string, width: number, active: boolean): string {
+		if (!active) return line;
+		const padded = line + " ".repeat(Math.max(0, width - visibleWidth(line)));
+		if (typeof this.theme.getBgAnsi !== "function") return this.theme.bg("selectedBg", padded);
+		// Truncation and the cursor reset every attribute; the fill is reopened after each reset.
+		const open = this.theme.getBgAnsi("selectedBg");
+		return `${open}${padded.replaceAll("\x1b[0m", `\x1b[0m${open}`)}\x1b[49m`;
+	}
+
+	// ── the panel ───────────────────────────────────────────────────────────────────────────
+
+	/** The detail of an option: what it means, then what it looks like. */
+	private optionDetail(option: Option, width: number): string[] {
+		const lines = wrapTextWithAnsi(option.description ?? "", Math.max(1, width)).map((line) =>
+			this.theme.fg("text", line),
+		);
+		if (option.preview) {
+			if (lines.length > 0) lines.push("");
+			lines.push(...this.previews.lines(option.preview, width));
+		}
+		return lines;
+	}
+
+	/** The panel is as tall as the tallest detail of the question, so moving around cannot resize it. */
+	private tallestPanel(question: Question, width: number): number {
+		let tallest = TYPED_NEED;
+		for (const option of question.options)
+			tallest = Math.max(tallest, this.optionDetail(option, width).length);
+		return tallest;
+	}
+
+	private noteLines(draft: Draft, row: number, width: number): string[] {
+		const note = draft.notes[row]?.getValue().trim() ?? "";
+		if (note === "" || (this.noting && row === this.row)) return [];
+		const lead = this.theme.fg("warning", "\u203a ");
+		return wrapTextWithAnsi(note, Math.max(1, width - 2)).map(
+			(line, index) => (index === 0 ? lead : "  ") + this.theme.fg("muted", line),
+		);
+	}
+
+	private panelContent(question: Question, draft: Draft, width: number): string[] {
+		const option = question.options[this.row];
+		if (option === undefined) {
+			const typed = draft.editor.getText().trim();
+			return typed === ""
+				? [this.theme.fg("dim", "Write your own answer.")]
+				: wrapTextWithAnsi(typed, Math.max(1, width)).map((line) => this.theme.fg("text", line));
+		}
+		const lines = this.optionDetail(option, width);
+		const notes = this.noteLines(draft, this.row, width);
+		if (notes.length > 0) lines.push(...(lines.length > 0 ? [""] : []), ...notes);
+		return lines.length > 0 ? lines : [this.theme.fg("dim", "No details for this option.")];
+	}
+
+	/** `rows` lines: the focused row's name, a breath, then its detail, scrolled when it is longer. */
+	private panel(question: Question, draft: Draft, width: number, rows: number): string[] {
+		const title = question.options[this.row]?.label ?? TYPED_LABEL;
+		const out = [this.theme.bold(truncateToWidth(title, Math.max(1, width), ELLIPSIS)), ""];
+		const room = Math.max(1, rows - out.length);
+		this.panelRoom = room;
+
+		if (this.onTypedRow) {
+			// The answer in your own words is written here, not under the row, so the options stay put.
+			out.push(...draft.editor.render(Math.max(1, width)).slice(-room));
+		} else {
+			const content = this.panelContent(question, draft, width);
+			if (content.length <= room) {
+				out.push(...content);
+			} else {
+				const view = Math.max(1, room - 1);
+				const last = content.length - view;
+				this.panelTop = Math.max(0, Math.min(this.panelTop, last));
+				out.push(
+					...content.slice(this.panelTop, this.panelTop + view),
+					this.theme.fg("dim", `\u2191${this.panelTop} \u2193${last - this.panelTop}`),
+				);
+				this.overflow = true;
+			}
+		}
+		while (out.length < rows) out.push("");
+		return out;
+	}
+
+	// ── the submit tab ──────────────────────────────────────────────────────────────────────
 
 	private submitLines(inner: number): string[] {
 		const lines = [this.theme.bold("Review your answers"), ""];
+		const width = Math.max(...this.questions.map((question) => visibleWidth(question.header)));
 		let missing = 0;
 		for (const [index, question] of this.questions.entries()) {
 			const answer = this.answerOf(index);
-			const head = this.theme.fg("accent", question.header);
+			const head = truncateToWidth(question.header, width, "").padEnd(width + 2);
 			if (answer === undefined) {
 				missing++;
-				lines.push(truncateToWidth(`${head}  ${this.theme.fg("warning", "not answered")}`, inner));
+				lines.push(
+					truncateToWidth(
+						`${this.theme.fg("muted", `\u25cb ${head}`)}${this.theme.fg("warning", "not answered")}`,
+						inner,
+					),
+				);
 				continue;
 			}
-			lines.push(truncateToWidth(`${head}  ${answerSummary(answer)}`, inner));
+			lines.push(
+				truncateToWidth(
+					`${this.theme.fg("success", `\u2713 ${head}`)}${answerSummary(answer)}`,
+					inner,
+				),
+			);
 			for (const { option, note } of answer.notes)
-				lines.push(truncateToWidth(this.theme.fg("dim", `  note on ${option}: ${note}`), inner));
+				lines.push(
+					truncateToWidth(this.theme.fg("muted", `    \u203a note on ${option}: ${note}`), inner),
+				);
 		}
 		if (missing > 0) {
 			const word = missing === 1 ? "question goes" : "questions go";
@@ -475,22 +672,47 @@ export class QuestionDialog implements Component, Focusable {
 		return lines;
 	}
 
+	// ── keys and frame ──────────────────────────────────────────────────────────────────────
+
 	private hint(): string {
-		const tabs = this.questions.length > 1 ? "\u2190\u2192 question   " : "";
-		if (this.onSubmitTab) return `${tabs}enter submit   esc cancel`;
-		if (this.noting) return "type a note   \u2191\u2193 another option   enter done";
-		if (this.onTypedRow) {
-			const confirm = this.question?.multiSelect ? "enter confirm" : "enter answer";
-			return `\u2191 options   ${confirm}   shift+enter new line   esc back`;
+		const keys: [string, string][] = [];
+		const tabs = this.questions.length > 1;
+		if (this.onSubmitTab) {
+			if (tabs) keys.push(["\u2190\u2192", "question"]);
+			keys.push(["enter", "submit"], ["esc", "cancel"]);
+		} else if (this.noting) {
+			keys.push(["type", "a note"], ["\u2191\u2193", "another option"], ["enter", "done"]);
+		} else if (this.onTypedRow) {
+			keys.push(
+				["\u2191", "options"],
+				["enter", this.question?.multiSelect ? "confirm" : "answer"],
+				["shift+enter", "new line"],
+				["esc", "back"],
+			);
+		} else {
+			if (tabs) keys.push(["\u2190\u2192", "question"]);
+			keys.push(["\u2191\u2193", "move"]);
+			if (this.question?.multiSelect) keys.push(["space", "tick"], ["enter", "confirm"]);
+			else keys.push(["enter", "choose"]);
+			keys.push(["tab", "note"]);
+			if (this.overflow) keys.push(["pgup/pgdn", "scroll"]);
+			keys.push(["esc", "cancel"]);
 		}
-		const pick = this.question?.multiSelect ? "space tick   enter confirm" : "enter choose";
-		return `${tabs}\u2191\u2193 or 1-${this.rowCount} move   ${pick}   tab note   esc cancel`;
+		return keys
+			.map(([key, action]) => `${this.theme.fg("muted", key)} ${this.theme.fg("dim", action)}`)
+			.join("   ");
 	}
 
-	private frame(lines: string[], width: number, inner: number, title: string): string[] {
+	private frame(
+		lines: string[],
+		width: number,
+		frame: number,
+		inner: number,
+		title: string,
+	): string[] {
 		const border = (text: string) => this.theme.fg("border", text);
 		// 5 columns for "╭─ ", the space after the title, and "╮".
-		const room = Math.max(0, width - 5);
+		const room = Math.max(0, frame - 5);
 		const label = this.theme.fg("accent", truncateToWidth(title, Math.max(0, room - 3), "..."));
 		const dashes = Math.max(0, room - visibleWidth(label));
 		const out = [
@@ -501,7 +723,10 @@ export class QuestionDialog implements Component, Focusable {
 			const pad = " ".repeat(Math.max(0, inner - visibleWidth(clipped)));
 			out.push(`${border("\u2502")} ${clipped}${pad} ${border("\u2502")}`);
 		}
-		out.push(border(`\u2570${"\u2500".repeat(Math.max(0, width - 2))}\u256f`));
-		return out;
+		out.push(border(`\u2570${"\u2500".repeat(Math.max(0, frame - 2))}\u256f`));
+
+		const left = centerPad(width, frame);
+		const right = Math.max(0, width - left - frame);
+		return out.map((line) => `${" ".repeat(left)}${line}${" ".repeat(right)}`);
 	}
 }

@@ -162,12 +162,13 @@ describe("notes", () => {
 		]);
 	});
 
-	test("a note is shown under its option", () => {
+	test("a note is shown on its option's line", () => {
 		const { dialog } = open(AUTH);
 		press(dialog, KEYS.tab);
 		type(dialog, "we already have it");
 		press(dialog, KEYS.enter);
-		expect(dialog.render(80).join("\n")).toContain("note we already have it");
+		const line = dialog.render(120).find((row) => row.includes("OAuth"));
+		expect(line).toContain("we already have it");
 	});
 });
 
@@ -237,25 +238,77 @@ describe("drawing", () => {
 		for (const line of dialog.render(60)) expect(visibleWidth(line)).toBe(60);
 	});
 
-	test("a wide terminal puts the preview beside the options", () => {
+	test("a wide terminal puts the detail beside the options", () => {
 		const { dialog } = open(AUTH);
 		const lines = dialog.render(120);
 		const row = lines.find((line) => line.includes("OAuth"));
-		expect(row).toContain("\u250c");
+		expect(row).toContain("\u2502 ");
 		expect(lines.join("\n")).toContain("[ Sign in ]");
+		expect(lines.join("\n")).toContain("The provider's login");
 	});
 
 	test("a narrow terminal puts it below", () => {
 		const { dialog } = open(AUTH);
 		const lines = dialog.render(70);
 		const optionRow = lines.findIndex((line) => line.includes("OAuth"));
-		const boxRow = lines.findIndex((line) => line.includes("\u250c"));
-		expect(boxRow).toBeGreaterThan(optionRow);
+		const detailRow = lines.findIndex((line) => line.includes("[ Sign in ]"));
+		expect(detailRow).toBeGreaterThan(optionRow);
 	});
 
-	test("an option with no preview says so", () => {
+	test("an option with no preview shows its description", () => {
 		const { dialog } = open(AUTH);
 		press(dialog, KEYS.down);
-		expect(dialog.render(120).join("\n")).toContain("no preview for this option");
+		const text = dialog.render(120).join("\n");
+		expect(text).toContain("A key in the env");
+		expect(text).not.toContain("[ Sign in ]");
+	});
+
+	test("moving around never changes the height", () => {
+		const { dialog } = open(AUTH, FEATURES);
+		for (const width of [70, 120]) {
+			const heights = new Set<number>();
+			for (const key of [KEYS.down, KEYS.down, KEYS.down, KEYS.up, KEYS.up, KEYS.up]) {
+				heights.add(dialog.render(width).length);
+				press(dialog, key);
+			}
+			expect([...heights]).toHaveLength(1);
+		}
+	});
+
+	test("a wide terminal stops stretching the dialog", () => {
+		const { dialog } = open(AUTH);
+		const lines = dialog.render(250);
+		for (const line of lines) expect(visibleWidth(line)).toBe(250);
+		expect(lines[0]?.startsWith(" ")).toBe(true);
+	});
+});
+
+describe("answers", () => {
+	test("ticks count as an answer even when you leave with the arrows", () => {
+		const { dialog, results } = open(AUTH, FEATURES);
+		press(dialog, KEYS.enter, KEYS.space, KEYS.right);
+		const text = dialog.render(80).join("\n");
+		expect(text).toContain("Search");
+		expect(text).not.toContain("not answered");
+		press(dialog, KEYS.enter);
+		expect(results[0]?.answers.map((answer: { picked: string[] }) => answer.picked)).toEqual([
+			["OAuth"],
+			["Search"],
+		]);
+	});
+
+	test("the tabs say what is answered", () => {
+		const { dialog } = open(AUTH, FEATURES);
+		expect(dialog.render(80)[1]).toContain("0/2");
+		press(dialog, KEYS.enter);
+		expect(dialog.render(80)[1]).toContain("\u2713 Auth");
+		expect(dialog.render(80)[1]).toContain("1/2");
+	});
+
+	test("the typed answer is written in the panel", () => {
+		const { dialog } = open(AUTH);
+		press(dialog, "3");
+		type(dialog, "mTLS");
+		expect(dialog.render(120).join("\n")).toContain("mTLS");
 	});
 });
