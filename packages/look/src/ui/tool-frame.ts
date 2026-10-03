@@ -105,21 +105,25 @@ interface FrameParts {
 
 /** The top rule and what is inside it, from the call until the result arrives. */
 class CallFrame implements Component {
+	#drawn?: Drawn;
+
 	constructor(private readonly parts: FrameParts & CallParts) {}
 
 	invalidate(): void {
+		this.#drawn = undefined;
 		this.parts.body.invalidate();
 	}
 
 	render(width: number): string[] {
 		const { theme, icon, label, ruling, expanded } = this.parts;
+		const body = this.parts.body.render(room(width));
+		if (unchanged(this.#drawn, width, body)) return this.#drawn.lines;
+
 		const title = `${theme.fg("toolTitle", icon)} ${theme.fg("toolTitle", theme.bold(label))}`;
-		const lines = [
-			rule("top", title, width, theme),
-			...inside(this.parts.body.render(room(width)), width, theme),
-		];
+		const lines = [rule("top", title, width, theme), ...inside(body, width, theme)];
 		if (ruling !== undefined)
 			lines.push(...inside([rulingText(ruling, theme, expanded)], width, theme));
+		this.#drawn = { width, body, lines };
 		return lines;
 	}
 }
@@ -137,17 +141,25 @@ class ResultFrame implements Component {
 		private readonly parts: FrameParts & { mark: string; color: "accent" | "success" | "error" },
 	) {}
 
+	#drawn?: Drawn;
+
 	invalidate(): void {
+		this.#drawn = undefined;
 		this.parts.body.invalidate();
 	}
 
 	render(width: number): string[] {
 		const { theme, mark, color } = this.parts;
-		return [
-			...inside(this.parts.body.render(room(width)), width, theme),
+		const body = this.parts.body.render(room(width));
+		if (unchanged(this.#drawn, width, body)) return this.#drawn.lines;
+
+		const lines = [
+			...inside(body, width, theme),
 			// The rule closes in the colour of how the call went.
 			rule("bottom", theme.fg(color, mark), width, theme, color),
 		];
+		this.#drawn = { width, body, lines };
+		return lines;
 	}
 }
 
@@ -172,10 +184,28 @@ function inside(lines: readonly string[], width: number, theme: Theme): string[]
 	const paint = (text: string) => theme.fg("border", text);
 	const inner = room(width);
 	return trim(lines).map((line) => {
-		const text = truncateToWidth(line, inner, "\u2026", true);
+		// Measuring is cheap, and cutting a line that already fits is not.
+		const text = visibleWidth(line) > inner ? truncateToWidth(line, inner, "\u2026", true) : line;
 		const pad = " ".repeat(Math.max(0, inner - visibleWidth(text)));
 		return `${paint("\u2502")} ${text}${pad} ${paint("\u2502")}`;
 	});
+}
+
+interface Drawn {
+	width: number;
+	body: readonly string[];
+	lines: string[];
+}
+
+/** Whether the frame was already drawn for these lines, which is what keeps typing cheap. */
+function unchanged(
+	drawn: Drawn | undefined,
+	width: number,
+	body: readonly string[],
+): drawn is Drawn {
+	if (drawn === undefined || drawn.width !== width || drawn.body.length !== body.length)
+		return false;
+	return drawn.body.every((line, index) => line === body[index]);
 }
 
 function room(width: number): number {
