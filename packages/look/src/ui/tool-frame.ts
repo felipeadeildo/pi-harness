@@ -184,11 +184,14 @@ function room(width: number): number {
 
 /** Pi's renderers pad their part with blank lines, which the frame does not need. */
 function trim(lines: readonly string[]): string[] {
-	const blank = (line: string | undefined) => (line ?? "").trim() === "";
 	let [from, to] = [0, lines.length];
-	while (from < to && blank(lines[from])) from++;
-	while (to > from && blank(lines[to - 1])) to--;
+	while (from < to && isBlank(lines[from])) from++;
+	while (to > from && isBlank(lines[to - 1])) to--;
 	return lines.slice(from, to);
+}
+
+function isBlank(line: string | undefined): boolean {
+	return (line ?? "").trim() === "";
 }
 
 export function rulingText(ruling: CallRuling, theme: Theme, expanded: boolean): string {
