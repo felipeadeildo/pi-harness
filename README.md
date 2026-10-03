@@ -26,11 +26,11 @@
 
 ## What changes
 
-A command the model wants to run now shows up with who let it run and why. A small model reads the command first, and when it is sure the command is fine it runs and says how sure it was. When it is not sure, the command comes to you as a question with the reason it is asking, so you are not guessing either.
+**Every command says who let it run.** A small model reads it first. When it is sure the command is fine it runs and says how sure it was; when it is not, the command comes to you with the reason it is asking.
 
-The answer always reaches you in the same place, with the same keys: yes, always yes, or no, and a note you can leave on any of them. The note goes to the model with the result, so saying no to `npm install` with "use pnpm instead" corrects it without stopping the session. The questions the model has go through the same dialog.
+**One dialog answers both.** A permission ask and a question from the model look the same and take the same keys: yes, always yes or no, with a note you can leave on any answer. Saying no to `npm install` with "use pnpm instead" reaches the model, so it stops guessing what you meant.
 
-Nothing here is hidden and nothing is final. The screen shows the stopwatch, the cost, and how fast the model writes without moving the line you are typing on. Every choice can be undone from the settings screen (`Alt+S`), and each piece can be turned off on its own.
+**Nothing is hidden, and nothing is final.** The time, the cost and how fast the model writes change without moving the line you type on. Every answer can be undone, and `Alt+S` shows what each piece is set to.
 
 ## What you get
 

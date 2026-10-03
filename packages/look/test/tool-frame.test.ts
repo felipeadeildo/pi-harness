@@ -64,7 +64,11 @@ function whole(ruling?: RulingRequest["ruling"], output = "583 pass") {
 	const chain = resolve(fake, { ...renderers(), renderResult: () => new Text(output, 0, 0) });
 	if (chain === undefined) throw new Error("no renderers");
 
-	const shared = context({ state: { startedAt: 1_000, endedAt: 7_800 } });
+	// The clock of a call the model took 2.1s to write and that ran for 6.8s.
+	const shared = context({
+		argsComplete: true,
+		state: { writingAt: 1_000, writtenAt: 3_100, startedAt: 4_000, endedAt: 10_800 },
+	});
 	const call = chain.renderCall?.({ command: "bun run test" }, theme, shared);
 	if (call === undefined) throw new Error("no call component");
 	const result = chain.renderResult?.(
@@ -77,7 +81,11 @@ function whole(ruling?: RulingRequest["ruling"], output = "583 pass") {
 	return { call: plain(call), result: plain(result) };
 }
 
-function framed(ruling?: RulingRequest["ruling"], toolName = "bash") {
+function framed(
+	ruling?: RulingRequest["ruling"],
+	toolName = "bash",
+	overrides: Record<string, unknown> = {},
+) {
 	const fake = fakePi();
 	createApp(fake.pi, { name: "look" }).use(look).build();
 	fake.pi.events.on(RULING, (data) => {
@@ -85,7 +93,7 @@ function framed(ruling?: RulingRequest["ruling"], toolName = "bash") {
 	});
 	const chain = resolve(fake, renderers(), toolName);
 	if (chain === undefined) throw new Error("no renderers");
-	const call = chain.renderCall?.({ command: "bun run test" }, theme, context());
+	const call = chain.renderCall?.({ command: "bun run test" }, theme, context(overrides));
 	if (call === undefined) throw new Error("no call component");
 	return { chain, call: call.render(60).map((line) => line.trimEnd()) };
 }
@@ -115,14 +123,33 @@ describe("the frame around a tool call", () => {
 	});
 
 	test("cuts the command off from what it printed", () => {
-		const { call } = whole();
-		expect(call.at(-1)).toMatch(/^\u251c\u2500+\u2524$/);
+		const { call, result } = whole();
+		expect(call.some((line) => /^\u251c\u2500+\u2524$/u.test(line))).toBe(false);
+		expect(result[0]).toMatch(/^\u251c\u2500+\u2524$/);
 	});
 
-	test("says the time on the bottom rule instead of inside the output", () => {
+	test("leaves the cut out of a call with nothing to print", () => {
+		const { result } = whole(undefined, "");
+		expect(result.some((line) => /^\u251c\u2500+\u2524$/u.test(line))).toBe(false);
+		expect(result.at(-1)).toMatch(/^\u2570\u2500 \S+ done  6\.8s  wrote 2\.1s \u2500+\u256f$/);
+	});
+
+	test("says the times on the bottom rule instead of inside the output", () => {
 		const { result } = whole(undefined, "583 pass\n\nTook 6.8s");
 		expect(result.some((line) => line.includes("Took"))).toBe(false);
-		expect(result.at(-1)).toMatch(/^\u2570\u2500 \S+ done  6\.8s \u2500+\u256f$/);
+		expect(result.at(-1)).toMatch(/^\u2570\u2500 \S+ done  6\.8s  wrote 2\.1s \u2500+\u256f$/);
+	});
+
+	test("says the phase while the call has nothing to show yet", () => {
+		const writing = framed(undefined, "bash", { executionStarted: false, argsComplete: false });
+		expect(writing.call.at(-1)).toMatch(/^\u2570\u2500 \S+ writing  0\.0s \u2500+\u256f$/);
+
+		const waiting = framed(undefined, "bash", { executionStarted: false, argsComplete: true });
+		expect(waiting.call.at(-1)).toMatch(/^\u2570\u2500 \S+ waiting  0\.0s \u2500+\u256f$/);
+
+		// Once it runs, the result half owns the bottom rule and this one stops drawing it.
+		const running = framed(undefined, "bash", { executionStarted: true });
+		expect(running.call.some((line) => /\u2570\u2500/u.test(line))).toBe(false);
 	});
 
 	test("closes a call that is still running with the time so far", () => {

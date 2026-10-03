@@ -37,14 +37,28 @@ const ICONS: Record<IconSet, Record<ToolKind, string>> = {
 	},
 };
 
-const MARKS: Record<IconSet, Record<"running" | "done" | "failed", string>> = {
-	nerd: { running: "\u{f04c5}", done: "\u{f00c}", failed: "\u{f00d}" },
-	unicode: { running: "\u25f7", done: "\u2713", failed: "\u2717" },
-	ascii: { running: "...", done: "ok", failed: "!" },
+export type CallPhase = "writing" | "waiting" | "running" | "done" | "failed";
+
+const MARKS: Record<IconSet, Record<CallPhase, string>> = {
+	nerd: {
+		writing: "\u{f044}", // nf-fa-pencil
+		waiting: "\u{f252}", // nf-fa-hourglass_half
+		running: "\u{f017}", // nf-fa-clock_o
+		done: "\u{f00c}", // nf-fa-check
+		failed: "\u{f00d}", // nf-fa-times
+	},
+	unicode: {
+		writing: "\u270e",
+		waiting: "\u29d6",
+		running: "\u25f7",
+		done: "\u2713",
+		failed: "\u2717",
+	},
+	ascii: { writing: "~", waiting: ":", running: "...", done: "ok", failed: "!" },
 };
 
-export function stateMark(state: "running" | "done" | "failed", set: IconSet): string {
-	return MARKS[set][state];
+export function stateMark(phase: CallPhase, set: IconSet): string {
+	return MARKS[set][phase];
 }
 
 export function toolIcon(toolName: string, set: IconSet): string {
