@@ -13,7 +13,7 @@ import {
 
 const MAX_VISIBLE = 10;
 
-/** Asks for one of the options, in a frame, and returns undefined when the answer is cancelled. */
+/** The options in our frame; undefined when the answer is cancelled. */
 export async function pick(
 	ctx: ExtensionContext,
 	title: string,
@@ -36,7 +36,6 @@ export async function pick(
 	});
 }
 
-/** A select list with our frame around it. */
 export class FramedSelect implements Component {
 	private readonly list: SelectList;
 

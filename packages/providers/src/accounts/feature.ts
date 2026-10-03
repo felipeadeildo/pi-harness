@@ -1,9 +1,9 @@
-// The accounts feature: it attaches every provider that has accounts to the session, publishes the
-// account in use, and routes the two entries, the shortcut and the command.
+// The accounts feature and its two entry points.
 import { defineFeature } from "@adeildo/pi-kit";
 import { Key } from "@earendil-works/pi-tui";
 
-import { resetNote, usageOf } from "../usage.ts";
+import { claudeCodeVersion } from "../subscription/feature.ts";
+import { Quota, resetNote, usageOf } from "../usage.ts";
 import { activeAccount } from "./active.ts";
 import { attachProvider, type Watch } from "./attach.ts";
 import { addAccount, pickAccount } from "./dialogs.ts";
@@ -22,13 +22,17 @@ export const accounts = defineFeature({
 	setup(scope) {
 		const store = new AccountStore();
 		const pins: Pins = new Map();
-		const watch: Watch = { limited: new Map(), usage: new Map() };
+		const watch: Watch = {
+			limited: new Map(),
+			usage: new Map(),
+			quota: new Quota(() => claudeCodeVersion.get(scope)),
+		};
 
 		scope.screen.rows((ctx) => accountRows(scope, store, pins, ctx));
 		scope.on("model_select", (_event, ctx) => refreshStatus(store, pins, ctx));
 		scope.on("session_shutdown", (_event, ctx) => ctx.ui.setStatus(STATUS_KEY, undefined));
 
-		// A usage limit is terminal for this set of accounts, so the line stops pi's own retry.
+		// The line stops pi's own retry.
 		scope.on("message_end", (event) => {
 			if (event.message.role !== "assistant") return;
 			const providerId = event.message.provider;
@@ -57,7 +61,7 @@ export const accounts = defineFeature({
 
 		scope.registerShortcut(Key.alt("a"), {
 			description: `${NAME}: pick the account of the current provider`,
-			handler: (ctx) => pickAccount(scope, store, pins, ctx),
+			handler: (ctx) => pickAccount(scope, store, pins, watch, ctx),
 		});
 
 		scope.registerCommand("accounts", {

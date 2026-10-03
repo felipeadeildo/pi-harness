@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { join } from "node:path";
 
 import { createApp } from "@adeildo/pi-kit";
@@ -11,12 +11,15 @@ import {
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { activeAccount } from "../src/accounts/active.ts";
+import type { Watch } from "../src/accounts/attach.ts";
+import { pickAccount } from "../src/accounts/dialogs.ts";
 import { accounts } from "../src/accounts/feature.ts";
 import { nativeOf } from "../src/accounts/lift.ts";
 import type { Pins } from "../src/accounts/pins.ts";
 import { afterAuthFailure, afterLimit, usageLimitLine } from "../src/accounts/policy.ts";
 import { onAuthFailure, onLimit } from "../src/accounts/settings.ts";
 import { AccountStore } from "../src/accounts/store.ts";
+import { Quota } from "../src/usage.ts";
 import { agentDirFixture } from "./helpers.ts";
 
 const OAUTH: Credential = { type: "oauth", access: "a", refresh: "r", expires: 0 };
@@ -354,4 +357,46 @@ test("a finished message or another error is left alone", () => {
 			"work",
 		),
 	).toBeUndefined();
+});
+
+test("the account picker shows what each account has left", async () => {
+	const store = new AccountStore();
+	store.add("anthropic", "work", OAUTH);
+	store.add("anthropic", "personal", OTHER);
+	const scope = fakeScope({ pi: fakePi() });
+	const watch: Watch = { limited: new Map(), usage: new Map(), quota: new Quota(() => "2.1.280") };
+	const body = {
+		limits: [
+			{
+				kind: "session",
+				percent: 62,
+				is_active: true,
+				resets_at: new Date(Date.now() + 2 * 3_600_000).toISOString(),
+			},
+		],
+	};
+	const mock = spyOn(globalThis, "fetch");
+	mock.mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }));
+	try {
+		let shown: string[] = [];
+		const ctx = fakeContext([], true, {
+			model: { provider: "anthropic" },
+			ui: {
+				setStatus: () => {},
+				notify: () => {},
+				select: async (_title: string, options: string[]) => {
+					shown = options;
+					return undefined;
+				},
+			},
+		});
+
+		await pickAccount(scope, store, new Map(), watch, ctx);
+
+		// The api-key account has no endpoint to ask, so only the OAuth one carries numbers.
+		expect(shown[1]).toContain("work (oauth) 62% ↓2h");
+		expect(shown[2]).toBe("personal (key)");
+	} finally {
+		mock.mockRestore();
+	}
 });

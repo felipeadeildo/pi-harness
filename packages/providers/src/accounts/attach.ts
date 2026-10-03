@@ -1,20 +1,28 @@
-// Joining a provider to the session: the session answers which account a request uses, where a
-// refreshed token goes, and what quota each account reported. The provider is re-registered once, so
-// one provider keeps one model list.
+// Joining a provider to the session: which account a request uses, where a refreshed token goes, and
+// what quota each account reported.
 import type { FeatureScope } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { type AccountUsage, noteUsage, resetNote, type UsageMap, usageOf } from "../usage.ts";
+import {
+	type AccountUsage,
+	noteUsage,
+	type Quota,
+	quotaKey,
+	resetNote,
+	type UsageMap,
+	usageOf,
+} from "../usage.ts";
 import { activeAccount } from "./active.ts";
 import { liftProvider, nativeOf, type AccountSession } from "./lift.ts";
 import type { Pins } from "./pins.ts";
 import { afterAuthFailure, afterLimit } from "./policy.ts";
 import type { AccountStore } from "./store.ts";
 
-/** What the session learns while it runs: the accounts that refused, and the quota they reported. */
+/** What the session learns while it runs. */
 export interface Watch {
 	limited: Map<string, Set<string>>;
 	usage: UsageMap;
+	quota: Quota;
 }
 
 export function attachProvider(
@@ -57,24 +65,39 @@ function sessionFor(
 		save: (id, credential) => void store.setCredential(providerId, id, credential),
 		served: (id) => void watch.limited.get(providerId)?.delete(id),
 		noteUsage: (id, headers) => noteUsage(watch.usage, providerId, id, headers),
-		afterLimit: (currentId, detail) =>
-			afterLimit(
+		afterLimit: async (currentId, detail) => {
+			const reading = await readingFor(watch, store, providerId, currentId);
+			return await afterLimit(
 				scope,
 				store,
 				pins,
 				ctx,
 				providerId,
 				currentId,
-				withReset(detail, usageOf(watch.usage, providerId, currentId)),
+				withReset(detail, reading),
 				watch.limited,
-			),
+			);
+		},
 		afterAuthFailure: (currentId, detail) =>
 			afterAuthFailure(scope, store, pins, ctx, providerId, currentId, detail),
 	};
 }
 
-/** The detail a policy shows, with the reset when the account's window is known. */
 function withReset(detail: string, usage: AccountUsage | undefined): string {
 	const note = resetNote(usage);
 	return note === undefined ? detail : `${detail} · ${note}`;
+}
+
+/** The best reading for an account: the live one, else the endpoint's, fetched when there is none. */
+export async function readingFor(
+	watch: Watch,
+	store: AccountStore,
+	providerId: string,
+	accountId: string,
+): Promise<AccountUsage | undefined> {
+	const live = usageOf(watch.usage, providerId, accountId);
+	if (live !== undefined) return live;
+	const account = store.accounts(providerId).find((entry) => entry.id === accountId);
+	const token = account?.credential.type === "oauth" ? account.credential.access : undefined;
+	return await watch.quota.ensure(quotaKey(providerId, accountId), token);
 }

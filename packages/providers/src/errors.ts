@@ -1,10 +1,5 @@
-// What a failed request is, so a limit that belongs to one account can be told from one that belongs
-// to the server, the plan, or the token. Providers put their errors inside JSON, and the text is what
-// reaches the agent, so this reads the text and keeps the provider's own sentence.
-//
-// The table has a shared part and a part per provider. Anthropic is the only provider with its own
-// rules today; a provider without them falls back to the shared ones, so adding Codex means adding
-// an entry, not a branch.
+// What a failed request is, so an account's limit can be told from a server, plan or token failure.
+// Rules are shared plus one entry per provider; adding Codex means adding an entry.
 import { isObject } from "@adeildo/pi-kit";
 
 export const FAILURE_KINDS = [
@@ -22,19 +17,14 @@ export type FailureKind = (typeof FAILURE_KINDS)[number];
 
 export interface Failure {
 	kind: FailureKind;
-	/** HTTP status, when the text carries one. */
 	status?: number;
-	/** The provider's error type, like `rate_limit_error`. */
 	code?: string;
-	/** The provider's own sentence, without the JSON wrapper. */
 	message: string;
-	/** The body's request id, when it has one. */
 	requestId?: string;
 	/** A usage limit belongs to the account, so another account may serve the request. */
 	switchable: boolean;
 }
 
-/** What the text carries, once unpacked. Every rule reads this. */
 interface Signals {
 	status?: number;
 	code?: string;
@@ -84,8 +74,7 @@ const COMMON: Rule[] = [
 const BY_PROVIDER: Record<string, Rule[]> = {
 	anthropic: [
 		{
-			// The subscription windows answer a 429 with this sentence, and the phrase also covers the
-			// usage endpoint's own refusal.
+			// The subscription windows answer a 429 with this sentence.
 			kind: "usage",
 			when: (signals) => isRateLimit(signals) && USAGE.test(haystack(signals)),
 		},
@@ -120,7 +109,6 @@ function asText(input: unknown): string {
 	}
 }
 
-/** Reads the first JSON object in the text, which is where providers put the real error. */
 function parseBody(text: string): Body {
 	const start = text.indexOf("{");
 	if (start < 0) return {};
@@ -149,7 +137,6 @@ function statusOf(text: string): number | undefined {
 	return match === null ? undefined : Number(match[1]);
 }
 
-/** Drops the wrappers a caller may have added around the provider's own sentence. */
 function stripWrappers(text: string): string {
 	return text
 		.replace(/^Error:\s*/i, "")

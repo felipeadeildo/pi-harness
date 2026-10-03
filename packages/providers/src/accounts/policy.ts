@@ -1,6 +1,4 @@
-// What the accounts do when the provider refuses a request: the policy after a usage limit, and the
-// policy after a credential the provider will not take. The settings pick the policy; this file
-// applies it and keeps the session pointed at the account that answers.
+// What the accounts do when the provider refuses a request, by the settings the user chose.
 import type { FeatureScope } from "@adeildo/pi-kit";
 import type { Credential } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -17,7 +15,6 @@ import { onAuthFailure, onLimit } from "./settings.ts";
 import type { AccountStore } from "./store.ts";
 import type { Account } from "./types.ts";
 
-/** The line that replaces a usage limit on its way out, or undefined when the error is not one. */
 export function usageLimitLine(
 	message: { provider: string; stopReason?: string; errorMessage?: string },
 	label: string | undefined,
@@ -25,8 +22,7 @@ export function usageLimitLine(
 ): string | undefined {
 	if (message.stopReason !== "error" || message.errorMessage === undefined) return undefined;
 	if (classifyFailure(message.errorMessage, message.provider).kind !== "usage") return undefined;
-	// The marker is what stops pi's own retry, which would back off for hours against a window that
-	// only resets at the provider.
+	// The marker stops pi's own retry; the window only resets at the provider.
 	const who = label === undefined ? message.provider : `${message.provider} · ${label}`;
 	const when = note === undefined ? "" : `, ${note}`;
 	return `${who}: usage limit reached${when} (quota exceeded)`;
@@ -146,7 +142,6 @@ async function signInAgain(
 	}
 }
 
-/** Pins the account a policy moved to, and tells the session what happened. */
 function switchTo(
 	scope: FeatureScope,
 	store: AccountStore,
@@ -174,7 +169,7 @@ function markLimited(
 	return refused;
 }
 
-/** The account after this one that has not refused yet, so a limit moves on instead of repeating. */
+/** The account after this one that has not refused yet. */
 function nextAccount(
 	list: readonly Account[],
 	currentId: string,

@@ -1,12 +1,12 @@
-// The interactive side of the accounts: the picker behind Alt+A and the flow behind /accounts. Both
-// draw with our frame, and a host without a terminal falls back to pi's own dialogs.
+// The picker behind Alt+A and the flow behind /accounts.
 import type { FeatureScope } from "@adeildo/pi-kit";
 import type { Provider } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { pick } from "../ui/picker.ts";
+import { type AccountUsage, usageText } from "../usage.ts";
 import { activeAccount } from "./active.ts";
-import { attachProvider, type Watch } from "./attach.ts";
+import { attachProvider, readingFor, type Watch } from "./attach.ts";
 import { reason } from "./describe.ts";
 import { interactionFor } from "./interaction.ts";
 import { login, loginMethods, type LoginMethod } from "./login.ts";
@@ -15,11 +15,12 @@ import { pin, type Pins } from "./pins.ts";
 import { DEFAULT_ACCOUNT, DEFAULT_LABEL, refreshStatus } from "./screen.ts";
 import type { AccountStore } from "./store.ts";
 
-/** Alt+A: the account of the current provider, pinned for the rest of the session. */
+/** Alt+A: the account of the current provider, pinned for the session. */
 export async function pickAccount(
 	scope: FeatureScope,
 	store: AccountStore,
 	pins: Pins,
+	watch: Watch,
 	ctx: ExtensionContext,
 ): Promise<void> {
 	if (!ctx.hasUI) {
@@ -39,6 +40,11 @@ export async function pickAccount(
 	}
 
 	const current = activeAccount(store, pins, providerId)?.id ?? DEFAULT_ACCOUNT;
+	const readings = new Map<string, AccountUsage | undefined>();
+	for (const account of entries) {
+		// oxlint-disable-next-line no-await-in-loop -- the endpoint refuses bursts from one token.
+		readings.set(account.id, await readingFor(watch, store, providerId, account.id));
+	}
 	const choices = [
 		{ id: DEFAULT_ACCOUNT, label: DEFAULT_LABEL, kind: "login" },
 		...entries.map((account) => ({
@@ -49,7 +55,9 @@ export async function pickAccount(
 	];
 	const options = choices.map((choice) => {
 		const here = choice.id === current ? " ✓" : "";
-		return `${choice.label} (${choice.kind})${here}`;
+		const quota = choice.id === DEFAULT_ACCOUNT ? undefined : usageText(readings.get(choice.id));
+		const left = quota === undefined ? "" : ` ${quota}`;
+		return `${choice.label} (${choice.kind})${left}${here}`;
 	});
 
 	const picked = await pick(ctx, `Account for ${providerId}`, options);
