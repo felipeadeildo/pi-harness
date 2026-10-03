@@ -20,8 +20,10 @@ export interface CallSpec {
 	args: Record<string, unknown>;
 	/** What the call printed. Without it the call is drawn as one that has not answered yet. */
 	output?: string;
-	/** How long it took so far. */
-	elapsedMs: number;
+	/** How long the model took to write the call. */
+	wroteMs: number;
+	/** How long the call ran, or has run so far. */
+	ranMs: number;
 	/** Still running, so the frame closes with the time so far instead of the end of the call. */
 	running?: boolean;
 	error?: boolean;
@@ -87,6 +89,10 @@ export function drawCall(spec: CallSpec, width: number): string[] {
 			ui,
 			"/repo",
 		);
+		// The frame times the whole call: the model writing it, then it running.
+		call.render(width);
+		behind = spec.wroteMs;
+		call.setArgsComplete();
 		call.markExecutionStarted();
 		if (spec.output === undefined) return call.render(width);
 
@@ -94,7 +100,7 @@ export function drawCall(spec: CallSpec, width: number): string[] {
 			content: [{ type: "text" as const, text: spec.output }],
 			isError: spec.error === true,
 		};
-		behind = spec.elapsedMs;
+		behind = spec.wroteMs + spec.ranMs;
 		call.updateResult(result, spec.running === true);
 		const lines = call.render(width);
 		// A running call ticks, and the picture would never finish with the ticker alive.

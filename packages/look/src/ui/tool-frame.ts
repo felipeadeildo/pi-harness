@@ -256,7 +256,7 @@ function cut(width: number, theme: Theme): string {
 	return truncateToWidth(line, width, "");
 }
 
-/** What the call is doing now, with the time it has spent doing it. */
+/** The bottom rule: what the call is doing, how long it ran, and how long the model took to write it. */
 function phaseLabel(
 	theme: Theme,
 	mark: string,
@@ -270,8 +270,6 @@ function phaseLabel(
 		"  ",
 	);
 }
-
-/** The bottom rule of a call that ended: how it went, how long it ran, and how long it took to write. */
 
 function inside(lines: readonly string[], width: number, theme: Theme): string[] {
 	const paint = (text: string) => theme.fg("border", text);

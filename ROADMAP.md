@@ -1,5 +1,3 @@
-# Roadmap
-
 ## Where this is going
 
 The agent writes faster than I read, and that will not change soon. So the work is not to take me out of the loop. It is to make my decision arrive in time, with less of my attention spent per call.

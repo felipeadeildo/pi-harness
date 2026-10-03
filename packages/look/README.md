@@ -1,14 +1,16 @@
-# @adeildo/pi-look
+<h1 align="center">@adeildo/pi-look</h1>
 
-[![npm](https://img.shields.io/npm/v/@adeildo/pi-look)](https://www.npmjs.com/package/@adeildo/pi-look)
+<p align="center">
+  <a href="https://www.npmjs.com/package/@adeildo/pi-look"><img src="https://img.shields.io/npm/v/@adeildo/pi-look" alt="npm"></a>
+  <a href="https://pi.dev"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffelipeadeildo%2Fpi-harness%2Fmain%2Fpackage.json&query=%24.devDependencies%5B%22%40earendil-works%2Fpi-coding-agent%22%5D&label=pi%20SDK&color=6E56CF" alt="pi SDK"></a>
+</p>
 
-[Pi](https://pi.dev)'s start screen, editor, footer and working line, redrawn around the numbers that matter while the agent works. It paints only with the colours of the theme you run, and the screen holds still while the numbers change.
+<p align="center">
+  <strong>Pi's screen, drawn around the numbers that matter while the agent works.</strong><br>
+  The start card, the editor framed with the branch and the model, a box around every command, and a footer with what the session costs.
+</p>
 
-```bash
-pi install npm:@adeildo/pi-look
-```
-
-It also comes in [`@adeildo/pi-harness`](../harness), with the rest of the pieces.
+<p align="center"><code>pi install npm:@adeildo/pi-look</code></p>
 
 <!-- docs:look/preview -->
 
@@ -20,18 +22,9 @@ It also comes in [`@adeildo/pi-harness`](../harness), with the rest of the piece
 
 <!-- /docs -->
 
-## What is on the screen
+## The screen
 
-**The start card** says what the session starts with: the model and its effort, the folder and the state of the tree, the machine, how many tools, skills, prompts and extensions loaded, and the keys worth knowing, read from your keybindings.
-
-**The strip above the editor** is calm on purpose. Nothing in it moves while the model streams except the stopwatch.
-
-| Piece                                            | Means                                                                                                                                   |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `0:12  3 calls`                                  | How long the agent has worked on this prompt, and how many calls to the model it made                                                   |
-| `last call 1.7s wait  900ms thought  ↓906 tok/s` | The last call that finished: how long the model took to start, how long it thought before writing, and how fast it wrote. Final numbers |
-
-**Every command gets a box of its own.** The icon of the tool and its name sit on the top line. Below them comes the command, and below the command the reason it was allowed, when another model answered it. A line then cuts the command off from what it printed. The bottom line says how it went: a check for a command that worked, a cross for one that failed, and how long it took. While a command runs, that line says `running` with the time so far. A tool that comes from an MCP server shows the server and the tool instead of `mcp__server__tool`, and every icon follows the icon set you picked.
+A finished answer takes a box of its own, so you can see what the model wants to run before it runs. The mark of the tool and its name sit on the top line, the command under them, and the reason it was allowed under that, when another model answered it. A line cuts the command off from what it printed, and the bottom line says how it went: a check, a cross, and how long it took. A command still running says `running` with the time so far. A tool from an MCP server shows its server and tool instead of `mcp__server__tool`.
 
 <!-- docs:look/call -->
 
@@ -43,40 +36,41 @@ It also comes in [`@adeildo/pi-harness`](../harness), with the rest of the piece
 
 <!-- /docs -->
 
-**The frame** around the editor carries the branch with its distance and changes, the folder, the permission mode, the model with an effort meter, and the context. The border takes pi's own effort colour, so it warms up as the model thinks harder and turns to the bash colour in shell mode.
+The strip above the editor is calm on purpose. Nothing moves while the model streams except the stopwatch.
 
-**The spinner** names the state instead of saying "Working": `waiting` for the first token, `thinking`, `writing`, `drafting bash` while the model writes the call, `running bash` while it runs.
+| Piece                                            | Means                                                                                                   |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `0:12  3 calls`                                  | How long the agent has worked on this prompt, and how many calls to the model it made                   |
+| `last call 1.7s wait  900ms thought  ↓906 tok/s` | The last call: how long the model took to start, how long it thought then wrote, and how fast it writes |
 
-**The footer** is the session: the cost, tokens sent and received, the cache hit of the last prompt, the average speeds, and last what other packages report, because it changes the most.
+The border around the editor carries the branch with its distance and changes, the folder, the permission mode, the model with an effort meter, and the context. It takes pi's own effort colour, so it warms up as the model thinks harder and turns to the shell colour in bash mode.
+
+The spinner names the state instead of saying "Working": `waiting` for the first token, `thinking`, `writing`, `drafting bash` while the model writes the call, `running bash` while it runs.
+
+The footer is the session: the cost, the tokens sent and received, the cache of the last prompt, the average speeds, and last what other packages report, because that changes the most.
 
 ## It holds still
 
-Numbers change on every frame and the screen must not move with them.
+Numbers change on every frame, and the screen must not move with them.
 
 - Every number sits in a cell of fixed width, so `  17` and `2.8k` take the same room.
-- A value not known yet shows as `–` in its cell and does not appear later in the middle of the line.
-- The working time is a stopwatch, `0:59` then `1:00`, instead of `59s` then `1m 0s`.
-- An estimate is drawn quieter and does not gain a `~`.
-- The strip and the footer keep their line from the start, so the editor does not jump when the first answer arrives.
+- A value nobody knows yet shows as `–` and does not appear later in the middle of the line.
+- The working time counts as a stopwatch, `0:59` then `1:00`.
+- An estimate is drawn quieter, so you know it is one.
+- The strip and the footer hold their line from the start, so the editor does not jump when the first answer arrives.
 
-Every finished answer leaves a small entry in the session with its time to first token and writing time, because pi records usage without a duration. That keeps the averages right after a resume.
+Pi records usage without a duration, so every finished answer leaves one small entry in the session with its time to the first token and its writing time. That is what keeps the averages right after a resume.
 
-## Your theme, not ours
+## Your theme
 
-The look never names a colour. Every piece names a **theme token**, so it follows whatever theme pi runs: `system`, `dark`, `light`, a JSON of yours, or the desktop theme below. Change the theme and every piece moves with it. The [reference](docs/reference.md#colours) maps each piece to its token.
+The look never names a colour. Every piece names a theme token, so it follows whatever theme pi runs, and it moves with it when you change themes. The [reference](docs/reference.md#colours) maps each piece to its token.
 
-### The desktop theme
-
-If you run [DankMaterialShell](https://github.com/AvengeMedia/DankMaterialShell), matugen already made a palette from your wallpaper. The look turns it into the pi theme `desktop`, writes it to `~/.pi/agent/themes/desktop.json` and rewrites it when the palette changes. Pi reloads the active theme from that folder by itself, so a new wallpaper recolours a running pi. `Switch to it now`, in the Desktop theme section of the settings (`Alt+S`), writes the theme and makes it pi's.
+If you run [DankMaterialShell](https://github.com/AvengeMedia/DankMaterialShell), matugen already made a palette from your wallpaper. The look turns it into the pi theme `desktop` and rewrites that file when the palette changes, so a new wallpaper recolours a running pi. `Switch to it now`, in the settings, does that at once.
 
 ## Settings
 
-`Alt+S` opens them, on the Look tab. You can reorder and move every piece of the strip, the frame and the footer, pick the frame style, the icons and the separator, and switch off what you do not want. The [reference](docs/reference.md#settings) lists every key and every segment.
+`Alt+S` opens them on the Look tab. You can reorder every piece of the strip, the frame and the footer, pick the frame style, the icons and the separator, and switch off what you do not want. The [reference](docs/reference.md#settings) lists every key and every segment.
 
-## Credit
+The framed editor, and the idea of writing into its borders, come from [pi-open-tui](https://github.com/OldSuns/pi-open-tui), which this replaces. The segments with priorities come from [oh-my-pi](https://github.com/can1357/oh-my-pi).
 
-The framed editor and the idea of writing into its borders come from [pi-open-tui](https://github.com/OldSuns/pi-open-tui), which this replaces. The segments with priorities, and the status line in the editor border, come from [oh-my-pi](https://github.com/can1357/oh-my-pi).
-
-## License
-
-[MIT](LICENSE)
+Part of [pi-harness](https://github.com/felipeadeildo/pi-harness), which brings every piece in one install.

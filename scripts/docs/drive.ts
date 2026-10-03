@@ -17,8 +17,12 @@ export const KEYS = {
 export const WIDTH = 100;
 
 /** A dialog with the focus, on a terminal of `WIDTH` columns and 40 rows. */
-export function openDialog(theme: Theme, questions: readonly AskQuestion[]): QuestionDialog {
-	const tui = { requestRender() {}, terminal: { rows: 40, columns: WIDTH } } as unknown as TUI;
+export function openDialog(
+	theme: Theme,
+	questions: readonly AskQuestion[],
+	width: number = WIDTH,
+): QuestionDialog {
+	const tui = { requestRender() {}, terminal: { rows: 40, columns: width } } as unknown as TUI;
 	const dialog = new QuestionDialog({
 		tui,
 		theme,

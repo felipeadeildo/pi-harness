@@ -1,4 +1,5 @@
 import { createEventBus, type Theme } from "@earendil-works/pi-coding-agent";
+import { stripTerminalSequences } from "@earendil-works/pi-tui";
 
 import { SCOPE_LABEL } from "../../packages/ask-permission/src/core/always-yes.ts";
 import type { FolderOffer } from "../../packages/ask-permission/src/core/answer.ts";
@@ -20,7 +21,8 @@ import {
 } from "../../packages/kit/src/index.ts";
 import { drawCalls, type CallSpec } from "./calls.ts";
 import { KEYS, openDialog, press, type, WIDTH } from "./drive.ts";
-import { drawLook } from "./look.ts";
+import { drawLook, lookParts } from "./look.ts";
+import { assistantText, userMessage } from "./messages.ts";
 
 export interface Scene {
 	name: string;
@@ -28,8 +30,6 @@ export interface Scene {
 	alt: string;
 	draw(theme: Theme): string[] | Promise<string[]>;
 }
-
-// ── ask_questions ───────────────────────────────────────────────────────────────────────────
 
 const LAYOUT: AskQuestion = {
 	header: "Layout",
@@ -70,12 +70,12 @@ const RULES: AskQuestion = {
 	],
 };
 
-function questionsDialog(theme: Theme): string[] {
-	const dialog = openDialog(theme, [LAYOUT, SCOPE]);
+function questionsDialog(theme: Theme, width: number = WIDTH): string[] {
+	const dialog = openDialog(theme, [LAYOUT, SCOPE], width);
 	press(dialog, KEYS.tab);
 	type(dialog, "my pick");
 	press(dialog, KEYS.enter);
-	return dialog.render(WIDTH);
+	return dialog.render(width);
 }
 
 function questionsMulti(theme: Theme): string[] {
@@ -89,8 +89,6 @@ function questionsReview(theme: Theme): string[] {
 	press(dialog, KEYS.enter, KEYS.enter, KEYS.space, KEYS.right);
 	return dialog.render(WIDTH);
 }
-
-// ── permission ──────────────────────────────────────────────────────────────────────────────
 
 function chosen(header: string, option: string): AskResult {
 	return { answers: [{ question: "q", header, picked: [option], notes: [] }], cancelled: false };
@@ -120,17 +118,17 @@ function required(question: AskQuestion | undefined, what: string): AskQuestion 
 	return question;
 }
 
-async function permissionAsk(theme: Theme): Promise<string[]> {
+async function permissionAsk(theme: Theme, width: number = WIDTH): Promise<string[]> {
 	const questions = await asked(
 		callOf("bash", { command: "npm install" }),
 		{ reason: "the judge leaned deny but was only 61% confident" },
 		[chosen("permission", "no")],
 	);
-	const dialog = openDialog(theme, [required(questions[0], "the permission ask")]);
+	const dialog = openDialog(theme, [required(questions[0], "the permission ask")], width);
 	press(dialog, KEYS.down, KEYS.down, KEYS.tab);
 	type(dialog, "use pnpm instead");
 	press(dialog, KEYS.enter);
-	return dialog.render(WIDTH);
+	return dialog.render(width);
 }
 
 async function permissionRemember(theme: Theme): Promise<string[]> {
@@ -162,51 +160,93 @@ async function permissionFolder(theme: Theme): Promise<string[]> {
 	return dialog.render(WIDTH);
 }
 
-// ── tool calls ─────────────────────────────────────────────────────────────────────────────
-
-/** The tools the frames below are drawn for, in the width the other pictures use. */
-function toolCalls(specs: readonly CallSpec[]): string[] {
-	return drawCalls(specs, WIDTH);
+/** The call the pictures agree on: the suite passing, allowed by the judge. */
+function testsPassed(): CallSpec {
+	return {
+		tool: "bash",
+		args: { command: "bun run test" },
+		output: "583 pass\n0 fail",
+		wroteMs: 2_100,
+		ranMs: 6_800,
+		ruling: { tone: "success", head: "judge approved", why: "97% sure, risk 0.12" },
+	};
 }
 
 function lookCall(): string[] {
-	return toolCalls([
-		{
-			tool: "bash",
-			args: { command: "bun run test" },
-			output: "583 pass\n0 fail",
-			elapsedMs: 6_800,
-			ruling: { tone: "success", head: "judge approved", why: "97% sure, risk 0.12" },
-		},
-		{
-			tool: "read",
-			args: { path: "src/ui/tool-frame.ts" },
-			output: "export function registerToolFrames(scope: FeatureScope): void {\n  // ...",
-			elapsedMs: 40,
-			ruling: { tone: "success", head: "always yes", why: "read, this project" },
-		},
-		{
-			tool: "bash",
-			args: { command: "pnpm test --watch" },
-			output: "✓ core  (0.31 seconds)",
-			elapsedMs: 3_200,
-			running: true,
-			ruling: { tone: "warning", head: "asking you", why: "the judge wants a person to decide" },
-		},
-	]);
+	return drawCalls(
+		[
+			testsPassed(),
+			{
+				tool: "read",
+				args: { path: "src/ui/tool-frame.ts" },
+				output: "export function registerToolFrames(scope: FeatureScope): void {\n  // ...",
+				wroteMs: 900,
+				ranMs: 400,
+				ruling: { tone: "success", head: "always yes", why: "read, this project" },
+			},
+			{
+				tool: "bash",
+				args: { command: "pnpm test --watch" },
+				output: "✓ core  (0.31 seconds)",
+				wroteMs: 1_200,
+				ranMs: 3_200,
+				running: true,
+				ruling: { tone: "warning", head: "asking you", why: "the judge wants a person to decide" },
+			},
+		],
+		WIDTH,
+	);
 }
 
-function harnessPreview(): string[] {
-	return toolCalls([
-		{
-			tool: "bash",
-			args: { command: "bun run test" },
-			output: "... (3 earlier lines, ctrl+o to expand)\n✓ 583 pass\n✓ 0 fail",
-			elapsedMs: 6_800,
-			ruling: { tone: "success", head: "judge approved", why: "97% sure, risk 0.12" },
-		},
-	]);
+/** The look, with a session in it: what you asked, what the model ran, and what it cost. */
+function conversation(theme: Theme): string[] {
+	const look = lookParts(theme, "");
+	const opening = [
+		...look.header,
+		...userMessage("commit with a semantic message and push", WIDTH),
+		...assistantText("Running the tests first.", WIDTH),
+		...drawCalls(
+			[
+				{
+					tool: "bash",
+					args: {
+						command:
+							'bun run verify && git commit -am "fix: keep the answer on one line" && git push',
+					},
+					output: [
+						"✓ 583 pass (5.4s)",
+						"✓ types (5.5s)",
+						"[main 4f0a7a9] fix: keep the answer on one line",
+						"✓ pushed to origin/main",
+					].join("\n"),
+					wroteMs: 2_100,
+					ranMs: 12_400,
+					ruling: { tone: "success", head: "judge approved", why: "97% sure, risk 0.12" },
+				},
+			],
+			WIDTH,
+		),
+		...assistantText("Done. CI is running on it.", WIDTH),
+	];
+	return [...blocks(opening), ...look.strip, ...look.editor, ...look.footer];
 }
+
+/** One blank line between the blocks of a session, and none inside them. */
+function blocks(lines: readonly string[]): string[] {
+	const out: string[] = [];
+	for (const line of lines) {
+		if (!isBlank(line)) out.push(line);
+		else if (out.length > 0 && !isBlank(out.at(-1))) out.push("");
+	}
+	return out;
+}
+
+function isBlank(line: string | undefined): boolean {
+	return stripTerminalSequences(line ?? "").trim() === "";
+}
+
+/** Narrow enough that two pictures sit side by side on a README, and still read. */
+const NARROW = 56;
 
 export const SCENES: readonly Scene[] = [
 	{
@@ -234,6 +274,18 @@ export const SCENES: readonly Scene[] = [
 		draw: permissionAsk,
 	},
 	{
+		name: "harness/permission",
+		caption: "The permission ask, drawn at the width a pair fits in.",
+		alt: "The permission dialog for npm install, narrow: the command, the reason it asks, the three answers, the note on no, and the keys.",
+		draw: (theme) => permissionAsk(theme, NARROW),
+	},
+	{
+		name: "harness/questions",
+		caption: "A question from the model, drawn at the width a pair fits in.",
+		alt: "The question dialog, narrow: two tabs, the options, and the panel with the description and the preview below them.",
+		draw: (theme) => questionsDialog(theme, NARROW),
+	},
+	{
 		name: "ask-permission/remember",
 		caption: "Always yes asks which calls to remember.",
 		alt: "After always yes, the dialog asks which calls to remember: this exact call, or every pnpm call.",
@@ -252,15 +304,15 @@ export const SCENES: readonly Scene[] = [
 		draw: lookCall,
 	},
 	{
-		name: "harness/preview",
-		caption: "A command the model wanted to run, and the reason it was allowed.",
-		alt: "A bash command in a box, with the reason it was allowed, what it printed, and the time it took.",
-		draw: harnessPreview,
-	},
-	{
 		name: "look/preview",
 		caption: "The start card, then a prompt halfway through its answer.",
 		alt: "Pi with the look: the start card, then the strip with the stopwatch and the last call, the framed editor with the branch, the model and the context, and below it the cost, the tokens, the cache and the average speeds.",
 		draw: drawLook,
+	},
+	{
+		name: "harness/conversation",
+		caption: "A session: the start card, what you asked, what the model ran, and what it cost.",
+		alt: "A session with the look: the start card, a request, the model running the tests, a commit you denied, then the stopwatch, the editor and the cost.",
+		draw: conversation,
 	},
 ];

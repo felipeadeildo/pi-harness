@@ -14,12 +14,12 @@
 
 <p align="center"><code>pi install npm:@adeildo/pi-harness</code></p>
 
-<!-- docs:harness/preview -->
+<!-- docs:harness/conversation -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/preview.png" alt="A bash command in a box, with the reason it was allowed, what it printed, and the time it took." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/conversation.png" alt="A session with the look: the start card, a request, the model running the tests, a commit you denied, then the stopwatch, the editor and the cost." width="860">
   <br>
-  <em>A command the model wanted to run, and the reason it was allowed.</em>
+  <em>A session: the start card, what you asked, what the model ran, and what it cost.</em>
 </p>
 
 <!-- /docs -->
@@ -41,15 +41,14 @@
 | [Look](packages/look)                 | The start screen, the editor with the branch and the model on its borders, and a box around each command with its output and how long it took    |
 | [Providers](packages/providers)       | Bills Anthropic requests to the Claude plan you already pay for, and keeps several accounts with a switch to the next one when a limit hits      |
 
-<!-- docs:look/call -->
+Two dialogs stand between the model and the two things that need you: the permission to run something, and a question it would otherwise guess at.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/call.png" alt="Three commands, each in its own box: a bash command with the reason it was allowed and the time it took, a file read, and a command still running." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/permission.png" alt="The permission dialog for npm install, narrow: the command, the reason it asks, the three answers, the note on no, and the keys." width="380">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/questions.png" alt="The question dialog, narrow: two tabs, the options, and the panel with the description and the preview below them." width="380">
   <br>
-  <em>One command that ran, one a rule let through, and one still going.</em>
+  <em>The permission ask and a question from the model: the two dialogs that need you.</em>
 </p>
-
-<!-- /docs -->
 
 ## One piece, or all of them
 
@@ -68,6 +67,14 @@ There is no fork. Everything installs on top of Pi, and `pi remove` puts Pi back
 | Know what changed               | [CHANGELOG.md](CHANGELOG.md)                         |
 | Build a piece, or send a change | [CONTRIBUTING.md](CONTRIBUTING.md)                   |
 
-## License
+## Credit
 
-[MIT](LICENSE)
+The pieces borrow from other people's work, and each page names where. In one line: [pi-open-tui](https://github.com/OldSuns/pi-open-tui) and [oh-my-pi](https://github.com/can1357/oh-my-pi) for the screen, [rpiv-ask-user-question](https://github.com/juicesharp/rpiv-mono/tree/main/packages/rpiv-ask-user-question) for the questions, [pi-claude-max](https://github.com/bradennss/pi-claude-max) for the Claude plan billing, and [pi-multiprovider](https://github.com/monotykamary/pi-multiprovider) for pooling accounts of one provider.
+
+<p align="center">
+  <img src="https://adeildo.dev/assets/images/favicon.svg" alt="adeildo" width="48">
+</p>
+
+<p align="center">
+  I build these for myself, and publish them. The longer version of why, and the rest of what I run, lives at <a href="https://adeildo.dev">adeildo.dev</a>.
+</p>

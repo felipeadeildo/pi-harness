@@ -34,7 +34,7 @@ import { FooterComponent, StripComponent } from "../../packages/look/src/ui/foot
 import { HeaderComponent } from "../../packages/look/src/ui/header.ts";
 import type { Screen, SlotName } from "../../packages/look/src/ui/screen.ts";
 
-const WIDTH = 104;
+const WIDTH = 100;
 
 const SLOTS: Record<SlotName, SegmentId[]> = {
 	strip: strip.default,
@@ -131,17 +131,34 @@ function working(theme: Theme): Parameters<LookEditor["setWorkingStatusIndicator
 	return indicator as unknown as Parameters<LookEditor["setWorkingStatusIndicator"]>[0];
 }
 
+export interface LookParts {
+	header: string[];
+	strip: string[];
+	editor: string[];
+	footer: string[];
+}
+
+/** The look, in the order it sits on the screen. */
 export function drawLook(theme: Theme): string[] {
+	const look = lookParts(theme);
+	return [...look.header, ...look.strip, ...look.editor, ...look.footer];
+}
+
+/** The pieces on their own, so a picture can put something between them. */
+export function lookParts(
+	theme: Theme,
+	draft = "make the README say what the harness brings",
+): LookParts {
 	const keys = getKeybindings();
 	setKeybindings(new TuiKeybindings({ ...TUI_KEYBINDINGS, ...APP_KEYS }));
 	try {
-		return draw(theme);
+		return screenParts(theme, draft);
 	} finally {
 		setKeybindings(keys);
 	}
 }
 
-function draw(theme: Theme): string[] {
+function screenParts(theme: Theme, draft: string): LookParts {
 	const view = screen(theme);
 	const header = new HeaderComponent(view, {
 		style: () => "card",
@@ -164,7 +181,7 @@ function draw(theme: Theme): string[] {
 		view,
 	);
 	editor.setWorkingStatusIndicator(working(theme));
-	editor.setText("make the README say what the harness brings");
+	if (draft !== "") editor.setText(draft);
 
 	const footer = new FooterComponent(
 		tui,
@@ -173,10 +190,10 @@ function draw(theme: Theme): string[] {
 		{ attach: () => {}, detach: () => {} },
 	);
 
-	return [
-		...header,
-		...new StripComponent(view).render(WIDTH),
-		...editor.render(WIDTH),
-		...footer.render(WIDTH),
-	];
+	return {
+		header,
+		strip: new StripComponent(view).render(WIDTH),
+		editor: editor.render(WIDTH),
+		footer: footer.render(WIDTH),
+	};
 }

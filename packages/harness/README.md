@@ -1,19 +1,23 @@
-# @adeildo/pi-harness
-
-[![npm](https://img.shields.io/npm/v/@adeildo/pi-harness)](https://www.npmjs.com/package/@adeildo/pi-harness)
-
-Every extension adeildo runs [Pi](https://pi.dev) with, in one install.
-
-```bash
-pi install npm:@adeildo/pi-harness
-```
-
-<!-- docs:harness/preview -->
+<h1 align="center">@adeildo/pi-harness</h1>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/preview.png" alt="A bash command in a box, with the reason it was allowed, what it printed, and the time it took." width="860">
+  <a href="https://www.npmjs.com/package/@adeildo/pi-harness"><img src="https://img.shields.io/npm/v/@adeildo/pi-harness" alt="npm"></a>
+  <a href="https://pi.dev"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffelipeadeildo%2Fpi-harness%2Fmain%2Fpackage.json&query=%24.devDependencies%5B%22%40earendil-works%2Fpi-coding-agent%22%5D&label=pi%20SDK&color=6E56CF" alt="pi SDK"></a>
+</p>
+
+<p align="center">
+  <strong>Pi runs every command without asking. This makes it ask.</strong><br>
+  Every piece of this repository in one install: the permission, the questions, the screen and the Claude plan.
+</p>
+
+<p align="center"><code>pi install npm:@adeildo/pi-harness</code></p>
+
+<!-- docs:harness/conversation -->
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/conversation.png" alt="A session with the look: the start card, a request, the model running the tests, a commit you denied, then the stopwatch, the editor and the cost." width="860">
   <br>
-  <em>A command the model wanted to run, and the reason it was allowed.</em>
+  <em>A session: the start card, what you asked, what the model ran, and what it cost.</em>
 </p>
 
 <!-- /docs -->
@@ -30,26 +34,22 @@ pi install npm:@adeildo/pi-harness
 All of them are on once the package is installed.
 
 > [!WARNING]
-> Providers makes Pi introduce itself to Anthropic as Claude Code whenever a request uses an Anthropic OAuth token. Using a subscription from anything other than Claude Code may break Anthropic's terms. Turn it off, as below, if you do not want that. Requests with an API key go out untouched.
+> Providers makes Pi introduce itself to Anthropic as Claude Code whenever a request uses an Anthropic OAuth token. Using a subscription from anything other than Claude Code may break Anthropic's terms. Turn it off, as below, if you do not want that. A request with an API key goes out untouched.
 
-## Turn a piece off
+## Turning a piece off
 
-Each piece is its own extension in this package. Run `pi config` and switch off the one you do not want, globally or for one project.
-
-The settings file has a switch per feature too, read on the next `/reload`:
+Each piece is its own extension in this package, so `pi config` switches off the one you do not want, globally or for one project. The settings file has a switch per feature too, read on the next `/reload`, and the feature ids are `permission`, `look`, `subscription`, `accounts` and `questions`.
 
 ```json
 { "features": { "subscription": { "enabled": false } } }
 ```
 
-The feature ids are `permission`, `look`, `subscription`, `accounts` and `questions`.
-
 To have only one piece, install its own package instead. With both installed, the first copy that loads runs the feature and the other stays off.
 
 ## Settings
 
-`Alt+S` opens the settings of every piece. They live in `~/.pi/agent/extensions/pi-harness/settings.json`. A setting marked _project_ is also read from `.pi/extensions/pi-harness/settings.json` in a project Pi trusts, and the project value wins. Each piece's page lists its settings.
+`Alt+S` opens the settings of every piece. They live in `~/.pi/agent/extensions/pi-harness/settings.json`, and each piece's page lists its own. A setting marked _project_ is also read from `.pi/extensions/pi-harness/settings.json` in a project Pi trusts, where the project value wins.
 
-## License
+The whole set, with the pictures and the settings of each piece, is in the [root README](https://github.com/felipeadeildo/pi-harness).
 
-[MIT](LICENSE)
+Part of [pi-harness](https://github.com/felipeadeildo/pi-harness), which is this package. Every piece also ships on its own, for whoever wants only that one.

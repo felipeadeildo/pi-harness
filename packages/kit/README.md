@@ -1,8 +1,17 @@
-# @adeildo/pi-kit
+<h1 align="center">@adeildo/pi-kit</h1>
 
-[![npm](https://img.shields.io/npm/v/@adeildo/pi-kit)](https://www.npmjs.com/package/@adeildo/pi-kit)
+<p align="center">
+  <a href="https://www.npmjs.com/package/@adeildo/pi-kit"><img src="https://img.shields.io/npm/v/@adeildo/pi-kit" alt="npm"></a>
+</p>
 
-What [`@adeildo/pi-ask-permission`](../ask-permission) and [`@adeildo/pi-harness`](../harness) are built on. It's a library, not a Pi package. The one thing it adds to Pi is the settings screen. It's on npm because the packages need it at runtime, and its API follows what they need, with no promise to anyone else.
+<p align="center">
+  <strong>The library under every piece of <a href="https://github.com/felipeadeildo/pi-harness">pi-harness</a>.</strong><br>
+  An app builder, a feature scope, settings that several extensions share, and the settings screen on <code>Alt+S</code>. The screen is the one thing it adds to Pi.
+</p>
+
+<p align="center"><code>npm install @adeildo/pi-kit</code></p>
+
+It is a library and not a Pi package. Its API follows what the packages need, with no promise to anyone else.
 
 ## An app, and features in it
 
@@ -32,31 +41,31 @@ export default function (pi: ExtensionAPI): void {
 }
 ```
 
-Each extension a package declares is one app with one or more features. The app's `name` goes in front of every warning. The harness declares one extension per feature, so `pi config` turns each off on its own, and all of them share the settings file below.
+Each extension a package declares is one app with one or more features. The app's `name` goes in front of every warning. The harness declares one extension per feature, so `pi config` turns each off on its own, and all of them read the same settings file.
 
 ## What a feature gets
 
-`setup` receives the feature's scope. It extends `ExtensionAPI`, so it has every pi method, with two of them wired to the feature:
+`setup` receives the feature's scope. It extends `ExtensionAPI`, so every pi method is there, with these wired to the feature:
 
-|                         |                                                                                                                                                                                                          |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scope.on`              | `pi.on`, but an error comes out as `pi-harness: permission: tool_call: boom` instead of just the extension's name. It's still thrown, because a `tool_call` handler that throws is how pi blocks a tool. |
-| `scope.registerCommand` | `pi.registerCommand`. If another feature in the same app already took the name, this one is skipped with a warning.                                                                                      |
-| `scope.onSessionStart`  | Runs once the session's settings are loaded. Anything that lasts, like a watcher, a server or a child process, starts here and never in `setup`.                                                         |
-| `scope.onShutdown`      | Runs once per session, newest first, even when pi fires `session_shutdown` twice.                                                                                                                        |
-| `scope.screen`          | Rows on the settings screen that are not settings. See below.                                                                                                                                            |
-| `scope.warn`            | Shows a notification when there's a UI and writes to stderr when there isn't. Messages sent before a session starts are held until it does.                                                              |
-| everything else         | The scope **is** the extension API, so `scope.registerTool`, `scope.appendEntry`, `scope.events` and the rest work as they always did.                                                                   |
+| Scope                   | Does                                                                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `scope.on`              | `pi.on`, with errors that read `pi-harness: permission: tool_call: boom`. It still throws, because a `tool_call` handler that throws is how pi blocks a tool |
+| `scope.registerCommand` | `pi.registerCommand`. If another feature in the same app took the name, this one is skipped with a warning                                                   |
+| `scope.onSessionStart`  | Runs once the session's settings are loaded. Anything that lasts, like a watcher or a child process, starts here and never in `setup`                        |
+| `scope.onShutdown`      | Runs once per session, newest first, even when pi fires `session_shutdown` twice                                                                             |
+| `scope.screen`          | Rows on the settings screen that are not settings                                                                                                            |
+| `scope.warn`            | Shows a notification when there is a UI, and writes to stderr when there is not. Messages sent before a session starts wait for it                           |
+| everything else         | The scope is the extension API, so `scope.registerTool`, `scope.appendEntry`, `scope.events` and the rest work as they always did                            |
 
-A feature whose `setup` throws turns into a warning, and the other features still mount. If the same feature id is mounted by two apps in one Pi process, say from two copies of a package, the first app runs it and the second one logs who has it.
+A `setup` that throws turns into a warning and the other features still mount. If two apps in one Pi process mount the same feature id, the first runs it and the second logs who has it.
 
 ## Settings
 
-Every app reads `~/.pi/agent/extensions/pi-harness/settings.json`. A setting's `id` is its path in that file. A store only reads the settings its own features declared, so keys that belong to other apps never produce a warning.
+Every app reads `~/.pi/agent/extensions/pi-harness/settings.json`. A setting's `id` is its path in that file. A store reads only the settings its own features declared, so keys belonging to another app never produce a warning.
 
-`store.set` writes one value, and `store.setAll` writes several in one pass, which is what a feature does when it saves a whole config object. A value that already reads the same is not written, so a file holds what was decided and not a copy of every default, which would freeze them.
+`store.set` writes one value and `store.setAll` several in one pass, which is what a feature does when it saves a whole config object. A value that already reads the same is not written, so the file holds what was decided and not a copy of every default, which would freeze them.
 
-A setting declared with `project: true` also reads `<project>/.pi/extensions/pi-harness/settings.json`, but only once pi trusts the project, and there the project value wins. Anything without that flag can only be set globally. A project file that tries to set it gets a warning, so a cloned repository can't loosen what runs without asking.
+A setting with `project: true` also reads `<project>/.pi/extensions/pi-harness/settings.json`, but only once pi trusts the project, and the project value wins there. Anything without that flag is global, and a project file that tries to set it gets a warning, so a cloned repository cannot loosen what runs without asking.
 
 A value that fails to decode is ignored, and the warning names the file and the key.
 
@@ -75,7 +84,7 @@ export const cursor = setting({
 });
 ```
 
-The decoder picks the editor. `boolean` is a toggle, `literal` a choice, `integer` a number, `stringList` a list. Set `ui.control` to label the options or add presets.
+The decoder picks the editor: `boolean` is a toggle, `literal` a choice, `integer` a number, `stringList` a list. `ui.control` labels the options or adds presets.
 
 Anything else goes through `scope.screen`: `value` for session state, `action` for something to run, `info` for a fact.
 
@@ -89,11 +98,11 @@ scope.screen.action({
 });
 ```
 
-A value typed on the screen goes through the same decoder as the file. Feature options `tab` and `sections` set the tab name and the section order.
+A value typed on the screen goes through the same decoder as the file. The feature options `tab` and `sections` set the tab name and the section order.
 
 ## Turning a feature off
 
-Every feature also gets `features.<id>.enabled`, which defaults to on. A feature that's off never runs `setup`, so it registers nothing and costs nothing. The change takes effect on the next `/reload`.
+Every feature also gets `features.<id>.enabled`, on by default. A feature that is off never runs `setup`, so it registers nothing and costs nothing. The change lands on the next `/reload`.
 
 ## Events and contracts
 
@@ -104,18 +113,16 @@ accountChanged.on(scope, ({ account }) => …);
 accountChanged.emit(scope, { account: "work" });
 ```
 
-Events travel over `pi.events` on the channel `harness:<name>`. Two features behave the same whether they share an app or come from different packages. The payload might come from an older or newer version of the other package, so it's decoded when it arrives, and one that doesn't decode is dropped with a warning.
+Events travel over `pi.events`, on the channel `harness:<name>`. Two features behave the same whether they share an app or come from different packages. The payload may come from an older or newer version of the other package, so it is decoded when it arrives, and one that does not decode is dropped with a warning.
 
 These rules hold for every event that crosses packages:
 
-- It's declared in `contracts/` in this package, never in the package that emits it. That way the listener doesn't depend on the emitter, and either one works without the other.
-- The payload is plain JSON, with no functions, classes or `Date`. A remote control or a web UI can then forward any contract without knowing what's inside.
+- It is declared in `contracts/` here, never in the package that emits it. The listener then does not depend on the emitter, and either one works without the other.
+- The payload is plain JSON, with no functions, classes or `Date`, so a remote control or a web UI can forward any contract without knowing what is inside.
 - A payload can gain fields but never lose them.
 
 ## Testing
 
-`@adeildo/pi-kit/testing` has `fakePi()`, `fakeScope()` and `fakeContext()`. Two fakes built on one `createEventBus()` behave like two extensions in the same Pi process. `fire` runs the handlers in order and returns what each one returned.
+`@adeildo/pi-kit/testing` has `fakePi()`, `fakeScope()` and `fakeContext()`. Two fakes on one `createEventBus()` behave like two extensions in the same Pi process, and `fire` runs the handlers in order and returns what each one returned.
 
-## License
-
-[MIT](LICENSE)
+Part of [pi-harness](https://github.com/felipeadeildo/pi-harness), which brings every piece in one install.

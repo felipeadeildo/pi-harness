@@ -406,8 +406,6 @@ export class QuestionDialog implements Component, Focusable {
 		return this.question?.header ?? "question";
 	}
 
-	// ── tabs ────────────────────────────────────────────────────────────────────────────────
-
 	private tabBar(inner: number): string {
 		const parts = this.questions.map((question, index) => this.tabLabel(question.header, index));
 		parts.push(this.submitLabel());
@@ -437,8 +435,6 @@ export class QuestionDialog implements Component, Focusable {
 		const ready = this.answeredCount() === this.questions.length;
 		return ready ? this.theme.fg("success", " \u2713 submit ") : this.theme.fg("dim", " submit ");
 	}
-
-	// ── the question ────────────────────────────────────────────────────────────────────────
 
 	private questionBlock(question: Question, inner: number, terminalRows: number): string[] {
 		const rail = this.theme.fg("border", RAIL);
@@ -505,8 +501,6 @@ export class QuestionDialog implements Component, Focusable {
 		return [...options, rule, ...this.panel(question, draft, size.inner, rows, size.titled)];
 	}
 
-	// ── the options ─────────────────────────────────────────────────────────────────────────
-
 	/** One line per option, and the typed row last. */
 	private optionLines(question: Question, draft: Draft, width: number): string[] {
 		const rows = Array.from({ length: this.rowCountOf(question) }, (_, row) => row);
@@ -563,8 +557,6 @@ export class QuestionDialog implements Component, Focusable {
 		const open = this.theme.getBgAnsi("selectedBg");
 		return `${open}${padded.replaceAll("\x1b[0m", `\x1b[0m${open}`)}\x1b[49m`;
 	}
-
-	// ── the panel ───────────────────────────────────────────────────────────────────────────
 
 	/** The detail of an option: what it means, then what it looks like. */
 	private optionDetail(option: Option, width: number): string[] {
@@ -667,8 +659,6 @@ export class QuestionDialog implements Component, Focusable {
 		return ["", lead + (input.render(Math.max(1, width - 2))[0] ?? "")];
 	}
 
-	// ── the submit tab ──────────────────────────────────────────────────────────────────────
-
 	private submitLines(inner: number): string[] {
 		const lines = [this.theme.bold("Review your answers"), ""];
 		const width = Math.max(...this.questions.map((question) => visibleWidth(question.header)));
@@ -703,8 +693,6 @@ export class QuestionDialog implements Component, Focusable {
 		}
 		return lines;
 	}
-
-	// ── keys and frame ──────────────────────────────────────────────────────────────────────
 
 	private hint(): string {
 		const keys: [string, string][] = [];
