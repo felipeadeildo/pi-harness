@@ -35,6 +35,9 @@ function resolve(
 
 /** The theme pi ships as `dark`, built from the same file pi reads. */
 export function darkTheme(): Theme {
+	// Pi's global theme, which the markdown in a dialog uses, reads the colour depth from the
+	// terminal. Pinned, so CI draws the same picture as a laptop.
+	process.env.COLORTERM = "truecolor";
 	initTheme("dark", false);
 	const root = dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent")));
 	const file = JSON.parse(
