@@ -160,4 +160,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Commits follow [Conventional Commits](ht
 
 ## License
 
-[MIT](LICENSE) © adeildo
+[MIT](LICENSE)

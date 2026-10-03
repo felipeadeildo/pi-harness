@@ -70,4 +70,4 @@ There is no fork. Everything installs on top of Pi, and `pi remove` puts Pi back
 
 ## License
 
-[MIT](LICENSE) © adeildo
+[MIT](LICENSE)

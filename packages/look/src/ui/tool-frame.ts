@@ -106,6 +106,8 @@ function framed(
 			const clock = clockOf(context);
 			// A blocked call prints nothing but the reason the line above already gives.
 			const blocked = rulingOf(scope.events, context.toolCallId)?.blocked === true;
+			// Pi draws the pictures of a result right below the frame, so the frame counts them.
+			const images = shown.content.filter((block) => block.type === "image").length;
 			if (!options.isPartial) clock.endedAt ??= Date.now();
 			const body = result(shown, options, theme, {
 				...context,
@@ -120,6 +122,7 @@ function framed(
 				mark: stateMark(phase, frame.set()),
 				elapsed: ranFor(clock, phase === "running"),
 				wrote: wroteFor(clock),
+				images: images === 0 ? undefined : `${images} image${images === 1 ? "" : "s"}`,
 			});
 			inner.set(box, body);
 			return box;
@@ -190,10 +193,10 @@ class ResultFrame implements Component {
 	}
 
 	render(width: number): string[] {
-		const { theme, phase, mark, wrote, quiet } = this.parts;
+		const { theme, phase, mark, wrote, quiet, images } = this.parts;
 		const time = this.parts.elapsed;
 		const body = this.parts.body.render(room(width));
-		const drawn = { width, body, rest: [phase, mark, time, wrote, quiet] };
+		const drawn = { width, body, rest: [phase, mark, time, wrote, images, quiet] };
 		if (unchanged(this.#drawn, drawn)) return this.#drawn.lines;
 
 		const printed = quiet === true ? [] : withoutBlanks(dropTime(body));
@@ -202,7 +205,11 @@ class ResultFrame implements Component {
 			...(printed.length === 0 ? [] : [cut(width, theme), ...inside(printed, width, theme)]),
 			rule(
 				"bottom",
-				phaseLabel(theme, mark, phase, [time, wrote === undefined ? undefined : `wrote ${wrote}`]),
+				phaseLabel(theme, mark, phase, [
+					time,
+					wrote === undefined ? undefined : `wrote ${wrote}`,
+					images === undefined ? undefined : `with ${images}`,
+				]),
 				width,
 				theme,
 				PHASE_COLORS[phase],
@@ -218,6 +225,8 @@ interface ResultParts {
 	mark: string;
 	elapsed?: string;
 	wrote?: string;
+	/** How many pictures follow the frame, which pi draws outside it. */
+	images?: string;
 	/** Nothing worth printing under the line, like a call the gate blocked. */
 	quiet?: boolean;
 }

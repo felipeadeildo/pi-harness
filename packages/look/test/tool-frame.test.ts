@@ -169,6 +169,21 @@ describe("the frame around a tool call", () => {
 		expect(lines.at(-1)).toMatch(/^\u2570\u2500 \S+ running  3\.2s \u2500+\u256f$/);
 	});
 
+	test("counts the pictures pi draws below the frame", () => {
+		const { chain } = framed();
+		const result = chain.renderResult?.(
+			{
+				content: [{ type: "image", data: "x", mimeType: "image/png" }],
+				details: undefined,
+			} as never,
+			{ expanded: false, isPartial: false },
+			theme,
+			context(),
+		);
+		const lines = result === undefined ? [] : plain(result);
+		expect(lines.at(-1)).toContain("with 1 image");
+	});
+
 	test("hands a tool it cannot frame back to pi, untouched", () => {
 		const fake = fakePi();
 		createApp(fake.pi, { name: "look" }).use(look).build();
