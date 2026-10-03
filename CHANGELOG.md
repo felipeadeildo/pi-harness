@@ -2,6 +2,30 @@
 
 Every `@adeildo/` package in this repository shares one version, one tag and this changelog. The entries below 4.0.0 are from before, when `pi-ask-permission` was the only package.
 
+## [5.2.0](https://github.com/felipeadeildo/pi-harness/compare/v5.1.0...v5.2.0) (2026-10-03)
+
+
+### Features
+
+* **ask-permission:** answer yes instead of yes, run it ([093104f](https://github.com/felipeadeildo/pi-harness/commit/093104f727f52044606ec9a21967ca94d3cd421e))
+* **ask-permission:** keep your answer on one line, and say when a call was blocked ([f08d370](https://github.com/felipeadeildo/pi-harness/commit/f08d3703d572d1ec5721b9eb12ef6b97d806f247))
+* **ask-permission:** list every classifier pi knows in the judge model picker ([1745950](https://github.com/felipeadeildo/pi-harness/commit/17459507445e75cad2b91c6805499db1156be125))
+* **ask-permission:** say on each call who decided and why, and judge parallel calls together ([fb9d716](https://github.com/felipeadeildo/pi-harness/commit/fb9d716c1e27805b6ceba1dfe53bdb6e6f5e3d58))
+* **kit:** light the section under the cursor and keep it in view ([eb265c2](https://github.com/felipeadeildo/pi-harness/commit/eb265c22e97b3781082c03ca26b22e663817a331))
+* **look:** count the pictures pi draws below a call, and drop the name from the license line ([cb8d086](https://github.com/felipeadeildo/pi-harness/commit/cb8d086986304246d76084c44a9ada9eb75b8d4d))
+* **look:** frame every tool call, with the permission ruling on it ([ba330d0](https://github.com/felipeadeildo/pi-harness/commit/ba330d0ffa01700d338fa60ce4801a22112112ed))
+* **look:** keep the time of a call on its frame, running or done ([d3e71dc](https://github.com/felipeadeildo/pi-harness/commit/d3e71dc9d17b14bea1c056a8ee19717e4b310e26))
+* **look:** say what a tool call is, what it printed, and how it went ([9a569e6](https://github.com/felipeadeildo/pi-harness/commit/9a569e6550c2fcc65bfd113b59384408462060aa))
+* **look:** say when a call is being written, waiting or running, and keep both times ([c7de912](https://github.com/felipeadeildo/pi-harness/commit/c7de9127067ecf3e97079be6084e2aca51698d1d))
+
+
+### Bug Fixes
+
+* **ask-permission:** drop the verdicts in flight when a branch opens ([dc87013](https://github.com/felipeadeildo/pi-harness/commit/dc87013698bcbbac233caad0519e79eef7a7be9a))
+* **docs:** pin the colour depth so CI draws the same pictures ([2a685b5](https://github.com/felipeadeildo/pi-harness/commit/2a685b5463b8aa204eb47fc7f636cd0fc47f07e7))
+* **kit:** line up a choice's descriptions and keep long labels whole ([cf8da04](https://github.com/felipeadeildo/pi-harness/commit/cf8da04236ebf8a0bd70d8185790e2c0390d2db7))
+* **look:** draw a tool call again only when it changed, and guard the redraw with a test ([040e22f](https://github.com/felipeadeildo/pi-harness/commit/040e22f8fe074d9dc476ff42b9088af7e8377cd8))
+
 ## [5.1.0](https://github.com/felipeadeildo/pi-harness/compare/v5.0.0...v5.1.0) (2026-10-02)
 
 
