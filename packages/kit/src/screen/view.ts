@@ -491,14 +491,19 @@ export class ScreenView implements Component {
 
 		const height = this.#bodyHeight;
 		const cursor = model.cursorLine();
-		// Show the heading when the cursor is on a section's first row.
-		const top = lines[cursor - 1]?.kind === "heading" ? cursor - 1 : cursor;
+		const focused = inFocus(lines, cursor);
+		// The whole section under the cursor when it fits, else as much of it as reaches the cursor.
+		const first = focused.indexOf(true);
+		const last = focused.lastIndexOf(true);
+		const fits = last - first < height;
+		const top = fits ? first : cursor;
+		const bottom = fits ? last : cursor;
 		if (top < this.#scroll) this.#scroll = Math.max(0, top);
-		if (cursor >= this.#scroll + height) this.#scroll = cursor - height + 1;
+		if (bottom >= this.#scroll + height) this.#scroll = bottom - height + 1;
 		this.#scroll = Math.min(this.#scroll, Math.max(0, lines.length - height));
 
 		const labelWidth = Math.min(
-			Math.floor((width - 4) / 2),
+			Math.floor((width - 6) / 2),
 			Math.max(
 				12,
 				...lines.map((line) =>
@@ -510,9 +515,10 @@ export class ScreenView implements Component {
 
 		const out: string[] = [];
 		for (let index = 0; index < height; index++) {
-			const line = lines[this.#scroll + index];
+			const at = this.#scroll + index;
+			const line = lines[at];
 			const text =
-				line === undefined ? "" : this.#line(line, this.#scroll + index === cursor, labelWidth);
+				line === undefined ? "" : this.#line(line, at === cursor, focused[at] === true, labelWidth);
 			const mark = bar[index];
 			const edge = mark === true ? theme.fg("scrollbarThumb", "\u2503") : " ";
 			out.push(truncateToWidth(text, width - 1, "\u2026", true) + edge);
@@ -520,9 +526,9 @@ export class ScreenView implements Component {
 		return out;
 	}
 
-	#line(line: Line, selected: boolean, labelWidth: number): string {
+	#line(line: Line, selected: boolean, focused: boolean, labelWidth: number): string {
 		const { theme } = this.#options;
-		if (line.kind === "heading") return `  ${theme.underline(theme.fg("muted", line.title))}`;
+		if (line.kind === "heading") return this.#heading(line.title, focused);
 
 		const row = line.row;
 		const indent = "  ".repeat(row.indent ?? 0);
@@ -530,10 +536,29 @@ export class ScreenView implements Component {
 		const room = Math.max(1, labelWidth - 1 - visibleWidth(indent));
 		const label = truncateToWidth(row.label, room, "\u2026");
 		const pad = " ".repeat(Math.max(1, labelWidth - visibleWidth(indent) - visibleWidth(label)));
+		if (!focused)
+			return `  ${cursor}${indent}${theme.fg("dim", label + pad + this.#plainValue(row))}`;
+
 		const labelText = selected
 			? theme.fg("accent", theme.bold(label))
 			: theme.fg(row.kind === "info" ? "muted" : "text", label);
-		return ` ${cursor}${indent}${labelText}${pad}${this.#value(row, selected)}`;
+		return `  ${cursor}${indent}${labelText}${pad}${this.#value(row, selected)}`;
+	}
+
+	#heading(title: string, focused: boolean): string {
+		const { theme } = this.#options;
+		return `  ${focused ? theme.fg("accent", theme.bold(title)) : theme.fg("dim", title)}`;
+	}
+
+	/** What a row shows, without its colors, for a section out of focus. */
+	#plainValue(row: RowView): string {
+		if (row.kind === "action") {
+			if (this.#running.has(keyOf(row))) return "running\u2026";
+			return row.text ?? "\u21b5 run";
+		}
+		if (row.kind === "info" || row.control === undefined) return row.text ?? "";
+		const shown = formatValue(row.control, row.value) || "(empty)";
+		return row.layer === "project" ? `${shown}  \u25c6 project` : shown;
 	}
 
 	#value(row: RowView, selected: boolean): string {
@@ -564,7 +589,7 @@ export class ScreenView implements Component {
 
 	#pickLines(mode: PickMode | CheckMode, width: number): string[] {
 		const { theme } = this.#options;
-		const out = [`  ${theme.underline(theme.fg("muted", mode.row.label))}`];
+		const out = [this.#heading(mode.row.label, true)];
 		const height = this.#bodyHeight - 1;
 		const top = Math.max(0, Math.min(mode.index - height + 1, mode.items.length - height));
 		const labelWidth = Math.min(
@@ -598,13 +623,12 @@ export class ScreenView implements Component {
 	}
 
 	#textBody(mode: TextMode, inner: number): string[] {
-		const { theme } = this.#options;
 		const wrapped = mode.text
 			.split("\n")
 			.flatMap((line) => (line === "" ? [""] : wrapTextWithAnsi(line, inner - 4)));
 		const height = this.#bodyHeight - 2;
 		mode.scroll = Math.min(mode.scroll, Math.max(0, wrapped.length - height));
-		const out = [`  ${theme.underline(theme.fg("muted", mode.title))}`, ""];
+		const out = [this.#heading(mode.title, true), ""];
 		for (const line of wrapped.slice(mode.scroll, mode.scroll + height)) out.push(`  ${line}`);
 		while (out.length < this.#bodyHeight) out.push("");
 		return out;
@@ -674,6 +698,14 @@ export class ScreenView implements Component {
 function divider(start: string, end: string, inner: number, left: number, joint: string): string {
 	if (left === 0 || joint === "") return `${start}${"\u2500".repeat(inner)}${end}`;
 	return `${start}${"\u2500".repeat(left)}${joint}${"\u2500".repeat(inner - left - 1)}${end}`;
+}
+
+/** True for each line of the section the cursor is in, its heading included. */
+function inFocus(lines: readonly Line[], cursor: number): boolean[] {
+	let section = -1;
+	const sections = lines.map((line) => (line.kind === "heading" ? ++section : section));
+	const focus = sections[cursor];
+	return sections.map((entry) => focus !== undefined && entry === focus);
 }
 
 /** True where the thumb is. Empty when everything fits. */

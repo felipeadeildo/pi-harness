@@ -436,6 +436,39 @@ describe("the screen view", () => {
 		for (const line of lines) expect([...line].length).toBe(100);
 	});
 
+	test("only the section under the cursor stands out", async () => {
+		const { events } = await twoApps();
+		const model = new ScreenModel(listTabs(events));
+		const screen = new ScreenView({
+			tui: { terminal: { rows: 30 }, requestRender: () => {} } as unknown as TUI,
+			theme: { ...THEME, fg: (color: string, text: string) => `<${color}>${text}` } as Theme,
+			events,
+			model,
+			done: () => {},
+		});
+		const line = (text: string) => screen.render(100).find((entry) => entry.includes(text)) ?? "";
+
+		expect(line("Footer")).toContain("<accent>Footer");
+		expect(line("Gauge")).toContain("<accent>Gauge");
+		expect(line("Editor")).toContain("<dim>Editor");
+		expect(line("Frame")).toMatch(/<dim>Frame\s+rounded/);
+
+		model.jumpSection(1);
+		expect(line("Editor")).toContain("<accent>Editor");
+		expect(line("Footer")).toContain("<dim>Footer");
+		expect(line("Gauge")).toContain("<dim>Gauge");
+	});
+
+	test("the rows sit under their heading", async () => {
+		const { screen } = await view();
+		// The rows, without the frame and the column of sections.
+		const body = screen.render(100).map((entry) => entry.split("\u2502")[2]?.trimEnd() ?? "");
+		const editor = body.findIndex((entry) => entry.trim() === "Editor");
+
+		expect(body[editor]?.indexOf("Editor")).toBe(2);
+		expect(body[editor + 1]?.indexOf("Frame")).toBe(4);
+	});
+
 	test("a row with an indent sits two columns deeper", async () => {
 		const { screen } = await view();
 		const lines = screen.render(100);
