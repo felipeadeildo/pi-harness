@@ -36,6 +36,10 @@ function toolResult(): AgentToolResult<undefined> {
 	return { content: [{ type: "text", text: "583 pass" }], details: undefined };
 }
 
+function plain(component: { render(width: number): string[] }): string[] {
+	return component.render(60).map((line) => line.trimEnd());
+}
+
 function context(overrides: Record<string, unknown> = {}) {
 	return {
 		toolCallId: "call-1",
@@ -70,8 +74,6 @@ function whole(ruling?: RulingRequest["ruling"], output = "583 pass") {
 		shared,
 	);
 	if (result === undefined) throw new Error("no result component");
-	const plain = (component: { render(width: number): string[] }) =>
-		component.render(60).map((line) => line.trimEnd());
 	return { call: plain(call), result: plain(result) };
 }
 

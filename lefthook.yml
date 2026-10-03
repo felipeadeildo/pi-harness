@@ -23,7 +23,7 @@ pre-commit:
     perf:
       # Typing redraws the screen, so a component that paints again on every redraw is a typing lag.
       # Only this file: the whole suite is too slow for a commit.
-      glob: "{packages/*/src/**/*.ts,packages/*/test/perf.test.ts}"
+      glob: "packages/*/src/**/*.ts"
       run: bun run perf
     docs:
       # Last, so a type error stops the commit before anything is redrawn.
