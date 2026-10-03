@@ -10,6 +10,7 @@ import { registerEvents } from "#pi/events.ts";
 import { registerScreen } from "#pi/screen.ts";
 import { createSession } from "#pi/session.ts";
 import { registerJudgeEntry } from "#ui/judge-entry.ts";
+import { registerRulingLine } from "#ui/ruling-line.ts";
 
 export const permission = defineFeature({
 	id: "permission",
@@ -21,6 +22,7 @@ export const permission = defineFeature({
 		registerJudgeEntry(scope);
 
 		const session = createSession();
+		registerRulingLine(scope, session);
 		registerEvents(scope, session);
 		listenForTools(scope, session.customTools);
 		registerShortcuts(scope, session);

@@ -13,6 +13,7 @@ import {
 	type RegisteredCommand,
 	type ToolDefinition,
 	type ToolInfo,
+	type ToolRendererResolver,
 } from "@earendil-works/pi-coding-agent";
 
 import type { FeatureScope, ScreenEntry, ScreenGroup } from "./app/feature.ts";
@@ -43,6 +44,7 @@ export interface FakePi {
 	allTools: ToolInfo[];
 	providers: { name: string; config: unknown }[];
 	renderers: Map<string, EntryRenderer>;
+	toolRenderers: ToolRendererResolver[];
 	entries: { customType: string; data: unknown }[];
 	messages: unknown[];
 	/** Runs every handler registered for `name`, in order, and returns what each returned. */
@@ -62,6 +64,7 @@ export function fakePi(bus: EventBus = createEventBus()): FakePi {
 		allTools: [],
 		providers: [],
 		renderers: new Map(),
+		toolRenderers: [],
 		entries: [],
 		messages: [],
 		async fire(name, event, ctx) {
@@ -89,6 +92,8 @@ export function fakePi(bus: EventBus = createEventBus()): FakePi {
 			void fake.providers.push({ name: String(name), config }),
 		registerEntryRenderer: (customType: string, renderer: EntryRenderer) =>
 			void fake.renderers.set(customType, renderer),
+		registerToolRenderer: (resolver: ToolRendererResolver) =>
+			void fake.toolRenderers.push(resolver),
 		appendEntry: (customType: string, data?: unknown) =>
 			void fake.entries.push({ customType, data }),
 		sendMessage: (message: unknown) => void fake.messages.push(message),

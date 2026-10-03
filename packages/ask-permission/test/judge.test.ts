@@ -442,7 +442,7 @@ describe("judgeToolCall", () => {
 		});
 
 		expect(outcome.action).toBe("ask");
-		expect(outcome.reason).toBe("matches judge.alwaysAsk");
+		expect(outcome.reason).toBe("it matches judge.alwaysAsk");
 	});
 
 	test("allows, denies, and escalates by verdict", async () => {

@@ -29,7 +29,7 @@ export async function judgeToolCall(options: JudgeCallOptions): Promise<JudgeOut
 	// matched on its own.
 	const values = [input.toolName, input.target.summary, ...input.target.levels];
 	if (alwaysAskMatches(config, values)) {
-		const reason = "matches judge.alwaysAsk";
+		const reason = "it matches judge.alwaysAsk";
 		return { action: "ask", reason, record: blankRecord(config, input, reason) };
 	}
 
@@ -90,7 +90,7 @@ function describeOutcome(
 	config: JudgeConfig,
 ): string {
 	if (decision === "uncertain" && config.policy.trim() === "")
-		return "no policy is set, so the judge has nothing to approve";
+		return "no policy is set, so the judge approves nothing";
 	return reason;
 }
 

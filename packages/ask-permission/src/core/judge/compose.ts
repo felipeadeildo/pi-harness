@@ -31,25 +31,25 @@ export interface ComposedVerdict {
 
 export function composeVerdict(config: JudgeConfig, answers: JudgeAnswers): ComposedVerdict {
 	const verdict = answers.verdict;
-	if (!verdict) return { decision: "uncertain", reason: "the judge returned no verdict" };
+	if (!verdict) return { decision: "uncertain", reason: "the judge gave no verdict" };
 
 	if (verdict.choice === "needs_human")
-		return { decision: "uncertain", reason: "the judge asked for a person to decide" };
+		return { decision: "uncertain", reason: "the judge wants a person to decide" };
 
 	if (verdict.choice === "deny") {
 		if (!config.canDeny)
 			return {
 				decision: "uncertain",
-				reason: `the judge denied this call, but judge.canDeny is off (${percent(verdict.confidence)} confident)`,
+				reason: `the judge said no, ${percent(verdict.confidence)} sure, and judge.canDeny is off`,
 			};
 		if (verdict.confidence >= config.thresholds.deny)
 			return {
 				decision: "deny",
-				reason: `the judge denied this call (${percent(verdict.confidence)} confident)`,
+				reason: `${percent(verdict.confidence)} sure`,
 			};
 		return {
 			decision: "uncertain",
-			reason: `the judge leaned deny but was only ${percent(verdict.confidence)} confident`,
+			reason: `the judge leaned no, only ${percent(verdict.confidence)} sure`,
 		};
 	}
 
@@ -57,26 +57,26 @@ export function composeVerdict(config: JudgeConfig, answers: JudgeAnswers): Comp
 	if (risk === undefined)
 		return {
 			decision: "uncertain",
-			reason: "the judge did not return enough risk signals",
+			reason: "the judge gave no risk signals",
 		};
 
 	if (verdict.confidence < config.thresholds.allow)
 		return {
 			decision: "uncertain",
-			reason: `the judge approved but was only ${percent(verdict.confidence)} confident`,
+			reason: `the judge leaned yes, only ${percent(verdict.confidence)} sure`,
 			risk,
 		};
 
 	if (risk > config.riskCeiling)
 		return {
 			decision: "uncertain",
-			reason: `composed risk ${risk.toFixed(2)} is above the ceiling`,
+			reason: `the judge said yes, but risk ${risk.toFixed(2)} is above ${config.riskCeiling.toFixed(2)}`,
 			risk,
 		};
 
 	return {
 		decision: "allow",
-		reason: `the judge approved this call (${percent(verdict.confidence)} confident, risk ${risk.toFixed(2)})`,
+		reason: `${percent(verdict.confidence)} sure, risk ${risk.toFixed(2)}`,
 		risk,
 	};
 }

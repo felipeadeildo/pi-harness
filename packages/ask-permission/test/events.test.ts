@@ -45,6 +45,9 @@ function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask",
 		judgeLog: [],
 		judgeWarned: new Set<string>(),
 		judgeHealth: { failures: 0, retryAt: 0 },
+		rulings: new Map(),
+		redraws: new Map(),
+		prejudged: new Map(),
 		typing: {
 			start: () => {},
 			stop: () => {},
@@ -56,12 +59,13 @@ function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask",
 
 	registerEvents(fakeScope({ pi: fake }), state);
 
+	const messageEnd = fake.handlers.get("message_end")?.[0];
 	const toolCall = fake.handlers.get("tool_call")?.[0];
 	if (!toolCall) throw new Error("no tool_call handler");
 
 	const entries = fake.entries;
-	const cards = () => entries.filter((entry) => entry.customType === "pi-ask-permission:judge");
-	return { entries, cards, decided, state, toolCall, fake };
+	const rulings = () => entries.filter((entry) => entry.customType === "pi-ask-permission:ruling");
+	return { entries, rulings, decided, state, toolCall, messageEnd, fake };
 }
 
 /** The label of `answer` among the choices of the host's selector, or undefined for a dismissal. */
@@ -113,34 +117,67 @@ function writeCall(id: string, path = "a.ts") {
 	return { toolName: "write", toolCallId: id, input: { path, content: "x" } };
 }
 
-describe("judge cards in the transcript", () => {
-	test("the card is already there when the permission dialog opens", async () => {
-		const { cards, toolCall } = harness("judge");
-		let cardsOnDialog = -1;
+describe("the ruling on each call", () => {
+	test("the call says why it asks while the dialog is open", async () => {
+		const { state, toolCall } = harness("judge");
+		let shown: unknown;
 
 		await toolCall(
 			judgeCall("call-1", "git push origin main"),
 			fakeContext(() => {
-				cardsOnDialog = cards().length;
+				shown = state.rulings.get("call-1");
 			}),
 		);
 
-		expect(cardsOnDialog).toBe(1);
-		expect(cards()).toHaveLength(1);
-		expect(cards()[0]?.customType).toBe("pi-ask-permission:judge");
-		expect(cards()[0]?.data).toEqual([
-			expect.objectContaining({ action: "ask", toolName: "bash" }),
+		expect(shown).toMatchObject({ head: "asking you", why: "it matches judge.alwaysAsk" });
+	});
+
+	test("each call keeps its own answer, with why it was asked", async () => {
+		const { rulings, toolCall } = harness("judge");
+
+		await toolCall(judgeCall("call-1", "git push origin main"), fakeContext());
+		await toolCall(
+			judgeCall("call-2", "git push --force origin main"),
+			fakeContext(() => {}, { decision: "deny" }),
+		);
+
+		expect(rulings().map((entry) => entry.data)).toEqual([
+			expect.objectContaining({
+				toolCallId: "call-1",
+				head: "you approved",
+				why: "asked because it matches judge.alwaysAsk",
+			}),
+			expect.objectContaining({ toolCallId: "call-2", head: "you said no" }),
 		]);
 	});
 
-	test("each decision is written as it is made, not batched to the turn end", async () => {
-		const { cards, toolCall } = harness("judge");
+	test("the calls of one answer are judged together, once each", async () => {
+		const { state, toolCall, messageEnd } = harness("judge");
+		const calls = [judgeCall("call-1", "git push origin main"), judgeCall("call-2", "npm publish")];
+		const message = {
+			role: "assistant",
+			content: calls.map((call) => ({
+				type: "toolCall",
+				id: call.toolCallId,
+				name: call.toolName,
+				arguments: call.input,
+			})),
+		};
 
-		await toolCall(judgeCall("call-1", "git push origin main"), fakeContext());
-		expect(cards()).toHaveLength(1);
+		await messageEnd?.({ type: "message_end", message }, fakeContext());
+		await Promise.all([...state.prejudged.values()].map((entry) => entry.verdict));
+		expect(state.judgeLog).toHaveLength(2);
+		expect(state.rulings.get("call-2")).toMatchObject({ why: "it matches judge.alwaysAsk" });
 
-		await toolCall(judgeCall("call-2", "git push --force origin main"), fakeContext());
-		expect(cards()).toHaveLength(2);
+		// oxlint-disable-next-line no-await-in-loop -- pi asks about the calls one at a time
+		for (const call of calls) await toolCall(call, fakeContext());
+		expect(state.judgeLog).toHaveLength(2);
+	});
+
+	test("a call a rule lets through says nothing", async () => {
+		const { rulings, toolCall } = harness("full");
+		await toolCall(judgeCall("call-1", "git status"), fakeContext());
+		expect(rulings()).toEqual([]);
 	});
 });
 
@@ -216,9 +253,9 @@ describe("one dialog for the permission and the questions", () => {
 
 describe("session modes", () => {
 	test("manual never asks the judge", async () => {
-		const { cards, toolCall } = harness("manual");
+		const { state, toolCall } = harness("manual");
 		await toolCall(judgeCall("call-1", "git push origin main"), fakeContext());
-		expect(cards()).toHaveLength(0);
+		expect(state.judgeLog).toHaveLength(0);
 	});
 
 	test("full runs a command whose paths it cannot read", async () => {
@@ -311,7 +348,7 @@ describe("session modes", () => {
 
 describe("workspace scope", () => {
 	test("full does not approve a call outside the workspace", async () => {
-		const { cards, toolCall } = harness("full");
+		const { state, toolCall } = harness("full");
 		let opened = false;
 
 		await toolCall(
@@ -322,7 +359,7 @@ describe("workspace scope", () => {
 		);
 
 		expect(opened).toBe(true);
-		expect(cards()).toHaveLength(0);
+		expect(state.judgeLog).toHaveLength(0);
 	});
 
 	test("edits does not approve a write outside the workspace", async () => {
@@ -463,7 +500,7 @@ describe("workspace scope", () => {
 		const result = await toolCall(judgeCall("call-1", "cat /etc/passwd"), fakeContext());
 
 		expect(result).toEqual({ block: true, reason: expect.stringContaining("/etc/passwd") });
-		expect(entries).toHaveLength(0);
+		expect(entries.map((entry) => entry.customType)).toEqual(["pi-ask-permission:ruling"]);
 	});
 
 	test("outside allow lets full run anywhere", async () => {

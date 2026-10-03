@@ -10,9 +10,11 @@ import {
 	projectAlwaysYesPath,
 	projectFoldersPath,
 } from "#core/config/store.ts";
+import type { Verdict } from "#core/decide.ts";
 import { type Access, OpenFolders } from "#core/folders.ts";
 import type { JudgeOutcome, JudgeRecord } from "#core/judge/types.ts";
 import type { PermissionMode } from "#core/mode.ts";
+import type { Ruling } from "#core/ruling.ts";
 import type { ToolAdapter } from "#core/tools.ts";
 import { NAME } from "#identity";
 import type { PendingWrites } from "#pi/preview.ts";
@@ -41,6 +43,18 @@ export interface SessionState {
 	typing: TypingMonitor;
 	customTools: Map<string, Partial<ToolAdapter>>;
 	pendingWrites: PendingWrites;
+	/** What the gate said about each call, by tool call id. */
+	rulings: Map<string, Ruling>;
+	/** Redraws a call on screen, by tool call id. */
+	redraws: Map<string, () => void>;
+	/** Judges started when an answer with several calls ended, by tool call id. */
+	prejudged: Map<string, Prejudged>;
+}
+
+export interface Prejudged {
+	/** What was judged. A call that no longer matches is judged again. */
+	summary: string;
+	verdict: Promise<Verdict | undefined>;
 }
 
 export function createSession(): SessionState {
@@ -60,6 +74,9 @@ export function createSession(): SessionState {
 		typing: new TypingMonitor(),
 		customTools: new Map(),
 		pendingWrites: new Map(),
+		rulings: new Map(),
+		redraws: new Map(),
+		prejudged: new Map(),
 	};
 }
 
