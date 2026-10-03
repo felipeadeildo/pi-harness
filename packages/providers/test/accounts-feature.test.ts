@@ -340,8 +340,9 @@ test("the replacement line stops pi's retry with the marker it reads", () => {
 	const text = usageLimitLine(
 		{ provider: "anthropic", stopReason: "error", errorMessage: WINDOW },
 		"work",
+		"resets in 11m",
 	);
-	expect(text).toBe("anthropic · work: usage limit reached (quota exceeded)");
+	expect(text).toBe("anthropic · work: usage limit reached, resets in 11m (quota exceeded)");
 	expect(text).toContain("quota exceeded");
 });
 

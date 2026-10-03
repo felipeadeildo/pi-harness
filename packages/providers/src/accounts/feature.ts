@@ -3,8 +3,9 @@
 import { defineFeature } from "@adeildo/pi-kit";
 import { Key } from "@earendil-works/pi-tui";
 
+import { resetNote, usageOf } from "../usage.ts";
 import { activeAccount } from "./active.ts";
-import { attachProvider } from "./attach.ts";
+import { attachProvider, type Watch } from "./attach.ts";
 import { addAccount, pickAccount } from "./dialogs.ts";
 import { NAME, STATUS_KEY } from "./names.ts";
 import { replay, type Pins } from "./pins.ts";
@@ -21,7 +22,7 @@ export const accounts = defineFeature({
 	setup(scope) {
 		const store = new AccountStore();
 		const pins: Pins = new Map();
-		const limited = new Map<string, Set<string>>();
+		const watch: Watch = { limited: new Map(), usage: new Map() };
 
 		scope.screen.rows((ctx) => accountRows(scope, store, pins, ctx));
 		scope.on("model_select", (_event, ctx) => refreshStatus(store, pins, ctx));
@@ -32,7 +33,10 @@ export const accounts = defineFeature({
 			if (event.message.role !== "assistant") return;
 			const providerId = event.message.provider;
 			if (!store.has(providerId)) return;
-			const text = usageLimitLine(event.message, activeAccount(store, pins, providerId)?.label);
+			const account = activeAccount(store, pins, providerId);
+			const note =
+				account === undefined ? undefined : resetNote(usageOf(watch.usage, providerId, account.id));
+			const text = usageLimitLine(event.message, account?.label, note);
 			if (text === undefined) return;
 			return { message: { ...event.message, errorMessage: text } };
 		});
@@ -40,12 +44,13 @@ export const accounts = defineFeature({
 		scope.onSessionStart((ctx) => {
 			for (const warning of store.reload()) scope.warn(warning);
 			pins.clear();
-			limited.clear();
+			watch.limited.clear();
+			watch.usage.clear();
 			for (const [provider, account] of replay(ctx.sessionManager.getBranch())) {
 				pins.set(provider, account);
 			}
 			for (const providerId of new Set([...store.providerIds(), ...pins.keys()])) {
-				attachProvider(scope, store, pins, limited, ctx, providerId);
+				attachProvider(scope, store, pins, watch, ctx, providerId);
 			}
 			refreshStatus(store, pins, ctx);
 		});
@@ -57,7 +62,7 @@ export const accounts = defineFeature({
 
 		scope.registerCommand("accounts", {
 			description: `${NAME}: add an account for a provider`,
-			handler: (args, ctx) => addAccount(scope, store, pins, limited, args, ctx),
+			handler: (args, ctx) => addAccount(scope, store, pins, watch, args, ctx),
 		});
 	},
 });

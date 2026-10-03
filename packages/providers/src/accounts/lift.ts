@@ -40,6 +40,8 @@ export interface AccountSession {
 		currentId: string,
 		detail: string,
 	): Promise<{ id: string; credential: Credential } | undefined>;
+	/** The quota headers of a response, kept for the account that served it. */
+	noteUsage?(id: string, headers: Record<string, string>): void;
 	/** The account served a request, so a limit it had is over. */
 	served?(id: string): void;
 }
@@ -154,7 +156,10 @@ async function* attempts(
 			// must be able to move to the next account like any other.
 			// oxlint-disable-next-line no-await-in-loop -- an attempt starts only after the one before it.
 			const withAuth = await authFor(provider, session, refreshing, account, model, options);
-			const source = call(provider, kind, withAuth.model, context, withAuth.options);
+			const source = call(provider, kind, withAuth.model, context, {
+				...withAuth.options,
+				onResponse: noteUsage(withAuth.options.onResponse, session, account?.id ?? DEFAULT_ACCOUNT),
+			});
 
 			// oxlint-disable-next-line no-await-in-loop -- a stream is read one event at a time.
 			for await (const event of source) {
@@ -207,6 +212,18 @@ async function* attempts(
 
 function isContent(event: AssistantMessageEvent): boolean {
 	return event.type !== "start" && event.type !== "done" && event.type !== "error";
+}
+
+/** Pi hands the response headers here, so the account that served it keeps its quota current. */
+function noteUsage(
+	next: Options["onResponse"],
+	session: AccountSession,
+	accountId: string,
+): Options["onResponse"] {
+	return async (response, model) => {
+		session.noteUsage?.(accountId, response.headers);
+		await next?.(response, model);
+	};
 }
 
 /** The request auth for an attempt: the account's, or untouched when pi's own credential serves. */

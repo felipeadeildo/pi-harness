@@ -74,15 +74,19 @@ function fake(): Fake {
 	};
 }
 
-function session(
-	credential: Credential | undefined,
-): AccountSession & { saved: { id: string; credential: Credential }[] } {
+function session(credential: Credential | undefined): AccountSession & {
+	saved: { id: string; credential: Credential }[];
+	notes: { id: string; headers: Record<string, string> }[];
+} {
 	const saved: { id: string; credential: Credential }[] = [];
+	const notes: { id: string; headers: Record<string, string> }[] = [];
 	return {
 		saved,
+		notes,
 		resolve: () => (credential === undefined ? undefined : { id: ACCOUNT_ID, credential }),
 		save: (id, next) => void saved.push({ id, credential: next }),
 		afterLimit: async () => undefined,
+		noteUsage: (id, headers) => void notes.push({ id, headers }),
 	};
 }
 
@@ -485,4 +489,29 @@ test("pi's own credential can move to an account when it is limited", async () =
 
 	expect(seen).toEqual([`default:${LIMIT_MESSAGE}`]);
 	expect(events).toEqual(["start", "text_delta", "done"]);
+});
+
+test("the headers of a response land on the account that served it", async () => {
+	const headers = { "anthropic-ratelimit-unified-5h-utilization": "0.5" };
+	const provider: Provider = {
+		id: "anthropic",
+		name: "Anthropic",
+		auth: { apiKey: { name: "key", resolve: async () => undefined } },
+		getModels: () => [],
+		stream: () => createAssistantMessageEventStream(),
+		streamSimple: (_model, _context, options) => {
+			void options?.onResponse?.({ status: 200, headers }, MODEL);
+			const stream = createAssistantMessageEventStream();
+			stream.push({ type: "start", partial: assistant("stop") });
+			stream.push({ type: "done", reason: "stop", message: assistant("stop") });
+			stream.end(assistant("stop"));
+			return stream;
+		},
+	};
+	const state = session({ type: "api_key", key: "k" });
+	const lifted = liftProvider(provider, state);
+
+	for await (const _event of lifted.streamSimple(MODEL, CONTEXT));
+
+	expect(state.notes).toEqual([{ id: ACCOUNT_ID, headers }]);
 });

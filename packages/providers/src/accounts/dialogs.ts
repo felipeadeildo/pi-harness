@@ -6,7 +6,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { pick } from "../ui/picker.ts";
 import { activeAccount } from "./active.ts";
-import { attachProvider } from "./attach.ts";
+import { attachProvider, type Watch } from "./attach.ts";
 import { reason } from "./describe.ts";
 import { interactionFor } from "./interaction.ts";
 import { login, loginMethods, type LoginMethod } from "./login.ts";
@@ -65,7 +65,7 @@ export async function addAccount(
 	scope: FeatureScope,
 	store: AccountStore,
 	pins: Pins,
-	limited: Map<string, Set<string>>,
+	watch: Watch,
 	args: string,
 	ctx: ExtensionContext,
 ): Promise<void> {
@@ -100,7 +100,7 @@ export async function addAccount(
 		pin(scope, pins, providerId, added.account.id);
 		// The first account of a provider was not attached at session start, so attach it now.
 		if (store.accounts(providerId).length === 1) {
-			attachProvider(scope, store, pins, limited, ctx, providerId);
+			attachProvider(scope, store, pins, watch, ctx, providerId);
 		}
 		refreshStatus(store, pins, ctx);
 		ctx.ui.notify(`${NAME}: ${providerId} account "${label}" added`, "info");
