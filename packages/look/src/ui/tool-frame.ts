@@ -101,7 +101,7 @@ function framed(
 				state,
 				mark: stateMark(state, frame.set()),
 				color: STATE_COLORS[state],
-				elapsed: elapsedOf(clock),
+				elapsed: elapsedOf(clock, state === "running"),
 			});
 			inner.set(box, body);
 			return box;
@@ -174,9 +174,9 @@ class ResultFrame implements Component {
 		const drawn = { width, body, rest: [mark, state, time] };
 		if (unchanged(this.#drawn, drawn)) return this.#drawn.lines;
 
-		// The time belongs to the frame, not to the output, so pi's own line goes when the call ends.
+		// The time belongs to the frame, not to the output, so pi's own line always goes.
 		const lines = [
-			...inside(state === "running" ? body : dropTime(body), width, theme),
+			...inside(dropTime(body), width, theme),
 			rule("bottom", bottomLabel(theme, mark, color, state, time), width, theme, color),
 		];
 		this.#drawn = { ...drawn, lines };
@@ -228,9 +228,10 @@ function clockOf(context: { state: unknown }): Clock {
 	return context.state as Clock;
 }
 
-function elapsedOf(clock: Clock): string | undefined {
-	if (clock.startedAt === undefined || clock.endedAt === undefined) return undefined;
-	return elapsed(clock.endedAt - clock.startedAt);
+function elapsedOf(clock: Clock, running: boolean): string | undefined {
+	if (clock.startedAt === undefined) return undefined;
+	const end = clock.endedAt ?? (running ? Date.now() : undefined);
+	return end === undefined ? undefined : elapsed(end - clock.startedAt);
 }
 
 function elapsed(ms: number): string {

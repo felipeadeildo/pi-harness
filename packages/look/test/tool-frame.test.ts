@@ -125,12 +125,12 @@ describe("the frame around a tool call", () => {
 		expect(result.at(-1)).toMatch(/^\u2570\u2500 \S+ done  6\.8s \u2500+\u256f$/);
 	});
 
-	test("closes a call that is still running, without a time", () => {
+	test("closes a call that is still running with the time so far", () => {
 		const fake = fakePi();
 		createApp(fake.pi, { name: "look" }).use(look).build();
 		const chain = resolve(fake, renderers());
 		if (chain === undefined) throw new Error("no renderers");
-		const shared = context({ state: { startedAt: 1_000 } });
+		const shared = context({ state: { startedAt: Date.now() - 3_200 } });
 		chain.renderCall?.({ command: "bun run test" }, theme, shared);
 		const result = chain.renderResult?.(
 			toolResult(),
@@ -139,7 +139,7 @@ describe("the frame around a tool call", () => {
 			shared,
 		);
 		const lines = (result ?? new Text("", 0, 0)).render(60).map((line) => line.trimEnd());
-		expect(lines.at(-1)).toMatch(/^\u2570\u2500 \S+ running \u2500+\u256f$/);
+		expect(lines.at(-1)).toMatch(/^\u2570\u2500 \S+ running  3\.2s \u2500+\u256f$/);
 	});
 
 	test("hands a tool it cannot frame back to pi, untouched", () => {
