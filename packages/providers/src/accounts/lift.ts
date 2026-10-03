@@ -23,6 +23,9 @@ import {
 	type TranscriptContext,
 } from "@earendil-works/pi-ai";
 
+import { classifyFailure } from "../errors.ts";
+import { DEFAULT_ACCOUNT } from "./types.ts";
+
 /** The account the next request uses, and where a refreshed token is kept. */
 export interface AccountSession {
 	resolve(): { id: string; credential: Credential } | undefined;
@@ -32,6 +35,13 @@ export interface AccountSession {
 		currentId: string,
 		detail: string,
 	): Promise<{ id: string; credential: Credential } | undefined>;
+	/** The credential was refused, so sign in again or try another account. */
+	afterAuthFailure?(
+		currentId: string,
+		detail: string,
+	): Promise<{ id: string; credential: Credential } | undefined>;
+	/** The account served a request, so a limit it had is over. */
+	served?(id: string): void;
 }
 
 /** The native provider behind a lifted one, so lifting twice wraps the same object. */
@@ -108,20 +118,17 @@ function accountStream(
 	context: TranscriptContext,
 	options?: Options,
 ): AssistantMessageEventStream {
+	// Even without an account chosen, a failure can move to one: pi's own credential is not an account,
+	// but the provider still has accounts behind it.
 	const first = session.resolve();
-	if (first === undefined) return call(provider, kind, model, context, options ?? {});
-
 	const settled = options ?? {};
 	return lazyStream(model, async () =>
 		attempts(provider, session, refreshing, kind, model, context, settled, first),
 	);
 }
 
-/** One account may serve a limit that another one does not have. */
+/** One account may serve a limit that another one does not have. A re-login costs an attempt too. */
 const MAX_ATTEMPTS = 3;
-
-// A quota or a rate limit belongs to the account, so another one can serve. A busy server cannot.
-const LIMIT_PATTERN = /quota|rate[ _-]?limit|too many requests|usage limit|429/i;
 
 async function* attempts(
 	provider: Provider,
@@ -131,16 +138,11 @@ async function* attempts(
 	model: Model<Api>,
 	context: TranscriptContext,
 	options: Options,
-	first: { id: string; credential: Credential },
+	first: { id: string; credential: Credential } | undefined,
 ): AsyncGenerator<AssistantMessageEvent> {
 	let account = first;
 
 	for (let attempt = 1; ; attempt++) {
-		// oxlint-disable-next-line no-await-in-loop -- an attempt starts only after the one before it.
-		const resolved = await resolveAuth(provider, session, refreshing, account, options.signal);
-		const withAuth = applyAuth(resolved, model, options);
-		const source = call(provider, kind, withAuth.model, context, withAuth.options);
-
 		// Hold the events until something is visible: a retry on another account must not repeat a
 		// message the caller already saw.
 		const buffered: AssistantMessageEvent[] = [];
@@ -148,6 +150,12 @@ async function* attempts(
 		let failure: AssistantMessage | undefined;
 		let thrown: unknown;
 		try {
+			// The auth resolution is inside the try too: a refresh that fails is an auth failure, and it
+			// must be able to move to the next account like any other.
+			// oxlint-disable-next-line no-await-in-loop -- an attempt starts only after the one before it.
+			const withAuth = await authFor(provider, session, refreshing, account, model, options);
+			const source = call(provider, kind, withAuth.model, context, withAuth.options);
+
 			// oxlint-disable-next-line no-await-in-loop -- a stream is read one event at a time.
 			for await (const event of source) {
 				if (isContent(event)) {
@@ -167,15 +175,27 @@ async function* attempts(
 			thrown = error;
 		}
 
-		if (!output && attempt < MAX_ATTEMPTS && failure !== undefined) {
-			const text = failure.errorMessage;
-			if (text !== undefined && LIMIT_PATTERN.test(text)) {
-				// oxlint-disable-next-line no-await-in-loop -- the answer comes from the user.
-				const next = await session.afterLimit(account.id, text);
-				if (next !== undefined) {
-					account = next;
-					continue;
-				}
+		if (failure === undefined && thrown === undefined)
+			session.served?.(account?.id ?? DEFAULT_ACCOUNT);
+
+		if (!output && attempt < MAX_ATTEMPTS) {
+			const problem =
+				failure?.errorMessage !== undefined
+					? classifyFailure(failure.errorMessage, model.provider)
+					: thrown === undefined
+						? undefined
+						: classifyFailure(thrown, model.provider);
+			const next =
+				problem?.kind === "usage"
+					? // oxlint-disable-next-line no-await-in-loop -- the answer comes from the user.
+						await session.afterLimit(account?.id ?? DEFAULT_ACCOUNT, problem.message)
+					: problem?.kind === "auth"
+						? // oxlint-disable-next-line no-await-in-loop -- the answer comes from the user.
+							await session.afterAuthFailure?.(account?.id ?? DEFAULT_ACCOUNT, problem.message)
+						: undefined;
+			if (next !== undefined) {
+				account = next;
+				continue;
 			}
 		}
 
@@ -187,6 +207,20 @@ async function* attempts(
 
 function isContent(event: AssistantMessageEvent): boolean {
 	return event.type !== "start" && event.type !== "done" && event.type !== "error";
+}
+
+/** The request auth for an attempt: the account's, or untouched when pi's own credential serves. */
+async function authFor(
+	provider: Provider,
+	session: AccountSession,
+	refreshing: Map<string, Promise<OAuthCredential>>,
+	account: { id: string; credential: Credential } | undefined,
+	model: Model<Api>,
+	options: Options,
+): Promise<{ model: Model<Api>; options: Options }> {
+	if (account === undefined) return { model, options };
+	const resolved = await resolveAuth(provider, session, refreshing, account, options.signal);
+	return applyAuth(resolved, model, options);
 }
 
 function call(

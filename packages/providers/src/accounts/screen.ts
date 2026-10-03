@@ -7,11 +7,10 @@ import { activeAccount } from "./active.ts";
 import { STATUS_KEY } from "./names.ts";
 import { pin, type Pins } from "./pins.ts";
 import type { AccountStore } from "./store.ts";
-import type { Account } from "./types.ts";
+import { DEFAULT_LABEL, type Account } from "./types.ts";
 
 /** The value of the choice that means pi's own credential. */
-export const DEFAULT_ACCOUNT = "default";
-export const DEFAULT_LABEL = "pi default";
+export { DEFAULT_ACCOUNT, DEFAULT_LABEL } from "./types.ts";
 
 /** Everything a provider's rows share. The label is the section header. */
 interface ProviderGroup {

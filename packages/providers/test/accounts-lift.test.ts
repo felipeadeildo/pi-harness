@@ -20,6 +20,10 @@ const MODEL = {
 	name: "Claude",
 } as unknown as Model<Api>;
 
+const LIMIT_MESSAGE =
+	"This request would exceed your account's rate limit. Please try again later.";
+const USAGE_LIMIT = `429 {"type":"error","error":{"type":"rate_limit_error","message":"${LIMIT_MESSAGE}"},"request_id":"req_test"}`;
+
 interface Fake {
 	provider: Provider;
 	seen: StreamOptions[];
@@ -138,9 +142,9 @@ function limitThenAnswer(): Provider {
 				stream.push({
 					type: "error",
 					reason: "error",
-					error: assistant("error", "429 rate limit"),
+					error: assistant("error", USAGE_LIMIT),
 				});
-				stream.end(assistant("error", "429 rate limit"));
+				stream.end(assistant("error", USAGE_LIMIT));
 			}
 			return stream;
 		},
@@ -234,7 +238,7 @@ test("a limit before any output moves to the next account and answers there", as
 	const events: string[] = [];
 	for await (const event of lifted.streamSimple(MODEL, CONTEXT)) events.push(event.type);
 
-	expect(asked).toEqual(["a:429 rate limit"]);
+	expect(asked).toEqual([`a:${LIMIT_MESSAGE}`]);
 	expect(events).toEqual(["start", "text_delta", "done"]);
 });
 
@@ -311,4 +315,174 @@ test("lifting twice wraps the same native provider", () => {
 	const twice = liftProvider(nativeOf(once), session(undefined));
 
 	expect(nativeOf(twice)).toBe(provider);
+});
+
+/** Refuses with `text` on the first call, answering on the second. `how` picks event or throw. */
+function refuseThenAnswer(text: string, how: "event" | "throw" = "event"): Provider {
+	let calls = 0;
+	return {
+		id: "anthropic",
+		name: "Anthropic",
+		auth: { apiKey: { name: "key", resolve: async () => undefined } },
+		getModels: () => [],
+		stream: () => createAssistantMessageEventStream(),
+		streamSimple: () => {
+			calls += 1;
+			if (calls === 1 && how === "throw") throw new Error(text);
+			const stream = createAssistantMessageEventStream();
+			if (calls > 1) {
+				stream.push({ type: "start", partial: assistant("stop") });
+				stream.push({
+					type: "text_delta",
+					contentIndex: 0,
+					delta: "hi",
+					partial: assistant("stop"),
+				});
+				stream.push({ type: "done", reason: "stop", message: assistant("stop") });
+				stream.end(assistant("stop"));
+				return stream;
+			}
+			stream.push({ type: "start", partial: assistant("error") });
+			stream.push({ type: "error", reason: "error", error: assistant("error", text) });
+			stream.end(assistant("error", text));
+			return stream;
+		},
+	};
+}
+
+test("a usage limit that arrives as a throw still moves on", async () => {
+	const seen: string[] = [];
+	const lifted = liftProvider(refuseThenAnswer(USAGE_LIMIT, "throw"), {
+		resolve: () => ({ id: "a", credential: { type: "api_key", key: "first" } }),
+		save: () => {},
+		afterLimit: async (currentId, detail) => {
+			seen.push(`${currentId}:${detail}`);
+			return { id: "b", credential: { type: "api_key", key: "second" } };
+		},
+	});
+
+	const events: string[] = [];
+	for await (const event of lifted.streamSimple(MODEL, CONTEXT)) events.push(event.type);
+
+	expect(seen).toEqual([`a:${LIMIT_MESSAGE}`]);
+	expect(events).toEqual(["start", "text_delta", "done"]);
+});
+
+test("a bare throttle stays on the account and keeps pi's retry", async () => {
+	const throttle = `429 {"error":{"message":"Rate limited. Please try again later.","type":"rate_limit_error"}}`;
+	let asked = false;
+	const lifted = liftProvider(refuseThenAnswer(throttle), {
+		resolve: () => ({ id: "a", credential: { type: "api_key", key: "first" } }),
+		save: () => {},
+		afterLimit: async () => {
+			asked = true;
+			return undefined;
+		},
+	});
+
+	const events: string[] = [];
+	for await (const event of lifted.streamSimple(MODEL, CONTEXT)) events.push(event.type);
+
+	expect(asked).toBe(false);
+	expect(events).toEqual(["start", "error"]);
+});
+
+test("a refused credential signs in again on the same account", async () => {
+	const refused = `401 {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}`;
+	const seen: string[] = [];
+	const lifted = liftProvider(refuseThenAnswer(refused), {
+		resolve: () => ({ id: "a", credential: { type: "api_key", key: "old" } }),
+		save: () => {},
+		afterLimit: async () => undefined,
+		afterAuthFailure: async (currentId, detail) => {
+			seen.push(`${currentId}:${detail}`);
+			return { id: currentId, credential: { type: "api_key", key: "new" } };
+		},
+	});
+
+	const events: string[] = [];
+	for await (const event of lifted.streamSimple(MODEL, CONTEXT)) events.push(event.type);
+
+	expect(seen).toEqual(["a:invalid x-api-key"]);
+	expect(events).toEqual(["start", "text_delta", "done"]);
+});
+
+test("a refresh that fails is an auth failure, not a dead end", async () => {
+	const provider: Provider = {
+		id: "anthropic",
+		name: "Anthropic",
+		auth: {
+			apiKey: { name: "key", resolve: async () => undefined },
+			oauth: {
+				name: "Claude Pro/Max",
+				login: async () => ({ type: "oauth", access: "new", refresh: "r", expires: Date.now() }),
+				refresh: async () => {
+					throw new Error(
+						`401 {"type":"error","error":{"type":"authentication_error","message":"OAuth token has been invalidated"}}`,
+					);
+				},
+				toAuth: async (credential) => ({ apiKey: `oauth:${credential.access}` }),
+			},
+		},
+		getModels: () => [],
+		stream: () => createAssistantMessageEventStream(),
+		streamSimple: () => {
+			const stream = createAssistantMessageEventStream();
+			stream.push({ type: "start", partial: assistant("stop") });
+			stream.push({
+				type: "text_delta",
+				contentIndex: 0,
+				delta: "hi",
+				partial: assistant("stop"),
+			});
+			stream.push({ type: "done", reason: "stop", message: assistant("stop") });
+			stream.end(assistant("stop"));
+			return stream;
+		},
+	};
+	const seen: string[] = [];
+	const lifted = liftProvider(provider, {
+		resolve: () => ({
+			id: "a",
+			credential: { type: "oauth", access: "old", refresh: "r", expires: 0 },
+		}),
+		save: () => {},
+		afterLimit: async () => undefined,
+		afterAuthFailure: async (currentId, detail) => {
+			seen.push(`${currentId}:${detail}`);
+			return {
+				id: currentId,
+				credential: {
+					type: "oauth",
+					access: "fresh",
+					refresh: "r",
+					expires: Date.now() + 3_600_000,
+				},
+			};
+		},
+	});
+
+	const events: string[] = [];
+	for await (const event of lifted.streamSimple(MODEL, CONTEXT)) events.push(event.type);
+
+	expect(seen).toEqual(["a:OAuth token has been invalidated"]);
+	expect(events).toEqual(["start", "text_delta", "done"]);
+});
+
+test("pi's own credential can move to an account when it is limited", async () => {
+	const seen: string[] = [];
+	const lifted = liftProvider(refuseThenAnswer(USAGE_LIMIT), {
+		resolve: () => undefined,
+		save: () => {},
+		afterLimit: async (currentId, detail) => {
+			seen.push(`${currentId}:${detail}`);
+			return { id: "b", credential: { type: "api_key", key: "second" } };
+		},
+	});
+
+	const events: string[] = [];
+	for await (const event of lifted.streamSimple(MODEL, CONTEXT)) events.push(event.type);
+
+	expect(seen).toEqual([`default:${LIMIT_MESSAGE}`]);
+	expect(events).toEqual(["start", "text_delta", "done"]);
 });

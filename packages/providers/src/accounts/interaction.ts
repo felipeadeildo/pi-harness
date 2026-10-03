@@ -3,6 +3,7 @@
 import type { AuthEvent, ProviderAuthInteraction } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
+import { pick } from "../ui/picker.ts";
 import { LOGIN_KEY } from "./names.ts";
 
 export function interactionFor(
@@ -15,7 +16,7 @@ export function interactionFor(
 		async prompt(prompt) {
 			if (prompt.type === "select") {
 				const options = prompt.options.map((option) => option.label);
-				const picked = await ctx.ui.select(prompt.message, options, { signal: prompt.signal });
+				const picked = await pick(ctx, prompt.message, options, { signal: prompt.signal });
 				if (picked === undefined) throw new Error(`${label}: login cancelled`);
 				return prompt.options.find((option) => option.label === picked)?.id ?? picked;
 			}

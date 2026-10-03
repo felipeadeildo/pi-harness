@@ -62,6 +62,8 @@ When a provider refuses a request for a quota or a rate limit and that provider 
 
 Only a limit that arrives before anything was shown switches, so a retry never repeats output you already saw. Only chat streams move: image generation, classifier calls and deferred responses keep pi's own credential.
 
+A quota belongs to the account, so an account that refused is skipped until it answers again, and the same dialog is not asked twice in a session. A credential the provider refuses instead opens `accounts.onAuthFailure`, whose dialog can run the provider's own login again under the same account, keeping its name and the session pin.
+
 ## Settings
 
 In `~/.pi/agent/extensions/pi-harness/settings.json`:
@@ -70,6 +72,8 @@ In `~/.pi/agent/extensions/pi-harness/settings.json`:
 | -------------------------------- | ----------- | ---------------------------------------------------------------------------------------------- |
 | `subscription.claudeCodeVersion` | `"2.1.280"` | The version Pi reports. Anthropic will not serve newer models to a version it considers old    |
 | `accounts.onLimit`               | `"ask"`     | What a quota or a rate limit does when another account exists: `"ask"`, `"switch"` or `"stop"` |
+| `accounts.onAuthFailure`         | `"ask"`     | What a refused credential does: `"ask"` (sign in again or switch), `"switch"` or `"stop"`      |
+| `accounts.onAuthFailure`         | `"ask"`     | What a refused credential does: `"ask"` (sign in again or switch), `"switch"` or `"stop"`      |
 
 The Claude plan billing comes from [pi-claude-max](https://github.com/bradennss/pi-claude-max) by Braden Lamb, MIT. This is a rewrite: it reads the version from settings, carries pi's cache breakpoints over instead of dropping the one-hour TTL, moves every system block after the identity instead of only the second, and checks for an OAuth token instead of the provider name.
 

@@ -5,7 +5,8 @@ import { accounts } from "./accounts/feature.ts";
 import { NAME } from "./accounts/names.ts";
 import { subscription } from "./subscription/feature.ts";
 
-export { accounts, onLimit, WHEN_LIMITED, type WhenLimited } from "./accounts/feature.ts";
+export { accounts } from "./accounts/feature.ts";
+export { onAuthFailure, onLimit, WHEN_LIMITED, type WhenLimited } from "./accounts/settings.ts";
 export { accountsPath, AccountStore } from "./accounts/store.ts";
 export { claudeCodeVersion, subscription } from "./subscription/feature.ts";
 
