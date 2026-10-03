@@ -169,7 +169,7 @@ function answerTo(picked: string): AskResult {
 
 describe("one dialog for the permission and the questions", () => {
 	test("the gate asks there, and the old dialog never opens", async () => {
-		const { bus, asked } = questionsProvider([answerTo("yes, run it")]);
+		const { bus, asked } = questionsProvider([answerTo("yes")]);
 		const { toolCall } = harness("judge", "ask", bus);
 		let opened = 0;
 
@@ -484,7 +484,7 @@ describe("workspace scope", () => {
 
 describe("an MCP call in the dialog", () => {
 	test("the hint the server declares reaches the question", async () => {
-		const { bus, asked } = questionsProvider([answerTo("yes, run it")]);
+		const { bus, asked } = questionsProvider([answerTo("yes")]);
 		const { fake, toolCall } = harness("manual", "ask", bus);
 		fake.allTools.push(
 			toolInfo("mcp__sauron__delete_dashboard", {

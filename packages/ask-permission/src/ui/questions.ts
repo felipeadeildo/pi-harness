@@ -9,7 +9,7 @@ import type { Call } from "#core/decide.ts";
 import { describeHints } from "#core/mcp.ts";
 import { openLabel } from "#ui/decision-options.ts";
 
-const YES = "yes, run it";
+const YES = "yes";
 const ALWAYS = "always yes";
 const DENY = "no";
 

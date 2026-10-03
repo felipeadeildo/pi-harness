@@ -61,11 +61,7 @@ describe("the first question", () => {
 		expect(question?.question).toContain("git push origin main");
 		expect(question?.question).toContain("bash wants to run");
 		expect(question?.question).toContain("\u25b2 pushing is not in the policy");
-		expect(question?.options.map((option) => option.label)).toEqual([
-			"yes, run it",
-			"always yes",
-			"no",
-		]);
+		expect(question?.options.map((option) => option.label)).toEqual(["yes", "always yes", "no"]);
 		expect(question?.options.map((option) => option.preview)).toEqual(["+x", "+x", "+x"]);
 	});
 
@@ -85,9 +81,7 @@ describe("the first question", () => {
 
 describe("the answer", () => {
 	test("yes allows, and keeps the note", async () => {
-		const { bus } = provider([
-			picked("yes, run it", [{ option: "yes, run it", note: "go ahead" }]),
-		]);
+		const { bus } = provider([picked("yes", [{ option: "yes", note: "go ahead" }])]);
 		expect(await askThroughQuestions(bus, call(), {})).toEqual({
 			decision: "allow",
 			note: "go ahead",
@@ -103,7 +97,7 @@ describe("the answer", () => {
 	});
 
 	test("a note on an option that was not picked is kept, and named", async () => {
-		const { bus } = provider([picked("yes, run it", [{ option: "no", note: "too risky" }])]);
+		const { bus } = provider([picked("yes", [{ option: "no", note: "too risky" }])]);
 		const answer = await askThroughQuestions(bus, call(), {});
 		expect(answer?.note).toBe('on "no": too risky');
 	});
