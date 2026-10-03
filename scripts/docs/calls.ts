@@ -4,6 +4,7 @@ import {
 	createBashToolDefinition,
 	createEditToolDefinition,
 	createReadToolDefinition,
+	createWriteToolDefinition,
 	initTheme,
 	ToolExecutionComponent,
 	type ToolRenderers,
@@ -16,7 +17,7 @@ import { fakePi } from "../../packages/kit/src/testing.ts";
 import { look } from "../../packages/look/src/index.ts";
 
 export interface CallSpec {
-	tool: "bash" | "read" | "edit";
+	tool: "bash" | "read" | "edit" | "write";
 	args: Record<string, unknown>;
 	/** What the call printed. Without it the call is drawn as one that has not answered yet. */
 	output?: string;
@@ -35,6 +36,7 @@ const TOOLS = {
 	bash: createBashToolDefinition("/repo"),
 	read: createReadToolDefinition("/repo"),
 	edit: createEditToolDefinition("/repo"),
+	write: createWriteToolDefinition("/repo"),
 } as Record<CallSpec["tool"], ToolRenderers>;
 
 /**
