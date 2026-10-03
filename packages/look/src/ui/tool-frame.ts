@@ -10,7 +10,12 @@ import {
 	rulingOf,
 } from "@adeildo/pi-kit";
 import type { Theme, ToolRenderers } from "@earendil-works/pi-coding-agent";
-import { type Component, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import {
+	type Component,
+	stripTerminalSequences,
+	truncateToWidth,
+	visibleWidth,
+} from "@earendil-works/pi-tui";
 
 import { type IconSet, resolveIcons } from "../render/glyphs.ts";
 import { stateMark, toolIcon, toolLabel } from "../render/tools.ts";
@@ -68,6 +73,8 @@ function framed(
 		renderShell: "self",
 		renderCall(args, theme, context) {
 			frame.redraws.set(context.toolCallId, context.invalidate);
+			const clock = clockOf(context);
+			if (context.executionStarted) clock.startedAt ??= Date.now();
 			const body = call(args, theme, { ...context, lastComponent: passed(context.lastComponent) });
 			const box = new CallFrame({
 				theme,
@@ -81,6 +88,8 @@ function framed(
 			return box;
 		},
 		renderResult(shown, options, theme, context) {
+			const clock = clockOf(context);
+			if (!options.isPartial) clock.endedAt ??= Date.now();
 			const body = result(shown, options, theme, {
 				...context,
 				lastComponent: passed(context.lastComponent),
@@ -89,8 +98,10 @@ function framed(
 			const box = new ResultFrame({
 				theme,
 				body,
+				state,
 				mark: stateMark(state, frame.set()),
 				color: STATE_COLORS[state],
+				elapsed: elapsedOf(clock),
 			});
 			inner.set(box, body);
 			return box;
@@ -117,13 +128,16 @@ class CallFrame implements Component {
 	render(width: number): string[] {
 		const { theme, icon, label, ruling, expanded } = this.parts;
 		const body = this.parts.body.render(room(width));
-		if (unchanged(this.#drawn, width, body)) return this.#drawn.lines;
+		const drawn = { width, body, rest: [ruling, expanded] };
+		if (unchanged(this.#drawn, drawn)) return this.#drawn.lines;
 
 		const title = `${theme.fg("toolTitle", icon)} ${theme.fg("toolTitle", theme.bold(label))}`;
 		const lines = [rule("top", title, width, theme), ...inside(body, width, theme)];
+		// The decision is about the call, so it stays with the call.
 		if (ruling !== undefined)
 			lines.push(...inside([rulingText(ruling, theme, expanded)], width, theme));
-		this.#drawn = { width, body, lines };
+		lines.push(cut(width, theme));
+		this.#drawn = { ...drawn, lines };
 		return lines;
 	}
 }
@@ -138,7 +152,12 @@ interface CallParts {
 /** The result and the bottom rule, which says how the call went. */
 class ResultFrame implements Component {
 	constructor(
-		private readonly parts: FrameParts & { mark: string; color: "accent" | "success" | "error" },
+		private readonly parts: FrameParts & {
+			mark: string;
+			color: "accent" | "success" | "error";
+			state: FrameState;
+			elapsed?: string;
+		},
 	) {}
 
 	#drawn?: Drawn;
@@ -149,16 +168,18 @@ class ResultFrame implements Component {
 	}
 
 	render(width: number): string[] {
-		const { theme, mark, color } = this.parts;
+		const { theme, mark, color, state } = this.parts;
+		const time = this.parts.elapsed;
 		const body = this.parts.body.render(room(width));
-		if (unchanged(this.#drawn, width, body)) return this.#drawn.lines;
+		const drawn = { width, body, rest: [mark, state, time] };
+		if (unchanged(this.#drawn, drawn)) return this.#drawn.lines;
 
+		// The time belongs to the frame, not to the output, so pi's own line goes when the call ends.
 		const lines = [
-			...inside(body, width, theme),
-			// The rule closes in the colour of how the call went.
-			rule("bottom", theme.fg(color, mark), width, theme, color),
+			...inside(state === "running" ? body : dropTime(body), width, theme),
+			rule("bottom", bottomLabel(theme, mark, color, state, time), width, theme, color),
 		];
-		this.#drawn = { width, body, lines };
+		this.#drawn = { ...drawn, lines };
 		return lines;
 	}
 }
@@ -180,6 +201,58 @@ function rule(
 	return truncateToWidth(line, width, "");
 }
 
+/** The line that ends the call and starts what it printed. */
+function cut(width: number, theme: Theme): string {
+	const paint = (text: string) => theme.fg("border", text);
+	const fill = Math.max(1, width - BODY_PAD);
+	const line = `${paint("├")}${paint("─".repeat(fill + 2))}${paint("┤")}`;
+	return truncateToWidth(line, width, "");
+}
+
+/** Pi prints the time of a call itself, and the frame says it on the bottom rule instead. */
+function dropTime(lines: readonly string[]): string[] {
+	const at = lines.findLastIndex((line) => !isBlank(line));
+	if (at === -1) return [...lines];
+	if (!/^(Took|Elapsed) [\d.]/u.test(stripTerminalSequences(lines[at] ?? "").trim()))
+		return [...lines];
+	return lines.slice(0, at);
+}
+
+interface Clock {
+	startedAt?: number;
+	endedAt?: number;
+}
+
+/** Pi shares one state object between the two halves of a call. */
+function clockOf(context: { state: unknown }): Clock {
+	return context.state as Clock;
+}
+
+function elapsedOf(clock: Clock): string | undefined {
+	if (clock.startedAt === undefined || clock.endedAt === undefined) return undefined;
+	return elapsed(clock.endedAt - clock.startedAt);
+}
+
+function elapsed(ms: number): string {
+	const seconds = ms / 1000;
+	if (seconds < 60) return `${seconds.toFixed(1)}s`;
+	const total = Math.floor(seconds);
+	if (total < 3600) return `${Math.floor(total / 60)}m ${total % 60}s`;
+	return `${Math.floor(total / 3600)}h ${Math.floor((total % 3600) / 60)}m`;
+}
+
+/** The bottom rule of a call that ended: how it went, and how long it took. */
+function bottomLabel(
+	theme: Theme,
+	mark: string,
+	color: "accent" | "success" | "error",
+	state: FrameState,
+	time: string | undefined,
+): string {
+	const line = `${theme.fg(color, mark)} ${theme.fg("muted", state)}`;
+	return time === undefined ? line : `${line}  ${theme.fg("dim", time)}`;
+}
+
 function inside(lines: readonly string[], width: number, theme: Theme): string[] {
 	const paint = (text: string) => theme.fg("border", text);
 	const inner = room(width);
@@ -194,18 +267,18 @@ function inside(lines: readonly string[], width: number, theme: Theme): string[]
 interface Drawn {
 	width: number;
 	body: readonly string[];
+	/** What the frame drew around the body: the ruling, the state, the time. */
+	rest: readonly unknown[];
 	lines: string[];
 }
 
-/** Whether the frame was already drawn for these lines, which is what keeps typing cheap. */
-function unchanged(
-	drawn: Drawn | undefined,
-	width: number,
-	body: readonly string[],
-): drawn is Drawn {
-	if (drawn === undefined || drawn.width !== width || drawn.body.length !== body.length)
+/** Whether the frame was already drawn for this body and this state, which keeps typing cheap. */
+function unchanged(drawn: Drawn | undefined, next: Omit<Drawn, "lines">): drawn is Drawn {
+	if (drawn === undefined || drawn.width !== next.width) return false;
+	if (drawn.body.length !== next.body.length || drawn.rest.length !== next.rest.length)
 		return false;
-	return drawn.body.every((line, index) => line === body[index]);
+	if (drawn.rest.some((part, index) => part !== next.rest[index])) return false;
+	return drawn.body.every((line, index) => line === next.body[index]);
 }
 
 function room(width: number): number {
@@ -221,7 +294,8 @@ function trim(lines: readonly string[]): string[] {
 }
 
 function isBlank(line: string | undefined): boolean {
-	return (line ?? "").trim() === "";
+	// A line of nothing but colour codes reads as blank, and pi's renderers end their parts with one.
+	return stripTerminalSequences(line ?? "").trim() === "";
 }
 
 export function rulingText(ruling: CallRuling, theme: Theme, expanded: boolean): string {

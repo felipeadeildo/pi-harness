@@ -50,6 +50,31 @@ function context(overrides: Record<string, unknown> = {}) {
 	} as never;
 }
 
+/** A call and its result share one context, which is where the frame keeps the clock. */
+function whole(ruling?: RulingRequest["ruling"], output = "583 pass") {
+	const fake = fakePi();
+	createApp(fake.pi, { name: "look" }).use(look).build();
+	fake.pi.events.on(RULING, (data) => {
+		if ((data as RulingRequest).toolCallId === "call-1") (data as RulingRequest).ruling = ruling;
+	});
+	const chain = resolve(fake, { ...renderers(), renderResult: () => new Text(output, 0, 0) });
+	if (chain === undefined) throw new Error("no renderers");
+
+	const shared = context({ state: { startedAt: 1_000, endedAt: 7_800 } });
+	const call = chain.renderCall?.({ command: "bun run test" }, theme, shared);
+	if (call === undefined) throw new Error("no call component");
+	const result = chain.renderResult?.(
+		toolResult(),
+		{ expanded: false, isPartial: false },
+		theme,
+		shared,
+	);
+	if (result === undefined) throw new Error("no result component");
+	const plain = (component: { render(width: number): string[] }) =>
+		component.render(60).map((line) => line.trimEnd());
+	return { call: plain(call), result: plain(result) };
+}
+
 function framed(ruling?: RulingRequest["ruling"], toolName = "bash") {
 	const fake = fakePi();
 	createApp(fake.pi, { name: "look" }).use(look).build();
@@ -84,7 +109,35 @@ describe("the frame around a tool call", () => {
 			context(),
 		);
 		const lines = (result ?? new Text("", 0, 0)).render(60).map((line) => line.trimEnd());
-		expect(lines.at(-1)).toMatch(/^\u2570\u2500 \S+ \u2500+\u256f$/);
+		expect(lines.at(-1)).toMatch(/^\u2570\u2500 \S+ done \u2500+\u256f$/);
+	});
+
+	test("cuts the command off from what it printed", () => {
+		const { call } = whole();
+		expect(call.at(-1)).toMatch(/^\u251c\u2500+\u2524$/);
+	});
+
+	test("says the time on the bottom rule instead of inside the output", () => {
+		const { result } = whole(undefined, "583 pass\n\nTook 6.8s");
+		expect(result.some((line) => line.includes("Took"))).toBe(false);
+		expect(result.at(-1)).toMatch(/^\u2570\u2500 \S+ done  6\.8s \u2500+\u256f$/);
+	});
+
+	test("closes a call that is still running, without a time", () => {
+		const fake = fakePi();
+		createApp(fake.pi, { name: "look" }).use(look).build();
+		const chain = resolve(fake, renderers());
+		if (chain === undefined) throw new Error("no renderers");
+		const shared = context({ state: { startedAt: 1_000 } });
+		chain.renderCall?.({ command: "bun run test" }, theme, shared);
+		const result = chain.renderResult?.(
+			toolResult(),
+			{ expanded: false, isPartial: true },
+			theme,
+			shared,
+		);
+		const lines = (result ?? new Text("", 0, 0)).render(60).map((line) => line.trimEnd());
+		expect(lines.at(-1)).toMatch(/^\u2570\u2500 \S+ running \u2500+\u256f$/);
 	});
 
 	test("hands a tool it cannot frame back to pi, untouched", () => {
