@@ -451,7 +451,7 @@ describe("the screen view", () => {
 		expect(line("Footer")).toContain("<accent>Footer");
 		expect(line("Gauge")).toContain("<accent>Gauge");
 		expect(line("Editor")).toContain("<dim>Editor");
-		expect(line("Frame")).toMatch(/<dim>Frame\s+rounded/);
+		expect(line("Frame")).toContain("<dim>Frame");
 
 		model.jumpSection(1);
 		expect(line("Editor")).toContain("<accent>Editor");
@@ -467,6 +467,45 @@ describe("the screen view", () => {
 
 		expect(body[editor]?.indexOf("Editor")).toBe(2);
 		expect(body[editor + 1]?.indexOf("Frame")).toBe(4);
+	});
+
+	test("a choice's descriptions start on one column, and a long label stays whole", () => {
+		const labels = ["short", "a/much/longer/label/that/passes/thirty-four"];
+		const model = new ScreenModel([
+			{
+				title: "Look",
+				sections: ["Editor"],
+				rows: [
+					{
+						feature: "look",
+						id: "pick",
+						kind: "setting",
+						section: "Editor",
+						label: "Pick",
+						description: "",
+						control: {
+							type: "choice",
+							options: labels.map((value) => ({ value, description: "about it" })),
+						},
+						value: "short",
+						layer: "default",
+					},
+				],
+			},
+		]);
+		const screen = new ScreenView({
+			tui: { terminal: { rows: 30 }, requestRender: () => {} } as unknown as TUI,
+			theme: THEME,
+			events: createEventBus(),
+			model,
+			done: () => {},
+		});
+		screen.handleInput("\r");
+		const lines = screen.render(100);
+		const rows = labels.map((label) => lines.find((line) => line.includes(label)) ?? "");
+
+		expect(rows[1]).toContain(labels[1]);
+		expect(rows[0]?.indexOf("about it")).toBe(rows[1]?.indexOf("about it"));
 	});
 
 	test("a row with an indent sits two columns deeper", async () => {

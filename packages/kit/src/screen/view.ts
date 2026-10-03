@@ -4,6 +4,7 @@ import {
 	decodeKittyPrintable,
 	Input,
 	matchesKey,
+	stripTerminalSequences,
 	type TUI,
 	truncateToWidth,
 	visibleWidth,
@@ -536,8 +537,10 @@ export class ScreenView implements Component {
 		const room = Math.max(1, labelWidth - 1 - visibleWidth(indent));
 		const label = truncateToWidth(row.label, room, "\u2026");
 		const pad = " ".repeat(Math.max(1, labelWidth - visibleWidth(indent) - visibleWidth(label)));
-		if (!focused)
-			return `  ${cursor}${indent}${theme.fg("dim", label + pad + this.#plainValue(row))}`;
+		if (!focused) {
+			const value = stripTerminalSequences(this.#value(row, false));
+			return `  ${cursor}${indent}${theme.fg("dim", label + pad + value)}`;
+		}
 
 		const labelText = selected
 			? theme.fg("accent", theme.bold(label))
@@ -548,17 +551,6 @@ export class ScreenView implements Component {
 	#heading(title: string, focused: boolean): string {
 		const { theme } = this.#options;
 		return `  ${focused ? theme.fg("accent", theme.bold(title)) : theme.fg("dim", title)}`;
-	}
-
-	/** What a row shows, without its colors, for a section out of focus. */
-	#plainValue(row: RowView): string {
-		if (row.kind === "action") {
-			if (this.#running.has(keyOf(row))) return "running\u2026";
-			return row.text ?? "\u21b5 run";
-		}
-		if (row.kind === "info" || row.control === undefined) return row.text ?? "";
-		const shown = formatValue(row.control, row.value) || "(empty)";
-		return row.layer === "project" ? `${shown}  \u25c6 project` : shown;
 	}
 
 	#value(row: RowView, selected: boolean): string {
@@ -592,10 +584,13 @@ export class ScreenView implements Component {
 		const out = [this.#heading(mode.row.label, true)];
 		const height = this.#bodyHeight - 1;
 		const top = Math.max(0, Math.min(mode.index - height + 1, mode.items.length - height));
+		// The labels take what the descriptions leave, and never less than half.
 		const labelWidth = Math.min(
-			34,
-			Math.floor(width / 2),
-			Math.max(...mode.items.map((item) => visibleWidth(item.label))) + 6,
+			widestOf(mode.items.map((item) => item.label)) + 6,
+			Math.max(
+				Math.floor(width / 2),
+				width - widestOf(mode.items.map((item) => item.description)) - 3,
+			),
 		);
 
 		mode.items.slice(top, top + height).forEach((item, offset) => {
@@ -610,12 +605,9 @@ export class ScreenView implements Component {
 				const current = item.opens === undefined && sameJson(item.value, mode.current);
 				mark = current ? theme.fg("accent", "\u25cf ") : "  ";
 			}
-			const label = selected
-				? theme.fg("accent", theme.bold(item.label))
-				: theme.fg("text", item.label);
-			const pad = " ".repeat(
-				Math.max(1, labelWidth - visibleWidth(mark) - visibleWidth(item.label)),
-			);
+			const text = truncateToWidth(item.label, labelWidth - visibleWidth(mark) - 2, "\u2026");
+			const label = selected ? theme.fg("accent", theme.bold(text)) : theme.fg("text", text);
+			const pad = " ".repeat(Math.max(1, labelWidth - visibleWidth(mark) - visibleWidth(text)));
 			const description = item.description === undefined ? "" : theme.fg("dim", item.description);
 			out.push(` ${cursor}${mark}${label}${pad}${description}`);
 		});
@@ -706,6 +698,10 @@ function inFocus(lines: readonly Line[], cursor: number): boolean[] {
 	const sections = lines.map((line) => (line.kind === "heading" ? ++section : section));
 	const focus = sections[cursor];
 	return sections.map((entry) => focus !== undefined && entry === focus);
+}
+
+function widestOf(texts: readonly (string | undefined)[]): number {
+	return Math.max(0, ...texts.map((text) => visibleWidth(text ?? "")));
 }
 
 /** True where the thumb is. Empty when everything fits. */
