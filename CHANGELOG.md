@@ -2,6 +2,15 @@
 
 Every `@adeildo/` package in this repository shares one version, one tag and this changelog. The entries below 4.0.0 are from before, when `pi-ask-permission` was the only package.
 
+## [5.3.0](https://github.com/felipeadeildo/pi-harness/compare/v5.2.0...v5.3.0) (2026-10-03)
+
+
+### Features
+
+* **providers:** keep the plan's quota from each response and count down its reset ([e318f79](https://github.com/felipeadeildo/pi-harness/commit/e318f79e94484a83cbbece737f0ef41c64597618))
+* **providers:** move to another account when one is refused, and frame the dialogs ([f231bf2](https://github.com/felipeadeildo/pi-harness/commit/f231bf2441a5e237bc3b44d46dc60a4a44107989))
+* **providers:** read the plan's quota from the endpoint and show it in the picker ([e99fdc7](https://github.com/felipeadeildo/pi-harness/commit/e99fdc755d94d11d9b0568d352eea826301fbbe8))
+
 ## [5.2.0](https://github.com/felipeadeildo/pi-harness/compare/v5.1.0...v5.2.0) (2026-10-03)
 
 
