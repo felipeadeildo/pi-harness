@@ -14,7 +14,6 @@ import {
 	writeRigor,
 } from "#core/config/settings.ts";
 import { globalAlwaysYesPath, projectAlwaysYesPath } from "#core/config/store.ts";
-import { findClassifier } from "#core/judge/classifier.ts";
 import { describeRigor, JUDGE_RIGORS, type JudgeRigor } from "#core/judge/config.ts";
 import { probeJudge } from "#core/judge/probe.ts";
 import { judgeLogText } from "#core/judge/report.ts";
@@ -228,7 +227,7 @@ function close(
 async function testJudge(state: SessionState, ctx: ExtensionContext): Promise<string> {
 	const judge = state.config.judge;
 	const probe = await probeJudge(judge, ctx.modelRegistry, ctx.signal);
-	if (!probe.ok) throw new Error(`the judge failed: ${probe.detail}${keyHint(ctx, judge.model)}`);
+	if (!probe.ok) throw new Error(`the judge failed: ${probe.detail}`);
 
 	resetJudgeHealth(state);
 	const lines = [`The judge answered in ${probe.elapsedMs}ms, with ${probe.model ?? judge.model}.`];
@@ -239,16 +238,6 @@ async function testJudge(state: SessionState, ctx: ExtensionContext): Promise<st
 		);
 	}
 	return lines.join("\n");
-}
-
-function keyHint(ctx: ExtensionContext, model: string): string {
-	const classifier = findClassifier(ctx.modelRegistry, model);
-	if (!classifier) return "";
-
-	const auth = ctx.modelRegistry.getProviderAuthStatus(classifier.provider);
-	return auth.configured
-		? ` (key from ${auth.label ?? auth.source})`
-		: ` (no key, run /login ${classifier.provider})`;
 }
 
 function forget(

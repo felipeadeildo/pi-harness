@@ -122,15 +122,20 @@ test("the judge section is a model, a policy, a rigor, and a way to try it", asy
 	]);
 });
 
-test("the model row offers the classifiers with a key, and the default without one", async () => {
+test("the model row offers every classifier, the ones with a key first", async () => {
 	const { row } = await started();
 	expect(row("permission.judge.model")).toMatchObject({
 		value: "typesafe/jev-latest",
 		control: {
 			type: "choice",
+			custom: true,
 			options: [
-				{ value: "opencode/jev-1.13-free", description: "classifier" },
-				{ value: "typesafe/jev-latest", description: "classifier" },
+				{ value: "opencode/jev-1.13-free", description: "ready" },
+				{
+					value: "openrouter/typesafe/jev-1.13",
+					description: "needs /login openrouter",
+				},
+				{ value: "typesafe/jev-latest", description: "needs /login typesafe" },
 			],
 		},
 	});

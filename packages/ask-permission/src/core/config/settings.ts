@@ -4,6 +4,7 @@ import { existsSync, renameSync } from "node:fs";
 import {
 	boolean,
 	type Control,
+	type ControlOption,
 	type Decoder,
 	duration,
 	isObject,
@@ -188,15 +189,20 @@ const PERMISSION_LEAVES = {
 	}),
 };
 
-// The default stays listed without a key, so the row can show it.
-function judgeModels(registry: ModelRegistry): string[] {
-	const names = registry
+// The ones with a key first. One without a key can be picked, and the judge asks you until it has one.
+function judgeModels(registry: ModelRegistry): ControlOption[] {
+	const ready = (provider: string): boolean => registry.getProviderAuthStatus(provider).configured;
+	return registry
 		.getModelsOfType("classifier")
-		.filter((model) => registry.getProviderAuthStatus(model.provider).configured)
-		.map(modelName);
-	return [...new Set([DEFAULT_JUDGE.model, ...names])].toSorted((left, right) =>
-		left.localeCompare(right),
-	);
+		.toSorted(
+			(left, right) =>
+				Number(ready(right.provider)) - Number(ready(left.provider)) ||
+				modelName(left).localeCompare(modelName(right)),
+		)
+		.map((model) => ({
+			value: modelName(model),
+			description: ready(model.provider) ? "ready" : `needs /login ${model.provider}`,
+		}));
 }
 
 const JUDGE_LEAVES = {
@@ -211,10 +217,7 @@ const JUDGE_LEAVES = {
 		control: (ctx) => ({
 			type: "choice",
 			custom: true,
-			options: judgeModels(ctx.modelRegistry).map((value) => ({
-				value,
-				description: "classifier",
-			})),
+			options: judgeModels(ctx.modelRegistry),
 		}),
 	}),
 	policy: leaf({
