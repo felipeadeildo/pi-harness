@@ -2,9 +2,9 @@
 
 ## Where this is going
 
-The agent writes faster than I read, and that will not change soon. So the work is not to take me out of the loop. It is to make my decision arrive in time, and to spend less of my attention on each call.
+The agent writes faster than I read, and that will not change soon. So the work is not to take me out of the loop. It is to make my decision arrive in time, with less of my attention spent per call.
 
-The destination is one install where several agents work at once and I stay the one who decides. Every call that matters reaches me with what I need to judge it. Every session says what it is doing, what it costs and what it decided, in a form the next session can read. And I can answer from my phone, under the same policy.
+The destination is one install where several agents work at once and I stay the one who decides. Every call that matters reaches me with what I need to judge it, on the call itself. Every session says what it is doing, what it costs and what it decided, in a form the next session can read. And I can answer from my phone, under the same policy.
 
 An item earns its place by saving something I do ten times a day, and it says how much. If the reason is that it is more elegant, it goes.
 
@@ -16,58 +16,73 @@ An item earns its place by saving something I do ten times a day, and it says ho
 - Anything that decides for me is visible and can be undone.
 - Nothing leaves the machine unless I ask. That covers usage, traces and memory.
 
-## Where it stands
-
-- **Permission.** A dialog before a tool call runs, with yes, always yes or no and a note the model reads. A judge on one of pi's classifier models answers the routine calls, and reads my last message as context. MCP servers get a policy each, and every call inside a codemode script is decided on its own.
-- **Questions.** The model asks instead of guessing, with options, a preview of each and a note on any of them. The answer is stored with the call. The permission ask goes through the same dialog.
-- **Look.** A start card, a framed editor with slots in its borders, a strip with the last call's wait and speed, and a footer with cost, tokens and cache.
-- **Providers.** Anthropic billed to the Claude plan, several accounts per provider, and a switch to the next account when a limit hits.
-- **Kit.** Settings on `Alt+S`, and the contracts the features talk through.
-
-## The map
-
-What each item waits on. An arrow goes from what has to land first.
+An item moves from `planned` to `next` to `done`, and leaves by `drop`. The notes stay short on purpose: `CHANGELOG.md` has the detail of what shipped.
 
 ```mermaid
 flowchart LR
-  subgraph cost["1. Know what it costs"]
-    quota["Quota per plan"] --> switch["Account by quota"]
-    quota --> lookQuota["Quota in the look"]
-    quota --> usage["/usage"]
-    ledger["Usage ledger"] --> usage
-  end
-  subgraph resume["2. Pick up where I left off"]
-    naming["Session naming"]
-    state["Session state"] --> goal["Judge reads the goal"]
-    state --> compaction["Structured compaction"]
-    state --> memory["Memory"]
-    compaction --> memory
-  end
-  subgraph many["3. Many sessions, one policy"]
-    inbox["Sessions talking"]
-    subagents["Subagents"]
-  end
-  subgraph anywhere["4. From anywhere"]
-    bridge["Remote bridge"] --> web["Web UI"]
-  end
-  state --> inbox
-  state --> web
-  ledger --> web
+  p["planned: decided, waiting on what it needs"] --> n["next: the next thing I build"]
+  n --> d["done: it ships today"]
+  p --> l["later: wanted, no need for it yet"]
+  p --> x["drop: decided against"]
+  l --> n
+
+  classDef planned fill:#30302f,stroke:#8a8a86,color:#e8e8e4
+  classDef next fill:#1d3f66,stroke:#5aa2e8,color:#eaf3ff
+  classDef done fill:#1c3d2a,stroke:#4caf72,color:#e9fff1
+  classDef later fill:#26262a,stroke:#4a4a52,color:#b9b9c0
+  classDef drop fill:#3d2020,stroke:#c05656,color:#ffe9e9
+  class p planned
+  class n next
+  class d done
+  class l later
+  class x drop
 ```
 
-The milestones run in order, and the small things at the end fit between any two.
+This is how a call is decided today. Everything in the picture ships.
 
-## 1. Know what it costs
+```mermaid
+flowchart TD
+  call["a call the model wants to run"] --> rule{"a rule already answers it?"}
+  rule -->|"always yes, allow list, only reads, or the mode"| run["it runs"]
+  rule -->|no| judge["a small model reads it"]
+  judge -->|sure it is fine| run
+  judge -->|not sure| ask["it comes to you, with the reason"]
+  ask -->|"yes, or always yes"| run
+  ask -->|no| block["blocked, and your note reaches the model"]
+  mcp["the policy of its MCP server"] -.->|allow| run
+  mcp -.->|deny| block
+```
 
-On a subscription the footer's dollars are what the tokens would have cost, not what is left of the plan. What is left lives in each provider's own API, and what I spent across sessions lives in the session files. The footer shows neither.
+## Permission. `@adeildo/pi-ask-permission`
 
-| Item              | Needs          | Notes                                                                                                                                                     |
-| ----------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Quota per plan    |                | What is left and when it resets, read from the endpoints below. A feature of its own, because three items read it                                         |
-| Account by quota  | Quota per plan | The switch on limit moves to the account with the most left, instead of the next in the list                                                              |
-| Quota in the look | Quota per plan | A footer segment, in percent and reset time                                                                                                               |
-| Usage ledger      |                | One record per session, project, account and model, built from `~/.pi/agent/sessions` with a cache. Time worked is a heuristic                            |
-| `/usage`          | Quota, ledger  | One screen with what the plan says is left next to what I spent, per account. Dollars where the provider bills per token, percent where it bills per plan |
+| Item                        | Status  | Note                                                                                                             |
+| --------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
+| The dialog                  | done    | yes, always yes or no, with a note the model reads, on a command longer than three lines shows how many are left |
+| Grants at three scopes      | done    | session, project and everywhere, forgotten from the settings screen                                              |
+| Modes                       | done    | manual, edits, judge and full, with `Alt+W` for a call outside the workspace                                     |
+| MCP policies and codemode   | done    | a call follows the policy of its server, and every call inside a script is decided on its own                    |
+| The judge on pi's models    | done    | `ctx.modelRegistry.classify()`, so there is no provider of ours and no prompt of ours to keep                    |
+| Every call says who decided | done    | the reason sits on the call, and the calls of one answer are judged together                                     |
+| Judge reads the goal        | planned | The goal replaces my last message as what the judge knows about the work. Needs the session state                |
+
+## Questions. `@adeildo/pi-ask-questions`
+
+| Item                       | Status  | Note                                                                           |
+| -------------------------- | ------- | ------------------------------------------------------------------------------ |
+| The tool and its dialog    | done    | options, a preview of each, a note on any of them, and a row for my own answer |
+| One dialog for both        | done    | the permission ask goes through it, so both take the same keys                 |
+| `ctrl+g` in a typed answer | planned | opens the external editor, the last piece of the port                          |
+
+## Accounts. `@adeildo/pi-providers`
+
+| Item              | Status  | Note                                                                                                              |
+| ----------------- | ------- | ----------------------------------------------------------------------------------------------------------------- |
+| Subscription      | done    | an Anthropic OAuth request is billed to the Claude plan, and an API key goes out untouched                        |
+| Several accounts  | done    | the pi login is the first one, another comes from the provider's own login, and `Alt+A` cycles them               |
+| Switch on limit   | done    | an account that hits a limit hands over to the next one, asking first by default                                  |
+| Quota per plan    | next    | what is left and when it resets, read from the endpoints below. A feature of its own, because three items read it |
+| Account by quota  | planned | the switch moves to the account with the most left, instead of the next in the list. Needs the quota              |
+| Quota on the look | planned | a segment in the footer, in percent and reset time. Needs the quota                                               |
 
 The quota endpoints are not official, and each needs the token pi already stores.
 
@@ -83,61 +98,79 @@ Sign in with ChatGPT lives on the `openai` provider now, and `openai-codex` is l
 Open:
 
 - Is the 5-hour window rolling, or a block that starts at the first request?
+
+## What I see. `@adeildo/pi-look`
+
+| Item                     | Status | Note                                                                                                                                               |
+| ------------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The start card           | done   | the model with its effort, the folder and the tree, the machine, what loaded, and the keys worth knowing                                           |
+| The framed editor        | done   | the branch, the folder, the permission mode, the model and the context in its borders                                                              |
+| The strip and the footer | done   | the stopwatch, the last call's wait and speed, then the cost, the tokens, the cache and the average speeds                                         |
+| A box around each call   | done   | the icon, the name, the reason it ran, a cut before the output, and the time on the bottom line                                                    |
+| The desktop theme goes   | drop   | pi's `system` theme builds from the terminal's palette now, so `look/src/desktop/`, `look.desktop*` and `/look theme` leave after one test with it |
+
+Open:
+
+- Some of the pi settings the harness sets are already pi's defaults now. `bun run pi:defaults` checks that on every run, and `packages/harness/src/setup.ts` holds the list.
+
+## Usage
+
+| Item         | Status  | Needs         | Note                                                                                                                                                      |
+| ------------ | ------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage ledger | planned |               | One record per session, project, account and model, built from `~/.pi/agent/sessions` with a cache. Time worked is a heuristic                            |
+| `/usage`     | planned | Quota, ledger | One screen with what the plan says is left next to what I spent, per account. Dollars where the provider bills per token, percent where it bills per plan |
+
+Open:
+
 - How long a gap counts as a pause when the ledger measures time worked? Fifteen minutes is the guess.
 
-## 2. Pick up where I left off
+## Sessions
 
-Resuming a session means rereading it. Compaction writes a summary in prose. The judge reads my last message as the intent, and that message is often just "continue".
-
-| Item                  | Needs                     | Notes                                                                                                                                              |
-| --------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Session naming        |                           | A name from the first turns. The look already shows it                                                                                             |
-| Session state         |                           | Goal, current task, plan, touched files and the last summary. A snapshot per session, never an event log                                           |
-| Judge reads the goal  | Session state             | The goal replaces the last message as the judge's intent. The judge itself does not change                                                         |
-| Structured compaction | Session state             | Goal, decisions, open questions and files, from the session state instead of prose                                                                 |
-| Memory                | Session state, compaction | Replaces `pi-memory`. Markdown is the source of truth, and a command reviews and deletes what was stored. Nothing is recorded without me seeing it |
+| Item                     | Status  | Needs                     | Note                                                                                                     |
+| ------------------------ | ------- | ------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Session naming           | planned |                           | A name from the first turns. The look already shows it                                                   |
+| Session state            | planned |                           | Goal, current task, plan, touched files and the last summary. A snapshot per session, never an event log |
+| Structured compaction    | planned | Session state             | Goal, decisions, open questions and files, from the session state instead of prose                       |
+| Memory                   | planned | Session state, compaction | Replaces `pi-memory`. Markdown is the source of truth, and a command reviews and deletes what was stored |
+| Compaction by classifier | later   | Structured compaction     | A classifier picks which entries stay, in place of a summary                                             |
+| Mentions                 | later   |                           | `#entry`, `@file` and session references expanded before the turn                                        |
 
 Open:
 
 - One memory file with sections, or a global one and one per project?
 
-## 3. Many sessions, one policy
+## Many sessions, one policy
 
-Two agents in one repository cannot see each other, and a child agent's calls should reach the same permission as its parent's.
+| Item             | Status  | Needs         | Note                                                                                                      |
+| ---------------- | ------- | ------------- | --------------------------------------------------------------------------------------------------------- |
+| Sessions talking | planned | Session state | An inbox folder per session with one file per message, and `pi.events` inside one process. Nobody waits   |
+| Subagents        | later   |               | Replaces `pi-subagents`. Children over `RpcClient`, with their permission dialogs forwarded to the parent |
+| The routed model | later   | A router      | With a virtual model, the look shows the model that answered instead of `auto`                            |
 
-| Item             | Needs         | Notes                                                                                                                |
-| ---------------- | ------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Sessions talking | Session state | An inbox folder per session with one file per message, and `pi.events` inside one process. Nobody waits on anybody   |
-| Subagents        |               | Replaces `pi-subagents`. Children over `RpcClient`, with their permission dialogs forwarded to the parent            |
-| The routed model | A router      | With a virtual model, the look shows the model that answered instead of `auto`. Nothing I run registers a router yet |
+## The outside world
 
-## 4. From anywhere
+| Item                  | Status | Replaces        | Note                                                                                                                  |
+| --------------------- | ------ | --------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Web search and fetch  | later  | `pi-web-access` | Route by kind of question: docs, code or news                                                                         |
+| GitHub, Linear and CI | later  |                 | CI as a watcher that emits events, and a policy per repository                                                        |
+| QA in a browser       | later  |                 | Reuse a session I already signed into, and never see a password. Open: attach over CDP, or a profile I sign into once |
 
-| Item          | Needs                         | Notes                                                                                                                                                    |
-| ------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Remote bridge |                               | Forwards the kit's contracts and pi's RPC dialogs over a socket reachable through Tailscale. Approve a call from the phone. It never runs in `full` mode |
-| Web UI        | Bridge, session state, ledger | Sessions, their state, the approvals waiting, and usage                                                                                                  |
-| Voice         |                               | Local whisper, with the text pasted into the editor                                                                                                      |
+## From anywhere
 
-## Small things
+| Item          | Status | Needs                 | Note                                                                                                                      |
+| ------------- | ------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Remote bridge | later  |                       | Forwards the kit's contracts and pi's RPC dialogs over a socket reachable through Tailscale. It never runs in `full` mode |
+| Web UI        | later  | Bridge, state, ledger | Sessions, their state, the approvals waiting, and usage                                                                   |
+| Voice         | later  |                       | Local whisper, with the text pasted into the editor                                                                       |
 
-None of these waits on anything.
+## Platform
 
-- **`/harness setup`.** Applies the pi settings listed in `packages/harness/src/setup.ts`, which a package cannot set by itself. `bun run pi:defaults` already fails when pi moves a default one of them was chosen against.
-- **`ctrl+g` in a typed answer.** Opens the external editor, the last piece of the question tool's port.
-- **The desktop theme goes.** Pi's `system` theme builds from the terminal's palette. `look/src/desktop/`, the `look.desktop*` settings and `/look theme` leave after one test with it.
-- **A release preflight.** Refuses to release when `main` is behind, the tree is dirty, or CI is red for the commit.
-- **A local release dry run.** Installs the packed tarballs outside the repository and runs a real `pi` session against them.
-
-## Later
-
-Each waits on a need I can name.
-
-- **Web search by kind of question.** Docs, code or news. `pi-web-access` stays until one of its limits costs me something.
-- **GitHub, Linear and CI.** CI as a watcher that emits events, and a policy per repository.
-- **QA in a browser.** Reuse a session I already signed into, and never see a password. Open: attach to my Chromium over CDP, or give the agent a profile I sign into once.
-- **Mentions.** `#entry`, `@file` and session references expanded before the turn.
-- **Compaction by classifier.** A classifier picks which entries stay, in place of a summary. Needs structured compaction first.
+| Item                    | Status  | Note                                                                                                    |
+| ----------------------- | ------- | ------------------------------------------------------------------------------------------------------- |
+| The pi defaults check   | done    | `bun run pi:defaults` fails when pi moves a default a harness setting was chosen against                |
+| `/harness setup`        | planned | Applies the pi settings listed in `packages/harness/src/setup.ts`, which a package cannot set by itself |
+| A release preflight     | planned | Refuses to release when `main` is behind, the tree is dirty, or CI is red for the commit                |
+| A local release dry run | planned | Installs the packed tarballs outside the repository and runs a real `pi` session against them           |
 
 ## Waiting on pi
 
