@@ -1,3 +1,5 @@
+# Types, lint, format, tests, the pictures in the docs, and the pi defaults the harness settings
+# were chosen against. `bun run verify` lists them.
 name: CI
 
 on:
@@ -15,8 +17,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - run: bun run check
-      - run: bun run lint
-      - run: bun run fmt:check
-      - run: bun run test
-      - run: bun run docs:check
+      - run: bun run verify

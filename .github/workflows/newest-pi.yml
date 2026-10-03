@@ -1,0 +1,65 @@
+# Runs verify against the newest pi SDK on npm. A release that passes opens a bump PR, and one that
+# fails files an issue. The steps are in scripts/newest-pi.ts.
+#
+# Cron, because npm sends no event. GitHub stops a cron after 60 days without activity in the
+# repository; re-enable it from the Actions tab if that happens.
+name: Newest pi
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # 09:00 UTC, after pi usually publishes.
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: newest-pi
+  cancel-in-progress: false
+
+jobs:
+  newest-pi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+
+      - id: compare
+        run: bun scripts/newest-pi.ts compare
+
+      - if: steps.compare.outputs.test == 'true'
+        run: bun install --frozen-lockfile
+
+      # --exact, so the pin stays a version and not a range.
+      - if: steps.compare.outputs.test == 'true'
+        run: bun add --dev --exact @earendil-works/pi-ai@latest @earendil-works/pi-coding-agent@latest @earendil-works/pi-tui@latest
+
+      # pipefail, or tee hides the exit status.
+      - id: verify
+        if: steps.compare.outputs.test == 'true'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          bun run verify 2>&1 | tee verify.log
+
+      - if: steps.compare.outputs.test == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-log
+          path: verify.log
+          retention-days: 14
+
+      - if: steps.compare.outputs.test == 'true'
+        run: bun scripts/newest-pi.ts report
+        env:
+          VERIFY: ${{ steps.verify.outcome }}
+          PINNED: ${{ steps.compare.outputs.pinned }}
+          NEWEST: ${{ steps.compare.outputs.newest }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

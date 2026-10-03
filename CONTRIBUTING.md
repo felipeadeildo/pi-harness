@@ -9,8 +9,8 @@ bun run check      # tsc --noEmit over every package
 bun run lint       # oxlint
 bun run fmt        # oxfmt (writes)
 bun run test       # bun test
-bun run verify     # all of the above, and the docs check
-bun run docs       # redraw the examples in the docs from the code
+bun run verify     # all of the above, the docs check and the pi defaults
+bun run docs       # redraw the pictures in the docs from the code
 ```
 
 Lefthook formats and lints staged files on commit, type-checks the repository, and runs the full verify before a push.
@@ -27,7 +27,7 @@ packages/
   kit/              # @adeildo/pi-kit: app builder, feature scope, settings, events
 ```
 
-Tooling lives at the root: one `tsconfig.json`, one oxlint and oxfmt config, one lockfile. The pi SDK versions are pinned in the root `package.json`, which is what the SDK compat workflow bumps. Packages declare the pi SDK as `peerDependencies` with `"*"`.
+Tooling lives at the root: one `tsconfig.json`, one oxlint and oxfmt config, one lockfile. The pi SDK versions are pinned in the root `package.json`, and the Newest pi workflow bumps them when verify passes against a new release. Packages declare the pi SDK as `peerDependencies` with `"*"`.
 
 Internal dependencies use `workspace:*`. Publishing goes through `bun pm pack`, which writes the real version into the tarball, and `bun run smoke` fails if a `workspace:` range is left in one.
 
