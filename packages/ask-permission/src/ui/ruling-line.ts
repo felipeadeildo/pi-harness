@@ -62,6 +62,8 @@ export function keepRuling(
 
 export function restoreRulings(state: SessionState, ctx: ExtensionContext): void {
 	state.rulings.clear();
+	// A verdict still in flight belongs to the branch being left, not to this one.
+	state.prejudged.clear();
 	for (const entry of ctx.sessionManager.getBranch()) {
 		const kept = keptRuling(entry);
 		if (kept !== undefined) state.rulings.set(kept.toolCallId, kept.ruling);

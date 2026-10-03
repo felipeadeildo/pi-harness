@@ -114,6 +114,16 @@ describe("the line on the call", () => {
 		expect(seen[1]).not.toBe(first);
 	});
 
+	test("a branch that opens drops the verdicts still in flight", () => {
+		const { state, draw } = setup();
+		state.prejudged.set("call-1", { summary: "npm install", verdict: Promise.resolve(undefined) });
+
+		restoreRulings(state, { sessionManager: { getBranch: () => [] } } as never);
+
+		expect(state.prejudged.size).toBe(0);
+		expect(render(draw())).toBe("$ npm install");
+	});
+
 	test("a resumed session shows the rulings it kept", () => {
 		const { state, draw } = setup();
 		const entry = {
