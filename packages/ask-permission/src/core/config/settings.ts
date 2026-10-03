@@ -20,6 +20,7 @@ import {
 	unit,
 	writeSettingsFile,
 } from "@adeildo/pi-kit";
+import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 
 import { mode, type NoUIConfig, noUI, mcpPolicies } from "#core/config/decode.ts";
 import {
@@ -33,10 +34,10 @@ import {
 	type WorkspaceConfig,
 } from "#core/config/schema.ts";
 import { configPath, readLegacyConfig } from "#core/config/store.ts";
+import { modelName } from "#core/judge/classifier.ts";
 import {
 	DEFAULT_JUDGE,
 	DEFAULT_RIGOR,
-	JEV_MODELS,
 	JUDGE_RIGORS,
 	type JudgeFallback,
 	type JudgeRigor,
@@ -187,6 +188,18 @@ const PERMISSION_LEAVES = {
 	}),
 };
 
+// Classifiers whose provider has a key. The default stays on the list without one, so the row can
+// show it.
+function judgeModels(registry: ModelRegistry): string[] {
+	const names = registry
+		.getModelsOfType("classifier")
+		.filter((model) => registry.getProviderAuthStatus(model.provider).configured)
+		.map(modelName);
+	return [...new Set([DEFAULT_JUDGE.model, ...names])].toSorted((left, right) =>
+		left.localeCompare(right),
+	);
+}
+
 const JUDGE_LEAVES = {
 	model: leaf({
 		id: "judge.model",
@@ -194,18 +207,15 @@ const JUDGE_LEAVES = {
 		decoder: trimmedString,
 		section: "Judge",
 		label: "Model",
-		description: "Who judges. Jev answers fast, after /login typesafe. Any pi model works too.",
+		description:
+			"Who judges: a classifier model, which answers with a confidence. Jev runs after /login typesafe.",
 		control: (ctx) => ({
 			type: "choice",
 			custom: true,
-			options: [
-				...JEV_MODELS.map((value) => ({ value, description: "Jev, by TypeSafe" })),
-				...ctx.modelRegistry
-					.getAvailable()
-					.map((model) => `${model.provider}/${model.id}`)
-					.toSorted((left, right) => left.localeCompare(right))
-					.map((value) => ({ value, description: "pi model" })),
-			],
+			options: judgeModels(ctx.modelRegistry).map((value) => ({
+				value,
+				description: "classifier",
+			})),
 		}),
 	}),
 	policy: leaf({

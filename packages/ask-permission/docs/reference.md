@@ -13,7 +13,7 @@ The settings live in the file every piece shares, `~/.pi/agent/extensions/pi-har
 		"mode": "manual",
 		"readOnlyBash": true,
 		"workspace": { "roots": ["."], "outside": "ask" },
-		"judge": { "model": "jev-latest" }
+		"judge": { "model": "typesafe/jev-latest" }
 	}
 }
 ```
@@ -35,22 +35,22 @@ The ids below leave out the `permission.` prefix.
 
 ### The judge block
 
-| Key                 | Default        | Does                                                                                                                                  |
-| ------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `model`             | `"jev-latest"` | A name that starts with `jev` goes to TypeSafe. Anything else is a pi model, as `provider/modelId` or a bare id                       |
-| `policy`            | Standard       | The rules the judge follows                                                                                                           |
-| `alwaysAsk`         | `[]`           | Patterns the judge never approves, like `"git push*"`. A pattern matches the tool name too, so `mcp__*` catches every MCP call        |
-| `rigor`             | `"balanced"`   | `"cautious"`, `"balanced"`, or `"relaxed"`. Sets `thresholds` and `riskCeiling`                                                       |
-| `dryRun`            | `false`        | Show the verdict, and still ask you                                                                                                   |
-| `thresholds`        | from `rigor`   | Confidence needed to allow / deny. File only. Set here, it wins over `rigor`, and the Rigor row reads `custom` until you pick a rigor |
-| `riskCeiling`       | from `rigor`   | Highest risk the judge may approve. File only, and it wins over `rigor` the same way                                                  |
-| `canDeny`           | `true`         | A confident no blocks the call. Off, it asks you. File only                                                                           |
-| `whenUnsure`        | `"ask"`        | `"ask"`, `"allow"`, or `"deny"`. File only                                                                                            |
-| `whenItFails`       | `"ask"`        | The same, for a timeout, an error, or a missing key. File only                                                                        |
-| `noUI`              | `false`        | Also judge print, JSON, and subagent runs. File only                                                                                  |
-| `rememberApprovals` | `false`        | A judge approval becomes always yes for this session. File only                                                                       |
-| `timeoutMs`         | `5000`         | How long to wait for an answer. File only                                                                                             |
-| `cache`             | `true`         | Reuse a verdict for the same call and the same last message in one session. File only                                                 |
+| Key                 | Default                 | Does                                                                                                                                  |
+| ------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `model`             | `"typesafe/jev-latest"` | A pi classifier model, as `provider/modelId`. Pi keeps the catalog and the keys. A bare id takes the first provider with a key        |
+| `policy`            | Standard                | The rules the judge follows                                                                                                           |
+| `alwaysAsk`         | `[]`                    | Patterns the judge never approves, like `"git push*"`. A pattern matches the tool name too, so `mcp__*` catches every MCP call        |
+| `rigor`             | `"balanced"`            | `"cautious"`, `"balanced"`, or `"relaxed"`. Sets `thresholds` and `riskCeiling`                                                       |
+| `dryRun`            | `false`                 | Show the verdict, and still ask you                                                                                                   |
+| `thresholds`        | from `rigor`            | Confidence needed to allow / deny. File only. Set here, it wins over `rigor`, and the Rigor row reads `custom` until you pick a rigor |
+| `riskCeiling`       | from `rigor`            | Highest risk the judge may approve. File only, and it wins over `rigor` the same way                                                  |
+| `canDeny`           | `true`                  | A confident no blocks the call. Off, it asks you. File only                                                                           |
+| `whenUnsure`        | `"ask"`                 | `"ask"`, `"allow"`, or `"deny"`. File only                                                                                            |
+| `whenItFails`       | `"ask"`                 | The same, for a timeout, an error, or a missing key. File only                                                                        |
+| `noUI`              | `false`                 | Also judge print, JSON, and subagent runs. File only                                                                                  |
+| `rememberApprovals` | `false`                 | A judge approval becomes always yes for this session. File only                                                                       |
+| `timeoutMs`         | `5000`                  | How long to wait for an answer. File only                                                                                             |
+| `cache`             | `true`                  | Reuse a verdict for the same call and the same last message in one session. File only                                                 |
 
 A malformed value falls back and says what it dropped, so a typo never lets more through. Keys under an older name are read under the current one. `PI_CODING_AGENT_DIR` moves the file with the rest of the agent directory.
 

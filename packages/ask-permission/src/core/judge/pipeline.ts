@@ -4,7 +4,7 @@ import {
 	alwaysAskMatches,
 	type ComposedVerdict,
 } from "#core/judge/compose.ts";
-import { judgeBackendOf, type JudgeConfig } from "#core/judge/config.ts";
+import type { JudgeConfig } from "#core/judge/config.ts";
 import {
 	JudgeError,
 	type JudgeAction,
@@ -96,7 +96,6 @@ function describeOutcome(
 
 function blankRecord(config: JudgeConfig, input: JudgeInput, reason: string): JudgeRecord {
 	return {
-		backend: judgeBackendOf(config.model),
 		model: config.model,
 		answers: {},
 		elapsedMs: 0,

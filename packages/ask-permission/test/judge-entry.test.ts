@@ -15,7 +15,6 @@ const theme = {
 
 function record(overrides: Partial<JudgeRecord> = {}): JudgeRecord {
 	return {
-		backend: "jev",
 		model: "test-model",
 		answers: { verdict: { choice: "allow", confidence: 0.9 }, reversibility: 0.1 },
 		elapsedMs: 12,

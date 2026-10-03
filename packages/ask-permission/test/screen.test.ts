@@ -47,7 +47,17 @@ async function started(settings?: unknown, notes: string[] = []) {
 		cwd: dir,
 		isProjectTrusted: () => false,
 		sessionManager: { getBranch: () => [] },
-		modelRegistry: { getAvailable: () => [] },
+		modelRegistry: {
+			getModelsOfType: (type: string) =>
+				type === "classifier"
+					? [
+							{ provider: "typesafe", id: "jev-latest" },
+							{ provider: "opencode", id: "jev-1.13-free" },
+							{ provider: "openrouter", id: "typesafe/jev-1.13" },
+						]
+					: [],
+			getProviderAuthStatus: (provider: string) => ({ configured: provider === "opencode" }),
+		},
 		ui: { notify: (text: string) => notes.push(text), setStatus: () => {} },
 	} as unknown as ExtensionContext;
 	await fake.fire("session_start", {}, ctx);
@@ -110,6 +120,20 @@ test("the judge section is a model, a policy, a rigor, and a way to try it", asy
 		"Test the judge",
 		"This session's verdicts",
 	]);
+});
+
+test("the model row offers the classifiers with a key, and the default without one", async () => {
+	const { row } = await started();
+	expect(row("permission.judge.model")).toMatchObject({
+		value: "typesafe/jev-latest",
+		control: {
+			type: "choice",
+			options: [
+				{ value: "opencode/jev-1.13-free", description: "classifier" },
+				{ value: "typesafe/jev-latest", description: "classifier" },
+			],
+		},
+	});
 });
 
 test("a rigor stands for the thresholds, and picking one drops the numbers set by hand", async () => {

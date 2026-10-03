@@ -1,12 +1,17 @@
 import { describe, expect, test } from "bun:test";
 
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type {
+	ClassifierApi,
+	ClassifierContext,
+	ClassifierModel,
+	ClassifierResult,
+} from "@earendil-works/pi-ai";
+import type { ExtensionContext, ModelRegistry } from "@earendil-works/pi-coding-agent";
 
 import { DEFAULT_CONFIG, type PermissionConfig } from "#core/config/schema.ts";
-import { createJevBackend, parseJevResponse, toAnswers } from "#core/judge/backends/jev.ts";
-import { parseJudgeJson, toAnswersFromJson } from "#core/judge/backends/pi-model.ts";
+import { createJudgeBackend, findClassifier, toAnswers } from "#core/judge/classifier.ts";
 import { composeVerdict, judgeRisk, alwaysAskMatches, RISK_WEIGHTS } from "#core/judge/compose.ts";
-import { defaultJudge, judgeBackendOf, type JudgeConfig } from "#core/judge/config.ts";
+import { defaultJudge, type JudgeConfig } from "#core/judge/config.ts";
 import { judgeGate } from "#core/judge/gate.ts";
 import { judgeToolCall } from "#core/judge/pipeline.ts";
 import {
@@ -48,7 +53,82 @@ function judgeInput(overrides: Partial<JudgeInput> = {}): JudgeInput {
 }
 
 function stubBackend(assessment: JudgeAssessment): JudgeBackend {
-	return { id: assessment.backend, assess: async () => assessment };
+	return { assess: async () => assessment };
+}
+
+function classifier(provider: string, id: string): ClassifierModel<ClassifierApi> {
+	return {
+		type: "classifier",
+		id,
+		name: id,
+		api: "typesafe-system-one",
+		provider,
+		baseUrl: "https://classifier.test/v1/",
+		input: ["text"],
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		contextWindow: 64_000,
+	};
+}
+
+const JEV = classifier("typesafe", "jev-latest");
+const OPENROUTER_JEV = classifier("openrouter", "typesafe/jev-1.13");
+
+type ClassifyOptions = { signal?: AbortSignal; maxRetryDelayMs?: number };
+
+type Classify = (
+	context: ClassifierContext,
+	options: ClassifyOptions,
+) => Promise<Partial<ClassifierResult>>;
+
+function classifierResult(overrides: Partial<ClassifierResult> = {}): ClassifierResult {
+	return {
+		api: JEV.api,
+		provider: JEV.provider,
+		model: JEV.id,
+		answers: {
+			verdict: {
+				type: "choice",
+				choice: "allow",
+				probabilities: { allow: 0.99, deny: 0, needs_human: 0.01 },
+				confidence: 0.99,
+			},
+			reversibility: { type: "score", score: 0.1, confidence: 0.9 },
+			sensitive_access: { type: "bool", probability: 0 },
+		},
+		stopReason: "stop",
+		timestamp: 0,
+		...overrides,
+	};
+}
+
+interface FakeRegistry {
+	classify?: Classify;
+	catalog?: ClassifierModel<ClassifierApi>[];
+	/** Providers with a key. */
+	keyed?: string[];
+}
+
+function fakeRegistry(options: FakeRegistry = {}): ModelRegistry {
+	const catalog = options.catalog ?? [JEV];
+	const keyed = new Set(options.keyed ?? catalog.map((model) => model.provider));
+	const classify = options.classify ?? (async () => ({}));
+
+	return {
+		findOfType: (type: string, provider: string, id: string) =>
+			type === "classifier"
+				? catalog.find((model) => model.provider === provider && model.id === id)
+				: undefined,
+		getModelsOfType: (type: string) => (type === "classifier" ? catalog : []),
+		getProviderAuthStatus: (provider: string) => ({ configured: keyed.has(provider) }),
+		classify: async (
+			model: ClassifierModel<ClassifierApi>,
+			context: ClassifierContext,
+			callOptions: ClassifyOptions,
+		) => ({
+			...classifierResult({ provider: model.provider, model: model.id }),
+			...(await classify(context, callOptions)),
+		}),
+	} as unknown as ModelRegistry;
 }
 
 describe("composeVerdict", () => {
@@ -169,14 +249,22 @@ describe("buildJudgeState", () => {
 	});
 });
 
-describe("judgeBackendOf", () => {
-	test("a Jev name goes to TypeSafe, and anything else is a pi model", () => {
-		expect(judgeBackendOf("jev-latest")).toBe("jev");
-		expect(judgeBackendOf("jev-1.13.0")).toBe("jev");
-		expect(judgeBackendOf("anthropic/claude-haiku")).toBe("pi");
-		// A bare id is how a pi model was named before the provider went away.
-		expect(judgeBackendOf("claude-haiku")).toBe("pi");
-		expect(judgeBackendOf("jevons/model")).toBe("pi");
+describe("findClassifier", () => {
+	test("finds a classifier by provider and id, with slashes in the id", () => {
+		const registry = fakeRegistry({ catalog: [JEV, OPENROUTER_JEV] });
+		expect(findClassifier(registry, "typesafe/jev-latest")).toBe(JEV);
+		expect(findClassifier(registry, " openrouter/typesafe/jev-1.13 ")).toBe(OPENROUTER_JEV);
+		expect(findClassifier(registry, "anthropic/claude-haiku")).toBeUndefined();
+	});
+
+	test("a bare id, as older settings saved it, prefers a provider with a key", () => {
+		const unkeyed = classifier("elsewhere", "jev-latest");
+		const registry = fakeRegistry({ catalog: [unkeyed, JEV], keyed: ["typesafe"] });
+		expect(findClassifier(registry, "jev-latest")).toBe(JEV);
+		expect(findClassifier(fakeRegistry({ catalog: [unkeyed], keyed: [] }), "jev-latest")).toBe(
+			unkeyed,
+		);
+		expect(findClassifier(registry, "claude-haiku")).toBeUndefined();
 	});
 });
 
@@ -184,6 +272,20 @@ describe("buildJudgeQuestions", () => {
 	test("asks the fixed battery", () => {
 		const questions = buildJudgeQuestions();
 		expect(Object.keys(questions)).toEqual(["verdict", "reversibility", "sensitive_access"]);
+	});
+
+	test("uses pi's classifier question types, one string per instruction and label", () => {
+		const questions = buildJudgeQuestions();
+		expect(questions.verdict?.type).toBe("choice");
+		expect(questions.reversibility?.type).toBe("score");
+		expect(questions.sensitive_access?.type).toBe("bool");
+		for (const question of Object.values(questions)) {
+			expect(typeof question.instructions).toBe("string");
+			const labels = Array.isArray(question.criteria)
+				? question.criteria
+				: Object.values(question.criteria);
+			for (const label of labels) expect(typeof label).toBe("string");
+		}
 	});
 });
 
@@ -201,127 +303,103 @@ describe("policy", () => {
 	});
 });
 
-describe("parseJevResponse", () => {
-	test("reads typed answers and the versioned model", () => {
-		const parsed = parseJevResponse(
-			{
-				model: "jev-1.13.0",
-				answers: {
-					verdict: { type: "choice", choice: "allow", confidence: 0.9 },
-					reversibility: { type: "score", score: 1.5 },
-					sensitive_access: { type: "noul", noul: 0.1 },
-				},
-				usage: { input_tokens: 300, output_tokens: 12 },
-			},
-			"jev-latest",
-		);
-
-		expect(parsed.model).toBe("jev-1.13.0");
-		expect(parsed.answers.verdict).toEqual({ choice: "allow", confidence: 0.9 });
-		expect(parsed.answers.reversibility).toBe(1.5);
-		expect(parsed.usage).toEqual({ input: 300, output: 12 });
+describe("toAnswers", () => {
+	test("reads the typed answers", () => {
+		const read = toAnswers(classifierResult().answers);
+		expect(read.verdict).toEqual({ choice: "allow", confidence: 0.99 });
+		expect(read.reversibility).toBe(0.1);
+		expect(read.sensitive_access).toBe(0);
 	});
 
-	test("rejects a body without answers", () => {
-		expect(() => parseJevResponse({ model: "jev" }, "jev-latest")).toThrow(JudgeError);
-	});
-
-	test("ignores an unknown choice", () => {
-		expect(toAnswers({ verdict: { choice: "maybe", confidence: 1 } }).verdict).toBeUndefined();
+	test("ignores an unknown choice and an answer of the wrong type", () => {
+		const read = toAnswers({
+			verdict: { type: "choice", choice: "maybe", probabilities: {}, confidence: 1 },
+			reversibility: { type: "bool", probability: 1 },
+		});
+		expect(read.verdict).toBeUndefined();
+		expect(read.reversibility).toBeUndefined();
+		expect(read.sensitive_access).toBeUndefined();
 	});
 });
 
-describe("createJevBackend", () => {
-	test("asks for a key when none is stored", async () => {
-		const backend = createJevBackend({
-			model: "jev-latest",
-			timeoutMs: 1000,
-			resolveApiKey: async () => undefined,
-		});
-		await expect(backend.assess(judgeInput(), new AbortController().signal)).rejects.toMatchObject({
-			code: "no-api-key",
-		});
+describe("createJudgeBackend", () => {
+	function assess(registry: ModelRegistry, judge: Partial<JudgeConfig> = {}, signal?: AbortSignal) {
+		const backend = createJudgeBackend({ ...defaultJudge(), timeoutMs: 1000, ...judge }, registry);
+		return backend.assess(judgeInput(), signal ?? new AbortController().signal);
+	}
+
+	test("defaults to TypeSafe's Jev", () => {
+		expect(defaultJudge().model).toBe("typesafe/jev-latest");
 	});
 
-	test("returns an assessment on success", async () => {
-		const backend = createJevBackend({
-			model: "jev-latest",
-			timeoutMs: 1000,
-			resolveApiKey: async () => "key",
-			fetchImpl: async () =>
-				Response.json({
-					model: "jev-1.13.0",
-					answers: { verdict: { choice: "allow", confidence: 0.9 } },
-				}),
-		});
-
-		const assessment = await backend.assess(judgeInput(), new AbortController().signal);
-		expect(assessment.backend).toBe("jev");
-		expect(assessment.model).toBe("jev-1.13.0");
-		expect(assessment.answers.verdict?.choice).toBe("allow");
-	});
-
-	test("retries a 429 after the retry-after delay", async () => {
-		let calls = 0;
-		const backend = createJevBackend({
-			model: "jev-latest",
-			timeoutMs: 1000,
-			resolveApiKey: async () => "key",
-			fetchImpl: async () => {
-				calls++;
-				if (calls === 1) {
-					return new Response("slow down", {
-						status: 429,
-						headers: { "retry-after": "0" },
-					});
-				}
-				return Response.json({ model: "jev-1.13.0", answers: {} });
+	test("sends the state and the questions, and returns an assessment", async () => {
+		let sent: ClassifierContext | undefined;
+		const registry = fakeRegistry({
+			classify: async (context) => {
+				sent = context;
+				return { usage: { input: 300, output: 12 } as ClassifierResult["usage"] };
 			},
 		});
+		const assessment = await assess(registry);
 
-		await backend.assess(judgeInput(), new AbortController().signal);
-		expect(calls).toBe(2);
+		expect(Object.keys(sent?.questions ?? {})).toEqual([
+			"verdict",
+			"reversibility",
+			"sensitive_access",
+		]);
+		expect(sent?.state.policy).toBe("allow tests");
+		expect(assessment.model).toBe("typesafe/jev-latest");
+		expect(assessment.answers.verdict?.choice).toBe("allow");
+		expect(assessment.usage).toEqual({ input: 300, output: 12 });
 	});
 
-	test("a rate limit it cannot outlast is reported as 429, not a timeout", async () => {
-		const backend = createJevBackend({
-			model: "jev-latest",
-			timeoutMs: 100,
-			resolveApiKey: async () => "key",
-			fetchImpl: async () =>
-				new Response("slow down", { status: 429, headers: { "retry-after": "5" } }),
-		});
-
-		await expect(backend.assess(judgeInput(), new AbortController().signal)).rejects.toMatchObject({
-			code: "http-429",
-		});
+	test("rejects a model that is not a classifier pi knows", async () => {
+		await expect(assess(fakeRegistry(), { model: "anthropic/claude-haiku" })).rejects.toMatchObject(
+			{ code: "no-model" },
+		);
 	});
 
-	test("reports an HTTP failure", async () => {
-		const backend = createJevBackend({
-			model: "jev-latest",
-			timeoutMs: 1000,
-			resolveApiKey: async () => "key",
-			fetchImpl: async () => new Response("nope", { status: 401 }),
+	test("caps how long pi waits on a retry at the timeout", async () => {
+		let delay: number | undefined;
+		const registry = fakeRegistry({
+			classify: async (_context, options) => {
+				delay = options.maxRetryDelayMs;
+				return {};
+			},
 		});
-		await expect(backend.assess(judgeInput(), new AbortController().signal)).rejects.toMatchObject({
-			code: "http-401",
+		await assess(registry, { timeoutMs: 1234 });
+		expect(delay).toBe(1234);
+	});
+
+	test("reports what pi says when the classifier fails", async () => {
+		const registry = fakeRegistry({
+			classify: async () => ({ stopReason: "error", errorMessage: "System One API returned 401" }),
+		});
+		await expect(assess(registry)).rejects.toMatchObject({
+			code: "model-error",
+			message: "System One API returned 401",
 		});
 	});
 
 	test("times out", async () => {
-		const backend = createJevBackend({
-			model: "jev-latest",
-			timeoutMs: 5,
-			resolveApiKey: async () => "key",
-			fetchImpl: (_url, init) =>
-				new Promise((_resolve, reject) => {
-					init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+		const registry = fakeRegistry({
+			classify: (_context, options) =>
+				new Promise((resolve) => {
+					options.signal?.addEventListener("abort", () => resolve({ stopReason: "aborted" }));
 				}),
 		});
-		await expect(backend.assess(judgeInput(), new AbortController().signal)).rejects.toMatchObject({
-			code: "timeout",
+		await expect(assess(registry, { timeoutMs: 5 })).rejects.toMatchObject({ code: "timeout" });
+	});
+
+	test("propagates a caller abort", async () => {
+		const controller = new AbortController();
+		const registry = fakeRegistry({
+			classify: async () => {
+				controller.abort(new Error("cancelled by the user"));
+				return { stopReason: "aborted" };
+			},
 		});
+		await expect(assess(registry, {}, controller.signal)).rejects.toThrow("cancelled by the user");
 	});
 });
 
@@ -329,10 +407,9 @@ describe("judgeToolCall", () => {
 	test("short-circuits a never rule without calling the backend", async () => {
 		let called = false;
 		const backend: JudgeBackend = {
-			id: "jev",
 			assess: async () => {
 				called = true;
-				return { backend: "jev", model: "jev", answers: {}, elapsedMs: 0 };
+				return { model: "typesafe/jev-latest", answers: {}, elapsedMs: 0 };
 			},
 		};
 
@@ -351,7 +428,6 @@ describe("judgeToolCall", () => {
 	test("a pattern on the registered name still matches an MCP tool", async () => {
 		const config = { ...defaultJudge(), alwaysAsk: ["mcp__*"] };
 		const backend: JudgeBackend = {
-			id: "jev",
 			assess: async () => {
 				throw new Error("the backend must not run");
 			},
@@ -373,7 +449,7 @@ describe("judgeToolCall", () => {
 	test("allows, denies, and escalates by verdict", async () => {
 		const allow = await judgeToolCall({
 			config: defaultJudge(),
-			backend: stubBackend({ backend: "jev", model: "jev", answers: answers(), elapsedMs: 1 }),
+			backend: stubBackend({ model: "typesafe/jev-latest", answers: answers(), elapsedMs: 1 }),
 			input: judgeInput(),
 		});
 		expect(allow.action).toBe("allow");
@@ -381,8 +457,7 @@ describe("judgeToolCall", () => {
 		const deny = await judgeToolCall({
 			config: defaultJudge(),
 			backend: stubBackend({
-				backend: "jev",
-				model: "jev",
+				model: "typesafe/jev-latest",
 				answers: answers({ verdict: { choice: "deny", confidence: 0.99 } }),
 				elapsedMs: 1,
 			}),
@@ -393,8 +468,7 @@ describe("judgeToolCall", () => {
 		const unsure = await judgeToolCall({
 			config: defaultJudge(),
 			backend: stubBackend({
-				backend: "jev",
-				model: "jev",
+				model: "typesafe/jev-latest",
 				answers: answers({ verdict: { choice: "needs_human", confidence: 1 } }),
 				elapsedMs: 1,
 			}),
@@ -407,7 +481,7 @@ describe("judgeToolCall", () => {
 		const config = { ...defaultJudge(), dryRun: true };
 		const outcome = await judgeToolCall({
 			config,
-			backend: stubBackend({ backend: "jev", model: "jev", answers: answers(), elapsedMs: 1 }),
+			backend: stubBackend({ model: "typesafe/jev-latest", answers: answers(), elapsedMs: 1 }),
 			input: judgeInput(),
 		});
 
@@ -418,7 +492,6 @@ describe("judgeToolCall", () => {
 
 	test("uses onError when the backend fails", async () => {
 		const backend: JudgeBackend = {
-			id: "jev",
 			assess: async () => {
 				throw new JudgeError("boom", "network");
 			},
@@ -438,7 +511,6 @@ describe("judgeToolCall", () => {
 
 	test("a dry run never acts, even on error", async () => {
 		const backend: JudgeBackend = {
-			id: "jev",
 			assess: async () => {
 				throw new JudgeError("boom", "network");
 			},
@@ -457,8 +529,7 @@ describe("judgeToolCall", () => {
 
 	test("honors onUncertain", async () => {
 		const backend = stubBackend({
-			backend: "jev",
-			model: "jev",
+			model: "typesafe/jev-latest",
 			answers: answers({ verdict: { choice: "needs_human", confidence: 1 } }),
 			elapsedMs: 1,
 		});
@@ -474,7 +545,6 @@ describe("judgeToolCall", () => {
 	test("propagates a caller abort instead of falling back", async () => {
 		const controller = new AbortController();
 		const backend: JudgeBackend = {
-			id: "jev",
 			assess: async () => {
 				controller.abort();
 				throw new Error("aborted");
@@ -493,97 +563,37 @@ describe("judgeToolCall", () => {
 });
 
 describe("probeJudge", () => {
-	const deps = { resolveApiKey: async () => "key", modelRegistry: {} as never };
-
 	test("reports a reachable judge with its model and timing", async () => {
-		const probe = await probeJudge(defaultJudge(), {
-			...deps,
-			fetchImpl: async () => Response.json({ model: "jev-1.13.0", answers: {} }),
-		});
+		const probe = await probeJudge(defaultJudge(), fakeRegistry());
 
 		expect(probe.ok).toBe(true);
-		expect(probe.model).toBe("jev-1.13.0");
+		expect(probe.model).toBe("typesafe/jev-latest");
 		expect(probe.elapsedMs).toBeGreaterThanOrEqual(0);
 	});
 
-	test("reports a missing key instead of timing out", async () => {
-		const probe = await probeJudge(defaultJudge(), {
-			...deps,
-			resolveApiKey: async () => undefined,
+	test("reports a failure", async () => {
+		const registry = fakeRegistry({
+			classify: async () => ({
+				stopReason: "error",
+				errorMessage: "No API key for provider: typesafe",
+			}),
 		});
+		const probe = await probeJudge(defaultJudge(), registry);
 
 		expect(probe.ok).toBe(false);
 		expect(probe.detail).toContain("API key");
 	});
-
-	test("reports an HTTP failure", async () => {
-		const probe = await probeJudge(defaultJudge(), {
-			...deps,
-			fetchImpl: async () => new Response("nope", { status: 401 }),
-		});
-
-		expect(probe.ok).toBe(false);
-		expect(probe.detail).toContain("401");
-	});
 });
 
-describe("pi model parsing", () => {
-	test("pulls JSON out of surrounding prose", () => {
-		expect(parseJudgeJson('Sure!\n{"verdict":"deny"}\nDone')).toEqual({ verdict: "deny" });
-		expect(parseJudgeJson("no json here")).toBeUndefined();
-	});
-
-	test("maps the flat contract", () => {
-		const mapped = toAnswersFromJson({
-			verdict: "allow",
-			confidence: 0.8,
-			reversibility: 1,
-			sensitive_access: 0.1,
-		});
-		expect(mapped.verdict).toEqual({ choice: "allow", confidence: 0.8 });
-		expect(mapped.reversibility).toBe(1);
-	});
-});
-
-function fakeContext(complete: () => unknown, hasUI = true): ExtensionContext {
-	const model = {
-		id: "m",
-		provider: "p",
-		api: "openai-completions",
-		baseUrl: "http://localhost",
-		reasoning: false,
-		input: ["text"],
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		contextWindow: 1000,
-		maxTokens: 100,
-	};
-
+function fakeContext(registry: ModelRegistry, hasUI = true): ExtensionContext {
 	return {
 		hasUI,
 		cwd: "/repo",
 		isProjectTrusted: () => true,
 		signal: undefined,
 		sessionManager: { buildContextEntries: () => [] },
-		modelRegistry: {
-			find: () => model,
-			getAvailable: () => [model],
-			complete: async () => complete(),
-		},
+		modelRegistry: registry,
 	} as unknown as ExtensionContext;
-}
-
-function allowMessage(): unknown {
-	return {
-		role: "assistant",
-		content: [
-			{
-				type: "text",
-				text: '{"verdict":"allow","confidence":0.99,"reversibility":0.1,"sensitive_access":0}',
-			},
-		],
-		stopReason: "stop",
-		usage: { input: 10, output: 5 },
-	};
 }
 
 function askConfig(judge: Partial<JudgeConfig> = {}): PermissionConfig {
@@ -592,8 +602,7 @@ function askConfig(judge: Partial<JudgeConfig> = {}): PermissionConfig {
 
 describe("judge report", () => {
 	const base: JudgeRecord = {
-		backend: "jev",
-		model: "jev-1.13.0",
+		model: "typesafe/jev-latest",
 		answers: {},
 		elapsedMs: 1,
 		at: 1,
@@ -623,7 +632,9 @@ describe("judge report", () => {
 			answers: { verdict: { choice: "allow", confidence: 0.94 } },
 		};
 
-		expect(judgeVerdictText(record)).toBe("would approve, 94%, risk 0.12, 312ms, jev-1.13.0");
+		expect(judgeVerdictText(record)).toBe(
+			"would approve, 94%, risk 0.12, 312ms, typesafe/jev-latest",
+		);
 	});
 
 	test("lists the signals behind the verdict", () => {
@@ -649,8 +660,8 @@ describe("judgeGate", () => {
 
 	test("skips the judge without a UI unless headless judging is on", async () => {
 		const outcome = await judgeGate({
-			config: askConfig({ model: "p/m" }),
-			ctx: fakeContext(allowMessage, false),
+			config: askConfig(),
+			ctx: fakeContext(fakeRegistry(), false),
 			toolName: "bash",
 			target,
 			rawInput: {},
@@ -660,19 +671,22 @@ describe("judgeGate", () => {
 		expect(outcome).toBeUndefined();
 	});
 
-	test("runs the pi judge, reports status, and caches a clean verdict", async () => {
-		const config = askConfig({ model: "p/m" });
+	test("asks the classifier, reports status, and caches a clean verdict", async () => {
+		const config = askConfig();
 		const cache = new Map<string, NonNullable<Awaited<ReturnType<typeof judgeGate>>>>();
 		const statuses: (string | undefined)[] = [];
 		let calls = 0;
+		const registry = fakeRegistry({
+			classify: async () => {
+				calls++;
+				return {};
+			},
+		});
 
 		const run = () =>
 			judgeGate({
 				config,
-				ctx: fakeContext(() => {
-					calls++;
-					return allowMessage();
-				}),
+				ctx: fakeContext(registry),
 				toolName: "bash",
 				target,
 				rawInput: {},
@@ -684,6 +698,7 @@ describe("judgeGate", () => {
 		const second = await run();
 
 		expect(first?.action).toBe("allow");
+		expect(first?.record.model).toBe("typesafe/jev-latest");
 		expect(second).toBe(first);
 		expect(calls).toBe(1);
 		expect(statuses).toEqual(["judge: considering bash", undefined]);

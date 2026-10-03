@@ -1,10 +1,6 @@
 import { DEFAULT_POLICY } from "#core/judge/policy.ts";
 
-export type JudgeBackendId = "jev" | "pi";
-
 export type JudgeFallback = "ask" | "allow" | "deny";
-
-export const JEV_MODELS = ["jev-latest", "jev-preview", "jev-1.13.0"];
 
 export interface JudgeThresholds {
 	allow: number;
@@ -37,7 +33,7 @@ export function describeRigor(rigor: JudgeRigor): string {
 export const DEFAULT_RIGOR: JudgeRigor = "balanced";
 
 export interface JudgeConfig {
-	/** A Jev alias or pinned id, or `provider/modelId` for a pi model. */
+	/** A pi classifier model, as `provider/modelId`. */
 	model: string;
 	alwaysAsk: string[];
 	thresholds: JudgeThresholds;
@@ -54,7 +50,7 @@ export interface JudgeConfig {
 }
 
 export const DEFAULT_JUDGE: JudgeConfig = {
-	model: "jev-latest",
+	model: "typesafe/jev-latest",
 	alwaysAsk: [],
 	thresholds: { ...RIGOR[DEFAULT_RIGOR].thresholds },
 	riskCeiling: RIGOR[DEFAULT_RIGOR].riskCeiling,
@@ -75,9 +71,4 @@ export function defaultJudge(): JudgeConfig {
 		thresholds: { ...DEFAULT_JUDGE.thresholds },
 		alwaysAsk: [...DEFAULT_JUDGE.alwaysAsk],
 	};
-}
-
-/** A Jev name goes to TypeSafe. Any other model name is a pi model. */
-export function judgeBackendOf(model: string): JudgeBackendId {
-	return /^jev(-|$)/i.test(model.trim()) ? "jev" : "pi";
 }

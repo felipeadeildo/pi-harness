@@ -7,7 +7,6 @@ import { listenForTools } from "#pi/api.ts";
 import { registerBashTimer } from "#pi/bash-timer.ts";
 import { registerShortcuts } from "#pi/commands.ts";
 import { registerEvents } from "#pi/events.ts";
-import { registerTypesafeProvider } from "#pi/provider.ts";
 import { registerScreen } from "#pi/screen.ts";
 import { createSession } from "#pi/session.ts";
 import { registerJudgeEntry } from "#ui/judge-entry.ts";
@@ -19,7 +18,6 @@ export const permission = defineFeature({
 	settings: PERMISSION_SETTINGS,
 	setup(scope) {
 		registerBashTimer(scope);
-		registerTypesafeProvider(scope);
 		registerJudgeEntry(scope);
 
 		const session = createSession();

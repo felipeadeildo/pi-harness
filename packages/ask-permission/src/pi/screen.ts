@@ -14,13 +14,8 @@ import {
 	writeRigor,
 } from "#core/config/settings.ts";
 import { globalAlwaysYesPath, projectAlwaysYesPath } from "#core/config/store.ts";
-import { TYPESAFE_PROVIDER } from "#core/judge/backends/jev.ts";
-import {
-	describeRigor,
-	JUDGE_RIGORS,
-	judgeBackendOf,
-	type JudgeRigor,
-} from "#core/judge/config.ts";
+import { findClassifier } from "#core/judge/classifier.ts";
+import { describeRigor, JUDGE_RIGORS, type JudgeRigor } from "#core/judge/config.ts";
 import { probeJudge } from "#core/judge/probe.ts";
 import { judgeLogText } from "#core/judge/report.ts";
 import { MCP_POLICY_TEXT, type McpServer, mcpServers, policyFor, sameServer } from "#core/mcp.ts";
@@ -232,24 +227,8 @@ function close(
 
 async function testJudge(state: SessionState, ctx: ExtensionContext): Promise<string> {
 	const judge = state.config.judge;
-	const probe = await probeJudge(
-		judge,
-		{
-			resolveApiKey: () => ctx.modelRegistry.getApiKeyForProvider(TYPESAFE_PROVIDER),
-			modelRegistry: ctx.modelRegistry,
-		},
-		ctx.signal,
-	);
-
-	if (!probe.ok) {
-		const auth = ctx.modelRegistry.getProviderAuthStatus(TYPESAFE_PROVIDER);
-		const key = auth.configured
-			? `key from ${auth.label ?? auth.source}`
-			: "no key, run /login typesafe";
-		throw new Error(
-			`the judge failed: ${probe.detail}${judgeBackendOf(judge.model) === "jev" ? ` (${key})` : ""}`,
-		);
-	}
+	const probe = await probeJudge(judge, ctx.modelRegistry, ctx.signal);
+	if (!probe.ok) throw new Error(`the judge failed: ${probe.detail}${keyHint(ctx, judge.model)}`);
 
 	resetJudgeHealth(state);
 	const lines = [`The judge answered in ${probe.elapsedMs}ms, with ${probe.model ?? judge.model}.`];
@@ -260,6 +239,17 @@ async function testJudge(state: SessionState, ctx: ExtensionContext): Promise<st
 		);
 	}
 	return lines.join("\n");
+}
+
+// Pi's error says what the server answered, not where the key came from.
+function keyHint(ctx: ExtensionContext, model: string): string {
+	const classifier = findClassifier(ctx.modelRegistry, model);
+	if (!classifier) return "";
+
+	const auth = ctx.modelRegistry.getProviderAuthStatus(classifier.provider);
+	return auth.configured
+		? ` (key from ${auth.label ?? auth.source})`
+		: ` (no key, run /login ${classifier.provider})`;
 }
 
 function forget(

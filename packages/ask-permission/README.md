@@ -146,7 +146,7 @@ Pi registers each tool an MCP server offers as `mcp__<server>__<tool>`. The sett
 
 In the `judge` mode a model answers every call that is not a read or an edit, and you only see the ones it is unsure about. A good way in:
 
-1. Run `/login typesafe` to use Jev, a fast model that answers with a confidence. Any model you set up in pi works too.
+1. Run `/login typesafe` to use Jev, the default judge. It is a classifier model: it answers typed questions with a confidence instead of chatting. Pi ships Jev through OpenRouter, Cloudflare, Vercel and opencode as well, and a llama.cpp model works too. Pick one in `Model`.
 2. Switch to `judge` with `Alt+M`, open the settings with `Alt+S`, and turn on `Dry run` in `Judge`. The judge now shows its verdict as a card, and you still decide.
 3. Pick a policy. `Standard development` allows edits, tests, builds and local git, and asks about installs, network and anything destructive.
 4. After a few sessions of agreeing with it, turn off `Dry run`.

@@ -1,8 +1,7 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import type { PermissionConfig } from "#core/config/schema.ts";
-import { createJudgeBackend } from "#core/judge/backends/factory.ts";
-import { TYPESAFE_PROVIDER } from "#core/judge/backends/jev.ts";
+import { createJudgeBackend } from "#core/judge/classifier.ts";
 import { judgeToolCall } from "#core/judge/pipeline.ts";
 import type { JudgeInput, JudgeOutcome } from "#core/judge/types.ts";
 import type { CallDescriptor } from "#core/tools.ts";
@@ -43,10 +42,7 @@ export async function judgeGate(options: JudgeGateOptions): Promise<JudgeOutcome
 		if (cached) return cached;
 	}
 
-	const backend = createJudgeBackend(config.judge, {
-		resolveApiKey: () => ctx.modelRegistry.getApiKeyForProvider(TYPESAFE_PROVIDER),
-		modelRegistry: ctx.modelRegistry,
-	});
+	const backend = createJudgeBackend(config.judge, ctx.modelRegistry);
 
 	options.onStatus(`judge: considering ${toolName}`);
 	let outcome: JudgeOutcome;

@@ -1,4 +1,3 @@
-import type { JudgeBackendId } from "#core/judge/config.ts";
 import type { CallDescriptor } from "#core/tools.ts";
 
 export interface JudgeInput {
@@ -37,8 +36,7 @@ export interface JudgeUsage {
 }
 
 export interface JudgeAssessment {
-	backend: JudgeBackendId;
-
+	/** `provider/modelId` of the model that answered. */
 	model: string;
 	answers: JudgeAnswers;
 	elapsedMs: number;
@@ -46,7 +44,6 @@ export interface JudgeAssessment {
 }
 
 export interface JudgeBackend {
-	readonly id: JudgeBackendId;
 	assess(input: JudgeInput, signal: AbortSignal): Promise<JudgeAssessment>;
 }
 

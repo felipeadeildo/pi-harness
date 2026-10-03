@@ -1,4 +1,6 @@
-import { createJudgeBackend, type JudgeDeps } from "#core/judge/backends/factory.ts";
+import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
+
+import { createJudgeBackend } from "#core/judge/classifier.ts";
 import type { JudgeConfig } from "#core/judge/config.ts";
 import type { JudgeInput } from "#core/judge/types.ts";
 import { describe } from "#util/primitives.ts";
@@ -14,13 +16,13 @@ export interface JudgeProbe {
 
 export async function probeJudge(
 	config: JudgeConfig,
-	deps: JudgeDeps,
+	registry: ModelRegistry,
 	signal?: AbortSignal,
 ): Promise<JudgeProbe> {
 	const started = Date.now();
 	const backend = createJudgeBackend(
 		{ ...config, timeoutMs: Math.max(config.timeoutMs, PROBE_TIMEOUT_MS) },
-		deps,
+		registry,
 	);
 
 	try {
