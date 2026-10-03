@@ -145,9 +145,9 @@ describe("the ruling on each call", () => {
 			expect.objectContaining({
 				toolCallId: "call-1",
 				head: "you approved",
-				why: "asked because it matches judge.alwaysAsk",
+				detail: "asked because it matches judge.alwaysAsk",
 			}),
-			expect.objectContaining({ toolCallId: "call-2", head: "you said no" }),
+			expect.objectContaining({ toolCallId: "call-2", head: "you said no", blocked: true }),
 		]);
 	});
 

@@ -20,6 +20,8 @@ export interface CallRuling {
 	note?: string;
 	/** Detail for an expanded call. */
 	detail?: string;
+	/** The call was blocked, so its result is only the reason the line already gives. */
+	blocked?: boolean;
 }
 
 export interface RulingRequest {

@@ -14,15 +14,23 @@ const theme = {
 } as unknown as Theme;
 
 describe("settle", () => {
-	test("you answering keeps why you were asked", () => {
+	test("your answer reads on its own, and the rest waits for the expanded call", () => {
 		const asked = asking("the judge wants a person to decide", "99%");
 		expect(settle({ action: "block", by: "you", note: "use pnpm" }, asked)).toEqual({
 			tone: "error",
 			head: "you said no",
-			why: "asked because the judge wants a person to decide",
 			note: "use pnpm",
-			detail: "99%",
+			detail: "asked because the judge wants a person to decide  99%",
+			blocked: true,
 		});
+	});
+
+	test("a deniable answer says the call is blocked, so its body adds nothing", () => {
+		expect(settle({ action: "block", by: "judge", reason: "92% sure" }, undefined)).toMatchObject({
+			head: "judge denied",
+			blocked: true,
+		});
+		expect(settle({ action: "allow", by: "judge" }, undefined)?.blocked).toBeUndefined();
 	});
 
 	test("the judge's own words say why it approved", () => {
@@ -42,7 +50,7 @@ describe("settle", () => {
 		expect(settle({ action: "allow", by: "read-only bash" }, undefined)).toBeUndefined();
 		expect(
 			settle({ action: "block", by: "workspace", reason: "pi-ask-permission: outside" }, undefined),
-		).toEqual({ tone: "error", head: "blocked", why: "outside" });
+		).toEqual({ tone: "error", head: "blocked", why: "outside", blocked: true });
 	});
 });
 

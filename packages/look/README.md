@@ -31,7 +31,17 @@ It also comes in [`@adeildo/pi-harness`](../harness), with the rest of the piece
 | `0:12  3 calls`                                  | How long the agent has worked on this prompt, and how many calls to the model it made                                                   |
 | `last call 1.7s wait  900ms thought  ↓906 tok/s` | The last call that finished: how long the model took to start, how long it thought before writing, and how fast it wrote. Final numbers |
 
-**A tool call** is framed too, and the frame says which part is which. The mark of the tool and its name sit on the top rule. Under it comes the call, and under the call the decision on it, when the judge made one. A cut in the box then opens what the call printed, and the bottom rule closes with how it went: a check for a call that worked, a cross for one that failed, the time it took, and `running` with the time so far while it runs. An MCP tool shows its server and tool rather than `mcp__server__tool`, and the marks follow the icon set you picked.
+**Every command gets a box of its own.** The icon of the tool and its name sit on the top line. Below them comes the command, and below the command the reason it was allowed, when another model answered it. A line then cuts the command off from what it printed. The bottom line says how it went: a check for a command that worked, a cross for one that failed, and how long it took. While a command runs, that line says `running` with the time so far. A tool that comes from an MCP server shows the server and the tool instead of `mcp__server__tool`, and every icon follows the icon set you picked.
+
+<!-- docs:look/call -->
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/call.png" alt="Three commands, each in its own box: a bash command with the reason it was allowed and the time it took, a file read, and a command still running." width="860">
+  <br>
+  <em>One command that ran, one a rule let through, and one still going.</em>
+</p>
+
+<!-- /docs -->
 
 **The frame** around the editor carries the branch with its distance and changes, the folder, the permission mode, the model with an effort meter, and the context. The border takes pi's own effort colour, so it warms up as the model thinks harder and turns to the bash colour in shell mode.
 

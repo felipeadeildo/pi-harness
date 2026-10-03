@@ -40,21 +40,35 @@ export function judgeDetail(record: JudgeRecord): string {
 export function settle(settled: Settled, current: Ruling | undefined): Ruling | undefined {
 	const { action, by, note } = settled;
 	const reason = settled.reason?.replace(`${NAME}: `, "");
+	// What you answered reads on its own, and why it was asked stays for the expanded call.
 	if (by === "you") {
-		const why = current?.why === undefined ? undefined : `asked because ${current.why}`;
-		return action === "allow"
-			? { tone: "success", head: "you approved", why, note, detail: current?.detail }
-			: { tone: "error", head: "you said no", why, note, detail: current?.detail };
+		const head = action === "allow" ? "you approved" : "you said no";
+		return {
+			tone: action === "allow" ? "success" : "error",
+			head,
+			note,
+			detail: asked(current),
+			blocked: action === "block",
+		};
 	}
 	if (by === "judge") {
 		const ruling = { why: current?.why ?? reason, detail: current?.detail };
 		return action === "allow"
 			? { tone: "success", head: "judge approved", ...ruling }
-			: { tone: "error", head: "judge denied", ...ruling };
+			: { tone: "error", head: "judge denied", blocked: true, ...ruling };
 	}
 	if (by === "always yes") return { tone: "success", head: "always yes" };
-	if (action === "block") return { tone: "error", head: "blocked", why: reason };
+	if (action === "block") return { tone: "error", head: "blocked", why: reason, blocked: true };
 	if (by === "no UI")
 		return { tone: "success", head: "allowed", why: "nobody can answer, and noUI allows it" };
 	return QUIET.has(by) ? undefined : { tone: "success", head: "allowed", why: by };
+}
+
+/** Why the call was asked about, next to the numbers of the answer. */
+function asked(current: Ruling | undefined): string | undefined {
+	const parts = [
+		current?.why === undefined ? undefined : `asked because ${current.why}`,
+		current?.detail,
+	].filter((part) => part !== undefined);
+	return parts.length === 0 ? undefined : parts.join("  ");
 }

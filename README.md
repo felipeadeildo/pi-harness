@@ -7,58 +7,62 @@
   <a href="https://pi.dev"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffelipeadeildo%2Fpi-harness%2Fmain%2Fpackage.json&query=%24.devDependencies%5B%22%40earendil-works%2Fpi-coding-agent%22%5D&label=pi%20SDK&color=6E56CF" alt="pi SDK"></a>
 </p>
 
-[Pi](https://pi.dev) is quick and does what it is told. These extensions make it ask before it acts, ask you before it guesses, show what it is doing without making the screen jump, and bill the plan you already pay for.
+<p align="center">
+  <strong>Pi runs every command without asking. This makes it ask.</strong><br>
+  A set of extensions on top of <a href="https://pi.dev">Pi</a>, in one install: they ask before running something, they ask you before guessing, and the screen tells you what is happening.
+</p>
 
-```bash
-pi install npm:@adeildo/pi-harness
-```
+<p align="center"><code>pi install npm:@adeildo/pi-harness</code></p>
 
-They install on top of Pi as packages. There is no fork, and `pi remove` puts Pi back the way it was.
-
-<!-- docs:ask-permission/preview -->
+<!-- docs:harness/preview -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-permission/assets/preview.png" alt="The permission dialog for npm install, with the reason it asks, the three answers, and a note on no: use pnpm instead." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/preview.png" alt="A bash command in a box, with the reason it was allowed, what it printed, and the time it took." width="860">
   <br>
-  <em>No, with a note the model reads: use pnpm instead.</em>
+  <em>A command the model wanted to run, and the reason it was allowed.</em>
 </p>
 
 <!-- /docs -->
+
+## What changes
+
+A command the model wants to run now shows up with who let it run and why. A small model reads the command first, and when it is sure the command is fine it runs and says how sure it was. When it is not sure, the command comes to you as a question with the reason it is asking, so you are not guessing either.
+
+The answer always reaches you in the same place, with the same keys: yes, always yes, or no, and a note you can leave on any of them. The note goes to the model with the result, so saying no to `npm install` with "use pnpm instead" corrects it without stopping the session. The questions the model has go through the same dialog.
+
+Nothing here is hidden and nothing is final. The screen shows the stopwatch, the cost, and how fast the model writes without moving the line you are typing on. Every choice can be undone from the settings screen (`Alt+S`), and each piece can be turned off on its own.
 
 ## What you get
 
-| Piece                                 | In one line                                                                                                                              |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| [Permission](packages/ask-permission) | Pi asks before a tool call runs. Say yes, always yes or no, with a note the model reads. A judge model answers the routine calls for you |
-| [Questions](packages/ask-questions)   | The model stops guessing and asks, with options, a live preview of each, a note on any of them and a row for your own answer             |
-| [Look](packages/look)                 | A start card, a framed editor that carries the branch, the model and the context, and numbers that change without moving the screen      |
-| [Providers](packages/providers)       | Anthropic requests billed to your Claude plan, and several accounts per provider with a switch to the next one when a limit hits         |
+| Piece                                 | What it does                                                                                                                                     |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [Permission](packages/ask-permission) | Asks before a command runs. A model answers the easy ones for you, with the reason on the command, and the ones it is not sure about come to you |
+| [Questions](packages/ask-questions)   | The model asks instead of guessing, with options, a preview of what each one leads to, and a note on any of them                                 |
+| [Look](packages/look)                 | The start screen, the editor with the branch and the model on its borders, and a box around each command with its output and how long it took    |
+| [Providers](packages/providers)       | Bills Anthropic requests to the Claude plan you already pay for, and keeps several accounts with a switch to the next one when a limit hits      |
 
-<!-- docs:look/preview -->
+<!-- docs:look/call -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/preview.png" alt="Pi with the look: the start card, then the strip with the stopwatch and the last call, the framed editor with the branch, the model and the context, and below it the cost, the tokens, the cache and the average speeds." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/call.png" alt="Three commands, each in its own box: a bash command with the reason it was allowed and the time it took, a file read, and a command still running." width="860">
   <br>
-  <em>The start card, then a prompt halfway through its answer.</em>
+  <em>One command that ran, one a rule let through, and one still going.</em>
 </p>
 
 <!-- /docs -->
 
-## Use one piece, or all of them
+## One piece, or all of them
 
-`@adeildo/pi-harness` brings every piece, and `pi config` turns any of them off. Each piece is also a package of its own: `pi install npm:@adeildo/pi-look` brings the look and nothing else. `Alt+S` opens the settings of whatever is installed.
+`@adeildo/pi-harness` brings every piece, and `pi config` turns any of them off. Each piece is also its own package: `pi install npm:@adeildo/pi-look` brings the screen and nothing else.
 
-## What to expect
-
-- **Visible decisions.** Whatever answers in your place, the judge included, shows what it decided and can be undone.
-- **No fork.** Pi stays Pi, and nothing leaves your machine unless you ask.
-- **Your theme.** Every colour is a token of the theme you run.
+There is no fork. Everything installs on top of Pi, and `pi remove` puts Pi back the way it was.
 
 ## Where to read next
 
-| You want to                     | Read                                                 |
+| You want                        | Read                                                 |
 | ------------------------------- | ---------------------------------------------------- |
 | Use a piece                     | The page of the piece, linked in the table above     |
+| See a piece in pictures         | Its own page, each one has its own screenshots       |
 | Look up a setting or a key      | `docs/reference.md` in the permission and look pages |
 | Know what is planned            | [ROADMAP.md](ROADMAP.md)                             |
 | Know what changed               | [CHANGELOG.md](CHANGELOG.md)                         |

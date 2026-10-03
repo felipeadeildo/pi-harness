@@ -8,14 +8,24 @@ Every extension adeildo runs [Pi](https://pi.dev) with, in one install.
 pi install npm:@adeildo/pi-harness
 ```
 
+<!-- docs:harness/preview -->
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/preview.png" alt="A bash command in a box, with the reason it was allowed, what it printed, and the time it took." width="860">
+  <br>
+  <em>A command the model wanted to run, and the reason it was allowed.</em>
+</p>
+
+<!-- /docs -->
+
 ## What comes in it
 
-| Piece                           | What it does                                                                                                     |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| [Permission](../ask-permission) | Asks before a tool call runs, with a note the model reads. A judge model answers the routine calls for you       |
-| [Questions](../ask-questions)   | The model asks instead of guessing, with options, a preview of each, a note on any and your own answer           |
-| [Look](../look)                 | The start card, a framed editor with the branch, model and context in its borders, and a screen that holds still |
-| [Providers](../providers)       | Bills Anthropic OAuth requests to your Claude plan, and keeps several accounts per provider                      |
+| Piece                           | What it does                                                                                             |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| [Permission](../ask-permission) | Asks before a command runs, with a note the model reads. A model answers the easy ones for you           |
+| [Questions](../ask-questions)   | The model asks instead of guessing, with options, a preview of each, a note on any and your own answer   |
+| [Look](../look)                 | The start screen, the editor with the branch and the model on its borders, and a box around each command |
+| [Providers](../providers)       | Bills Anthropic OAuth requests to your Claude plan, and keeps several accounts per provider              |
 
 All of them are on once the package is installed.
 
