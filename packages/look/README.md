@@ -31,6 +31,8 @@ It also comes in [`@adeildo/pi-harness`](../harness), with the rest of the piece
 | `0:12  3 calls`                                  | How long the agent has worked on this prompt, and how many calls to the model it made                                                   |
 | `last call 1.7s wait  900ms thought  ↓906 tok/s` | The last call that finished: how long the model took to start, how long it thought before writing, and how fast it wrote. Final numbers |
 
+**A tool call** is framed too. The mark of the tool and its name sit on the top rule, the call and its result inside, and the bottom rule closes in the colour of how it went: a check for a call that worked, a cross for one that failed. An MCP tool shows its server and tool rather than `mcp__server__tool`, and the marks follow the icon set you picked. While the call runs there is no bottom rule yet.
+
 **The frame** around the editor carries the branch with its distance and changes, the folder, the permission mode, the model with an effort meter, and the context. The border takes pi's own effort colour, so it warms up as the model thinks harder and turns to the bash colour in shell mode.
 
 **The spinner** names the state instead of saying "Working": `waiting` for the first token, `thinking`, `writing`, `drafting bash` while the model writes the call, `running bash` while it runs.

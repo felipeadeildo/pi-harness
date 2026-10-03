@@ -2,6 +2,7 @@ export { askQuestions, canAsk } from "./ask/client.ts";
 export * from "./app/builder.ts";
 export * from "./app/feature.ts";
 export * from "./contracts/ask.ts";
+export * from "./contracts/calls.ts";
 export * from "./contracts/screen.ts";
 export * from "./control.ts";
 export * from "./decode.ts";

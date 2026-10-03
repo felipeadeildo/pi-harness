@@ -1,21 +1,11 @@
 // The line under a call that says who decided and why.
+import type { CallRuling } from "@adeildo/pi-kit";
+
 import { judgeSignalText, judgeStatText } from "#core/judge/report.ts";
 import type { JudgeRecord } from "#core/judge/types.ts";
 import { NAME } from "#identity";
 
-export const RULING_TONES = ["pending", "success", "warning", "error"] as const;
-
-export type RulingTone = (typeof RULING_TONES)[number];
-
-export interface Ruling {
-	tone: RulingTone;
-	head: string;
-	why?: string;
-	/** What you wrote on your answer. */
-	note?: string;
-	/** The judge's numbers, shown when the call is expanded. */
-	detail?: string;
-}
+export type Ruling = CallRuling;
 
 export interface Settled {
 	action: "allow" | "block";

@@ -1,0 +1,49 @@
+// What decided a tool call, and why, drawn wherever the call is. The feature that knows the answer
+// publishes it; whoever frames the call asks for it while drawing.
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
+export const RULING = "harness:calls:ruling";
+export const RULING_CHANGED = "harness:calls:ruling-changed";
+/** A feature that frames every call answers this, so the ruling is not drawn twice. */
+export const FRAMED = "harness:calls:framed";
+
+export const RULING_TONES = ["pending", "success", "warning", "error"] as const;
+
+export type RulingTone = (typeof RULING_TONES)[number];
+
+export interface CallRuling {
+	tone: RulingTone;
+	/** Who decided, like `judge approved` or `asking you`. */
+	head: string;
+	why?: string;
+	/** What you wrote on your answer. */
+	note?: string;
+	/** Detail for an expanded call. */
+	detail?: string;
+}
+
+export interface RulingRequest {
+	toolCallId: string;
+	ruling?: CallRuling;
+}
+
+export interface RulingChange {
+	toolCallId: string;
+	ruling?: CallRuling;
+}
+
+type Events = ExtensionAPI["events"];
+
+/** The ruling of a call, asked of every listener. Undefined when nothing decided it. */
+export function rulingOf(events: Events, toolCallId: string): CallRuling | undefined {
+	const request: RulingRequest = { toolCallId };
+	events.emit(RULING, request);
+	return request.ruling;
+}
+
+/** True when a feature draws each call in a frame of its own, which is where the ruling goes. */
+export function callsFramed(events: Events): boolean {
+	const probe = { framed: false };
+	events.emit(FRAMED, probe);
+	return probe.framed;
+}

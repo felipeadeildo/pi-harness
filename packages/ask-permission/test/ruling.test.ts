@@ -57,7 +57,8 @@ describe("the line on the call", () => {
 	function setup() {
 		const pi = fakePi();
 		const state = createSession();
-		registerRulingLine(fakeScope({ pi }), state);
+		const scope = fakeScope({ pi });
+		registerRulingLine(scope, state);
 		const resolver = pi.toolRenderers[0];
 		if (resolver === undefined) throw new Error("no tool renderer");
 		const seen: (Component | undefined)[] = [];
@@ -84,21 +85,21 @@ describe("the line on the call", () => {
 			if (component === undefined) throw new Error("no component");
 			return component;
 		};
-		return { state, draw, seen, redrawn: () => redrawn };
+		return { state, scope, draw, seen, redrawn: () => redrawn };
 	}
 
 	test("sits under the command, and redraws when the ruling changes", () => {
-		const { state, draw, redrawn } = setup();
+		const { state, scope, draw, redrawn } = setup();
 		expect(render(draw())).toBe("$ npm install");
 
-		showRuling(state, "call-1", asking("the judge leaned no, only 61% sure"));
+		showRuling(scope, state, "call-1", asking("the judge leaned no, only 61% sure"));
 		expect(redrawn()).toBe(1);
 		expect(render(draw())).toBe("$ npm install\n◈ asking you  the judge leaned no, only 61% sure");
 	});
 
 	test("the tool's own renderer gets back the component it drew", () => {
-		const { state, draw, seen } = setup();
-		showRuling(state, "call-1", asking());
+		const { state, scope, draw, seen } = setup();
+		showRuling(scope, state, "call-1", asking());
 		const first = draw();
 		draw(first);
 		expect(seen[1]).toBeInstanceOf(Text);

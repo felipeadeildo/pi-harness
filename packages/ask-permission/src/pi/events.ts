@@ -83,7 +83,7 @@ export function registerEvents(scope: FeatureScope, state: SessionState): void {
 				facts: toolFacts(scope),
 			});
 			const verdict = decide(call, gateLayers(state))
-				.then((decision) => ("by" in decision ? undefined : runJudge(state, scope, ctx, call, id)))
+				.then((decision) => ("by" in decision ? undefined : runJudge(scope, state, ctx, call, id)))
 				.catch(() => undefined);
 			state.prejudged.set(id, { summary: call.target.summary, verdict });
 		}
@@ -136,7 +136,7 @@ function toolFacts(pi: ExtensionAPI): ToolFacts {
 }
 
 async function gate(
-	pi: ExtensionAPI,
+	scope: FeatureScope,
 	state: SessionState,
 	ctx: ExtensionContext,
 	call: Call,
@@ -148,7 +148,7 @@ async function gate(
 			name: "judge",
 			decide: (next) =>
 				takePrejudged(state, event.toolCallId, next) ??
-				runJudge(state, pi, ctx, next, event.toolCallId),
+				runJudge(scope, state, ctx, next, event.toolCallId),
 		});
 	}
 	const decision = await decide(call, layers);
@@ -173,9 +173,9 @@ async function gate(
 	state.typing.pause();
 	const reason = "reason" in decision ? decision.reason : undefined;
 	const judging = state.rulings.get(event.toolCallId);
-	showRuling(state, event.toolCallId, asking(judging?.why ?? reason, judging?.detail));
+	showRuling(scope, state, event.toolCallId, asking(judging?.why ?? reason, judging?.detail));
 	const leaving = "by" in decision && decision.by === "workspace";
-	const answer = await ask(pi, ctx, call, {
+	const answer = await ask(scope, ctx, call, {
 		diff: change?.diff,
 		reason,
 		offer: leaving ? offerFor(call) : undefined,
@@ -186,23 +186,23 @@ async function gate(
 	}
 
 	if (answer.remember) {
-		const scope = answer.scope ?? "session";
-		rememberAlwaysYes(pi, state, ctx, scope, call.toolName, answer.remember);
+		const where = answer.scope ?? "session";
+		rememberAlwaysYes(scope, state, ctx, where, call.toolName, answer.remember);
 		ctx.ui.notify(
-			`${NAME}: always yes for ${call.toolName}: ${answer.remember} (${SCOPE_LABEL[scope]})`,
+			`${NAME}: always yes for ${call.toolName}: ${answer.remember} (${SCOPE_LABEL[where]})`,
 			"info",
 		);
 	}
 
 	if (answer.open) {
-		const { path, access, scope } = answer.open;
-		openFolder(pi, state, ctx, scope, path, access);
+		const { path, access, scope: where } = answer.open;
+		openFolder(scope, state, ctx, where, path, access);
 		renderStatus(ctx, state);
 		const what =
 			access === "read"
 				? `reads open in ${shortenHome(path)}`
 				: `${shortenHome(path)} joins the workspace`;
-		ctx.ui.notify(`${NAME}: ${what}, ${SCOPE_LABEL[scope]}`, "info");
+		ctx.ui.notify(`${NAME}: ${what}, ${SCOPE_LABEL[where]}`, "info");
 	}
 
 	if (change)
@@ -240,15 +240,15 @@ function previewChange(
 }
 
 async function runJudge(
+	scope: FeatureScope,
 	state: SessionState,
-	pi: ExtensionAPI,
 	ctx: ExtensionContext,
 	call: Call,
 	toolCallId: string,
 ): Promise<Verdict | undefined> {
 	if (Date.now() < state.judgeHealth.retryAt) return undefined;
 
-	showRuling(state, toolCallId, JUDGING);
+	showRuling(scope, state, toolCallId, JUDGING);
 	const outcome = await judgeGate({
 		config: state.config,
 		ctx,
@@ -262,14 +262,14 @@ async function runJudge(
 		onStatus: (status) => ctx.ui.setStatus(JUDGE_STATUS, status),
 	});
 	if (!outcome) {
-		showRuling(state, toolCallId);
+		showRuling(scope, state, toolCallId);
 		return undefined;
 	}
 
 	const record = outcome.record;
 	remember(record, state.judgeLog);
 	const dryRun = record.dryRun ? " (dry run)" : "";
-	showRuling(state, toolCallId, {
+	showRuling(scope, state, toolCallId, {
 		...JUDGING,
 		why: `${outcome.reason}${dryRun}`,
 		detail: record.answers.verdict ? judgeDetail(record) : undefined,
@@ -289,7 +289,8 @@ async function runJudge(
 	if (outcome.action === "allow") {
 		if (state.config.judge.rememberApprovals) {
 			const level = call.target.levels.at(-1);
-			if (level !== undefined) rememberAlwaysYes(pi, state, ctx, "session", call.toolName, level);
+			if (level !== undefined)
+				rememberAlwaysYes(scope, state, ctx, "session", call.toolName, level);
 		}
 		return { action: "allow" };
 	}

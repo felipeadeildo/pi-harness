@@ -1,14 +1,18 @@
-// Draws a call's ruling inside the tool's own box, and keeps it in the session for a resume.
-import type { FeatureScope } from "@adeildo/pi-kit";
-import type {
-	ExtensionAPI,
-	ExtensionContext,
-	Theme,
-	ToolRenderers,
-} from "@earendil-works/pi-coding-agent";
+// Draws a call's ruling inside the tool's own box, and keeps it in the session for a resume. A
+// feature that frames the calls draws it instead, and this only answers when it is asked.
+import {
+	type CallRuling,
+	callsFramed,
+	type FeatureScope,
+	RULING,
+	RULING_CHANGED,
+	type RulingRequest,
+	type RulingTone,
+	RULING_TONES,
+} from "@adeildo/pi-kit";
+import type { ExtensionContext, Theme, ToolRenderers } from "@earendil-works/pi-coding-agent";
 import { type Component, Container, Text } from "@earendil-works/pi-tui";
 
-import { type Ruling, RULING_TONES, type RulingTone } from "#core/ruling.ts";
 import { NAME } from "#identity";
 import type { SessionState } from "#pi/session.ts";
 import { isRecord } from "#util/primitives.ts";
@@ -18,25 +22,42 @@ export const RULING_ENTRY = `${NAME}:ruling`;
 const ARGS_PREVIEW = 100;
 
 export function registerRulingLine(scope: FeatureScope, state: SessionState): void {
-	scope.registerToolRenderer((toolName, next) => withRuling(toolName, next(), state));
+	scope.events.on(RULING, (data) => {
+		if (isRecord(data) && typeof data.toolCallId === "string")
+			(data as unknown as RulingRequest).ruling = state.rulings.get(data.toolCallId);
+	});
+	scope.registerToolRenderer((toolName, next) => {
+		const base = next();
+		if (base === undefined) return undefined;
+		// A feature that frames the calls draws the line, and pi drops the whole chain when a
+		// resolver answers nothing, so this hands the renderer back untouched.
+		if (callsFramed(scope.events)) return base;
+		return withRuling(toolName, base, state);
+	});
 }
 
 /** The line of a call still being decided. */
-export function showRuling(state: SessionState, toolCallId: string, ruling?: Ruling): void {
+export function showRuling(
+	scope: FeatureScope,
+	state: SessionState,
+	toolCallId: string,
+	ruling?: CallRuling,
+): void {
 	if (ruling === undefined) state.rulings.delete(toolCallId);
 	else state.rulings.set(toolCallId, ruling);
 	state.redraws.get(toolCallId)?.();
+	scope.events.emit(RULING_CHANGED, { toolCallId, ruling });
 }
 
 /** The final line of a call, kept in the session. */
 export function keepRuling(
-	pi: ExtensionAPI,
+	scope: FeatureScope,
 	state: SessionState,
 	toolCallId: string,
-	ruling: Ruling | undefined,
+	ruling: CallRuling | undefined,
 ): void {
-	showRuling(state, toolCallId, ruling);
-	if (ruling !== undefined) pi.appendEntry(RULING_ENTRY, { toolCallId, ...ruling });
+	showRuling(scope, state, toolCallId, ruling);
+	if (ruling !== undefined) scope.appendEntry(RULING_ENTRY, { toolCallId, ...ruling });
 }
 
 export function restoreRulings(state: SessionState, ctx: ExtensionContext): void {
@@ -48,7 +69,7 @@ export function restoreRulings(state: SessionState, ctx: ExtensionContext): void
 	for (const redraw of state.redraws.values()) redraw();
 }
 
-function keptRuling(entry: unknown): { toolCallId: string; ruling: Ruling } | undefined {
+function keptRuling(entry: unknown): { toolCallId: string; ruling: CallRuling } | undefined {
 	if (!isRecord(entry) || entry.type !== "custom" || entry.customType !== RULING_ENTRY) return;
 	const data = entry.data;
 	if (!isRecord(data) || typeof data.toolCallId !== "string" || typeof data.head !== "string")
@@ -69,12 +90,7 @@ function text(value: unknown): string | undefined {
 	return typeof value === "string" ? value : undefined;
 }
 
-function withRuling(
-	toolName: string,
-	base: ToolRenderers | undefined,
-	state: SessionState,
-): ToolRenderers | undefined {
-	if (base === undefined) return undefined;
+function withRuling(toolName: string, base: ToolRenderers, state: SessionState): ToolRenderers {
 	// The base renderer reuses its last component, which sits inside the box returned here.
 	const inner = new WeakMap<Component, Component>();
 
@@ -103,7 +119,7 @@ function colorOf(tone: RulingTone): "dim" | "success" | "warning" | "error" {
 	return tone === "pending" ? "dim" : tone;
 }
 
-export function rulingText(ruling: Ruling, theme: Theme, expanded: boolean): string {
+export function rulingText(ruling: CallRuling, theme: Theme, expanded: boolean): string {
 	const color = colorOf(ruling.tone);
 	let line = `${theme.fg(color, "\u25c8")} ${theme.fg(color, ruling.head)}`;
 	if (ruling.note) line += ` ${theme.fg("accent", "\u203a")} ${ruling.note}`;
