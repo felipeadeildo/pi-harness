@@ -15,9 +15,15 @@ pi install npm:@adeildo/pi-harness
 
 They install on top of Pi as packages. There is no fork, and `pi remove` puts Pi back the way it was.
 
+<!-- docs:ask-permission/preview -->
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-permission/assets/preview.png" alt="The permission dialog for npm install, with the reason it asks, the three answers, and a note on no: use pnpm instead." width="860">
+  <br>
+  <em>No, with a note the model reads: use pnpm instead.</em>
 </p>
+
+<!-- /docs -->
 
 ## What you get
 
@@ -28,9 +34,15 @@ They install on top of Pi as packages. There is no fork, and `pi remove` puts Pi
 | [Look](packages/look)                 | A start card, a framed editor that carries the branch, the model and the context, and numbers that change without moving the screen      |
 | [Providers](packages/providers)       | Anthropic requests billed to your Claude plan, and several accounts per provider with a switch to the next one when a limit hits         |
 
+<!-- docs:look/preview -->
+
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/preview.png" alt="Pi with the look: the start card with the model, the folder, the branch and the keys, and below it the framed editor with the branch and folder in its top border and the model and context in its bottom border." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/preview.png" alt="Pi with the look: the start card, then the strip with the stopwatch and the last call, the framed editor with the branch, the model and the context, and below it the cost, the tokens, the cache and the average speeds." width="860">
+  <br>
+  <em>The start card, then a prompt halfway through its answer.</em>
 </p>
+
+<!-- /docs -->
 
 ## Use one piece, or all of them
 

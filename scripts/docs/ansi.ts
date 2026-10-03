@@ -1,4 +1,4 @@
-// Reads the escape codes a component writes, so the docs can show it as text or as an image.
+// Reads the escape codes a component writes, so the docs can draw it.
 import { visibleWidth } from "@earendil-works/pi-tui";
 
 const ESC = "\x1b";

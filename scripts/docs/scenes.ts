@@ -8,17 +8,8 @@ import {
 	type AskExtras,
 	askThroughQuestions,
 } from "../../packages/ask-permission/src/ui/questions.ts";
-// Every picture in the docs. To add one, add an entry to `SCENES` and a marker to a page:
-//
-//   <!-- docs:name -->
-//
-//   ```text
-//   ```
-//
-//   <!-- /docs -->
-//
-// `draw` gets a theme and returns the lines of the dialog. The text blocks use a theme that paints
-// nothing, and `image`, when set, is where `bun run docs:images` writes the PNG, without the extension.
+// A scene `pkg/file` draws `packages/pkg/assets/file.png`. A page shows it with an empty
+// `<!-- docs:pkg/file -->` `<!-- /docs -->` block, which `bun run docs` fills.
 import {
 	ANSWER,
 	ASK,
@@ -28,10 +19,12 @@ import {
 	AVAILABLE,
 } from "../../packages/kit/src/index.ts";
 import { KEYS, openDialog, press, type, WIDTH } from "./drive.ts";
+import { drawLook } from "./look.ts";
 
 export interface Scene {
 	name: string;
-	image?: string;
+	caption: string;
+	alt: string;
 	draw(theme: Theme): string[] | Promise<string[]>;
 }
 
@@ -170,17 +163,45 @@ async function permissionFolder(theme: Theme): Promise<string[]> {
 
 export const SCENES: readonly Scene[] = [
 	{
-		name: "ask-questions/dialog",
-		image: "packages/ask-questions/assets/preview",
+		name: "ask-questions/preview",
+		caption: "Two questions as tabs, and the preview of the focused option.",
+		alt: "The question dialog: two questions as tabs, the options on the left, and on the right the description and the preview of the focused option.",
 		draw: questionsDialog,
 	},
-	{ name: "ask-questions/multi", draw: questionsMulti },
-	{ name: "ask-questions/review", draw: questionsReview },
 	{
-		name: "ask-permission/ask",
-		image: "packages/ask-permission/assets/preview",
+		name: "ask-questions/multi",
+		caption: "A question that takes several answers.",
+		alt: "A question that takes several answers, with two of its three options checked.",
+		draw: questionsMulti,
+	},
+	{
+		name: "ask-questions/review",
+		caption: "Every answer on one tab, before it goes to the model.",
+		alt: "The review tab: every question with its answer, before submitting.",
+		draw: questionsReview,
+	},
+	{
+		name: "ask-permission/preview",
+		caption: "No, with a note the model reads: use pnpm instead.",
+		alt: "The permission dialog for npm install, with the reason it asks, the three answers, and a note on no: use pnpm instead.",
 		draw: permissionAsk,
 	},
-	{ name: "ask-permission/remember", draw: permissionRemember },
-	{ name: "ask-permission/folder", draw: permissionFolder },
+	{
+		name: "ask-permission/remember",
+		caption: "Always yes asks which calls to remember.",
+		alt: "After always yes, the dialog asks which calls to remember: this exact call, or every pnpm call.",
+		draw: permissionRemember,
+	},
+	{
+		name: "ask-permission/folder",
+		caption: "A read outside the workspace can open that folder for reads.",
+		alt: "A read outside the workspace, with an answer that also allows reads in that folder.",
+		draw: permissionFolder,
+	},
+	{
+		name: "look/preview",
+		caption: "The start card, then a prompt halfway through its answer.",
+		alt: "Pi with the look: the start card, then the strip with the stopwatch and the last call, the framed editor with the branch, the model and the context, and below it the cost, the tokens, the cache and the average speeds.",
+		draw: drawLook,
+	},
 ];

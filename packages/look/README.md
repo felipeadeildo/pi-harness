@@ -10,9 +10,15 @@ pi install npm:@adeildo/pi-look
 
 It also comes in [`@adeildo/pi-harness`](../harness), with the rest of the pieces.
 
+<!-- docs:look/preview -->
+
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/preview.png" alt="The start card with the model, the folder, the branch and the keys, and below it the framed editor with the branch and folder in its top border and the model and context in its bottom border." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/preview.png" alt="Pi with the look: the start card, then the strip with the stopwatch and the last call, the framed editor with the branch, the model and the context, and below it the cost, the tokens, the cache and the average speeds." width="860">
+  <br>
+  <em>The start card, then a prompt halfway through its answer.</em>
 </p>
+
+<!-- /docs -->
 
 ## What is on the screen
 

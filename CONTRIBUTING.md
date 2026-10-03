@@ -37,15 +37,19 @@ Each package has its own README. `ask-permission` also has a CONTRIBUTING with t
 
 ## The docs
 
-The dialogs in the READMEs are not typed by hand. A block between `<!-- docs:name -->` and `<!-- /docs -->` is drawn by the real dialog, from a scene in `scripts/docs/examples.ts`:
+The pictures in the READMEs are drawn by the code, from the scenes in `scripts/docs/scenes.ts`, with pi's `dark` theme. A page shows one with an empty block, and `bun run docs` fills it:
 
-```bash
-bun run docs          # rewrite every block
-bun run docs:check    # fail when one is out of date; verify and CI run it
-bun run docs:images   # redraw the preview images, which needs rsvg-convert and a JetBrains Mono font
+```md
+<!-- docs:ask-permission/preview -->
+<!-- /docs -->
 ```
 
-Change a dialog, run `bun run docs`, and commit the result with it. A new example is a function in `examples.ts`, a line in `BLOCKS` in `scripts/docs/index.ts`, and a marker in the page. The preview images come from the same scenes, painted with pi's `dark` theme, and are not part of the check because a font can move a pixel.
+```bash
+bun run docs         # draw the pictures that changed and fill the blocks; needs rsvg-convert and a JetBrains Mono Nerd Font
+bun run docs:check   # fail when one is out of date; verify and CI run it, with no renderer
+```
+
+Each PNG carries the hash of the SVG it was drawn from, so the check reads the hash instead of drawing, and a run that changes nothing draws nothing.
 
 ## Writing a feature
 

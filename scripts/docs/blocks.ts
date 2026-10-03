@@ -1,11 +1,7 @@
-// The blocks of generated text inside the markdown files.
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-// The blank lines are where the formatter puts them around an HTML comment. The text between the
-// fences can hold anything but a fence, so a block never reaches past its own.
-const BLOCK =
-	/(<!-- docs:([\w/.-]+) -->\n\n```text\n)((?:(?!```)[\s\S])*)(```\n\n<!-- \/docs -->)/g;
+const BLOCK = /(<!-- docs:([\w/.-]+) -->\n)([\s\S]*?)(<!-- \/docs -->)/g;
 
 /** The root README, and for every package its README and the pages in its `docs` folder. */
 export function markdownFiles(root: string): string[] {
@@ -21,25 +17,19 @@ export function markdownFiles(root: string): string[] {
 	return files.filter((file) => existsSync(file));
 }
 
-/** Replaces the text of every block with the text drawn for its name. */
-export function rewrite(source: string, file: string, drawn: ReadonlyMap<string, string>): string {
+export function rewrite(source: string, file: string, blocks: ReadonlyMap<string, string>): string {
 	const opened = source.split("<!-- docs:").length - 1;
-	const wellFormed = [...source.matchAll(BLOCK)].length;
-	if (opened !== wellFormed)
+	if (opened !== [...source.matchAll(BLOCK)].length)
 		throw new Error(
-			`${file}: ${opened} blocks open and ${wellFormed} are well formed. A block is a marker, a text fence and the closing marker.`,
+			`${file}: a block opens with <!-- docs:name --> and closes with <!-- /docs -->`,
 		);
 
 	return source.replace(
 		BLOCK,
 		(_block, open: string, name: string, _old: string, close: string) => {
-			const text = drawn.get(name);
-			if (text === undefined) throw new Error(`${file}: no scene called "${name}"`);
-			return `${open}${text}\n${close}`;
+			const block = blocks.get(name);
+			if (block === undefined) throw new Error(`${file}: no scene called "${name}"`);
+			return `${open}\n${block}\n\n${close}`;
 		},
 	);
-}
-
-export function hasBlocks(source: string): boolean {
-	return source.includes("<!-- docs:");
 }

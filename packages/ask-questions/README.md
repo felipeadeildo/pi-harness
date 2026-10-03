@@ -4,10 +4,6 @@
 
 The model in [Pi](https://pi.dev) asks instead of guessing. Every question comes with options, a live preview of what each one leads to, a note on any of them, and a row for your own answer.
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-questions/assets/preview.png" alt="The question dialog: two questions as tabs, the options on the left, and on the right the description and the preview of the focused option." width="860">
-</p>
-
 ```bash
 pi install npm:@adeildo/pi-ask-questions
 ```
@@ -16,28 +12,13 @@ It also comes in [`@adeildo/pi-harness`](../harness), with the rest of the piece
 
 ## The dialog
 
-<!-- docs:ask-questions/dialog -->
+<!-- docs:ask-questions/preview -->
 
-```text
-╭─ questions ──────────────────────────────────────────────────────────────────────────────────────╮
-│  ● Layout   ○ Scope   submit                                                                 0/2 │
-│ ▎ Which layout should the accounts section use?                                                  │
-│                                                                                                  │
-│ ❯ 1  Tree (Recommended) ›                  │ Provider first, then its accounts. Scales to many   │
-│   2  Flat list                             │ providers.                                          │
-│   3  Type something.                       │                                                     │
-│                                            │   Anthropic                                         │
-│                                            │     ● work   active                                 │
-│                                            │     ○ home                                          │
-│                                            │     + add account                                   │
-│                                            │   OpenAI                                            │
-│                                            │     ○ personal                                      │
-│                                            │                                                     │
-│                                            │ › my pick                                           │
-│                                                                                                  │
-│ ←→ question   ↑↓ move   enter choose   tab note   esc cancel                                     │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
-```
+<p align="center">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-questions/assets/preview.png" alt="The question dialog: two questions as tabs, the options on the left, and on the right the description and the preview of the focused option." width="860">
+  <br>
+  <em>Two questions as tabs, and the preview of the focused option.</em>
+</p>
 
 <!-- /docs -->
 
@@ -63,20 +44,11 @@ Several questions become tabs. `●` is where you are, `✓` is an answered ques
 
 <!-- docs:ask-questions/multi -->
 
-```text
-╭─ questions ──────────────────────────────────────────────────────────────────────────────────────╮
-│  ✓ Layout   ✓ Rules   ✓ submit                                                               2/2 │
-│ ▎ Which of these rules should the docs follow?                                                   │
-│                                                                                                  │
-│   1  [x] Sentence case                      │ A generated example cannot go stale.               │
-│   2  [ ] One idea per sentence              │                                                    │
-│ ❯ 3  [x] Examples from the code             │                                                    │
-│   4  Type something.                        │                                                    │
-│                                             │                                                    │
-│                                                                                                  │
-│ ←→ question   ↑↓ move   space tick   enter confirm   tab note   esc cancel                       │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
-```
+<p align="center">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-questions/assets/multi.png" alt="A question that takes several answers, with two of its three options checked." width="860">
+  <br>
+  <em>A question that takes several answers.</em>
+</p>
 
 <!-- /docs -->
 
@@ -90,18 +62,11 @@ The last row, **Type something.**, opens an editor in the panel. `shift+enter` b
 
 <!-- docs:ask-questions/review -->
 
-```text
-╭─ questions ──────────────────────────────────────────────────────────────────────────────────────╮
-│  ✓ Layout   ✓ Scope   ✓ Rules   submit                                                       3/3 │
-│ Review your answers                                                                              │
-│                                                                                                  │
-│ ✓ Layout  "Tree (Recommended)"                                                                   │
-│ ✓ Scope   "This session"                                                                         │
-│ ✓ Rules   "Sentence case"                                                                        │
-│                                                                                                  │
-│ ←→ question   enter submit   esc cancel                                                          │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
-```
+<p align="center">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-questions/assets/review.png" alt="The review tab: every question with its answer, before submitting." width="860">
+  <br>
+  <em>Every answer on one tab, before it goes to the model.</em>
+</p>
 
 <!-- /docs -->
 

@@ -11,10 +11,6 @@ Pi runs every tool call without asking. This extension asks first.
 
 Answer `yes`, `always yes` or `no`, and leave a note if you want. The note reaches the model with the result, so denying `npm install` with "use pnpm instead" corrects the agent without stopping it. A judge model can answer the routine calls for you, so you only see the ones it doubts.
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-permission/assets/preview.png" alt="The permission dialog for npm install, with the reason it asks, the three answers, and a note on no: use pnpm instead." width="860">
-</p>
-
 ## Install
 
 ```bash
@@ -29,24 +25,13 @@ There is nothing to configure, and the dialog comes with it. It also comes in [`
 
 Ask the agent to do something that writes, like `run the tests`. The dialog opens before the command runs:
 
-<!-- docs:ask-permission/ask -->
+<!-- docs:ask-permission/preview -->
 
-```text
-╭─ permission ─────────────────────────────────────────────────────────────────────────────────────╮
-│                                                                                                  │
-│ ▎ bash wants to run:                                                                             │
-│ ▎   npm install                                                                                  │
-│ ▎                                                                                                │
-│ ▎ ▲ the judge leaned deny but was only 61% confident                                             │
-│                                                                                                  │
-│   1  yes, run it                    │ Block it. A note on this answer becomes the reason the     │
-│   2  always yes                     │ model reads.                                               │
-│ ❯ 3  no ›                           │                                                            │
-│                                     │ › use pnpm instead                                         │
-│                                                                                                  │
-│ ↑↓ move   enter choose   tab note   esc cancel                                                   │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
-```
+<p align="center">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-permission/assets/preview.png" alt="The permission dialog for npm install, with the reason it asks, the three answers, and a note on no: use pnpm instead." width="860">
+  <br>
+  <em>No, with a note the model reads: use pnpm instead.</em>
+</p>
 
 <!-- /docs -->
 
@@ -62,18 +47,11 @@ Pick `always yes` and it asks what to remember, then for how long:
 
 <!-- docs:ask-permission/remember -->
 
-```text
-╭─ remember ───────────────────────────────────────────────────────────────────────────────────────╮
-│                                                                                                  │
-│ ▎ Always say yes to which calls, from bash?                                                      │
-│                                                                                                  │
-│ ❯ 1  pnpm test                     │ Only this exact call.                                       │
-│   2  pnpm                          │                                                             │
-│                                    │                                                             │
-│                                                                                                  │
-│ ↑↓ move   enter choose   tab note   esc cancel                                                   │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
-```
+<p align="center">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-permission/assets/remember.png" alt="After always yes, the dialog asks which calls to remember: this exact call, or every pnpm call." width="860">
+  <br>
+  <em>Always yes asks which calls to remember.</em>
+</p>
 
 <!-- /docs -->
 
@@ -106,24 +84,11 @@ In a monorepo, a session in `apps/api` that reads `apps/web` leaves the workspac
 
 <!-- docs:ask-permission/folder -->
 
-```text
-╭─ permission ─────────────────────────────────────────────────────────────────────────────────────╮
-│                                                                                                  │
-│ ▎ bash wants to run:                                                                             │
-│ ▎   cd ~/Projects/grace/apps/web && git status --short | head                                    │
-│ ▎                                                                                                │
-│ ▎ ▲ reads outside the workspace                                                                  │
-│                                                                                                  │
-│   1  yes, run it                            │ yes, and allow reads in /home/me/Projects/grace    │
-│   2  always yes                             │                                                    │
-│ ❯ 3  yes, and allow reads in /home/me/Proj… │ Run it, and let later calls read there without     │
-│   4  no                                     │ asking.                                            │
-│                                             │                                                    │
-│                                             │                                                    │
-│                                                                                                  │
-│ ↑↓ move   enter choose   tab note   esc cancel                                                   │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
-```
+<p align="center">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-permission/assets/folder.png" alt="A read outside the workspace, with an answer that also allows reads in that folder." width="860">
+  <br>
+  <em>A read outside the workspace can open that folder for reads.</em>
+</p>
 
 <!-- /docs -->
 

@@ -1,5 +1,3 @@
-// The themes the examples are drawn with: pi's own `dark` for the images, and one that paints
-// nothing for the text blocks in the markdown.
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -52,23 +50,4 @@ export function darkTheme(): Theme {
 	return new Theme(foreground as Palette, background as BackgroundPalette, "truecolor", {
 		name: "dark",
 	});
-}
-
-function unchanged(text: string): string {
-	return text;
-}
-
-function ignoringToken(_token: string, text: string): string {
-	return text;
-}
-
-/** Passes the text through, so a block of markdown holds characters and no escape codes. */
-export function plainTheme(): Theme {
-	initTheme("dark", false);
-	return {
-		fg: ignoringToken,
-		bg: ignoringToken,
-		bold: unchanged,
-		italic: unchanged,
-	} as unknown as Theme;
 }
