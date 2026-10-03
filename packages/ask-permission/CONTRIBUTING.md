@@ -15,17 +15,19 @@ bun test ./packages/ask-permission
 ```text
 src/
   index.ts      # wiring only
-  pi/           # pi boundary: events, commands, provider, session
+  pi/           # pi boundary: events, commands, screen, session
   core/         # policy and judging, no pi and no TUI
     config/     # schema, decode, store, patterns
-    judge/      # pipeline, compose, request, policy, backends
+    judge/      # pipeline, compose, request, policy, the classifier
   ui/           # the permission question for the questions dialog, the host selector, the judge entry
   util/         # decoders and primitives
 ```
 
 `core/` never imports `pi/` or `ui/`. The permission pipeline is in `pi/events.ts`, the judging pipeline in `core/judge`.
 
-All untrusted input (config, grants, model answers) goes through `util/decode.ts`, the only module that inspects `typeof`. Decoders return a value or a list of problems, and never throw.
+Untrusted input (config, grants, model answers) goes through a decoder, which returns a value or a list of problems and never throws.
+
+The strings the package writes keep the old name: the `pi-ask-permission:judge` entry, the `pi-ask-permission:decided` event, the `pi-ask-permission:mode` status and the config folder. Old sessions read them on resume, so they never change.
 
 ## Imports
 
@@ -37,7 +39,3 @@ Use `#core`, `#ui`, `#pi`, `#util`, and `#identity`, declared in `package.json` 
 2. Declare the leaf in `core/config/settings.ts`, with the decoder and the row it shows on the settings screen. A missing key takes the default, and an invalid one is ignored with a warning.
 3. Read it in `readConfig` and write it in `toEntries`, so saving the settings keeps it.
 4. Add a test in `test/config.test.ts`. A round trip through `writeConfig` and `readConfig` is what proves the mapping.
-
-## Open ideas
-
-The judge sees one call, the policy, and the project root. It does not see the session goal. Sending a short goal summary would make the verdict more accurate. The last user message alone was a poor source, often just "continue", and gating on it escalated most calls. A summary assembled from the session would fix the signal without the false positives.
