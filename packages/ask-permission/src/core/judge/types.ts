@@ -36,7 +36,6 @@ export interface JudgeUsage {
 }
 
 export interface JudgeAssessment {
-	/** `provider/modelId` of the model that answered. */
 	model: string;
 	answers: JudgeAnswers;
 	elapsedMs: number;

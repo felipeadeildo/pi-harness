@@ -25,8 +25,6 @@ export function buildJudgeState(input: JudgeInput): JsonObject {
 	return state;
 }
 
-// The classifier types take one string per instruction and per label, so the guidance and the
-// examples are written into them.
 export function buildJudgeQuestions(): Record<string, ClassifierQuestion> {
 	return {
 		verdict: {

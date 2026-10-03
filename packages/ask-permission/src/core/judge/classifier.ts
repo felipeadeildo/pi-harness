@@ -1,5 +1,3 @@
-// The judge is a pi classifier model. Pi owns the catalog, the credentials, the transport and the
-// retries, so this module only finds the model, asks, and reads the typed answers.
 import type {
 	ClassifierAnswer,
 	ClassifierApi,
@@ -19,7 +17,6 @@ import {
 	type JudgeUsage,
 } from "#core/judge/types.ts";
 
-/** Resolves the model on every call, so a key added or a model picked mid-session applies. */
 export function createJudgeBackend(config: JudgeConfig, registry: ModelRegistry): JudgeBackend {
 	const { model: reference, timeoutMs } = config;
 
@@ -35,7 +32,7 @@ export function createJudgeBackend(config: JudgeConfig, registry: ModelRegistry)
 			}
 
 			const name = modelName(model);
-			// Bounds the whole call, pi's retries included. A server that asks to wait longer fails now.
+			// Bounds pi's retries too.
 			const timeout = AbortSignal.timeout(timeoutMs);
 			const result = await registry.classify(
 				model,
@@ -64,11 +61,8 @@ export function createJudgeBackend(config: JudgeConfig, registry: ModelRegistry)
 	};
 }
 
-/**
- * `provider/modelId` names one classifier. It splits at the first slash, since an id can hold its
- * own, like `openrouter/typesafe/jev-1.13`. A bare id takes the first classifier with that id whose
- * provider has a key, so `jev-latest`, as older settings saved it, finds TypeSafe's.
- */
+// Splits at the first slash, since an id can hold its own. A bare id, as older settings saved it,
+// takes the first classifier whose provider has a key.
 export function findClassifier(
 	registry: ModelRegistry,
 	reference: string,

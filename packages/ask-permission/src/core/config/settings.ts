@@ -188,8 +188,7 @@ const PERMISSION_LEAVES = {
 	}),
 };
 
-// Classifiers whose provider has a key. The default stays on the list without one, so the row can
-// show it.
+// The default stays listed without a key, so the row can show it.
 function judgeModels(registry: ModelRegistry): string[] {
 	const names = registry
 		.getModelsOfType("classifier")

@@ -104,7 +104,6 @@ function classifierResult(overrides: Partial<ClassifierResult> = {}): Classifier
 interface FakeRegistry {
 	classify?: Classify;
 	catalog?: ClassifierModel<ClassifierApi>[];
-	/** Providers with a key. */
 	keyed?: string[];
 }
 

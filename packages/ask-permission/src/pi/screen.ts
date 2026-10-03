@@ -241,7 +241,6 @@ async function testJudge(state: SessionState, ctx: ExtensionContext): Promise<st
 	return lines.join("\n");
 }
 
-// Pi's error says what the server answered, not where the key came from.
 function keyHint(ctx: ExtensionContext, model: string): string {
 	const classifier = findClassifier(ctx.modelRegistry, model);
 	if (!classifier) return "";
