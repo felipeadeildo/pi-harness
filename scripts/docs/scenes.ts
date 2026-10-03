@@ -18,6 +18,7 @@ import {
 	type AskResult,
 	AVAILABLE,
 } from "../../packages/kit/src/index.ts";
+import { drawCalls, type CallSpec } from "./calls.ts";
 import { KEYS, openDialog, press, type, WIDTH } from "./drive.ts";
 import { drawLook } from "./look.ts";
 
@@ -161,6 +162,52 @@ async function permissionFolder(theme: Theme): Promise<string[]> {
 	return dialog.render(WIDTH);
 }
 
+// ── tool calls ─────────────────────────────────────────────────────────────────────────────
+
+/** The tools the frames below are drawn for, in the width the other pictures use. */
+function toolCalls(specs: readonly CallSpec[]): string[] {
+	return drawCalls(specs, WIDTH);
+}
+
+function lookCall(): string[] {
+	return toolCalls([
+		{
+			tool: "bash",
+			args: { command: "bun run test" },
+			output: "583 pass\n0 fail",
+			elapsedMs: 6_800,
+			ruling: { tone: "success", head: "judge approved", why: "97% sure, risk 0.12" },
+		},
+		{
+			tool: "read",
+			args: { path: "src/ui/tool-frame.ts" },
+			output: "export function registerToolFrames(scope: FeatureScope): void {\n  // ...",
+			elapsedMs: 40,
+			ruling: { tone: "success", head: "always yes", why: "read, this project" },
+		},
+		{
+			tool: "bash",
+			args: { command: "pnpm test --watch" },
+			output: "✓ core  (0.31 seconds)",
+			elapsedMs: 3_200,
+			running: true,
+			ruling: { tone: "warning", head: "asking you", why: "the judge wants a person to decide" },
+		},
+	]);
+}
+
+function harnessPreview(): string[] {
+	return toolCalls([
+		{
+			tool: "bash",
+			args: { command: "bun run test" },
+			output: "... (3 earlier lines, ctrl+o to expand)\n✓ 583 pass\n✓ 0 fail",
+			elapsedMs: 6_800,
+			ruling: { tone: "success", head: "judge approved", why: "97% sure, risk 0.12" },
+		},
+	]);
+}
+
 export const SCENES: readonly Scene[] = [
 	{
 		name: "ask-questions/preview",
@@ -197,6 +244,18 @@ export const SCENES: readonly Scene[] = [
 		caption: "A read outside the workspace can open that folder for reads.",
 		alt: "A read outside the workspace, with an answer that also allows reads in that folder.",
 		draw: permissionFolder,
+	},
+	{
+		name: "look/call",
+		caption: "One command that ran, one a rule let through, and one still going.",
+		alt: "Three commands, each in its own box: a bash command with the reason it was allowed and the time it took, a file read, and a command still running.",
+		draw: lookCall,
+	},
+	{
+		name: "harness/preview",
+		caption: "A command the model wanted to run, and the reason it was allowed.",
+		alt: "A bash command in a box, with the reason it was allowed, what it printed, and the time it took.",
+		draw: harnessPreview,
 	},
 	{
 		name: "look/preview",
