@@ -128,6 +128,57 @@ test("adding the first account lifts the provider and pins it", async () => {
 	expect(nativeOf(captured[0] as Provider)).toBe(provider);
 });
 
+test("adding to a lifted provider keeps one account, not two", async () => {
+	const store = new AccountStore();
+	store.add("anthropic", "personal", OAUTH);
+
+	const fake = fakePi();
+	const captured: Provider[] = [];
+	fake.pi.registerProvider = ((provider: Provider) => void captured.push(provider)) as never;
+	createApp(fake.pi, { name: "test", settingsPath: join(dir, "settings.json") })
+		.use(accounts)
+		.build();
+
+	const provider = native();
+	provider.auth.oauth = {
+		name: "Claude Pro/Max",
+		login: async () => ({ type: "oauth", access: "b", refresh: "r2", expires: 0 }),
+		refresh: async (credential) => credential,
+		toAuth: async () => ({}),
+	};
+	const asked: string[] = [];
+	const ctx = fakeContext([], true, {
+		ui: {
+			notify: () => {},
+			setStatus: () => {},
+			input: async () => "labora",
+			select: async (title: string, options: string[]) => {
+				asked.push(title);
+				return options.find((option) => option.startsWith("New account"));
+			},
+		},
+		modelRegistry: {
+			// Once the feature lifts it, the registry hands back the lifted provider.
+			getProvider: () => captured[0] ?? provider,
+			getAll: () => [{ provider: "anthropic", id: "claude" }],
+		},
+		sessionManager: { getBranch: () => [] },
+	}) as ExtensionContext;
+	await fake.fire("session_start", {}, ctx);
+	expect(captured).toHaveLength(1);
+
+	const handler = fake.commands.get("accounts")?.handler;
+	if (handler === undefined) throw new Error("no accounts command");
+	await handler("anthropic", ctx as never);
+
+	// The lifted login would adopt the credential, and this flow would add it again.
+	expect(asked).toEqual([]);
+	expect(new AccountStore().accounts("anthropic").map((account) => account.label)).toEqual([
+		"personal",
+		"labora",
+	]);
+});
+
 test("the session pin overrides the store default, and null means pi's own credential", () => {
 	const store = new AccountStore();
 	store.add("anthropic", "personal", OAUTH);

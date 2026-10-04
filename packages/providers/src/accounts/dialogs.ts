@@ -10,6 +10,7 @@ import { activeAccount } from "./active.ts";
 import { attachProvider, knownReading, type Watch } from "./attach.ts";
 import { reason } from "./describe.ts";
 import { loginFor } from "./interaction.ts";
+import { nativeOf } from "./lift.ts";
 import {
 	kindText,
 	login,
@@ -150,7 +151,9 @@ export async function addAccount(
 		ctx.ui.notify(`${NAME}: no provider "${providerId}"`, "error");
 		return;
 	}
-	const method = await pickMethod(ctx, provider);
+	// This flow keeps the credential itself, so the login runs on the provider underneath: the lifted
+	// one adopts what its login returns, which would name and add the account a second time.
+	const method = await pickMethod(ctx, nativeOf(provider));
 	if (method === undefined) return;
 
 	const label =
