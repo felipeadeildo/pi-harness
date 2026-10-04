@@ -91,6 +91,8 @@ The quota endpoints are not official, and each needs the token pi already stores
 | Copilot    | `api.github.com/copilot_internal/user`                                       | Percent left, allowance, reset, plan  |
 | OpenRouter | `openrouter.ai/api/v1/key`                                                   | Credit used, limit and what is left   |
 
+The Anthropic side is researched in [`packages/providers/docs/quota.md`](packages/providers/docs/quota.md): the three sources, the headers, the traps, and the prior art.
+
 Sign in with ChatGPT lives on the `openai` provider now, and `openai-codex` is legacy, so the OpenAI quota reads whichever one holds the token. A third-party tool on a Claude plan spends extra usage billed per token, not the plan's windows, so the Anthropic windows show what Claude Code used.
 
 Open:
