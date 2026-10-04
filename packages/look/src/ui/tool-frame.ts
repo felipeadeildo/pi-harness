@@ -69,7 +69,7 @@ function framed(
 ): ToolRenderers {
 	// A tool may bring renderers of its own, one of them, or none: the frame wraps whichever half
 	// exists, and the name with its arguments or the text of the result stands in for the rest.
-	const call = base?.renderCall ?? genericCall(frame.name);
+	const call = base?.renderCall ?? genericCall;
 	const result = base?.renderResult ?? genericResult;
 
 	// A renderer of pi's own mutates the component it returned last time, which sits inside the
@@ -98,7 +98,7 @@ function framed(
 				body,
 				ruling: rulingOf(scope.events, context.toolCallId),
 				expanded: context.expanded,
-				phase: context.executionStarted ? undefined : context.argsComplete ? "waiting" : "writing",
+				phase: phaseOf(context),
 				mark: stateMark,
 				set: frame.set,
 				elapsed: elapsedOf(clock, context),
@@ -134,22 +134,35 @@ function framed(
 	};
 }
 
-/** The name and the arguments, the way pi draws a call whose tool brought no renderer of its own. */
-function genericCall(name: string): NonNullable<ToolRenderers["renderCall"]> {
-	return (args, theme, context) => new Text(callText(name, args, theme, context.expanded), 0, 0);
-}
+/*
+ * A tool that brings no renderer of its own gets the frame's stand-in: the arguments, without the
+ * name the top rule already says, and the text of the result. Pi draws the same two, minus the names.
+ */
+const genericCall: NonNullable<ToolRenderers["renderCall"]> = (args, theme, context) =>
+	new Text(callText(args, theme, context.expanded), 0, 0);
 
-/** The text of a result, the way pi draws one whose tool brought no renderer of its own. */
 const genericResult: NonNullable<ToolRenderers["renderResult"]> = (result, options, theme) =>
 	new Text(resultText(result, options.expanded, theme), 0, 0);
 
-function callText(name: string, args: unknown, theme: Theme, expanded: boolean): string {
-	const title = theme.fg("toolTitle", theme.bold(name));
-	if (args === null || args === undefined) return title;
+/**
+ * The phase the call closes with while it still has no result: writing the arguments, then waiting
+ * to run. A call with a result, live or replayed, stays open for the result half to close.
+ */
+function phaseOf(context: {
+	isPartial: boolean;
+	executionStarted: boolean;
+	argsComplete: boolean;
+}): Phase | undefined {
+	if (!context.isPartial || context.executionStarted) return undefined;
+	return context.argsComplete ? "waiting" : "writing";
+}
+
+function callText(args: unknown, theme: Theme, expanded: boolean): string {
+	if (args === null || args === undefined) return "";
 
 	const entries: [string, unknown][] =
 		typeof args === "object" && !Array.isArray(args) ? Object.entries(args) : [["args", args]];
-	if (entries.length === 0) return title;
+	if (entries.length === 0) return "";
 
 	if (expanded) {
 		const lines = entries.map(([key, value]) => {
@@ -157,7 +170,7 @@ function callText(name: string, args: unknown, theme: Theme, expanded: boolean):
 				typeof value === "string" ? value : (JSON.stringify(value, null, 2) ?? String(value));
 			return `  ${key}: ${replaceTabs(text).split("\n").join("\n    ")}`;
 		});
-		return `${title}\n${theme.fg("muted", lines.join("\n"))}`;
+		return theme.fg("muted", lines.join("\n"));
 	}
 
 	const pairs = entries
@@ -165,7 +178,7 @@ function callText(name: string, args: unknown, theme: Theme, expanded: boolean):
 		.join(" ");
 	const preview =
 		pairs.length > COLLAPSED_ARGS_CHARS ? `${pairs.slice(0, COLLAPSED_ARGS_CHARS - 3)}...` : pairs;
-	return `${title} ${theme.fg("muted", preview)}`;
+	return theme.fg("muted", preview);
 }
 
 function resultText(

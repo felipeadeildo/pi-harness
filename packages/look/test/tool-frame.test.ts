@@ -46,7 +46,7 @@ function context(overrides: Record<string, unknown> = {}) {
 		invalidate: () => {},
 		state: {},
 		expanded: false,
-		isPartial: false,
+		isPartial: true,
 		isError: false,
 		executionStarted: true,
 		cwd: "/repo",
@@ -193,7 +193,8 @@ describe("the frame around a tool call", () => {
 		const call = chain.renderCall?.({ target: "scratchpad" }, theme, context());
 		const callLines = call === undefined ? [] : plain(call);
 		expect(callLines[0]).toMatch(/^\u256d\u2500 \S+ memory_read \u2500+\u256e$/);
-		expect(callLines[1]).toContain('memory_read target="scratchpad"');
+		expect(callLines[1]).toContain('target="scratchpad"');
+		expect(callLines[1]).not.toContain("memory_read");
 
 		const result = chain.renderResult?.(
 			toolResult("# Scratchpad"),
@@ -252,5 +253,28 @@ describe("the frame around a tool call", () => {
 		const expandedLines = expanded === undefined ? [] : plain(expanded);
 		expect(expandedLines.some((line) => line.includes("line 14"))).toBe(true);
 		expect(expandedLines.some((line) => line.includes("more lines"))).toBe(false);
+	});
+
+	test("stays open for a call replayed with its result, instead of closing early", () => {
+		const fake = fakePi();
+		createApp(fake.pi, { name: "look" }).use(look).build();
+		const chain = resolve(fake, renderers());
+		if (chain === undefined) throw new Error("no renderers");
+
+		// Pi rebuilds a past call without ever starting it, so the call half must not close itself.
+		const replayed = context({ isPartial: false, executionStarted: false, argsComplete: false });
+		const call = chain.renderCall?.({ command: "bun run test" }, theme, replayed);
+		const callLines = call === undefined ? [] : plain(call);
+		expect(callLines.some((line) => /\u2570\u2500/u.test(line))).toBe(false);
+
+		const result = chain.renderResult?.(
+			toolResult(),
+			{ expanded: false, isPartial: false },
+			theme,
+			replayed,
+		);
+		const lines = result === undefined ? [] : plain(result);
+		expect(lines[0]).toMatch(/^\u251c\u2500+\u2524$/);
+		expect(lines.at(-1)).toMatch(/^\u2570\u2500 \S+ done \u2500+\u256f$/);
 	});
 });
