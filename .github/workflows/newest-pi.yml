@@ -1,13 +1,13 @@
-# Runs verify against the newest pi SDK on npm. A release that passes opens a bump PR, and one that
-# fails files an issue. The steps are in scripts/newest-pi.ts.
+# Checks npm for a newer pi SDK: a version that passes opens a bump PR, one that fails files an
+# issue. A cron, because npm sends no event, and by hand for a re-check. `CI` already runs verify on
+# every push, so nothing here looks at a pin that did not move. The steps are in
+# scripts/newest-pi.ts.
 #
-# Cron, because npm sends no event. GitHub stops a cron after 60 days without activity in the
-# repository; re-enable it from the Actions tab if that happens.
+# GitHub stops a cron after 60 days without activity in the repository; re-enable it from the
+# Actions tab if that happens.
 name: Newest pi
 
 on:
-  push:
-    branches: [main]
   schedule:
     # 09:00 UTC, after pi usually publishes.
     - cron: "0 9 * * *"
@@ -41,12 +41,15 @@ jobs:
       - if: steps.compare.outputs.test == 'true'
         run: bun add --dev --exact @earendil-works/pi-ai@latest @earendil-works/pi-coding-agent@latest @earendil-works/pi-tui@latest
 
-      # pipefail, or tee hides the exit status.
+      # One retry, because Bun has flaked in the runner (EINVAL from epoll_ctl while spawning the
+      # shell in the bash timer tests). A second failure is worth an issue.
       - id: verify
         if: steps.compare.outputs.test == 'true'
         continue-on-error: true
         run: |
           set -o pipefail
+          if bun run verify 2>&1 | tee verify.log; then exit 0; fi
+          echo "::warning::verify failed, retrying once"
           bun run verify 2>&1 | tee verify.log
 
       - if: steps.compare.outputs.test == 'true'

@@ -35,14 +35,15 @@ async function openIssues(): Promise<number[]> {
 	return (JSON.parse(json) as { number: number }[]).map((issue) => issue.number);
 }
 
-// A scheduled run tests only when a pin moved or an issue is still open.
+// A run tests when a pin moved, when someone asked for a check by hand, or when an issue is still
+// open so the day it turns green closes it.
 async function compare(): Promise<void> {
 	const versions = await Promise.all(PACKAGES.map(newest));
 	const moved = PACKAGES.some((name, index) => pinned(name) !== versions[index]);
-	const scheduled = process.env.GITHUB_EVENT_NAME === "schedule";
+	const event = process.env.GITHUB_EVENT_NAME;
 	const open = (await openIssues()).length > 0;
 	setOutputs({
-		test: String(!scheduled || moved || open),
+		test: String(moved || event === "workflow_dispatch" || (event === "schedule" && open)),
 		pinned: pinned("pi-coding-agent"),
 		newest: await newest("pi-coding-agent"),
 	});
@@ -78,8 +79,12 @@ async function report(): Promise<void> {
 
 	if (!passed) {
 		const log = readFileSync("verify.log", "utf-8").split("\n").slice(-120).join("\n");
+		const lead =
+			pinnedVersion === version
+				? `\`bun run verify\` failed twice in a row against \`${version}\`, the version already pinned here. The pin did not move, so this is the check running red on its own, not a release that arrived. The two runs are in the history of this issue.`
+				: `The newest \`@earendil-works/pi-coding-agent\` is \`${version}\`, and \`bun run verify\` fails against it. A type or test failure is an API change. A \`pi:defaults\` failure is a default the harness's settings were chosen against.`;
 		await fileIssue(version, [
-			`The newest \`@earendil-works/pi-coding-agent\` is \`${version}\`, and \`bun run verify\` fails against it. A type or test failure is an API change. A \`pi:defaults\` failure is a default the harness's settings were chosen against.`,
+			lead,
 			"",
 			...links,
 			"",
