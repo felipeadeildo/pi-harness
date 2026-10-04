@@ -68,7 +68,7 @@ function framed(
 	frame: FrameContext,
 ): ToolRenderers {
 	// A tool may bring renderers of its own, one of them, or none: the frame wraps whichever half
-	// exists, and the name with its arguments or the text of the result stands in for the rest.
+	// exists, and the arguments or the text of the result stand in for the rest.
 	const call = base?.renderCall ?? genericCall;
 	const result = base?.renderResult ?? genericResult;
 
@@ -135,8 +135,8 @@ function framed(
 }
 
 /*
- * A tool that brings no renderer of its own gets the frame's stand-in: the arguments, without the
- * name the top rule already says, and the text of the result. Pi draws the same two, minus the names.
+ * The stand-in for a tool that brings no renderer of its own: the arguments, under the top rule
+ * that already names the tool, and the text of the result.
  */
 const genericCall: NonNullable<ToolRenderers["renderCall"]> = (args, theme, context) =>
 	new Text(callText(args, theme, context.expanded), 0, 0);
