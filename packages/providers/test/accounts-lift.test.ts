@@ -582,3 +582,27 @@ test("the refresh runs with the shared lock held", async () => {
 	expect(held).toBe(true);
 	expect(existsSync(lock)).toBe(false);
 });
+
+test("a login runs on our screen when the session offers one", async () => {
+	const { provider } = fake();
+	let closed = 0;
+	const interaction: ProviderAuthInteraction = {
+		signal: new AbortController().signal,
+		prompt: async () => "",
+		notify: () => {},
+	};
+	let offered = 0;
+	const lifted = liftProvider(provider, {
+		...session(undefined),
+		adopt: async () => {},
+		loginScreen: async () => {
+			offered += 1;
+			return { interaction, close: () => void (closed += 1) };
+		},
+	});
+
+	await lifted.auth.apiKey?.login?.(interaction);
+
+	expect(offered).toBe(1);
+	expect(closed).toBe(1);
+});

@@ -1,12 +1,23 @@
-// The provider's own login asks for a code, a URL or a choice. These dialogs answer for it, so no
-// OAuth and no key prompt live in this package.
+// The provider's own login asks for a code, a URL or a choice. Our framed screen answers it; a host
+// that cannot draw one falls back to pi's own dialogs.
 import type { AuthEvent, ProviderAuthInteraction } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
+import { type LoginSession, loginScreen } from "../ui/login.ts";
 import { pick } from "../ui/picker.ts";
 import { LOGIN_KEY } from "./names.ts";
 
-export function interactionFor(
+export async function loginFor(
+	ctx: ExtensionContext,
+	label: string,
+	signal: AbortSignal,
+): Promise<LoginSession> {
+	const screen = await loginScreen(ctx, label, signal);
+	return screen ?? { interaction: dialogs(ctx, label, signal), close: () => {} };
+}
+
+/** Pi's own dialogs, for a host without our screen. */
+function dialogs(
 	ctx: ExtensionContext,
 	label: string,
 	signal: AbortSignal,

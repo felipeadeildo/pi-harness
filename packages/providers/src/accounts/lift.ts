@@ -16,6 +16,7 @@ import {
 	type OAuthCredential,
 	type Provider,
 	type ProviderAuth,
+	type ProviderAuthInteraction,
 	type ProviderEnv,
 	type ProviderHeaders,
 	type SimpleStreamOptions,
@@ -43,6 +44,11 @@ export interface AccountSession {
 	): Promise<{ id: string; credential: Credential } | undefined>;
 	/** Pi's own login just produced a credential; the feature keeps it under a name. */
 	adopt?(credential: Credential): Promise<void>;
+	/** A framed screen for a login, when the caller can draw one. */
+	loginScreen?(
+		label: string,
+		signal: AbortSignal,
+	): Promise<{ interaction: ProviderAuthInteraction; close(): void } | undefined>;
 	/** The credential on disk now, in case another pi refreshed it since we read ours. */
 	freshen?(id: string): Credential | undefined;
 	/** The file the refresh takes across processes, when the caller shares one. */
@@ -384,7 +390,7 @@ function liftedAuth(provider: Provider, session: AccountSession): ProviderAuth {
 			name: original?.name ?? `${provider.name} accounts`,
 			...(login === undefined
 				? {}
-				: { login: (interaction) => adopt(login(interaction), session) }),
+				: { login: (interaction) => adopted(login, interaction, session, provider.name) }),
 			async check(input) {
 				const account = session.resolve();
 				if (account !== undefined) return { type: account.credential.type, source: "account" };
@@ -399,18 +405,26 @@ function liftedAuth(provider: Provider, session: AccountSession): ProviderAuth {
 	if (oauth !== undefined) {
 		auth.oauth = {
 			...oauth,
-			login: (interaction, options) => adopt(oauth.login(interaction, options), session),
+			login: (interaction, options) =>
+				adopted((next) => oauth.login(next, options), interaction, session, provider.name),
 		};
 	}
 	return auth;
 }
 
-/** Pi's login just ran; the feature keeps the credential under a name before pi stores it. */
-async function adopt<T extends Credential>(
-	pending: Promise<T>,
+/** Runs a login on our framed screen when there is one, then lets the feature keep the credential. */
+async function adopted<T extends Credential>(
+	login: (interaction: ProviderAuthInteraction) => Promise<T>,
+	interaction: ProviderAuthInteraction,
 	session: AccountSession,
+	label: string,
 ): Promise<T> {
-	const credential = await pending;
-	await session.adopt?.(credential);
-	return credential;
+	const screen = await session.loginScreen?.(label, interaction.signal);
+	try {
+		const credential = await login(screen?.interaction ?? interaction);
+		await session.adopt?.(credential);
+		return credential;
+	} finally {
+		screen?.close();
+	}
 }

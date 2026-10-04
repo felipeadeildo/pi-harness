@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { interactionFor } from "../src/accounts/interaction.ts";
+import { loginFor } from "../src/accounts/interaction.ts";
 
 interface Ui {
 	select?: (title: string, options: string[]) => Promise<string | undefined>;
@@ -24,9 +24,9 @@ function context(ui: Ui): ExtensionContext {
 
 test("a select prompt answers with the option id, not its label", async () => {
 	const ui: Ui = { select: async (_title, options) => options[1], notified: [], statuses: [] };
-	const interaction = interactionFor(context(ui), "anthropic", new AbortController().signal);
+	const session = await loginFor(context(ui), "anthropic", new AbortController().signal);
 
-	const answer = await interaction.prompt({
+	const answer = await session.interaction.prompt({
 		type: "select",
 		message: "Which method?",
 		options: [
@@ -40,29 +40,37 @@ test("a select prompt answers with the option id, not its label", async () => {
 
 test("a text prompt answers with what was typed", async () => {
 	const ui: Ui = { input: async () => "sk-ant-123", notified: [], statuses: [] };
-	const interaction = interactionFor(context(ui), "anthropic", new AbortController().signal);
+	const session = await loginFor(context(ui), "anthropic", new AbortController().signal);
 
-	expect(await interaction.prompt({ type: "secret", message: "Paste the key" })).toBe("sk-ant-123");
+	expect(await session.interaction.prompt({ type: "secret", message: "Paste the key" })).toBe(
+		"sk-ant-123",
+	);
 });
 
 test("a cancelled prompt rejects, so the login stops", async () => {
 	const ui: Ui = { notified: [], statuses: [] };
-	const interaction = interactionFor(context(ui), "anthropic", new AbortController().signal);
+	const session = await loginFor(context(ui), "anthropic", new AbortController().signal);
 
-	await expect(interaction.prompt({ type: "text", message: "Paste" })).rejects.toThrow("cancelled");
+	await expect(session.interaction.prompt({ type: "text", message: "Paste" })).rejects.toThrow(
+		"cancelled",
+	);
 });
 
-test("an info event becomes a notification, and progress a status", () => {
+test("an info event becomes a notification, and progress a status", async () => {
 	const ui: Ui = { notified: [], statuses: [] };
-	const interaction = interactionFor(context(ui), "anthropic", new AbortController().signal);
+	const session = await loginFor(context(ui), "anthropic", new AbortController().signal);
 
-	interaction.notify({ type: "info", message: "Waiting", links: [{ url: "https://x.dev" }] });
-	interaction.notify({
+	session.interaction.notify({
+		type: "info",
+		message: "Waiting",
+		links: [{ url: "https://x.dev" }],
+	});
+	session.interaction.notify({
 		type: "device_code",
 		userCode: "ABCD",
 		verificationUri: "https://x.dev/device",
 	});
-	interaction.notify({ type: "progress", message: "Exchanging the token" });
+	session.interaction.notify({ type: "progress", message: "Exchanging the token" });
 
 	expect(ui.notified[0]).toContain("https://x.dev");
 	expect(ui.notified[1]).toContain("ABCD");

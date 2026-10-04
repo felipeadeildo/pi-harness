@@ -3,6 +3,7 @@
 import type { FeatureScope } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
+import { loginScreen as openLogin } from "../ui/login.ts";
 import type { Quota } from "../usage/quota.ts";
 import { noteUsage, resetNote, usageOf, worstWindow } from "../usage/read.ts";
 import type { AccountUsage, UsageMap } from "../usage/types.ts";
@@ -67,6 +68,7 @@ function sessionFor(
 			store.markLimited(providerId, id, undefined);
 		},
 		adopt: (credential) => adoptAccount(scope, store, pins, ctx, providerId, credential),
+		loginScreen: (label, signal) => openLogin(ctx, label, signal),
 		freshen: (id) => renewalFor(store, providerId).freshen(id),
 		lockPath: accountsLockPath,
 		noteUsage: (id, headers) =>

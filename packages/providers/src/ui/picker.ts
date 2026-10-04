@@ -11,6 +11,8 @@ import {
 	visibleWidth,
 } from "@earendil-works/pi-tui";
 
+import { frameBottom, frameInner, frameRow, frameTop } from "./frame.ts";
+
 /** One row of a picker: a label, and a second column on the right. */
 export interface PickOption {
 	label: string;
@@ -84,20 +86,20 @@ export class FramedSelect implements Component {
 	invalidate(): void {}
 
 	render(width: number): string[] {
-		const inner = Math.max(1, width - 4);
+		const inner = frameInner(width);
 		const { start, end } = this.window();
 		const position =
 			start > 0 || end < this.options.length
 				? `${this.selected + 1}/${this.options.length}`
 				: undefined;
 		return [
-			this.top(width),
+			frameTop(this.theme, this.title, width),
 			...this.options
 				.slice(start, end)
-				.map((option, index) => this.frameRow(this.row(option, start + index, inner), inner)),
-			this.frameRow("", inner),
-			this.frameRow(this.hint(position), inner),
-			this.bottom(width),
+				.map((option, index) => this.line(this.row(option, start + index, inner), inner)),
+			this.line("", inner),
+			this.line(this.hint(position), inner),
+			frameBottom(this.theme, width),
 		];
 	}
 
@@ -153,24 +155,7 @@ export class FramedSelect implements Component {
 		return keys.join("   ");
 	}
 
-	private top(width: number): string {
-		const room = Math.max(0, width - 5);
-		const label = this.theme.fg("accent", truncateToWidth(this.title, Math.max(0, room - 3), "…"));
-		const dashes = Math.max(0, room - visibleWidth(label));
-		return `${this.border("╭─ ")}${label}${this.border(` ${"─".repeat(dashes)}╮`)}`;
-	}
-
-	private frameRow(text: string, inner: number): string {
-		const clipped = truncateToWidth(text, inner);
-		const pad = " ".repeat(Math.max(0, inner - visibleWidth(clipped)));
-		return `${this.border("│")} ${clipped}${pad} ${this.border("│")}`;
-	}
-
-	private bottom(width: number): string {
-		return this.border(`╰${"─".repeat(Math.max(0, width - 2))}╯`);
-	}
-
-	private border(text: string): string {
-		return this.theme.fg("border", text);
+	private line(text: string, inner: number): string {
+		return frameRow(this.theme, text, inner);
 	}
 }

@@ -6,7 +6,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { classifyFailure } from "../errors.ts";
 import { pick } from "../ui/picker.ts";
 import { reason } from "./describe.ts";
-import { interactionFor } from "./interaction.ts";
+import { loginFor } from "./interaction.ts";
 import { nativeOf } from "./lift.ts";
 import { login, loginMethods } from "./login.ts";
 import { LOGIN_KEY, NAME } from "./names.ts";
@@ -127,11 +127,13 @@ async function signInAgain(
 		ctx.ui.notify(`${NAME}: ${providerId} has no login for this account`, "warning");
 		return undefined;
 	}
+	const session = await loginFor(
+		ctx,
+		`${providerId} · ${account.label}`,
+		new AbortController().signal,
+	);
 	try {
-		const credential = await login(
-			method,
-			interactionFor(ctx, `${providerId} · ${account.label}`, new AbortController().signal),
-		);
+		const credential = await login(method, session.interaction);
 		const problem = store.setCredential(providerId, account.id, credential);
 		if (problem !== undefined) {
 			ctx.ui.notify(`${NAME}: ${problem}`, "error");
@@ -144,6 +146,7 @@ async function signInAgain(
 		ctx.ui.notify(`${NAME}: ${reason(error)}`, "error");
 		return undefined;
 	} finally {
+		session.close();
 		ctx.ui.setStatus(LOGIN_KEY, undefined);
 	}
 }

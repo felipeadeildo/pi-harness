@@ -9,7 +9,7 @@ import type { AccountUsage, UsageWindow } from "../usage/types.ts";
 import { activeAccount } from "./active.ts";
 import { attachProvider, knownReading, type Watch } from "./attach.ts";
 import { reason } from "./describe.ts";
-import { interactionFor } from "./interaction.ts";
+import { loginFor } from "./interaction.ts";
 import {
 	kindText,
 	login,
@@ -155,11 +155,9 @@ export async function addAccount(
 
 	const label =
 		(await ctx.ui.input(`Name this ${providerId} account`, providerId))?.trim() || providerId;
+	const session = await loginFor(ctx, providerId, new AbortController().signal);
 	try {
-		const credential = await login(
-			method,
-			interactionFor(ctx, providerId, new AbortController().signal),
-		);
+		const credential = await login(method, session.interaction);
 		const added = store.add(providerId, label, credential);
 		if (added.account === undefined) {
 			ctx.ui.notify(`${NAME}: ${added.problem}`, "error");
@@ -176,6 +174,7 @@ export async function addAccount(
 	} catch (error) {
 		ctx.ui.notify(`${NAME}: ${reason(error)}`, "error");
 	} finally {
+		session.close();
 		ctx.ui.setStatus(LOGIN_KEY, undefined);
 	}
 }
