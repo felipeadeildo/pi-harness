@@ -65,8 +65,6 @@ Pi records usage without a duration, so every finished answer leaves one small e
 
 The look never names a colour. Every piece names a theme token, so it follows whatever theme pi runs, and it moves with it when you change themes. The [reference](docs/reference.md#colours) maps each piece to its token.
 
-If you run [DankMaterialShell](https://github.com/AvengeMedia/DankMaterialShell), matugen already made a palette from your wallpaper. The look turns it into the pi theme `desktop` and rewrites that file when the palette changes, so a new wallpaper recolours a running pi. `Switch to it now`, in the settings, does that at once.
-
 ## Settings
 
 `Alt+S` opens them on the Look tab. You can reorder every piece of the strip, the frame and the footer, pick the frame style, the icons and the separator, and switch off what you do not want. The [reference](docs/reference.md#settings) lists every key and every segment.

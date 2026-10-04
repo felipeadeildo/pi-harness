@@ -1,21 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
 import {
-	getPackageDir,
 	type KeybindingsManager,
 	type ReadonlyFooterDataProvider,
 } from "@earendil-works/pi-coding-agent";
 import type { EditorTheme, TUI } from "@earendil-works/pi-tui";
 
-import {
-	DESKTOP_THEME,
-	desktopTheme,
-	missingColors,
-	mix,
-	parseDesktopColors,
-} from "../src/desktop/palette.ts";
 import { LookEditor } from "../src/ui/editor.ts";
 import { FooterComponent, StripComponent } from "../src/ui/footer.ts";
 import { halfBlocks, HeaderComponent } from "../src/ui/header.ts";
@@ -205,65 +195,5 @@ describe("working line", () => {
 		expect(draftedTool([{ type: "text" }, { type: "toolCall", name: "read" }])).toBe("read");
 		expect(draftedTool([{ type: "toolCall", name: "read" }, { type: "text" }])).toBeUndefined();
 		expect(draftedTool("not content")).toBeUndefined();
-	});
-});
-
-describe("desktop theme", () => {
-	const palette = {
-		mode: "dark",
-		dank16: Object.fromEntries(
-			Array.from({ length: 16 }, (_, index) => [
-				`color${index}`,
-				{ dark: `#${String(index).padStart(2, "0")}0000`, light: "#ffffff" },
-			]),
-		),
-		colors: {
-			dark: Object.fromEntries(
-				[
-					"primary",
-					"secondary",
-					"tertiary",
-					"error",
-					"error_container",
-					"outline",
-					"outline_variant",
-					"on_surface",
-					"on_surface_variant",
-					"surface",
-					"surface_container_low",
-					"surface_container",
-					"surface_container_high",
-					"surface_container_highest",
-				].map((role, index) => [role, `#0000${String(index).padStart(2, "0")}`]),
-			),
-			light: {},
-		},
-	};
-
-	test("maps every token pi requires, from the palette only", () => {
-		const colors = parseDesktopColors(palette);
-		expect(colors).toBeDefined();
-		if (colors === undefined) return;
-		expect(missingColors(colors)).toEqual([]);
-
-		const theme = desktopTheme(colors);
-		expect(theme.name).toBe(DESKTOP_THEME);
-		const schema = JSON.parse(
-			readFileSync(join(getPackageDir(), "dist/modes/interactive/theme/theme-schema.json"), "utf8"),
-		) as { properties: { colors: { required: string[] } } };
-		for (const token of schema.properties.colors.required) {
-			expect(theme.colors[token]).toBeDefined();
-			expect(theme.vars[theme.colors[token] ?? ""]).toMatch(/^#[0-9a-f]{6}$/);
-		}
-	});
-
-	test("picks the mode the file says, and refuses what is not a palette", () => {
-		expect(parseDesktopColors({ ...palette, mode: "light" })?.mode).toBe("light");
-		expect(parseDesktopColors({ nope: true })).toBeUndefined();
-	});
-
-	test("mixes a surface towards a hue", () => {
-		expect(mix("#000000", "#ffffff", 0.5)).toBe("#808080");
-		expect(mix("#102030", "#102030", 0.3)).toBe("#102030");
 	});
 });

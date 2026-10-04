@@ -7,7 +7,6 @@ import {
 	pass,
 	problem,
 	setting,
-	string,
 } from "@adeildo/pi-kit";
 
 import type { FrameStyle } from "./render/frame.ts";
@@ -20,14 +19,7 @@ const STATUS_LABELS: Partial<Record<SegmentId, string>> = {
 	[PERMISSION_STATUS]: "permission mode",
 };
 
-export const SECTIONS = [
-	"Editor",
-	"Slots",
-	"Footer",
-	"Start screen",
-	"Working line",
-	"Desktop theme",
-];
+export const SECTIONS = ["Editor", "Slots", "Footer", "Start screen", "Working line"];
 
 export type HeaderStyle = "card" | "compact" | "off";
 export type SeparatorStyle = "dot" | "bar" | "slash" | "space";
@@ -225,29 +217,6 @@ export const peek = setting({
 	},
 });
 
-export const desktop = setting({
-	id: "look.desktop.theme",
-	default: true,
-	decoder: boolean,
-	ui: {
-		section: "Desktop theme",
-		label: "Desktop theme",
-		description:
-			"Write the matugen palette from DankMaterialShell as the pi theme `desktop`, and keep it in sync.",
-	},
-});
-
-export const desktopSource = setting({
-	id: "look.desktop.source",
-	default: "~/.cache/DankMaterialShell/dms-colors.json",
-	decoder: string,
-	ui: {
-		section: "Desktop theme",
-		label: "Desktop palette",
-		description: "The DankMaterialShell colour file the desktop theme is made from.",
-	},
-});
-
 export const LOOK_SETTINGS = [
 	strip,
 	topLeft,
@@ -265,6 +234,4 @@ export const LOOK_SETTINGS = [
 	gaugeCells,
 	labels,
 	peek,
-	desktop,
-	desktopSource,
 ];

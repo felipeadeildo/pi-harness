@@ -1,10 +1,10 @@
 # Look reference
 
-Everything the [README](../README.md) leaves out: the colours, the desktop theme, every setting and segment, and how a line fits.
+Everything the [README](../README.md) leaves out: the colours, every setting and segment, and how a line fits.
 
 ## Colours
 
-The look never names a colour. Every piece names a **theme token**, so it follows whatever theme pi runs: `system`, `dark`, `light`, a JSON of yours, or the desktop theme below. Change the theme and every piece moves with it.
+The look never names a colour. Every piece names a **theme token**, so it follows whatever theme pi runs: `system`, `dark`, `light`, or a JSON of yours. Change the theme and every piece moves with it.
 
 | What                                          | Token                                                       |
 | --------------------------------------------- | ----------------------------------------------------------- |
@@ -24,32 +24,6 @@ The look never names a colour. Every piece names a **theme token**, so it follow
 | Editor frame                                  | pi's effort border colour                                   |
 
 Syntax tokens are borrowed on purpose: a theme spends its hues there, so they give the line variety that stays in the theme's family. The table lives in `src/render/paint.ts` as `ROLE_TOKENS`, and a test fails if any entry is ever a colour instead of a token.
-
-### The desktop theme
-
-If you run [DankMaterialShell](https://github.com/AvengeMedia/DankMaterialShell), matugen already made a palette from your wallpaper: the Material roles for dark and light, and sixteen terminal colours, in `~/.cache/DankMaterialShell/dms-colors.json`. The look turns that file into the pi theme `desktop`, writes it to `~/.pi/agent/themes/desktop.json`, and rewrites it whenever the file changes. Pi reloads the active theme from that folder by itself, so a new wallpaper recolours a running pi.
-
-Pi's own `system` theme builds its colours from the terminal's palette. If your terminal already follows matugen, `system` gets close without this, with fewer colours to work from: the sixteen terminal colours instead of the Material roles.
-
-`Switch to it now`, in the Desktop theme section of the settings (`Alt+S`), writes the theme and makes it pi's.
-
-The mapping, from the Material roles and the terminal colours:
-
-| Pi                                 | Desktop                                                                                             |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `accent`, links, keywords, bullets | `primary`                                                                                           |
-| `text`, `muted`, `dim`             | `on_surface`, `on_surface_variant`, `outline`                                                       |
-| borders                            | `outline`, `primary`, `outline_variant`                                                             |
-| selection, messages, pending tools | the `surface_container` steps                                                                       |
-| `success`, `warning`, `error`      | terminal green, terminal yellow, `error`                                                            |
-| tool success and error backgrounds | a surface mixed with green or with `error`                                                          |
-| headings, functions, custom labels | `tertiary`                                                                                          |
-| code, types                        | `secondary`, terminal cyan                                                                          |
-| effort ramp, off to max            | `outline_variant`, `outline`, `secondary`, `primary`, `tertiary`, terminal bright red, terminal red |
-
-Material has no success, warning or diff roles, so the terminal colours of that hue stand in. The top of the effort ramp uses the terminal reds on purpose: they keep their meaning whatever the wallpaper, so the frame still reads hot at `xhigh` and `max`.
-
-Another palette source is a new file next to `src/desktop/palette.ts`: a parser into Material roles and terminal colours, and the same mapping does the rest.
 
 ## Settings
 
@@ -73,8 +47,6 @@ They live in the file every piece shares, `~/.pi/agent/extensions/pi-harness/set
 | `pathLength`        | `40`                                                   | Longest the folder may be before it loses folders from the left. _project_                                                                                       |
 | `gaugeCells`        | `8`                                                    | Cells in the context gauge. `0` hides it. _project_                                                                                                              |
 | `peek`              | `true`                                                 | The spinner names the state. Off, it says what pi says                                                                                                           |
-| `desktop.theme`     | `true`                                                 | Keep the desktop theme written. Nothing happens without the palette file                                                                                         |
-| `desktop.source`    | `"~/.cache/DankMaterialShell/dms-colors.json"`         | Where the palette is                                                                                                                                             |
 
 ### Segments
 

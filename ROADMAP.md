@@ -101,13 +101,12 @@ Open:
 
 ## What I see. `@adeildo/pi-look`
 
-| Item                     | Status | Note                                                                                                                                               |
-| ------------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The start card           | done   | the model with its effort, the folder and the tree, the machine, what loaded, and the keys worth knowing                                           |
-| The framed editor        | done   | the branch, the folder, the permission mode, the model and the context in its borders                                                              |
-| The strip and the footer | done   | the stopwatch, the last call's wait and speed, then the cost, the tokens, the cache and the average speeds                                         |
-| A box around each call   | done   | the icon, the name, the reason it ran, a cut before the output, and the time on the bottom line                                                    |
-| The desktop theme goes   | drop   | pi's `system` theme builds from the terminal's palette now, so `look/src/desktop/`, `look.desktop*` and `/look theme` leave after one test with it |
+| Item                     | Status | Note                                                                                                       |
+| ------------------------ | ------ | ---------------------------------------------------------------------------------------------------------- |
+| The start card           | done   | the model with its effort, the folder and the tree, the machine, what loaded, and the keys worth knowing   |
+| The framed editor        | done   | the branch, the folder, the permission mode, the model and the context in its borders                      |
+| The strip and the footer | done   | the stopwatch, the last call's wait and speed, then the cost, the tokens, the cache and the average speeds |
+| A box around each call   | done   | the icon, the name, the reason it ran, a cut before the output, and the time on the bottom line            |
 
 Open:
 

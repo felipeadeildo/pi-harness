@@ -11,8 +11,6 @@ import { emptySnapshot, type Snapshot, SnapshotReader } from "./data/snapshot.ts
 import { Telemetry } from "./data/telemetry.ts";
 import type { DeltaKind } from "./data/telemetry.ts";
 import { REQUEST_ENTRY, type RequestRecord } from "./data/totals.ts";
-import { DESKTOP_THEME } from "./desktop/palette.ts";
-import { syncDesktopTheme, watchDesktopPalette } from "./desktop/sync.ts";
 import { resolveIcons } from "./render/glyphs.ts";
 import { PLAIN, themePaint } from "./render/paint.ts";
 import { claimedStatuses, renderSegments, SEGMENTS } from "./render/segments.ts";
@@ -22,8 +20,6 @@ import {
 	bottomLeft,
 	bottomRight,
 	cursor,
-	desktop,
-	desktopSource,
 	frame,
 	gaugeCells,
 	header,
@@ -48,7 +44,6 @@ import { type Activity, describe, draftedTool } from "./ui/working.ts";
 
 export { SEGMENT_IDS, SEGMENTS, type SegmentId } from "./render/segments.ts";
 export { ROLE_TOKENS } from "./render/paint.ts";
-export { desktopTheme, parseDesktopColors } from "./desktop/palette.ts";
 
 const STRIP_WIDGET = "pi-look:strip";
 const TICK_MS = 500;
@@ -61,7 +56,6 @@ interface Live {
 	git: GitState | undefined;
 	probing: boolean;
 	ticker: ReturnType<typeof setInterval> | undefined;
-	stopWatching: (() => void) | undefined;
 	frame: Snapshot | undefined;
 	activity: string | undefined;
 }
@@ -83,7 +77,6 @@ export const look = defineFeature({
 			git: undefined,
 			probing: false,
 			ticker: undefined,
-			stopWatching: undefined,
 			frame: undefined,
 			activity: undefined,
 		};
@@ -98,7 +91,7 @@ export const look = defineFeature({
 		cursor.listen(scope, (style) => live.tui && applyCursor(live.tui, style));
 		peek.listen(scope, (on) => !on && live.ctx?.ui.setWorkingMessage());
 
-		scope.onSessionStart(async (ctx) => {
+		scope.onSessionStart((ctx) => {
 			live.ctx = ctx;
 			telemetry.reset();
 			void probeGit(live);
@@ -122,13 +115,10 @@ export const look = defineFeature({
 			});
 			installEditor(ctx, screen, live, scope);
 			installHeader(ctx, screen, scope);
-			if (desktop.get(scope)) await startDesktopSync(ctx, scope, live);
 		});
 
 		scope.onShutdown(() => {
 			stopTicking(live);
-			live.stopWatching?.();
-			live.stopWatching = undefined;
 			const ctx = live.ctx;
 			if (ctx?.mode === "tui") {
 				ctx.ui.setFooter(undefined);
@@ -215,27 +205,8 @@ export const look = defineFeature({
 			description: "Every piece the slots show right now, and what it means.",
 			run: () => explain(screen),
 		});
-
-		scope.screen.action({
-			id: "desktop.apply",
-			section: "Desktop theme",
-			label: "Switch to it now",
-			description: "Builds the desktop theme from the palette file and makes it pi's theme.",
-			run: (ctx) => switchToDesktopTheme(ctx, scope),
-		});
 	},
 });
-
-async function switchToDesktopTheme(ctx: ExtensionContext, scope: FeatureScope): Promise<string> {
-	const source = desktopSource.get(scope);
-	const result = await syncDesktopTheme(source);
-	if (result.kind === "missing") throw new Error(`no palette at ${source}`);
-	if (result.kind === "invalid") throw new Error(`cannot build the theme: ${result.reason}`);
-	const switched = ctx.ui.setTheme(DESKTOP_THEME);
-	if (!switched.success)
-		throw new Error(`wrote ${result.path}, but pi did not load it: ${switched.error ?? "unknown"}`);
-	return `Now on the ${DESKTOP_THEME} theme, built from ${source}.`;
-}
 
 const SLOT_TITLES: Record<SlotName, string> = {
 	strip: "Above the editor, this answer",
@@ -379,23 +350,6 @@ function loadedCounts(pi: ExtensionAPI): LoadedCounts {
 		prompts: commands.filter((command) => command.source === "prompt").length,
 		extensions: extensions.size,
 	};
-}
-
-async function startDesktopSync(ctx: ExtensionContext, scope: FeatureScope, live: Live) {
-	const source = desktopSource.get(scope);
-	const sync = async () => {
-		const result = await syncDesktopTheme(source);
-		if (result.kind === "invalid") scope.warn(`desktop theme: ${result.reason}`);
-		return result;
-	};
-
-	const first = await sync();
-	if (first.kind === "missing") return;
-	if (first.kind === "written" && ctx.ui.theme.name !== DESKTOP_THEME) {
-		ctx.ui.notify(`look: wrote the ${DESKTOP_THEME} theme. /look theme switches to it.`, "info");
-	}
-	live.stopWatching?.();
-	live.stopWatching = watchDesktopPalette(source, () => void sync());
 }
 
 function setActivity(live: Live, scope: FeatureScope, activity: Activity): void {
