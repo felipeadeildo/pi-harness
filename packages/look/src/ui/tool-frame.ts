@@ -12,7 +12,9 @@ import {
 import type { Theme, ToolRenderers } from "@earendil-works/pi-coding-agent";
 import {
 	type Component,
+	getKeybindings,
 	stripTerminalSequences,
+	Text,
 	truncateToWidth,
 	visibleWidth,
 } from "@earendil-works/pi-tui";
@@ -32,6 +34,9 @@ const PHASE_COLORS = {
 	failed: "error",
 } as const;
 const BODY_PAD = 4;
+const COLLAPSED_ARGS_CHARS = 100;
+/** How many lines of a result the frame prints before telling you the rest is there. */
+const RESULT_PREVIEW_LINES = 10;
 
 export function registerToolFrames(scope: FeatureScope): void {
 	const redraws = new Map<string, () => void>();
@@ -61,12 +66,11 @@ function framed(
 	scope: FeatureScope,
 	base: ToolRenderers | undefined,
 	frame: FrameContext,
-): ToolRenderers | undefined {
-	// Pi drops the whole chain when a resolver answers nothing, so a tool it cannot frame keeps
-	// whatever the next resolver drew.
-	const call = base?.renderCall;
-	const result = base?.renderResult;
-	if (base === undefined || call === undefined || result === undefined) return base;
+): ToolRenderers {
+	// A tool may bring renderers of its own, one of them, or none: the frame wraps whichever half
+	// exists, and the name with its arguments or the text of the result stands in for the rest.
+	const call = base?.renderCall ?? genericCall(frame.name);
+	const result = base?.renderResult ?? genericResult;
 
 	// A renderer of pi's own mutates the component it returned last time, which sits inside the
 	// frame, so it gets that one back instead of the frame.
@@ -128,6 +132,71 @@ function framed(
 			return box;
 		},
 	};
+}
+
+/** The name and the arguments, the way pi draws a call whose tool brought no renderer of its own. */
+function genericCall(name: string): NonNullable<ToolRenderers["renderCall"]> {
+	return (args, theme, context) => new Text(callText(name, args, theme, context.expanded), 0, 0);
+}
+
+/** The text of a result, the way pi draws one whose tool brought no renderer of its own. */
+const genericResult: NonNullable<ToolRenderers["renderResult"]> = (result, options, theme) =>
+	new Text(resultText(result, options.expanded, theme), 0, 0);
+
+function callText(name: string, args: unknown, theme: Theme, expanded: boolean): string {
+	const title = theme.fg("toolTitle", theme.bold(name));
+	if (args === null || args === undefined) return title;
+
+	const entries: [string, unknown][] =
+		typeof args === "object" && !Array.isArray(args) ? Object.entries(args) : [["args", args]];
+	if (entries.length === 0) return title;
+
+	if (expanded) {
+		const lines = entries.map(([key, value]) => {
+			const text =
+				typeof value === "string" ? value : (JSON.stringify(value, null, 2) ?? String(value));
+			return `  ${key}: ${replaceTabs(text).split("\n").join("\n    ")}`;
+		});
+		return `${title}\n${theme.fg("muted", lines.join("\n"))}`;
+	}
+
+	const pairs = entries
+		.map(([key, value]) => `${key}=${JSON.stringify(value) ?? String(value)}`)
+		.join(" ");
+	const preview =
+		pairs.length > COLLAPSED_ARGS_CHARS ? `${pairs.slice(0, COLLAPSED_ARGS_CHARS - 3)}...` : pairs;
+	return `${title} ${theme.fg("muted", preview)}`;
+}
+
+function resultText(
+	result: { content: readonly { type: string; text?: string }[] },
+	expanded: boolean,
+	theme: Theme,
+): string {
+	const text = result.content
+		.filter((block) => block.type === "text")
+		.map((block) => stripTerminalSequences(block.text ?? "").replace(/\r/g, ""))
+		.join("\n");
+	if (text === "") return "";
+
+	const lines = text.split("\n");
+	const shown = expanded ? lines : lines.slice(0, RESULT_PREVIEW_LINES);
+	const printed = shown.map((line) => theme.fg("toolOutput", line));
+	if (shown.length < lines.length)
+		printed.push(
+			theme.fg("muted", `... (${lines.length - shown.length} more lines, ${expandHint(theme)})`),
+		);
+	return printed.join("\n");
+}
+
+function expandHint(theme: Theme): string {
+	const keys = getKeybindings().getKeys("app.tools.expand");
+	if (keys.length === 0) return theme.fg("muted", "expand");
+	return `${theme.fg("dim", keys.join("/"))}${theme.fg("muted", " to expand")}`;
+}
+
+function replaceTabs(text: string): string {
+	return text.replace(/\t/g, "   ");
 }
 
 interface FrameParts {

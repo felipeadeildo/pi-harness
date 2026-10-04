@@ -32,8 +32,8 @@ function renderers(): ToolRenderers {
 	};
 }
 
-function toolResult(): AgentToolResult<undefined> {
-	return { content: [{ type: "text", text: "583 pass" }], details: undefined };
+function toolResult(text = "583 pass"): AgentToolResult<undefined> {
+	return { content: [{ type: "text", text }], details: undefined };
 }
 
 function plain(component: { render(width: number): string[] }): string[] {
@@ -184,10 +184,73 @@ describe("the frame around a tool call", () => {
 		expect(lines.at(-1)).toContain("with 1 image");
 	});
 
-	test("hands a tool it cannot frame back to pi, untouched", () => {
+	test("frames a tool that brings no renderers of its own", () => {
 		const fake = fakePi();
 		createApp(fake.pi, { name: "look" }).use(look).build();
-		const partial = { renderCall: () => new Text("mine", 0, 0) };
-		expect(resolve(fake, partial)).toBe(partial);
+		const chain = resolve(fake, {}, "memory_read");
+		if (chain === undefined) throw new Error("no renderers");
+
+		const call = chain.renderCall?.({ target: "scratchpad" }, theme, context());
+		const callLines = call === undefined ? [] : plain(call);
+		expect(callLines[0]).toMatch(/^\u256d\u2500 \S+ memory_read \u2500+\u256e$/);
+		expect(callLines[1]).toContain('memory_read target="scratchpad"');
+
+		const result = chain.renderResult?.(
+			toolResult("# Scratchpad"),
+			{ expanded: false, isPartial: false },
+			theme,
+			context(),
+		);
+		const lines = result === undefined ? [] : plain(result);
+		expect(lines.some((line) => line.includes("# Scratchpad"))).toBe(true);
+		expect(lines.at(-1)).toMatch(/^\u2570\u2500 \S+ done \u2500+\u256f$/);
+	});
+
+	test("keeps the half a tool brings, and stands in for the other", () => {
+		const fake = fakePi();
+		createApp(fake.pi, { name: "look" }).use(look).build();
+		const chain = resolve(fake, { renderCall: () => new Text("mine", 0, 0) }, "memory_read");
+		if (chain === undefined) throw new Error("no renderers");
+
+		const call = chain.renderCall?.({ target: "scratchpad" }, theme, context());
+		expect(call === undefined ? [] : plain(call)).toContainEqual(expect.stringContaining("mine"));
+
+		const result = chain.renderResult?.(
+			toolResult(),
+			{ expanded: false, isPartial: false },
+			theme,
+			context(),
+		);
+		expect(result === undefined ? [] : plain(result)).toContainEqual(
+			expect.stringContaining("583 pass"),
+		);
+	});
+
+	test("shortens a long result, and shows it all when expanded", () => {
+		const fake = fakePi();
+		createApp(fake.pi, { name: "look" }).use(look).build();
+		const chain = resolve(fake, {}, "memory_read");
+		if (chain === undefined) throw new Error("no renderers");
+		const output = Array.from({ length: 14 }, (_, index) => `line ${index + 1}`).join("\n");
+
+		const collapsed = chain.renderResult?.(
+			toolResult(output),
+			{ expanded: false, isPartial: false },
+			theme,
+			context(),
+		);
+		const collapsedLines = collapsed === undefined ? [] : plain(collapsed);
+		expect(collapsedLines.some((line) => line.includes("line 14"))).toBe(false);
+		expect(collapsedLines.some((line) => line.includes("4 more lines"))).toBe(true);
+
+		const expanded = chain.renderResult?.(
+			toolResult(output),
+			{ expanded: true, isPartial: false },
+			theme,
+			context(),
+		);
+		const expandedLines = expanded === undefined ? [] : plain(expanded);
+		expect(expandedLines.some((line) => line.includes("line 14"))).toBe(true);
+		expect(expandedLines.some((line) => line.includes("more lines"))).toBe(false);
 	});
 });

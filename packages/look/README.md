@@ -24,7 +24,7 @@
 
 ## The screen
 
-A finished answer takes a box of its own, so you can see what the model wants to run before it runs. The mark of the tool and its name sit on the top line, the command under them, and the reason it was allowed under that, when another model answered it. A line cuts the command off from what it printed, and the bottom line says how it went: a check, a cross, and how long it took. A command still running says `running` with the time so far. A tool from an MCP server shows its server and tool instead of `mcp__server__tool`.
+A finished answer takes a box of its own, so you can see what the model wants to run before it runs. The mark of the tool and its name sit on the top line, the command under them, and the reason it was allowed under that, when another model answered it. A line cuts the command off from what it printed, and the bottom line says how it went: a check, a cross, and how long it took. A command still running says `running` with the time so far. A tool from an MCP server shows its server and tool instead of `mcp__server__tool`. A tool with no drawing of its own, like the memory calls, gets the same box with its name and arguments on top and its text under the cut.
 
 <!-- docs:look/call -->
 
