@@ -1,6 +1,6 @@
 // Serializes the refresh across pi processes. A lock older than its deadline belonged to a process
 // that died, and is taken over.
-import { closeSync, openSync, statSync, unlinkSync, writeSync } from "node:fs";
+import { statSync, unlinkSync, writeFileSync } from "node:fs";
 
 const STALE_MS = 60_000;
 const RETRY_MS = 50;
@@ -27,7 +27,9 @@ export async function withLock<T>(
 
 function take(path: string): boolean {
 	try {
-		closeSync(writeSync(openSync(path, "wx"), String(process.pid)));
+		// Opens, writes and closes in one call: handing writeSync's return value to closeSync closed
+		// the byte count, and for a 5 or 6 digit pid that count is a descriptor libuv owns.
+		writeFileSync(path, String(process.pid), { flag: "wx" });
 		return true;
 	} catch {
 		dropStale(path);
