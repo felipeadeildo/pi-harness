@@ -17,4 +17,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - run: bun run verify
+      # One retry, because Bun has flaked in the runner: spawning the shell in the bash timer tests
+      # fails with EINVAL from epoll_ctl, the same fd collision we traced on the laptop. A second
+      # failure is real.
+      - run: |
+          if bun run verify; then exit 0; fi
+          echo "::warning::verify failed, retrying once"
+          bun run verify

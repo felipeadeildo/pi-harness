@@ -66,7 +66,12 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - run: bun run verify
+      # One retry, like `CI`: Bun has flaked in the runner spawning the shell in the bash timer
+      # tests (EINVAL from epoll_ctl). A second failure is real, and the release stops.
+      - run: |
+          if bun run verify; then exit 0; fi
+          echo "::warning::verify failed, retrying once"
+          bun run verify
 
       # Packs every package, installs the tarballs outside the repository and loads them, so a
       # missing file or an unresolved workspace dependency fails before anything is published.
