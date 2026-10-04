@@ -23,8 +23,8 @@ import {
 	type TranscriptContext,
 } from "@earendil-works/pi-ai";
 
-import { classifyFailure } from "../errors.ts";
-import { withLock } from "./lock.ts";
+import { classifyFailure, type Failure } from "../errors.ts";
+import { needsRefresh, refreshAccount, type Renewal } from "./refresh.ts";
 import { DEFAULT_ACCOUNT } from "./types.ts";
 
 /** The account the next request uses, and where a refreshed token is kept. */
@@ -191,20 +191,8 @@ async function* attempts(
 			session.served?.(account?.id ?? DEFAULT_ACCOUNT);
 
 		if (!output && attempt < MAX_ATTEMPTS) {
-			const problem =
-				failure?.errorMessage !== undefined
-					? classifyFailure(failure.errorMessage, model.provider)
-					: thrown === undefined
-						? undefined
-						: classifyFailure(thrown, model.provider);
-			const next =
-				problem?.kind === "usage"
-					? // oxlint-disable-next-line no-await-in-loop -- the answer comes from the user.
-						await session.afterLimit(account?.id ?? DEFAULT_ACCOUNT, problem.message)
-					: problem?.kind === "auth"
-						? // oxlint-disable-next-line no-await-in-loop -- the answer comes from the user.
-							await session.afterAuthFailure?.(account?.id ?? DEFAULT_ACCOUNT, problem.message)
-						: undefined;
+			// oxlint-disable-next-line no-await-in-loop -- the answer comes from the user.
+			const next = await moveOn(session, account?.id, failureOf(failure, thrown, model.provider));
 			if (next !== undefined) {
 				account = next;
 				continue;
@@ -215,6 +203,28 @@ async function* attempts(
 		if (thrown !== undefined) throw thrown;
 		return;
 	}
+}
+
+/** The classified failure behind an attempt: the provider's own error, or what it threw. */
+function failureOf(
+	failed: AssistantMessage | undefined,
+	thrown: unknown,
+	provider: string,
+): Failure | undefined {
+	if (failed?.errorMessage !== undefined) return classifyFailure(failed.errorMessage, provider);
+	return thrown === undefined ? undefined : classifyFailure(thrown, provider);
+}
+
+/** What the policy says after a failure: another account, a sign-in, or nothing. */
+async function moveOn(
+	session: AccountSession,
+	accountId: string | undefined,
+	failure: Failure | undefined,
+): Promise<{ id: string; credential: Credential } | undefined> {
+	const id = accountId ?? DEFAULT_ACCOUNT;
+	if (failure?.kind === "usage") return await session.afterLimit(id, failure.message);
+	if (failure?.kind === "auth") return await session.afterAuthFailure?.(id, failure.message);
+	return undefined;
 }
 
 function isContent(event: AssistantMessageEvent): boolean {
@@ -296,10 +306,7 @@ async function resolveAuth(
 	return resolved === undefined ? { auth: {} } : { auth: resolved.auth, env: resolved.env };
 }
 
-// Pi refreshes its own token under the store lock, five minutes early. Ours is ours to refresh, and
-// one refresh per account is shared, so two requests cannot rotate the token twice.
-const REFRESH_MARGIN_MS = 5 * 60 * 1000;
-
+// One refresh per account is shared, so two requests cannot rotate the token twice.
 async function refreshToken(
 	oauth: OAuthAuth,
 	session: AccountSession,
@@ -308,39 +315,22 @@ async function refreshToken(
 	credential: OAuthCredential,
 	signal: AbortSignal,
 ): Promise<OAuthCredential> {
-	if (credential.expires > Date.now() + REFRESH_MARGIN_MS) return credential;
+	if (!needsRefresh(credential)) return credential;
 
 	const inFlight = refreshing.get(accountId);
 	if (inFlight !== undefined) return await inFlight;
 
-	const lock = session.lockPath?.();
-	const task =
-		lock === undefined
-			? refreshNow(oauth, session, accountId, credential, signal)
-			: withLock(lock, async () => await refreshNow(oauth, session, accountId, credential, signal));
+	const renewal: Renewal = {
+		freshen: (id) => session.freshen?.(id),
+		save: (id, fresh) => session.save(id, fresh),
+	};
+	const task = refreshAccount(oauth, renewal, accountId, credential, signal, session.lockPath?.());
 	refreshing.set(accountId, task);
 	try {
 		return await task;
 	} finally {
 		refreshing.delete(accountId);
 	}
-}
-
-/** Re-reads the account, refreshes it when the disk copy is still stale, and saves the result. */
-async function refreshNow(
-	oauth: OAuthAuth,
-	session: AccountSession,
-	accountId: string,
-	credential: OAuthCredential,
-	signal: AbortSignal,
-): Promise<OAuthCredential> {
-	// Another pi may have refreshed it while this attempt waited for the lock.
-	const onDisk = session.freshen?.(accountId);
-	if (onDisk?.type === "oauth" && onDisk.expires > Date.now() + REFRESH_MARGIN_MS) return onDisk;
-
-	const fresh = await oauth.refresh(credential, signal);
-	session.save(accountId, fresh);
-	return fresh;
 }
 
 function applyAuth(
@@ -389,7 +379,7 @@ function liftedAuth(provider: Provider, session: AccountSession): ProviderAuth {
 	const original = provider.auth.apiKey;
 	const login = original?.login;
 	const oauth = provider.auth.oauth;
-	return {
+	const auth: ProviderAuth = {
 		apiKey: {
 			name: original?.name ?? `${provider.name} accounts`,
 			...(login === undefined
@@ -405,15 +395,14 @@ function liftedAuth(provider: Provider, session: AccountSession): ProviderAuth {
 				return original?.resolve(input);
 			},
 		},
-		...(oauth === undefined
-			? {}
-			: {
-					oauth: {
-						...oauth,
-						login: (interaction, options) => adopt(oauth.login(interaction, options), session),
-					},
-				}),
 	};
+	if (oauth !== undefined) {
+		auth.oauth = {
+			...oauth,
+			login: (interaction, options) => adopt(oauth.login(interaction, options), session),
+		};
+	}
+	return auth;
 }
 
 /** Pi's login just ran; the feature keeps the credential under a name before pi stores it. */

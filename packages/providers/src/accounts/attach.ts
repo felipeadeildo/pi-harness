@@ -8,10 +8,12 @@ import { noteUsage, resetNote, usageOf, worstWindow } from "../usage/read.ts";
 import type { AccountUsage, UsageMap } from "../usage/types.ts";
 import { activeAccount } from "./active.ts";
 import { adoptAccount } from "./adopt.ts";
+import { reason } from "./describe.ts";
 import { liftProvider, nativeOf, type AccountSession } from "./lift.ts";
 import { nativeCredential } from "./login.ts";
 import type { Pins } from "./pins.ts";
 import { afterAuthFailure, afterLimit } from "./policy.ts";
+import { type Renewal, needsRefresh, refreshAccount } from "./refresh.ts";
 import { accountsLockPath, type AccountStore } from "./store.ts";
 
 /** What the session learns while it runs. */
@@ -65,16 +67,12 @@ function sessionFor(
 			store.markLimited(providerId, id, undefined);
 		},
 		adopt: (credential) => adoptAccount(scope, store, pins, ctx, providerId, credential),
-		freshen: (id) => {
-			// Another pi may have refreshed the account since this session read it.
-			store.reload();
-			return store.accounts(providerId).find((account) => account.id === id)?.credential;
-		},
+		freshen: (id) => renewalFor(store, providerId).freshen(id),
 		lockPath: accountsLockPath,
 		noteUsage: (id, headers) =>
 			noteUsage(watch.usage, providerId, id, watch.quota.fromHeaders(providerId, headers)),
 		afterLimit: async (currentId, detail) => {
-			const reading = await readingFor(watch, store, providerId, currentId);
+			const reading = await readingFor(watch, store, ctx, providerId, currentId);
 			const until = worstWindow(reading)?.window.resetsAt;
 			if (until !== undefined) store.markLimited(providerId, currentId, until);
 			return await afterLimit(
@@ -111,24 +109,55 @@ export function knownReading(
 export async function readingFor(
 	watch: Watch,
 	store: AccountStore,
+	ctx: ExtensionContext,
 	providerId: string,
 	accountId: string,
 ): Promise<AccountUsage | undefined> {
 	const known = knownReading(watch, providerId, accountId);
 	if (known !== undefined) return known;
-	return await watch.quota.ensure(providerId, accountId, oauthToken(store, providerId, accountId));
+	const token = await planToken(store, ctx, providerId, accountId);
+	return await watch.quota.ensure(providerId, accountId, token);
 }
 
-/** The OAuth token that can read a plan: the account's, or pi's own for the default row. */
-function oauthToken(
+/** The token that can read a plan, refreshed when it is an account's and it has expired. */
+async function planToken(
 	store: AccountStore,
+	ctx: ExtensionContext,
 	providerId: string,
 	accountId: string,
-): string | undefined {
+): Promise<string | undefined> {
 	const account = store.accounts(providerId).find((entry) => entry.id === accountId);
-	if (account !== undefined) {
-		return account.credential.type === "oauth" ? account.credential.access : undefined;
+	const credential = account?.credential ?? nativeCredential(providerId);
+	if (credential?.type !== "oauth") return undefined;
+	if (!needsRefresh(credential)) return credential.access;
+
+	// Pi refreshes its own token on the next request, so only our own accounts are renewed here.
+	const oauth =
+		account === undefined ? undefined : ctx.modelRegistry.getProvider(providerId)?.auth.oauth;
+	if (account === undefined || oauth === undefined) return undefined;
+	try {
+		const fresh = await refreshAccount(
+			oauth,
+			renewalFor(store, providerId),
+			account.id,
+			credential,
+			new AbortController().signal,
+			accountsLockPath(),
+		);
+		return fresh.access;
+	} catch (error) {
+		store.markError(providerId, account.id, "auth", reason(error));
+		return undefined;
 	}
-	const credential = nativeCredential(providerId);
-	return credential?.type === "oauth" ? credential.access : undefined;
+}
+
+/** The store side of a refresh: the newest copy, and where to save the result. */
+function renewalFor(store: AccountStore, providerId: string): Renewal {
+	return {
+		freshen: (id) => {
+			store.reload();
+			return store.accounts(providerId).find((account) => account.id === id)?.credential;
+		},
+		save: (id, credential) => void store.setCredential(providerId, id, credential),
+	};
 }

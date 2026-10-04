@@ -1,6 +1,5 @@
-// Serializes the refresh across pi processes. The provider rotates the refresh token on use, so two
-// processes refreshing at once would leave one of them with a token that no longer works. A lock
-// older than its deadline belonged to a process that died, and is taken over.
+// Serializes the refresh across pi processes. A lock older than its deadline belonged to a process
+// that died, and is taken over.
 import { closeSync, openSync, statSync, unlinkSync, writeSync } from "node:fs";
 
 const STALE_MS = 60_000;

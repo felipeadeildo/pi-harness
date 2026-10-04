@@ -91,7 +91,7 @@ async function readPlans(store: AccountStore, watch: Watch, ctx: ExtensionContex
 	const providerId = ctx.model?.provider;
 	if (providerId === undefined || !store.has(providerId)) return;
 	const ids = [DEFAULT_ACCOUNT, ...store.accounts(providerId).map((account) => account.id)];
-	await Promise.all(ids.map((id) => readingFor(watch, store, providerId, id)));
+	await Promise.all(ids.map((id) => readingFor(watch, store, ctx, providerId, id)));
 }
 
 /** The account in use for a provider, with the windows it is spending. */

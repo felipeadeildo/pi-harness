@@ -103,7 +103,7 @@ function accountNote(
 	}
 
 	const until = account.health?.limitedUntil;
-	const left = until === undefined ? undefined : timeLeft(until);
+	const left = timeLeft(until ?? 0);
 	return left === undefined ? undefined : theme.fg("warning", `spent, resets in ${left}`);
 }
 

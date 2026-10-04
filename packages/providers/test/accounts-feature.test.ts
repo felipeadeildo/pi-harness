@@ -422,7 +422,13 @@ test("the account picker shows what each account has left", async () => {
 });
 
 test("a session reads the plans in the background", async () => {
-	new AccountStore().add("anthropic", "work", OAUTH);
+	const valid: Credential = {
+		type: "oauth",
+		access: "a",
+		refresh: "r",
+		expires: Date.now() + 3_600_000,
+	};
+	new AccountStore().add("anthropic", "work", valid);
 	const fake = fakePi();
 	fake.pi.registerProvider = (() => {}) as never;
 	createApp(fake.pi, { name: "test", settingsPath: join(dir, "settings.json") })
