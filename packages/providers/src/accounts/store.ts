@@ -16,6 +16,11 @@ export function accountsPath(): string {
 	return join(dirname(globalSettingsPath()), ACCOUNTS_FILE);
 }
 
+/** The file two pi processes take while they refresh the same accounts. */
+export function accountsLockPath(): string {
+	return join(dirname(globalSettingsPath()), "accounts.lock");
+}
+
 /** What an add produced: the account it wrote, or why it did not. */
 export interface Added {
 	account?: Account;

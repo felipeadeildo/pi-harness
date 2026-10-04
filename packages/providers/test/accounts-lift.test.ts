@@ -1,4 +1,8 @@
 import { expect, test } from "bun:test";
+import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
 	createAssistantMessageEventStream,
@@ -554,4 +558,27 @@ test("a credential another pi refreshed is used instead of refreshing again", as
 
 	expect(refreshes()).toBe(0);
 	expect(seen[0]?.apiKey).toBe("oauth:disk");
+});
+
+test("the refresh runs with the shared lock held", async () => {
+	const { provider } = fake();
+	const lock = join(tmpdir(), `pi-lift-lock-${randomUUID()}.lock`);
+	let held = false;
+	provider.auth.oauth = {
+		...provider.auth.oauth!,
+		refresh: async (credential) => {
+			held = existsSync(lock);
+			return { ...credential, access: "fresh", expires: Date.now() + 3_600_000 };
+		},
+	};
+	const lifted = liftProvider(provider, {
+		...session({ type: "oauth", access: "old", refresh: "r", expires: 0 }),
+		lockPath: () => lock,
+	});
+
+	lifted.streamSimple(MODEL, CONTEXT);
+	await settle();
+
+	expect(held).toBe(true);
+	expect(existsSync(lock)).toBe(false);
 });

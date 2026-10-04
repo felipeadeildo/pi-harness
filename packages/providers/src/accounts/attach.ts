@@ -12,7 +12,7 @@ import { liftProvider, nativeOf, type AccountSession } from "./lift.ts";
 import { nativeCredential } from "./login.ts";
 import type { Pins } from "./pins.ts";
 import { afterAuthFailure, afterLimit } from "./policy.ts";
-import type { AccountStore } from "./store.ts";
+import { accountsLockPath, type AccountStore } from "./store.ts";
 
 /** What the session learns while it runs. */
 export interface Watch {
@@ -70,6 +70,7 @@ function sessionFor(
 			store.reload();
 			return store.accounts(providerId).find((account) => account.id === id)?.credential;
 		},
+		lockPath: accountsLockPath,
 		noteUsage: (id, headers) =>
 			noteUsage(watch.usage, providerId, id, watch.quota.fromHeaders(providerId, headers)),
 		afterLimit: async (currentId, detail) => {

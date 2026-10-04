@@ -24,6 +24,7 @@ import {
 } from "@earendil-works/pi-ai";
 
 import { classifyFailure } from "../errors.ts";
+import { withLock } from "./lock.ts";
 import { DEFAULT_ACCOUNT } from "./types.ts";
 
 /** The account the next request uses, and where a refreshed token is kept. */
@@ -44,6 +45,8 @@ export interface AccountSession {
 	adopt?(credential: Credential): Promise<void>;
 	/** The credential on disk now, in case another pi refreshed it since we read ours. */
 	freshen?(id: string): Credential | undefined;
+	/** The file the refresh takes across processes, when the caller shares one. */
+	lockPath?(): string;
 	/** The quota headers of a response, kept for the account that served it. */
 	noteUsage?(id: string, headers: Record<string, string>): void;
 	/** The account served a request, so a limit it had is over. */
@@ -306,23 +309,38 @@ async function refreshToken(
 	signal: AbortSignal,
 ): Promise<OAuthCredential> {
 	if (credential.expires > Date.now() + REFRESH_MARGIN_MS) return credential;
-	// Another pi may have refreshed the same account since this session read it.
-	const onDisk = session.freshen?.(accountId);
-	if (onDisk?.type === "oauth" && onDisk.expires > Date.now() + REFRESH_MARGIN_MS) return onDisk;
 
 	const inFlight = refreshing.get(accountId);
 	if (inFlight !== undefined) return await inFlight;
 
-	const task = oauth.refresh(credential, signal).then((fresh) => {
-		session.save(accountId, fresh);
-		return fresh;
-	});
+	const lock = session.lockPath?.();
+	const task =
+		lock === undefined
+			? refreshNow(oauth, session, accountId, credential, signal)
+			: withLock(lock, async () => await refreshNow(oauth, session, accountId, credential, signal));
 	refreshing.set(accountId, task);
 	try {
 		return await task;
 	} finally {
 		refreshing.delete(accountId);
 	}
+}
+
+/** Re-reads the account, refreshes it when the disk copy is still stale, and saves the result. */
+async function refreshNow(
+	oauth: OAuthAuth,
+	session: AccountSession,
+	accountId: string,
+	credential: OAuthCredential,
+	signal: AbortSignal,
+): Promise<OAuthCredential> {
+	// Another pi may have refreshed it while this attempt waited for the lock.
+	const onDisk = session.freshen?.(accountId);
+	if (onDisk?.type === "oauth" && onDisk.expires > Date.now() + REFRESH_MARGIN_MS) return onDisk;
+
+	const fresh = await oauth.refresh(credential, signal);
+	session.save(accountId, fresh);
+	return fresh;
 }
 
 function applyAuth(
