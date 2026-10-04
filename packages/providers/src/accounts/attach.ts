@@ -3,17 +3,12 @@
 import type { FeatureScope } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import {
-	type AccountUsage,
-	noteUsage,
-	type Quota,
-	quotaKey,
-	resetNote,
-	type UsageMap,
-	usageOf,
-} from "../usage.ts";
+import type { Quota } from "../usage/quota.ts";
+import { noteUsage, resetNote, usageOf } from "../usage/read.ts";
+import type { AccountUsage, UsageMap } from "../usage/types.ts";
 import { activeAccount } from "./active.ts";
 import { liftProvider, nativeOf, type AccountSession } from "./lift.ts";
+import { nativeCredential } from "./login.ts";
 import type { Pins } from "./pins.ts";
 import { afterAuthFailure, afterLimit } from "./policy.ts";
 import type { AccountStore } from "./store.ts";
@@ -64,7 +59,8 @@ function sessionFor(
 		},
 		save: (id, credential) => void store.setCredential(providerId, id, credential),
 		served: (id) => void watch.limited.get(providerId)?.delete(id),
-		noteUsage: (id, headers) => noteUsage(watch.usage, providerId, id, headers),
+		noteUsage: (id, headers) =>
+			noteUsage(watch.usage, providerId, id, watch.quota.fromHeaders(providerId, headers)),
 		afterLimit: async (currentId, detail) => {
 			const reading = await readingFor(watch, store, providerId, currentId);
 			return await afterLimit(
@@ -88,6 +84,15 @@ function withReset(detail: string, usage: AccountUsage | undefined): string {
 	return note === undefined ? detail : `${detail} · ${note}`;
 }
 
+/** The reading already known: the live one, else the endpoint's. */
+export function knownReading(
+	watch: Watch,
+	providerId: string,
+	accountId: string,
+): AccountUsage | undefined {
+	return usageOf(watch.usage, providerId, accountId) ?? watch.quota.read(providerId, accountId);
+}
+
 /** The best reading for an account: the live one, else the endpoint's, fetched when there is none. */
 export async function readingFor(
 	watch: Watch,
@@ -95,9 +100,21 @@ export async function readingFor(
 	providerId: string,
 	accountId: string,
 ): Promise<AccountUsage | undefined> {
-	const live = usageOf(watch.usage, providerId, accountId);
-	if (live !== undefined) return live;
+	const known = knownReading(watch, providerId, accountId);
+	if (known !== undefined) return known;
+	return await watch.quota.ensure(providerId, accountId, oauthToken(store, providerId, accountId));
+}
+
+/** The OAuth token that can read a plan: the account's, or pi's own for the default row. */
+function oauthToken(
+	store: AccountStore,
+	providerId: string,
+	accountId: string,
+): string | undefined {
 	const account = store.accounts(providerId).find((entry) => entry.id === accountId);
-	const token = account?.credential.type === "oauth" ? account.credential.access : undefined;
-	return await watch.quota.ensure(quotaKey(providerId, accountId), token);
+	if (account !== undefined) {
+		return account.credential.type === "oauth" ? account.credential.access : undefined;
+	}
+	const credential = nativeCredential(providerId);
+	return credential?.type === "oauth" ? credential.access : undefined;
 }

@@ -1,15 +1,16 @@
 // The picker behind Alt+A and the flow behind /accounts.
 import type { FeatureScope } from "@adeildo/pi-kit";
 import type { Provider } from "@earendil-works/pi-ai";
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 
-import { pick } from "../ui/picker.ts";
-import { type AccountUsage, usageText } from "../usage.ts";
+import { pick, type PickOption } from "../ui/picker.ts";
+import { windowsOf } from "../usage/read.ts";
+import type { UsageWindow } from "../usage/types.ts";
 import { activeAccount } from "./active.ts";
-import { attachProvider, readingFor, type Watch } from "./attach.ts";
+import { attachProvider, knownReading, type Watch } from "./attach.ts";
 import { reason } from "./describe.ts";
 import { interactionFor } from "./interaction.ts";
-import { login, loginMethods, type LoginMethod } from "./login.ts";
+import { kindText, login, loginMethods, type LoginMethod, nativeCredential } from "./login.ts";
 import { LOGIN_KEY, NAME } from "./names.ts";
 import { pin, type Pins } from "./pins.ts";
 import { DEFAULT_ACCOUNT, DEFAULT_LABEL, refreshStatus } from "./screen.ts";
@@ -40,32 +41,59 @@ export async function pickAccount(
 	}
 
 	const current = activeAccount(store, pins, providerId)?.id ?? DEFAULT_ACCOUNT;
-	const readings = new Map<string, AccountUsage | undefined>();
-	for (const account of entries) {
-		// oxlint-disable-next-line no-await-in-loop -- the endpoint refuses bursts from one token.
-		readings.set(account.id, await readingFor(watch, store, providerId, account.id));
-	}
 	const choices = [
-		{ id: DEFAULT_ACCOUNT, label: DEFAULT_LABEL, kind: "login" },
+		{
+			id: DEFAULT_ACCOUNT,
+			label: DEFAULT_LABEL,
+			kind: kindText(nativeCredential(providerId)?.type),
+		},
 		...entries.map((account) => ({
 			id: account.id,
 			label: account.label,
-			kind: account.credential.type === "oauth" ? "oauth" : "key",
+			kind: kindText(account.credential.type),
 		})),
 	];
-	const options = choices.map((choice) => {
-		const here = choice.id === current ? " ✓" : "";
-		const quota = choice.id === DEFAULT_ACCOUNT ? undefined : usageText(readings.get(choice.id));
-		const left = quota === undefined ? "" : ` ${quota}`;
-		return `${choice.label} (${choice.kind})${left}${here}`;
+	const labels = choices.map((choice) => {
+		const here = choice.id === current ? ` ${ctx.ui.theme.fg("success", "✓")}` : "";
+		const kind = choice.kind === undefined ? "" : ` ${ctx.ui.theme.fg("dim", `(${choice.kind})`)}`;
+		return `${choice.label}${kind}${here}`;
+	});
+	const options: PickOption[] = choices.map((choice, index) => {
+		const label = labels[index] ?? choice.label;
+		const windows = windowsOf(knownReading(watch, providerId, choice.id));
+		if (windows.length === 0) return { label };
+		const description = windows.map((window) => quotaLine(ctx.ui.theme, window)).join("   ");
+		return { label, description };
 	});
 
 	const picked = await pick(ctx, `Account for ${providerId}`, options);
-	const choice = choices[options.indexOf(picked ?? "")];
+	const choice = choices[labels.indexOf(picked ?? "")];
 	if (choice === undefined) return;
 	pin(scope, pins, providerId, choice.id === DEFAULT_ACCOUNT ? null : choice.id);
 	refreshStatus(store, pins, ctx);
 	ctx.ui.notify(`${NAME}: ${providerId} uses ${choice.label}`, "info");
+}
+
+/** The color a window's usage reads in: healthy, getting full, or spent. */
+function quotaTone(used: number): "success" | "warning" | "error" {
+	if (used >= 90) return "error";
+	if (used >= 70) return "warning";
+	return "success";
+}
+
+/** One window, in fixed columns so rows line up. */
+const NAME_WIDTH = 4;
+const PERCENT_WIDTH = 4;
+const RESET_WIDTH = 13;
+
+/** One window, in fixed columns so every row lines up: `5h    62% resets in 2h `. */
+function quotaLine(theme: Theme, window: UsageWindow): string {
+	const token = quotaTone(window.used);
+	const percent = theme.bold(theme.fg(token, `${window.used}%`.padStart(PERCENT_WIDTH)));
+	const reset = (window.resetsIn === undefined ? "" : `resets in ${window.resetsIn}`).padEnd(
+		RESET_WIDTH,
+	);
+	return `${theme.fg("muted", window.name.padEnd(NAME_WIDTH))} ${percent} ${theme.fg("muted", reset)}`;
 }
 
 /** /accounts: names a new credential and runs the provider's own login. */

@@ -42,13 +42,12 @@ Pi keeps one credential per provider, the one `/login` wrote. This keeps more. T
 /accounts anthropic
 ```
 
-It asks for the provider, its login method and a name, and runs the login Pi already has, so there is no OAuth of its own here. Each account shows its kind:
+It asks for the provider, its login method and a name, and runs the login Pi already has, so there is no OAuth of its own here. Each account shows its kind, pi's own credential included:
 
-| Kind    | Is                                                                    |
-| ------- | --------------------------------------------------------------------- |
-| `login` | The credential of `/login`, which cannot be copied out of `auth.json` |
-| `oauth` | A subscription token, billed to its own plan                          |
-| `key`   | An API key                                                            |
+| Kind    | Is                                           |
+| ------- | -------------------------------------------- |
+| `oauth` | A subscription token, billed to its own plan |
+| `key`   | An API key                                   |
 
 `alt+a` switches the account of the current model's provider, and the Providers tab of `Alt+S` lists them to choose, rename or remove. The account in use sits next to the model. The session remembers the choice, so a resume or a fork comes back to the same one.
 

@@ -511,7 +511,7 @@ test("the headers of a response land on the account that served it", async () =>
 	const state = session({ type: "api_key", key: "k" });
 	const lifted = liftProvider(provider, state);
 
-	for await (const _event of lifted.streamSimple(MODEL, CONTEXT));
+	for await (const event of lifted.streamSimple(MODEL, CONTEXT)) void event;
 
 	expect(state.notes).toEqual([{ id: ACCOUNT_ID, headers }]);
 });

@@ -19,7 +19,8 @@ import type { Pins } from "../src/accounts/pins.ts";
 import { afterAuthFailure, afterLimit, usageLimitLine } from "../src/accounts/policy.ts";
 import { onAuthFailure, onLimit } from "../src/accounts/settings.ts";
 import { AccountStore } from "../src/accounts/store.ts";
-import { Quota } from "../src/usage.ts";
+import { anthropicQuota } from "../src/usage/anthropic.ts";
+import { Quota } from "../src/usage/quota.ts";
 import { agentDirFixture } from "./helpers.ts";
 
 const OAUTH: Credential = { type: "oauth", access: "a", refresh: "r", expires: 0 };
@@ -361,10 +362,15 @@ test("a finished message or another error is left alone", () => {
 
 test("the account picker shows what each account has left", async () => {
 	const store = new AccountStore();
-	store.add("anthropic", "work", OAUTH);
+	const work = store.add("anthropic", "work", OAUTH).account;
 	store.add("anthropic", "personal", OTHER);
+	if (work === undefined) throw new Error("no account");
 	const scope = fakeScope({ pi: fakePi() });
-	const watch: Watch = { limited: new Map(), usage: new Map(), quota: new Quota(() => "2.1.280") };
+	const watch: Watch = {
+		limited: new Map(),
+		usage: new Map(),
+		quota: new Quota({ anthropic: anthropicQuota(() => "2.1.280") }),
+	};
 	const body = {
 		limits: [
 			{
@@ -373,15 +379,24 @@ test("the account picker shows what each account has left", async () => {
 				is_active: true,
 				resets_at: new Date(Date.now() + 2 * 3_600_000).toISOString(),
 			},
+			{
+				kind: "weekly_all",
+				percent: 30,
+				is_active: false,
+				resets_at: new Date(Date.now() + 4 * 86_400_000).toISOString(),
+			},
 		],
 	};
 	const mock = spyOn(globalThis, "fetch");
 	mock.mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }));
 	try {
+		// The session reads the plans in the background; here it is the test that fills the cache.
+		await watch.quota.ensure("anthropic", work.id, "token");
 		let shown: string[] = [];
 		const ctx = fakeContext([], true, {
 			model: { provider: "anthropic" },
 			ui: {
+				theme: { fg: (_role: string, text: string) => text, bold: (text: string) => text },
 				setStatus: () => {},
 				notify: () => {},
 				select: async (_title: string, options: string[]) => {
@@ -394,8 +409,43 @@ test("the account picker shows what each account has left", async () => {
 		await pickAccount(scope, store, new Map(), watch, ctx);
 
 		// The api-key account has no endpoint to ask, so only the OAuth one carries numbers.
-		expect(shown[1]).toContain("work (oauth) 62% ↓2h");
-		expect(shown[2]).toBe("personal (key)");
+		expect(shown[1]).toContain(
+			"work (subscription)  5h    62% resets in 2h    week  30% resets in 4d",
+		);
+		expect(shown[2]).toBe("personal (api key)");
+	} finally {
+		mock.mockRestore();
+	}
+});
+
+test("a session reads the plans in the background", async () => {
+	new AccountStore().add("anthropic", "work", OAUTH);
+	const fake = fakePi();
+	fake.pi.registerProvider = (() => {}) as never;
+	createApp(fake.pi, { name: "test", settingsPath: join(dir, "settings.json") })
+		.use(accounts)
+		.build();
+
+	const mock = spyOn(globalThis, "fetch");
+	// The endpoint refuses and the one-token call answers with the window in its headers.
+	mock.mockResolvedValue(
+		new Response("{}", {
+			status: 429,
+			headers: { "anthropic-ratelimit-unified-5h-utilization": "0.5" },
+		}),
+	);
+	try {
+		const ctx = fakeContext([], true, {
+			model: { provider: "anthropic" },
+			modelRegistry: { getProvider: () => native() },
+			sessionManager: { getBranch: () => [] },
+			ui: { notify: () => {}, setStatus: () => {} },
+		});
+		await fake.fire("session_start", {}, ctx);
+
+		expect(mock).toHaveBeenCalledTimes(2);
+		expect(String(mock.mock.calls[0]?.[0])).toContain("/api/oauth/usage");
+		expect(String(mock.mock.calls[1]?.[0])).toContain("/v1/messages");
 	} finally {
 		mock.mockRestore();
 	}

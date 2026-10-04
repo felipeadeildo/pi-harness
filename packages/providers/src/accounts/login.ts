@@ -4,6 +4,18 @@ import type {
 	Provider,
 	ProviderAuthInteraction,
 } from "@earendil-works/pi-ai";
+import { readStoredCredential } from "@earendil-works/pi-coding-agent";
+
+/** The credential pi itself holds for a provider. */
+export function nativeCredential(providerId: string): Credential | undefined {
+	return readStoredCredential(providerId);
+}
+
+/** The word a person reads for a credential type. */
+export function kindText(type: Credential["type"] | undefined): string | undefined {
+	if (type === undefined) return undefined;
+	return type === "oauth" ? "subscription" : "api key";
+}
 
 /** One way a provider can log in, named the way its own login dialog names it. */
 export interface LoginMethod {

@@ -4,6 +4,7 @@ import type { FeatureScope, Json, ScreenEntry } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { activeAccount } from "./active.ts";
+import { kindText, nativeCredential } from "./login.ts";
 import { STATUS_KEY } from "./names.ts";
 import { pin, type Pins } from "./pins.ts";
 import type { AccountStore } from "./store.ts";
@@ -46,13 +47,14 @@ export function accountRows(
 
 /** Pi's own credential, as the first account of the provider. */
 function defaultRow(group: ProviderGroup): ScreenEntry {
+	const kind = kindText(nativeCredential(group.providerId)?.type) ?? "login";
 	return {
 		kind: "action",
 		id: `accounts.${group.providerId}.default`,
 		section: group.label,
 		label: DEFAULT_LABEL,
 		description: "The credential of /login, which stays in pi's own store.",
-		text: () => (inUse(group) ? "login, in use" : "login"),
+		text: () => (inUse(group) ? `${kind}, in use` : kind),
 		indent: 1,
 		run: (ctx) => {
 			group.store.setActive(group.providerId, undefined);

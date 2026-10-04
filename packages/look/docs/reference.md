@@ -55,25 +55,26 @@ Another palette source is a new file next to `src/desktop/palette.ts`: a parser 
 
 They live in the file every piece shares, `~/.pi/agent/extensions/pi-harness/settings.json`, under `look.`. The ones marked _project_ are also read from a trusted project.
 
-| Key                 | Default                                                                               | Does                                                                                                                                                             |
-| ------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `strip`             | `["elapsed", "last"]`                                                                 | The line above the editor. _project_                                                                                                                             |
-| `frame.topLeft`     | `["branch", "session"]`                                                               | After the spinner. _project_                                                                                                                                     |
-| `frame.topRight`    | `["path", "host"]`                                                                    | _project_                                                                                                                                                        |
-| `frame.bottomLeft`  | `["status:pi-ask-permission:mode", "model", "status:pi-providers:account", "effort"]` | _project_                                                                                                                                                        |
-| `frame.bottomRight` | `["context"]`                                                                         | _project_                                                                                                                                                        |
-| `below`             | `["cost", "tokens", "cache", "average", "statuses"]`                                  | The line below the editor. _project_                                                                                                                             |
-| `labels`            | `true`                                                                                | A short word before each number: `out`, `in`, `ttft`, `wait`, `thought`, `server`, `time`, `ctx`, `cache`. Off is denser, with only the glyphs. _project_        |
-| `frame.style`       | `"rounded"`                                                                           | `rounded`, `square`, `heavy`, `line` (pi's two rules, written into), or `off`, which leaves pi's editor alone and moves the frame slots to the footer. _project_ |
-| `frame.cursor`      | `"bar"`                                                                               | `block`, `bar` or `underline`. The last two use the terminal's own cursor                                                                                        |
-| `header`            | `"card"`                                                                              | `card`, `compact` (two lines) or `off` (pi's own). _project_                                                                                                     |
-| `icons`             | `"auto"`                                                                              | `nerd`, `unicode` or `ascii`. Auto uses Nerd Font glyphs locally and plain Unicode over SSH, where the font lives on the other machine                           |
-| `separator`         | `"space"`                                                                             | `dot`, `bar`, `slash` or `space`. _project_                                                                                                                      |
-| `pathLength`        | `40`                                                                                  | Longest the folder may be before it loses folders from the left. _project_                                                                                       |
-| `gaugeCells`        | `8`                                                                                   | Cells in the context gauge. `0` hides it. _project_                                                                                                              |
-| `peek`              | `true`                                                                                | The spinner names the state. Off, it says what pi says                                                                                                           |
-| `desktop.theme`     | `true`                                                                                | Keep the desktop theme written. Nothing happens without the palette file                                                                                         |
-| `desktop.source`    | `"~/.cache/DankMaterialShell/dms-colors.json"`                                        | Where the palette is                                                                                                                                             |
+| Key                 | Default                                                | Does                                                                                                                                                             |
+| ------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `strip`             | `["elapsed", "last"]`                                  | The line above the editor. _project_                                                                                                                             |
+| `frame.topLeft`     | `["branch", "session"]`                                | After the spinner. _project_                                                                                                                                     |
+| `frame.topRight`    | `["path", "host"]`                                     | _project_                                                                                                                                                        |
+| `frame.bottomLeft`  | `["status:pi-ask-permission:mode", "model", "effort"]` | _project_                                                                                                                                                        |
+| `frame.bottomRight` | `["context"]`                                          | _project_                                                                                                                                                        |
+| `below`             | `["cost", "tokens", "cache", "average", "statuses"]`   | The line below the editor. _project_                                                                                                                             |
+| `belowRight`        | `["quota"]`                                            | The other side of that line, on the right edge. _project_                                                                                                        |
+| `labels`            | `true`                                                 | A short word before each number: `out`, `in`, `ttft`, `wait`, `thought`, `server`, `time`, `ctx`, `cache`. Off is denser, with only the glyphs. _project_        |
+| `frame.style`       | `"rounded"`                                            | `rounded`, `square`, `heavy`, `line` (pi's two rules, written into), or `off`, which leaves pi's editor alone and moves the frame slots to the footer. _project_ |
+| `frame.cursor`      | `"bar"`                                                | `block`, `bar` or `underline`. The last two use the terminal's own cursor                                                                                        |
+| `header`            | `"card"`                                               | `card`, `compact` (two lines) or `off` (pi's own). _project_                                                                                                     |
+| `icons`             | `"auto"`                                               | `nerd`, `unicode` or `ascii`. Auto uses Nerd Font glyphs locally and plain Unicode over SSH, where the font lives on the other machine                           |
+| `separator`         | `"space"`                                              | `dot`, `bar`, `slash` or `space`. _project_                                                                                                                      |
+| `pathLength`        | `40`                                                   | Longest the folder may be before it loses folders from the left. _project_                                                                                       |
+| `gaugeCells`        | `8`                                                    | Cells in the context gauge. `0` hides it. _project_                                                                                                              |
+| `peek`              | `true`                                                 | The spinner names the state. Off, it says what pi says                                                                                                           |
+| `desktop.theme`     | `true`                                                 | Keep the desktop theme written. Nothing happens without the palette file                                                                                         |
+| `desktop.source`    | `"~/.cache/DankMaterialShell/dms-colors.json"`         | Where the palette is                                                                                                                                             |
 
 ### Segments
 
@@ -87,8 +88,9 @@ Any segment goes in any slot, in the order the slot lists them.
 | `session`      | The session name, once it has one                                                                     |
 | `version`      | The pi version                                                                                        |
 | `clock`        | The time                                                                                              |
-| `model`        | `provider/model`                                                                                      |
+| `model`        | `provider/model`, with the account in parentheses when one is in use                                  |
 | `provider`     | The provider on its own                                                                               |
+| `quota`        | Every window of the plan, with its percent and its reset                                              |
 | `effort`       | The effort meter and level. Hidden for models that do not reason                                      |
 | `context`      | Context used, the gauge, tokens over the window                                                       |
 | `speed`        | This answer's speeds, received `↓` and sent `↑`                                                       |
@@ -105,7 +107,7 @@ Any segment goes in any slot, in the order the slot lists them.
 | `statuses`     | What other packages report through `setStatus`, minus the ones placed on their own                    |
 | `status:<key>` | One package's status, by the key it passes to `setStatus`                                             |
 
-A `status:<key>` segment is how a package gets a place of its own. [`@adeildo/pi-ask-permission`](../ask-permission) reports its mode as `pi-ask-permission:mode`, and the mode says what happens to what you type, so by default it sits in the frame next to the model instead of in the footer with everything else.
+A `status:<key>` segment is how a package gets a place of its own. [`@adeildo/pi-ask-permission`](../ask-permission) reports its mode as `pi-ask-permission:mode`, and the mode says what happens to what you type, so by default it sits in the frame next to the model instead of in the footer with everything else. `@adeildo/pi-providers` still reports its account as `pi-providers:account`, but the `model` segment draws it in parentheses, so the statuses segment skips it.
 
 ## How it fits
 
