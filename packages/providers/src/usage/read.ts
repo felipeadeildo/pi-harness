@@ -70,10 +70,14 @@ function effective(window: Window, now: number): Window {
 	return window;
 }
 
-function leftOf(window: Window, now: number): string | undefined {
-	if (window.resetsAt === undefined) return undefined;
-	const seconds = window.resetsAt - Math.floor(now / 1000);
+/** How long until a unix second, like `2h`. */
+export function timeLeft(until: number, now = Date.now()): string | undefined {
+	const seconds = until - Math.floor(now / 1000);
 	return seconds <= 0 ? undefined : duration(seconds);
+}
+
+function leftOf(window: Window, now: number): string | undefined {
+	return window.resetsAt === undefined ? undefined : timeLeft(window.resetsAt, now);
 }
 
 function duration(seconds: number): string {

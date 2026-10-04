@@ -36,20 +36,20 @@ Anthropic answers `400 claude_code_version_too_old` when it considers the versio
 
 ## Accounts
 
-Pi keeps one credential per provider, the one `/login` wrote. This keeps more. The credential of `/login` stays as the first account, and every other one is an extra credential with a name.
+Pi keeps one credential per provider, the one `/login` wrote. This keeps more. The credential of `/login` stays as the first account, and every other one is an extra credential with a name. When a login writes a credential that already belongs to a saved account, both are the same account, and only the named one shows.
 
 ```text
 /accounts anthropic
 ```
 
-It asks for the provider, its login method and a name, and runs the login Pi already has, so there is no OAuth of its own here. Each account shows its kind, pi's own credential included:
+It asks for the provider, its login method and a name, and runs the login Pi already has, so there is no OAuth of its own here. A `/login` for a provider that already has accounts asks where the credential goes, replacing an account or becoming a new one. Each account shows its kind, pi's own credential included:
 
 | Kind    | Is                                           |
 | ------- | -------------------------------------------- |
 | `oauth` | A subscription token, billed to its own plan |
 | `key`   | An API key                                   |
 
-`alt+a` switches the account of the current model's provider, and the Providers tab of `Alt+S` lists them to choose, rename or remove. The account in use sits next to the model. The session remembers the choice, so a resume or a fork comes back to the same one.
+`alt+a` switches the account of the current model's provider, and the Providers tab of `Alt+S` lists them to choose, rename or remove. The account in use sits next to the model. Each row shows what its plan has left, and an account whose credential the provider refused says `sign in again` until it is signed in again. The session remembers the choice, so a resume or a fork comes back to the same one.
 
 When a provider refuses a request for a quota or a rate limit and that provider has another account, `accounts.onLimit` decides what happens:
 

@@ -6,9 +6,29 @@ import type {
 } from "@earendil-works/pi-ai";
 import { readStoredCredential } from "@earendil-works/pi-coding-agent";
 
+import type { Account } from "./types.ts";
+
 /** The credential pi itself holds for a provider. */
 export function nativeCredential(providerId: string): Credential | undefined {
 	return readStoredCredential(providerId);
+}
+
+/** The saved account that holds the same credential pi does, when a login wrote both. */
+export function nativeDuplicate(
+	providerId: string,
+	accounts: readonly Account[],
+): Account | undefined {
+	const native = nativeCredential(providerId);
+	if (native === undefined) return undefined;
+	return accounts.find((account) => sameCredential(account.credential, native));
+}
+
+function sameCredential(a: Credential, b: Credential): boolean {
+	if (a.type !== b.type) return false;
+	if (a.type === "oauth" && b.type === "oauth")
+		return a.refresh === b.refresh || a.access === b.access;
+	if (a.type === "api_key" && b.type === "api_key") return a.key === b.key;
+	return false;
 }
 
 /** The word a person reads for a credential type. */

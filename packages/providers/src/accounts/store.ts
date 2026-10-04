@@ -6,8 +6,9 @@ import { dirname, join } from "node:path";
 import { globalSettingsPath, isObject, readSettingsFile, writeSettingsFile } from "@adeildo/pi-kit";
 import type { Credential } from "@earendil-works/pi-ai";
 
+import { FAILURE_KINDS, type FailureKind } from "../errors.ts";
 import { reason } from "./describe.ts";
-import type { Account, AccountsFile, ProviderAccounts } from "./types.ts";
+import type { Account, AccountHealth, AccountsFile, ProviderAccounts } from "./types.ts";
 
 export const ACCOUNTS_FILE = "accounts.json";
 
@@ -78,7 +79,7 @@ export class AccountStore {
 
 	rename(providerId: string, id: string, label: string): string | undefined {
 		return this.edit((providers) => {
-			const account = providers[providerId]?.accounts.find((entry) => entry.id === id);
+			const account = find(providers, providerId, id);
 			if (account !== undefined) account.label = label.trim() || account.label;
 		});
 	}
@@ -96,8 +97,51 @@ export class AccountStore {
 	/** Keeps the credential a refresh produced. */
 	setCredential(providerId: string, id: string, credential: Credential): string | undefined {
 		return this.edit((providers) => {
-			const account = providers[providerId]?.accounts.find((entry) => entry.id === id);
+			const account = find(providers, providerId, id);
 			if (account !== undefined) account.credential = credential;
+		});
+	}
+
+	/** Remembers the last refusal of an account, which the picker shows. */
+	markError(
+		providerId: string,
+		id: string,
+		kind: FailureKind,
+		message: string,
+	): string | undefined {
+		return this.editHealth(providerId, id, (health) => {
+			health.lastError = { at: Date.now(), kind, message };
+		});
+	}
+
+	/** Forgets the last refusal, after a sign-in or a request that worked. */
+	clearError(providerId: string, id: string): string | undefined {
+		return this.editHealth(providerId, id, (health) => {
+			delete health.lastError;
+		});
+	}
+
+	/** Remembers that the plan is spent until a time, or forgets it with undefined. */
+	markLimited(providerId: string, id: string, until: number | undefined): string | undefined {
+		return this.editHealth(providerId, id, (health) => {
+			if (until === undefined) delete health.limitedUntil;
+			else health.limitedUntil = until;
+		});
+	}
+
+	private editHealth(
+		providerId: string,
+		id: string,
+		change: (health: AccountHealth) => void,
+	): string | undefined {
+		return this.edit((providers) => {
+			const account = find(providers, providerId, id);
+			if (account === undefined) return;
+			const health = account.health ?? {};
+			change(health);
+			if (health.lastError === undefined && health.limitedUntil === undefined)
+				delete account.health;
+			else account.health = health;
 		});
 	}
 
@@ -117,6 +161,14 @@ export class AccountStore {
 	}
 }
 
+function find(
+	providers: Record<string, ProviderAccounts>,
+	providerId: string,
+	id: string,
+): Account | undefined {
+	return providers[providerId]?.accounts.find((account) => account.id === id);
+}
+
 function readAccounts(path: string): {
 	providers: Record<string, ProviderAccounts>;
 	warnings: string[];
@@ -130,7 +182,9 @@ function readAccounts(path: string): {
 	const providers: Record<string, ProviderAccounts> = {};
 	for (const [providerId, value] of Object.entries(source)) {
 		if (!isObject(value) || !Array.isArray(value.accounts)) continue;
-		const accounts = value.accounts.filter(isAccount);
+		const accounts = value.accounts
+			.map(asAccount)
+			.filter((account): account is Account => account !== undefined);
 		if (accounts.length === 0) continue;
 		providers[providerId] = {
 			accounts,
@@ -149,13 +203,43 @@ function writeAccounts(path: string, data: AccountsFile): string | undefined {
 	}
 }
 
-function isAccount(input: unknown): input is Account {
-	return (
-		isObject(input) &&
-		typeof input.id === "string" &&
-		typeof input.label === "string" &&
-		isCredential(input.credential)
-	);
+function asAccount(input: unknown): Account | undefined {
+	if (!isObject(input)) return undefined;
+	if (
+		typeof input.id !== "string" ||
+		typeof input.label !== "string" ||
+		!isCredential(input.credential)
+	) {
+		return undefined;
+	}
+	const health = readHealth(input.health);
+	return {
+		id: input.id,
+		label: input.label,
+		credential: input.credential,
+		...(health === undefined ? {} : { health }),
+	};
+}
+
+/** Keeps the health fields that decode, so a hand edit cannot break the account. */
+function readHealth(input: unknown): AccountHealth | undefined {
+	if (!isObject(input)) return undefined;
+	const health: AccountHealth = {};
+	const error = input.lastError;
+	if (
+		isObject(error) &&
+		typeof error.at === "number" &&
+		isFailureKind(error.kind) &&
+		typeof error.message === "string"
+	) {
+		health.lastError = { at: error.at, kind: error.kind, message: error.message };
+	}
+	if (typeof input.limitedUntil === "number") health.limitedUntil = input.limitedUntil;
+	return health.lastError === undefined && health.limitedUntil === undefined ? undefined : health;
+}
+
+function isFailureKind(value: unknown): value is FailureKind {
+	return typeof value === "string" && (FAILURE_KINDS as readonly string[]).includes(value);
 }
 
 function isCredential(input: unknown): input is Credential {

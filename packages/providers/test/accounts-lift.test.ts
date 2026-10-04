@@ -7,6 +7,7 @@ import {
 	type Credential,
 	type Model,
 	type Provider,
+	type ProviderAuthInteraction,
 	type StreamOptions,
 	type TranscriptContext,
 } from "@earendil-works/pi-ai";
@@ -514,4 +515,43 @@ test("the headers of a response land on the account that served it", async () =>
 	for await (const event of lifted.streamSimple(MODEL, CONTEXT)) void event;
 
 	expect(state.notes).toEqual([{ id: ACCOUNT_ID, headers }]);
+});
+
+test("a login through the lifted provider hands the credential to the feature", async () => {
+	const { provider } = fake();
+	const adopted: Credential[] = [];
+	const lifted = liftProvider(provider, {
+		...session(undefined),
+		adopt: async (credential) => void adopted.push(credential),
+	});
+	const interaction: ProviderAuthInteraction = {
+		signal: new AbortController().signal,
+		prompt: async () => "",
+		notify: () => {},
+	};
+
+	const credential = await lifted.auth.apiKey?.login?.(interaction);
+	if (credential === undefined) throw new Error("no login");
+
+	expect(adopted).toEqual([credential]);
+});
+
+test("a credential another pi refreshed is used instead of refreshing again", async () => {
+	const { provider, refreshes, seen } = fake();
+	const account: Credential = { type: "oauth", access: "old", refresh: "r", expires: 0 };
+	const lifted = liftProvider(provider, {
+		...session(account),
+		freshen: () => ({
+			type: "oauth",
+			access: "disk",
+			refresh: "r",
+			expires: Date.now() + 3_600_000,
+		}),
+	});
+
+	lifted.streamSimple(MODEL, CONTEXT);
+	await settle();
+
+	expect(refreshes()).toBe(0);
+	expect(seen[0]?.apiKey).toBe("oauth:disk");
 });

@@ -40,6 +40,10 @@ export interface AccountSession {
 		currentId: string,
 		detail: string,
 	): Promise<{ id: string; credential: Credential } | undefined>;
+	/** Pi's own login just produced a credential; the feature keeps it under a name. */
+	adopt?(credential: Credential): Promise<void>;
+	/** The credential on disk now, in case another pi refreshed it since we read ours. */
+	freshen?(id: string): Credential | undefined;
 	/** The quota headers of a response, kept for the account that served it. */
 	noteUsage?(id: string, headers: Record<string, string>): void;
 	/** The account served a request, so a limit it had is over. */
@@ -302,6 +306,9 @@ async function refreshToken(
 	signal: AbortSignal,
 ): Promise<OAuthCredential> {
 	if (credential.expires > Date.now() + REFRESH_MARGIN_MS) return credential;
+	// Another pi may have refreshed the same account since this session read it.
+	const onDisk = session.freshen?.(accountId);
+	if (onDisk?.type === "oauth" && onDisk.expires > Date.now() + REFRESH_MARGIN_MS) return onDisk;
 
 	const inFlight = refreshing.get(accountId);
 	if (inFlight !== undefined) return await inFlight;
@@ -363,10 +370,13 @@ function mergeHeaders(
 function liftedAuth(provider: Provider, session: AccountSession): ProviderAuth {
 	const original = provider.auth.apiKey;
 	const login = original?.login;
+	const oauth = provider.auth.oauth;
 	return {
 		apiKey: {
 			name: original?.name ?? `${provider.name} accounts`,
-			...(login === undefined ? {} : { login: (interaction) => login(interaction) }),
+			...(login === undefined
+				? {}
+				: { login: (interaction) => adopt(login(interaction), session) }),
 			async check(input) {
 				const account = session.resolve();
 				if (account !== undefined) return { type: account.credential.type, source: "account" };
@@ -377,6 +387,23 @@ function liftedAuth(provider: Provider, session: AccountSession): ProviderAuth {
 				return original?.resolve(input);
 			},
 		},
-		...(provider.auth.oauth === undefined ? {} : { oauth: provider.auth.oauth }),
+		...(oauth === undefined
+			? {}
+			: {
+					oauth: {
+						...oauth,
+						login: (interaction, options) => adopt(oauth.login(interaction, options), session),
+					},
+				}),
 	};
+}
+
+/** Pi's login just ran; the feature keeps the credential under a name before pi stores it. */
+async function adopt<T extends Credential>(
+	pending: Promise<T>,
+	session: AccountSession,
+): Promise<T> {
+	const credential = await pending;
+	await session.adopt?.(credential);
+	return credential;
 }

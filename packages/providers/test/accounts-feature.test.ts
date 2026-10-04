@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { createApp } from "@adeildo/pi-kit";
@@ -255,6 +256,7 @@ test("a refused login signs in again without losing the account", async () => {
 	const pins: Pins = new Map([["anthropic", work.id]]);
 	const scope = fakeScope({ pi: fakePi() });
 	scope.settings.register([onAuthFailure]);
+	store.markError("anthropic", work.id, "auth", "invalid_grant");
 	const fresh: Credential = { type: "oauth", access: "fresh", refresh: "r2", expires: 0 };
 	const provider = native();
 	provider.auth.oauth = {
@@ -288,6 +290,7 @@ test("a refused login signs in again without losing the account", async () => {
 	const saved = new AccountStore().accounts("anthropic")[0];
 	expect(saved?.label).toBe("work");
 	expect(saved?.credential).toEqual(fresh);
+	expect(saved?.health).toBeUndefined();
 });
 
 test("a usage limit gets the line that stops pi's retry", async () => {
@@ -449,4 +452,95 @@ test("a session reads the plans in the background", async () => {
 	} finally {
 		mock.mockRestore();
 	}
+});
+
+test("a refused credential is remembered until a sign-in", async () => {
+	const store = new AccountStore();
+	store.add("anthropic", "work", OAUTH);
+	const [work] = store.accounts("anthropic");
+	if (work === undefined) throw new Error("no account");
+	const pins: Pins = new Map([["anthropic", work.id]]);
+	const scope = fakeScope({ pi: fakePi() });
+	scope.settings.register([onAuthFailure]);
+	scope.settings.set(onAuthFailure, "stop");
+	const ctx = fakeContext([], true, {
+		model: { provider: "anthropic" },
+		ui: { setStatus: () => {}, notify: () => {}, select: async () => undefined },
+	});
+
+	const moved = await afterAuthFailure(
+		scope,
+		store,
+		pins,
+		ctx,
+		"anthropic",
+		work.id,
+		"invalid_grant",
+	);
+
+	expect(moved).toBeUndefined();
+	expect(new AccountStore().accounts("anthropic")[0]?.health?.lastError).toMatchObject({
+		kind: "auth",
+		message: "invalid_grant",
+	});
+});
+
+test("the picker says when an account needs a sign-in", async () => {
+	const store = new AccountStore();
+	const added = store.add("anthropic", "work", OAUTH).account;
+	if (added === undefined) throw new Error("no account");
+	store.markError("anthropic", added.id, "auth", "401");
+	const scope = fakeScope({ pi: fakePi() });
+	const watch: Watch = {
+		limited: new Map(),
+		usage: new Map(),
+		quota: new Quota({ anthropic: anthropicQuota(() => "2.1.280") }),
+	};
+	let shown: string[] = [];
+	const ctx = fakeContext([], true, {
+		model: { provider: "anthropic" },
+		ui: {
+			theme: { fg: (_role: string, text: string) => text, bold: (text: string) => text },
+			setStatus: () => {},
+			notify: () => {},
+			select: async (_title: string, options: string[]) => {
+				shown = options;
+				return undefined;
+			},
+		},
+	});
+
+	await pickAccount(scope, store, new Map(), watch, ctx);
+
+	expect(shown[1]).toContain("sign in again");
+});
+
+test("the picker hides pi's credential when it is already a saved account", async () => {
+	const store = new AccountStore();
+	store.add("anthropic", "work", OAUTH);
+	writeFileSync(join(dir, "auth.json"), JSON.stringify({ anthropic: OAUTH }));
+	const scope = fakeScope({ pi: fakePi() });
+	const watch: Watch = {
+		limited: new Map(),
+		usage: new Map(),
+		quota: new Quota({ anthropic: anthropicQuota(() => "2.1.280") }),
+	};
+	let shown: string[] = [];
+	const ctx = fakeContext([], true, {
+		model: { provider: "anthropic" },
+		ui: {
+			theme: { fg: (_role: string, text: string) => text, bold: (text: string) => text },
+			setStatus: () => {},
+			notify: () => {},
+			select: async (_title: string, options: string[]) => {
+				shown = options;
+				return undefined;
+			},
+		},
+	});
+
+	await pickAccount(scope, store, new Map(), watch, ctx);
+
+	expect(shown).toHaveLength(1);
+	expect(shown[0]).toContain("work");
 });

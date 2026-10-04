@@ -4,17 +4,25 @@ import type { Provider } from "@earendil-works/pi-ai";
 import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 
 import { pick, type PickOption } from "../ui/picker.ts";
-import { windowsOf } from "../usage/read.ts";
-import type { UsageWindow } from "../usage/types.ts";
+import { timeLeft, windowsOf } from "../usage/read.ts";
+import type { AccountUsage, UsageWindow } from "../usage/types.ts";
 import { activeAccount } from "./active.ts";
 import { attachProvider, knownReading, type Watch } from "./attach.ts";
 import { reason } from "./describe.ts";
 import { interactionFor } from "./interaction.ts";
-import { kindText, login, loginMethods, type LoginMethod, nativeCredential } from "./login.ts";
+import {
+	kindText,
+	login,
+	loginMethods,
+	type LoginMethod,
+	nativeCredential,
+	nativeDuplicate,
+} from "./login.ts";
 import { LOGIN_KEY, NAME } from "./names.ts";
 import { pin, type Pins } from "./pins.ts";
 import { DEFAULT_ACCOUNT, DEFAULT_LABEL, refreshStatus } from "./screen.ts";
 import type { AccountStore } from "./store.ts";
+import type { Account } from "./types.ts";
 
 /** Alt+A: the account of the current provider, pinned for the session. */
 export async function pickAccount(
@@ -42,15 +50,21 @@ export async function pickAccount(
 
 	const current = activeAccount(store, pins, providerId)?.id ?? DEFAULT_ACCOUNT;
 	const choices = [
-		{
-			id: DEFAULT_ACCOUNT,
-			label: DEFAULT_LABEL,
-			kind: kindText(nativeCredential(providerId)?.type),
-		},
+		...(nativeDuplicate(providerId, entries) === undefined
+			? [
+					{
+						id: DEFAULT_ACCOUNT,
+						label: DEFAULT_LABEL,
+						kind: kindText(nativeCredential(providerId)?.type),
+						account: undefined,
+					},
+				]
+			: []),
 		...entries.map((account) => ({
 			id: account.id,
 			label: account.label,
 			kind: kindText(account.credential.type),
+			account,
 		})),
 	];
 	const labels = choices.map((choice) => {
@@ -60,10 +74,11 @@ export async function pickAccount(
 	});
 	const options: PickOption[] = choices.map((choice, index) => {
 		const label = labels[index] ?? choice.label;
-		const windows = windowsOf(knownReading(watch, providerId, choice.id));
-		if (windows.length === 0) return { label };
-		const description = windows.map((window) => quotaLine(ctx.ui.theme, window)).join("   ");
-		return { label, description };
+		const description =
+			choice.account === undefined
+				? undefined
+				: accountNote(ctx.ui.theme, choice.account, knownReading(watch, providerId, choice.id));
+		return description === undefined ? { label } : { label, description };
 	});
 
 	const picked = await pick(ctx, `Account for ${providerId}`, options);
@@ -72,6 +87,24 @@ export async function pickAccount(
 	pin(scope, pins, providerId, choice.id === DEFAULT_ACCOUNT ? null : choice.id);
 	refreshStatus(store, pins, ctx);
 	ctx.ui.notify(`${NAME}: ${providerId} uses ${choice.label}`, "info");
+}
+
+/** What a row says: the account's own trouble first, else how its plan stands. */
+function accountNote(
+	theme: Theme,
+	account: Account,
+	reading: AccountUsage | undefined,
+): string | undefined {
+	if (account.health?.lastError?.kind === "auth") return theme.fg("error", "sign in again");
+
+	const windows = windowsOf(reading);
+	if (windows.length > 0) {
+		return windows.map((window) => quotaLine(theme, window)).join("   ");
+	}
+
+	const until = account.health?.limitedUntil;
+	const left = until === undefined ? undefined : timeLeft(until);
+	return left === undefined ? undefined : theme.fg("warning", `spent, resets in ${left}`);
 }
 
 /** The color a window's usage reads in: healthy, getting full, or spent. */

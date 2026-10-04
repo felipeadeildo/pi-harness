@@ -108,5 +108,6 @@ function inUse(
 		provider: providerId,
 		label: account?.label ?? DEFAULT_LABEL,
 		windows: windowsOf(knownReading(watch, providerId, accountId)),
+		...(account?.health?.lastError?.kind === "auth" ? { needsLogin: true } : {}),
 	};
 }

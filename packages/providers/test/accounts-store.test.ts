@@ -102,3 +102,38 @@ test("an entry that is not a credential is dropped", () => {
 	const store = new AccountStore(path);
 	expect(store.has("anthropic")).toBe(false);
 });
+
+test("health survives a reload, and a hand edit cannot break it", () => {
+	const store = new AccountStore(path);
+	const id = addWork(store);
+	store.markError("anthropic", id, "auth", "invalid_grant");
+	store.markLimited("anthropic", id, 1_800_000_000);
+
+	const saved = new AccountStore(path).accounts("anthropic")[0];
+	expect(saved?.health?.lastError).toMatchObject({ kind: "auth", message: "invalid_grant" });
+	expect(saved?.health?.limitedUntil).toBe(1_800_000_000);
+
+	store.clearError("anthropic", id);
+	store.markLimited("anthropic", id, undefined);
+	expect(new AccountStore(path).accounts("anthropic")[0]?.health).toBeUndefined();
+
+	writeFileSync(
+		path,
+		JSON.stringify({
+			version: 1,
+			providers: {
+				anthropic: {
+					accounts: [
+						{
+							id: "x",
+							label: "work",
+							credential: OAUTH,
+							health: { lastError: { at: "nope" }, limitedUntil: "nope" },
+						},
+					],
+				},
+			},
+		}),
+	);
+	expect(new AccountStore(path).accounts("anthropic")[0]?.health).toBeUndefined();
+});

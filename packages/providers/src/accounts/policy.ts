@@ -7,6 +7,7 @@ import { classifyFailure } from "../errors.ts";
 import { pick } from "../ui/picker.ts";
 import { reason } from "./describe.ts";
 import { interactionFor } from "./interaction.ts";
+import { nativeOf } from "./lift.ts";
 import { login, loginMethods } from "./login.ts";
 import { LOGIN_KEY, NAME } from "./names.ts";
 import { pin, type Pins } from "./pins.ts";
@@ -72,10 +73,12 @@ export async function afterAuthFailure(
 	currentId: string,
 	detail: string,
 ): Promise<{ id: string; credential: Credential } | undefined> {
+	const account = store.accounts(providerId).find((entry) => entry.id === currentId);
+	if (account !== undefined) store.markError(providerId, currentId, "auth", detail);
+
 	const mode = onAuthFailure.get(scope);
 	if (mode === "stop") return undefined;
 
-	const account = store.accounts(providerId).find((entry) => entry.id === currentId);
 	const next = nextAccount(store.accounts(providerId), currentId, new Set());
 	if (mode === "switch") {
 		return next === undefined
@@ -113,7 +116,9 @@ async function signInAgain(
 	account: Account,
 	detail: string,
 ): Promise<{ id: string; credential: Credential } | undefined> {
-	const provider = ctx.modelRegistry.getProvider(providerId);
+	const registered = ctx.modelRegistry.getProvider(providerId);
+	// The native provider, so the login does not pass through the lift and ask for a name again.
+	const provider = registered === undefined ? undefined : nativeOf(registered);
 	if (provider === undefined) return undefined;
 	const method = loginMethods(provider).find(
 		(candidate) => candidate.authType === account.credential.type,
@@ -132,6 +137,7 @@ async function signInAgain(
 			ctx.ui.notify(`${NAME}: ${problem}`, "error");
 			return undefined;
 		}
+		store.clearError(providerId, account.id);
 		ctx.ui.notify(`${NAME}: ${providerId} · ${account.label} signed in again (${detail})`, "info");
 		return { id: account.id, credential };
 	} catch (error) {

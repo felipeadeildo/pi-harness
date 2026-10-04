@@ -4,9 +4,10 @@ import type { FeatureScope } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import type { Quota } from "../usage/quota.ts";
-import { noteUsage, resetNote, usageOf } from "../usage/read.ts";
+import { noteUsage, resetNote, usageOf, worstWindow } from "../usage/read.ts";
 import type { AccountUsage, UsageMap } from "../usage/types.ts";
 import { activeAccount } from "./active.ts";
+import { adoptAccount } from "./adopt.ts";
 import { liftProvider, nativeOf, type AccountSession } from "./lift.ts";
 import { nativeCredential } from "./login.ts";
 import type { Pins } from "./pins.ts";
@@ -58,11 +59,23 @@ function sessionFor(
 			return account === undefined ? undefined : { id: account.id, credential: account.credential };
 		},
 		save: (id, credential) => void store.setCredential(providerId, id, credential),
-		served: (id) => void watch.limited.get(providerId)?.delete(id),
+		served: (id) => {
+			watch.limited.get(providerId)?.delete(id);
+			store.clearError(providerId, id);
+			store.markLimited(providerId, id, undefined);
+		},
+		adopt: (credential) => adoptAccount(scope, store, pins, ctx, providerId, credential),
+		freshen: (id) => {
+			// Another pi may have refreshed the account since this session read it.
+			store.reload();
+			return store.accounts(providerId).find((account) => account.id === id)?.credential;
+		},
 		noteUsage: (id, headers) =>
 			noteUsage(watch.usage, providerId, id, watch.quota.fromHeaders(providerId, headers)),
 		afterLimit: async (currentId, detail) => {
 			const reading = await readingFor(watch, store, providerId, currentId);
+			const until = worstWindow(reading)?.window.resetsAt;
+			if (until !== undefined) store.markLimited(providerId, currentId, until);
 			return await afterLimit(
 				scope,
 				store,

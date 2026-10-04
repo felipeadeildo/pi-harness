@@ -4,7 +4,7 @@ import type { FeatureScope, Json, ScreenEntry } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { activeAccount } from "./active.ts";
-import { kindText, nativeCredential } from "./login.ts";
+import { kindText, nativeCredential, nativeDuplicate } from "./login.ts";
 import { STATUS_KEY } from "./names.ts";
 import { pin, type Pins } from "./pins.ts";
 import type { AccountStore } from "./store.ts";
@@ -37,9 +37,10 @@ export function accountRows(
 			providerId,
 			label: ctx.modelRegistry.getProviderDisplayName(providerId),
 		};
+		const entries = store.accounts(providerId);
 		rows.push(
-			defaultRow(group),
-			...store.accounts(providerId).flatMap((account) => accountBlock(group, account)),
+			...(nativeDuplicate(providerId, entries) === undefined ? [defaultRow(group)] : []),
+			...entries.flatMap((account) => accountBlock(group, account)),
 		);
 	}
 	return rows;
