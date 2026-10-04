@@ -32,13 +32,13 @@ function wrap(text: string, width: number): string[] {
 
 /** The opener pi uses, so the sign-in page opens on its own and the URL stays for the rest. */
 function openBrowser(target: string): void {
-	const [command, args] =
+	const opener: [string, string[]] =
 		process.platform === "darwin"
 			? ["open", [target]]
 			: process.platform === "win32"
 				? ["rundll32", ["url.dll,FileProtocolHandler", target]]
 				: ["xdg-open", [target]];
-	spawn(command ?? "xdg-open", args, { stdio: "ignore", detached: true })
+	spawn(...opener, { stdio: "ignore", detached: true })
 		.on("error", () => {})
 		.unref();
 }
