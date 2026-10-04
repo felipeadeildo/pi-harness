@@ -65,6 +65,16 @@ describe("segments", () => {
 		expect(piece?.text).toBe("5h 100% resets in 11m  week 12% resets in 3d");
 	});
 
+	test("an account that needs a sign-in says so in the quota", () => {
+		const [piece] = render(
+			["quota"],
+			snapshot({
+				account: { provider: "anthropic", label: "work", windows: [], needsLogin: true },
+			}),
+		);
+		expect(piece?.text).toBe("sign in again");
+	});
+
 	test("the effort is a meter of six levels, filled up to the one in use", () => {
 		expect(text(["effort"])).toEqual(["|||||| high"]);
 		const painted = renderSegments(["effort"], {

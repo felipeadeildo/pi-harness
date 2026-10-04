@@ -16,6 +16,8 @@ export interface AccountState {
 	provider: string;
 	label: string;
 	windows: AccountWindow[];
+	/** The provider refused the account's credential, so it needs a sign-in. */
+	needsLogin?: boolean;
 }
 
 interface Request {

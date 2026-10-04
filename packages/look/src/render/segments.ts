@@ -211,9 +211,11 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 		priority: 58,
 		describe: "what each window of the plan spent, and when it resets",
 		render: ({ snapshot, paint }) => {
-			const windows = snapshot.account?.windows ?? [];
-			if (windows.length === 0) return undefined;
-			const text = windows.map((window) => quotaWindow(paint, window)).join("  ");
+			const account = snapshot.account;
+			if (account === undefined) return undefined;
+			if (account.needsLogin === true) return { text: paint.stress(100, "sign in again") };
+			if (account.windows.length === 0) return undefined;
+			const text = account.windows.map((window) => quotaWindow(paint, window)).join("  ");
 			return { text };
 		},
 	},
