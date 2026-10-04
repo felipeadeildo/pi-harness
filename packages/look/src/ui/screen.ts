@@ -6,7 +6,14 @@ import type { Paint } from "../render/paint.ts";
 import { renderSegments, type SegmentId, type SegmentOptions } from "../render/segments.ts";
 import type { CursorStyle } from "../settings.ts";
 
-export type SlotName = "strip" | "topLeft" | "topRight" | "bottomLeft" | "bottomRight" | "below";
+export type SlotName =
+	| "strip"
+	| "topLeft"
+	| "topRight"
+	| "bottomLeft"
+	| "bottomRight"
+	| "below"
+	| "belowRight";
 
 export interface Screen {
 	snapshot(): Snapshot;

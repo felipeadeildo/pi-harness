@@ -57,7 +57,7 @@ export class FooterComponent implements Component {
 			lines.push(spread(screen, "topLeft", "topRight", room));
 			lines.push(spread(screen, "bottomLeft", "bottomRight", room));
 		}
-		lines.push(renderSlot(screen, "below", room));
+		lines.push(spread(screen, "below", "belowRight", room));
 
 		const kept = lines.filter((line) => line !== "").map((line) => `${pad}${line}`);
 		return kept.length === 0 ? [""] : kept;

@@ -56,6 +56,7 @@ export function latency(milliseconds: number): string {
 }
 
 export function money(amount: number): string {
+	if (amount === 0) return "$0.00";
 	return amount >= 10 ? `$${amount.toFixed(2)}` : `$${amount.toFixed(3)}`;
 }
 

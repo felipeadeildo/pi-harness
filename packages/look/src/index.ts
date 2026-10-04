@@ -1,4 +1,4 @@
-import { createApp, defineFeature, type FeatureScope } from "@adeildo/pi-kit";
+import { accountStateOf, createApp, defineFeature, type FeatureScope } from "@adeildo/pi-kit";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
@@ -18,6 +18,7 @@ import { PLAIN, themePaint } from "./render/paint.ts";
 import { claimedStatuses, renderSegments, SEGMENTS } from "./render/segments.ts";
 import {
 	below,
+	belowRight,
 	bottomLeft,
 	bottomRight,
 	cursor,
@@ -243,6 +244,7 @@ const SLOT_TITLES: Record<SlotName, string> = {
 	bottomLeft: "Frame, bottom left",
 	bottomRight: "Frame, bottom right",
 	below: "Below the editor, the session",
+	belowRight: "Below the editor, on the right",
 };
 
 function explain(screen: Screen): string {
@@ -290,6 +292,7 @@ function createScreen(
 		bottomLeft,
 		bottomRight,
 		below,
+		belowRight,
 	};
 
 	return {
@@ -300,6 +303,7 @@ function createScreen(
 			const snapshot = reader.read(ctx, {
 				branch: live.footerData?.getGitBranch() ?? null,
 				git: live.git,
+				account: accountStateOf(scope.events, ctx.model?.provider),
 				request: telemetry.request(),
 				last: telemetry.last(),
 				run: telemetry.run(),

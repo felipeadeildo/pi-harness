@@ -1,3 +1,5 @@
+import type { AccountWindow } from "@adeildo/pi-kit";
+
 import type { Snapshot } from "../data/snapshot.ts";
 import { promptOf, tokensOf, type Totals } from "../data/totals.ts";
 import type { Piece } from "./fit.ts";
@@ -38,6 +40,7 @@ export const SEGMENT_IDS = [
 	"request",
 	"costRate",
 	"cost",
+	"quota",
 	"tokens",
 	"cache",
 	"average",
@@ -58,11 +61,19 @@ export function isSegmentId(value: string): value is SegmentId {
 	);
 }
 
+/** Status keys a builtin segment already draws, so the statuses segment skips them. */
+const CLAIMED_BY_SEGMENT: Partial<Record<BuiltinSegment, string>> = {
+	model: "pi-providers:account",
+};
+
 export function claimedStatuses(slots: readonly (readonly SegmentId[])[]): Set<string> {
 	const claimed = new Set<string>();
 	for (const ids of slots) {
-		for (const id of ids)
+		for (const id of ids) {
 			if (id.startsWith(STATUS_PREFIX)) claimed.add(id.slice(STATUS_PREFIX.length));
+			const bySegment = CLAIMED_BY_SEGMENT[id as BuiltinSegment];
+			if (bySegment !== undefined) claimed.add(bySegment);
+		}
 	}
 	return claimed;
 }
@@ -180,13 +191,30 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 	},
 	model: {
 		priority: 100,
-		describe: "the model doing the work, after its provider",
+		describe: "the model doing the work, after its provider and the account it runs on",
 		render: ({ snapshot, glyphs, paint }) => {
 			const icon = mark(glyphs.model, paint, "provider");
 			if (snapshot.model === undefined) return { text: `${icon}${paint.dim("no model")}` };
 			const name = paint.bold(paint.role("model", snapshot.model.name));
-			const provider = `${paint.role("provider", snapshot.model.provider)}${paint.dim("/")}`;
-			return { text: `${icon}${provider}${name}`, compact: `${icon}${name}` };
+			const account =
+				snapshot.account === undefined
+					? ""
+					: `${paint.dim("(")}${paint.role("provider", snapshot.account.label)}${paint.dim(")")}`;
+			const provider = `${paint.role("provider", snapshot.model.provider)}${account}${paint.dim("/")}`;
+			return {
+				text: `${icon}${provider}${name}`,
+				compact: account === "" ? `${icon}${name}` : `${icon}${name} ${account}`,
+			};
+		},
+	},
+	quota: {
+		priority: 58,
+		describe: "what each window of the plan spent, and when it resets",
+		render: ({ snapshot, paint }) => {
+			const windows = snapshot.account?.windows ?? [];
+			if (windows.length === 0) return undefined;
+			const text = windows.map((window) => quotaWindow(paint, window)).join("  ");
+			return { text };
 		},
 	},
 	effort: {
@@ -350,7 +378,6 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 			"what the session cost; `sub` means a subscription, so it is what the tokens would have cost",
 		render: ({ snapshot, glyphs, paint }) => {
 			const amount = snapshot.totals.cost;
-			if (amount === 0) return undefined;
 			const value = paint.money(amount, money(amount));
 			const sub = snapshot.subscription ? paint.dim(" sub") : "";
 			const icon = glyphs.cost === "$" ? "" : mark(glyphs.cost, paint, "cost");
@@ -363,7 +390,6 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 			"tokens of the whole session: ↑ sent to the model, cache included, and ↓ what it wrote back",
 		render: ({ snapshot, glyphs, paint, options }) => {
 			const totals = snapshot.totals;
-			if (tokensOf(totals) === 0) return undefined;
 			// Everything sent, not just the uncached part: `66 in` next to a million cached reads is a lie.
 			const sent = `${paint.role("sent", glyphs.sent)}${paint.role("sent", count(promptOf(totals)))}`;
 			const got = `${paint.role("received", glyphs.received)}${paint.role("received", count(totals.output))}`;
@@ -443,6 +469,14 @@ export function renderSegments(ids: readonly SegmentId[], input: SegmentInput): 
 		const rendered = segment.render(input);
 		return rendered === undefined ? [] : [{ ...rendered, priority: segment.priority }];
 	});
+}
+
+/** One plan window, like `5h 62% resets in 2h`. The percent carries the color. */
+function quotaWindow(paint: Paint, window: AccountWindow): string {
+	const used = paint.stress(window.used, `${window.used}%`);
+	const reset =
+		window.resetsIn === undefined ? "" : ` ${paint.muted(`resets in ${window.resetsIn}`)}`;
+	return `${paint.dim(window.name)} ${used}${reset}`;
 }
 
 function mark(glyph: string, paint: Paint, role: Role): string {

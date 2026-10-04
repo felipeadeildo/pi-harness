@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { emptyTotals } from "../src/data/totals.ts";
 import { ASCII, NERD } from "../src/render/glyphs.ts";
 import { PLAIN, type Paint } from "../src/render/paint.ts";
 import {
@@ -36,6 +37,32 @@ describe("segments", () => {
 		const [piece] = render(["model"]);
 		expect(piece?.text).toBe("Anthropic/Opus 5.5");
 		expect(piece?.compact).toBe("Opus 5.5");
+	});
+
+	test("the model carries the account it runs on", () => {
+		const [piece] = render(
+			["model"],
+			snapshot({ account: { provider: "anthropic", label: "ranqia", windows: [] } }),
+		);
+		expect(piece?.text).toBe("Anthropic(ranqia)/Opus 5.5");
+		expect(piece?.compact).toBe("Opus 5.5 (ranqia)");
+	});
+
+	test("the quota lists every window and its reset", () => {
+		const [piece] = render(
+			["quota"],
+			snapshot({
+				account: {
+					provider: "anthropic",
+					label: "ranqia",
+					windows: [
+						{ name: "5h", used: 100, resetsIn: "11m" },
+						{ name: "week", used: 12, resetsIn: "3d" },
+					],
+				},
+			}),
+		);
+		expect(piece?.text).toBe("5h 100% resets in 11m  week 12% resets in 3d");
 	});
 
 	test("the effort is a meter of six levels, filled up to the one in use", () => {
@@ -130,6 +157,11 @@ describe("segments", () => {
 		expect(run(3_725_000, 1)).toEqual(["1:02:05"]);
 	});
 
+	test("a session with nothing yet shows its zeros", () => {
+		const data = snapshot({ totals: emptyTotals(), subscription: true });
+		expect(text(["cost", "tokens"], data)).toEqual(["$0.00 sub", "^0 v0"]);
+	});
+
 	test("session speeds, cost and cache", () => {
 		const data = snapshot({
 			averages: { decode: 290, prefill: 31_000 },
@@ -152,12 +184,16 @@ describe("segments", () => {
 		]);
 		const data = snapshot({ statuses });
 		const claimed = claimedStatuses([["status:pi-ask-permission:mode", "model"], ["statuses"]]);
-		expect([...claimed]).toEqual(["pi-ask-permission:mode"]);
+		expect([...claimed]).toEqual(["pi-ask-permission:mode", "pi-providers:account"]);
 		expect(text(["status:pi-ask-permission:mode"], data, { claimed })).toEqual([
 			"⏵⏵ auto · anywhere",
 		]);
 		expect(text(["statuses"], data, { claimed })).toEqual([">> mem 12"]);
 		expect(text(["status:missing"], data)).toEqual([]);
+	});
+
+	test("the model segment claims the status the providers package also reports", () => {
+		expect(claimedStatuses([["model"]])).toContain("pi-providers:account");
 	});
 
 	test("ids are the built-in ones or a status key", () => {

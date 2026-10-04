@@ -18,6 +18,7 @@ import { themePaint } from "../../packages/look/src/render/paint.ts";
 import { claimedStatuses, type SegmentId } from "../../packages/look/src/render/segments.ts";
 import {
 	below,
+	belowRight,
 	bottomLeft,
 	bottomRight,
 	gaugeCells,
@@ -43,6 +44,7 @@ const SLOTS: Record<SlotName, SegmentId[]> = {
 	bottomLeft: bottomLeft.default,
 	bottomRight: bottomRight.default,
 	below: below.default,
+	belowRight: belowRight.default,
 };
 
 function snapshot(theme: Theme): Snapshot {
@@ -57,6 +59,14 @@ function snapshot(theme: Theme): Snapshot {
 		git: { ahead: 1, behind: 0, staged: 0, modified: 2, untracked: 0, conflicted: 0, stashed: 0 },
 		host: "ghost",
 		model: { name: "Claude Opus 5.5", provider: "Anthropic", reasoning: true },
+		account: {
+			provider: "anthropic",
+			label: "work",
+			windows: [
+				{ name: "5h", used: 62, resetsIn: "2h" },
+				{ name: "week", used: 30, resetsIn: "4d" },
+			],
+		},
 		thinking: "high",
 		context: { percent: 34, tokens: 337_000, window: 1_000_000 },
 		totals: { input: 120_000, output: 106_000, cacheRead: 33_900_000, cacheWrite: 0, cost: 11.07 },
@@ -78,10 +88,7 @@ function snapshot(theme: Theme): Snapshot {
 			estimated: false,
 		},
 		averages: { decode: 183, prefill: 49_000 },
-		statuses: new Map([
-			["pi-ask-permission:mode", theme.fg("warning", "\u23f5 judge")],
-			["pi-providers:account", "work"],
-		]),
+		statuses: new Map([["pi-ask-permission:mode", theme.fg("warning", "\u23f5 judge")]]),
 	};
 }
 

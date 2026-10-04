@@ -30,6 +30,7 @@ export const SLOTS: Record<SlotName, SegmentId[]> = {
 	bottomLeft: ["model", "effort"],
 	bottomRight: ["context"],
 	below: ["statuses", "cost"],
+	belowRight: [],
 };
 
 export function screen(

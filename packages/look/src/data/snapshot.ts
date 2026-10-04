@@ -1,5 +1,6 @@
 import { hostname } from "node:os";
 
+import type { AccountState } from "@adeildo/pi-kit";
 import { VERSION, type ExtensionContext, type SessionEntry } from "@earendil-works/pi-coding-agent";
 
 import type { GitState } from "./git.ts";
@@ -36,6 +37,7 @@ export interface Snapshot {
 	sessionName: string | undefined;
 	version: string;
 	model: ModelInfo | undefined;
+	account: AccountState | undefined;
 	thinking: string | undefined;
 	context: ContextInfo | undefined;
 	totals: Totals;
@@ -60,6 +62,7 @@ export function emptySnapshot(): Snapshot {
 		sessionName: undefined,
 		version: VERSION,
 		model: undefined,
+		account: undefined,
 		thinking: undefined,
 		context: undefined,
 		totals: emptyTotals(),
@@ -77,6 +80,7 @@ export function emptySnapshot(): Snapshot {
 export interface LiveInputs {
 	branch: string | null;
 	git: GitState | undefined;
+	account?: AccountState | undefined;
 	request: RequestView | undefined;
 	last: RequestView | undefined;
 	run: RunView | undefined;
@@ -117,6 +121,7 @@ export class SnapshotReader {
 							reasoning: model.reasoning,
 						},
 			thinking: ctx.thinkingLevel,
+			account: live.account,
 			context: contextOf(ctx),
 			...derived,
 			subscription: model === undefined ? false : ctx.modelRegistry.isUsingOAuth(model),

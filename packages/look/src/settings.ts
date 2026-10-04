@@ -15,11 +15,9 @@ import type { IconMode } from "./render/glyphs.ts";
 import { isSegmentId, SEGMENT_IDS, SEGMENTS, type SegmentId } from "./render/segments.ts";
 
 const PERMISSION_STATUS: SegmentId = "status:pi-ask-permission:mode";
-const ACCOUNT_STATUS: SegmentId = "status:pi-providers:account";
 
 const STATUS_LABELS: Partial<Record<SegmentId, string>> = {
 	[PERMISSION_STATUS]: "permission mode",
-	[ACCOUNT_STATUS]: "account",
 };
 
 export const SECTIONS = [
@@ -65,11 +63,7 @@ function segments(fallback: readonly SegmentId[]): Decoder<SegmentId[]> {
 
 // Any other package's status can have a slot of its own, so the ones already placed are offered too.
 function slotControl(fallback: readonly SegmentId[]): Control {
-	const statuses = [
-		PERMISSION_STATUS,
-		ACCOUNT_STATUS,
-		...fallback.filter((id) => id.startsWith("status:")),
-	];
+	const statuses = [PERMISSION_STATUS, ...fallback.filter((id) => id.startsWith("status:"))];
 	return {
 		type: "list",
 		options: [
@@ -113,7 +107,7 @@ export const bottomLeft = slot(
 	"frame.bottomLeft",
 	"Frame, bottom left",
 	"How what you type is handled, and who does the work.",
-	[PERMISSION_MODE, "model", ACCOUNT_STATUS, "effort"],
+	[PERMISSION_MODE, "model", "effort"],
 );
 export const bottomRight = slot("frame.bottomRight", "Frame, bottom right", "How full it is.", [
 	"context",
@@ -123,6 +117,12 @@ export const below = slot(
 	"Below the editor",
 	"The session: cost, tokens, cache, average speeds, and what other packages report, last because it changes the most.",
 	["cost", "tokens", "cache", "average", "statuses"],
+);
+export const belowRight = slot(
+	"belowRight",
+	"Below the editor, on the right",
+	"The plan's quota: what each window spent, and when it resets.",
+	["quota"],
 );
 
 export const frame = setting<FrameStyle | "off">({
@@ -255,6 +255,7 @@ export const LOOK_SETTINGS = [
 	bottomLeft,
 	bottomRight,
 	below,
+	belowRight,
 	frame,
 	cursor,
 	header,
