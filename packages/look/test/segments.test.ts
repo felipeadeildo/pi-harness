@@ -167,9 +167,9 @@ describe("segments", () => {
 		expect(run(3_725_000, 1)).toEqual(["1:02:05"]);
 	});
 
-	test("a session with nothing yet shows its zeros", () => {
+	test("a session with nothing yet leaves the cost and the tokens out", () => {
 		const data = snapshot({ totals: emptyTotals(), subscription: true });
-		expect(text(["cost", "tokens"], data)).toEqual(["$0.00 sub", "^0 v0"]);
+		expect(text(["cost", "tokens"], data)).toEqual([]);
 	});
 
 	test("session speeds, cost and cache", () => {

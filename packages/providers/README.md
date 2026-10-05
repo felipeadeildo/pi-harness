@@ -36,20 +36,23 @@ Anthropic answers `400 claude_code_version_too_old` when it considers the versio
 
 ## Accounts
 
-Pi keeps one credential per provider, the one `/login` wrote. This keeps more. The credential of `/login` stays as the first account, and every other one is an extra credential with a name. When a login writes a credential that already belongs to a saved account, both are the same account, and only the named one shows.
+Pi keeps one credential per provider, the one `/login` wrote. This keeps several, each with a name. Once a provider has an account, its accounts are all it has: every request, refresh and plan reading comes from the account in use, and there is no unnamed credential behind them.
 
 ```text
-/accounts anthropic
+/accounts            the accounts of the current model's provider
+/accounts anthropic  the accounts of another one
 ```
 
-It asks for the provider, its login method and a name, and runs the login Pi already has, so there is no OAuth of its own here. A `/login` for a provider that already has accounts asks where the credential goes, replacing an account or becoming a new one. Each account shows its kind, pi's own credential included:
+The list shows each account, the one in use and what its plan has left, and fills the plans in as they arrive. `enter` uses an account, here and in the sessions that start after, `r` renames it in place, `d` removes it after asking, and `a` or the last row adds one. Adding asks for a name and runs the login Pi already has, so there is no OAuth of its own here. The first account of a provider brings Pi's own login along under a name you choose, since from then on only accounts are read.
+
+A `/login` for a provider that already has accounts asks where the credential goes, replacing an account or becoming a new one, and closing that dialog still keeps it as a new account under the provider's name. Pi keeps its own copy too, because it decides which providers are logged in before any extension starts; that copy is renewed from an account and never read for a request. Each account shows its kind:
 
 | Kind    | Is                                           |
 | ------- | -------------------------------------------- |
 | `oauth` | A subscription token, billed to its own plan |
 | `key`   | An API key                                   |
 
-`alt+a` switches the account of the current model's provider, and the Providers tab of `Alt+S` lists them to choose, rename or remove. The account in use sits next to the model. Each row shows what its plan has left, and an account whose credential the provider refused says `sign in again` until it is signed in again. The session remembers the choice, so a resume or a fork comes back to the same one.
+`alt+a` switches the account of the current model's provider for this session, and the Providers tab of `Alt+S` lists them too. The account in use sits next to the model, and its plan's windows below the editor, read again whenever a model of another provider is picked. An account whose credential the provider refused says `sign in again`, and `enter` on it in `/accounts` signs in again under the same name. The session remembers the choice, so a resume or a fork comes back to the same one.
 
 When a provider refuses a request for a quota or a rate limit and that provider has another account, `accounts.onLimit` decides what happens:
 
@@ -59,7 +62,7 @@ When a provider refuses a request for a quota or a rate limit and that provider 
 | `switch` | Moves to the next account on its own                                      |
 | `stop`   | Leaves the error in front of you                                          |
 
-Only a limit that arrives before anything was shown switches, so a retry never repeats output you already saw. Only chat streams move: image generation, classifier calls and deferred responses keep pi's own credential.
+Only a limit that arrives before anything was shown switches, so a retry never repeats output you already saw. Only chat streams move: image generation, classifier calls and deferred responses use the account in use, and surface their errors as they are.
 
 A quota belongs to the account, so an account that refused is skipped until it answers again, and the same dialog is not asked twice in a session. A credential the provider refuses instead opens `accounts.onAuthFailure`, whose dialog can run the provider's own login again under the same account, keeping its name and the session pin.
 
@@ -71,7 +74,6 @@ In `~/.pi/agent/extensions/pi-harness/settings.json`:
 | -------------------------------- | ----------- | ---------------------------------------------------------------------------------------------- |
 | `subscription.claudeCodeVersion` | `"2.1.280"` | The version Pi reports. Anthropic will not serve newer models to a version it considers old    |
 | `accounts.onLimit`               | `"ask"`     | What a quota or a rate limit does when another account exists: `"ask"`, `"switch"` or `"stop"` |
-| `accounts.onAuthFailure`         | `"ask"`     | What a refused credential does: `"ask"` (sign in again or switch), `"switch"` or `"stop"`      |
 | `accounts.onAuthFailure`         | `"ask"`     | What a refused credential does: `"ask"` (sign in again or switch), `"switch"` or `"stop"`      |
 
 The Claude plan billing comes from [pi-claude-max](https://github.com/bradennss/pi-claude-max) by Braden Lamb, MIT. This is a rewrite: it reads the version from settings, carries pi's cache breakpoints over instead of dropping the one-hour TTL, moves every system block after the identity instead of only the second, and checks for an OAuth token instead of the provider name.

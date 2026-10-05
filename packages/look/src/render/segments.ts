@@ -380,6 +380,8 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 			"what the session cost; `sub` means a subscription, so it is what the tokens would have cost",
 		render: ({ snapshot, glyphs, paint }) => {
 			const amount = snapshot.totals.cost;
+			// A session that spent nothing has nothing to say yet.
+			if (amount === 0) return undefined;
 			const value = paint.money(amount, money(amount));
 			const sub = snapshot.subscription ? paint.dim(" sub") : "";
 			const icon = glyphs.cost === "$" ? "" : mark(glyphs.cost, paint, "cost");
@@ -392,6 +394,7 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 			"tokens of the whole session: ↑ sent to the model, cache included, and ↓ what it wrote back",
 		render: ({ snapshot, glyphs, paint, options }) => {
 			const totals = snapshot.totals;
+			if (tokensOf(totals) === 0) return undefined;
 			// Everything sent, not just the uncached part: `66 in` next to a million cached reads is a lie.
 			const sent = `${paint.role("sent", glyphs.sent)}${paint.role("sent", count(promptOf(totals)))}`;
 			const got = `${paint.role("received", glyphs.received)}${paint.role("received", count(totals.output))}`;
