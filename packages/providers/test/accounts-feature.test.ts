@@ -601,3 +601,45 @@ test("the picker hides pi's credential when it is already a saved account", asyn
 	expect(shown).toHaveLength(1);
 	expect(shown[0]).toContain("work");
 });
+
+test("a model of another provider reads that provider's plans right away", async () => {
+	const valid: Credential = {
+		type: "oauth",
+		access: "a",
+		refresh: "r",
+		expires: Date.now() + 3_600_000,
+	};
+	new AccountStore().add("anthropic", "work", valid);
+	const fake = fakePi();
+	fake.pi.registerProvider = (() => {}) as never;
+	createApp(fake.pi, { name: "test", settingsPath: join(dir, "settings.json") })
+		.use(accounts)
+		.build();
+
+	const mock = spyOn(globalThis, "fetch");
+	mock.mockResolvedValue(new Response(JSON.stringify({ five_hour: { utilization: 40 } })));
+	try {
+		const model = { provider: "deepseek" };
+		const ctx = fakeContext([], true, {
+			model,
+			modelRegistry: { getProvider: () => native() },
+			sessionManager: { getBranch: () => [] },
+			ui: { notify: () => {}, setStatus: () => {} },
+		});
+		await fake.fire("session_start", {}, ctx);
+		await settle();
+		expect(mock).not.toHaveBeenCalled();
+
+		model.provider = "anthropic";
+		await fake.fire("model_select", { type: "model_select", model }, ctx);
+		await settle();
+		expect(String(mock.mock.calls[0]?.[0])).toContain("/api/oauth/usage");
+	} finally {
+		mock.mockRestore();
+	}
+});
+
+/** Lets the plans read in the background settle: the mocked fetch answers within microtasks. */
+async function settle(): Promise<void> {
+	await new Promise((resolve) => setTimeout(resolve, 0));
+}

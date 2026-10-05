@@ -36,7 +36,12 @@ export const accounts = defineFeature({
 		};
 
 		scope.screen.rows((ctx) => accountRows(scope, store, pins, ctx));
-		scope.on("model_select", (_event, ctx) => refreshStatus(store, pins, ctx));
+		// A model of another provider brings that provider's plans, so its quota shows before the first
+		// answer instead of after it.
+		scope.on("model_select", (_event, ctx) => {
+			refreshStatus(store, pins, ctx);
+			void readPlans(store, watch, ctx).then(() => refreshStatus(store, pins, ctx));
+		});
 		scope.on("session_shutdown", (_event, ctx) => ctx.ui.setStatus(STATUS_KEY, undefined));
 
 		// Whoever draws the account in use asks for it on the spot, so it is never a frame old.
