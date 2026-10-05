@@ -5,13 +5,13 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { classifyFailure } from "../errors.ts";
 import { pick } from "../ui/picker.ts";
+import { refreshStatus } from "./actions.ts";
 import { reason } from "./describe.ts";
 import { loginFor } from "./interaction.ts";
 import { nativeOf } from "./lift.ts";
 import { login, loginMethods } from "./login.ts";
 import { LOGIN_KEY, NAME } from "./names.ts";
 import { pin, type Pins } from "./pins.ts";
-import { DEFAULT_LABEL, refreshStatus } from "./screen.ts";
 import { onAuthFailure, onLimit } from "./settings.ts";
 import type { AccountStore } from "./store.ts";
 import type { Account } from "./types.ts";
@@ -51,7 +51,7 @@ export async function afterLimit(
 		const current = store.accounts(providerId).find((entry) => entry.id === currentId);
 		const switchNow = `Switch to ${next.label}`;
 		const always = "Always switch when an account hits its limit";
-		const picked = await pick(ctx, `"${current?.label ?? DEFAULT_LABEL}" hit its limit`, [
+		const picked = await pick(ctx, `"${current?.label ?? providerId}" hit its limit`, [
 			switchNow,
 			always,
 			"Stop here",
@@ -109,12 +109,12 @@ export async function afterAuthFailure(
 }
 
 /** Runs the provider's own login again, keeping the account's name and its pin. */
-async function signInAgain(
+export async function signInAgain(
 	store: AccountStore,
 	ctx: ExtensionContext,
 	providerId: string,
 	account: Account,
-	detail: string,
+	detail?: string,
 ): Promise<{ id: string; credential: Credential } | undefined> {
 	const registered = ctx.modelRegistry.getProvider(providerId);
 	// The native provider, so the login does not pass through the lift and ask for a name again.
@@ -140,7 +140,8 @@ async function signInAgain(
 			return undefined;
 		}
 		store.clearError(providerId, account.id);
-		ctx.ui.notify(`${NAME}: ${providerId} · ${account.label} signed in again (${detail})`, "info");
+		const why = detail === undefined ? "" : ` (${detail})`;
+		ctx.ui.notify(`${NAME}: ${providerId} · ${account.label} signed in again${why}`, "info");
 		return { id: account.id, credential };
 	} catch (error) {
 		ctx.ui.notify(`${NAME}: ${reason(error)}`, "error");
@@ -186,7 +187,7 @@ function nextAccount(
 ): Account | undefined {
 	if (list.length === 0) return undefined;
 	const index = list.findIndex((account) => account.id === currentId);
-	// Pi's own credential is not in the list, so every account is a candidate after it.
+	// An account removed while it served is no longer in the list, so every account is a candidate.
 	if (index < 0) return list.find((account) => !refused.has(account.id));
 	if (list.length < 2) return undefined;
 	for (let step = 1; step < list.length; step++) {

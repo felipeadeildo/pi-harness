@@ -7,15 +7,16 @@ import { loginScreen as openLogin } from "../ui/login.ts";
 import type { Quota } from "../usage/quota.ts";
 import { noteUsage, resetNote, usageOf, worstWindow } from "../usage/read.ts";
 import type { AccountUsage, UsageMap } from "../usage/types.ts";
+import { refreshStatus } from "./actions.ts";
 import { activeAccount } from "./active.ts";
 import { adoptAccount } from "./adopt.ts";
 import { reason } from "./describe.ts";
-import { liftProvider, nativeOf, type AccountSession } from "./lift.ts";
-import { nativeCredential } from "./login.ts";
+import { type AccountCredential, liftProvider, nativeOf, type AccountSession } from "./lift.ts";
 import type { Pins } from "./pins.ts";
 import { afterAuthFailure, afterLimit } from "./policy.ts";
 import { type Renewal, needsRefresh, refreshAccount } from "./refresh.ts";
 import { accountsLockPath, type AccountStore } from "./store.ts";
+import type { Account } from "./types.ts";
 
 /** What the session learns while it runs. */
 export interface Watch {
@@ -57,10 +58,9 @@ function sessionFor(
 	providerId: string,
 ): AccountSession {
 	return {
-		resolve: () => {
-			const account = activeAccount(store, pins, providerId);
-			return account === undefined ? undefined : { id: account.id, credential: account.credential };
-		},
+		resolve: () => requestOf(activeAccount(store, pins, providerId)),
+		subscription: () =>
+			requestOf(store.accounts(providerId).find((account) => account.credential.type === "oauth")),
 		save: (id, credential) => void store.setCredential(providerId, id, credential),
 		served: (id) => {
 			watch.limited.get(providerId)?.delete(id);
@@ -93,6 +93,11 @@ function sessionFor(
 	};
 }
 
+/** An account as a request carries it. */
+function requestOf(account: Account | undefined): AccountCredential | undefined {
+	return account === undefined ? undefined : { id: account.id, credential: account.credential };
+}
+
 function withReset(detail: string, usage: AccountUsage | undefined): string {
 	const note = resetNote(usage);
 	return note === undefined ? detail : `${detail} · ${note}`;
@@ -105,6 +110,32 @@ export function knownReading(
 	accountId: string,
 ): AccountUsage | undefined {
 	return usageOf(watch.usage, providerId, accountId) ?? watch.quota.read(providerId, accountId);
+}
+
+/** Reads every account's plan of a provider, so the footer and the dialogs find their quota ready. */
+export async function readPlans(
+	store: AccountStore,
+	watch: Watch,
+	ctx: ExtensionContext,
+	providerId: string | undefined,
+): Promise<void> {
+	if (!ctx.hasUI || providerId === undefined || !store.has(providerId)) return;
+	await Promise.all(
+		store
+			.accounts(providerId)
+			.map((account) => readingFor(watch, store, ctx, providerId, account.id)),
+	);
+}
+
+/** Reads a provider's plans in the background, and draws the account again once they are in. */
+export function showPlans(
+	store: AccountStore,
+	pins: Pins,
+	watch: Watch,
+	ctx: ExtensionContext,
+	providerId: string | undefined,
+): void {
+	void readPlans(store, watch, ctx, providerId).then(() => refreshStatus(store, pins, ctx));
 }
 
 /** The best reading for an account: the live one, else the endpoint's, fetched when there is none. */
@@ -121,7 +152,7 @@ export async function readingFor(
 	return await watch.quota.ensure(providerId, accountId, token);
 }
 
-/** The token that can read a plan, refreshed when it is an account's and it has expired. */
+/** The token that can read a plan, refreshed when it has expired. */
 async function planToken(
 	store: AccountStore,
 	ctx: ExtensionContext,
@@ -129,14 +160,13 @@ async function planToken(
 	accountId: string,
 ): Promise<string | undefined> {
 	const account = store.accounts(providerId).find((entry) => entry.id === accountId);
-	const credential = account?.credential ?? nativeCredential(providerId);
-	if (credential?.type !== "oauth") return undefined;
+	const credential = account?.credential;
+	if (account === undefined || credential?.type !== "oauth") return undefined;
 	if (!needsRefresh(credential)) return credential.access;
 
-	// Pi refreshes its own token on the next request, so only our own accounts are renewed here.
-	const oauth =
-		account === undefined ? undefined : ctx.modelRegistry.getProvider(providerId)?.auth.oauth;
-	if (account === undefined || oauth === undefined) return undefined;
+	const registered = ctx.modelRegistry.getProvider(providerId);
+	const oauth = registered === undefined ? undefined : nativeOf(registered).auth.oauth;
+	if (oauth === undefined) return undefined;
 	try {
 		const fresh = await refreshAccount(
 			oauth,

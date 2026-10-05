@@ -3,22 +3,21 @@
 import type { FeatureScope, Json, ScreenEntry } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
+import {
+	type AccountsOf,
+	removeAccount,
+	removeQuestion,
+	renameAccount,
+	useAccount,
+} from "./actions.ts";
 import { activeAccount } from "./active.ts";
-import { kindText, nativeCredential, nativeDuplicate } from "./login.ts";
-import { STATUS_KEY } from "./names.ts";
-import { pin, type Pins } from "./pins.ts";
+import { kindText } from "./login.ts";
+import type { Pins } from "./pins.ts";
 import type { AccountStore } from "./store.ts";
-import { DEFAULT_LABEL, type Account } from "./types.ts";
-
-/** The value of the choice that means pi's own credential. */
-export { DEFAULT_ACCOUNT, DEFAULT_LABEL } from "./types.ts";
+import type { Account } from "./types.ts";
 
 /** Everything a provider's rows share. The label is the section header. */
-interface ProviderGroup {
-	pi: FeatureScope;
-	store: AccountStore;
-	pins: Pins;
-	providerId: string;
+interface ProviderGroup extends AccountsOf {
 	label: string;
 }
 
@@ -28,63 +27,39 @@ export function accountRows(
 	pins: Pins,
 	ctx: ExtensionContext,
 ): ScreenEntry[] {
-	const rows: ScreenEntry[] = [];
-	for (const providerId of store.providerIds().toSorted()) {
-		const group: ProviderGroup = {
-			pi,
-			store,
-			pins,
-			providerId,
-			label: ctx.modelRegistry.getProviderDisplayName(providerId),
-		};
-		const entries = store.accounts(providerId);
-		rows.push(
-			...(nativeDuplicate(providerId, entries) === undefined ? [defaultRow(group)] : []),
-			...entries.flatMap((account) => accountBlock(group, account)),
-		);
-	}
-	return rows;
-}
-
-/** Pi's own credential, as the first account of the provider. */
-function defaultRow(group: ProviderGroup): ScreenEntry {
-	const kind = kindText(nativeCredential(group.providerId)?.type) ?? "login";
-	return {
-		kind: "action",
-		id: `accounts.${group.providerId}.default`,
-		section: group.label,
-		label: DEFAULT_LABEL,
-		description: "The credential of /login, which stays in pi's own store.",
-		text: () => (inUse(group) ? `${kind}, in use` : kind),
-		indent: 1,
-		run: (ctx) => {
-			group.store.setActive(group.providerId, undefined);
-			pin(group.pi, group.pins, group.providerId, null);
-			refreshStatus(group.store, group.pins, ctx);
-			return `${DEFAULT_LABEL} in use`;
-		},
-	};
+	return store
+		.providerIds()
+		.toSorted()
+		.flatMap((providerId) => {
+			const group: ProviderGroup = {
+				pi,
+				store,
+				pins,
+				providerId,
+				label: ctx.modelRegistry.getProviderDisplayName(providerId),
+			};
+			return store.accounts(providerId).flatMap((account) => accountBlock(group, account));
+		});
 }
 
 /** One account, and its actions, one level deeper. */
 function accountBlock(group: ProviderGroup, account: Account): ScreenEntry[] {
-	const subscription = account.credential.type === "oauth";
+	const kind = kindText(account.credential.type);
+	const last = group.store.accounts(group.providerId).length === 1;
 	return [
 		{
 			kind: "action",
 			id: `accounts.${group.providerId}.${account.id}.use`,
 			section: group.label,
 			label: account.label,
-			description: subscription ? "Saved from a subscription login." : "Saved as an API key.",
-			text: () => {
-				const kind = subscription ? "subscription" : "api key";
-				return inUse(group, account) ? `${kind}, in use` : kind;
-			},
+			description:
+				account.credential.type === "oauth"
+					? "Saved from a subscription login."
+					: "Saved as an API key.",
+			text: () => (inUse(group, account) ? `${kind}, in use` : kind),
 			indent: 1,
 			run: (ctx) => {
-				group.store.setActive(group.providerId, account.id);
-				pin(group.pi, group.pins, group.providerId, account.id);
-				refreshStatus(group.store, group.pins, ctx);
+				useAccount(group, ctx, account.id);
 				return `${account.label} in use`;
 			},
 		},
@@ -99,9 +74,7 @@ function accountBlock(group: ProviderGroup, account: Account): ScreenEntry[] {
 			get: () => account.label,
 			set: (value: Json, ctx) => {
 				if (typeof value !== "string") return "name it";
-				const problem = group.store.rename(group.providerId, account.id, value);
-				if (problem === undefined) refreshStatus(group.store, group.pins, ctx);
-				return problem;
+				return renameAccount(group, ctx, account.id, value);
 			},
 		},
 		{
@@ -111,39 +84,13 @@ function accountBlock(group: ProviderGroup, account: Account): ScreenEntry[] {
 			label: "Remove",
 			description: `Forget the "${account.label}" credential.`,
 			text: () => account.label,
-			confirm: `Remove the ${group.providerId} account "${account.label}"?`,
+			confirm: removeQuestion(group.label, account.label, last),
 			indent: 2,
-			run: (ctx) => {
-				const problem = group.store.remove(group.providerId, account.id);
-				if (problem !== undefined) return problem;
-				if (group.pins.get(group.providerId) === account.id) {
-					pin(group.pi, group.pins, group.providerId, null);
-				}
-				refreshStatus(group.store, group.pins, ctx);
-				return `${account.label} removed`;
-			},
+			run: (ctx) => removeAccount(group, ctx, account.id) ?? `${account.label} removed`,
 		},
 	];
 }
 
-function inUse(group: ProviderGroup, account?: Account): boolean {
-	const active = activeAccount(group.store, group.pins, group.providerId);
-	return account === undefined ? active === undefined : active?.id === account.id;
-}
-
-/** The label of the account the current model uses, or undefined when there is nothing to say. */
-export function accountStatus(
-	store: AccountStore,
-	pins: Pins,
-	ctx: ExtensionContext,
-): string | undefined {
-	const providerId = ctx.model?.provider;
-	if (providerId === undefined) return undefined;
-	if (store.accounts(providerId).length === 0) return undefined;
-	return activeAccount(store, pins, providerId)?.label ?? "pi";
-}
-
-/** Publishes the account next to the model, where every other piece reads it. */
-export function refreshStatus(store: AccountStore, pins: Pins, ctx: ExtensionContext): void {
-	ctx.ui.setStatus(STATUS_KEY, accountStatus(store, pins, ctx));
+function inUse(group: ProviderGroup, account: Account): boolean {
+	return activeAccount(group.store, group.pins, group.providerId)?.id === account.id;
 }

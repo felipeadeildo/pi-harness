@@ -15,6 +15,11 @@ export class Quota {
 
 	constructor(private readonly readers: Record<string, QuotaReader | undefined>) {}
 
+	/** Whether this provider's plan can be read at all. */
+	reads(providerId: string): boolean {
+		return this.readers[providerId] !== undefined;
+	}
+
 	read(providerId: string, accountId: string): AccountUsage | undefined {
 		return this.readings.get(quotaKey(providerId, accountId));
 	}

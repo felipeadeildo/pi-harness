@@ -5,14 +5,18 @@ import type { Credential } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { pick } from "../ui/picker.ts";
+import { useAccount } from "./actions.ts";
 import { activeAccount } from "./active.ts";
 import { NAME } from "./names.ts";
-import { pin, type Pins } from "./pins.ts";
-import { refreshStatus } from "./screen.ts";
+import type { Pins } from "./pins.ts";
 import type { AccountStore } from "./store.ts";
 import type { Account } from "./types.ts";
 
-/** Pi's login just produced a credential; ask where it belongs and keep it. */
+/**
+ * Pi's login just produced a credential; ask where it belongs and keep it. Pi's own copy is no
+ * account, so a login that went nowhere would be lost: closing the dialog keeps it as a new account
+ * under the provider's name, which `/accounts` can rename or remove.
+ */
 export async function adoptAccount(
 	scope: FeatureScope,
 	store: AccountStore,
@@ -21,8 +25,7 @@ export async function adoptAccount(
 	providerId: string,
 	credential: Credential,
 ): Promise<void> {
-	if (!ctx.hasUI) return;
-
+	const provider = ctx.modelRegistry.getProviderDisplayName(providerId);
 	const current = activeAccount(store, pins, providerId)?.id;
 	const choices: { account: Account | undefined; label: string }[] = store
 		.accounts(providerId)
@@ -32,17 +35,21 @@ export async function adoptAccount(
 		}));
 	choices.push({ account: undefined, label: "New account" });
 
-	const picked = await pick(
-		ctx,
-		`Keep this ${providerId} login as`,
-		choices.map((choice) => choice.label),
-	);
+	const picked = ctx.hasUI
+		? await pick(
+				ctx,
+				`Keep this ${provider} login as`,
+				choices.map((choice) => choice.label),
+			)
+		: undefined;
 	const choice = choices.find((candidate) => candidate.label === picked);
-	if (choice === undefined) return;
 
-	if (choice.account === undefined) {
-		const label =
-			(await ctx.ui.input(`Name this ${providerId} account`, providerId))?.trim() || providerId;
+	if (choice?.account === undefined) {
+		const typed =
+			choice === undefined
+				? undefined
+				: await ctx.ui.input(`Name this ${provider} account`, provider);
+		const label = typed?.trim() || provider;
 		const added = store.add(providerId, label, credential);
 		if (added.account === undefined) {
 			ctx.ui.notify(`${NAME}: ${added.problem}`, "error");
@@ -70,8 +77,7 @@ function keep(
 	providerId: string,
 	account: Account,
 ): void {
-	store.setActive(providerId, account.id);
-	pin(scope, pins, providerId, account.id);
-	refreshStatus(store, pins, ctx);
-	ctx.ui.notify(`${NAME}: ${providerId} now uses ${account.label}`, "info");
+	useAccount({ pi: scope, store, pins, providerId }, ctx, account.id);
+	const provider = ctx.modelRegistry.getProviderDisplayName(providerId);
+	ctx.ui.notify(`${NAME}: ${provider} now uses ${account.label}`, "info");
 }

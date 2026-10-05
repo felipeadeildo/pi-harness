@@ -1,11 +1,10 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
 
 import { fakeContext } from "@adeildo/pi-kit/testing";
 import type { Credential, Provider } from "@earendil-works/pi-ai";
 
 import { readingFor, type Watch } from "../src/accounts/attach.ts";
+import { liftProvider } from "../src/accounts/lift.ts";
 import { AccountStore } from "../src/accounts/store.ts";
 import { anthropicQuota } from "../src/usage/anthropic.ts";
 import { Quota } from "../src/usage/quota.ts";
@@ -19,13 +18,10 @@ const FRESH: Credential = {
 	expires: Date.now() + 3_600_000,
 };
 
-let dir: string;
 let restore: () => void;
 
 beforeEach(() => {
-	const fixture = agentDirFixture("pi-accounts-plan-");
-	dir = fixture.dir;
-	restore = fixture.restore;
+	restore = agentDirFixture("pi-accounts-plan-").restore;
 });
 
 afterEach(() => restore());
@@ -112,24 +108,36 @@ test("a refresh that fails marks the account and reads nothing", async () => {
 	});
 });
 
-test("pi's own expired token is left for pi to refresh", async () => {
-	writeFileSync(join(dir, "auth.json"), JSON.stringify({ anthropic: EXPIRED }));
-	let refreshes = 0;
+test("a plan is renewed through the provider underneath, not the account in use", async () => {
 	const store = new AccountStore();
+	store.add("anthropic", "work", FRESH);
+	store.add("anthropic", "home", EXPIRED);
+	const [work, home] = store.accounts("anthropic");
+	if (work === undefined || home === undefined) throw new Error("no accounts");
+	const renewed: Credential[] = [];
+	const underneath = provider(async () => FRESH);
+	const oauth = underneath.auth.oauth;
+	if (oauth === undefined) throw new Error("no oauth");
+	oauth.refresh = async (credential) => {
+		renewed.push(credential);
+		return { ...FRESH, access: "home-fresh" };
+	};
+	// The lifted provider would renew the account in use; the plan belongs to the one asked about.
+	const lifted = liftProvider(underneath, {
+		resolve: () => ({ id: work.id, credential: work.credential }),
+		save: () => {},
+		afterLimit: async () => undefined,
+	});
 
-	const reading = await readingFor(
-		watch(),
-		store,
-		context(
-			provider(async () => {
-				refreshes += 1;
-				return FRESH;
-			}),
-		),
-		"anthropic",
-		"default",
-	);
+	const mock = spyOn(globalThis, "fetch");
+	mock.mockResolvedValue(new Response(usageBody(20), { status: 200 }));
+	try {
+		await readingFor(watch(), store, context(lifted), "anthropic", home.id);
 
-	expect(reading).toBeUndefined();
-	expect(refreshes).toBe(0);
+		expect(renewed).toEqual([EXPIRED]);
+		const headers = mock.mock.calls[0]?.[1]?.headers as Record<string, string>;
+		expect(headers.Authorization).toBe("Bearer home-fresh");
+	} finally {
+		mock.mockRestore();
+	}
 });

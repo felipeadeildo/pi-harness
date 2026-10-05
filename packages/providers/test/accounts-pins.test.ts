@@ -11,11 +11,20 @@ test("a branch replays its pins, newest winning", () => {
 	const pins = replay([
 		entry({ kind: "account", provider: "anthropic", account: "w" }),
 		entry({ kind: "account", provider: "openai", account: "o" }),
+		entry({ kind: "account", provider: "openai", account: "p" }),
+	]);
+
+	expect(pins.get("anthropic")).toBe("w");
+	expect(pins.get("openai")).toBe("p");
+});
+
+test("an older session's pin on pi's own credential goes back to the store's choice", () => {
+	const pins = replay([
+		entry({ kind: "account", provider: "anthropic", account: "w" }),
 		entry({ kind: "default", provider: "anthropic" }),
 	]);
 
-	expect(pins.get("anthropic")).toBeNull();
-	expect(pins.get("openai")).toBe("o");
+	expect(pins.has("anthropic")).toBe(false);
 });
 
 test("anything that is not our entry is ignored", () => {

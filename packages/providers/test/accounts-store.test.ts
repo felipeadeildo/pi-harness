@@ -33,7 +33,7 @@ test("an account is added, listed and pinned", () => {
 	expect(added.problem).toBeUndefined();
 	expect(added.account?.label).toBe("personal");
 	expect(store.has("anthropic")).toBe(true);
-	// No choice yet, so pi's own credential stays the one a request uses.
+	// No choice yet: the store has no preference, and the first account stands in.
 	expect(store.active("anthropic")).toBeUndefined();
 
 	const work = addWork(store);

@@ -7,13 +7,14 @@ import { fakeContext, fakePi, fakeScope } from "@adeildo/pi-kit/testing";
 import {
 	createAssistantMessageEventStream,
 	type Credential,
+	type OAuthCredential,
 	type Provider,
 } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { activeAccount } from "../src/accounts/active.ts";
 import type { Watch } from "../src/accounts/attach.ts";
-import { pickAccount } from "../src/accounts/dialogs.ts";
+import { type Accounts, pickAccount } from "../src/accounts/dialogs.ts";
 import { accounts } from "../src/accounts/feature.ts";
 import { nativeOf } from "../src/accounts/lift.ts";
 import type { Pins } from "../src/accounts/pins.ts";
@@ -108,10 +109,11 @@ test("adding the first account lifts the provider and pins it", async () => {
 			notify: () => {},
 			setStatus: () => {},
 			input: async () => "work",
-			select: async () => undefined,
+			select: async (_title: string, options: string[]) => options.at(-1),
 		},
 		modelRegistry: {
 			getProvider: () => provider,
+			getProviderDisplayName: () => "Anthropic",
 			getAll: () => [{ provider: "anthropic", id: "claude" }],
 		},
 		sessionManager: { getBranch: () => [] },
@@ -154,12 +156,14 @@ test("adding to a lifted provider keeps one account, not two", async () => {
 			input: async () => "labora",
 			select: async (title: string, options: string[]) => {
 				asked.push(title);
-				return options.find((option) => option.startsWith("New account"));
+				// The list closes on its last row, which adds an account.
+				return options.at(-1);
 			},
 		},
 		modelRegistry: {
 			// Once the feature lifts it, the registry hands back the lifted provider.
 			getProvider: () => captured[0] ?? provider,
+			getProviderDisplayName: () => "Anthropic",
 			getAll: () => [{ provider: "anthropic", id: "claude" }],
 		},
 		sessionManager: { getBranch: () => [] },
@@ -172,14 +176,14 @@ test("adding to a lifted provider keeps one account, not two", async () => {
 	await handler("anthropic", ctx as never);
 
 	// The lifted login would adopt the credential, and this flow would add it again.
-	expect(asked).toEqual([]);
+	expect(asked).toEqual(["Anthropic accounts"]);
 	expect(new AccountStore().accounts("anthropic").map((account) => account.label)).toEqual([
 		"personal",
 		"labora",
 	]);
 });
 
-test("the session pin overrides the store default, and null means pi's own credential", () => {
+test("the session pin overrides the store's choice, and the first account stands in for none", () => {
 	const store = new AccountStore();
 	store.add("anthropic", "personal", OAUTH);
 	store.add("anthropic", "work", OTHER);
@@ -187,12 +191,14 @@ test("the session pin overrides the store default, and null means pi's own crede
 	const pins: Pins = new Map([["anthropic", work?.id ?? ""]]);
 
 	expect(activeAccount(store, pins, "anthropic")?.credential).toEqual(OTHER);
-	pins.set("anthropic", null);
-	expect(activeAccount(store, pins, "anthropic")?.credential).toBeUndefined();
 	pins.delete("anthropic");
-	expect(activeAccount(store, pins, "anthropic")?.credential).toBeUndefined();
-	store.setActive("anthropic", store.accounts("anthropic")[0]?.id);
 	expect(activeAccount(store, pins, "anthropic")?.credential).toEqual(OAUTH);
+	store.setActive("anthropic", work?.id);
+	expect(activeAccount(store, pins, "anthropic")?.credential).toEqual(OTHER);
+	// A pin on an account that was removed falls back too.
+	pins.set("anthropic", "gone");
+	expect(activeAccount(store, pins, "anthropic")?.credential).toEqual(OAUTH);
+	expect(activeAccount(store, pins, "openai")).toBeUndefined();
 });
 
 test("after a limit, ask switches and pins, and stop keeps the error", async () => {
@@ -373,7 +379,7 @@ test("a usage limit gets the line that stops pi's retry", async () => {
 	);
 });
 
-test("pi's own login that is refused can still move to a saved account", async () => {
+test("an account removed while it served can still move to a saved one", async () => {
 	const store = new AccountStore();
 	store.add("anthropic", "work", OTHER);
 	const [work] = store.accounts("anthropic");
@@ -389,7 +395,7 @@ test("pi's own login that is refused can still move to a saved account", async (
 		},
 	});
 
-	const moved = await afterAuthFailure(scope, store, new Map(), ctx, "anthropic", "default", "401");
+	const moved = await afterAuthFailure(scope, store, new Map(), ctx, "anthropic", "gone", "401");
 
 	expect(moved?.id).toBe(work.id);
 });
@@ -449,6 +455,7 @@ test("the account picker shows what each account has left", async () => {
 		let shown: string[] = [];
 		const ctx = fakeContext([], true, {
 			model: { provider: "anthropic" },
+			modelRegistry: { getProviderDisplayName: () => "Anthropic" },
 			ui: {
 				theme: { fg: (_role: string, text: string) => text, bold: (text: string) => text },
 				setStatus: () => {},
@@ -460,13 +467,14 @@ test("the account picker shows what each account has left", async () => {
 			},
 		});
 
-		await pickAccount(scope, store, new Map(), watch, ctx);
+		await pickAccount(bundle(scope, store, watch), ctx);
 
 		// The api-key account has no endpoint to ask, so only the OAuth one carries numbers.
-		expect(shown[1]).toContain(
-			"work (subscription)  5h    62% resets in 2h    week  30% resets in 4d",
+		expect(shown).toHaveLength(2);
+		expect(shown[0]).toContain(
+			"work (subscription) ✓  5h    62% resets in 2h    week  30% resets in 4d",
 		);
-		expect(shown[2]).toBe("personal (api key)");
+		expect(shown[1]).toBe("personal (api key)");
 	} finally {
 		mock.mockRestore();
 	}
@@ -556,6 +564,7 @@ test("the picker says when an account needs a sign-in", async () => {
 	let shown: string[] = [];
 	const ctx = fakeContext([], true, {
 		model: { provider: "anthropic" },
+		modelRegistry: { getProviderDisplayName: () => "Anthropic" },
 		ui: {
 			theme: { fg: (_role: string, text: string) => text, bold: (text: string) => text },
 			setStatus: () => {},
@@ -567,15 +576,15 @@ test("the picker says when an account needs a sign-in", async () => {
 		},
 	});
 
-	await pickAccount(scope, store, new Map(), watch, ctx);
+	await pickAccount(bundle(scope, store, watch), ctx);
 
-	expect(shown[1]).toContain("sign in again");
+	expect(shown[0]).toContain("sign in again");
 });
 
-test("the picker hides pi's credential when it is already a saved account", async () => {
+test("the picker lists the accounts and never pi's own login", async () => {
 	const store = new AccountStore();
 	store.add("anthropic", "work", OAUTH);
-	writeFileSync(join(dir, "auth.json"), JSON.stringify({ anthropic: OAUTH }));
+	writeFileSync(join(dir, "auth.json"), JSON.stringify({ anthropic: OTHER }));
 	const scope = fakeScope({ pi: fakePi() });
 	const watch: Watch = {
 		limited: new Map(),
@@ -585,6 +594,7 @@ test("the picker hides pi's credential when it is already a saved account", asyn
 	let shown: string[] = [];
 	const ctx = fakeContext([], true, {
 		model: { provider: "anthropic" },
+		modelRegistry: { getProviderDisplayName: () => "Anthropic" },
 		ui: {
 			theme: { fg: (_role: string, text: string) => text, bold: (text: string) => text },
 			setStatus: () => {},
@@ -596,11 +606,14 @@ test("the picker hides pi's credential when it is already a saved account", asyn
 		},
 	});
 
-	await pickAccount(scope, store, new Map(), watch, ctx);
+	await pickAccount(bundle(scope, store, watch), ctx);
 
-	expect(shown).toHaveLength(1);
-	expect(shown[0]).toContain("work");
+	expect(shown).toEqual(["work (subscription) ✓"]);
 });
+
+function bundle(scope: Accounts["scope"], store: AccountStore, watch: Watch): Accounts {
+	return { scope, store, pins: new Map(), watch };
+}
 
 test("a model of another provider reads that provider's plans right away", async () => {
 	const valid: Credential = {
@@ -619,9 +632,8 @@ test("a model of another provider reads that provider's plans right away", async
 	const mock = spyOn(globalThis, "fetch");
 	mock.mockResolvedValue(new Response(JSON.stringify({ five_hour: { utilization: 40 } })));
 	try {
-		const model = { provider: "deepseek" };
 		const ctx = fakeContext([], true, {
-			model,
+			model: { provider: "deepseek" },
 			modelRegistry: { getProvider: () => native() },
 			sessionManager: { getBranch: () => [] },
 			ui: { notify: () => {}, setStatus: () => {} },
@@ -630,13 +642,69 @@ test("a model of another provider reads that provider's plans right away", async
 		await settle();
 		expect(mock).not.toHaveBeenCalled();
 
-		model.provider = "anthropic";
-		await fake.fire("model_select", { type: "model_select", model }, ctx);
+		await fake.fire(
+			"model_select",
+			{ type: "model_select", model: { provider: "anthropic" } },
+			ctx,
+		);
 		await settle();
 		expect(String(mock.mock.calls[0]?.[0])).toContain("/api/oauth/usage");
 	} finally {
 		mock.mockRestore();
 	}
+});
+
+test("the first account brings pi's own login along, under a name of its own", async () => {
+	writeFileSync(join(dir, "auth.json"), JSON.stringify({ anthropic: OTHER }));
+	const fake = fakePi();
+	fake.pi.registerProvider = (() => {}) as never;
+	createApp(fake.pi, { name: "test", settingsPath: join(dir, "settings.json") })
+		.use(accounts)
+		.build();
+
+	const provider = native();
+	provider.auth.oauth = {
+		name: "Claude Pro/Max",
+		login: async () => OAUTH as OAuthCredential,
+		refresh: async (credential) => credential,
+		toAuth: async () => ({}),
+	};
+	const asked: string[] = [];
+	const answers = ["personal", "work"];
+	const ctx = fakeContext([], true, {
+		ui: {
+			notify: () => {},
+			setStatus: () => {},
+			input: async (title: string) => {
+				asked.push(title);
+				return answers.shift();
+			},
+			select: async (_title: string, options: string[]) => options.at(-1),
+		},
+		modelRegistry: {
+			getProvider: () => provider,
+			getProviderDisplayName: () => "Anthropic",
+			getAll: () => [{ provider: "anthropic", id: "claude" }],
+		},
+		sessionManager: { getBranch: () => [] },
+	}) as ExtensionContext;
+	await fake.fire("session_start", {}, ctx);
+
+	const handler = fake.commands.get("accounts")?.handler;
+	if (handler === undefined) throw new Error("no accounts command");
+	await handler("anthropic", ctx as never);
+
+	expect(asked).toEqual([
+		"Name the Anthropic api key login you already have",
+		"Name the new Anthropic account",
+	]);
+	const store = new AccountStore();
+	const saved = store.accounts("anthropic");
+	expect(saved.map((account) => [account.label, account.credential])).toEqual([
+		["personal", OTHER],
+		["work", OAUTH],
+	]);
+	expect(store.active("anthropic")?.label).toBe("work");
 });
 
 /** Lets the plans read in the background settle: the mocked fetch answers within microtasks. */

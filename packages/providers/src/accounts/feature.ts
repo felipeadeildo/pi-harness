@@ -1,19 +1,26 @@
 // The accounts feature and its two entry points.
 import { ACCOUNT_STATE, type AccountState, defineFeature, isObject } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { Key } from "@earendil-works/pi-tui";
+import { type AutocompleteItem, Key } from "@earendil-works/pi-tui";
 
 import { claudeCodeVersion } from "../subscription/feature.ts";
 import { anthropicQuota } from "../usage/anthropic.ts";
 import { Quota } from "../usage/quota.ts";
 import { resetIn, windowsOf } from "../usage/read.ts";
+import { refreshStatus } from "./actions.ts";
 import { activeAccount } from "./active.ts";
-import { attachProvider, knownReading, readingFor, type Watch } from "./attach.ts";
-import { addAccount, pickAccount } from "./dialogs.ts";
+import { attachProvider, knownReading, showPlans, type Watch } from "./attach.ts";
+import {
+	type Accounts,
+	accountCount,
+	loginProviders,
+	manageAccounts,
+	pickAccount,
+} from "./dialogs.ts";
 import { NAME, STATUS_KEY } from "./names.ts";
 import { replay, type Pins } from "./pins.ts";
 import { usageLimitLine } from "./policy.ts";
-import { accountRows, DEFAULT_ACCOUNT, DEFAULT_LABEL, refreshStatus } from "./screen.ts";
+import { accountRows } from "./screen.ts";
 import { onAuthFailure, onLimit } from "./settings.ts";
 import { AccountStore } from "./store.ts";
 
@@ -35,12 +42,15 @@ export const accounts = defineFeature({
 			}),
 		};
 
+		const bundle: Accounts = { scope, store, pins, watch };
+		let registry: ExtensionContext["modelRegistry"] | undefined;
+
 		scope.screen.rows((ctx) => accountRows(scope, store, pins, ctx));
 		// A model of another provider brings that provider's plans, so its quota shows before the first
 		// answer instead of after it.
-		scope.on("model_select", (_event, ctx) => {
+		scope.on("model_select", (event, ctx) => {
 			refreshStatus(store, pins, ctx);
-			void readPlans(store, watch, ctx).then(() => refreshStatus(store, pins, ctx));
+			showPlans(store, pins, watch, ctx, event.model.provider);
 		});
 		scope.on("session_shutdown", (_event, ctx) => ctx.ui.setStatus(STATUS_KEY, undefined));
 
@@ -64,6 +74,7 @@ export const accounts = defineFeature({
 		});
 
 		scope.onSessionStart((ctx) => {
+			registry = ctx.modelRegistry;
 			for (const warning of store.reload()) scope.warn(warning);
 			pins.clear();
 			watch.limited.clear();
@@ -75,28 +86,42 @@ export const accounts = defineFeature({
 				attachProvider(scope, store, pins, watch, ctx, providerId);
 			}
 			refreshStatus(store, pins, ctx);
-			void readPlans(store, watch, ctx).then(() => refreshStatus(store, pins, ctx));
+			showPlans(store, pins, watch, ctx, ctx.model?.provider);
 		});
 
 		scope.registerShortcut(Key.alt("a"), {
-			description: `${NAME}: pick the account of the current provider`,
-			handler: (ctx) => pickAccount(scope, store, pins, watch, ctx),
+			description: `${NAME}: switch the account of the current provider for this session`,
+			handler: (ctx) => pickAccount(bundle, ctx),
 		});
 
 		scope.registerCommand("accounts", {
-			description: `${NAME}: add an account for a provider`,
-			handler: (args, ctx) => addAccount(scope, store, pins, watch, args, ctx),
+			description: `${NAME}: see, switch, rename, remove or add the accounts of a provider`,
+			getArgumentCompletions: (prefix) => providerCompletions(registry, store, prefix),
+			handler: (args, ctx) => manageAccounts(bundle, args, ctx),
 		});
 	},
 });
 
-/** Reads the plans in the background, so the footer and the picker find their quota ready. */
-async function readPlans(store: AccountStore, watch: Watch, ctx: ExtensionContext): Promise<void> {
-	if (!ctx.hasUI) return;
-	const providerId = ctx.model?.provider;
-	if (providerId === undefined || !store.has(providerId)) return;
-	const ids = [DEFAULT_ACCOUNT, ...store.accounts(providerId).map((account) => account.id)];
-	await Promise.all(ids.map((id) => readingFor(watch, store, ctx, providerId, id)));
+/** The providers `/accounts` can take, those with accounts first. */
+function providerCompletions(
+	registry: ExtensionContext["modelRegistry"] | undefined,
+	store: AccountStore,
+	prefix: string,
+): AutocompleteItem[] | null {
+	if (registry === undefined) return null;
+	const typed = prefix.trim().toLowerCase();
+	const items = loginProviders(registry, store)
+		.filter((id) => id.toLowerCase().startsWith(typed))
+		.map((id) => {
+			const name = registry.getProviderDisplayName(id);
+			const count = store.accounts(id).length;
+			return {
+				value: id,
+				label: id,
+				description: count === 0 ? name : `${name}, ${accountCount(count)}`,
+			};
+		});
+	return items.length === 0 ? null : items;
 }
 
 /** The account in use for a provider, with the windows it is spending. */
@@ -106,13 +131,12 @@ function inUse(
 	pins: Pins,
 	providerId: string,
 ): AccountState | undefined {
-	if (!store.has(providerId)) return undefined;
 	const account = activeAccount(store, pins, providerId);
-	const accountId = account?.id ?? DEFAULT_ACCOUNT;
+	if (account === undefined) return undefined;
 	return {
 		provider: providerId,
-		label: account?.label ?? DEFAULT_LABEL,
-		windows: windowsOf(knownReading(watch, providerId, accountId)),
-		...(account?.health?.lastError?.kind === "auth" ? { needsLogin: true } : {}),
+		label: account.label,
+		windows: windowsOf(knownReading(watch, providerId, account.id)),
+		...(account.health?.lastError?.kind === "auth" ? { needsLogin: true } : {}),
 	};
 }

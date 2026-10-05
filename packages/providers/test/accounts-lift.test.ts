@@ -10,6 +10,7 @@ import {
 	type AssistantMessage,
 	type Credential,
 	type Model,
+	type OAuthCredential,
 	type Provider,
 	type ProviderAuthInteraction,
 	type StreamOptions,
@@ -478,13 +479,13 @@ test("a refresh that fails is an auth failure, not a dead end", async () => {
 	expect(events).toEqual(["start", "text_delta", "done"]);
 });
 
-test("pi's own credential can move to an account when it is limited", async () => {
-	const seen: string[] = [];
+test("without an account a limit stays the provider's to show", async () => {
+	let asked = false;
 	const lifted = liftProvider(refuseThenAnswer(USAGE_LIMIT), {
 		resolve: () => undefined,
 		save: () => {},
-		afterLimit: async (currentId, detail) => {
-			seen.push(`${currentId}:${detail}`);
+		afterLimit: async () => {
+			asked = true;
 			return { id: "b", credential: { type: "api_key", key: "second" } };
 		},
 	});
@@ -492,8 +493,8 @@ test("pi's own credential can move to an account when it is limited", async () =
 	const events: string[] = [];
 	for await (const event of lifted.streamSimple(MODEL, CONTEXT)) events.push(event.type);
 
-	expect(seen).toEqual([`default:${LIMIT_MESSAGE}`]);
-	expect(events).toEqual(["start", "text_delta", "done"]);
+	expect(asked).toBe(false);
+	expect(events).toEqual(["start", "error"]);
 });
 
 test("the headers of a response land on the account that served it", async () => {
@@ -605,4 +606,72 @@ test("a login runs on our screen when the session offers one", async () => {
 
 	expect(offered).toBe(1);
 	expect(closed).toBe(1);
+});
+
+const AUTH_INPUT = {
+	ctx: { env: async () => undefined, fileExists: async () => false },
+	signal: new AbortController().signal,
+};
+const PI_COPY: OAuthCredential = {
+	type: "oauth",
+	access: "pi",
+	refresh: "pi-refresh",
+	expires: 0,
+};
+
+test("pi asks for auth and gets the account in use, not what it stored", async () => {
+	const { provider } = fake();
+	const account: Credential = {
+		type: "oauth",
+		access: "acct",
+		refresh: "r",
+		expires: Date.now() + 3_600_000,
+	};
+	const lifted = liftProvider(provider, session(account));
+
+	expect(await lifted.auth.apiKey?.resolve(AUTH_INPUT)).toEqual({
+		auth: { apiKey: "oauth:acct" },
+		source: "account",
+	});
+	expect(await lifted.auth.oauth?.toAuth(PI_COPY)).toEqual({ apiKey: "oauth:acct" });
+});
+
+test("pi's expired copy renews the account in use, never pi's own token", async () => {
+	const { provider, refreshes } = fake();
+	const account: Credential = { type: "oauth", access: "old", refresh: "acct-refresh", expires: 0 };
+	const state = session(account);
+	const lifted = liftProvider(provider, state);
+
+	const renewed = await lifted.auth.oauth?.refresh(PI_COPY, new AbortController().signal);
+
+	expect(refreshes()).toBe(1);
+	// The account's grant was renewed and saved; pi gets that, so its copy follows ours.
+	expect(renewed).toMatchObject({ access: "refreshed", refresh: "acct-refresh" });
+	expect(state.saved).toEqual([{ id: ACCOUNT_ID, credential: renewed as Credential }]);
+});
+
+test("with a key in use, pi's copy is renewed from a subscription account", async () => {
+	const { provider } = fake();
+	const subscription: Credential = {
+		type: "oauth",
+		access: "sub",
+		refresh: "sub-refresh",
+		expires: Date.now() + 3_600_000,
+	};
+	const lifted = liftProvider(provider, {
+		...session({ type: "api_key", key: "k" }),
+		subscription: () => ({ id: "sub", credential: subscription }),
+	});
+
+	expect(await lifted.auth.oauth?.refresh(PI_COPY, new AbortController().signal)).toEqual(
+		subscription,
+	);
+});
+
+test("once the accounts are gone, pi's own copy answers again", async () => {
+	const { provider } = fake();
+	const lifted = liftProvider(provider, session(undefined));
+
+	expect(await lifted.auth.oauth?.toAuth(PI_COPY)).toEqual({ apiKey: "oauth:pi" });
+	expect(await lifted.auth.apiKey?.resolve(AUTH_INPUT)).toBeUndefined();
 });

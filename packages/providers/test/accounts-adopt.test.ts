@@ -24,6 +24,7 @@ function context(
 	name?: string,
 ): ExtensionContext {
 	return fakeContext([], true, {
+		modelRegistry: { getProviderDisplayName: () => "Anthropic" },
 		ui: {
 			setStatus: () => {},
 			notify: () => {},
@@ -39,7 +40,7 @@ test("a login replaces the account it belongs to", async () => {
 	const [work] = store.accounts("anthropic");
 	if (work === undefined) throw new Error("no account");
 	const scope = fakeScope({ pi: fakePi() });
-	const pins = new Map<string, string | null>([["anthropic", work.id]]);
+	const pins = new Map([["anthropic", work.id]]);
 
 	await adoptAccount(
 		scope,
@@ -60,7 +61,7 @@ test("a login can become a new account", async () => {
 	const store = new AccountStore();
 	store.add("anthropic", "work", OAUTH);
 	const scope = fakeScope({ pi: fakePi() });
-	const pins = new Map<string, string | null>();
+	const pins = new Map<string, string>();
 
 	await adoptAccount(
 		scope,
@@ -76,19 +77,24 @@ test("a login can become a new account", async () => {
 	expect(pins.get("anthropic")).toBe(accounts[1]?.id);
 });
 
-test("a cancelled dialog keeps the store as it was", async () => {
+test("a closed dialog still keeps the login, under the provider's name", async () => {
 	const store = new AccountStore();
 	store.add("anthropic", "work", OAUTH);
 	const scope = fakeScope({ pi: fakePi() });
+	const pins = new Map<string, string>();
 
 	await adoptAccount(
 		scope,
 		store,
-		new Map(),
+		pins,
 		context(() => undefined),
 		"anthropic",
 		FRESH,
 	);
 
-	expect(new AccountStore().accounts("anthropic")[0]?.credential).toEqual(OAUTH);
+	const accounts = new AccountStore().accounts("anthropic");
+	expect(accounts.map((account) => account.label)).toEqual(["work", "Anthropic"]);
+	expect(accounts[0]?.credential).toEqual(OAUTH);
+	expect(accounts[1]?.credential).toEqual(FRESH);
+	expect(pins.get("anthropic")).toBe(accounts[1]?.id);
 });

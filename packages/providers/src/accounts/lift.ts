@@ -1,6 +1,7 @@
-// A provider with accounts is re-registered with its stream wrapped: each request resolves the
-// credential of the active account and injects it, so one provider keeps one model list. The auth
-// methods of the native provider do the work, so this file never speaks OAuth.
+// A provider with accounts is re-registered so the accounts own it: every way pi asks for auth answers
+// with the account in use, and each stream injects it again so a failure can move to the next one. One
+// provider keeps one model list. The auth methods of the native provider do the work, so this file
+// never speaks OAuth.
 import {
 	defaultProviderAuthContext,
 	lazyStream,
@@ -26,22 +27,24 @@ import {
 
 import { classifyFailure, type Failure } from "../errors.ts";
 import { needsRefresh, refreshAccount, type Renewal } from "./refresh.ts";
-import { DEFAULT_ACCOUNT } from "./types.ts";
+
+/** An account as a request sees it. */
+export interface AccountCredential {
+	id: string;
+	credential: Credential;
+}
 
 /** The account the next request uses, and where a refreshed token is kept. */
 export interface AccountSession {
-	resolve(): { id: string; credential: Credential } | undefined;
+	/** The account in use, or undefined once the provider has none left. */
+	resolve(): AccountCredential | undefined;
+	/** A subscription account, for when pi's copy needs a refresh and the one in use is a key. */
+	subscription?(): AccountCredential | undefined;
 	save(id: string, credential: Credential): void;
 	/** The account to try after this one hit a limit, or undefined to surface the error. */
-	afterLimit(
-		currentId: string,
-		detail: string,
-	): Promise<{ id: string; credential: Credential } | undefined>;
+	afterLimit(currentId: string, detail: string): Promise<AccountCredential | undefined>;
 	/** The credential was refused, so sign in again or try another account. */
-	afterAuthFailure?(
-		currentId: string,
-		detail: string,
-	): Promise<{ id: string; credential: Credential } | undefined>;
+	afterAuthFailure?(currentId: string, detail: string): Promise<AccountCredential | undefined>;
 	/** Pi's own login just produced a credential; the feature keeps it under a name. */
 	adopt?(credential: Credential): Promise<void>;
 	/** A framed screen for a login, when the caller can draw one. */
@@ -85,7 +88,7 @@ export function liftProvider(provider: Provider, session: AccountSession): Provi
 		name: provider.name,
 		...(provider.baseUrl === undefined ? {} : { baseUrl: provider.baseUrl }),
 		...(provider.headers === undefined ? {} : { headers: provider.headers }),
-		auth: liftedAuth(provider, session),
+		auth: liftedAuth(provider, session, refreshing),
 		getModels: () => provider.getModels(),
 		...(getAllModels === undefined ? {} : { getAllModels: () => getAllModels() }),
 		...(refreshModels === undefined ? {} : { refreshModels: (context) => refreshModels(context) }),
@@ -133,8 +136,6 @@ function accountStream(
 	context: TranscriptContext,
 	options?: Options,
 ): AssistantMessageEventStream {
-	// Even without an account chosen, a failure can move to one: pi's own credential is not an account,
-	// but the provider still has accounts behind it.
 	const first = session.resolve();
 	const settled = options ?? {};
 	return lazyStream(model, async () =>
@@ -153,7 +154,7 @@ async function* attempts(
 	model: Model<Api>,
 	context: TranscriptContext,
 	options: Options,
-	first: { id: string; credential: Credential } | undefined,
+	first: AccountCredential | undefined,
 ): AsyncGenerator<AssistantMessageEvent> {
 	let account = first;
 
@@ -171,7 +172,7 @@ async function* attempts(
 			const withAuth = await authFor(provider, session, refreshing, account, model, options);
 			const source = call(provider, kind, withAuth.model, context, {
 				...withAuth.options,
-				onResponse: noteUsage(withAuth.options.onResponse, session, account?.id ?? DEFAULT_ACCOUNT),
+				onResponse: noteUsage(withAuth.options.onResponse, session, account?.id),
 			});
 
 			// oxlint-disable-next-line no-await-in-loop -- a stream is read one event at a time.
@@ -193,8 +194,8 @@ async function* attempts(
 			thrown = error;
 		}
 
-		if (failure === undefined && thrown === undefined)
-			session.served?.(account?.id ?? DEFAULT_ACCOUNT);
+		if (failure === undefined && thrown === undefined && account !== undefined)
+			session.served?.(account.id);
 
 		if (!output && attempt < MAX_ATTEMPTS) {
 			// oxlint-disable-next-line no-await-in-loop -- the answer comes from the user.
@@ -226,10 +227,11 @@ async function moveOn(
 	session: AccountSession,
 	accountId: string | undefined,
 	failure: Failure | undefined,
-): Promise<{ id: string; credential: Credential } | undefined> {
-	const id = accountId ?? DEFAULT_ACCOUNT;
-	if (failure?.kind === "usage") return await session.afterLimit(id, failure.message);
-	if (failure?.kind === "auth") return await session.afterAuthFailure?.(id, failure.message);
+): Promise<AccountCredential | undefined> {
+	// Without an account there is nothing to move from, and the error is the provider's to show.
+	if (accountId === undefined) return undefined;
+	if (failure?.kind === "usage") return await session.afterLimit(accountId, failure.message);
+	if (failure?.kind === "auth") return await session.afterAuthFailure?.(accountId, failure.message);
 	return undefined;
 }
 
@@ -241,20 +243,20 @@ function isContent(event: AssistantMessageEvent): boolean {
 function noteUsage(
 	next: Options["onResponse"],
 	session: AccountSession,
-	accountId: string,
+	accountId: string | undefined,
 ): Options["onResponse"] {
 	return async (response, model) => {
-		session.noteUsage?.(accountId, response.headers);
+		if (accountId !== undefined) session.noteUsage?.(accountId, response.headers);
 		await next?.(response, model);
 	};
 }
 
-/** The request auth for an attempt: the account's, or untouched when pi's own credential serves. */
+/** The request auth for an attempt: the account's, or untouched once the provider has none. */
 async function authFor(
 	provider: Provider,
 	session: AccountSession,
 	refreshing: Map<string, Promise<OAuthCredential>>,
-	account: { id: string; credential: Credential } | undefined,
+	account: AccountCredential | undefined,
 	model: Model<Api>,
 	options: Options,
 ): Promise<{ model: Model<Api>; options: Options }> {
@@ -284,7 +286,7 @@ async function resolveAuth(
 	provider: Provider,
 	session: AccountSession,
 	refreshing: Map<string, Promise<OAuthCredential>>,
-	account: { id: string; credential: Credential },
+	account: AccountCredential,
 	signal: AbortSignal | undefined,
 ): Promise<ResolvedAuth> {
 	const abort = signal ?? new AbortController().signal;
@@ -378,10 +380,16 @@ function mergeHeaders(
 	return merged;
 }
 
-// The runtime reads auth from the provider, so it has to report configured when an account exists,
-// even though the credential itself is injected into the request by `accountStream`. Reporting the
-// account's own type keeps `isUsingOAuth` honest, which is what bills a subscription request.
-function liftedAuth(provider: Provider, session: AccountSession): ProviderAuth {
+// Pi resolves a request's auth from the credential it stored for the provider, before the stream runs.
+// Every one of those paths answers with the account in use here, so a classifier, an image or a
+// deferred call bills the same account a chat does, and pi never refreshes its own copy: when that
+// copy expires, the refresh renews an account and hands pi the result. Pi keeps that copy only because
+// it decides at startup, before any extension runs, which providers are logged in.
+function liftedAuth(
+	provider: Provider,
+	session: AccountSession,
+	refreshing: Map<string, Promise<OAuthCredential>>,
+): ProviderAuth {
 	const original = provider.auth.apiKey;
 	const login = original?.login;
 	const oauth = provider.auth.oauth;
@@ -391,25 +399,70 @@ function liftedAuth(provider: Provider, session: AccountSession): ProviderAuth {
 			...(login === undefined
 				? {}
 				: { login: (interaction) => adopted(login, interaction, session, provider.name) }),
+			// Reporting the account's own type keeps `isUsingOAuth` honest, which bills a subscription.
 			async check(input) {
 				const account = session.resolve();
 				if (account !== undefined) return { type: account.credential.type, source: "account" };
 				return original?.check?.(input);
 			},
 			async resolve(input) {
-				if (session.resolve() !== undefined) return { auth: {}, source: "account" };
-				return original?.resolve(input);
+				const resolved = await authInUse(provider, session, refreshing, input.signal);
+				if (resolved === undefined) return original?.resolve(input);
+				return { ...resolved, source: "account" };
 			},
 		},
 	};
 	if (oauth !== undefined) {
 		auth.oauth = {
-			...oauth,
+			name: oauth.name,
+			...(oauth.isSubscription === undefined ? {} : { isSubscription: oauth.isSubscription }),
+			...(oauth.loginLabel === undefined ? {} : { loginLabel: oauth.loginLabel }),
 			login: (interaction, options) =>
 				adopted((next) => oauth.login(next, options), interaction, session, provider.name),
+			async refresh(credential, signal) {
+				const account = subscriptionOf(session);
+				if (account === undefined) return await oauth.refresh(credential, signal);
+				return await refreshToken(
+					oauth,
+					session,
+					refreshing,
+					account.id,
+					account.credential,
+					signal,
+				);
+			},
+			async toAuth(credential) {
+				const signal = new AbortController().signal;
+				const resolved = await authInUse(provider, session, refreshing, signal);
+				return resolved?.auth ?? (await oauth.toAuth(credential));
+			},
 		};
 	}
 	return auth;
+}
+
+/** The auth of the account in use, or undefined once the provider has none. */
+async function authInUse(
+	provider: Provider,
+	session: AccountSession,
+	refreshing: Map<string, Promise<OAuthCredential>>,
+	signal: AbortSignal,
+): Promise<ResolvedAuth | undefined> {
+	const account = session.resolve();
+	if (account === undefined) return undefined;
+	return await resolveAuth(provider, session, refreshing, account, signal);
+}
+
+/** The OAuth account pi's copy is renewed from: the one in use, else any subscription. */
+function subscriptionOf(
+	session: AccountSession,
+): { id: string; credential: OAuthCredential } | undefined {
+	const candidates = [session.resolve(), session.subscription?.()];
+	for (const account of candidates) {
+		if (account?.credential.type === "oauth")
+			return { id: account.id, credential: account.credential };
+	}
+	return undefined;
 }
 
 /** Runs a login on our framed screen when there is one, then lets the feature keep the credential. */

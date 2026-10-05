@@ -2,12 +2,6 @@ import type { Credential } from "@earendil-works/pi-ai";
 
 import type { FailureKind } from "../errors.ts";
 
-/** The id that stands for pi's own credential in the account list. */
-export const DEFAULT_ACCOUNT = "default";
-
-/** What pi's own credential is called when there is no account behind it. */
-export const DEFAULT_LABEL = "pi default";
-
 /** What an account's last failure was, and until when the plan says it is spent. */
 export interface AccountHealth {
 	/** The last refusal, kept so the picker can say the account needs a sign-in. */
@@ -20,7 +14,7 @@ export interface AccountHealth {
 	limitedUntil?: number;
 }
 
-/** One extra credential with a name. Pi's own credential stays in pi's store, not here. */
+/** One credential with a name. A provider with accounts serves every request from one of them. */
 export interface Account {
 	/** Stable id, so renaming an account keeps a session pinned to it. */
 	id: string;
@@ -29,9 +23,9 @@ export interface Account {
 	health?: AccountHealth;
 }
 
-/** The extra accounts of one provider, and the one the store prefers. */
+/** The accounts of one provider, and the one a new session starts on. */
 export interface ProviderAccounts {
-	/** The id of the account the store prefers. Absent means pi's own credential. */
+	/** The id of the account the store prefers. Absent means the first one. */
 	active?: string;
 	accounts: Account[];
 }

@@ -76,7 +76,7 @@ flowchart TD
 | Item              | Status  | Note                                                                                                              |
 | ----------------- | ------- | ----------------------------------------------------------------------------------------------------------------- |
 | Subscription      | done    | an Anthropic OAuth request is billed to the Claude plan, and an API key goes out untouched                        |
-| Several accounts  | done    | the pi login is the first one, another comes from the provider's own login, and `Alt+A` cycles them               |
+| Several accounts  | done    | every credential of a provider with accounts is a named account, `/accounts` manages them and `Alt+A` switches    |
 | Switch on limit   | done    | an account that hits a limit hands over to the next one, asking first by default                                  |
 | Quota per plan    | next    | what is left and when it resets, read from the endpoints below. A feature of its own, because three items read it |
 | Account by quota  | planned | the switch moves to the account with the most left, instead of the next in the list. Needs the quota              |
