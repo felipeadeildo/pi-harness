@@ -18,15 +18,14 @@ import type { Account } from "./types.ts";
 
 export function usageLimitLine(
 	message: { provider: string; stopReason?: string; errorMessage?: string },
-	label: string | undefined,
+	label: string,
 	note?: string,
 ): string | undefined {
 	if (message.stopReason !== "error" || message.errorMessage === undefined) return undefined;
 	if (classifyFailure(message.errorMessage, message.provider).kind !== "usage") return undefined;
 	// The marker stops pi's own retry; the window only resets at the provider.
-	const who = label === undefined ? message.provider : `${message.provider} · ${label}`;
 	const when = note === undefined ? "" : `, ${note}`;
-	return `${who}: usage limit reached${when} (quota exceeded)`;
+	return `${message.provider} · ${label}: usage limit reached${when} (quota exceeded)`;
 }
 
 /** Follows the `accounts.onLimit` policy: ask, switch, or stop, and pins the account it moves to. */

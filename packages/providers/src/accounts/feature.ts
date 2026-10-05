@@ -64,11 +64,10 @@ export const accounts = defineFeature({
 		scope.on("message_end", (event) => {
 			if (event.message.role !== "assistant") return;
 			const providerId = event.message.provider;
-			if (!store.has(providerId)) return;
 			const account = activeAccount(store, pins, providerId);
-			const note =
-				account === undefined ? undefined : resetIn(knownReading(watch, providerId, account.id));
-			const text = usageLimitLine(event.message, account?.label, note);
+			if (account === undefined) return;
+			const note = resetIn(knownReading(watch, providerId, account.id));
+			const text = usageLimitLine(event.message, account.label, note);
 			if (text === undefined) return;
 			return { message: { ...event.message, errorMessage: text } };
 		});

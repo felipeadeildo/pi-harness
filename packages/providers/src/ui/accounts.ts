@@ -77,7 +77,14 @@ const POINTER = "\u276f ";
 const IN_USE = "in use";
 const MAX_VISIBLE = 8;
 const GAP = "  ";
+const NAME_MIN = 4;
 const NAME_LIMIT = 24;
+/** What the hint says enter does, by what it chooses. */
+const ENTER_DOES: Record<AccountsChoice["kind"], string> = {
+	use: "use",
+	signIn: "sign in",
+	add: "add",
+};
 /** Ctrl+E, which the input reads as the end of the line: a rename starts after the old name. */
 const LINE_END = "\u0005";
 
@@ -154,8 +161,8 @@ export class AccountsView implements Component, Focusable {
 		if (rows.length === 0) lines.push(this.theme.fg("muted", this.listing.empty), "");
 		for (const item of items.slice(start, end)) {
 			const row = rows.find((candidate) => candidate.id === item);
-			const state = row === undefined ? "" : (states.get(row.id) ?? "");
-			lines.push(row === undefined ? this.addLine() : this.accountLine(row, columns, state, inner));
+			if (row === undefined) lines.push(this.addLine());
+			else lines.push(this.accountLine(row, columns, states.get(row.id) ?? "", inner));
 		}
 		lines.push("");
 		const status = this.statusLine(rows);
@@ -176,16 +183,12 @@ export class AccountsView implements Component, Focusable {
 		const at = this.indexOf(items);
 		const row = rows.find((candidate) => candidate.id === this.cursor);
 
-		if (pressed(data, Key.up, "k"))
-			this.cursor = items[(at - 1 + items.length) % items.length] ?? ADD;
-		else if (pressed(data, Key.down, "j")) this.cursor = items[(at + 1) % items.length] ?? ADD;
-		else if (pressed(data, Key.home)) this.cursor = items[0] ?? ADD;
+		if (pressed(data, Key.up, "k")) this.cursor = wrapped(items, at - 1);
+		else if (pressed(data, Key.down, "j")) this.cursor = wrapped(items, at + 1);
+		else if (pressed(data, Key.home)) this.cursor = wrapped(items, 0);
 		else if (pressed(data, Key.end)) this.cursor = ADD;
-		else if (pressed(data, Key.enter)) {
-			if (row === undefined) this.close({ kind: "add" });
-			else if (row.state.kind === "signIn") this.close({ kind: "signIn", id: row.id });
-			else this.close({ kind: "use", id: row.id });
-		} else if (pressed(data, "a")) this.close({ kind: "add" });
+		else if (pressed(data, Key.enter)) this.close(choiceOf(row));
+		else if (pressed(data, "a")) this.close({ kind: "add" });
 		else if (pressed(data, "r") && row !== undefined) {
 			this.note = undefined;
 			this.input.setValue(row.label);
@@ -261,7 +264,7 @@ export class AccountsView implements Component, Focusable {
 		const typed = this.mode.kind === "rename" ? visibleWidth(this.input.getValue()) + 1 : 0;
 		const name = Math.min(
 			NAME_LIMIT,
-			Math.max(typed, ...rows.map((row) => visibleWidth(row.label)), 4),
+			Math.max(NAME_MIN, typed, ...rows.map((row) => visibleWidth(row.label))),
 		);
 		const kind = Math.max(0, ...rows.map((row) => visibleWidth(row.kind)));
 		const state = Math.max(0, ...states.map((text) => visibleWidth(text)));
@@ -297,52 +300,66 @@ export class AccountsView implements Component, Focusable {
 	}
 
 	private statusLine(rows: readonly AccountRow[]): string | undefined {
-		if (this.mode.kind === "remove") {
-			const id = this.mode.id;
-			const row = rows.find((candidate) => candidate.id === id);
-			return row === undefined
-				? undefined
-				: this.theme.fg("warning", this.listing.removeQuestion(row));
-		}
+		const mode = this.mode;
+		const removing = mode.kind === "remove" ? rows.find((row) => row.id === mode.id) : undefined;
+		if (removing !== undefined)
+			return this.theme.fg("warning", this.listing.removeQuestion(removing));
 		if (this.note === undefined) return undefined;
 		return this.theme.fg(this.note.tone, this.note.text);
 	}
 
 	private hint(rows: readonly AccountRow[], position: string | undefined): string {
 		const row = rows.find((candidate) => candidate.id === this.cursor);
-		let keys: [string, string][];
-		if (this.mode.kind === "rename") {
-			keys = [
-				["enter", "save"],
-				["esc", "cancel"],
-			];
-		} else if (this.mode.kind === "remove") {
-			keys = [
-				["enter", "remove"],
-				["esc", "keep"],
-			];
-		} else if (row === undefined) {
-			keys = [
-				["↑↓", "move"],
-				["enter", "add"],
-				["esc", "close"],
-			];
-		} else {
-			keys = [
-				["↑↓", "move"],
-				["enter", row.state.kind === "signIn" ? "sign in" : "use"],
-				["r", "rename"],
-				["d", "remove"],
-				["a", "add"],
-				["esc", "close"],
-			];
-		}
-		const text = keys.map(
+		const text = this.keys(row).map(
 			([key, action]) => `${this.theme.fg("muted", key)} ${this.theme.fg("dim", action)}`,
 		);
 		if (position !== undefined) text.push(this.theme.fg("dim", position));
 		return text.join("   ");
 	}
+
+	/** The keys that do something right now, and what each one does. */
+	private keys(row: AccountRow | undefined): [string, string][] {
+		if (this.mode.kind === "rename") {
+			return [
+				["enter", "save"],
+				["esc", "cancel"],
+			];
+		}
+		if (this.mode.kind === "remove") {
+			return [
+				["enter", "remove"],
+				["esc", "keep"],
+			];
+		}
+		const enter = ENTER_DOES[choiceOf(row).kind];
+		if (row === undefined) {
+			return [
+				["↑↓", "move"],
+				["enter", enter],
+				["esc", "close"],
+			];
+		}
+		return [
+			["↑↓", "move"],
+			["enter", enter],
+			["r", "rename"],
+			["d", "remove"],
+			["a", "add"],
+			["esc", "close"],
+		];
+	}
+}
+
+/** What enter does on a row: add on the last one, sign in on a refused account, else use it. */
+function choiceOf(row: AccountRow | undefined): AccountsChoice {
+	if (row === undefined) return { kind: "add" };
+	if (row.state.kind === "signIn") return { kind: "signIn", id: row.id };
+	return { kind: "use", id: row.id };
+}
+
+/** The item at an index that wraps around the list. */
+function wrapped(items: readonly Item[], index: number): Item {
+	return items[(index + items.length) % items.length] ?? ADD;
 }
 
 /** What a row says past the account's name. The Alt+A picker shows the same words. */

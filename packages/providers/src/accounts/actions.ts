@@ -1,11 +1,13 @@
 // What can be done to an account from any dialog, and the status that follows it: the settings screen,
 // /accounts and a login's adoption all go through here.
+import type { Credential } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { activeAccount } from "./active.ts";
-import { STATUS_KEY } from "./names.ts";
+import { NAME, STATUS_KEY } from "./names.ts";
 import { pin, type Pins } from "./pins.ts";
 import type { AccountStore } from "./store.ts";
+import type { Account } from "./types.ts";
 
 /** One provider's accounts, as the actions reach them. */
 export interface AccountsOf {
@@ -13,6 +15,28 @@ export interface AccountsOf {
 	store: AccountStore;
 	pins: Pins;
 	providerId: string;
+}
+
+/** Asks for a name, keeping the suggestion when the answer is empty. */
+export async function askName(
+	ctx: ExtensionContext,
+	title: string,
+	suggestion: string,
+): Promise<string> {
+	return (await ctx.ui.input(title, suggestion))?.trim() || suggestion;
+}
+
+/** Stores a new account, saying why when it could not. */
+export function saveAccount(
+	ctx: ExtensionContext,
+	store: AccountStore,
+	providerId: string,
+	label: string,
+	credential: Credential,
+): Account | undefined {
+	const added = store.add(providerId, label, credential);
+	if (added.account === undefined) ctx.ui.notify(`${NAME}: ${added.problem}`, "error");
+	return added.account;
 }
 
 /** Makes an account the one in use, in this session and in the ones that start after it. */

@@ -5,7 +5,7 @@ import type { Credential } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { pick } from "../ui/picker.ts";
-import { useAccount } from "./actions.ts";
+import { type AccountsOf, askName, saveAccount, useAccount } from "./actions.ts";
 import { activeAccount } from "./active.ts";
 import { NAME } from "./names.ts";
 import type { Pins } from "./pins.ts";
@@ -26,6 +26,7 @@ export async function adoptAccount(
 	credential: Credential,
 ): Promise<void> {
 	const provider = ctx.modelRegistry.getProviderDisplayName(providerId);
+	const of: AccountsOf = { pi: scope, store, pins, providerId };
 	const current = activeAccount(store, pins, providerId)?.id;
 	const choices: { account: Account | undefined; label: string }[] = store
 		.accounts(providerId)
@@ -44,40 +45,26 @@ export async function adoptAccount(
 		: undefined;
 	const choice = choices.find((candidate) => candidate.label === picked);
 
-	if (choice?.account === undefined) {
-		const typed =
-			choice === undefined
-				? undefined
-				: await ctx.ui.input(`Name this ${provider} account`, provider);
-		const label = typed?.trim() || provider;
-		const added = store.add(providerId, label, credential);
-		if (added.account === undefined) {
-			ctx.ui.notify(`${NAME}: ${added.problem}`, "error");
+	if (choice?.account !== undefined) {
+		const problem = store.setCredential(providerId, choice.account.id, credential);
+		if (problem !== undefined) {
+			ctx.ui.notify(`${NAME}: ${problem}`, "error");
 			return;
 		}
-		keep(scope, store, pins, ctx, providerId, added.account);
+		store.clearError(providerId, choice.account.id);
+		keep(of, ctx, provider, choice.account);
 		return;
 	}
 
-	const problem = store.setCredential(providerId, choice.account.id, credential);
-	if (problem !== undefined) {
-		ctx.ui.notify(`${NAME}: ${problem}`, "error");
-		return;
-	}
-	store.clearError(providerId, choice.account.id);
-	keep(scope, store, pins, ctx, providerId, choice.account);
+	// A closed dialog asks nothing more, and the login keeps the provider's name.
+	let label = provider;
+	if (choice !== undefined) label = await askName(ctx, `Name this ${provider} account`, provider);
+	const added = saveAccount(ctx, store, providerId, label, credential);
+	if (added !== undefined) keep(of, ctx, provider, added);
 }
 
 /** Moves the session to the account the login belongs to. */
-function keep(
-	scope: FeatureScope,
-	store: AccountStore,
-	pins: Pins,
-	ctx: ExtensionContext,
-	providerId: string,
-	account: Account,
-): void {
-	useAccount({ pi: scope, store, pins, providerId }, ctx, account.id);
-	const provider = ctx.modelRegistry.getProviderDisplayName(providerId);
+function keep(of: AccountsOf, ctx: ExtensionContext, provider: string, account: Account): void {
+	useAccount(of, ctx, account.id);
 	ctx.ui.notify(`${NAME}: ${provider} now uses ${account.label}`, "info");
 }

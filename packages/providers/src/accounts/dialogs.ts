@@ -16,10 +16,12 @@ import { timeLeft, windowsOf } from "../usage/read.ts";
 import type { AccountUsage } from "../usage/types.ts";
 import {
 	type AccountsOf,
+	askName,
 	refreshStatus,
 	removeAccount,
 	removeQuestion,
 	renameAccount,
+	saveAccount,
 	useAccount,
 } from "./actions.ts";
 import { activeAccount } from "./active.ts";
@@ -222,13 +224,16 @@ export async function addAccount(
 	const first = !store.has(providerId);
 	const carried = first ? await namePiLogin(ctx, providerId, provider) : undefined;
 	const suggestion = suggestName(store, providerId, provider, carried?.label);
-	const label = await named(ctx, `Name the new ${provider} account`, suggestion);
+	const label = await askName(ctx, `Name the new ${provider} account`, suggestion);
 
 	const session = await loginFor(ctx, provider, new AbortController().signal);
 	try {
 		const credential = await login(method, session.interaction);
-		if (carried !== undefined && keep(ctx, store, providerId, carried) === undefined) return;
-		const added = keep(ctx, store, providerId, { label, credential });
+		if (carried !== undefined) {
+			const kept = saveAccount(ctx, store, providerId, carried.label, carried.credential);
+			if (kept === undefined) return;
+		}
+		const added = saveAccount(ctx, store, providerId, label, credential);
 		if (added === undefined) return;
 		useAccount({ pi: scope, store, pins, providerId }, ctx, added.id);
 		// The first account of a provider was not attached at session start, so attach it now.
@@ -243,38 +248,16 @@ export async function addAccount(
 	}
 }
 
-interface Named {
-	label: string;
-	credential: Credential;
-}
-
 /** Pi's own login of a provider, with the name it keeps as an account, when there is one. */
 async function namePiLogin(
 	ctx: ExtensionContext,
 	providerId: string,
 	provider: string,
-): Promise<Named | undefined> {
+): Promise<{ label: string; credential: Credential } | undefined> {
 	const credential = piLogin(providerId);
 	if (credential === undefined) return undefined;
 	const title = `Name the ${provider} ${kindText(credential.type)} login you already have`;
-	return { label: await named(ctx, title, provider), credential };
-}
-
-/** Stores an account, saying why when it could not. */
-function keep(
-	ctx: ExtensionContext,
-	store: AccountStore,
-	providerId: string,
-	account: Named,
-): Account | undefined {
-	const added = store.add(providerId, account.label, account.credential);
-	if (added.account === undefined) ctx.ui.notify(`${NAME}: ${added.problem}`, "error");
-	return added.account;
-}
-
-/** Asks for a name, keeping the suggestion when the answer is empty. */
-async function named(ctx: ExtensionContext, title: string, suggestion: string): Promise<string> {
-	return (await ctx.ui.input(title, suggestion))?.trim() || suggestion;
+	return { label: await askName(ctx, title, provider), credential };
 }
 
 /** The provider's name for its first account, then the same name numbered. */
