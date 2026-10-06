@@ -2,6 +2,36 @@
 
 Every `@adeildo/` package in this repository shares one version, one tag and this changelog. The entries below 4.0.0 are from before, when `pi-ask-permission` was the only package.
 
+## [5.3.0](https://github.com/felipeadeildo/pi-harness/compare/v5.2.0...v5.3.0) (2026-10-06)
+
+
+### Features
+
+* **ask-questions:** wait until you stop typing before the model's questions open ([fbfdb10](https://github.com/felipeadeildo/pi-harness/commit/fbfdb1033e853e7c288a8101c9e35e4e2320af9f))
+* **look:** carry the account next to the model and the plan's windows in the footer ([3e7d326](https://github.com/felipeadeildo/pi-harness/commit/3e7d326da6784e984170156b25a733ac0f07f6b5))
+* **look:** frame the calls of tools that bring no renderers of their own ([dccb08b](https://github.com/felipeadeildo/pi-harness/commit/dccb08b201b9c9ea5669c3f81cbc35fa3c989e7f))
+* **look:** say in the frame when the account needs a sign-in ([06eaa58](https://github.com/felipeadeildo/pi-harness/commit/06eaa5833ddc62db9747910d7b30b6cb5ee9cbd9))
+* **providers:** keep each account's health and adopt the logins that arrive ([b3a1834](https://github.com/felipeadeildo/pi-harness/commit/b3a1834e7ac8e3eeaf6cd36afe8b6c285a9ae6f0))
+* **providers:** keep the plan's quota from each response and count down its reset ([e318f79](https://github.com/felipeadeildo/pi-harness/commit/e318f79e94484a83cbbece737f0ef41c64597618))
+* **providers:** move to another account when one is refused, and frame the dialogs ([f231bf2](https://github.com/felipeadeildo/pi-harness/commit/f231bf2441a5e237bc3b44d46dc60a4a44107989))
+* **providers:** name every credential of a provider with accounts, and manage them in /accounts ([568944b](https://github.com/felipeadeildo/pi-harness/commit/568944b7cc04d3b36a63d6525c02740047637682))
+* **providers:** read each account's plan and show it in the picker ([13d26d0](https://github.com/felipeadeildo/pi-harness/commit/13d26d0f3bec19a90fc2cd7d9358bc7107382978))
+* **providers:** read the plan's quota from the endpoint and show it in the picker ([e99fdc7](https://github.com/felipeadeildo/pi-harness/commit/e99fdc755d94d11d9b0568d352eea826301fbbe8))
+* **providers:** run a provider login on our own framed screen ([6cdde83](https://github.com/felipeadeildo/pi-harness/commit/6cdde83436adb92b26341f260c8c6a142c3a32b6))
+
+
+### Bug Fixes
+
+* **ask-permission:** ask about a codemode script's calls one at a time ([6f18955](https://github.com/felipeadeildo/pi-harness/commit/6f18955a0f7d289d145c1ba157ad95f748bfe3ad))
+* **look:** keep a replayed call open for its result to close ([626eefe](https://github.com/felipeadeildo/pi-harness/commit/626eefeb95a5b24cb6d1fd842e87b0cbb28a12cb))
+* **look:** leave the cost and the tokens out until the session spends some ([b023cb5](https://github.com/felipeadeildo/pi-harness/commit/b023cb5aa63a7fd016ba973e2f7e5ff1d3053561))
+* **providers:** close the lock's own descriptor, not writeSync's count ([77f692b](https://github.com/felipeadeildo/pi-harness/commit/77f692bfae7d7b4b53af1ffd8a97037678fbabca))
+* **providers:** read the plans of the provider a model switch lands on ([2476f16](https://github.com/felipeadeildo/pi-harness/commit/2476f1639e4ba7b3d75d85b8776c042da1902b05))
+* **providers:** refresh an account under a lock two pi processes share ([c643481](https://github.com/felipeadeildo/pi-harness/commit/c64348178d2bbab4f484137db937424a4d95be5e))
+* **providers:** refresh an expired account before reading its plan ([90316b9](https://github.com/felipeadeildo/pi-harness/commit/90316b9175d348e157641636872b3a708e700103))
+* **providers:** show the sign-in URL itself and open the browser, like pi does ([ce2ea18](https://github.com/felipeadeildo/pi-harness/commit/ce2ea188efa2016f80987aab4dd4444a58a6f1c3))
+* **providers:** stop /accounts from adopting the credential it adds ([6323d41](https://github.com/felipeadeildo/pi-harness/commit/6323d41f3380451a05b6cc696dc8ba32ff101ea6))
+
 ## [5.2.0](https://github.com/felipeadeildo/pi-harness/compare/v5.1.0...v5.2.0) (2026-10-03)
 
 
