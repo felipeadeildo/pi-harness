@@ -53,15 +53,15 @@ flowchart TD
 
 ## Permission. `@adeildo/pi-ask-permission`
 
-| Item                        | Status  | Note                                                                                                             |
-| --------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
-| The dialog                  | done    | yes, always yes or no, with a note the model reads, on a command longer than three lines shows how many are left |
-| Grants at three scopes      | done    | session, project and everywhere, forgotten from the settings screen                                              |
-| Modes                       | done    | manual, edits, judge and full, with `Alt+W` for a call outside the workspace                                     |
-| MCP policies and codemode   | done    | a call follows the policy of its server, and every call inside a script is decided on its own                    |
-| The judge on pi's models    | done    | `ctx.modelRegistry.classify()`, so there is no provider of ours and no prompt of ours to keep                    |
-| Every call says who decided | done    | the reason sits on the call, and the calls of one answer are judged together                                     |
-| Judge reads the goal        | planned | The goal replaces my last message as what the judge knows about the work. Needs the session state                |
+| Item                        | Status | Note                                                                                                              |
+| --------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------- |
+| The dialog                  | done   | yes, always yes or no, with a note the model reads, on a command longer than three lines shows how many are left  |
+| Grants at three scopes      | done   | session, project and everywhere, forgotten from the settings screen                                               |
+| Modes                       | done   | manual, edits, judge and full, with `Alt+W` for a call outside the workspace                                      |
+| MCP policies and codemode   | done   | a call follows the policy of its server, and every call inside a script is decided on its own                     |
+| The judge on pi's models    | done   | `ctx.modelRegistry.classify()`, so there is no provider of ours and no prompt of ours to keep                     |
+| Every call says who decided | done   | the reason sits on the call, and the calls of one answer are judged together                                      |
+| Judge reads the goal        | done   | the goal and the step under way, from my words only, beside my last message, and the ruling says when it saw them |
 
 ## Questions. `@adeildo/pi-ask-questions`
 
@@ -70,6 +70,18 @@ flowchart TD
 | The tool and its dialog    | done    | options, a preview of each, a note on any of them, and a row for my own answer |
 | One dialog for both        | done    | the permission ask goes through it, so both take the same keys                 |
 | `ctrl+g` in a typed answer | planned | opens the external editor, the last piece of the port                          |
+
+## The goal. `@adeildo/pi-goal`
+
+| Item                     | Status | Note                                                                                                                  |
+| ------------------------ | ------ | --------------------------------------------------------------------------------------------------------------------- |
+| The timeline             | done   | the goal, the step under way, what was done with what it left out, and what waits with why                            |
+| Kept by a small model    | done   | it answers with operations, never a new list, so it cannot rewrite what was done                                      |
+| When it updates          | done   | on my message at once, once a minute at most in a long turn, when the agent stops, and one tidy pass after each run   |
+| Only my words are intent | done   | the agent's work can finish or add a step, never set the goal the judge reads, and it never sees what a tool returned |
+| `Alt+G`                  | done   | the whole timeline as a tree over the chat, with a cursor and the item under it in full                               |
+| On the look              | done   | the step under way above the editor, with how many are done and how many wait                                         |
+| What it costs            | done   | every call records its cost, and the look adds it to the session's. About $0.03 for a ten-minute turn on Haiku        |
 
 ## Accounts. `@adeildo/pi-providers`
 
@@ -128,7 +140,7 @@ Open:
 | Item                     | Status  | Needs                     | Note                                                                                                     |
 | ------------------------ | ------- | ------------------------- | -------------------------------------------------------------------------------------------------------- |
 | Session naming           | planned |                           | A name from the first turns. The look already shows it                                                   |
-| Session state            | planned |                           | Goal, current task, plan, touched files and the last summary. A snapshot per session, never an event log |
+| Session state            | planned |                           | The goal, the step and the plan come from `pi-goal`. Touched files and the last summary are left         |
 | Structured compaction    | planned | Session state             | Goal, decisions, open questions and files, from the session state instead of prose                       |
 | Memory                   | planned | Session state, compaction | Replaces `pi-memory`. Markdown is the source of truth, and a command reviews and deletes what was stored |
 | Compaction by classifier | later   | Structured compaction     | A classifier picks which entries stay, in place of a summary                                             |
