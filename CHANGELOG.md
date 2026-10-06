@@ -2,6 +2,20 @@
 
 Every `@adeildo/` package in this repository shares one version, one tag and this changelog. The entries below 4.0.0 are from before, when `pi-ask-permission` was the only package.
 
+## [5.5.0](https://github.com/felipeadeildo/pi-harness/compare/v5.4.0...v5.5.0) (2026-10-06)
+
+
+### Features
+
+* **goal:** keep the session's timeline (now, done, later) and give the judge your intent ([cef1fe1](https://github.com/felipeadeildo/pi-harness/commit/cef1fe1a16abf3e1f8228f52c0939d5ce738e355))
+* **goal:** tidy from your words and the agent's work, and count what every goal call costs ([e12eec5](https://github.com/felipeadeildo/pi-harness/commit/e12eec5c1177b4b85a8f6c1e46642d40755ed48c))
+* **goal:** title the timeline with the session's goal, and count what waits instead of showing its first line ([4daf43f](https://github.com/felipeadeildo/pi-harness/commit/4daf43f2b5411b665663f7f37485b22b89971ed7))
+
+
+### Bug Fixes
+
+* **ask-permission:** say on the ruling when the judge saw the session's goal ([4e79dcc](https://github.com/felipeadeildo/pi-harness/commit/4e79dccfff7e4467bacc8f810a7a562fabc8e4c9))
+
 ## [5.4.0](https://github.com/felipeadeildo/pi-harness/compare/v5.3.0...v5.4.0) (2026-10-06)
 
 

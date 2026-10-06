@@ -1,6 +1,6 @@
 {
 	"name": "@adeildo/pi-goal",
-	"version": "5.4.0",
+	"version": "5.5.0",
 	"description": "Keeps what a session is after: its goal, the step it is on, what it did and what it left for later. The judge reads it as your intent.",
 	"keywords": [
 		"goal",
