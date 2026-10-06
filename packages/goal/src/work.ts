@@ -35,7 +35,7 @@ export interface Work {
 /** From the entry after `after`, or after the last update when it is not on the branch. */
 export function workSince(branch: readonly unknown[], after?: string): Work {
 	const entries = branch as readonly Entry[];
-	const seen = after === undefined ? -1 : entries.findIndex((entry) => entry.id === after);
+	const seen = indexOf(entries, after);
 	const start = (seen === -1 ? lastUpdateIndex(entries) : seen) + 1;
 	return digest(entries.slice(start), false);
 }
@@ -47,8 +47,12 @@ export function workSince(branch: readonly unknown[], after?: string): Work {
  */
 export function sessionSince(branch: readonly unknown[], after?: string): Work {
 	const entries = branch as readonly Entry[];
-	const seen = after === undefined ? -1 : entries.findIndex((entry) => entry.id === after);
-	return digest(entries.slice(seen + 1), true);
+	return digest(entries.slice(indexOf(entries, after) + 1), true);
+}
+
+/** Where `id` sits on the branch, or -1 when it is not given or not there. */
+function indexOf(entries: readonly Entry[], id: string | undefined): number {
+	return id === undefined ? -1 : entries.findIndex((entry) => entry.id === id);
 }
 
 function digest(read: readonly Entry[], withOperator: boolean): Work {

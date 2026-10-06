@@ -3,14 +3,16 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { AUTO, modelRef, SESSION } from "./model.ts";
 
-export const SECTIONS = ["This session", "Model", "Pace"];
+export const SESSION_SECTION = "This session";
+export const MODEL_SECTION = "Model";
+export const SECTIONS = [SESSION_SECTION, MODEL_SECTION];
 
 export const model = setting({
 	id: "goal.model",
 	default: AUTO,
 	decoder: string,
 	ui: {
-		section: "Model",
+		section: MODEL_SECTION,
 		label: "Model",
 		description:
 			"The model that keeps the goal up to date. When it fails, the session's model answers.",
@@ -32,7 +34,7 @@ export const interval = setting({
 	default: 60,
 	decoder: seconds,
 	ui: {
-		section: "Pace",
+		section: MODEL_SECTION,
 		label: "While the agent works",
 		description:
 			"Seconds between updates of the goal during a long turn. 0 updates it only on your messages and when the agent stops.",

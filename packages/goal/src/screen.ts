@@ -9,13 +9,12 @@ import {
 } from "@adeildo/pi-kit";
 
 import type { GoalKeeper } from "./index.ts";
-
-const SECTION = "This session";
+import { MODEL_SECTION, SESSION_SECTION } from "./settings.ts";
 
 export function registerScreen(scope: FeatureScope, keeper: GoalKeeper): void {
 	scope.screen.value({
 		id: "goal.goal",
-		section: SECTION,
+		section: SESSION_SECTION,
 		label: "Goal",
 		description: "What this session is for. The model sets it from your messages.",
 		control: { type: "text" },
@@ -29,7 +28,7 @@ export function registerScreen(scope: FeatureScope, keeper: GoalKeeper): void {
 
 	scope.screen.value({
 		id: "goal.now",
-		section: SECTION,
+		section: SESSION_SECTION,
 		label: "Now",
 		description: "The step under way. Empty marks it done. A line from Later picks that one up.",
 		control: { type: "text" },
@@ -43,7 +42,7 @@ export function registerScreen(scope: FeatureScope, keeper: GoalKeeper): void {
 
 	scope.screen.value({
 		id: "goal.later",
-		section: SECTION,
+		section: SESSION_SECTION,
 		label: "Later",
 		description: "What was left for afterwards, one per line. A line you remove is dropped.",
 		control: { type: "text", multiline: true },
@@ -58,22 +57,22 @@ export function registerScreen(scope: FeatureScope, keeper: GoalKeeper): void {
 		},
 	});
 
-	scope.screen.info({
-		id: "goal.spent",
-		section: SECTION,
-		label: "Spent",
-		description:
-			"What the goal's model calls cost on this branch, at the model's catalog price. The look adds it to the session's cost.",
-		text: (ctx) => spentText(goalSpent(ctx.sessionManager.getBranch())),
-	});
-
 	scope.screen.action({
 		id: "goal.done",
-		section: SECTION,
+		section: SESSION_SECTION,
 		label: "Done",
 		description: "What this session finished, oldest first.",
 		text: () => count(itemsWith(keeper.state(), "done").length),
 		run: () => doneText(keeper.state()),
+	});
+
+	scope.screen.info({
+		id: "goal.spent",
+		section: MODEL_SECTION,
+		label: "Spent",
+		description:
+			"What the goal's model calls cost on this branch, at the model's catalog price. The look adds it to the session's cost.",
+		text: (ctx) => spentText(goalSpent(ctx.sessionManager.getBranch())),
 	});
 }
 
