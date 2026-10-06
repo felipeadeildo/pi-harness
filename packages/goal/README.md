@@ -49,7 +49,7 @@ To correct it, say what you want. "Leave the frame for later" moves the frame to
 
 ## Where it shows
 
-`Alt+G` opens the whole timeline as a tree over the chat: what is under way, what waits and what was done, newest first. The arrows move a cursor from item to item, and the item under it shows its note: why it waits, or what it left out. `n` shows every note, `d` the dropped items, and `Esc` closes it. It updates while open.
+`Alt+G` opens the whole timeline as a tree over the chat: what is under way, what waits and what was done, newest first, one line per item. The arrows move a cursor, and a pane at the bottom shows the item under it in full: its whole text, its note (why it waits, or what it left out) and when it started and finished. `d` shows the dropped items, and `Esc` closes it. It updates while open, and its size stays put while you move.
 
 Pi's footer shows the step under way. With [`@adeildo/pi-look`](../look), it sits on the right of the line above the editor, with how many items are done and how many wait. When the line has no room for it, it gets a line of its own.
 

@@ -106,7 +106,7 @@ export const goal = defineFeature({
 
 		async function openTimeline(ctx: ExtensionContext): Promise<void> {
 			if (ctx.mode !== "tui") return;
-			let stopWatching = (): void => {};
+			let stopWatching: (() => void) | undefined;
 			await ctx.ui.custom<void>(
 				(tui, theme, _keybindings, done) => {
 					stopWatching = scope.events.on(GOAL_CHANGED, () => tui.requestRender());
@@ -114,7 +114,7 @@ export const goal = defineFeature({
 						theme,
 						state: () => keeper.state(),
 						spent: () => goalSpent(ctx.sessionManager.getBranch()),
-						rows: () => Math.floor(tui.terminal.rows * 0.8),
+						rows: () => Math.floor(tui.terminal.rows * 0.8) - 1,
 						close: () => done(),
 						requestRender: () => tui.requestRender(),
 					});
@@ -124,7 +124,7 @@ export const goal = defineFeature({
 					overlayOptions: { anchor: "center", width: "70%", minWidth: 60, maxHeight: "80%" },
 				},
 			);
-			stopWatching();
+			stopWatching?.();
 		}
 	},
 });

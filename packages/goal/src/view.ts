@@ -35,13 +35,14 @@ interface Line {
 
 const PAD = 2;
 const POINTER = "\u276f";
+const DETAIL_LINES = 3;
 
 export class TimelineView implements Component {
 	readonly #options: TimelineViewOptions;
 	#selected: string | undefined;
 	#offset = 0;
 	#dropped = false;
-	#allNotes = false;
+	#room = 0;
 	#page = 10;
 
 	constructor(options: TimelineViewOptions) {
@@ -57,7 +58,6 @@ export class TimelineView implements Component {
 		else if (matchesKey(data, "pageDown")) this.#step(this.#page);
 		else if (matchesKey(data, "home") || data === "g") this.#step(-Infinity);
 		else if (matchesKey(data, "end") || data === "G") this.#step(Infinity);
-		else if (data === "n") this.#allNotes = !this.#allNotes;
 		else if (data === "d") this.#dropped = !this.#dropped;
 		else return;
 		requestRender();
@@ -71,38 +71,70 @@ export class TimelineView implements Component {
 		const items = this.#items(goal);
 		if (this.#selected === undefined || !items.some((item) => item.id === this.#selected))
 			this.#selected = items[0]?.id;
+		const selected = items.find((item) => item.id === this.#selected);
 
 		const inner = Math.max(10, width - 2 - PAD * 2);
 		const body = this.#body(goal, inner);
-		const room = Math.max(3, this.#options.rows() - 4);
+		// Borders, a blank line, the scroll hint, the divider and the detail pane.
+		const chrome = 5 + DETAIL_LINES;
+		const most = Math.max(3, this.#options.rows() - chrome);
+		// The panel never shrinks while open, so moving the cursor never moves the frame.
+		this.#room = Math.min(most, Math.max(this.#room, body.length));
+		const room = this.#room;
 		this.#page = Math.max(1, room - 2);
 		this.#follow(body, room);
 		const shown = body.slice(this.#offset, this.#offset + room);
+		while (shown.length < room) shown.push({ text: "" });
 
 		const panel = backgroundAnsi(panelColor(theme), theme.getColorMode());
 		const picked = theme.getBgAnsi("selectedBg");
 		const side = theme.fg("border", "\u2502");
+		const pad = " ".repeat(PAD);
 		const row = (line: Line) => {
 			const on = line.item !== undefined && line.item === this.#selected;
-			const text = truncateToWidth(line.text, inner, "\u2026", true);
-			const pad = " ".repeat(PAD);
+			const back = on ? picked : panel;
+			// A cut line ends in a full reset, which would drop the panel's background.
+			const text = truncateToWidth(line.text, inner, "\u2026", true).replaceAll(
+				"\x1b[0m",
+				`\x1b[0m${back}`,
+			);
 			const fill = on ? `${picked}${pad}${text}${pad}${panel}` : `${pad}${text}${pad}`;
 			return `${panel}${side}${fill}${side}\x1b[49m`;
 		};
 		// The corner cells keep the chat's background, so the panel's corners read as round.
 		const edge = (line: string) => {
-			const inside = sliceByColumn(line, 1, width - 2);
+			const inside = sliceByColumn(line, 1, width - 2).replaceAll("\x1b[0m", `\x1b[0m${panel}`);
 			const first = sliceByColumn(line, 0, 1);
 			const last = sliceByColumn(line, width - 1, 1);
 			return `${first}${panel}${inside}\x1b[49m${last}`;
 		};
+		const divider = `${panel}${theme.fg("border", `\u251c${"\u2500".repeat(width - 2)}\u2524`)}\x1b[49m`;
 		return [
 			edge(this.#top(goal, width)),
 			row({ text: "" }),
 			...shown.map(row),
 			row({ text: this.#scrollHint(body.length, room) }),
+			divider,
+			...this.#detail(selected, inner).map((text) => row({ text })),
 			edge(this.#bottom(width)),
 		];
+	}
+
+	/** The item under the cursor in full: its whole text and its note, in a pane of fixed height. */
+	#detail(item: GoalItem | undefined, width: number): string[] {
+		const { theme } = this.#options;
+		const lines: string[] = [];
+		if (item !== undefined) {
+			lines.push(...wrapTextWithAnsi(theme.fg("text", item.text), width));
+			const note = item.note === undefined ? [] : wrapTextWithAnsi(item.note, width);
+			lines.push(...note.map((line) => theme.fg("muted", line)));
+			const when = whenOf(item);
+			if (when !== "" && lines.length < DETAIL_LINES) lines.push(theme.fg("dim", when));
+		}
+		const kept = lines.slice(0, DETAIL_LINES);
+		if (lines.length > DETAIL_LINES) kept[DETAIL_LINES - 1] = `${kept[DETAIL_LINES - 1]}\u2026`;
+		while (kept.length < DETAIL_LINES) kept.push("");
+		return kept;
 	}
 
 	/** Items in the order they are drawn, which the cursor walks. */
@@ -172,24 +204,16 @@ export class TimelineView implements Component {
 		const branch = on
 			? theme.fg("accent", `${POINTER}  `)
 			: theme.fg("border", last ? "\u2514\u2500 " : "\u251c\u2500 ");
-		const stem = theme.fg("border", last || on ? "   " : "\u2502  ");
 		const meta = timeOf(item);
 		const metaWidth = meta === "" ? 0 : visibleWidth(meta) + 2;
-		const textWidth = Math.max(8, width - 5 - metaWidth);
 		const closed = item.status === "done" || item.status === "dropped";
-		const ink: Tint = on ? "text" : closed ? "muted" : "text";
-		const words = (text: string) => (on ? theme.bold(theme.fg(ink, text)) : theme.fg(ink, text));
-
-		const [first = "", ...rest] = wrapTextWithAnsi(item.text, textWidth);
-		const head = `${branch}${theme.fg(color, mark)} ${words(first)}`;
+		const ink: Tint = on || !closed ? "text" : "muted";
+		const plain = truncateToWidth(item.text, Math.max(8, width - 5 - metaWidth), "\u2026");
+		const words = on ? theme.bold(theme.fg(ink, plain)) : theme.fg(ink, plain);
+		const head = `${branch}${theme.fg(color, mark)} ${words}`;
 		const gap = Math.max(2, width - visibleWidth(head) - visibleWidth(meta));
 		const text = meta === "" ? head : `${head}${" ".repeat(gap)}${theme.fg("dim", meta)}`;
-		const lines: Line[] = [{ text, item: item.id }];
-		for (const line of rest) lines.push({ text: `${stem}  ${words(line)}`, item: item.id });
-		if (item.note !== undefined && (on || this.#allNotes))
-			for (const line of wrapTextWithAnsi(item.note, textWidth))
-				lines.push({ text: `${stem}  ${theme.fg("dim", line)}`, item: item.id });
-		return lines;
+		return [{ text, item: item.id }];
 	}
 
 	#top(goal: SessionGoal, width: number): string {
@@ -207,8 +231,7 @@ export class TimelineView implements Component {
 
 	#bottom(width: number): string {
 		const { theme, spent } = this.#options;
-		const notes = this.#allNotes ? "n fewer notes" : "n all notes";
-		const keys = theme.fg("dim", ` \u2191\u2193 move  ${notes}  d dropped  esc close `);
+		const keys = theme.fg("dim", ` \u2191\u2193 move  d dropped  esc close `);
 		const { cost, calls } = spent();
 		const money = calls === 0 ? "" : theme.fg("dim", ` $${cost.toFixed(3)}, ${calls} calls `);
 		const left = `${theme.fg("border", "\u2570\u2500")}${keys}`;
@@ -243,6 +266,12 @@ function timeOf(item: GoalItem): string {
 	if (item.status === "done" || item.status === "dropped")
 		return item.finished === undefined ? "" : clock(item.finished.at);
 	return "";
+}
+
+function whenOf(item: GoalItem): string {
+	const started = item.started === undefined ? "" : `started ${clock(item.started.at)}`;
+	const finished = item.finished === undefined ? "" : `${item.status} ${clock(item.finished.at)}`;
+	return [started, finished].filter((part) => part !== "").join(", ");
 }
 
 function clock(at: number): string {
