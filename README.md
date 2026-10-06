@@ -38,6 +38,7 @@
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [Permission](packages/ask-permission) | Asks before a command runs. A model answers the easy ones for you, with the reason on the command, and the ones it is not sure about come to you |
 | [Questions](packages/ask-questions)   | The model asks instead of guessing, with options, a preview of what each one leads to, and a note on any of them                                 |
+| [Goal](packages/goal)                 | Keeps what the session is after: the goal, the step under way, what was done and what was left. The judge reads it as your intent                |
 | [Skill calls](packages/skills)        | Call the skills you already have from anywhere in a message, several at once. The model reads each in full, and the chat shows a chip            |
 | [Look](packages/look)                 | The start screen, the editor with the branch and the model on its borders, and a box around each command with its output and how long it took    |
 | [Providers](packages/providers)       | Bills Anthropic requests to the Claude plan you already pay for, and keeps several accounts with a switch to the next one when a limit hits      |

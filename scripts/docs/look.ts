@@ -27,6 +27,7 @@ import {
 	SEPARATORS,
 	separator,
 	strip,
+	stripRight,
 	topLeft,
 	topRight,
 } from "../../packages/look/src/settings.ts";
@@ -39,6 +40,7 @@ const WIDTH = 100;
 
 const SLOTS: Record<SlotName, SegmentId[]> = {
 	strip: strip.default,
+	stripRight: stripRight.default,
 	topLeft: topLeft.default,
 	topRight: topRight.default,
 	bottomLeft: bottomLeft.default,

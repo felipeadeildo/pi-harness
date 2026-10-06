@@ -1,8 +1,33 @@
-// What the user is after, for the judge. Today the last thing they typed; a service that knows the
-// current intent better takes this place later, and the judge does not change.
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+// What the user is after, for the judge: the session's goal in their own words, when a goal feature
+// keeps one, and the last thing they typed.
+import { currentGoal, intentOf } from "@adeildo/pi-kit";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { isRecord } from "#util/primitives.ts";
+
+/** How long the judge waits for the goal to take in your last message. */
+const GOAL_WAIT_MS = 3000;
+
+export async function intentFor(
+	ctx: Pick<ExtensionContext, "sessionManager">,
+	events: ExtensionAPI["events"],
+): Promise<string | undefined> {
+	const last = currentIntent(ctx);
+	const probe = currentGoal(events);
+	if (probe === undefined) return last;
+	if (probe.settling !== undefined) await Promise.race([probe.settling, sleep(GOAL_WAIT_MS)]);
+
+	const goal = currentGoal(events)?.state;
+	const parts: string[] = [];
+	const ours = goal === undefined ? undefined : intentOf(goal);
+	if (ours !== undefined) parts.push(ours);
+	if (last !== undefined) parts.push(`Last message: ${last}`);
+	return parts.length === 0 ? undefined : parts.join("\n");
+}
+
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export function currentIntent(ctx: Pick<ExtensionContext, "sessionManager">): string | undefined {
 	const branch: readonly unknown[] = ctx.sessionManager.getBranch();

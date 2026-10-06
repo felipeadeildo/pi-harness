@@ -11,6 +11,8 @@ export type Role =
 	| "conflicted"
 	| "host"
 	| "session"
+	| "goal"
+	| "later"
 	| "version"
 	| "provider"
 	| "model"
@@ -36,6 +38,8 @@ export const ROLE_TOKENS: Record<Role, ThemeColor> = {
 	conflicted: "error",
 	host: "syntaxType",
 	session: "mdHeading",
+	goal: "accent",
+	later: "warning",
 	version: "muted",
 	provider: "syntaxKeyword",
 	model: "text",

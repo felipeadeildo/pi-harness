@@ -6,6 +6,12 @@ import type { Paint } from "../render/paint.ts";
 import { type Screen, type SlotName, slotPieces } from "./screen.ts";
 
 const GAP = 3;
+/**
+ * Room kept for the strip when its right side sits beside it, about what a run shows: the time, the
+ * calls, the last call and the speed. The strip changes width every second, so whether the right
+ * side fits is measured against this, not against what the strip shows now.
+ */
+const STRIP_ROOM = 56;
 
 export function indentOf(screen: Screen): number {
 	const style = screen.frameStyle();
@@ -20,10 +26,19 @@ export class StripComponent implements Component {
 	}
 
 	render(width: number): string[] {
-		const indent = indentOf(this.#screen);
-		const line = renderSlot(this.#screen, "strip", width - indent * 2);
-		// Always one line, empty or not: a strip that appears with the first answer moves the editor.
-		return [line === "" ? "" : `${" ".repeat(indent)}${line}`];
+		const screen = this.#screen;
+		const indent = indentOf(screen);
+		const room = width - indent * 2;
+		const pad = (line: string) => (line === "" ? "" : `${" ".repeat(indent)}${line}`);
+		const right = slotPieces(screen, "stripRight", screen.snapshot(), screen.paint());
+		// Always one line for the strip, empty or not: one that appears with the first answer moves
+		// the editor.
+		if (right.length === 0 || room <= 0) return [pad(renderSlot(screen, "strip", room))];
+
+		const full = fitLine(right, Number.MAX_SAFE_INTEGER, fitOptions(screen, screen.paint()));
+		if (visibleWidth(full) + GAP + STRIP_ROOM <= room)
+			return [pad(spread(screen, "strip", "stripRight", room))];
+		return [pad(renderSlot(screen, "strip", room)), pad(renderSlot(screen, "stripRight", room))];
 	}
 
 	invalidate(): void {}

@@ -85,6 +85,12 @@ export const strip = slot(
 	"The line above the editor: how long the agent has worked, and the last call that finished.",
 	["elapsed", "last"],
 );
+export const stripRight = slot(
+	"stripRight",
+	"Answer strip, on the right",
+	"The other side of that line. When it does not fit beside the strip, it gets a line of its own under it.",
+	["goal"],
+);
 export const topLeft = slot("frame.topLeft", "Frame, top left", "After the working spinner.", [
 	"branch",
 	"session",
@@ -219,6 +225,7 @@ export const peek = setting({
 
 export const LOOK_SETTINGS = [
 	strip,
+	stripRight,
 	topLeft,
 	topRight,
 	bottomLeft,

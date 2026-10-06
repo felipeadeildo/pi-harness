@@ -28,7 +28,7 @@ import { shortenHome } from "#core/tools.ts";
 import { folderChoices } from "#core/workspace.ts";
 import { NAME } from "#identity";
 import { announce, type Decided } from "#pi/api.ts";
-import { currentIntent } from "#pi/intent.ts";
+import { intentFor } from "#pi/intent.ts";
 import { clearStatus, notifyJudgePolicyWarning, renderStatus } from "#pi/mode.ts";
 import { type FileChange, type PendingWrites, previewEdit, previewWrite } from "#pi/preview.ts";
 import { restoreSession } from "#pi/session-entries.ts";
@@ -283,7 +283,7 @@ async function runJudge(
 		rawInput: call.input,
 		source: judgeSource(call),
 		toolDescription: call.description,
-		intent: currentIntent(ctx),
+		intent: await intentFor(ctx, scope.events),
 		cache: state.judgeCache,
 		onStatus: (status) => ctx.ui.setStatus(JUDGE_STATUS, status),
 	});

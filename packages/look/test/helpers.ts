@@ -25,6 +25,7 @@ export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 
 export const SLOTS: Record<SlotName, SegmentId[]> = {
 	strip: ["speed", "wait", "elapsed"],
+	stripRight: [],
 	topLeft: ["branch"],
 	topRight: ["path"],
 	bottomLeft: ["model", "effort"],

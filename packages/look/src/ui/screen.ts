@@ -8,6 +8,7 @@ import type { CursorStyle } from "../settings.ts";
 
 export type SlotName =
 	| "strip"
+	| "stripRight"
 	| "topLeft"
 	| "topRight"
 	| "bottomLeft"

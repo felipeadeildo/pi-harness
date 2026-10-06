@@ -1,7 +1,7 @@
 {
 	"name": "@adeildo/pi-harness",
 	"version": "5.4.0",
-	"description": "Every adeildo Pi extension in one install: the permission dialog, the look, the providers, the questions and the skill calls. Each is its own extension, so pi config turns one off.",
+	"description": "Every adeildo Pi extension in one install: the permission dialog, the look, the providers, the questions, the skill calls and the session goal. Each is its own extension, so pi config turns one off.",
 	"keywords": [
 		"anthropic",
 		"permission",
@@ -37,6 +37,7 @@
 	"dependencies": {
 		"@adeildo/pi-ask-permission": "workspace:*",
 		"@adeildo/pi-ask-questions": "workspace:*",
+		"@adeildo/pi-goal": "workspace:*",
 		"@adeildo/pi-kit": "workspace:*",
 		"@adeildo/pi-look": "workspace:*",
 		"@adeildo/pi-providers": "workspace:*",
@@ -53,7 +54,8 @@
 			"./src/look.ts",
 			"./src/providers.ts",
 			"./src/questions.ts",
-			"./src/skills.ts"
+			"./src/skills.ts",
+			"./src/goal.ts"
 		]
 	}
 }

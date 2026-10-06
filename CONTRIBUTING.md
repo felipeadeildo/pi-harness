@@ -24,6 +24,7 @@ packages/
   providers/        # @adeildo/pi-providers: Claude plan billing and accounts
   ask-questions/    # @adeildo/pi-ask-questions: the ask_questions tool and its dialog
   skills/           # @adeildo/pi-skills: /skill: references anywhere in a message
+  goal/             # @adeildo/pi-goal: the session's goal, current step, done and later
   harness/          # @adeildo/pi-harness: every piece above, one extension each
   kit/              # @adeildo/pi-kit: app builder, feature scope, settings, events
 ```

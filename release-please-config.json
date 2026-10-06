@@ -53,6 +53,11 @@
 				},
 				{
 					"type": "json",
+					"path": "packages/goal/package.json",
+					"jsonpath": "$.version"
+				},
+				{
+					"type": "json",
 					"path": "packages/harness/package.json",
 					"jsonpath": "$.version"
 				}

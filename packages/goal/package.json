@@ -1,0 +1,51 @@
+{
+	"name": "@adeildo/pi-goal",
+	"version": "5.4.0",
+	"description": "Keeps what a session is after: its goal, the step it is on, what it did and what it left for later. The judge reads it as your intent.",
+	"keywords": [
+		"goal",
+		"pi",
+		"pi-coding-agent",
+		"pi-extension",
+		"pi-package",
+		"todo"
+	],
+	"homepage": "https://github.com/felipeadeildo/pi-harness/tree/main/packages/goal#readme",
+	"bugs": "https://github.com/felipeadeildo/pi-harness/issues",
+	"license": "MIT",
+	"author": {
+		"name": "adeildo",
+		"email": "contato@felipeadeildo.com",
+		"url": "https://github.com/felipeadeildo"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/felipeadeildo/pi-harness.git",
+		"directory": "packages/goal"
+	},
+	"files": [
+		"src",
+		"README.md",
+		"LICENSE"
+	],
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"dependencies": {
+		"@adeildo/pi-kit": "workspace:*"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-ai": "*",
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	},
+	"pi": {
+		"extensions": [
+			"./src/index.ts"
+		]
+	}
+}

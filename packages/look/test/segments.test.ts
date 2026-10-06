@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
+import { applyGoalOps, emptyGoal } from "@adeildo/pi-kit";
+
 import { emptyTotals } from "../src/data/totals.ts";
 import { ASCII, NERD } from "../src/render/glyphs.ts";
 import { PLAIN, type Paint } from "../src/render/paint.ts";
@@ -33,6 +35,62 @@ function text(ids: SegmentId[], data = snapshot(), extra: Partial<typeof options
 }
 
 describe("segments", () => {
+	test("the goal shows the step under way, with how many are done and how many wait", () => {
+		const goal = applyGoalOps(
+			emptyGoal(),
+			[
+				{ op: "goal", text: "ship goals" },
+				{ op: "start", text: "write the contract" },
+				{ op: "done" },
+				{ op: "start", text: "draw the segment" },
+				{ op: "later", text: "compaction" },
+			],
+			{ at: 1, source: "you" },
+		);
+		const [piece] = render(["goal"], snapshot({ goal }));
+		expect(piece?.text).toBe("> draw the segment  1 done  1 later");
+		expect(piece?.compact).toBe("> draw the segment");
+		expect(claimedStatuses([["goal"]])).toContain("pi-goal");
+
+		const [icons] = renderSegments(["goal"], {
+			snapshot: snapshot({ goal }),
+			glyphs: NERD,
+			paint: PLAIN,
+			options,
+		});
+		expect(icons?.text).toBe("\u{f04fe} draw the segment  \u{f00c} 1  \u{f051f} 1");
+	});
+
+	test("while the agent works, the goal shows the step in its running form", () => {
+		const goal = applyGoalOps(
+			emptyGoal(),
+			[{ op: "start", text: "Rodar os testes", active: "Rodando os testes" }],
+			{ at: 1, source: "you" },
+		);
+		const running = { running: true, elapsedMs: 1_000, requests: 1 };
+		expect(text(["goal"], snapshot({ goal, run: running }))).toEqual(["> Rodando os testes"]);
+		expect(text(["goal"], snapshot({ goal }))).toEqual(["> Rodar os testes"]);
+	});
+
+	test("with no step, the goal shows the session's goal, and nothing without one", () => {
+		const goal = applyGoalOps(emptyGoal(), [{ op: "goal", text: "ship goals" }], {
+			at: 1,
+			source: "you",
+		});
+		expect(text(["goal"], snapshot({ goal }))).toEqual(["> ship goals"]);
+		expect(text(["goal"], snapshot({ goal: emptyGoal() }))).toEqual([]);
+
+		const between = applyGoalOps(
+			emptyGoal(),
+			[{ op: "start", text: "a" }, { op: "done" }, { op: "later", text: "b" }],
+			{ at: 1, source: "you" },
+		);
+		expect(text(["goal"], snapshot({ goal: between }), { labels: true })).toEqual([
+			"> idle  1 done  1 later",
+		]);
+		expect(text(["goal"])).toEqual([]);
+	});
+
 	test("the model comes after its provider, and the short form keeps only the name", () => {
 		const [piece] = render(["model"]);
 		expect(piece?.text).toBe("Anthropic/Opus 5.5");

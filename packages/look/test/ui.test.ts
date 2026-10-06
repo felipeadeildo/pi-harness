@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { applyGoalOps, emptyGoal } from "@adeildo/pi-kit";
 import {
 	type KeybindingsManager,
 	type ReadonlyFooterDataProvider,
@@ -173,6 +174,56 @@ describe("strip and footer", () => {
 	test("the strip lines up with the text in the frame", () => {
 		const data = snapshot({ run: { running: false, elapsedMs: 9_000, requests: 1 } });
 		expect(new StripComponent(screen(data)).render(80).map(plain)).toEqual(["  0:09"]);
+	});
+
+	test("the goal sits on the right of the strip when there is room, and under it when not", () => {
+		const goal = applyGoalOps(emptyGoal(), [{ op: "start", text: "draw the strip" }], {
+			at: 1,
+			source: "you",
+		});
+		const data = snapshot({ goal, run: { running: false, elapsedMs: 9_000, requests: 1 } });
+		const strip = new StripComponent(screen(data, { slots: { stripRight: ["goal"] } }));
+
+		const [wide = ""] = strip.render(100).map(plain);
+		expect(strip.render(100)).toHaveLength(1);
+		expect(wide).toMatch(/^ {2}0:09 +> draw the strip$/);
+		expect(wide).toHaveLength(98);
+
+		// Narrower than the room kept for the strip: the goal gets its own line, on the left.
+		expect(strip.render(70).map(plain)).toEqual(["  0:09", "  > draw the strip"]);
+	});
+
+	test("on its own line a long step uses the whole width, and loses its counts before its words", () => {
+		const step = "verify the goal on the strip, its line of its own, and how it cuts a long step";
+		const goal = applyGoalOps(
+			emptyGoal(),
+			[
+				{ op: "later", text: "frame" },
+				{ op: "start", text: step },
+			],
+			{ at: 1, source: "you" },
+		);
+		const strip = new StripComponent(
+			screen(snapshot({ goal }), { slots: { stripRight: ["goal"] } }),
+		);
+
+		expect(strip.render(100).map(plain)).toEqual(["", `  > ${step}  1 later`]);
+		const [, cut = ""] = strip.render(60).map(plain);
+		expect(cut).toHaveLength(58);
+		expect(cut).toEndWith("...");
+		expect(cut).not.toContain("later");
+	});
+
+	test("the strip's width does not move the goal between lines", () => {
+		const goal = applyGoalOps(emptyGoal(), [{ op: "start", text: "draw the strip" }], {
+			at: 1,
+			source: "you",
+		});
+		const idle = snapshot({ goal });
+		const busy = snapshot({ goal, run: { running: true, elapsedMs: 3_600_000, requests: 40 } });
+		const lines = (data: typeof idle) =>
+			new StripComponent(screen(data, { slots: { stripRight: ["goal"] } })).render(90).length;
+		expect(lines(idle)).toBe(lines(busy));
 	});
 
 	test("the footer carries the frame slots when the frame is off", () => {

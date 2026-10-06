@@ -1,10 +1,12 @@
 import {
 	accountStateOf,
 	createApp,
+	currentGoal,
 	defineFeature,
 	drawSkillRefs,
 	type FeatureScope,
 	SKILL_REF,
+	type SessionGoal,
 	skillNames,
 } from "@adeildo/pi-kit";
 import type {
@@ -40,6 +42,7 @@ import {
 	SECTIONS,
 	SEPARATORS,
 	strip,
+	stripRight,
 	topLeft,
 	topRight,
 } from "./settings.ts";
@@ -218,6 +221,7 @@ export const look = defineFeature({
 
 const SLOT_TITLES: Record<SlotName, string> = {
 	strip: "Above the editor, this answer",
+	stripRight: "Above the editor, on the right",
 	topLeft: "Frame, top left",
 	topRight: "Frame, top right",
 	bottomLeft: "Frame, bottom left",
@@ -266,6 +270,7 @@ function createScreen(
 ): Screen {
 	const slots: Record<SlotName, typeof strip> = {
 		strip,
+		stripRight,
 		topLeft,
 		topRight,
 		bottomLeft,
@@ -287,6 +292,7 @@ function createScreen(
 				last: telemetry.last(),
 				run: telemetry.run(),
 				statuses: live.footerData?.getExtensionStatuses() ?? new Map(),
+				...goalOf(scope),
 			});
 			live.frame = snapshot;
 			queueMicrotask(() => {
@@ -315,6 +321,10 @@ function createScreen(
 		},
 		skills: () => skillNames(scope.events).length > 0,
 	};
+}
+
+function goalOf(scope: FeatureScope): { goal?: SessionGoal } {
+	return { goal: currentGoal(scope.events)?.state };
 }
 
 function installEditor(
