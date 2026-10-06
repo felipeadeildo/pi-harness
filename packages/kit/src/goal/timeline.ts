@@ -47,6 +47,7 @@ export type GoalOp =
 	| { op: "language"; text: string }
 	| { op: "start"; text: string; active?: string }
 	| { op: "resume"; id: string }
+	| { op: "reopen"; id: string; proof?: string }
 	| { op: "pause"; note?: string }
 	| { op: "done"; id?: string; note?: string; proof?: string }
 	| { op: "later"; text: string; active?: string; note?: string }

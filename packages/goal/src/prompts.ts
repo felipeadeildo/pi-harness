@@ -16,6 +16,7 @@ The operator just wrote a message. Call ${TOOL} once with what the message itsel
 - Asks for work (build, fix, change, find out why something went wrong, run, publish): that is the step now. When later or done already has it, in any words or language, resume its id. Otherwise start it. The step under way goes back to later by itself, so never finish it because the operator moved on.
 - Puts a step off: later. Gives a step up: drop it, with proof.
 - Says a step is finished, like a command they ran or something they did: done, with proof.
+- Says a step listed as done did not happen, or was only an idea: not_done {id, proof, still_wanted}.
 - Only asks a question, comments or criticises: send an empty list.
 
 goal: set it when there is none, or when the operator now asks about something it does not name. Never copy the step into it.
@@ -33,8 +34,8 @@ A step that stopped halfway or waits on the operator's answer is still under way
 const TIDY = `${TIMELINE}
 
 You tidy the timeline after a run. It was updated one change at a time and it drifts. Call ${TOOL} once with the operations that clean it, and leave everything else as it is:
-1. Items that say the same work, in any words or language, are one. When an open item repeats a done one, finish it: done {id, same_as}. Between open items, keep the one that says it best and drop the others: drop {id, same_as}.
-2. A step in now or later that the session finished is done {id, proof}: proof is a line copied exactly from the session that shows it happened.
+1. Items that say the same work, in any words or language, are one. When an open item repeats a done one, finish it with done {id, same_as}, never with proof. Between open items, keep the one that says it best and drop the others: drop {id, same_as}.
+2. When the session finished the step in now, it is done {id, proof}: proof is a line copied exactly from the session that says the work was done.
 3. When the goal no longer names what the latest asks are about, set a new one.
 4. Rename an item only to write it in the operator's language, or to say what it changes when it names code.`;
 

@@ -127,7 +127,7 @@ export class Updates {
 			if (!this.#untidy) return;
 			this.#untidy = false;
 			const session = sessionSince(ctx.sessionManager.getBranch(), this.#tidiedTo);
-			const request = { state: this.#keeper.state(), session: session.text };
+			const request = { state: this.#keeper.state(), session: session.lines };
 			const proposal = await tidy(ctx.modelRegistry, this.#options.models(ctx), request, signal);
 			if (proposal === undefined || signal.aborted) return;
 			this.#tidiedTo = session.to ?? this.#tidiedTo;

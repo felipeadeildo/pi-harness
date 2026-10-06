@@ -40,15 +40,15 @@ A model reads the timeline and only what changed since the last update. It answe
 - Your message updates it at once, so the judge has your intent before the agent's first call.
 - During a long turn, it updates once a minute at most, and only when the agent made new calls. Most of those updates change nothing, and then nothing is written. Your last message goes with the work, so the model can tell whether the work answered it.
 - When the agent stops, it reads what is left.
-- After each run, one tidy pass looks at the whole timeline: it merges items that say the same work and finishes the ones the work completed.
+- After each run, one tidy pass looks at the whole timeline: it merges items that say the same work and finishes the step under way when the work completed it.
 
 What the model may send depends on what it read:
 
-- After your message, it can start a step, take one back up from later, put one off, give one up or finish one, and set the goal. A question or a comment changes nothing. When you move to another subject, the step under way goes back to later instead of being finished.
+- After your message, it can start a step, take one back up from later, put one off, give one up or finish one, and set the goal. A message opens one step, the first thing it asks for, and the other asks wait in later. A question or a comment changes nothing. When you move to another subject, the step under way goes back to later instead of being finished. When you say a step marked done did not happen, it opens again.
 - After the agent's work, it can only finish a step or put a follow-up off. Only your messages start steps and set the goal, so when the agent proposes a plan, no step starts.
-- In the tidy pass, it only merges repeats, closes what the session finished and renames.
+- In the tidy pass, it only merges repeats, finishes the step under way and renames.
 
-To finish or give up a step, the model has to copy the words that show it, like `rodei o npm publish` or the agent saying it pushed. The extension looks for those words in the text the model read before it accepts the close, so a model that imagines a merge cannot record one. A command the agent ran does not count, because the model never sees its output. A call that failed or that you refused reaches the model marked as one that did not happen. Each refused operation stays in the session entry under `rejected`.
+To finish or give up a step, the model has to copy the words that show it, like `rodei o npm publish` or the agent saying it pushed. The extension looks for those words in the text the model read before it accepts the close, so a model that imagines a merge cannot record one. A command the agent ran does not count, because the model never sees its output, and neither do words written before the step existed, like the message that put it off. A call that failed or that you refused reaches the model marked as one that did not happen. Each refused operation stays in the session entry under `rejected`.
 
 The model writes every item in the language of your messages, and the timeline records which language that is.
 

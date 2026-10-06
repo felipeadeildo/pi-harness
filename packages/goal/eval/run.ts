@@ -20,6 +20,7 @@ import { ModelRegistry, ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { userAgent } from "../../providers/src/subscription/billing.ts";
 import { billToPlan } from "../../providers/src/subscription/payload.ts";
 import { propose, tidy } from "../src/ask.ts";
+import { type Line, untimed } from "../src/transcript.ts";
 import { type Case, CASES, type Expect } from "./cases.ts";
 
 const CLAUDE_CODE = "2.1.280";
@@ -85,7 +86,12 @@ async function attempt(c: Case, target: Model<Api>): Promise<Outcome> {
 	const { request } = c;
 	const proposal =
 		request.trigger === "tidy"
-			? await tidy(registry, [target], request, signal)
+			? await tidy(
+					registry,
+					[target],
+					{ state: request.state, session: linesOf(request.session) },
+					signal,
+				)
 			: await propose(registry, [target], request, signal);
 	if (proposal === undefined)
 		return { problems: ["no answer"], ops: [], after: request.state, cost: 0 };
@@ -148,6 +154,10 @@ function checkNow(now: GoalItem | undefined, want: NonNullable<Expect["now"]>): 
 		default:
 			return now?.id === want ? undefined : `now is ${now?.id ?? "empty"}, not ${want}`;
 	}
+}
+
+function linesOf(session: string | Line[]): Line[] {
+	return typeof session === "string" ? untimed(session) : session;
 }
 
 function words(text: string): Set<string> {

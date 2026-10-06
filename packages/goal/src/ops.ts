@@ -3,19 +3,33 @@
 import { type GoalOp, isObject, type SessionGoal } from "@adeildo/pi-kit";
 import { type TSchema, Type } from "@earendil-works/pi-ai";
 
-import { CALL } from "./transcript.ts";
+import { CALL, type Line } from "./transcript.ts";
 
 const MAX_TEXT = 240;
+/** The note of a done step dropped because it was only an idea. Only `not_done` writes it. */
+const NOT_DONE = "only an idea, not done";
 /** A proof shorter than this matches too much to prove anything. */
 const MIN_PROOF = 8;
 
 /** Your message opens and closes steps, the agent's work only closes or puts off, the tidy pass cleans. */
 export type Moment = "message" | "work" | "tidy";
 
-type OpName = GoalOp["op"];
+/** `not_done` is the model's word for a done step that did not happen; it becomes reopen or drop. */
+type OpName = Exclude<GoalOp["op"], "reopen"> | "not_done";
 
 export const OPS_FOR: Record<Moment, readonly OpName[]> = {
-	message: ["goal", "language", "start", "resume", "pause", "later", "done", "drop", "rename"],
+	message: [
+		"goal",
+		"language",
+		"start",
+		"resume",
+		"pause",
+		"later",
+		"done",
+		"drop",
+		"not_done",
+		"rename",
+	],
 	work: ["done", "later"],
 	tidy: ["goal", "done", "drop", "rename"],
 };
@@ -54,6 +68,14 @@ const SHAPES: Record<OpName, (moment: Moment) => TSchema> = {
 		moment === "tidy"
 			? shape("drop", { id: ID, same_as: text("The open item this one repeats.") })
 			: shape("drop", { id: ID, proof: PROOF }),
+	not_done: () =>
+		shape("not_done", {
+			id: ID,
+			proof: PROOF,
+			still_wanted: Type.Boolean({
+				description: "False only when the operator also says they will not do it.",
+			}),
+		}),
 	rename: () => shape("rename", { id: ID, text: text("The new words.") }, { active: ACTIVE }),
 };
 
@@ -77,10 +99,10 @@ export function opsSchema(moment: Moment): TSchema {
 /** Well formed operations this moment may send, in the timeline's terms. */
 export function opsOf(raw: unknown, moment: Moment = "message"): GoalOp[] {
 	if (!Array.isArray(raw)) return [];
-	const allowed = new Set(OPS_FOR[moment]);
+	const allowed = new Set<unknown>(OPS_FOR[moment]);
 	return raw.flatMap((entry): GoalOp[] => {
-		const op = entryOf(entry);
-		return op !== undefined && allowed.has(op.op) ? [op] : [];
+		const op = isObject(entry) && allowed.has(entry.op) ? entryOf(entry) : undefined;
+		return op === undefined ? [] : [op];
 	});
 }
 
@@ -112,6 +134,11 @@ function entryOf(raw: unknown): GoalOp | undefined {
 			const left = sameAs ? `same as ${sameAs}` : clean(raw.missing);
 			return { op: "done", id, ...field("note", left), ...proven };
 		}
+		case "not_done": {
+			if (!id) return undefined;
+			if (raw.still_wanted === false) return { op: "drop", id, note: NOT_DONE, ...proven };
+			return { op: "reopen", id, ...proven };
+		}
 		case "drop": {
 			if (!id) return undefined;
 			const why = sameAs ? `same as ${sameAs}` : clean(raw.why);
@@ -132,24 +159,40 @@ export interface Checked {
 }
 
 /**
- * A done or a drop stands only on proof found in what the model read, outside the calls, or, in
- * the tidy pass, on the item it repeats. Everything else passes as it came.
+ * A done or a drop stands only on proof found in what the model read, outside the calls and after
+ * the item was written down, or, in the tidy pass, on the item it repeats. A message opens one
+ * step, its first ask; every other step it asks for waits in later. The rest passes as it came.
  */
 export function checkOps(
 	ops: readonly GoalOp[],
 	moment: Moment,
-	read: string,
+	read: readonly Line[],
 	state: SessionGoal,
 ): Checked {
-	const words = read.split("\n").filter((line) => !line.startsWith(CALL));
-	const haystack = normalized(words.join("\n"));
+	const haystack = read
+		.filter((line) => !line.text.startsWith(CALL))
+		.map((line) => ({ at: line.at, text: normalized(line.text) }));
 	const checked: Checked = { ops: [], rejected: [] };
+	let opened = false;
 	for (const op of ops) {
-		const ok = op.op === "done" || op.op === "drop" ? closes(op, moment, haystack, state) : true;
+		if (op.op === "start" || op.op === "resume") {
+			if (opened) {
+				// The first ask is the step; a second one waits, and a resume of a listed item leaves it.
+				if (op.op === "start") checked.ops.push({ op: "later", text: op.text, ...activeOf(op) });
+				else checked.rejected.push(op);
+				continue;
+			}
+			opened = true;
+		}
+		const ok = needsProof(op) ? closes(op, moment, haystack, state) : true;
 		if (ok) checked.ops.push(repeatOfDone(op, state) ?? op);
 		else checked.rejected.push(op);
 	}
 	return checked;
+}
+
+function activeOf(op: Extract<GoalOp, { op: "start" }>): { active?: string } {
+	return op.active === undefined ? {} : { active: op.active };
 }
 
 /** A drop of something already done is that work finished, not abandoned. */
@@ -160,14 +203,22 @@ function repeatOfDone(op: GoalOp, state: SessionGoal): GoalOp | undefined {
 }
 
 /** The item a `same as gN` note points to. */
-function repeatedId(op: Extract<GoalOp, { op: "done" | "drop" }>): string | undefined {
+type Proven = Extract<GoalOp, { op: "done" | "drop" | "reopen" }>;
+
+/** The operations that change what happened, which stand only on proof. */
+function needsProof(op: GoalOp): op is Proven {
+	return op.op === "done" || op.op === "drop" || op.op === "reopen";
+}
+
+function repeatedId(op: Proven): string | undefined {
+	if (op.op === "reopen") return undefined;
 	return /^same as (g\d+)$/.exec(op.note ?? "")?.[1];
 }
 
 function closes(
-	op: Extract<GoalOp, { op: "done" | "drop" }>,
+	op: Proven,
 	moment: Moment,
-	haystack: string,
+	haystack: readonly Line[],
 	state: SessionGoal,
 ): boolean {
 	const repeated = repeatedId(op);
@@ -175,12 +226,22 @@ function closes(
 		const original = state.items.find((item) => item.id === repeated);
 		return original !== undefined && original.id !== op.id && original.status !== "dropped";
 	}
-	return op.proof !== undefined && found(op.proof, haystack);
+	const item = state.items.find((entry) => entry.id === op.id);
+	// Done work leaves only through not_done, so a plain drop cannot erase it.
+	if (op.op === "drop" && item?.status === "done" && op.note !== NOT_DONE) return false;
+	// What waits in later closes on your message or the agent's work, which read it as it happens.
+	// The tidy pass reads a stretch of talk, where agreeing to wait reads like finishing.
+	if (op.proof === undefined || (moment === "tidy" && item?.status === "later")) return false;
+	// Words written before the item existed cannot say it finished, like the ask that put it off.
+	return found(op.proof, haystack, item?.createdAt ?? 0);
 }
 
-function found(proof: string, haystack: string): boolean {
+function found(proof: string, haystack: readonly Line[], since: number): boolean {
 	const needle = normalized(proof.replace(/^(said|call|operator):\s*/i, "")).replace(/…$/, "");
-	return needle.length >= MIN_PROOF && haystack.includes(needle);
+	if (needle.length < MIN_PROOF) return false;
+	return haystack.some(
+		(line) => (line.at === undefined || line.at >= since) && line.text.includes(needle),
+	);
 }
 
 /** Case, quotes, markdown marks and spacing do not count. */

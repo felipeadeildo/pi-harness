@@ -6,6 +6,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { modelRef } from "./models.ts";
 import { checkOps, type Moment, opsOf, opsSchema } from "./ops.ts";
 import { PROMPTS, tidyMessage, TOOL, type UpdateRequest, updateMessage } from "./prompts.ts";
+import { type Line, untimed } from "./transcript.ts";
 
 function toolFor(moment: Moment): Tool {
 	return {
@@ -35,7 +36,7 @@ export function propose(
 	const question = {
 		moment: request.trigger,
 		content: updateMessage(request),
-		read: request.news,
+		read: untimed(request.news),
 		state: request.state,
 	};
 	return askForOps(registry, models, question, signal);
@@ -44,12 +45,12 @@ export function propose(
 export function tidy(
 	registry: Registry,
 	models: readonly Model<Api>[],
-	request: { state: SessionGoal; session: string },
+	request: { state: SessionGoal; session: readonly Line[] },
 	signal: AbortSignal,
 ): Promise<Proposal | undefined> {
 	const question = {
 		moment: "tidy" as const,
-		content: tidyMessage(request.state, request.session),
+		content: tidyMessage(request.state, request.session.map((line) => line.text).join("\n")),
 		read: request.session,
 		state: request.state,
 	};
@@ -61,7 +62,7 @@ interface Question {
 	/** The user message the model gets. */
 	content: string;
 	/** The session text it read, where a proof has to be found. */
-	read: string;
+	read: readonly Line[];
 	state: SessionGoal;
 }
 

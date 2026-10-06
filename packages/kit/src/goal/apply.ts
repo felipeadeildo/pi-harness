@@ -49,6 +49,12 @@ class Draft {
 				this.#move(item, "now");
 				return;
 			}
+			case "reopen": {
+				// A done step that did not happen goes back to wait, without its close.
+				const item = this.#find(op.id);
+				if (item?.status === "done" || item?.status === "dropped") this.#move(item, "later");
+				return;
+			}
 			case "pause": {
 				const current = nowOf(this.#next);
 				if (current === undefined) return;
@@ -69,7 +75,9 @@ class Draft {
 			}
 			case "drop": {
 				const item = this.#find(op.id);
-				if (item === undefined || item.status === "dropped" || item.status === "done") return;
+				if (item === undefined || item.status === "dropped") return;
+				// Done work is history, unless you say it was only an idea nobody will carry out.
+				if (item.status === "done" && this.#source !== "you") return;
 				this.#move(item, "dropped", op.note);
 				return;
 			}
@@ -117,6 +125,14 @@ class Draft {
 	}
 
 	#move(item: GoalItem, status: ItemStatus, note?: string): void {
+		// A closed item that opens again did not finish, so its close and its note go.
+		if (
+			(item.status === "done" || item.status === "dropped") &&
+			(status === "now" || status === "later")
+		) {
+			delete item.finished;
+			delete item.note;
+		}
 		item.status = status;
 		item.updatedAt = this.#at;
 		if (status === "now") item.started = this.#mark;

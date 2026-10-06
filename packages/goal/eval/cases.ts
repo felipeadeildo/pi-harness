@@ -3,7 +3,7 @@
 import { GOAL_VERSION, type GoalItem, type ItemStatus, type SessionGoal } from "@adeildo/pi-kit";
 
 import type { UpdateRequest } from "../src/prompts.ts";
-import { FAILED, withSkills } from "../src/transcript.ts";
+import { FAILED, type Line, withSkills } from "../src/transcript.ts";
 
 export interface Expect {
 	/** Items that end done. */
@@ -29,7 +29,8 @@ export interface Expect {
 export interface TidyRequest {
 	trigger: "tidy";
 	state: SessionGoal;
-	session: string;
+	/** Lines with a time, when the case needs to say what came before an item. */
+	session: string | Line[];
 }
 
 export interface Case {
@@ -70,6 +71,11 @@ const goalHistory: Row[] = [
 	["g4", "later", "Mergear o PR de release e acompanhar o workflow"],
 	["g5", "done", "Corrigir os contadores que somem na faixa"],
 ];
+
+/** The items written down at `at`, for a case that says what came before them. */
+function writtenAt(state: SessionGoal, at: number): SessionGoal {
+	return { ...state, items: state.items.map((item) => ({ ...item, createdAt: at })) };
+}
 
 export const CASES: Case[] = [
 	{
@@ -116,7 +122,8 @@ export const CASES: Case[] = [
 				"said: Atualizei o `ROADMAP.md`, mas ainda não fiz commit. Posso fazer o commit como `docs(roadmap): add the goal`?",
 			].join("\n"),
 		},
-		expect: { open: ["g1", "g2"], now: "g2", noNew: true },
+		// A later item for the commit the agent asked about is fine; closing the step is not.
+		expect: { open: ["g1", "g2"], now: "g2" },
 	},
 	{
 		name: "a question finishes nothing",
@@ -172,6 +179,44 @@ export const CASES: Case[] = [
 			news: 'call: bash git push 2>&1 | grep -E "pass$|fail$" ; git status -sb | head -1',
 		},
 		expect: { open: ["g2"], now: "g2" },
+	},
+	{
+		name: "a message with two asks opens the first",
+		why: "The operator asked to investigate the session, then to fix a border; the second start pushed the first to later.",
+		request: {
+			state: timeline("Facilitar a classificação do goal", [
+				["g1", "done", "Rodar simplify e code-review nas mudanças"],
+			]),
+			trigger: "message",
+			news: "beleza, agora vamos investigar oq aconteceu com essa sessao atual nossa... pq tipo assim tem umas ai que errou feio...\n\ne ainda tem mais, tem umas ascii de borda ai que por algum motivo ta quebrado... saca?",
+		},
+		expect: { now: /investig|sess/i, mentions: /borda|ascii/i },
+	},
+	{
+		name: "a done step the operator says did not happen opens again",
+		why: "The operator said the merge marked done never happened; the updater started a new merge step instead.",
+		request: {
+			state: timeline("Publicar o 5.6.0", [
+				["g1", "done", "Fazer push das mudanças"],
+				["g2", "done", "Fazer merge certinho", "resultado do comando para confirmar o merge"],
+			]),
+			trigger: "message",
+			news: "pq que isso dai foi marcado como feito, se o merge NAO foi feito? tipo, eu cancelei o uso da tool especifica la",
+		},
+		expect: { open: ["g2"], noNew: true },
+	},
+	{
+		name: "an idea marked done is dropped when the operator gives it up",
+		why: "Ideas the session only discussed were marked done, and nothing could take them back.",
+		request: {
+			state: timeline("Deixar o pi-goal pronto para usar", [
+				["g1", "done", "Mostrar o goal na faixa de cima"],
+				["g2", "done", "Atualizar o intent em tempo real com polling"],
+			]),
+			trigger: "message",
+			news: "esse do polling ai nao foi feito, foi so uma ideia que a gente teve, nao vamos fazer isso",
+		},
+		expect: { dropped: ["g2"], noNew: true },
 	},
 	{
 		name: "a summary repeats done work",
@@ -334,6 +379,36 @@ export const CASES: Case[] = [
 			].join("\n"),
 		},
 		expect: { done: ["g2"], open: ["g3"] },
+	},
+	{
+		name: "tidy: the ask that put an item off does not finish it",
+		why: "The tidy pass finished a deferred item with the operator's words that deferred it.",
+		request: {
+			trigger: "tidy",
+			state: writtenAt(
+				timeline("Facilitar a classificação do goal", [
+					["g1", "done", "Rodar simplify e code-review nas mudanças"],
+					[
+						"g2",
+						"later",
+						"Implementar solução built-in para contas de subagents",
+						"resolver quando houver solução própria",
+					],
+				]),
+				2,
+			),
+			session: [
+				{
+					text: "operator: acho que as contas de subagents estao usando a conta default... acho que precisamos salvar esse problema pra resolver depois, mas como trata-se de uma extensao de terceiros... talvez valha so implementar isso dai quando a gente fizer nossa propria solucao built-in.... oq achas?",
+					at: 1,
+				},
+				{
+					text: "said: Anotei no scratchpad. Concordo em deixar para o nosso subagents built-in, que já está no roadmap.",
+					at: 3,
+				},
+			],
+		},
+		expect: { open: ["g2"] },
 	},
 	{
 		name: "tidy: nothing in the session, nothing closes",

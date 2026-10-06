@@ -22,7 +22,14 @@ import { goal, GOAL_STATUS } from "../src/index.ts";
 import { modelsFor } from "../src/models.ts";
 import { checkOps, opsOf } from "../src/ops.ts";
 import { laterOps, nowOps } from "../src/screen.ts";
-import { FAILED, operatorText, sessionSince, withSkills, workSince } from "../src/transcript.ts";
+import {
+	FAILED,
+	operatorText,
+	sessionSince,
+	untimed,
+	withSkills,
+	workSince,
+} from "../src/transcript.ts";
 
 let dir: string;
 beforeEach(() => {
@@ -269,7 +276,12 @@ describe("from the agent's work", () => {
 				message: { role: "assistant", content: [{ type: "text", text: "new" }] },
 			},
 		];
-		expect(workSince(branch)).toEqual({ text: "said: new", from: "c", to: "c" });
+		expect(workSince(branch)).toEqual({
+			text: "said: new",
+			lines: [{ text: "said: new" }],
+			from: "c",
+			to: "c",
+		});
 		expect(workSince(branch, "c").text).toBe("");
 	});
 });
@@ -367,7 +379,7 @@ describe("a step closes only on words that are there", () => {
 			{ op: "done", id: "g1", proof: "npm" },
 			{ op: "done", id: "g1" },
 		]);
-		const { ops: kept, rejected } = checkOps(ops, "work", read, state);
+		const { ops: kept, rejected } = checkOps(ops, "work", untimed(read), state);
 		expect(kept).toEqual([{ op: "done", id: "g1", proof: "o pacote foi publicado no npm" }]);
 		expect(rejected).toHaveLength(3);
 	});
@@ -385,7 +397,7 @@ describe("a step closes only on words that are there", () => {
 			],
 			"tidy",
 		);
-		const { ops: kept, rejected } = checkOps(ops, "tidy", "", done);
+		const { ops: kept, rejected } = checkOps(ops, "tidy", [], done);
 		expect(kept).toEqual([
 			{ op: "done", id: "g2", note: "same as g1" },
 			{ op: "done", id: "g2", note: "same as g1" },
@@ -553,9 +565,110 @@ test("a call is not proof that it worked", () => {
 		],
 		"work",
 	);
-	const { ops: kept, rejected } = checkOps(ops, "work", read, state);
+	const { ops: kept, rejected } = checkOps(ops, "work", untimed(read), state);
 	expect(kept).toEqual([{ op: "done", id: "g1", proof: "Mergeei o PR 28 na main" }]);
 	expect(rejected).toEqual([{ op: "done", id: "g1", proof: "gh pr merge 28 --squash" }]);
+});
+
+test("words written before an item existed cannot close it, like the ask that put it off", () => {
+	const state = applyGoalOps(emptyGoal(), [{ op: "start", text: "Fazer o subagents nosso" }], {
+		at: 2_000,
+		source: "you",
+	});
+	const read = [
+		{ text: "operator: deixa pra quando a gente fizer nossa solucao built-in", at: 1_000 },
+		{ text: "said: Fiz o subagents nosso e a conta do pai vai junto.", at: 3_000 },
+	];
+	const ops = opsOf(
+		[
+			{
+				op: "done",
+				id: "g1",
+				proof: "quando a gente fizer nossa solucao built-in",
+			},
+			{ op: "done", id: "g1", proof: "Fiz o subagents nosso" },
+		],
+		"tidy",
+	);
+	const { ops: kept, rejected } = checkOps(ops, "tidy", read, state);
+	expect(kept).toEqual([{ op: "done", id: "g1", proof: "Fiz o subagents nosso" }]);
+	expect(rejected).toHaveLength(1);
+});
+
+test("the tidy pass closes what waits in later only as a repeat of done work", () => {
+	const state = applyGoalOps(emptyGoal(), [{ op: "later", text: "Moldurar a mensagem" }], {
+		at: 1,
+		source: "you",
+	});
+	const read = [{ text: "said: Moldurei a mensagem do usuário.", at: 2 }];
+	const ops = opsOf([{ op: "done", id: "g1", proof: "Moldurei a mensagem do usuário" }], "tidy");
+	expect(checkOps(ops, "tidy", read, state).ops).toEqual([]);
+	expect(checkOps(ops, "work", read, state).ops).toHaveLength(1);
+});
+
+test("a message opens one step, its first ask, and the others wait", () => {
+	const state = applyGoalOps(emptyGoal(), [{ op: "later", text: "Moldurar a mensagem" }], {
+		at: 1,
+		source: "you",
+	});
+	const ops = opsOf([
+		{ op: "start", text: "Investigar a sessão" },
+		{ op: "start", text: "Corrigir a borda", active: "Corrigindo a borda" },
+		{ op: "resume", id: "g1" },
+	]);
+	const { ops: kept, rejected } = checkOps(ops, "message", [], state);
+	expect(kept).toEqual([
+		{ op: "start", text: "Investigar a sessão" },
+		{ op: "later", text: "Corrigir a borda", active: "Corrigindo a borda" },
+	]);
+	expect(rejected).toEqual([{ op: "resume", id: "g1" }]);
+});
+
+test("a done step you say did not happen opens again, without its close", () => {
+	let state = applyGoalOps(emptyGoal(), [{ op: "start", text: "Fazer o merge" }], {
+		at: 1,
+		source: "you",
+	});
+	state = applyGoalOps(state, [{ op: "done", id: "g1", note: "mergeado" }], {
+		at: 2,
+		source: "work",
+	});
+	state = applyGoalOps(state, [{ op: "resume", id: "g1" }], { at: 3, source: "you" });
+	const [item] = state.items;
+	expect(item?.status).toBe("now");
+	expect(item?.finished).toBeUndefined();
+	expect(item?.note).toBeUndefined();
+});
+
+test("a done step that did not happen opens again, or goes as an idea, only through not_done", () => {
+	const state = applyGoalOps(emptyGoal(), [{ op: "start", text: "Fazer o merge" }], {
+		at: 1,
+		source: "you",
+	});
+	const done = applyGoalOps(state, [{ op: "done", id: "g1" }], { at: 2, source: "work" });
+	const read = untimed("o merge nao foi feito, mas ainda quero");
+	const raw = [
+		{ op: "not_done", id: "g1", proof: "o merge nao foi feito", still_wanted: true },
+		{ op: "not_done", id: "g1", proof: "o merge nao foi feito", still_wanted: false },
+		{ op: "drop", id: "g1", proof: "o merge nao foi feito" },
+	];
+	const { ops, rejected } = checkOps(opsOf(raw), "message", read, done);
+	expect(ops.map((op) => op.op)).toEqual(["reopen", "drop"]);
+	expect(rejected).toEqual([{ op: "drop", id: "g1", proof: "o merge nao foi feito" }]);
+	const reopened = applyGoalOps(done, [ops[0]!], { at: 3, source: "you" });
+	expect(reopened.items[0]).toMatchObject({ status: "later" });
+	expect(reopened.items[0]?.finished).toBeUndefined();
+});
+
+test("only your words drop a done step, as an idea nobody will carry out", () => {
+	let state = applyGoalOps(emptyGoal(), [{ op: "start", text: "Polling do intent" }], {
+		at: 1,
+		source: "you",
+	});
+	state = applyGoalOps(state, [{ op: "done", id: "g1" }], { at: 2, source: "work" });
+	const drop = [{ op: "drop" as const, id: "g1", note: "só uma ideia" }];
+	expect(applyGoalOps(state, drop, { at: 3, source: "work" }).items[0]?.status).toBe("done");
+	expect(applyGoalOps(state, drop, { at: 3, source: "you" }).items[0]?.status).toBe("dropped");
 });
 
 test("a skill you name reaches the model with what it does", () => {

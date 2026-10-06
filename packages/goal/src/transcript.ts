@@ -12,6 +12,7 @@ interface Entry {
 	id?: string;
 	type?: string;
 	customType?: string;
+	timestamp?: string;
 	message?: { role?: string; content?: unknown; toolCallId?: unknown; isError?: unknown };
 }
 
@@ -23,8 +24,15 @@ interface Part {
 	arguments?: unknown;
 }
 
+/** One line of an excerpt, and when its entry was written, when the entry says. */
+export interface Line {
+	text: string;
+	at?: number;
+}
+
 export interface Excerpt {
 	text: string;
+	lines: Line[];
 	from?: string;
 	to?: string;
 }
@@ -53,25 +61,34 @@ export const CALL = "call: ";
 export const FAILED = "(failed or refused, so it did not happen)";
 
 function excerpt(read: readonly Entry[], conversation: boolean): Excerpt {
-	const lines: string[] = [];
+	const lines: Line[] = [];
 	const failed = failedCalls(read);
 
 	for (const entry of read) {
+		const parsed = Date.parse(entry.timestamp ?? "");
+		const push = (text: string) =>
+			lines.push(Number.isNaN(parsed) ? { text } : { text, at: parsed });
 		const said = conversation ? operatorText(entry.message) : undefined;
 		if (entry.type === "message" && said !== undefined)
-			lines.push(`operator: ${clip(oneLine(said), MAX_SAID)}`);
+			push(`operator: ${clip(oneLine(said), MAX_SAID)}`);
 		for (const part of assistantParts(entry)) {
 			if (part.type === "text" && typeof part.text === "string" && part.text.trim() !== "")
-				lines.push(`said: ${clip(oneLine(part.text), MAX_SAID)}`);
+				push(`said: ${clip(oneLine(part.text), MAX_SAID)}`);
 			if (!conversation && part.type === "toolCall" && typeof part.name === "string") {
 				const outcome = failed.has(part.id) ? ` ${FAILED}` : "";
-				lines.push(`${CALL}${callOf(part.name, part.arguments)}${outcome}`);
+				push(`${CALL}${callOf(part.name, part.arguments)}${outcome}`);
 			}
 		}
 	}
 
-	const budget = conversation ? MAX_CONVERSATION : MAX_EXCERPT;
-	return { text: newest(lines, budget), from: read[0]?.id, to: read.at(-1)?.id };
+	const kept = newest(lines, conversation ? MAX_CONVERSATION : MAX_EXCERPT);
+	const text = kept.map((line) => line.text).join("\n");
+	return { text, lines: kept, from: read[0]?.id, to: read.at(-1)?.id };
+}
+
+/** Text as lines with no time, for what the model reads that is not a session excerpt. */
+export function untimed(text: string): Line[] {
+	return text.split("\n").map((line) => ({ text: line }));
 }
 
 /** The calls whose result came back as an error, a refusal among them. Only the flag is read. */
@@ -95,19 +112,19 @@ function callOf(name: string, args: unknown): string {
 }
 
 /** The last lines within `max` characters, and how many earlier ones were left out. */
-function newest(lines: readonly string[], max: number): string {
-	const kept: string[] = [];
+function newest(lines: readonly Line[], max: number): Line[] {
+	const kept: Line[] = [];
 	let size = 0;
 	for (let index = lines.length - 1; index >= 0; index--) {
-		const line = lines[index] ?? "";
-		if (size + line.length > max && kept.length > 0) {
-			kept.unshift(`(${index + 1} earlier lines left out)`);
+		const line = lines[index] ?? { text: "" };
+		if (size + line.text.length > max && kept.length > 0) {
+			kept.unshift({ text: `(${index + 1} earlier lines left out)` });
 			break;
 		}
 		kept.unshift(line);
-		size += line.length + 1;
+		size += line.text.length + 1;
 	}
-	return kept.join("\n");
+	return kept;
 }
 
 function oneLine(text: string): string {
