@@ -3,7 +3,7 @@
 import { GOAL_VERSION, type GoalItem, type ItemStatus, type SessionGoal } from "@adeildo/pi-kit";
 
 import type { UpdateRequest } from "../src/prompts.ts";
-import { withSkills } from "../src/transcript.ts";
+import { FAILED, withSkills } from "../src/transcript.ts";
 
 export interface Expect {
 	/** Items that end done. */
@@ -144,6 +144,34 @@ export const CASES: Case[] = [
 			news: 'e outra coisa, nao precisa ser algo muito especifico... saca?\n\npor exemplo esse "automatizando correcoes no updater"\n\ntipo... pra que serve isso no longo prazo? nao da nenhuma informacao para quem for ler a sessao so por essas nossas notas... saca?',
 		},
 		expect: { open: ["g2", "g3"], noNew: true },
+	},
+	{
+		name: "a refused call finishes nothing",
+		why: "The operator refused the agent's call before the merge; the updater finished the merge with the command as proof.",
+		request: {
+			state: timeline("Publicar o 5.6.0", [
+				["g1", "done", "Fazer push das mudanças"],
+				["g2", "now", "Fazer merge do PR de release 5.6.0"],
+			]),
+			trigger: "work",
+			asked: "pode fazer merge certinho;",
+			news: `call: bash gh pr list --state open --json number,title,headRefName,mergeable,files ${FAILED}`,
+		},
+		expect: { open: ["g2"], now: "g2" },
+	},
+	{
+		name: "a call alone is not proof",
+		why: "The updater finished a push with the command line as proof, before its result came back.",
+		request: {
+			state: timeline("Publicar o 5.6.0", [
+				["g1", "done", "Fazer commit das mudanças"],
+				["g2", "now", "Fazer push das mudanças"],
+			]),
+			trigger: "work",
+			asked: "ok vamos fazer push",
+			news: 'call: bash git push 2>&1 | grep -E "pass$|fail$" ; git status -sb | head -1',
+		},
+		expect: { open: ["g2"], now: "g2" },
 	},
 	{
 		name: "a summary repeats done work",

@@ -22,7 +22,7 @@ import { goal, GOAL_STATUS } from "../src/index.ts";
 import { modelsFor } from "../src/models.ts";
 import { checkOps, opsOf } from "../src/ops.ts";
 import { laterOps, nowOps } from "../src/screen.ts";
-import { operatorText, sessionSince, withSkills, workSince } from "../src/transcript.ts";
+import { FAILED, operatorText, sessionSince, withSkills, workSince } from "../src/transcript.ts";
 
 let dir: string;
 beforeEach(() => {
@@ -515,6 +515,47 @@ test("a message counts once it is in the conversation, without the skills pi exp
 	).toBe("faz isso");
 	expect(operatorText({ role: "assistant", content: "x" })).toBeUndefined();
 	expect(operatorText({ role: "user", content: [{ type: "image" }] })).toBeUndefined();
+});
+
+test("a call that failed or was refused says so, without its output", () => {
+	const branch = [
+		{
+			type: "message",
+			id: "a1",
+			message: {
+				role: "assistant",
+				content: [
+					{ type: "toolCall", id: "t1", name: "bash", arguments: { command: "gh pr merge 28" } },
+					{ type: "toolCall", id: "t2", name: "bash", arguments: { command: "git status" } },
+				],
+			},
+		},
+		{
+			type: "message",
+			id: "r1",
+			message: { role: "toolResult", toolCallId: "t1", isError: true, content: "denied" },
+		},
+		{ type: "message", id: "r2", message: { role: "toolResult", toolCallId: "t2", content: "ok" } },
+	];
+	expect(workSince(branch).text).toBe(`call: bash gh pr merge 28 ${FAILED}\ncall: bash git status`);
+});
+
+test("a call is not proof that it worked", () => {
+	const state = applyGoalOps(emptyGoal(), [{ op: "start", text: "Fazer o merge" }], {
+		at: 1,
+		source: "you",
+	});
+	const read = "call: bash gh pr merge 28 --squash\nsaid: Mergeei o PR 28 na main.";
+	const ops = opsOf(
+		[
+			{ op: "done", id: "g1", proof: "gh pr merge 28 --squash" },
+			{ op: "done", id: "g1", proof: "Mergeei o PR 28 na main" },
+		],
+		"work",
+	);
+	const { ops: kept, rejected } = checkOps(ops, "work", read, state);
+	expect(kept).toEqual([{ op: "done", id: "g1", proof: "Mergeei o PR 28 na main" }]);
+	expect(rejected).toEqual([{ op: "done", id: "g1", proof: "gh pr merge 28 --squash" }]);
 });
 
 test("a skill you name reaches the model with what it does", () => {

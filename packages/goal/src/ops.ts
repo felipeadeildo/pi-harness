@@ -3,6 +3,8 @@
 import { type GoalOp, isObject, type SessionGoal } from "@adeildo/pi-kit";
 import { type TSchema, Type } from "@earendil-works/pi-ai";
 
+import { CALL } from "./transcript.ts";
+
 const MAX_TEXT = 240;
 /** A proof shorter than this matches too much to prove anything. */
 const MIN_PROOF = 8;
@@ -130,8 +132,8 @@ export interface Checked {
 }
 
 /**
- * A done or a drop stands only on proof found in what the model read, or, in the tidy pass, on
- * the item it repeats. Everything else passes as it came.
+ * A done or a drop stands only on proof found in what the model read, outside the calls, or, in
+ * the tidy pass, on the item it repeats. Everything else passes as it came.
  */
 export function checkOps(
 	ops: readonly GoalOp[],
@@ -139,7 +141,8 @@ export function checkOps(
 	read: string,
 	state: SessionGoal,
 ): Checked {
-	const haystack = normalized(read);
+	const words = read.split("\n").filter((line) => !line.startsWith(CALL));
+	const haystack = normalized(words.join("\n"));
 	const checked: Checked = { ops: [], rejected: [] };
 	for (const op of ops) {
 		const ok = op.op === "done" || op.op === "drop" ? closes(op, moment, haystack, state) : true;

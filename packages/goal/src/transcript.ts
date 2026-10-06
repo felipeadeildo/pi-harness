@@ -12,11 +12,12 @@ interface Entry {
 	id?: string;
 	type?: string;
 	customType?: string;
-	message?: { role?: string; content?: unknown };
+	message?: { role?: string; content?: unknown; toolCallId?: unknown; isError?: unknown };
 }
 
 interface Part {
 	type?: string;
+	id?: unknown;
 	text?: unknown;
 	name?: unknown;
 	arguments?: unknown;
@@ -46,8 +47,14 @@ function indexOf(entries: readonly Entry[], id: string | undefined): number {
 	return id === undefined ? -1 : entries.findIndex((entry) => entry.id === id);
 }
 
+/** How a call starts in the excerpt. A call only shows what was tried, so it proves nothing. */
+export const CALL = "call: ";
+/** What a failed call shows the model in place of its output, which it never reads. */
+export const FAILED = "(failed or refused, so it did not happen)";
+
 function excerpt(read: readonly Entry[], conversation: boolean): Excerpt {
 	const lines: string[] = [];
+	const failed = failedCalls(read);
 
 	for (const entry of read) {
 		const said = conversation ? operatorText(entry.message) : undefined;
@@ -56,13 +63,25 @@ function excerpt(read: readonly Entry[], conversation: boolean): Excerpt {
 		for (const part of assistantParts(entry)) {
 			if (part.type === "text" && typeof part.text === "string" && part.text.trim() !== "")
 				lines.push(`said: ${clip(oneLine(part.text), MAX_SAID)}`);
-			if (!conversation && part.type === "toolCall" && typeof part.name === "string")
-				lines.push(`call: ${callOf(part.name, part.arguments)}`);
+			if (!conversation && part.type === "toolCall" && typeof part.name === "string") {
+				const outcome = failed.has(part.id) ? ` ${FAILED}` : "";
+				lines.push(`${CALL}${callOf(part.name, part.arguments)}${outcome}`);
+			}
 		}
 	}
 
 	const budget = conversation ? MAX_CONVERSATION : MAX_EXCERPT;
 	return { text: newest(lines, budget), from: read[0]?.id, to: read.at(-1)?.id };
+}
+
+/** The calls whose result came back as an error, a refusal among them. Only the flag is read. */
+function failedCalls(read: readonly Entry[]): Set<unknown> {
+	const ids = read.flatMap((entry) =>
+		entry.message?.role === "toolResult" && entry.message.isError === true
+			? [entry.message.toolCallId]
+			: [],
+	);
+	return new Set(ids);
 }
 
 /** The path of a file tool, the first line of a command, else the arguments. */

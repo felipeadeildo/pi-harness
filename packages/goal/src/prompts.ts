@@ -25,7 +25,7 @@ proof: the operator's words that say it, copied exactly from the message. Withou
 const WORK = `${TIMELINE}
 
 The agent worked since the last update. Starting steps and setting the goal belong to the operator's messages, so here you only close or put off. Call ${TOOL} once:
-- done {id, proof}: the work finished this step, and nothing it needs waits on the operator: no commit, merge or "may I?" the agent asked for. proof is a line copied exactly from the work that shows it happened, like a command that ran or the agent saying it did it. A plan, a proposal or a question is never proof. missing says what the step left out, if anything.
+- done {id, proof}: the work finished this step, and nothing it needs waits on the operator: no commit, merge or "may I?" the agent asked for. proof is the agent's words, copied exactly from a "said:" line, saying it did it. A call only shows what was tried, never that it worked, and a call marked failed or refused did not happen. A plan, a proposal or a question is never proof. missing says what the step left out, if anything.
 - later: a follow-up the agent left for after, with why it waits.
 
 A step that stopped halfway or waits on the operator's answer is still under way: leave it. Most of the time the work only continues the step: send an empty list. When unsure, send an empty list.`;
