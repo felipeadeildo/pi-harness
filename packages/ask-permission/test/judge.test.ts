@@ -652,6 +652,11 @@ describe("judge report", () => {
 		const record: JudgeRecord = { ...base, answers: {}, withIntent: true };
 		expect(judgeSignalText(record)).toBe("saw your last message");
 	});
+
+	test("says when the judge saw the session's goal too", () => {
+		const record: JudgeRecord = { ...base, answers: {}, withIntent: true, withGoal: true };
+		expect(judgeSignalText(record)).toBe("saw the session's goal and your last message");
+	});
 });
 
 describe("judgeGate", () => {

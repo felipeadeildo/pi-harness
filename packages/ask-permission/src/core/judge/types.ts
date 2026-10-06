@@ -60,6 +60,8 @@ export interface JudgeRecord extends JudgeAssessment {
 	dryRun?: boolean;
 	/** The request carried the intent, so the card says it went to the judge's provider. */
 	withIntent?: boolean;
+	/** The intent carried the session's goal or current step, not only the last message. */
+	withGoal?: boolean;
 }
 
 export interface JudgeOutcome {
