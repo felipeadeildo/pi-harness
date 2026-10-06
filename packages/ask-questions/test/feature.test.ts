@@ -233,3 +233,38 @@ test("over RPC the questions go through the host's own dialogs", async () => {
 	const result = await run(tool, PARAMS, ctx);
 	expect(result.details).toMatchObject({ cancelled: false, answers: [{ picked: ["A"] }] });
 });
+
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+test("two asks at once draw one after the other, since pi strands a replaced dialog", async () => {
+	const bus = createEventBus();
+	const fake = fakePi(bus);
+	const open: ((result: unknown) => void)[] = [];
+	const ctx = fakeContext([], true, {
+		ui: { custom: () => new Promise((resolve) => open.push(resolve)) },
+	});
+	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
+	await fake.fire("session_start", {}, ctx);
+
+	const answered: string[] = [];
+	bus.on(ANSWER, (data: unknown) => void answered.push((data as { id: string }).id));
+	const ask = (id: string) =>
+		bus.emit(ASK, {
+			id,
+			questions: [{ header: "Pick", question: "Which?", options: [{ label: "A" }] }],
+		});
+
+	ask("ask-1");
+	ask("ask-2");
+	await tick();
+	expect(open).toHaveLength(1);
+
+	open[0]!({ answers: [], cancelled: true });
+	await tick();
+	expect(answered).toEqual(["ask-1"]);
+	expect(open).toHaveLength(2);
+
+	open[1]!({ answers: [], cancelled: true });
+	await tick();
+	expect(answered).toEqual(["ask-1", "ask-2"]);
+});

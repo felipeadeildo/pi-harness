@@ -9,6 +9,7 @@ import {
 	defineFeature,
 	type FeatureScope,
 	isObject,
+	oneAtATime,
 } from "@adeildo/pi-kit";
 import {
 	type AgentToolResult,
@@ -32,6 +33,12 @@ export { TOOL_NAME } from "./schema.ts";
 
 type Result = AgentToolResult<AskResult>;
 
+type Show = (
+	ctx: ExtensionContext,
+	asked: readonly AskQuestion[],
+	signal?: AbortSignal,
+) => Promise<AskResult>;
+
 export const questions = defineFeature({
 	id: "questions",
 	tab: "Questions",
@@ -41,6 +48,8 @@ export const questions = defineFeature({
 	settings: QUESTION_SETTINGS,
 	setup(scope) {
 		let session: ExtensionContext | undefined;
+		const turns = oneAtATime();
+		const show: Show = (ctx, asked, signal) => turns(() => draw(ctx, asked), signal);
 
 		scope.onSessionStart((ctx) => {
 			session = ctx;
@@ -59,7 +68,7 @@ export const questions = defineFeature({
 			const ctx = session;
 			if (id === undefined || !canDraw(ctx)) return;
 			// The asker waits on the answer, so it goes out even when the dialog fails.
-			void askRequest(ctx, data).then((result) => scope.events.emit(ANSWER, { id, result }));
+			void askRequest(ctx, data, show).then((result) => scope.events.emit(ANSWER, { id, result }));
 		});
 
 		scope.registerTool<typeof PARAMETERS, AskResult>({
@@ -75,8 +84,8 @@ export const questions = defineFeature({
 			executionMode: "sequential",
 			renderCall: (args, theme) => renderCall(args, theme),
 			renderResult: (result, options, theme) => renderResult(result, options, theme),
-			execute: (_id, params, _signal, _onUpdate, ctx) =>
-				askTool(scope, ctx, normalizeParams(params)),
+			execute: (_id, params, signal, _onUpdate, ctx) =>
+				askTool(scope, ctx, normalizeParams(params), show, signal),
 		});
 
 		scope.on("before_agent_start", (event, ctx) => {
@@ -89,12 +98,12 @@ export const questions = defineFeature({
 	},
 });
 
-async function askRequest(ctx: ExtensionContext, raw: unknown): Promise<AskResult> {
+async function askRequest(ctx: ExtensionContext, raw: unknown, show: Show): Promise<AskResult> {
 	const problem = decodeAskRequest(raw);
 	if (problem !== undefined)
 		return { answers: [], cancelled: true, error: `the request did not decode: ${problem}` };
 	try {
-		return await draw(ctx, (raw as { questions: AskQuestion[] }).questions);
+		return await show(ctx, (raw as { questions: AskQuestion[] }).questions);
 	} catch (error) {
 		const reason = error instanceof Error ? error.message : String(error);
 		return { answers: [], cancelled: true, error: `the questions could not be drawn: ${reason}` };
@@ -109,13 +118,15 @@ async function askTool(
 	scope: FeatureScope,
 	ctx: ExtensionContext,
 	params: QuestionParams,
+	show: Show,
+	signal: AbortSignal | undefined,
 ): Promise<Result> {
 	if (!ctx.hasUI) return failed("There is no UI to ask in");
 	const problem = problemWith(params);
 	if (problem !== undefined) throw new Error(problem);
 
 	if (bell.get(scope)) ringBell();
-	return reply(await draw(ctx, params.questions), params.questions);
+	return reply(await show(ctx, params.questions, signal), params.questions);
 }
 
 const NO_RENDER =

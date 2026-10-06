@@ -13,6 +13,7 @@ import { noUIMode } from "#core/config/patterns.ts";
 import {
 	accessOf,
 	type Call,
+	type Decision,
 	decide,
 	describeCall,
 	gateLayers,
@@ -152,15 +153,34 @@ async function gate(
 		});
 	}
 	const decision = await decide(call, layers);
-
-	if (decision.action === "allow") return { action: "allow", by: decision.by };
-	if (decision.action === "block")
-		return { action: "block", by: decision.by, reason: decision.reason };
+	const ruled = outcomeOf(decision);
+	if (ruled) return ruled;
 
 	if (!ctx.hasUI) {
 		if (noUIMode(state.config, call.toolName) === "allow") return { action: "allow", by: "no UI" };
 		return { action: "block", by: "no UI", reason: `${NAME}: no UI to approve "${call.toolName}"` };
 	}
+
+	// A codemode script's calls arrive together, and pi shows one dialog at a time.
+	return state
+		.asking(() => askInTurn(scope, state, ctx, call, event, decision), ctx.signal)
+		.catch((error: unknown) => {
+			if (!ctx.signal?.aborted) throw error;
+			return { action: "block", by: "you", reason: `${NAME}: stopped before you were asked` };
+		});
+}
+
+async function askInTurn(
+	scope: FeatureScope,
+	state: SessionState,
+	ctx: ExtensionContext,
+	call: Call,
+	event: ToolCallEvent,
+	decision: Decision,
+): Promise<Outcome> {
+	// An always yes given while this call waited may cover it now.
+	const covered = outcomeOf(await decide(call, gateLayers(state)));
+	if (covered) return covered;
 
 	const change = await previewChange(ctx, event, state.pendingWrites);
 	if (change && "error" in change)
@@ -208,6 +228,13 @@ async function gate(
 	if (change)
 		state.pendingWrites.set(change.path, { toolCallId: event.toolCallId, after: change.after });
 	return { action: "allow", by: "you", note: answer.note };
+}
+
+function outcomeOf(decision: Decision): Outcome | undefined {
+	if (decision.action === "allow") return { action: "allow", by: decision.by };
+	if (decision.action === "block")
+		return { action: "block", by: decision.by, reason: decision.reason };
+	return undefined;
 }
 
 /** The verdict started when the answer ended, unless the call changed since. */

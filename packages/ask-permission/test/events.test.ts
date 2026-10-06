@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
 
-import { ANSWER, ASK, type AskRequest, type AskResult, AVAILABLE } from "@adeildo/pi-kit";
+import {
+	ANSWER,
+	ASK,
+	type AskRequest,
+	type AskResult,
+	AVAILABLE,
+	oneAtATime,
+} from "@adeildo/pi-kit";
 import { fakePi, fakeScope, toolInfo } from "@adeildo/pi-kit/testing";
 import {
 	createEventBus,
@@ -48,6 +55,7 @@ function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask",
 		rulings: new Map(),
 		redraws: new Map(),
 		prejudged: new Map(),
+		asking: oneAtATime(),
 		typing: {
 			start: () => {},
 			stop: () => {},
@@ -536,5 +544,95 @@ describe("an MCP call in the dialog", () => {
 		);
 
 		expect(asked[0]?.questions[0]?.question).toContain("sauron:delete_dashboard (destructive");
+	});
+});
+
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+const yes = (labels: string[]) => labels.find((label) => /^\d+\. yes$/.test(label));
+
+/** A host like pi's: a second select replaces the first, which never settles. */
+function oneSlotHost() {
+	let onScreen: { title: string; labels: string[]; pick: (label?: string) => void } | undefined;
+	const ctx = {
+		mode: "tui",
+		hasUI: true,
+		cwd: "/repo",
+		signal: undefined,
+		modelRegistry: {},
+		sessionManager: { getBranch: () => [] },
+		ui: {
+			theme: { fg: (_color: string, text: string) => text },
+			notify: () => {},
+			setStatus: () => {},
+			input: async () => undefined,
+			select: (title: string, labels: string[]) =>
+				new Promise<string | undefined>((resolve) => {
+					onScreen = { title, labels, pick: resolve };
+				}),
+		},
+	} as unknown as ExtensionContext;
+
+	async function answer(pick: (labels: string[]) => string | undefined): Promise<string> {
+		await tick();
+		const dialog = onScreen;
+		if (dialog === undefined) throw new Error("no dialog on screen");
+		onScreen = undefined;
+		dialog.pick(pick(dialog.labels));
+		return dialog.title;
+	}
+	return { ctx, answer, screen: () => onScreen };
+}
+
+function scriptCall(id: number, command: string) {
+	return { ...judgeCall(`script/${id}`, command), parentToolCallId: "script" };
+}
+
+describe("the calls of a codemode script", () => {
+	test("each asks in its turn, so no dialog replaces another", async () => {
+		const { toolCall } = harness("manual");
+		const host = oneSlotHost();
+
+		const first = toolCall(scriptCall(1, "npm publish"), host.ctx);
+		const second = toolCall(scriptCall(2, "git push origin main"), host.ctx);
+
+		expect(await host.answer(yes)).toContain("npm publish");
+		expect(await host.answer(yes)).toContain("git push origin main");
+		expect(await Promise.all([first, second])).toEqual([undefined, undefined]);
+	});
+
+	test("an always yes given while a call waits lets it through without asking", async () => {
+		const { toolCall, decided } = harness("manual");
+		const host = oneSlotHost();
+
+		const first = toolCall(scriptCall(1, "gh issue list -R a/b"), host.ctx);
+		const second = toolCall(scriptCall(2, "gh pr list -R a/b"), host.ctx);
+
+		await host.answer((labels) => labels.find((label) => label.endsWith(". always yes")));
+		await host.answer(() => "gh");
+		await host.answer(() => SCOPE_LABEL.session);
+		await Promise.all([first, second]);
+
+		expect(host.screen()).toBeUndefined();
+		expect(decided).toEqual([
+			expect.objectContaining({ toolCallId: "script/1", by: "you" }),
+			expect.objectContaining({ toolCallId: "script/2", by: "always yes" }),
+		]);
+	});
+
+	test("a call still waiting when the turn stops is blocked, unasked", async () => {
+		const { toolCall } = harness("manual");
+		const host = oneSlotHost();
+		const controller = new AbortController();
+		const ctx = { ...host.ctx, signal: controller.signal } as ExtensionContext;
+
+		const first = toolCall(scriptCall(1, "npm publish"), ctx);
+		const second = toolCall(scriptCall(2, "git push origin main"), ctx);
+		await tick();
+		controller.abort();
+
+		expect(await second).toMatchObject({ block: true, reason: expect.stringContaining("stopped") });
+		await host.answer(yes);
+		expect(await first).toBeUndefined();
+		expect(host.screen()).toBeUndefined();
 	});
 });

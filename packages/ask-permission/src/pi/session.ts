@@ -1,4 +1,4 @@
-import { type FeatureScope } from "@adeildo/pi-kit";
+import { type FeatureScope, oneAtATime, type Turns } from "@adeildo/pi-kit";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { AlwaysYes, savedFileExists, type Scope } from "#core/always-yes.ts";
@@ -49,6 +49,7 @@ export interface SessionState {
 	redraws: Map<string, () => void>;
 	/** Judges started when an answer with several calls ended, by tool call id. */
 	prejudged: Map<string, Prejudged>;
+	asking: Turns;
 }
 
 export interface Prejudged {
@@ -77,6 +78,7 @@ export function createSession(): SessionState {
 		rulings: new Map(),
 		redraws: new Map(),
 		prejudged: new Map(),
+		asking: oneAtATime(),
 	};
 }
 
