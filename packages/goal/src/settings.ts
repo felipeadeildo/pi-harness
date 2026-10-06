@@ -3,9 +3,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { AUTO, modelRef, SESSION } from "./model.ts";
 
-export const SESSION_SECTION = "This session";
 export const MODEL_SECTION = "Model";
-export const SECTIONS = [SESSION_SECTION, MODEL_SECTION];
 
 export const model = setting({
 	id: "goal.model",

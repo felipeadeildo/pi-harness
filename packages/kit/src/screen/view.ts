@@ -562,7 +562,7 @@ export class ScreenView implements Component {
 		}
 		if (row.kind === "info" || row.control === undefined) return theme.fg("dim", row.text ?? "");
 
-		const shown = formatValue(row.control, row.value) || theme.fg("dim", "(empty)");
+		const shown = row.text ?? (formatValue(row.control, row.value) || theme.fg("dim", "(empty)"));
 		const color = valueColor(row.layer);
 		const value = selected
 			? theme.bold(theme.fg(color === "muted" ? "text" : color, shown))

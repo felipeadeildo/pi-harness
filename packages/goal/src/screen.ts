@@ -1,70 +1,30 @@
 // The goal on Alt+S, to read whole and to correct by hand. What you write here counts as yours.
+// The session's goal titles its section, and the timeline is listed under it.
 import {
 	type FeatureScope,
 	type GoalOp,
+	goalFromEntries,
 	goalSpent,
 	itemsWith,
 	nowOf,
+	type ScreenEntry,
 	type SessionGoal,
 } from "@adeildo/pi-kit";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import type { GoalKeeper } from "./index.ts";
-import { MODEL_SECTION, SESSION_SECTION } from "./settings.ts";
+import { MODEL_SECTION } from "./settings.ts";
+
+const UNTITLED = "This session";
+
+/** The section the timeline sits in: the session's goal, once there is one. */
+export function sessionSection(ctx: ExtensionContext | undefined): string {
+	const goal = ctx === undefined ? undefined : goalFromEntries(ctx.sessionManager.getBranch()).goal;
+	return goal ?? UNTITLED;
+}
 
 export function registerScreen(scope: FeatureScope, keeper: GoalKeeper): void {
-	scope.screen.value({
-		id: "goal.goal",
-		section: SESSION_SECTION,
-		label: "Goal",
-		description: "What this session is for. The model sets it from your messages.",
-		control: { type: "text" },
-		get: () => keeper.state().goal ?? "",
-		set: (value) => {
-			if (typeof value !== "string" || value.trim() === "") return "write what the session is for";
-			keeper.apply([{ op: "goal", text: value }], "you");
-			return undefined;
-		},
-	});
-
-	scope.screen.value({
-		id: "goal.now",
-		section: SESSION_SECTION,
-		label: "Now",
-		description: "The step under way. Empty marks it done. A line from Later picks that one up.",
-		control: { type: "text" },
-		get: () => nowOf(keeper.state())?.text ?? "",
-		set: (value) => {
-			if (typeof value !== "string") return "expected text";
-			keeper.apply(nowOps(keeper.state(), value.trim()), "you");
-			return undefined;
-		},
-	});
-
-	scope.screen.value({
-		id: "goal.later",
-		section: SESSION_SECTION,
-		label: "Later",
-		description: "What was left for afterwards, one per line. A line you remove is dropped.",
-		control: { type: "text", multiline: true },
-		get: () =>
-			itemsWith(keeper.state(), "later")
-				.map((item) => item.text)
-				.join("\n"),
-		set: (value) => {
-			if (typeof value !== "string") return "expected text";
-			keeper.apply(laterOps(keeper.state(), value), "you");
-			return undefined;
-		},
-	});
-
-	scope.screen.action({
-		id: "goal.done",
-		section: SESSION_SECTION,
-		label: "Done",
-		description: "What this session finished, oldest first.",
-		text: () => count(itemsWith(keeper.state(), "done").length),
-		run: () => doneText(keeper.state()),
-	});
+	scope.screen.rows((ctx) => timelineRows(keeper, sessionSection(ctx)));
 
 	scope.screen.info({
 		id: "goal.spent",
@@ -74,6 +34,70 @@ export function registerScreen(scope: FeatureScope, keeper: GoalKeeper): void {
 			"What the goal's model calls cost on this branch, at the model's catalog price. The look adds it to the session's cost.",
 		text: (ctx) => spentText(goalSpent(ctx.sessionManager.getBranch())),
 	});
+}
+
+function timelineRows(keeper: GoalKeeper, section: string): ScreenEntry[] {
+	return [
+		{
+			kind: "value",
+			id: "goal.now",
+			section,
+			label: "Now",
+			description: "The step under way. Empty marks it done. A line from Later picks that one up.",
+			control: { type: "text" },
+			get: () => nowOf(keeper.state())?.text ?? "",
+			text: () => (nowOf(keeper.state()) === undefined ? "nothing under way" : undefined),
+			set: (value) => {
+				if (typeof value !== "string") return "expected text";
+				keeper.apply(nowOps(keeper.state(), value.trim()), "you");
+				return undefined;
+			},
+		},
+		{
+			kind: "value",
+			id: "goal.later",
+			section,
+			label: "Later",
+			description: "What was left for afterwards, one per line. A line you remove is dropped.",
+			control: { type: "text", multiline: true },
+			get: () =>
+				itemsWith(keeper.state(), "later")
+					.map((item) => item.text)
+					.join("\n"),
+			text: () => count(itemsWith(keeper.state(), "later").length),
+			set: (value) => {
+				if (typeof value !== "string") return "expected text";
+				keeper.apply(laterOps(keeper.state(), value), "you");
+				return undefined;
+			},
+		},
+		{
+			kind: "action",
+			id: "goal.done",
+			section,
+			label: "Done",
+			description: "What this session finished, oldest first.",
+			text: () => count(itemsWith(keeper.state(), "done").length),
+			run: () => doneText(keeper.state()),
+		},
+		{
+			kind: "value",
+			id: "goal.goal",
+			section,
+			label: "Goal",
+			description:
+				"What this session is for, which titles this section. The model sets it from your messages; Enter edits it.",
+			control: { type: "text" },
+			get: () => keeper.state().goal ?? "",
+			text: () => (keeper.state().goal === undefined ? "not set yet" : "the title above"),
+			set: (value) => {
+				if (typeof value !== "string" || value.trim() === "")
+					return "write what the session is for";
+				keeper.apply([{ op: "goal", text: value }], "you");
+				return undefined;
+			},
+		},
+	];
 }
 
 export function nowOps(state: SessionGoal, text: string): GoalOp[] {
@@ -116,5 +140,6 @@ function clock(at: number): string {
 }
 
 function count(size: number): string {
+	if (size === 0) return "none";
 	return size === 1 ? "1 item" : `${size} items`;
 }

@@ -17,6 +17,7 @@ import {
 	setting,
 	string,
 } from "../src/index.ts";
+import { listTabs } from "../src/screen/client.ts";
 import { fakeContext, fakePi } from "../src/testing.ts";
 
 let dir: string;
@@ -359,5 +360,40 @@ describe("the session lifecycle", () => {
 			console.error = original;
 		}
 		expect(printed).toEqual(["test: noisy: something"]);
+	});
+});
+
+test("a tab can name its sections when it opens, and a value row can show a word in place of its value", async () => {
+	const fake = fakePi();
+	createApp(fake.pi, {
+		name: "test",
+		settingsPath: join(tmpdir(), `kit-sections-${process.pid}.json`),
+	})
+		.use(
+			defineFeature({
+				id: "live",
+				description: "",
+				sections: (ctx) => [ctx === undefined ? "none" : "Titled", "Other"],
+				setup(scope) {
+					scope.screen.value({
+						id: "live.list",
+						section: "Titled",
+						label: "List",
+						description: "",
+						control: { type: "text", multiline: true },
+						get: () => "a\nb",
+						text: () => "2 items",
+						set: () => undefined,
+					});
+				},
+			}),
+		)
+		.build();
+	await fake.fire("session_start", {}, fakeContext());
+	const [tab] = listTabs(fake.pi.events).filter((entry) => entry.title === "Live");
+	expect(tab?.sections.slice(0, 2)).toEqual(["Titled", "Other"]);
+	expect(tab?.rows.find((row) => row.id === "live.list")).toMatchObject({
+		value: "a\nb",
+		text: "2 items",
 	});
 });

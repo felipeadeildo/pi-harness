@@ -22,8 +22,8 @@ import {
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { modelsFor } from "./model.ts";
-import { registerScreen } from "./screen.ts";
-import { GOAL_SETTINGS, interval, model, SECTIONS } from "./settings.ts";
+import { registerScreen, sessionSection } from "./screen.ts";
+import { GOAL_SETTINGS, interval, MODEL_SECTION, model } from "./settings.ts";
 import { propose, type Proposal, tidy } from "./updater.ts";
 import { lastMessage, sessionSince, type Work, workSince } from "./work.ts";
 
@@ -54,7 +54,8 @@ export const goal = defineFeature({
 	id: "goal",
 	tab: "Goal",
 	description: "Keeps the session's goal, the current step, what was done and what was left",
-	sections: SECTIONS,
+	// The timeline first, under the session's goal as its title.
+	sections: (ctx) => [sessionSection(ctx), MODEL_SECTION],
 	settings: GOAL_SETTINGS,
 	setup(scope) {
 		let session: ExtensionContext | undefined;

@@ -73,7 +73,8 @@ function tabOf(host: Host, feature: Feature, ctx: ExtensionContext | undefined):
 		for (const entry of entriesOf(host, feature.id, ctx)) rows.push(screenRow(feature, entry, ctx));
 	}
 
-	const sections = [...(feature.sections ?? [])];
+	const listed = typeof feature.sections === "function" ? feature.sections(ctx) : feature.sections;
+	const sections = [...(listed ?? [])];
 	for (const row of rows) if (!sections.includes(row.section)) sections.push(row.section);
 	return { title: feature.tab ?? capitalize(feature.id), sections, rows };
 }
@@ -123,6 +124,8 @@ function screenRow(feature: Feature, entry: ScreenEntry, ctx: ExtensionContext):
 			row.control = typeof entry.control === "function" ? entry.control(ctx) : entry.control;
 			row.value = entry.get(ctx);
 			if (entry.meta !== undefined) row.meta = entry.meta;
+			const text = entry.text?.(ctx);
+			if (text !== undefined) row.text = text;
 			break;
 		case "action": {
 			const text = entry.text?.(ctx);

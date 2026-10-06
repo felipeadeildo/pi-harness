@@ -19,8 +19,8 @@ export interface Feature {
 	description: string;
 	/** The settings tab. Features with the same tab share it. Defaults to the id. */
 	tab?: string;
-	/** Section order on the tab. Sections not listed come after. */
-	sections?: readonly string[];
+	/** Section order on the tab. Sections not listed come after. A function runs when the screen opens. */
+	sections?: readonly string[] | ((ctx: ExtensionContext | undefined) => readonly string[]);
 	settings?: readonly Setting<unknown>[];
 	/** Registers handlers, commands and providers. Starts nothing: that goes in `onSessionStart`. */
 	setup(scope: FeatureScope): void;
@@ -61,6 +61,8 @@ export interface ScreenValue extends ScreenRow {
 	set(value: Json, ctx: ExtensionContext): string | undefined;
 	/** Where the value applies, when that is not this session. */
 	meta?: string;
+	/** What the row shows in place of the value, like a count for a list. Undefined shows the value. */
+	text?(ctx: ExtensionContext): string | undefined;
 }
 
 export interface ScreenAction extends ScreenRow {
