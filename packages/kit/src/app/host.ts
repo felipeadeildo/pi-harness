@@ -124,8 +124,8 @@ function screenRow(feature: Feature, entry: ScreenEntry, ctx: ExtensionContext):
 			row.control = typeof entry.control === "function" ? entry.control(ctx) : entry.control;
 			row.value = entry.get(ctx);
 			if (entry.meta !== undefined) row.meta = entry.meta;
-			const text = entry.text?.(ctx);
-			if (text !== undefined) row.text = text;
+			const shown = entry.text?.(ctx);
+			if (shown !== undefined) row.text = shown;
 			break;
 		case "action": {
 			const text = entry.text?.(ctx);

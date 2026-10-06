@@ -21,7 +21,7 @@ import { goal, GOAL_STATUS } from "../src/index.ts";
 import { modelsFor } from "../src/model.ts";
 import { laterOps, nowOps } from "../src/screen.ts";
 import { opsOf } from "../src/updater.ts";
-import { sessionSince, workSince } from "../src/work.ts";
+import { operatorText, sessionSince, workSince } from "../src/work.ts";
 
 let dir: string;
 beforeEach(() => {
@@ -107,7 +107,8 @@ async function mounted(
 			.filter((entry) => entry.customType === GOAL_ENTRY)
 			.map((entry) => entry.data as GoalUpdate);
 	const say = async (text: string) => {
-		await fake.fire("input", { type: "input", text, source: "interactive" }, ctx);
+		const message = { role: "user", content: [{ type: "text", text }] };
+		await fake.fire("message_end", { type: "message_end", message }, ctx);
 		await currentGoal(fake.pi.events)?.settling;
 	};
 	return { fake, ctx, statuses, models, updates, say };
@@ -171,7 +172,8 @@ describe("from your messages", () => {
 
 	test("with nobody at the keyboard, no model is called", async () => {
 		const { fake, models } = await mounted([{ haiku: [{ op: "start", text: "a" }] }]);
-		await fake.fire("input", { type: "input", text: "x", source: "rpc" }, fakeContext([], false));
+		const message = { role: "user", content: "x" };
+		await fake.fire("message_end", { type: "message_end", message }, fakeContext([], false));
 		expect(models.asked).toEqual([]);
 	});
 });
@@ -424,4 +426,15 @@ test("the tidy pass reads your words beside the work, from the start the first t
 		"operator: rodei os dois comandos\nsaid: Placeholder publicado.",
 	);
 	expect(sessionSince(branch, "a1").text).toBe("");
+});
+
+test("a message counts once it is in the conversation, without the skills pi expanded into it", () => {
+	expect(
+		operatorText({
+			role: "user",
+			content: '<skill name="a" location="/a">\nbody\n</skill>\n\nfaz isso',
+		}),
+	).toBe("faz isso");
+	expect(operatorText({ role: "assistant", content: "x" })).toBeUndefined();
+	expect(operatorText({ role: "user", content: [{ type: "image" }] })).toBeUndefined();
 });

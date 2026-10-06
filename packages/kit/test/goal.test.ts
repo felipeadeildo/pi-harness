@@ -75,14 +75,18 @@ test("only your words set the goal, so the agent's work cannot become your inten
 	expect(intentOf(state)).toBe("Goal: ship it\nNow: publish the package");
 });
 
-test("the state is the last update on the branch, and other entries are ignored", () => {
-	const first = apply(emptyGoal(), [{ op: "start", text: "a" }]);
-	const second = apply(first, [{ op: "done" }]);
-	const entry = (state: SessionGoal) => ({
+function goalEntry(state: SessionGoal) {
+	return {
 		type: "custom",
 		customType: GOAL_ENTRY,
 		data: { version: GOAL_VERSION, trigger: "you", ops: [], state },
-	});
+	};
+}
+
+test("the state is the last update on the branch, and other entries are ignored", () => {
+	const first = apply(emptyGoal(), [{ op: "start", text: "a" }]);
+	const second = apply(first, [{ op: "done" }]);
+	const entry = goalEntry;
 	const branch = [
 		entry(first),
 		{ type: "message" },

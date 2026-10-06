@@ -166,6 +166,10 @@ describe("editor", () => {
 	});
 });
 
+function stripLines(data: ReturnType<typeof snapshot>): number {
+	return new StripComponent(screen(data, { slots: { stripRight: ["goal"] } })).render(90).length;
+}
+
 describe("strip and footer", () => {
 	test("the strip keeps its line before there is an answer, so the editor never jumps", () => {
 		expect(new StripComponent(screen()).render(80)).toEqual([""]);
@@ -221,9 +225,7 @@ describe("strip and footer", () => {
 		});
 		const idle = snapshot({ goal });
 		const busy = snapshot({ goal, run: { running: true, elapsedMs: 3_600_000, requests: 40 } });
-		const lines = (data: typeof idle) =>
-			new StripComponent(screen(data, { slots: { stripRight: ["goal"] } })).render(90).length;
-		expect(lines(idle)).toBe(lines(busy));
+		expect(stripLines(idle)).toBe(stripLines(busy));
 	});
 
 	test("the footer carries the frame slots when the frame is off", () => {

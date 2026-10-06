@@ -14,7 +14,7 @@ export async function withLock<T>(
 ): Promise<T> {
 	const deadline = Date.now() + waitMs;
 	while (!take(path)) {
-		if (Date.now() >= deadline) return await work();
+		if (Date.now() >= deadline) return work();
 		// oxlint-disable-next-line no-await-in-loop -- the lock is retried until its deadline.
 		await new Promise((resolve) => setTimeout(resolve, RETRY_MS));
 	}

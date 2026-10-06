@@ -104,6 +104,16 @@ function oneLine(text: string): string {
 	return text.trim().replace(/\s+/g, " ");
 }
 
+/** What you wrote in a message, without the skill blocks pi expands into it. */
+export function operatorText(message: unknown): string | undefined {
+	const { role, content } = (message ?? {}) as { role?: unknown; content?: unknown };
+	if (role !== "user") return undefined;
+	const text = textOf(content)
+		.replace(/<skill name="[^"]*"[^>]*>[\s\S]*?<\/skill>/g, "")
+		.trim();
+	return text === "" ? undefined : text;
+}
+
 /** Your last message on the branch, and the entry it is. */
 export function lastMessage(
 	branch: readonly unknown[],

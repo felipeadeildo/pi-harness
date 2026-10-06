@@ -390,7 +390,7 @@ test("a tab can name its sections when it opens, and a value row can show a word
 		)
 		.build();
 	await fake.fire("session_start", {}, fakeContext());
-	const [tab] = listTabs(fake.pi.events).filter((entry) => entry.title === "Live");
+	const tab = listTabs(fake.pi.events).find((entry) => entry.title === "Live");
 	expect(tab?.sections.slice(0, 2)).toEqual(["Titled", "Other"]);
 	expect(tab?.rows.find((row) => row.id === "live.list")).toMatchObject({
 		value: "a\nb",

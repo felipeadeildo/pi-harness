@@ -35,7 +35,7 @@ const SYSTEM = `You keep the timeline of a coding session between an operator an
 Each update shows you the timeline and what happened since the last update. Call ${TOOL} exactly once, with the operations that bring it up to date. Most updates during a run change nothing: when the work only continues the current step, send an empty list and the timeline stays as it is.
 
 Operations:
-- goal {text}: what the whole session is for. Set it when there is none, or when the operator moves the session to something else.
+- goal {text}: what the session is working toward now, one level above the current step, like "Publish pi-goal 5.5" or "Fix the oxlint warnings". Set it when there is none, and set a new one when the operator's latest asks are about something the goal does not name. A goal that would fit the whole project, like "Develop the pi-harness", says nothing: name the outcome being worked on.
 - language {text}: the language the operator writes in, as its English name, like "Portuguese". Send it when the timeline has none or the operator switches.
 - start {text, active}: a new step becomes the current one. The current one goes back to later unless you mark it done first.
 - resume {id}: an item already listed becomes the current step. Prefer it to start when the step is already in later.
@@ -65,9 +65,10 @@ const TIDY = `You tidy the timeline of a coding session. It was updated one chan
 1. Items that say the same work, even in other words or another language, are one item. Keep the one that says it best and drop the others with the note "same as <id>". When any of them is done, finish the one you keep.
 2. A step in Now or Later that the session finished is done: the agent did it, or the operator says it was done, like a command they ran or a commit that went out. Read each one against the session.
 3. An item that is a question, an explanation or a review, not a change to make, is not a step. Drop it with the note "not a step", unless it is done.
-4. Rename an item only to write it in the operator's language, or to say in plain terms what it changes for the operator when it names code instead (a file, a function, a module).
+4. When the goal no longer names what the latest work and asks are about, set a new one with goal {text}.
+5. Rename an item only to write it in the operator's language, or to say in plain terms what it changes for the operator when it names code instead (a file, a function, a module).
 
-Leave everything else as it is. Operations: done {id, note?}, drop {id, note}, rename {id, text, active?}.`;
+Leave everything else as it is. Operations: goal {text}, done {id, note?}, drop {id, note}, rename {id, text, active?}.`;
 
 const PARAMETERS = Type.Object({
 	ops: Type.Array(
@@ -115,8 +116,8 @@ export function propose(
 	return askForOps(registry, models, SYSTEM, prompt(request), signal);
 }
 
-/** The operations a tidy pass may send. It closes and merges; it never opens anything. */
-const TIDY_OPS = new Set<GoalOp["op"]>(["done", "drop", "rename"]);
+/** The operations a tidy pass may send. It closes, merges and retitles; it never opens a step. */
+const TIDY_OPS = new Set<GoalOp["op"]>(["goal", "done", "drop", "rename"]);
 
 /** Merges repeats, closes what the work finished, and drops questions listed as steps. */
 export async function tidy(

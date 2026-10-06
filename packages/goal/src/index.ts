@@ -25,7 +25,7 @@ import { modelsFor } from "./model.ts";
 import { registerScreen, sessionSection } from "./screen.ts";
 import { GOAL_SETTINGS, interval, MODEL_SECTION, model } from "./settings.ts";
 import { propose, type Proposal, tidy } from "./updater.ts";
-import { lastMessage, sessionSince, type Work, workSince } from "./work.ts";
+import { lastMessage, operatorText, sessionSince, type Work, workSince } from "./work.ts";
 
 /** The status key, which the look's goal segment draws in its own place. */
 export const GOAL_STATUS = "pi-goal";
@@ -203,12 +203,13 @@ export const goal = defineFeature({
 			answerGoal(data, state, { settling, working: pace.working }),
 		);
 
-		// With nobody at the keyboard, as in a print run, it is not worth a model call per message.
-		scope.on("input", (event, ctx) => {
-			const text = event.text.trim();
-			if (!ctx.hasUI || text === "") return undefined;
-			settling = fromMessage(ctx, text);
-			return undefined;
+		// When your message enters the conversation, not when you type it: a steer or a follow-up
+		// waits in a queue, and the agent has not read it yet. With nobody at the keyboard, as in a
+		// print run, it is not worth a model call per message.
+		scope.on("message_end", (event, ctx) => {
+			if (!ctx.hasUI) return;
+			const text = operatorText(event.message);
+			if (text !== undefined) settling = fromMessage(ctx, text);
 		});
 
 		scope.on("agent_start", (_event, ctx) => {

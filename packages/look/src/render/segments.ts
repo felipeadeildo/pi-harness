@@ -515,9 +515,9 @@ function mark(glyph: string, paint: Paint, role: Role): string {
 }
 
 /** `✓2` in the color of what it counts, like the branch's marks. ASCII icons have no glyph, so the word goes. */
-function tally(count: number, glyph: string, role: "done" | "later", paint: Paint): string {
-	if (count === 0) return "";
-	return paint.role(role, glyph === "" ? `${count} ${role}` : `${glyph} ${count}`);
+function tally(size: number, glyph: string, role: "done" | "later", paint: Paint): string {
+	if (size === 0) return "";
+	return paint.role(role, glyph === "" ? `${size} ${role}` : `${glyph} ${size}`);
 }
 
 function counted(value: number, glyph: string, role: Role, paint: Paint): string {
