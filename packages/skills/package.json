@@ -1,0 +1,50 @@
+{
+	"name": "@adeildo/pi-skills",
+	"version": "5.3.0",
+	"description": "Call the skills you already have from anywhere in a message, several at once. The model reads each one in full, and the chat shows a small chip where you typed it.",
+	"keywords": [
+		"pi",
+		"pi-coding-agent",
+		"pi-extension",
+		"pi-package",
+		"skills"
+	],
+	"homepage": "https://github.com/felipeadeildo/pi-harness/tree/main/packages/skills#readme",
+	"bugs": "https://github.com/felipeadeildo/pi-harness/issues",
+	"license": "MIT",
+	"author": {
+		"name": "adeildo",
+		"email": "contato@felipeadeildo.com",
+		"url": "https://github.com/felipeadeildo"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/felipeadeildo/pi-harness.git",
+		"directory": "packages/skills"
+	},
+	"files": [
+		"src",
+		"README.md",
+		"LICENSE"
+	],
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"dependencies": {
+		"@adeildo/pi-kit": "workspace:*"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-ai": "*",
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	},
+	"pi": {
+		"extensions": [
+			"./src/index.ts"
+		]
+	}
+}

@@ -28,6 +28,7 @@
 | ------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | [Permission](../ask-permission) | Asks before a command runs, with a note the model reads. A model answers the easy ones for you           |
 | [Questions](../ask-questions)   | The model asks instead of guessing, with options, a preview of each, a note on any and your own answer   |
+| [Skill calls](../skills)        | Call the skills you already have from anywhere in a message, several at once, shown as chips             |
 | [Look](../look)                 | The start screen, the editor with the branch and the model on its borders, and a box around each command |
 | [Providers](../providers)       | Bills Anthropic OAuth requests to your Claude plan, and keeps several accounts per provider              |
 
@@ -38,7 +39,7 @@ All of them are on once the package is installed.
 
 ## Turning a piece off
 
-Each piece is its own extension in this package, so `pi config` switches off the one you do not want, globally or for one project. The settings file has a switch per feature too, read on the next `/reload`, and the feature ids are `permission`, `look`, `subscription`, `accounts` and `questions`.
+Each piece is its own extension in this package, so `pi config` switches off the one you do not want, globally or for one project. The settings file has a switch per feature too, read on the next `/reload`, and the feature ids are `permission`, `look`, `subscription`, `accounts`, `questions` and `skills`.
 
 ```json
 { "features": { "subscription": { "enabled": false } } }

@@ -1,4 +1,12 @@
-import { accountStateOf, createApp, defineFeature, type FeatureScope } from "@adeildo/pi-kit";
+import {
+	accountStateOf,
+	createApp,
+	defineFeature,
+	drawSkillRefs,
+	type FeatureScope,
+	SKILL_REF,
+	skillNames,
+} from "@adeildo/pi-kit";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
@@ -298,6 +306,14 @@ function createScreen(
 		slot: (name) => slots[name].get(scope),
 		frameStyle: () => frame.get(scope),
 		cursor: () => cursor.get(scope),
+		decorate: (line) => {
+			const theme = live.ctx?.ui.theme;
+			if (theme === undefined) return line;
+			return drawSkillRefs(line, skillNames(scope.events), (name) =>
+				theme.fg("customMessageLabel", `${SKILL_REF}${name}`),
+			);
+		},
+		skills: () => skillNames(scope.events).length > 0,
 	};
 }
 

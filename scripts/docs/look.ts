@@ -107,6 +107,8 @@ function screen(theme: Theme): Screen {
 		}),
 		slot: (name) => SLOTS[name],
 		frameStyle: () => "rounded",
+		decorate: (line) => line,
+		skills: () => false,
 		cursor: () => "block",
 	};
 }

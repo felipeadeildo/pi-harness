@@ -48,6 +48,11 @@
 				},
 				{
 					"type": "json",
+					"path": "packages/skills/package.json",
+					"jsonpath": "$.version"
+				},
+				{
+					"type": "json",
 					"path": "packages/harness/package.json",
 					"jsonpath": "$.version"
 				}

@@ -5,6 +5,7 @@ export * from "./contracts/accounts.ts";
 export * from "./contracts/ask.ts";
 export * from "./contracts/calls.ts";
 export * from "./contracts/screen.ts";
+export * from "./contracts/skills.ts";
 export * from "./control.ts";
 export * from "./decode.ts";
 export * from "./events.ts";

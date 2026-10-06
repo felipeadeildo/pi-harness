@@ -1,0 +1,83 @@
+// `/skill:name` anywhere in a message. The skills feature expands it, and the look colors it in the
+// editor, so both read the same pattern and ask the same feature which names count.
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
+import { isObject } from "../decode.ts";
+
+/** The skills feature adds the names a reference expands to. */
+export const SKILL_NAMES = "harness:skills:names";
+
+export const SKILL_REF = "/skill:";
+
+/** Empty when no skills feature runs. */
+export function skillNames(events: ExtensionAPI["events"]): string[] {
+	const probe = { names: [] as string[] };
+	events.emit(SKILL_NAMES, probe);
+	return probe.names;
+}
+
+export function addSkillNames(data: unknown, names: readonly string[]): void {
+	if (isObject(data) && Array.isArray(data.names)) data.names.push(...names);
+}
+
+/**
+ * Matches `/skill:<name>` for the names given, after the start, a space or an opening bracket.
+ * Group 1 is what came before, group 2 the name. In backticks it stays text.
+ */
+function skillRefPattern(names: readonly string[]): RegExp | undefined {
+	if (names.length === 0) return undefined;
+	const alternatives = names
+		.toSorted((left, right) => right.length - left.length)
+		.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+		.join("|");
+	return new RegExp(`(^|[\\s([{"'])${SKILL_REF}(${alternatives})(?![\\w-])`, "g");
+}
+
+const TYPING = /(?:^|[\s([{"'])(\/([\w.:-]*))$/;
+
+export interface SkillQuery {
+	/** What the completion replaces, slash included. */
+	typed: string;
+	/** What to match the names against. */
+	query: string;
+}
+
+/**
+ * The `/name` being typed at the cursor. Undefined at the start of the message, where pi's own
+ * palette opens.
+ */
+export function skillQueryAt(
+	lines: readonly string[],
+	cursorLine: number,
+	cursorCol: number,
+): SkillQuery | undefined {
+	const before = (lines[cursorLine] ?? "").slice(0, cursorCol);
+	const match = TYPING.exec(before);
+	if (match === null) return undefined;
+	const [, typed = "", query = ""] = match;
+	if (cursorLine === 0 && before.trimStart() === typed) return undefined;
+	return { typed, query };
+}
+
+/** The names `text` refers to, each once, in the order they first appear. */
+export function referencedSkills(text: string, names: readonly string[]): string[] {
+	const pattern = skillRefPattern(names);
+	if (pattern === undefined) return [];
+	const found: string[] = [];
+	for (const match of text.matchAll(pattern)) {
+		const name = match[2];
+		if (name !== undefined && !found.includes(name)) found.push(name);
+	}
+	return found;
+}
+
+/** `text` with each reference drawn by `draw`. */
+export function drawSkillRefs(
+	text: string,
+	names: readonly string[],
+	draw: (name: string) => string,
+): string {
+	const pattern = skillRefPattern(names);
+	if (pattern === undefined) return text;
+	return text.replace(pattern, (_whole, before: string, name: string) => `${before}${draw(name)}`);
+}

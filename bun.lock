@@ -51,6 +51,7 @@
         "@adeildo/pi-kit": "workspace:*",
         "@adeildo/pi-look": "workspace:*",
         "@adeildo/pi-providers": "workspace:*",
+        "@adeildo/pi-skills": "workspace:*",
       },
       "peerDependencies": {
         "@earendil-works/pi-ai": "*",
@@ -90,6 +91,18 @@
         "@earendil-works/pi-tui": "*",
       },
     },
+    "packages/skills": {
+      "name": "@adeildo/pi-skills",
+      "version": "5.3.0",
+      "dependencies": {
+        "@adeildo/pi-kit": "workspace:*",
+      },
+      "peerDependencies": {
+        "@earendil-works/pi-ai": "*",
+        "@earendil-works/pi-coding-agent": "*",
+        "@earendil-works/pi-tui": "*",
+      },
+    },
   },
   "trustedDependencies": [
     "lefthook",
@@ -106,6 +119,8 @@
     "@adeildo/pi-look": ["@adeildo/pi-look@workspace:packages/look"],
 
     "@adeildo/pi-providers": ["@adeildo/pi-providers@workspace:packages/providers"],
+
+    "@adeildo/pi-skills": ["@adeildo/pi-skills@workspace:packages/skills"],
 
     "@anthropic-ai/sdk": ["@anthropic-ai/sdk@0.129.0", "", { "dependencies": { "json-schema-to-ts": "^3.1.1", "standardwebhooks": "^1.0.0" }, "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" }, "optionalPeers": ["zod"], "bin": { "anthropic-ai-sdk": "bin/cli" } }, "sha512-MH7LB20kNpGLUpPTe2OG5XvL/KhX8HUO9XyBaFjgFk6TLS4Xjt0VPIuMKywe7POKKPslX+QxSlVok9e+8kG5Nw=="],
 

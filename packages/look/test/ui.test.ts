@@ -4,7 +4,7 @@ import {
 	type KeybindingsManager,
 	type ReadonlyFooterDataProvider,
 } from "@earendil-works/pi-coding-agent";
-import type { EditorTheme, TUI } from "@earendil-works/pi-tui";
+import type { AutocompleteProvider, EditorTheme, TUI } from "@earendil-works/pi-tui";
 
 import { LookEditor } from "../src/ui/editor.ts";
 import { FooterComponent, StripComponent } from "../src/ui/footer.ts";
@@ -32,15 +32,64 @@ const editorTheme: EditorTheme = {
 	},
 };
 
-function editor(style: "rounded" | "line" | "off" = "rounded") {
+function editor(
+	style: "rounded" | "line" | "off" = "rounded",
+	overrides: Parameters<typeof screen>[1] = {},
+) {
 	const keybindings = { matches: () => false } as unknown as KeybindingsManager;
 	return new LookEditor(
 		fakeTui(),
 		editorTheme,
 		keybindings,
-		screen(snapshot(), { frameStyle: () => style }),
+		screen(snapshot(), { frameStyle: () => style, ...overrides }),
 	);
 }
+
+/** A list that answers every request, and keeps what it was asked. */
+function recordingProvider(asked: string[]): AutocompleteProvider {
+	return {
+		getSuggestions: async (lines, line, col) => {
+			asked.push((lines[line] ?? "").slice(0, col));
+			return { items: [{ value: "/skill:simplify", label: "skill:simplify" }], prefix: "/" };
+		},
+		applyCompletion: (lines, cursorLine, cursorCol) => ({ lines, cursorLine, cursorCol }),
+	};
+}
+
+const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
+
+describe("skills in the editor", () => {
+	test("a slash further into the message opens the list", async () => {
+		const asked: string[] = [];
+		const view = editor("rounded", { skills: () => true });
+		view.setAutocompleteProvider(recordingProvider(asked));
+		view.setText("use ");
+		view.handleInput("/");
+		await settle();
+
+		expect(asked).toEqual(["use /"]);
+		expect(view.isShowingAutocomplete()).toBe(true);
+	});
+
+	test("with no skills feature, a slash is only a slash", async () => {
+		const asked: string[] = [];
+		const view = editor();
+		view.setAutocompleteProvider(recordingProvider(asked));
+		view.setText("use ");
+		view.handleInput("/");
+		await settle();
+
+		expect(asked).toEqual([]);
+	});
+
+	test("a skill you typed is drawn the way the screen colors it", () => {
+		const view = editor("rounded", {
+			decorate: (line) => line.replace("/skill:simplify", "<simplify>"),
+		});
+		view.setText("use /skill:simplify now");
+		expect(plain(view.render(60)[1] ?? "")).toContain("use <simplify> now");
+	});
+});
 
 describe("editor", () => {
 	test("draws a box of the exact width with the slots in its borders", () => {

@@ -1,3 +1,4 @@
+import { skillQueryAt } from "@adeildo/pi-kit";
 import { CustomEditor, type KeybindingsManager } from "@earendil-works/pi-coding-agent";
 import {
 	type EditorTheme,
@@ -57,6 +58,14 @@ export class LookEditor extends CustomEditor {
 		super.setWorkingStatusIndicator(indicator);
 		this.#indicator = indicator;
 		this.tui.requestRender();
+	}
+
+	/** Pi opens its palette on `/` only at the start of a message. Further in, `/` lists the skills. */
+	override handleInput(data: string): void {
+		super.handleInput(data);
+		if (data !== "/" || this.isShowingAutocomplete() || !this.#screen.skills()) return;
+		const { line, col } = this.getCursor();
+		if (skillQueryAt(this.getLines(), line, col) !== undefined) openAutocomplete(this);
 	}
 
 	override handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
@@ -146,7 +155,7 @@ export class LookEditor extends CustomEditor {
 				);
 				inside = false;
 			} else if (inside) {
-				const text = cursor === "block" ? line : withoutSoftwareCursor(line);
+				const text = this.#screen.decorate(cursor === "block" ? line : withoutSoftwareCursor(line));
 				result.push(`${left}${fill(text, inner)}${right}`);
 			} else {
 				result.push(`${" ".repeat(this.#inset)}${line}`);
@@ -163,6 +172,12 @@ export class LookEditor extends CustomEditor {
 		if (visibleWidth(full) > 0 && visibleWidth(full) <= budget) return full;
 		return indicator.renderSpinnerInBorder(budget);
 	}
+}
+
+// The editor keeps the method that opens its list private. Nothing opens if a pi release renames it.
+function openAutocomplete(editor: CustomEditor): void {
+	const open: unknown = Reflect.get(editor, "tryTriggerAutocomplete");
+	if (typeof open === "function") open.call(editor);
 }
 
 /** With the terminal's cursor showing, pi's inverted cell would be a second cursor. */

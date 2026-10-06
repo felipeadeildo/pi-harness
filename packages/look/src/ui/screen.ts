@@ -24,6 +24,10 @@ export interface Screen {
 	slot(name: SlotName): readonly SegmentId[];
 	frameStyle(): FrameStyle | "off";
 	cursor(): CursorStyle;
+	/** A line of what you type, with the skills it names colored. */
+	decorate(line: string): string;
+	/** True when a skills feature expands `/skill:` references. */
+	skills(): boolean;
 }
 
 export function slotPieces(
