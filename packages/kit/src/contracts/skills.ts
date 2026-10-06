@@ -55,9 +55,11 @@ export function referencedSkills(text: string, names: readonly string[]): string
 	const pattern = skillRefPattern(names);
 	if (pattern === undefined) return [];
 	const found: string[] = [];
-	for (const match of text.matchAll(pattern)) {
-		const name = match[2];
-		if (name !== undefined && !found.includes(name)) found.push(name);
+	for (const prose of outsideCode(text)) {
+		for (const match of prose.matchAll(pattern)) {
+			const name = match[2];
+			if (name !== undefined && !found.includes(name)) found.push(name);
+		}
 	}
 	return found;
 }
@@ -69,5 +71,20 @@ export function drawSkillRefs(
 ): string {
 	const pattern = skillRefPattern(names);
 	if (pattern === undefined) return text;
-	return text.replace(pattern, (_whole, before: string, name: string) => `${before}${draw(name)}`);
+	return splitCode(text)
+		.map(({ code, part }) =>
+			code
+				? part
+				: part.replace(pattern, (_whole, before: string, name: string) => `${before}${draw(name)}`),
+		)
+		.join("");
+}
+
+/** The text cut at inline code: `/skill:x` in backticks stays text. */
+function splitCode(text: string): { code: boolean; part: string }[] {
+	return text.split(/(`[^`]*`)/).map((part, index) => ({ code: index % 2 === 1, part }));
+}
+
+function outsideCode(text: string): string[] {
+	return splitCode(text).flatMap(({ code, part }) => (code ? [] : [part]));
 }

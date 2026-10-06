@@ -42,3 +42,12 @@ test("the names come from the skills feature, and none without it", () => {
 	bus.on(SKILL_NAMES, (data: unknown) => addSkillNames(data, NAMES));
 	expect(skillNames(bus)).toEqual(NAMES);
 });
+
+test("a reference anywhere inside backticks stays text", () => {
+	expect(referencedSkills("type `use /skill:simplify` and /skill:unslop", NAMES)).toEqual([
+		"unslop",
+	]);
+	expect(drawSkillRefs("`a /skill:simplify` /skill:unslop", NAMES, (name) => `[${name}]`)).toBe(
+		"`a /skill:simplify` [unslop]",
+	);
+});

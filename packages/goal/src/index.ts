@@ -3,6 +3,7 @@ import {
 	createApp,
 	defineFeature,
 	GOAL_CHANGED,
+	GOAL_SETTLED,
 	GOAL_STATE,
 	goalSpent,
 	nowOf,
@@ -14,7 +15,7 @@ import { Keeper } from "./keeper.ts";
 import { modelsFor } from "./models.ts";
 import { registerScreen, sessionSection } from "./screen.ts";
 import { GOAL_SETTINGS, interval, MODEL_SECTION, model } from "./settings.ts";
-import { operatorText } from "./transcript.ts";
+import { lastMessage, operatorText } from "./transcript.ts";
 import { Updates } from "./updates.ts";
 import { TimelineView } from "./view.ts";
 
@@ -39,13 +40,12 @@ export const goal = defineFeature({
 		const updates = new Updates(keeper, {
 			models: (ctx) => modelsFor(model.get(scope), ctx.modelRegistry, ctx.model),
 			interval: () => interval.get(scope),
+			settled: () => scope.events.emit(GOAL_SETTLED, {}),
 		});
 
 		function show(): void {
 			const state = keeper.state();
-			const current = nowOf(state);
-			const running = updates.working ? current?.activeForm : undefined;
-			const words = running ?? current?.text ?? state.goal;
+			const words = nowOf(state)?.text ?? state.goal;
 			session?.ui.setStatus(GOAL_STATUS, words === undefined ? undefined : `\u25b8 ${words}`);
 			scope.events.emit(GOAL_CHANGED, state);
 		}
@@ -68,17 +68,16 @@ export const goal = defineFeature({
 		});
 
 		scope.events.on(GOAL_STATE, (data: unknown) =>
-			answerGoal(data, keeper.state(), {
-				settling: updates.settling,
-				working: updates.working,
-			}),
+			answerGoal(data, keeper.state(), { pending: updates.pending, working: updates.working }),
 		);
 
 		// A queued steer counts once the agent reads it, not when you type it.
 		scope.on("message_end", (event, ctx) => {
 			if (!ctx.hasUI) return;
 			const text = operatorText(event.message);
-			if (text !== undefined) updates.message(ctx, text);
+			if (text === undefined) return;
+			// The entry is read now, before a later message can take its place.
+			updates.message(ctx, text, lastMessage(ctx.sessionManager.getBranch())?.entry);
 		});
 
 		scope.on("agent_start", (_event, ctx) => {

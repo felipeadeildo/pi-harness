@@ -1,5 +1,5 @@
 // The model's operations, read defensively: one that strays loses only itself.
-import type { GoalOp } from "@adeildo/pi-kit";
+import { type GoalOp, isObject } from "@adeildo/pi-kit";
 
 const MAX_TEXT = 240;
 
@@ -13,7 +13,7 @@ export const OPS = [
 	"later",
 	"drop",
 	"rename",
-] as const;
+] as const satisfies readonly GoalOp["op"][];
 
 export function opsOf(raw: unknown): GoalOp[] {
 	if (!Array.isArray(raw)) return [];
@@ -24,8 +24,8 @@ export function opsOf(raw: unknown): GoalOp[] {
 }
 
 function entryOf(entry: unknown): GoalOp | undefined {
-	if (typeof entry !== "object" || entry === null) return undefined;
-	const raw = entry as Record<string, unknown>;
+	if (!isObject(entry)) return undefined;
+	const raw = entry;
 	const text = clean(raw.text);
 	const id = typeof raw.id === "string" ? raw.id : undefined;
 	const activeText = clean(raw.active);

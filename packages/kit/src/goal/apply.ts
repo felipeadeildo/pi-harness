@@ -77,6 +77,8 @@ class Draft {
 				const item = this.#find(op.id);
 				if (item === undefined || op.text.trim() === "") return;
 				item.text = op.text.trim();
+				// Words the agent rewrote are no longer yours, so they stop reaching the judge.
+				if (this.#source === "work") item.source = "work";
 				const active = op.active?.trim();
 				if (active) item.activeForm = active;
 				item.updatedAt = this.#at;

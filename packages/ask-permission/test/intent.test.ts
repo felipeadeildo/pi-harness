@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { answerGoal, applyGoalOps, emptyGoal, GOAL_STATE } from "@adeildo/pi-kit";
+import { answerGoal, applyGoalOps, emptyGoal, GOAL_SETTLED, GOAL_STATE } from "@adeildo/pi-kit";
 import { createEventBus, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { currentIntent, intentFor } from "#pi/intent.ts";
@@ -54,7 +54,7 @@ describe("with a goal feature", () => {
 			at: 2,
 			source: "work",
 		});
-		bus.on(GOAL_STATE, (data: unknown) => answerGoal(data, state));
+		bus.on(GOAL_STATE, (data: unknown) => answerGoal(data, state, {}));
 		expect(await intentFor(ctxWith(branch), bus)).toBe(
 			"Goal: release 5.4\nLast message: publish it",
 		);
@@ -63,13 +63,13 @@ describe("with a goal feature", () => {
 	test("waits for the goal to take in your last message", async () => {
 		const bus = createEventBus();
 		let state = emptyGoal();
-		const settling = new Promise<void>((resolve) =>
-			setTimeout(() => {
-				state = applyGoalOps(state, [{ op: "start", text: "publish" }], { at: 1, source: "you" });
-				resolve();
-			}, 20),
-		);
-		bus.on(GOAL_STATE, (data: unknown) => answerGoal(data, state, { settling }));
+		let pending = true;
+		setTimeout(() => {
+			state = applyGoalOps(state, [{ op: "start", text: "publish" }], { at: 1, source: "you" });
+			pending = false;
+			bus.emit(GOAL_SETTLED, {});
+		}, 20);
+		bus.on(GOAL_STATE, (data: unknown) => answerGoal(data, state, { pending }));
 		expect(await intentFor(ctxWith(branch), bus)).toBe("Now: publish\nLast message: publish it");
 	});
 

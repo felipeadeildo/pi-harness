@@ -11,6 +11,8 @@ export interface UpdateOptions {
 	models(ctx: ExtensionContext): Model<Api>[];
 	/** Seconds between updates during a run. 0 waits for the end of the run. */
 	interval(): number;
+	/** Your last message is in the timeline. */
+	settled(): void;
 }
 
 export class Updates {
@@ -24,8 +26,7 @@ export class Updates {
 	#workReadTo: string | undefined;
 	#tidiedTo: string | undefined;
 	#untidy = false;
-	/** Settles once your last message is in the timeline. */
-	settling: Promise<void> | undefined;
+	#messages = 0;
 
 	constructor(keeper: Keeper, options: UpdateOptions) {
 		this.#keeper = keeper;
@@ -34,6 +35,11 @@ export class Updates {
 
 	get working(): boolean {
 		return this.#working;
+	}
+
+	/** Your last message is not in the timeline yet. */
+	get pending(): boolean {
+		return this.#messages > 0;
 	}
 
 	/** A timeline that comes back from a file gets one tidy pass after the next run. */
@@ -56,14 +62,17 @@ export class Updates {
 		this.#untidy = true;
 	}
 
-	message(ctx: ExtensionContext, text: string): void {
-		this.settling = this.#queued(async (signal) => {
+	message(ctx: ExtensionContext, text: string, entry: string | undefined): void {
+		this.#messages++;
+		void this.#queued(async (signal) => {
 			const state = this.#keeper.state();
 			const request = { state, trigger: "message" as const, news: text };
 			const proposal = await propose(ctx.modelRegistry, this.#options.models(ctx), request, signal);
 			if (proposal === undefined || signal.aborted) return;
-			const entry = lastMessage(ctx.sessionManager.getBranch())?.entry;
 			this.#keeper.settle(proposal, "message", { entry, covers: { from: entry, to: entry } });
+		}).finally(() => {
+			this.#messages--;
+			if (this.#messages === 0) this.#options.settled();
 		});
 	}
 

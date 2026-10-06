@@ -1,5 +1,5 @@
 // The judge's intent: the session's goal in your words, and your last message.
-import { currentGoal, intentOf } from "@adeildo/pi-kit";
+import { currentGoal, goalSettled, intentOf } from "@adeildo/pi-kit";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { isRecord } from "#util/primitives.ts";
@@ -12,9 +12,8 @@ export async function intentFor(
 	events: ExtensionAPI["events"],
 ): Promise<string | undefined> {
 	const last = currentIntent(ctx);
-	const probe = currentGoal(events);
-	if (probe === undefined) return last;
-	if (probe.settling !== undefined) await Promise.race([probe.settling, sleep(GOAL_WAIT_MS)]);
+	if (currentGoal(events) === undefined) return last;
+	await goalSettled(events, GOAL_WAIT_MS);
 
 	const goal = currentGoal(events)?.state;
 	const parts: string[] = [];
@@ -22,10 +21,6 @@ export async function intentFor(
 	if (ours !== undefined) parts.push(ours);
 	if (last !== undefined) parts.push(`Last message: ${last}`);
 	return parts.length === 0 ? undefined : parts.join("\n");
-}
-
-function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function currentIntent(ctx: Pick<ExtensionContext, "sessionManager">): string | undefined {

@@ -7,6 +7,7 @@ import {
 	applyGoalOps,
 	createApp,
 	currentGoal,
+	goalSettled,
 	emptyGoal,
 	GOAL_ENTRY,
 	GOAL_USAGE_ENTRY,
@@ -109,7 +110,7 @@ async function mounted(
 	const say = async (text: string) => {
 		const message = { role: "user", content: [{ type: "text", text }] };
 		await fake.fire("message_end", { type: "message_end", message }, ctx);
-		await currentGoal(fake.pi.events)?.settling;
+		await goalSettled(fake.pi.events, 1000);
 	};
 	return { fake, ctx, statuses, models, updates, say };
 }
@@ -372,7 +373,7 @@ describe("while the agent works", () => {
 		expect(requests(models).works).toBe(1);
 	});
 
-	test("while it works the step reads in its running form, and goes back when it stops", async () => {
+	test("the status keeps one wording while the agent works", async () => {
 		const state = applyGoalOps(
 			emptyGoal(),
 			[{ op: "start", text: "Rodar os testes", active: "Rodando os testes" }],
@@ -387,11 +388,10 @@ describe("while the agent works", () => {
 		];
 		const { fake, ctx, statuses } = await mounted([], branch, { interval: 0 });
 		await fake.fire("agent_start", {}, ctx);
-		expect(statuses.get(GOAL_STATUS)).toBe("\u25b8 Rodando os testes");
+		expect(statuses.get(GOAL_STATUS)).toBe("\u25b8 Rodar os testes");
 		expect(currentGoal(fake.pi.events)?.working).toBe(true);
 
 		await fake.fire("agent_settled", {}, ctx);
-		expect(statuses.get(GOAL_STATUS)).toBe("\u25b8 Rodar os testes");
 		expect(currentGoal(fake.pi.events)?.working).toBeUndefined();
 	});
 });

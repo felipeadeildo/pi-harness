@@ -4,6 +4,8 @@ export interface Piece {
 	text: string;
 	compact?: string | undefined;
 	priority: number;
+	/** How the piece fits in less room than its compact form, when it is alone on the line. */
+	shrink?: (width: number) => string;
 }
 
 export interface FitOptions {
@@ -44,6 +46,10 @@ export function fitRegions(
 
 	const joined = join(regions.length, slots, options.separator);
 	if (measure() <= width) return joined;
+
+	const kept = slots.filter((slot) => !slot.dropped);
+	const alone = regions.length === 1 ? kept[0]?.piece.shrink : undefined;
+	if (kept.length === 1 && alone !== undefined) return [alone(width)];
 
 	const overhead = options.regionOverhead ?? 0;
 	return joined.map((text) =>

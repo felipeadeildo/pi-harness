@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { applyGoalOps, emptyGoal } from "@adeildo/pi-kit";
+import { stripTerminalSequences as plainText } from "@earendil-works/pi-tui";
 
 import { emptyTotals } from "../src/data/totals.ts";
 import { ASCII, NERD } from "../src/render/glyphs.ts";
@@ -49,7 +50,7 @@ describe("segments", () => {
 		);
 		const [piece] = render(["goal"], snapshot({ goal }));
 		expect(piece?.text).toBe("> draw the segment  1 done  1 later");
-		expect(piece?.compact).toBe("> draw the segment");
+		expect(plainText(piece?.shrink?.(24) ?? "")).toBe("> dr...  1 done  1 later");
 		expect(claimedStatuses([["goal"]])).toContain("pi-goal");
 
 		const [icons] = renderSegments(["goal"], {
@@ -61,15 +62,14 @@ describe("segments", () => {
 		expect(icons?.text).toBe("\u{f04fe} draw the segment  \u{f00c} 1  \u{f051f} 1");
 	});
 
-	test("while the agent works, the goal shows the step in its running form", () => {
+	test("the goal keeps one wording while the agent works, so the strip does not change width", () => {
 		const goal = applyGoalOps(
 			emptyGoal(),
 			[{ op: "start", text: "Rodar os testes", active: "Rodando os testes" }],
 			{ at: 1, source: "you" },
 		);
 		const running = { running: true, elapsedMs: 1_000, requests: 1 };
-		expect(text(["goal"], snapshot({ goal, run: running }))).toEqual(["> Rodando os testes"]);
-		expect(text(["goal"], snapshot({ goal }))).toEqual(["> Rodar os testes"]);
+		expect(text(["goal"], snapshot({ goal, run: running }))).toEqual(["> Rodar os testes"]);
 	});
 
 	test("with no step, the goal shows the session's goal, and nothing without one", () => {

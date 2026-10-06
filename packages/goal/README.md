@@ -40,7 +40,6 @@ A model reads the timeline and only what changed since the last update. It answe
 - Your message updates it at once, so the judge has your intent before the agent's first call.
 - During a long turn, it updates once a minute at most, and only when the agent made new calls. Most of those updates change nothing, and then nothing is written. Your last message goes with the work, so the model can tell whether the work answered it.
 - When the agent stops, it reads what is left.
-- While the agent works, the strip shows the current step in its running form, like `Showing the goal on the top strip`.
 - After each run, one tidy pass looks at the whole timeline: it merges items that say the same work, finishes the ones the work completed, and drops questions listed as if they were work.
 
 The model writes every item in the language of your messages, and the timeline records which language that is.

@@ -92,18 +92,16 @@ export class TimelineView implements Component {
 		const pad = " ".repeat(PAD);
 		const row = (line: Line) => {
 			const on = line.item !== undefined && line.item === this.#selected;
-			const back = on ? picked : panel;
-			// A cut line ends in a full reset, which would drop the panel's background.
-			const text = truncateToWidth(line.text, inner, "\u2026", true).replaceAll(
-				"\x1b[0m",
-				`\x1b[0m${back}`,
+			const text = keepBackground(
+				truncateToWidth(line.text, inner, "\u2026", true),
+				on ? picked : panel,
 			);
 			const fill = on ? `${picked}${pad}${text}${pad}${panel}` : `${pad}${text}${pad}`;
 			return `${panel}${side}${fill}${side}\x1b[49m`;
 		};
 		// The corner cells keep the chat's background, so the panel's corners read as round.
 		const edge = (line: string) => {
-			const inside = sliceByColumn(line, 1, width - 2).replaceAll("\x1b[0m", `\x1b[0m${panel}`);
+			const inside = keepBackground(sliceByColumn(line, 1, width - 2), panel);
 			const first = sliceByColumn(line, 0, 1);
 			const last = sliceByColumn(line, width - 1, 1);
 			return `${first}${panel}${inside}\x1b[49m${last}`;
@@ -245,6 +243,11 @@ export class TimelineView implements Component {
 		const text = below > 0 ? `\u2193 ${below} more` : "\u2191 top";
 		return this.#options.theme.fg("dim", text);
 	}
+}
+
+/** A cut line ends in a full reset, which would drop the background it sits on. */
+function keepBackground(text: string, background: string): string {
+	return text.replaceAll("\x1b[0m", `\x1b[0m${background}`);
 }
 
 /** A solid panel in the border's hue, so the chat behind it does not read as part of it. */

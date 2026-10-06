@@ -197,7 +197,7 @@ describe("strip and footer", () => {
 		expect(strip.render(70).map(plain)).toEqual(["  0:09", "  > draw the strip"]);
 	});
 
-	test("on its own line a long step uses the whole width, and loses its counts before its words", () => {
+	test("on its own line a long step uses the whole width, and its words give way before its counts", () => {
 		const step = "verify the goal on the strip, its line of its own, and how it cuts a long step";
 		const goal = applyGoalOps(
 			emptyGoal(),
@@ -214,8 +214,7 @@ describe("strip and footer", () => {
 		expect(strip.render(100).map(plain)).toEqual(["", `  > ${step}  1 later`]);
 		const [, cut = ""] = strip.render(60).map(plain);
 		expect(cut).toHaveLength(58);
-		expect(cut).toEndWith("...");
-		expect(cut).not.toContain("later");
+		expect(cut).toEndWith("...  1 later");
 	});
 
 	test("beside a busy strip the goal keeps its counts, and the strip gives way", () => {
