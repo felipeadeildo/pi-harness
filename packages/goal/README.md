@@ -48,13 +48,23 @@ What the model may send depends on what it read:
 - After the agent's work, it can only finish a step or put a follow-up off. Only your messages start steps and set the goal, so when the agent proposes a plan, no step starts.
 - In the tidy pass, it only merges repeats, closes what the session finished and renames.
 
-To finish or give up a step, the model has to copy the words that show it, like `rodei o npm publish` or the agent saying it pushed. The extension looks for those words in the text the model read before it accepts the close, so a model that imagines a merge cannot record one. Each refused operation stays in the session entry under `rejected`.
+To finish or give up a step, the model has to copy the words that show it, like `rodei o npm publish` or the agent saying it pushed. The extension looks for those words in the text the model read before it accepts the close, so a model that imagines a merge cannot record one. A command the agent ran does not count, because the model never sees its output. A call that failed or that you refused reaches the model marked as one that did not happen. Each refused operation stays in the session entry under `rejected`.
 
 The model writes every item in the language of your messages, and the timeline records which language that is.
 
 To correct it, say what you want. "Leave the frame for later" moves the frame to later. `Alt+S` shows the timeline on the Goal tab, where you can edit the goal, the current step and the later list by hand.
 
 ## Where it shows
+
+<!-- docs:goal/timeline -->
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/goal/assets/timeline.png" alt="The goal's timeline over the chat: the goal as its title, the step under way, two items that wait with the cursor on one, four done items with the time each finished, and a pane with the selected item's note." width="860">
+  <br>
+  <em>Alt+G: what is under way, what waits and why, and what was done.</em>
+</p>
+
+<!-- /docs -->
 
 `Alt+G` opens the whole timeline as a tree over the chat: what is under way, what waits and what was done, newest first, one line per item. The arrows move a cursor, and a pane at the bottom shows the item under it in full: its whole text, its note (why it waits, or what it left out) and when it started and finished. `d` shows the dropped items, and `Esc` closes it. It updates while open, and its size stays put while you move.
 

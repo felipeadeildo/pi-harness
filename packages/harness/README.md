@@ -15,7 +15,7 @@
 <!-- docs:harness/conversation -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/conversation.png" alt="A session with the look: the start card, a request, the model running the tests, a commit you denied, then the stopwatch, the editor and the cost." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/conversation.png" alt="A session with the look: the start card, a request, the model running the tests, committing and pushing, then the stopwatch, the step under way, the editor and the cost." width="860">
   <br>
   <em>A session: the start card, what you asked, what the model ran, and what it cost.</em>
 </p>

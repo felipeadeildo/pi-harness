@@ -23,7 +23,11 @@ export interface TimelineViewOptions {
 	rows: () => number;
 	close: () => void;
 	requestRender: () => void;
+	/** How a time reads. The local clock by default; the docs pin it, so a picture never moves. */
+	clock?: Clock;
 }
+
+type Clock = (at: number) => string;
 
 type Tint = "accent" | "warning" | "success" | "dim" | "muted" | "text";
 
@@ -39,6 +43,7 @@ const DETAIL_LINES = 3;
 
 export class TimelineView implements Component {
 	readonly #options: TimelineViewOptions;
+	readonly #clock: Clock;
 	#selected: string | undefined;
 	#offset = 0;
 	#dropped = false;
@@ -47,6 +52,7 @@ export class TimelineView implements Component {
 
 	constructor(options: TimelineViewOptions) {
 		this.#options = options;
+		this.#clock = options.clock ?? localClock;
 	}
 
 	handleInput(data: string): void {
@@ -126,7 +132,7 @@ export class TimelineView implements Component {
 			lines.push(...wrapTextWithAnsi(theme.fg("text", item.text), width));
 			const note = item.note === undefined ? [] : wrapTextWithAnsi(item.note, width);
 			lines.push(...note.map((line) => theme.fg("muted", line)));
-			const when = whenOf(item);
+			const when = whenOf(item, this.#clock);
 			if (when !== "" && lines.length < DETAIL_LINES) lines.push(theme.fg("dim", when));
 		}
 		const kept = lines.slice(0, DETAIL_LINES);
@@ -202,7 +208,7 @@ export class TimelineView implements Component {
 		const branch = on
 			? theme.fg("accent", `${POINTER}  `)
 			: theme.fg("border", last ? "\u2514\u2500 " : "\u251c\u2500 ");
-		const meta = timeOf(item);
+		const meta = timeOf(item, this.#clock);
 		const metaWidth = meta === "" ? 0 : visibleWidth(meta) + 2;
 		const closed = item.status === "done" || item.status === "dropped";
 		const ink: Tint = on || !closed ? "text" : "muted";
@@ -264,20 +270,20 @@ function finishedAt(item: GoalItem): number {
 	return item.finished?.at ?? item.updatedAt;
 }
 
-function timeOf(item: GoalItem): string {
+function timeOf(item: GoalItem, clock: Clock): string {
 	if (item.status === "now" && item.started !== undefined) return `since ${clock(item.started.at)}`;
 	if (item.status === "done" || item.status === "dropped")
 		return item.finished === undefined ? "" : clock(item.finished.at);
 	return "";
 }
 
-function whenOf(item: GoalItem): string {
+function whenOf(item: GoalItem, clock: Clock): string {
 	const started = item.started === undefined ? "" : `started ${clock(item.started.at)}`;
 	const finished = item.finished === undefined ? "" : `${item.status} ${clock(item.finished.at)}`;
 	return [started, finished].filter((part) => part !== "").join(", ");
 }
 
-function clock(at: number): string {
+function localClock(at: number): string {
 	return new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 

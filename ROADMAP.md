@@ -152,11 +152,11 @@ Open:
 
 ## Many sessions, one policy
 
-| Item             | Status  | Needs         | Note                                                                                                      |
-| ---------------- | ------- | ------------- | --------------------------------------------------------------------------------------------------------- |
-| Sessions talking | planned | Session state | An inbox folder per session with one file per message, and `pi.events` inside one process. Nobody waits   |
-| Subagents        | later   |               | Replaces `pi-subagents`. Children over `RpcClient`, with their permission dialogs forwarded to the parent |
-| The routed model | later   | A router      | With a virtual model, the look shows the model that answered instead of `auto`                            |
+| Item             | Status  | Needs         | Note                                                                                                                               |
+| ---------------- | ------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Sessions talking | planned | Session state | An inbox folder per session with one file per message, and `pi.events` inside one process. Nobody waits                            |
+| Subagents        | later   |               | Replaces `pi-subagents`. Children over `RpcClient`, with their permission dialogs forwarded to the parent, on the parent's account |
+| The routed model | later   | A router      | With a virtual model, the look shows the model that answered instead of `auto`                                                     |
 
 ## The outside world
 
