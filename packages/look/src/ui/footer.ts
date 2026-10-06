@@ -31,8 +31,13 @@ export class StripComponent implements Component {
 		if (right.length === 0 || room <= 0) return [pad(renderSlot(screen, "strip", room))];
 
 		const full = fitLine(right, Number.MAX_SAFE_INTEGER, fitOptions(screen, screen.paint()));
-		if (visibleWidth(full) + GAP + STRIP_ROOM <= room)
-			return [pad(spread(screen, "strip", "stripRight", room))];
+		const beside = room - visibleWidth(full) - GAP;
+		// Beside the strip, the right side stays whole and the strip gives way.
+		if (beside >= STRIP_ROOM) {
+			const left = renderSlot(screen, "strip", beside);
+			const gap = " ".repeat(Math.max(GAP, room - visibleWidth(left) - visibleWidth(full)));
+			return [pad(`${left}${gap}${full}`)];
+		}
 		return [pad(renderSlot(screen, "strip", room)), pad(renderSlot(screen, "stripRight", room))];
 	}
 

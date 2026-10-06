@@ -4,9 +4,11 @@ import {
 	defineFeature,
 	GOAL_CHANGED,
 	GOAL_STATE,
+	goalSpent,
 	nowOf,
 } from "@adeildo/pi-kit";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { Key } from "@earendil-works/pi-tui";
 
 import { Keeper } from "./keeper.ts";
 import { modelsFor } from "./models.ts";
@@ -14,6 +16,7 @@ import { registerScreen, sessionSection } from "./screen.ts";
 import { GOAL_SETTINGS, interval, MODEL_SECTION, model } from "./settings.ts";
 import { operatorText } from "./transcript.ts";
 import { Updates } from "./updates.ts";
+import { TimelineView } from "./view.ts";
 
 /** The look draws this status as its goal segment. */
 export const GOAL_STATUS = "pi-goal";
@@ -95,6 +98,34 @@ export const goal = defineFeature({
 		});
 
 		registerScreen(scope, keeper);
+
+		scope.registerShortcut(Key.alt("g"), {
+			description: "The session's timeline: now, later and done",
+			handler: (ctx) => openTimeline(ctx),
+		});
+
+		async function openTimeline(ctx: ExtensionContext): Promise<void> {
+			if (ctx.mode !== "tui") return;
+			let stopWatching = (): void => {};
+			await ctx.ui.custom<void>(
+				(tui, theme, _keybindings, done) => {
+					stopWatching = scope.events.on(GOAL_CHANGED, () => tui.requestRender());
+					return new TimelineView({
+						theme,
+						state: () => keeper.state(),
+						spent: () => goalSpent(ctx.sessionManager.getBranch()),
+						rows: () => Math.floor(tui.terminal.rows * 0.8),
+						close: () => done(),
+						requestRender: () => tui.requestRender(),
+					});
+				},
+				{
+					overlay: true,
+					overlayOptions: { anchor: "center", width: "70%", minWidth: 60, maxHeight: "80%" },
+				},
+			);
+			stopWatching();
+		}
 	},
 });
 

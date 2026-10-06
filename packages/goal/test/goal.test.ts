@@ -438,3 +438,11 @@ test("a message counts once it is in the conversation, without the skills pi exp
 	expect(operatorText({ role: "assistant", content: "x" })).toBeUndefined();
 	expect(operatorText({ role: "user", content: [{ type: "image" }] })).toBeUndefined();
 });
+
+test("a long note is cut at a word, and says it was cut", () => {
+	const note = `${"palavra ".repeat(40)}fim`;
+	const [op] = opsOf([{ op: "pause", note }]);
+	const kept = op?.op === "pause" ? (op.note ?? "") : "";
+	expect(kept.length).toBeLessThanOrEqual(241);
+	expect(kept).toEndWith("palavra\u2026");
+});

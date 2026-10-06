@@ -218,6 +218,32 @@ describe("strip and footer", () => {
 		expect(cut).not.toContain("later");
 	});
 
+	test("beside a busy strip the goal keeps its counts, and the strip gives way", () => {
+		const goal = applyGoalOps(
+			emptyGoal(),
+			[
+				{ op: "start", text: "draw the strip" },
+				{ op: "later", text: "frame" },
+			],
+			{ at: 1, source: "you" },
+		);
+		const busy = snapshot({
+			goal,
+			run: { running: true, elapsedMs: 3_600_000, requests: 40 },
+			last: {
+				firstTokenMs: 6_600,
+				generationMs: 3_300,
+				output: 900,
+				prompt: 1000,
+				elapsedMs: 9_000,
+			} as never,
+		});
+		const [line = ""] = new StripComponent(screen(busy, { slots: { stripRight: ["goal"] } }))
+			.render(100)
+			.map(plain);
+		expect(line).toEndWith("> draw the strip  1 later");
+	});
+
 	test("the strip's width does not move the goal between lines", () => {
 		const goal = applyGoalOps(emptyGoal(), [{ op: "start", text: "draw the strip" }], {
 			at: 1,

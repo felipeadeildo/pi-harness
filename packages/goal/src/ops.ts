@@ -1,7 +1,7 @@
 // The model's operations, read defensively: one that strays loses only itself.
 import type { GoalOp } from "@adeildo/pi-kit";
 
-const MAX_TEXT = 120;
+const MAX_TEXT = 240;
 
 export const OPS = [
 	"goal",
@@ -56,7 +56,11 @@ function entryOf(entry: unknown): GoalOp | undefined {
 }
 
 function clean(value: unknown): string | undefined {
-	return typeof value === "string" && value.trim() !== ""
-		? value.trim().slice(0, MAX_TEXT)
-		: undefined;
+	if (typeof value !== "string" || value.trim() === "") return undefined;
+	const text = value.trim().replace(/\s+/g, " ");
+	if (text.length <= MAX_TEXT) return text;
+	// Cut at a word, and say it was cut.
+	const cut = text.slice(0, MAX_TEXT);
+	const space = cut.lastIndexOf(" ");
+	return `${(space > MAX_TEXT / 2 ? cut.slice(0, space) : cut).replace(/[,;:.\s]+$/, "")}\u2026`;
 }

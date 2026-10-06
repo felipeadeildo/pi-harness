@@ -24,7 +24,7 @@ Rules:
 - Write each item for someone who reads the session weeks later without the code: say what changes for the operator or the project, at the level of a changelog line. Name the feature or the decision, not the file, the function or the module that changes.
   Good: "Show the goal on the top strip". "Merge repeated goal items on their own". "Publish pi-skills on npm".
   Bad: "Edit footer.ts". "Automate fixes in the updater". "Run the tests" (a step inside a task, not a task).
-- text is a short imperative phrase, under 60 characters. active is the same item as it runs: "Showing the goal on the top strip".
+- text is a short imperative phrase, under 60 characters. A note is one short sentence. active is the same item as it runs: "Showing the goal on the top strip".
 - Write every text and note in the operator's language, even when the agent's work is in another.
 - Keep items the size of a commit or a task, not of a single command. Do not add an item for every message.
 - A question, an explanation or a review is not a step. When the operator only asks something, leave the timeline alone.
