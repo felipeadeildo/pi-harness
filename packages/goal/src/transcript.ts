@@ -117,6 +117,28 @@ export function lastMessage(
 	return undefined;
 }
 
+export interface SkillNote {
+	name: string;
+	description?: string;
+}
+
+/** `/skill:name` reads as a bare command to the goal's model, so each one becomes an ask. */
+export function withSkills(text: string, skills: readonly SkillNote[]): string {
+	return text.replace(/\/skill:([\w.-]+)/g, (reference, name: string) => {
+		const description = skills.find((skill) => skill.name === name)?.description;
+		if (description === undefined) return reference;
+		return `run the skill "${name}" (${clip(oneLine(description), 200)})`;
+	});
+}
+
+/** The newest entry of yours with these words. */
+export function messageEntry(branch: readonly unknown[], text: string): string | undefined {
+	const entries = branch as readonly Entry[];
+	return entries.findLast(
+		(entry) => entry.type === "message" && operatorText(entry.message) === text,
+	)?.id;
+}
+
 function textOf(content: unknown): string {
 	if (typeof content === "string") return content.trim();
 	if (!Array.isArray(content)) return "";

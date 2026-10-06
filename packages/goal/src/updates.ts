@@ -5,7 +5,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { propose, tidy } from "./ask.ts";
 import type { Keeper } from "./keeper.ts";
-import { type Excerpt, lastMessage, sessionSince, workSince } from "./transcript.ts";
+import { type Excerpt, lastMessage, messageEntry, sessionSince, workSince } from "./transcript.ts";
 
 export interface UpdateOptions {
 	models(ctx: ExtensionContext): Model<Api>[];
@@ -13,6 +13,8 @@ export interface UpdateOptions {
 	interval(): number;
 	/** Your last message is in the timeline. */
 	settled(): void;
+	/** Your words as the model reads them, with each skill you named explained. */
+	explain(text: string): string;
 }
 
 export class Updates {
@@ -62,13 +64,15 @@ export class Updates {
 		this.#untidy = true;
 	}
 
-	message(ctx: ExtensionContext, text: string, entry: string | undefined): void {
+	message(ctx: ExtensionContext, text: string): void {
 		this.#messages++;
 		void this.#queued(async (signal) => {
 			const state = this.#keeper.state();
-			const request = { state, trigger: "message" as const, news: text };
+			const request = { state, trigger: "message" as const, news: this.#options.explain(text) };
 			const proposal = await propose(ctx.modelRegistry, this.#options.models(ctx), request, signal);
 			if (proposal === undefined || signal.aborted) return;
+			// At message_end the message is not in the session yet; by now it is.
+			const entry = messageEntry(ctx.sessionManager.getBranch(), text);
 			this.#keeper.settle(proposal, "message", { entry, covers: { from: entry, to: entry } });
 		}).finally(() => {
 			this.#messages--;
@@ -109,7 +113,8 @@ export class Updates {
 			this.#workReadTo = work.to;
 			this.#lastWork = Date.now();
 			const state = this.#keeper.state();
-			const asked = lastMessage(branch)?.text;
+			const last = lastMessage(branch)?.text;
+			const asked = last === undefined ? undefined : this.#options.explain(last);
 			const request = { state, trigger: "work" as const, news: work.text, asked };
 			const proposal = await propose(ctx.modelRegistry, this.#options.models(ctx), request, signal);
 			if (proposal === undefined || signal.aborted) return;

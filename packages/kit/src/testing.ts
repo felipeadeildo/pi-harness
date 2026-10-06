@@ -88,6 +88,7 @@ export function fakePi(bus: EventBus = createEventBus()): FakePi {
 		registerShortcut: (shortcut: unknown) => void fake.shortcuts.push(String(shortcut)),
 		registerTool: (tool: ToolDefinition) => void fake.tools.push(tool),
 		getAllTools: () => fake.allTools,
+		getCommands: () => [],
 		registerProvider: (name: unknown, config?: unknown) =>
 			void fake.providers.push({ name: String(name), config }),
 		registerEntryRenderer: (customType: string, renderer: EntryRenderer) =>

@@ -15,7 +15,7 @@ import { Keeper } from "./keeper.ts";
 import { modelsFor } from "./models.ts";
 import { registerScreen, sessionSection } from "./screen.ts";
 import { GOAL_SETTINGS, interval, MODEL_SECTION, model } from "./settings.ts";
-import { lastMessage, operatorText } from "./transcript.ts";
+import { operatorText, type SkillNote, withSkills } from "./transcript.ts";
 import { Updates } from "./updates.ts";
 import { TimelineView } from "./view.ts";
 
@@ -41,6 +41,7 @@ export const goal = defineFeature({
 			models: (ctx) => modelsFor(model.get(scope), ctx.modelRegistry, ctx.model),
 			interval: () => interval.get(scope),
 			settled: () => scope.events.emit(GOAL_SETTLED, {}),
+			explain: (text) => withSkills(text, skillsOf(scope)),
 		});
 
 		function show(): void {
@@ -76,8 +77,7 @@ export const goal = defineFeature({
 			if (!ctx.hasUI) return;
 			const text = operatorText(event.message);
 			if (text === undefined) return;
-			// The entry is read now, before a later message can take its place.
-			updates.message(ctx, text, lastMessage(ctx.sessionManager.getBranch())?.entry);
+			updates.message(ctx, text);
 		});
 
 		scope.on("agent_start", (_event, ctx) => {
@@ -130,4 +130,14 @@ export const goal = defineFeature({
 
 export default function piGoal(pi: ExtensionAPI): void {
 	createApp(pi, { name: "pi-goal" }).use(goal).build();
+}
+
+function skillsOf(pi: Pick<ExtensionAPI, "getCommands">): SkillNote[] {
+	return pi
+		.getCommands()
+		.filter((command) => command.source === "skill")
+		.map((command) => ({
+			name: command.name.replace(/^skill:/, ""),
+			description: command.description,
+		}));
 }
