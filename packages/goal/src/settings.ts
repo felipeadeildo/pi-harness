@@ -1,7 +1,7 @@
 import { type Control, type Decoder, fail, pass, problem, setting, string } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { AUTO, modelRef, SESSION } from "./model.ts";
+import { AUTO, modelRef, SESSION } from "./models.ts";
 
 export const MODEL_SECTION = "Model";
 

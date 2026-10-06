@@ -18,10 +18,10 @@ import { fakeContext, fakePi } from "@adeildo/pi-kit/testing";
 import type { Api, Model } from "@earendil-works/pi-ai";
 
 import { goal, GOAL_STATUS } from "../src/index.ts";
-import { modelsFor } from "../src/model.ts";
+import { modelsFor } from "../src/models.ts";
+import { opsOf } from "../src/ops.ts";
 import { laterOps, nowOps } from "../src/screen.ts";
-import { opsOf } from "../src/updater.ts";
-import { operatorText, sessionSince, workSince } from "../src/work.ts";
+import { operatorText, sessionSince, workSince } from "../src/transcript.ts";
 
 let dir: string;
 beforeEach(() => {

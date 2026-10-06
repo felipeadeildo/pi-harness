@@ -59,11 +59,7 @@ export const skills = defineFeature({
 	},
 });
 
-/**
- * The skills the message names go first, in one message the model reads and the chat folds. The
- * text stays as you typed it, but for a space before a leading `/skill:`, which keeps pi from
- * expanding that one again. Markdown does not draw the space.
- */
+/** A leading space keeps pi from expanding a leading `/skill:` a second time. */
 function expand(
 	scope: FeatureScope,
 	ctx: ExtensionContext,

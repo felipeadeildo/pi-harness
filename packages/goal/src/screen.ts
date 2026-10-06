@@ -1,5 +1,4 @@
-// The goal on Alt+S, to read whole and to correct by hand. What you write here counts as yours.
-// The session's goal titles its section, and the timeline is listed under it.
+// The timeline on Alt+S, titled by the session's goal. What you write here counts as yours.
 import {
 	type FeatureScope,
 	type GoalOp,
@@ -12,18 +11,17 @@ import {
 } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import type { GoalKeeper } from "./index.ts";
+import type { Keeper } from "./keeper.ts";
 import { MODEL_SECTION } from "./settings.ts";
 
 const UNTITLED = "This session";
 
-/** The section the timeline sits in: the session's goal, once there is one. */
 export function sessionSection(ctx: ExtensionContext | undefined): string {
 	const goal = ctx === undefined ? undefined : goalFromEntries(ctx.sessionManager.getBranch()).goal;
 	return goal ?? UNTITLED;
 }
 
-export function registerScreen(scope: FeatureScope, keeper: GoalKeeper): void {
+export function registerScreen(scope: FeatureScope, keeper: Keeper): void {
 	scope.screen.rows((ctx) => timelineRows(keeper, sessionSection(ctx)));
 
 	scope.screen.info({
@@ -36,7 +34,7 @@ export function registerScreen(scope: FeatureScope, keeper: GoalKeeper): void {
 	});
 }
 
-function timelineRows(keeper: GoalKeeper, section: string): ScreenEntry[] {
+function timelineRows(keeper: Keeper, section: string): ScreenEntry[] {
 	return [
 		{
 			kind: "value",

@@ -20,7 +20,7 @@ import {
 	itemsWith,
 	nowOf,
 	type SessionGoal,
-} from "../src/contracts/goal.ts";
+} from "../src/goal/index.ts";
 
 function apply(state: SessionGoal, ops: GoalOp[], source: GoalSource = "you", at = 1) {
 	return applyGoalOps(state, ops, { at, source });

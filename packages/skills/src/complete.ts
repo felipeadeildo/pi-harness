@@ -1,5 +1,4 @@
-// Pi's palette opens on `/` only at the start of a message. This one lists only the skills, anywhere
-// else in the text: the look's editor opens it on `/`, and Tab opens it in any editor.
+// Lists the skills after a `/` anywhere past the start of a message, where pi's palette does not.
 import { SKILL_REF, skillQueryAt } from "@adeildo/pi-kit";
 import {
 	type AutocompleteItem,

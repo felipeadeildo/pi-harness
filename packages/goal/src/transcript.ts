@@ -1,11 +1,7 @@
-// What the agent did since the last update, as the updater reads it: what it said along the way and
-// what each call touched, in order. The words carry the meaning; a call alone, like a script piped
-// into bash, rarely says what it was for. Tool results stay out, because a file or a page could
-// carry instructions.
+// What the goal's model reads of the branch. Tool results stay out: they could carry instructions.
 import { GOAL_ENTRY } from "@adeildo/pi-kit";
 
-/** The digest keeps its newest part within this many characters. */
-const MAX_DIGEST = 6000;
+const MAX_EXCERPT = 6000;
 const MAX_SAID = 400;
 const MAX_CALL = 100;
 const MAX_WORDS = 1500;
@@ -24,45 +20,37 @@ interface Part {
 	arguments?: unknown;
 }
 
-export interface Work {
-	/** The digest the model reads. Empty when the agent did nothing since. */
+export interface Excerpt {
 	text: string;
-	/** The first and last entries read. */
 	from?: string;
 	to?: string;
 }
 
-/** From the entry after `after`, or after the last update when it is not on the branch. */
-export function workSince(branch: readonly unknown[], after?: string): Work {
+/** The agent's work after `after`, or after the last goal update when `after` is not on the branch. */
+export function workSince(branch: readonly unknown[], after?: string): Excerpt {
 	const entries = branch as readonly Entry[];
 	const seen = indexOf(entries, after);
 	const start = (seen === -1 ? lastUpdateIndex(entries) : seen) + 1;
-	return digest(entries.slice(start), false);
+	return excerpt(entries.slice(start), false);
 }
 
-/**
- * For the tidy pass: your messages and the agent's work since `after`, or the whole branch the first
- * time, newest kept. Your words are what tell it that something waiting was done, like a command
- * you ran yourself.
- */
-export function sessionSince(branch: readonly unknown[], after?: string): Work {
+/** Your messages and the agent's work after `after`: you are the one who says a command you ran is done. */
+export function sessionSince(branch: readonly unknown[], after?: string): Excerpt {
 	const entries = branch as readonly Entry[];
-	return digest(entries.slice(indexOf(entries, after) + 1), true);
+	return excerpt(entries.slice(indexOf(entries, after) + 1), true);
 }
 
-/** Where `id` sits on the branch, or -1 when it is not given or not there. */
 function indexOf(entries: readonly Entry[], id: string | undefined): number {
 	return id === undefined ? -1 : entries.findIndex((entry) => entry.id === id);
 }
 
-function digest(read: readonly Entry[], withOperator: boolean): Work {
+function excerpt(read: readonly Entry[], withOperator: boolean): Excerpt {
 	const lines: string[] = [];
 
 	for (const entry of read) {
-		if (withOperator && entry.type === "message" && entry.message?.role === "user") {
-			const text = textOf(entry.message.content);
-			if (text !== "") lines.push(`operator: ${clip(oneLine(text), MAX_SAID)}`);
-		}
+		const said = withOperator ? operatorText(entry.message) : undefined;
+		if (entry.type === "message" && said !== undefined)
+			lines.push(`operator: ${clip(oneLine(said), MAX_SAID)}`);
 		for (const part of assistantParts(entry)) {
 			if (part.type === "text" && typeof part.text === "string" && part.text.trim() !== "")
 				lines.push(`said: ${clip(oneLine(part.text), MAX_SAID)}`);
@@ -71,10 +59,10 @@ function digest(read: readonly Entry[], withOperator: boolean): Work {
 		}
 	}
 
-	return { text: newest(lines, MAX_DIGEST), from: read[0]?.id, to: read.at(-1)?.id };
+	return { text: newest(lines, MAX_EXCERPT), from: read[0]?.id, to: read.at(-1)?.id };
 }
 
-/** What a call touched: the path of a file tool, the first line of a command, else its arguments. */
+/** The path of a file tool, the first line of a command, else the arguments. */
 function callOf(name: string, args: unknown): string {
 	const fields = typeof args === "object" && args !== null ? (args as Record<string, unknown>) : {};
 	const target = [fields.path, fields.command, fields.query, fields.url].find(
@@ -84,7 +72,7 @@ function callOf(name: string, args: unknown): string {
 	return `${name} ${clip(shown, MAX_CALL)}`;
 }
 
-/** The last lines that fit in `max` characters, with how many earlier ones were left out. */
+/** The last lines within `max` characters, and how many earlier ones were left out. */
 function newest(lines: readonly string[], max: number): string {
 	const kept: string[] = [];
 	let size = 0;
@@ -114,16 +102,14 @@ export function operatorText(message: unknown): string | undefined {
 	return text === "" ? undefined : text;
 }
 
-/** Your last message on the branch, and the entry it is. */
 export function lastMessage(
 	branch: readonly unknown[],
 ): { text: string; entry?: string } | undefined {
 	const entries = branch as readonly Entry[];
 	for (let index = entries.length - 1; index >= 0; index--) {
 		const entry = entries[index];
-		if (entry?.type !== "message" || entry.message?.role !== "user") continue;
-		const text = textOf(entry.message.content);
-		if (text !== "") return { text: clip(text, MAX_WORDS), entry: entry.id };
+		const text = entry?.type === "message" ? operatorText(entry.message) : undefined;
+		if (text !== undefined) return { text: clip(text, MAX_WORDS), entry: entry?.id };
 	}
 	return undefined;
 }

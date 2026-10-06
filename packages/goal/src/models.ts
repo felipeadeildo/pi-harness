@@ -1,5 +1,4 @@
-// Which model keeps the goal. `auto` takes the cheapest model of the session's provider, whose
-// credentials already work; when that one fails, the session's own model answers.
+// `auto`: the cheapest model of the session's provider. The session's model is always the fallback.
 import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
@@ -8,7 +7,6 @@ export const SESSION = "session";
 
 type Registry = Pick<ExtensionContext["modelRegistry"], "getAvailable" | "find">;
 
-/** The models to try, in order: the chosen one, then the session's. */
 export function modelsFor(
 	choice: string,
 	registry: Registry,

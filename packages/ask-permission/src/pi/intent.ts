@@ -1,5 +1,4 @@
-// What the user is after, for the judge: the session's goal in their own words, when a goal feature
-// keeps one, and the last thing they typed.
+// The judge's intent: the session's goal in your words, and your last message.
 import { currentGoal, intentOf } from "@adeildo/pi-kit";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 

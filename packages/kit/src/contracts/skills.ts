@@ -1,5 +1,4 @@
-// `/skill:name` anywhere in a message. The skills feature expands it, and the look colors it in the
-// editor, so both read the same pattern and ask the same feature which names count.
+// The `/skill:name` pattern the skills feature expands and the look colors.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { isObject } from "../decode.ts";
@@ -20,10 +19,7 @@ export function addSkillNames(data: unknown, names: readonly string[]): void {
 	if (isObject(data) && Array.isArray(data.names)) data.names.push(...names);
 }
 
-/**
- * Matches `/skill:<name>` for the names given, after the start, a space or an opening bracket.
- * Group 1 is what came before, group 2 the name. In backticks it stays text.
- */
+/** Group 1 is what came before, group 2 the name. */
 function skillRefPattern(names: readonly string[]): RegExp | undefined {
 	if (names.length === 0) return undefined;
 	const alternatives = names
@@ -38,14 +34,10 @@ const TYPING = /(?:^|[\s([{"'])(\/([\w.:-]*))$/;
 export interface SkillQuery {
 	/** What the completion replaces, slash included. */
 	typed: string;
-	/** What to match the names against. */
 	query: string;
 }
 
-/**
- * The `/name` being typed at the cursor. Undefined at the start of the message, where pi's own
- * palette opens.
- */
+/** Undefined at the start of the message, where pi's own palette opens. */
 export function skillQueryAt(
 	lines: readonly string[],
 	cursorLine: number,
@@ -59,7 +51,6 @@ export function skillQueryAt(
 	return { typed, query };
 }
 
-/** The names `text` refers to, each once, in the order they first appear. */
 export function referencedSkills(text: string, names: readonly string[]): string[] {
 	const pattern = skillRefPattern(names);
 	if (pattern === undefined) return [];
@@ -71,7 +62,6 @@ export function referencedSkills(text: string, names: readonly string[]): string
 	return found;
 }
 
-/** `text` with each reference drawn by `draw`. */
 export function drawSkillRefs(
 	text: string,
 	names: readonly string[],
