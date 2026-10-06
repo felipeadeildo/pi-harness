@@ -54,6 +54,7 @@ export class Keeper {
 			ops: [...ops],
 			...(covers === undefined ? {} : { covers }),
 			...(proposal === undefined ? {} : { model: proposal.model, usage: proposal.usage }),
+			...(proposal?.rejected.length ? { rejected: proposal.rejected } : {}),
 			state: next,
 		};
 		this.#append(GOAL_ENTRY, update);
@@ -65,6 +66,7 @@ export class Keeper {
 	settle(proposal: Proposal, trigger: GoalTrigger, context: Omit<ChangeContext, "proposal">): void {
 		if (this.apply(proposal.ops, trigger, { ...context, proposal })) return;
 		const call: GoalCall = { trigger, model: proposal.model, usage: proposal.usage };
+		if (proposal.rejected.length > 0) call.rejected = proposal.rejected;
 		this.#append(GOAL_USAGE_ENTRY, call);
 	}
 }

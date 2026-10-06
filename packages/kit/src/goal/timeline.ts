@@ -41,15 +41,16 @@ export interface SessionGoal {
 	updatedAt: number;
 }
 
+/** `proof`: the words of the session that show a step finished or was given up. */
 export type GoalOp =
 	| { op: "goal"; text: string }
 	| { op: "language"; text: string }
 	| { op: "start"; text: string; active?: string }
 	| { op: "resume"; id: string }
 	| { op: "pause"; note?: string }
-	| { op: "done"; id?: string; note?: string }
+	| { op: "done"; id?: string; note?: string; proof?: string }
 	| { op: "later"; text: string; active?: string; note?: string }
-	| { op: "drop"; id: string; note?: string }
+	| { op: "drop"; id: string; note?: string; proof?: string }
 	| { op: "rename"; id: string; text: string; active?: string };
 
 /** `tidy`: the pass after a run that merges repeats and closes finished items. */

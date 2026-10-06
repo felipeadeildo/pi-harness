@@ -26,6 +26,8 @@ export interface GoalUpdate {
 	covers?: { from?: string; to?: string };
 	model?: string;
 	usage?: GoalUsage;
+	/** What the model proposed and the checks refused, like a done without proof. */
+	rejected?: GoalOp[];
 	state: SessionGoal;
 }
 
@@ -33,6 +35,7 @@ export interface GoalCall {
 	trigger: GoalTrigger;
 	model: string;
 	usage: GoalUsage;
+	rejected?: GoalOp[];
 }
 
 export function goalFromEntries(entries: readonly unknown[]): SessionGoal {

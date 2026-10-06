@@ -1,41 +1,25 @@
 // The model answers with operations, never a new timeline, so it cannot rewrite history.
 import type { GoalOp, GoalUsage, SessionGoal } from "@adeildo/pi-kit";
-import { type Api, type Model, type Tool, Type } from "@earendil-works/pi-ai";
+import type { Api, Model, Tool } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { modelRef } from "./models.ts";
-import { opsOf, OPS } from "./ops.ts";
-import {
-	TIDY_PROMPT,
-	tidyMessage,
-	TOOL,
-	UPDATE_PROMPT,
-	type UpdateRequest,
-	updateMessage,
-} from "./prompts.ts";
+import { checkOps, type Moment, opsOf, opsSchema } from "./ops.ts";
+import { PROMPTS, tidyMessage, TOOL, type UpdateRequest, updateMessage } from "./prompts.ts";
 
-const UPDATE_TOOL: Tool = {
-	name: TOOL,
-	description: "Apply operations to the session's timeline.",
-	parameters: Type.Object({
-		ops: Type.Array(
-			Type.Object({
-				op: Type.Union(OPS.map((name) => Type.Literal(name))),
-				text: Type.Optional(Type.String()),
-				active: Type.Optional(Type.String()),
-				id: Type.Optional(Type.String()),
-				note: Type.Optional(Type.String()),
-			}),
-		),
-	}),
-	constrainedSampling: { type: "json_schema", strict: "prefer" },
-};
-
-/** It closes, merges and retitles; it never opens a step. */
-const TIDY_OPS = new Set<GoalOp["op"]>(["goal", "done", "drop", "rename"]);
+function toolFor(moment: Moment): Tool {
+	return {
+		name: TOOL,
+		description: "Apply operations to the session's timeline. An empty list changes nothing.",
+		parameters: opsSchema(moment),
+		constrainedSampling: { type: "json_schema", strict: "prefer" },
+	};
+}
 
 export interface Proposal {
 	ops: GoalOp[];
+	/** What the checks refused, kept so a bad call can be studied later. */
+	rejected: GoalOp[];
 	model: string;
 	usage: GoalUsage;
 }
@@ -48,57 +32,66 @@ export function propose(
 	request: UpdateRequest,
 	signal: AbortSignal,
 ): Promise<Proposal | undefined> {
-	return askForOps(registry, models, UPDATE_PROMPT, updateMessage(request), signal);
+	const question = {
+		moment: request.trigger,
+		content: updateMessage(request),
+		read: request.news,
+		state: request.state,
+	};
+	return askForOps(registry, models, question, signal);
 }
 
-export async function tidy(
+export function tidy(
 	registry: Registry,
 	models: readonly Model<Api>[],
 	request: { state: SessionGoal; session: string },
 	signal: AbortSignal,
 ): Promise<Proposal | undefined> {
-	const message = tidyMessage(request.state, request.session);
-	const proposal = await askForOps(registry, models, TIDY_PROMPT, message, signal);
-	if (proposal === undefined) return undefined;
-	const ops = proposal.ops
-		.filter((op) => TIDY_OPS.has(op.op))
-		.map((op) => repeatOfDone(op, request.state) ?? op);
-	return { ...proposal, ops };
+	const question = {
+		moment: "tidy" as const,
+		content: tidyMessage(request.state, request.session),
+		read: request.session,
+		state: request.state,
+	};
+	return askForOps(registry, models, question, signal);
 }
 
-/** A drop of something already done is that work finished, not abandoned. */
-function repeatOfDone(op: GoalOp, state: SessionGoal): GoalOp | undefined {
-	if (op.op !== "drop") return undefined;
-	const same = /^same as (g\d+)$/.exec(op.note ?? "")?.[1];
-	const original = state.items.find((item) => item.id === same);
-	if (original?.status !== "done") return undefined;
-	return { op: "done", id: op.id, note: op.note };
+interface Question {
+	moment: Moment;
+	/** The user message the model gets. */
+	content: string;
+	/** The session text it read, where a proof has to be found. */
+	read: string;
+	state: SessionGoal;
 }
 
-function askForOps(
+async function askForOps(
 	registry: Registry,
 	models: readonly Model<Api>[],
-	systemPrompt: string,
-	content: string,
+	{ moment, content, read, state }: Question,
 	signal: AbortSignal,
 ): Promise<Proposal | undefined> {
-	return firstAnswer(models, signal, async (model) => {
+	const answer = await firstAnswer(models, signal, async (model) => {
 		const reply = await registry
 			.streamSimple(
 				model,
 				{
-					systemPrompt,
-					tools: [UPDATE_TOOL],
+					systemPrompt: PROMPTS[moment],
+					tools: [toolFor(moment)],
 					messages: [{ role: "user", content, timestamp: Date.now() }],
 				},
 				{ signal },
 			)
 			.result();
 		if (reply.stopReason === "error" || reply.stopReason === "aborted") return undefined;
+		// An answer in words instead of a call is a model with nothing to change.
 		const call = reply.content.find((part) => part.type === "toolCall" && part.name === TOOL);
-		if (call === undefined || call.type !== "toolCall") return undefined;
-		return { ops: opsOf(call.arguments.ops), model: modelRef(model), usage: usageOf(reply.usage) };
+		const raw = call?.type === "toolCall" ? call.arguments.ops : [];
+		return { raw, model: modelRef(model), usage: usageOf(reply.usage) };
 	});
+	if (answer === undefined) return undefined;
+	const checked = checkOps(opsOf(answer.raw, moment), moment, read, state);
+	return { ...checked, model: answer.model, usage: answer.usage };
 }
 
 async function firstAnswer<T>(

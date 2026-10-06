@@ -40,7 +40,15 @@ A model reads the timeline and only what changed since the last update. It answe
 - Your message updates it at once, so the judge has your intent before the agent's first call.
 - During a long turn, it updates once a minute at most, and only when the agent made new calls. Most of those updates change nothing, and then nothing is written. Your last message goes with the work, so the model can tell whether the work answered it.
 - When the agent stops, it reads what is left.
-- After each run, one tidy pass looks at the whole timeline: it merges items that say the same work, finishes the ones the work completed, and drops questions listed as if they were work.
+- After each run, one tidy pass looks at the whole timeline: it merges items that say the same work and finishes the ones the work completed.
+
+What the model may send depends on what it read:
+
+- After your message, it can start a step, take one back up from later, put one off, give one up or finish one, and set the goal. A question or a comment changes nothing. When you move to another subject, the step under way goes back to later instead of being finished.
+- After the agent's work, it can only finish a step or put a follow-up off. Only your messages start steps and set the goal, so when the agent proposes a plan, no step starts.
+- In the tidy pass, it only merges repeats, closes what the session finished and renames.
+
+To finish or give up a step, the model has to copy the words that show it, like `rodei o npm publish` or the agent saying it pushed. The extension looks for those words in the text the model read before it accepts the close, so a model that imagines a merge cannot record one. Each refused operation stays in the session entry under `rejected`.
 
 The model writes every item in the language of your messages, and the timeline records which language that is.
 
@@ -61,7 +69,11 @@ Each change is a `pi-goal:update` entry in the session. It records the operation
 
 ## Only your words become the intent
 
-The goal and a step count as your intent only when they came from your messages or from `Alt+S`. The agent's work can finish a step or add one. It can also fill in a missing goal, which shows on screen but never reaches the judge, and it cannot replace a goal you set. The updater never sees what a tool returned, so instructions inside a file or a page cannot become the intent the judge reads.
+The goal and a step count as your intent only when they came from your messages or from `Alt+S`. The agent's work can finish a step or put a follow-up off, and nothing it adds reaches the judge. The updater never sees what a tool returned, so instructions inside a file or a page cannot become the intent the judge reads.
+
+## Measuring it
+
+`bun run goal:eval` runs the cases in [`eval/cases.ts`](eval/cases.ts) against Claude Haiku, three times each (`--runs 5` for five), and says which ones the timeline got right. Each case comes from a session where the timeline went wrong, or keeps a fix from breaking what worked. `bun packages/goal/eval/extract.ts` prints every call your sessions recorded, with what the model read, to cut new cases from. It signs in with an Anthropic account of [`@adeildo/pi-providers`](../providers).
 
 ## Settings
 

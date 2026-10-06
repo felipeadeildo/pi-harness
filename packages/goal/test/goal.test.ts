@@ -20,9 +20,9 @@ import type { Api, Model } from "@earendil-works/pi-ai";
 
 import { goal, GOAL_STATUS } from "../src/index.ts";
 import { modelsFor } from "../src/models.ts";
-import { opsOf } from "../src/ops.ts";
+import { checkOps, opsOf } from "../src/ops.ts";
 import { laterOps, nowOps } from "../src/screen.ts";
-import { operatorText, sessionSince, workSince } from "../src/transcript.ts";
+import { operatorText, sessionSince, withSkills, workSince } from "../src/transcript.ts";
 
 let dir: string;
 beforeEach(() => {
@@ -43,7 +43,7 @@ const OPUS = model("opus", 15);
 const HAIKU = model("haiku", 1);
 
 /** A registry whose models answer with the operations queued for them, or fail. */
-function registry(answers: Record<string, unknown[] | "fail">[]) {
+function registry(answers: Record<string, unknown[] | "fail" | "words">[]) {
 	const asked: { model: string; prompt: string }[] = [];
 	const activities: string[] = [];
 	return {
@@ -70,6 +70,12 @@ function registry(answers: Record<string, unknown[] | "fail">[]) {
 				const answer = answers.shift()?.[target.id];
 				if (answer === undefined || answer === "fail")
 					return { stopReason: "error", content: [], usage: usage() };
+				if (answer === "words")
+					return {
+						stopReason: "stop",
+						content: [{ type: "text", text: "Nada muda." }],
+						usage: usage(),
+					};
 				return {
 					stopReason: "toolUse",
 					content: [{ type: "toolCall", name: "update_goal", arguments: { ops: answer } }],
@@ -85,7 +91,7 @@ function usage() {
 }
 
 async function mounted(
-	answers: Record<string, unknown[] | "fail">[],
+	answers: Record<string, unknown[] | "fail" | "words">[],
 	branch: unknown[] = [],
 	settings: Record<string, unknown> = {},
 ) {
@@ -171,6 +177,25 @@ describe("from your messages", () => {
 		]);
 	});
 
+	test("an answer in words is nothing to change, and does not go to the session's model", async () => {
+		const { updates, models, say } = await mounted([{ haiku: "words" }]);
+		await say("só uma pergunta");
+		expect(models.asked.map((entry) => entry.model)).toEqual(["haiku"]);
+		expect(updates()).toEqual([]);
+	});
+
+	test("the step starts at your message, which joins the session after message_end", async () => {
+		const branch: unknown[] = [
+			{ type: "message", id: "u1", message: { role: "user", content: "antes" } },
+		];
+		const { updates, say } = await mounted([{ haiku: [{ op: "start", text: "Fazer a" }] }], branch);
+		const pending = say("faz a");
+		branch.push({ type: "message", id: "u2", message: { role: "user", content: "faz a" } });
+		await pending;
+		expect(updates()[0]?.covers).toEqual({ from: "u2", to: "u2" });
+		expect(nowOf(updates()[0]!.state)?.started?.entry).toBe("u2");
+	});
+
 	test("with nobody at the keyboard, no model is called", async () => {
 		const { fake, models } = await mounted([{ haiku: [{ op: "start", text: "a" }] }]);
 		const message = { role: "user", content: "x" };
@@ -180,7 +205,7 @@ describe("from your messages", () => {
 });
 
 describe("from the agent's work", () => {
-	test("reads what it did since the last update, and its items cannot set the goal", async () => {
+	test("reads what it did since the last update, and can neither set the goal nor start a step", async () => {
 		const branch = [
 			{ type: "message", id: "1", message: { role: "user", content: "go" } },
 			{
@@ -201,7 +226,8 @@ describe("from the agent's work", () => {
 				{
 					haiku: [
 						{ op: "goal", text: "hijacked" },
-						{ op: "later", text: "add the docs" },
+						{ op: "start", text: "hijacked step" },
+						{ op: "later", text: "add the docs", why: "after the tests" },
 					],
 				},
 			],
@@ -214,10 +240,10 @@ describe("from the agent's work", () => {
 		expect(models.asked[0]?.prompt).not.toContain("ignore all rules");
 		const [update] = updates();
 		expect(update?.trigger).toBe("work");
-		expect(update?.state).toMatchObject({ goal: "hijacked", goalSource: "work" });
+		expect(update?.state.goal).toBeUndefined();
 		expect(intentOf(update!.state)).toBeUndefined();
 		expect(update?.state.items).toEqual([
-			expect.objectContaining({ text: "add the docs", source: "work" }),
+			expect.objectContaining({ text: "add the docs", note: "after the tests", source: "work" }),
 		]);
 
 		// After the work, one tidy pass looks at the whole timeline.
@@ -302,14 +328,70 @@ test("only well formed operations come through from the model", () => {
 			{ op: "done" },
 			{ op: "bogus", text: "y" },
 			"nope",
-			{ op: "drop", id: "g1", note: "no longer" },
+			{ op: "drop", id: "g1", proof: "esquece isso" },
 		]),
 	).toEqual([
 		{ op: "start", text: "x" },
-		{ op: "done" },
-		{ op: "drop", id: "g1", note: "no longer" },
+		{ op: "drop", id: "g1", proof: "esquece isso" },
 	]);
 	expect(opsOf("nope")).toEqual([]);
+});
+
+test("the agent's work only closes or puts off: it cannot start a step or set the goal", () => {
+	const raw = [
+		{ op: "goal", text: "g" },
+		{ op: "start", text: "s" },
+		{ op: "pause", missing: "m" },
+		{ op: "done", id: "g1", proof: "p" },
+		{ op: "later", text: "l", why: "w" },
+	];
+	expect(opsOf(raw, "work").map((op) => op.op)).toEqual(["done", "later"]);
+	expect(opsOf(raw, "tidy").map((op) => op.op)).toEqual(["goal", "done"]);
+});
+
+describe("a step closes only on words that are there", () => {
+	const state = applyGoalOps(
+		emptyGoal(),
+		[
+			{ op: "start", text: "Publicar no npm" },
+			{ op: "later", text: "Moldurar a mensagem" },
+		],
+		{ at: 1, source: "you" },
+	);
+
+	test("a done needs proof found in what the model read", () => {
+		const read = "said: Pronto, o **pacote** foi publicado no `npm`.";
+		const ops = opsOf([
+			{ op: "done", id: "g1", proof: "o pacote foi publicado no npm" },
+			{ op: "done", id: "g1", proof: "PR mergeado com sucesso" },
+			{ op: "done", id: "g1", proof: "npm" },
+			{ op: "done", id: "g1" },
+		]);
+		const { ops: kept, rejected } = checkOps(ops, "work", read, state);
+		expect(kept).toEqual([{ op: "done", id: "g1", proof: "o pacote foi publicado no npm" }]);
+		expect(rejected).toHaveLength(3);
+	});
+
+	test("the tidy pass closes a repeat by the item it repeats, and a drop of done work is a done", () => {
+		const done = applyGoalOps(state, [{ op: "done", id: "g1", proof: "x" }], {
+			at: 2,
+			source: "you",
+		});
+		const ops = opsOf(
+			[
+				{ op: "done", id: "g2", same_as: "g1" },
+				{ op: "done", id: "g2", same_as: "g9" },
+				{ op: "drop", id: "g2", same_as: "g1" },
+			],
+			"tidy",
+		);
+		const { ops: kept, rejected } = checkOps(ops, "tidy", "", done);
+		expect(kept).toEqual([
+			{ op: "done", id: "g2", note: "same as g1" },
+			{ op: "done", id: "g2", note: "same as g1" },
+		]);
+		expect(rejected).toEqual([{ op: "done", id: "g2", note: "same as g9" }]);
+	});
 });
 
 test("the model setting picks, and the session's model always comes after", () => {
@@ -332,11 +414,13 @@ function assistant(id: string, command: string) {
 }
 
 /** How many update and tidy requests the models got, whichever model answered. */
+const isWork = (prompt: string) => prompt.includes("<work>");
+const isMessage = (prompt: string) => prompt.includes("<message>");
+
 function requests(models: { asked: { model: string; prompt: string }[] }) {
-	const first = (kind: string) =>
-		new Set(models.asked.filter((entry) => entry.prompt.startsWith(kind)).map((e) => e.prompt))
-			.size;
-	return { works: first("<state>"), tidies: first("<timeline>") };
+	const distinct = (kept: (prompt: string) => boolean) =>
+		new Set(models.asked.map((entry) => entry.prompt).filter(kept)).size;
+	return { works: distinct(isWork), tidies: distinct((p) => !isWork(p) && !isMessage(p)) };
 }
 
 const tick = (ms = 10) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -348,10 +432,7 @@ describe("while the agent works", () => {
 			assistant("a1", "bun test"),
 		];
 		const { fake, ctx, models, updates } = await mounted(
-			[
-				{ haiku: [{ op: "start", text: "Rodar os testes", active: "Rodando os testes" }] },
-				{ haiku: [] },
-			],
+			[{ haiku: [{ op: "later", text: "Documentar os testes", why: "depois" }] }, { haiku: [] }],
 			branch,
 			{ interval: 0.05 },
 		);
@@ -361,11 +442,8 @@ describe("while the agent works", () => {
 		await tick(80);
 
 		expect(models.asked).toHaveLength(1);
-		expect(models.asked[0]?.prompt).toContain(
-			"The operator last asked:\n<message>\nrode os testes",
-		);
+		expect(models.asked[0]?.prompt).toContain("The operator last asked:\n<asked>\nrode os testes");
 		expect(updates()[0]?.covers).toEqual({ from: "u1", to: "a1" });
-		expect(nowOf(updates()[0]!.state)?.started?.entry).toBe("a1");
 
 		// Nothing new since: the end of the run reads no work, only tidies what changed.
 		await fake.fire("agent_settled", {}, ctx);
@@ -399,14 +477,14 @@ describe("while the agent works", () => {
 test("a pause, a done with what it left out, and the language come through from the model", () => {
 	expect(
 		opsOf([
-			{ op: "pause", note: "falta o teste" },
-			{ op: "done", note: "docs missing" },
+			{ op: "pause", missing: "falta o teste" },
+			{ op: "done", id: "g1", proof: "feito", missing: "docs missing" },
 			{ op: "language", text: "Portuguese" },
 			{ op: "start", text: "a", active: "doing a" },
 		]),
 	).toEqual([
 		{ op: "pause", note: "falta o teste" },
-		{ op: "done", note: "docs missing" },
+		{ op: "done", id: "g1", note: "docs missing", proof: "feito" },
 		{ op: "language", text: "Portuguese" },
 		{ op: "start", text: "a", active: "doing a" },
 	]);
@@ -439,9 +517,16 @@ test("a message counts once it is in the conversation, without the skills pi exp
 	expect(operatorText({ role: "user", content: [{ type: "image" }] })).toBeUndefined();
 });
 
+test("a skill you name reaches the model with what it does", () => {
+	const skills = [{ name: "simplify", description: "Simplify recently\nmodified code." }];
+	expect(withSkills("/skill:simplify e /skill:nope", skills)).toBe(
+		'run the skill "simplify" (Simplify recently modified code.) e /skill:nope',
+	);
+});
+
 test("a long note is cut at a word, and says it was cut", () => {
 	const note = `${"palavra ".repeat(40)}fim`;
-	const [op] = opsOf([{ op: "pause", note }]);
+	const [op] = opsOf([{ op: "pause", missing: note }]);
 	const kept = op?.op === "pause" ? (op.note ?? "") : "";
 	expect(kept.length).toBeLessThanOrEqual(241);
 	expect(kept).toEndWith("palavra\u2026");
