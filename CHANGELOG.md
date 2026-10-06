@@ -2,6 +2,13 @@
 
 Every `@adeildo/` package in this repository shares one version, one tag and this changelog. The entries below 4.0.0 are from before, when `pi-ask-permission` was the only package.
 
+## [5.4.0](https://github.com/felipeadeildo/pi-harness/compare/v5.3.0...v5.4.0) (2026-10-06)
+
+
+### Features
+
+* **skills:** call several skills anywhere in a message, drawn as chips in the chat ([ff47dfe](https://github.com/felipeadeildo/pi-harness/commit/ff47dfe9af64c1771bd6c50b058d5ceb3745f7a5))
+
 ## [5.3.0](https://github.com/felipeadeildo/pi-harness/compare/v5.2.0...v5.3.0) (2026-10-06)
 
 
