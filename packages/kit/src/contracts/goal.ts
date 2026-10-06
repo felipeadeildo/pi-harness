@@ -12,6 +12,8 @@ import { isObject } from "../decode.ts";
 
 /** The custom entry type of an update. Its data is a `GoalUpdate`. */
 export const GOAL_ENTRY = "pi-goal:update";
+/** A model call that changed nothing. It is kept only for what the call cost. */
+export const GOAL_USAGE_ENTRY = "pi-goal:usage";
 /** Asks the goal feature for the state; it fills a `GoalProbe`. */
 export const GOAL_STATE = "harness:goal";
 /** Sent with the new `SessionGoal` after every change. */
@@ -101,8 +103,49 @@ export interface GoalUpdate {
 	/** The model that proposed the operations, like `anthropic/claude-haiku-4-5`. */
 	model?: string;
 	/** What that cost, in tokens and in the model's catalog price. */
-	usage?: { input: number; output: number; cost: number };
+	usage?: GoalUsage;
 	state: SessionGoal;
+}
+
+export interface GoalUsage {
+	input: number;
+	output: number;
+	/** In dollars, at the model's catalog price. */
+	cost: number;
+}
+
+/** The data of a `GOAL_USAGE_ENTRY`. */
+export interface GoalCall {
+	trigger: GoalTrigger;
+	model: string;
+	usage: GoalUsage;
+}
+
+/** What the goal's model calls in an entry cost, whether the call changed the timeline or not. */
+export function goalUsageOf(entry: unknown): GoalUsage | undefined {
+	if (!isObject(entry) || entry.type !== "custom" || !isObject(entry.data)) return undefined;
+	if (entry.customType !== GOAL_ENTRY && entry.customType !== GOAL_USAGE_ENTRY) return undefined;
+	const usage = entry.data.usage;
+	if (!isObject(usage) || typeof usage.cost !== "number") return undefined;
+	return {
+		input: typeof usage.input === "number" ? usage.input : 0,
+		output: typeof usage.output === "number" ? usage.output : 0,
+		cost: usage.cost,
+	};
+}
+
+/** Every goal call on the branch, summed. */
+export function goalSpent(entries: readonly unknown[]): GoalUsage & { calls: number } {
+	const spent = { input: 0, output: 0, cost: 0, calls: 0 };
+	for (const entry of entries) {
+		const usage = goalUsageOf(entry);
+		if (usage === undefined) continue;
+		spent.input += usage.input;
+		spent.output += usage.output;
+		spent.cost += usage.cost;
+		spent.calls++;
+	}
+	return spent;
 }
 
 export function emptyGoal(): SessionGoal {

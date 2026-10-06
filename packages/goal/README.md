@@ -71,7 +71,7 @@ On the Goal tab of `Alt+S`, stored under `goal` in `~/.pi/agent/extensions/pi-ha
 | Model                 | `auto`  | `auto` is the cheapest model of the session's provider, `session` the one you talk to, or any model. When it fails, the session's model answers |
 | While the agent works | `60`    | Seconds between updates during a long turn. `0` updates only on your messages and when the agent stops                                          |
 
-Each call is one short request. With Claude Haiku it takes about 3 seconds and costs about $0.002, so a ten-minute turn costs about $0.03 at the defaults. Updates run only when pi has a UI, so print runs and subagents make no extra calls.
+Each call is one short request. With Claude Haiku it takes about 3 seconds and costs about $0.002, so a ten-minute turn costs about $0.03 at the defaults. Every call records what it cost, even one that changed nothing (`pi-goal:usage`). The Goal tab shows the total, and the look adds it to the session's cost. Updates run only when pi has a UI, so print runs and subagents make no extra calls.
 
 ## License
 

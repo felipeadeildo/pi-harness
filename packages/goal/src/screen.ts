@@ -2,6 +2,7 @@
 import {
 	type FeatureScope,
 	type GoalOp,
+	goalSpent,
 	itemsWith,
 	nowOf,
 	type SessionGoal,
@@ -57,6 +58,15 @@ export function registerScreen(scope: FeatureScope, keeper: GoalKeeper): void {
 		},
 	});
 
+	scope.screen.info({
+		id: "goal.spent",
+		section: SECTION,
+		label: "Spent",
+		description:
+			"What the goal's model calls cost on this branch, at the model's catalog price. The look adds it to the session's cost.",
+		text: (ctx) => spentText(goalSpent(ctx.sessionManager.getBranch())),
+	});
+
 	scope.screen.action({
 		id: "goal.done",
 		section: SECTION,
@@ -88,6 +98,12 @@ export function laterOps(state: SessionGoal, text: string): GoalOp[] {
 		.filter((line) => !later.some((item) => item.text === line))
 		.map((line) => ({ op: "later", text: line }));
 	return [...dropped, ...added];
+}
+
+function spentText(spent: ReturnType<typeof goalSpent>): string {
+	if (spent.calls === 0) return "nothing yet";
+	const calls = spent.calls === 1 ? "1 call" : `${spent.calls} calls`;
+	return `$${spent.cost.toFixed(3)}, ${calls}`;
 }
 
 function doneText(state: SessionGoal): string {

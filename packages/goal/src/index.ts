@@ -7,6 +7,8 @@ import {
 	GOAL_CHANGED,
 	GOAL_ENTRY,
 	GOAL_STATE,
+	GOAL_USAGE_ENTRY,
+	type GoalCall,
 	GOAL_VERSION,
 	type GoalOp,
 	type GoalSource,
@@ -23,7 +25,7 @@ import { modelsFor } from "./model.ts";
 import { registerScreen } from "./screen.ts";
 import { GOAL_SETTINGS, interval, model, SECTIONS } from "./settings.ts";
 import { propose, type Proposal, tidy } from "./updater.ts";
-import { lastMessage, type Work, workSince } from "./work.ts";
+import { lastMessage, sessionSince, type Work, workSince } from "./work.ts";
 
 /** The status key, which the look's goal segment draws in its own place. */
 export const GOAL_STATUS = "pi-goal";
@@ -98,6 +100,17 @@ export const goal = defineFeature({
 			},
 		};
 
+		/** Applies what a call proposed. A call that changed nothing still leaves what it cost. */
+		function settle(
+			proposal: Proposal,
+			trigger: Exclude<GoalTrigger, "you">,
+			extra: Omit<ApplyExtra, "proposal">,
+		): void {
+			if (keeper.apply(proposal.ops, trigger, { ...extra, proposal })) return;
+			const call: GoalCall = { trigger, model: proposal.model, usage: proposal.usage };
+			scope.appendEntry(GOAL_USAGE_ENTRY, call);
+		}
+
 		function models(ctx: ExtensionContext) {
 			return modelsFor(model.get(scope), ctx.modelRegistry, ctx.model);
 		}
@@ -115,11 +128,7 @@ export const goal = defineFeature({
 				if (proposal === undefined || signal.aborted) return;
 				// By now pi has written the message, so the change points at it.
 				const entry = lastMessage(ctx.sessionManager.getBranch())?.entry;
-				keeper.apply(proposal.ops, "message", {
-					proposal,
-					entry,
-					covers: { from: entry, to: entry },
-				});
+				settle(proposal, "message", { entry, covers: { from: entry, to: entry } });
 			});
 		}
 
@@ -136,7 +145,7 @@ export const goal = defineFeature({
 				const request = { state, trigger: "work" as const, news: work.text, asked };
 				const proposal = await propose(ctx.modelRegistry, models(ctx), request, signal);
 				if (proposal === undefined || signal.aborted) return;
-				keeper.apply(proposal.ops, "work", { proposal, entry: work.to, covers: coversOf(work) });
+				settle(proposal, "work", { entry: work.to, covers: coversOf(work) });
 			});
 		}
 
@@ -145,12 +154,12 @@ export const goal = defineFeature({
 			return queued(async (signal) => {
 				if (!untidy) return;
 				untidy = false;
-				const work = workSince(ctx.sessionManager.getBranch(), tidiedUpTo);
+				const work = sessionSince(ctx.sessionManager.getBranch(), tidiedUpTo);
 				const request = { state, work: work.text };
 				const proposal = await tidy(ctx.modelRegistry, models(ctx), request, signal);
 				if (proposal === undefined || signal.aborted) return;
 				tidiedUpTo = work.to ?? tidiedUpTo;
-				keeper.apply(proposal.ops, "tidy", { proposal, entry: work.to, covers: coversOf(work) });
+				settle(proposal, "tidy", { entry: work.to, covers: coversOf(work) });
 			});
 		}
 

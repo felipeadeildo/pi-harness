@@ -1,3 +1,4 @@
+import { goalUsageOf } from "@adeildo/pi-kit";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 
 export interface Totals {
@@ -61,6 +62,7 @@ export function totalsOf(entries: readonly SessionEntry[]): Totals {
 			add(totals, entry.message.usage);
 		else if ((entry.type === "branch_summary" || entry.type === "compaction") && entry.usage)
 			add(totals, entry.usage);
+		else if (entry.type === "custom") addGoal(totals, goalUsageOf(entry));
 	}
 
 	return totals;
@@ -124,6 +126,14 @@ function isRecord(
 		typeof record.firstTokenMs === "number" &&
 		typeof record.generationMs === "number"
 	);
+}
+
+// The goal package's model calls are not pi's, so pi does not count them. They count here.
+function addGoal(totals: Totals, usage: ReturnType<typeof goalUsageOf>): void {
+	if (usage === undefined) return;
+	totals.input += usage.input;
+	totals.output += usage.output;
+	totals.cost += usage.cost;
 }
 
 function add(totals: Totals, usage: UsageLike): void {

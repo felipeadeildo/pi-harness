@@ -10,7 +10,9 @@ import {
 	emptyGoal,
 	GOAL_ENTRY,
 	GOAL_STATE,
+	GOAL_USAGE_ENTRY,
 	GOAL_VERSION,
+	goalSpent,
 	type GoalOp,
 	type GoalSource,
 	goalFromEntries,
@@ -187,4 +189,26 @@ test("what was done stays in the history, so a drop leaves it alone", () => {
 	});
 	state = applyGoalOps(state, [{ op: "drop", id: "g1" }], { at: 2, source: "work" });
 	expect(state.items[0]?.status).toBe("done");
+});
+
+test("every goal call counts, the ones that changed nothing too", () => {
+	const update = {
+		type: "custom",
+		customType: GOAL_ENTRY,
+		data: { usage: { input: 10, output: 5, cost: 0.002 } },
+	};
+	const idle = {
+		type: "custom",
+		customType: GOAL_USAGE_ENTRY,
+		data: { usage: { input: 8, output: 2, cost: 0.001 } },
+	};
+	const spent = goalSpent([
+		update,
+		{ type: "message" },
+		idle,
+		{ type: "custom", customType: GOAL_ENTRY, data: {} },
+	]);
+	expect(spent.calls).toBe(2);
+	expect(spent.cost).toBeCloseTo(0.003);
+	expect(spent.input).toBe(18);
 });

@@ -9,6 +9,7 @@ import {
 	currentGoal,
 	emptyGoal,
 	GOAL_ENTRY,
+	GOAL_USAGE_ENTRY,
 	type GoalUpdate,
 	intentOf,
 	nowOf,
@@ -20,7 +21,7 @@ import { goal, GOAL_STATUS } from "../src/index.ts";
 import { modelsFor } from "../src/model.ts";
 import { laterOps, nowOps } from "../src/screen.ts";
 import { opsOf } from "../src/updater.ts";
-import { workSince } from "../src/work.ts";
+import { sessionSince, workSince } from "../src/work.ts";
 
 let dir: string;
 beforeEach(() => {
@@ -148,11 +149,24 @@ describe("from your messages", () => {
 		expect(updates()[0]?.model).toBe("anthropic/opus");
 	});
 
-	test("an answer that changes nothing records nothing", async () => {
-		const { updates, say } = await mounted([{ haiku: [] }, { haiku: [{ op: "done" }] }]);
+	test("an answer that changes nothing writes no update, only what it cost", async () => {
+		const { updates, say, fake } = await mounted([{ haiku: [] }, { haiku: [{ op: "done" }] }]);
 		await say("ok");
 		await say("ok again");
 		expect(updates()).toEqual([]);
+		const calls = fake.entries.filter((entry) => entry.customType === GOAL_USAGE_ENTRY);
+		expect(calls.map((entry) => entry.data)).toEqual([
+			{
+				trigger: "message",
+				model: "anthropic/haiku",
+				usage: { input: 10, output: 5, cost: 0.001 },
+			},
+			{
+				trigger: "message",
+				model: "anthropic/haiku",
+				usage: { input: 10, output: 5, cost: 0.001 },
+			},
+		]);
 	});
 
 	test("with nobody at the keyboard, no model is called", async () => {
@@ -394,4 +408,20 @@ test("a pause, a done with what it left out, and the language come through from 
 		{ op: "language", text: "Portuguese" },
 		{ op: "start", text: "a", active: "doing a" },
 	]);
+});
+
+test("the tidy pass reads your words beside the work, from the start the first time", () => {
+	const branch = [
+		{ type: "message", id: "u1", message: { role: "user", content: "rodei os dois comandos" } },
+		{
+			type: "message",
+			id: "a1",
+			message: { role: "assistant", content: [{ type: "text", text: "Placeholder publicado." }] },
+		},
+		{ type: "custom", id: "c1", customType: GOAL_ENTRY, data: {} },
+	];
+	expect(sessionSince(branch).text).toBe(
+		"operator: rodei os dois comandos\nsaid: Placeholder publicado.",
+	);
+	expect(sessionSince(branch, "a1").text).toBe("");
 });

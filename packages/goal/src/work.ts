@@ -37,10 +37,28 @@ export function workSince(branch: readonly unknown[], after?: string): Work {
 	const entries = branch as readonly Entry[];
 	const seen = after === undefined ? -1 : entries.findIndex((entry) => entry.id === after);
 	const start = (seen === -1 ? lastUpdateIndex(entries) : seen) + 1;
-	const read = entries.slice(start);
+	return digest(entries.slice(start), false);
+}
+
+/**
+ * For the tidy pass: your messages and the agent's work since `after`, or the whole branch the first
+ * time, newest kept. Your words are what tell it that something waiting was done, like a command
+ * you ran yourself.
+ */
+export function sessionSince(branch: readonly unknown[], after?: string): Work {
+	const entries = branch as readonly Entry[];
+	const seen = after === undefined ? -1 : entries.findIndex((entry) => entry.id === after);
+	return digest(entries.slice(seen + 1), true);
+}
+
+function digest(read: readonly Entry[], withOperator: boolean): Work {
 	const lines: string[] = [];
 
 	for (const entry of read) {
+		if (withOperator && entry.type === "message" && entry.message?.role === "user") {
+			const text = textOf(entry.message.content);
+			if (text !== "") lines.push(`operator: ${clip(oneLine(text), MAX_SAID)}`);
+		}
 		for (const part of assistantParts(entry)) {
 			if (part.type === "text" && typeof part.text === "string" && part.text.trim() !== "")
 				lines.push(`said: ${clip(oneLine(part.text), MAX_SAID)}`);

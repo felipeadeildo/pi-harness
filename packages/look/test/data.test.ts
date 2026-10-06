@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { GOAL_ENTRY, GOAL_USAGE_ENTRY } from "@adeildo/pi-kit";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 
 import { emptyGit, parseStatus } from "../src/data/git.ts";
@@ -237,6 +238,17 @@ describe("totals", () => {
 		});
 		expect(cacheHitPercent(entries)).toBe(0);
 		expect(cacheHitPercent(entries.slice(0, 1))).toBe(90);
+	});
+
+	test("the goal's model calls count in the session's cost", () => {
+		const entries = [
+			assistant({ input: 10, output: 5, cost: 0.1 }),
+			custom(GOAL_ENTRY, { usage: { input: 100, output: 20, cost: 0.002 } }),
+			custom(GOAL_USAGE_ENTRY, { usage: { input: 80, output: 10, cost: 0.001 } }),
+		];
+		const totals = totalsOf(entries);
+		expect(totals).toMatchObject({ input: 190, output: 35 });
+		expect(totals.cost).toBeCloseTo(0.103);
 	});
 
 	test("averages both speeds, and reads the records this package wrote under its old name", () => {
