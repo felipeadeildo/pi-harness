@@ -7,6 +7,7 @@ import {
 	type Component,
 	matchesKey,
 	okhslColor,
+	sliceByColumn,
 	truncateToWidth,
 	visibleWidth,
 	wrapTextWithAnsi,
@@ -88,7 +89,13 @@ export class TimelineView implements Component {
 			const fill = on ? `${picked}${pad}${text}${pad}${panel}` : `${pad}${text}${pad}`;
 			return `${panel}${side}${fill}${side}\x1b[49m`;
 		};
-		const edge = (line: string) => `${panel}${line}\x1b[49m`;
+		// The corner cells keep the chat's background, so the panel's corners read as round.
+		const edge = (line: string) => {
+			const inside = sliceByColumn(line, 1, width - 2);
+			const first = sliceByColumn(line, 0, 1);
+			const last = sliceByColumn(line, width - 1, 1);
+			return `${first}${panel}${inside}\x1b[49m${last}`;
+		};
 		return [
 			edge(this.#top(goal, width)),
 			row({ text: "" }),
@@ -104,8 +111,8 @@ export class TimelineView implements Component {
 		return [
 			...(now === undefined ? [] : [now]),
 			...itemsWith(goal, "later"),
-			...itemsWith(goal, "done").toReversed(),
-			...(this.#dropped ? itemsWith(goal, "dropped").toReversed() : []),
+			...newestFirst(itemsWith(goal, "done")),
+			...(this.#dropped ? newestFirst(itemsWith(goal, "dropped")) : []),
 		];
 	}
 
@@ -134,8 +141,8 @@ export class TimelineView implements Component {
 		const { theme } = this.#options;
 		const now = nowOf(goal);
 		const later = itemsWith(goal, "later");
-		const done = itemsWith(goal, "done").toReversed();
-		const dropped = this.#dropped ? itemsWith(goal, "dropped").toReversed() : [];
+		const done = newestFirst(itemsWith(goal, "done"));
+		const dropped = this.#dropped ? newestFirst(itemsWith(goal, "dropped")) : [];
 		if (now === undefined && later.length + done.length + dropped.length === 0)
 			return [
 				{ text: theme.fg("muted", "Nothing tracked yet.") },
@@ -221,6 +228,14 @@ export class TimelineView implements Component {
 function panelColor(theme: Theme) {
 	const { h, s } = colorToOkhsl(theme.colors.border);
 	return theme.appearance === "dark" ? okhslColor(h, s * 0.35, 0.14) : okhslColor(h, s * 0.3, 0.96);
+}
+
+function newestFirst(items: readonly GoalItem[]): GoalItem[] {
+	return items.toSorted((left, right) => finishedAt(right) - finishedAt(left));
+}
+
+function finishedAt(item: GoalItem): number {
+	return item.finished?.at ?? item.updatedAt;
 }
 
 function timeOf(item: GoalItem): string {

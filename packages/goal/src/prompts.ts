@@ -37,7 +37,7 @@ Rules:
 
 export const TIDY_PROMPT = `You tidy the timeline of a coding session. It was updated one change at a time and it drifts: the same work listed twice, steps left open after the work finished them, questions listed as if they were work. Return, through ${TOOL}, the operations that clean it. Never add items.
 
-1. Items that say the same work, even in other words or another language, are one item. Keep the one that says it best and drop the others with the note "same as <id>". When any of them is done, finish the one you keep.
+1. Items that say the same work, even in other words or another language, are one item. Done items are history and cannot be dropped or changed: when an open item in Now or Later repeats a done one, finish the open one with done {id, note: "same as <done id>"}. Between open items, keep the one that says it best and drop the others with the note "same as <id>".
 2. A step in Now or Later that the session finished is done: the agent did it, or the operator says it was done, like a command they ran or a commit that went out. Read each one against the session.
 3. An item that is a question, an explanation or a review, not a change to make, is not a step. Drop it with the note "not a step", unless it is done.
 4. When the goal no longer names what the latest work and asks are about, set a new one with goal {text}.

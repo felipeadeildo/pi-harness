@@ -60,7 +60,19 @@ export async function tidy(
 	const message = tidyMessage(request.state, request.session);
 	const proposal = await askForOps(registry, models, TIDY_PROMPT, message, signal);
 	if (proposal === undefined) return undefined;
-	return { ...proposal, ops: proposal.ops.filter((op) => TIDY_OPS.has(op.op)) };
+	const ops = proposal.ops
+		.filter((op) => TIDY_OPS.has(op.op))
+		.map((op) => repeatOfDone(op, request.state) ?? op);
+	return { ...proposal, ops };
+}
+
+/** A drop of something already done is that work finished, not abandoned. */
+function repeatOfDone(op: GoalOp, state: SessionGoal): GoalOp | undefined {
+	if (op.op !== "drop") return undefined;
+	const same = /^same as (g\d+)$/.exec(op.note ?? "")?.[1];
+	const original = state.items.find((item) => item.id === same);
+	if (original?.status !== "done") return undefined;
+	return { op: "done", id: op.id, note: op.note };
 }
 
 function askForOps(

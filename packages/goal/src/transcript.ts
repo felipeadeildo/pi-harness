@@ -2,6 +2,8 @@
 import { GOAL_ENTRY } from "@adeildo/pi-kit";
 
 const MAX_EXCERPT = 6000;
+/** The tidy pass reads only words, so more of the session fits. */
+const MAX_CONVERSATION = 12000;
 const MAX_SAID = 400;
 const MAX_CALL = 100;
 const MAX_WORDS = 1500;
@@ -44,22 +46,23 @@ function indexOf(entries: readonly Entry[], id: string | undefined): number {
 	return id === undefined ? -1 : entries.findIndex((entry) => entry.id === id);
 }
 
-function excerpt(read: readonly Entry[], withOperator: boolean): Excerpt {
+function excerpt(read: readonly Entry[], conversation: boolean): Excerpt {
 	const lines: string[] = [];
 
 	for (const entry of read) {
-		const said = withOperator ? operatorText(entry.message) : undefined;
+		const said = conversation ? operatorText(entry.message) : undefined;
 		if (entry.type === "message" && said !== undefined)
 			lines.push(`operator: ${clip(oneLine(said), MAX_SAID)}`);
 		for (const part of assistantParts(entry)) {
 			if (part.type === "text" && typeof part.text === "string" && part.text.trim() !== "")
 				lines.push(`said: ${clip(oneLine(part.text), MAX_SAID)}`);
-			if (part.type === "toolCall" && typeof part.name === "string")
+			if (!conversation && part.type === "toolCall" && typeof part.name === "string")
 				lines.push(`call: ${callOf(part.name, part.arguments)}`);
 		}
 	}
 
-	return { text: newest(lines, MAX_EXCERPT), from: read[0]?.id, to: read.at(-1)?.id };
+	const budget = conversation ? MAX_CONVERSATION : MAX_EXCERPT;
+	return { text: newest(lines, budget), from: read[0]?.id, to: read.at(-1)?.id };
 }
 
 /** The path of a file tool, the first line of a command, else the arguments. */
