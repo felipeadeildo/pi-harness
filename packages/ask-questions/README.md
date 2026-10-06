@@ -120,6 +120,8 @@ On the **Questions** tab of `Alt+S`, stored under `questions` in `~/.pi/agent/ex
 | ------------------- | ------- | ---------------------------------------------------------------------------------------------- |
 | When and how to ask | empty   | Your own words for the model, added to the tool's guidelines. Say when to ask, or what to show |
 | Ring the bell       | on      | The terminal bell rings when the questions start waiting for you                               |
+| Typing pause        | 1s      | How long after you stop typing in the editor the questions open                                |
+| Typing wait cap     | empty   | The longest the questions wait while you type. Empty waits for as long as you type             |
 
 ## Coming from rpiv-ask-user-question
 

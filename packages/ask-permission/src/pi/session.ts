@@ -1,4 +1,4 @@
-import { type FeatureScope, oneAtATime, type Turns } from "@adeildo/pi-kit";
+import { type FeatureScope, oneAtATime, type Turns, TypingMonitor } from "@adeildo/pi-kit";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { AlwaysYes, savedFileExists, type Scope } from "#core/always-yes.ts";
@@ -19,7 +19,6 @@ import type { ToolAdapter } from "#core/tools.ts";
 import { NAME } from "#identity";
 import type { PendingWrites } from "#pi/preview.ts";
 import { record } from "#pi/session-entries.ts";
-import { TypingMonitor } from "#ui/typing.ts";
 
 const JUDGE_FAILURE_LIMIT = 2;
 const JUDGE_RETRY_MS = 60_000;

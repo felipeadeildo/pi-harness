@@ -1,4 +1,4 @@
-import { boolean, setting, string } from "@adeildo/pi-kit";
+import { boolean, duration, nullable, setting, string } from "@adeildo/pi-kit";
 
 export const SECTIONS = ["Asking", "Waiting"];
 
@@ -26,4 +26,27 @@ export const bell = setting({
 	},
 });
 
-export const QUESTION_SETTINGS = [guidance, bell];
+export const typingPause = setting({
+	id: "questions.typing.pause",
+	default: 1000,
+	decoder: duration,
+	ui: {
+		section: "Waiting",
+		label: "Typing pause",
+		description: "How long after you stop typing in the editor the questions open.",
+	},
+});
+
+export const typingMaxWait = setting<number | null>({
+	id: "questions.typing.maxWait",
+	default: null,
+	decoder: nullable(duration),
+	ui: {
+		section: "Waiting",
+		label: "Typing wait cap",
+		description:
+			"The longest the questions wait while you type. Empty waits for as long as you type.",
+	},
+});
+
+export const QUESTION_SETTINGS = [guidance, bell, typingPause, typingMaxWait];

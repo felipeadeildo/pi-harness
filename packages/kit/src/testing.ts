@@ -157,7 +157,11 @@ export function fakeContext(
 		mode: hasUI ? "tui" : "print",
 		cwd: "/nonexistent",
 		isProjectTrusted: () => false,
-		ui: { notify: (message: string) => notes.push(message) },
 		...extra,
+		ui: {
+			notify: (message: string) => notes.push(message),
+			onTerminalInput: () => () => {},
+			...(extra.ui as Record<string, unknown> | undefined),
+		},
 	} as unknown as ExtensionContext;
 }

@@ -1,5 +1,8 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
+/** The status a dialog shows while it waits for you to stop typing. */
+export const TYPING_STATUS = "waiting for you to finish typing";
+
 const QUIET_MS = 1000;
 const POLL_MS = 50;
 

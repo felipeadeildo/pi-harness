@@ -10,6 +10,8 @@ import {
 	type FeatureScope,
 	isObject,
 	oneAtATime,
+	TYPING_STATUS,
+	TypingMonitor,
 } from "@adeildo/pi-kit";
 import {
 	type AgentToolResult,
@@ -22,7 +24,14 @@ import { answerText } from "./answers.ts";
 import { DESCRIPTION, PROMPT_GUIDELINES, PROMPT_SNIPPET } from "./guidance.ts";
 import { askOverRpc, type DialogUI } from "./rpc.ts";
 import { PARAMETERS, type QuestionParams, TOOL_NAME } from "./schema.ts";
-import { bell, guidance, QUESTION_SETTINGS, SECTIONS } from "./settings.ts";
+import {
+	bell,
+	guidance,
+	QUESTION_SETTINGS,
+	SECTIONS,
+	typingMaxWait,
+	typingPause,
+} from "./settings.ts";
 import { QuestionDialog } from "./ui/dialog.ts";
 import { renderCall, renderResult } from "./ui/transcript.ts";
 import { normalizeParams, problemWith } from "./validate.ts";
@@ -32,6 +41,8 @@ export { answerText } from "./answers.ts";
 export { TOOL_NAME } from "./schema.ts";
 
 type Result = AgentToolResult<AskResult>;
+
+const TYPING_KEY = "pi-ask-questions:typing";
 
 type Show = (
 	ctx: ExtensionContext,
@@ -48,14 +59,35 @@ export const questions = defineFeature({
 	settings: QUESTION_SETTINGS,
 	setup(scope) {
 		let session: ExtensionContext | undefined;
+		let typing = new TypingMonitor();
 		const turns = oneAtATime();
-		const show: Show = (ctx, asked, signal) => turns(() => draw(ctx, asked), signal);
+
+		// Keys typed into a dialog are not typing in the editor.
+		const shown = (ctx: ExtensionContext, asked: readonly AskQuestion[]) => {
+			typing.pause();
+			return draw(ctx, asked).finally(() => typing.resume());
+		};
+		// Another package that asks waits for your typing itself, with its own settings.
+		const showForOthers: Show = (ctx, asked) => turns(() => shown(ctx, asked));
+		const showForModel: Show = (ctx, asked, signal) =>
+			turns(async () => {
+				await typing.waitUntilQuiet(signal, (waiting) => {
+					ctx.ui.setStatus(TYPING_KEY, waiting ? TYPING_STATUS : undefined);
+				});
+				signal?.throwIfAborted();
+				if (bell.get(scope)) ringBell();
+				return shown(ctx, asked);
+			}, signal);
 
 		scope.onSessionStart((ctx) => {
 			session = ctx;
+			typing.stop();
+			typing = new TypingMonitor(typingPause.get(scope), typingMaxWait.get(scope));
+			typing.start(ctx);
 		});
 		scope.onShutdown(() => {
 			session = undefined;
+			typing.stop();
 		});
 
 		// Other packages ask through here, so the permission dialog and the agent questions share one
@@ -68,7 +100,9 @@ export const questions = defineFeature({
 			const ctx = session;
 			if (id === undefined || !canDraw(ctx)) return;
 			// The asker waits on the answer, so it goes out even when the dialog fails.
-			void askRequest(ctx, data, show).then((result) => scope.events.emit(ANSWER, { id, result }));
+			void askRequest(ctx, data, showForOthers).then((result) =>
+				scope.events.emit(ANSWER, { id, result }),
+			);
 		});
 
 		scope.registerTool<typeof PARAMETERS, AskResult>({
@@ -85,7 +119,7 @@ export const questions = defineFeature({
 			renderCall: (args, theme) => renderCall(args, theme),
 			renderResult: (result, options, theme) => renderResult(result, options, theme),
 			execute: (_id, params, signal, _onUpdate, ctx) =>
-				askTool(scope, ctx, normalizeParams(params), show, signal),
+				askTool(ctx, normalizeParams(params), showForModel, signal),
 		});
 
 		scope.on("before_agent_start", (event, ctx) => {
@@ -115,7 +149,6 @@ function canDraw(ctx: ExtensionContext | undefined): ctx is ExtensionContext {
 }
 
 async function askTool(
-	scope: FeatureScope,
 	ctx: ExtensionContext,
 	params: QuestionParams,
 	show: Show,
@@ -125,7 +158,6 @@ async function askTool(
 	const problem = problemWith(params);
 	if (problem !== undefined) throw new Error(problem);
 
-	if (bell.get(scope)) ringBell();
 	return reply(await show(ctx, params.questions, signal), params.questions);
 }
 

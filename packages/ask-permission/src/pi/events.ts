@@ -1,4 +1,4 @@
-import { canAsk, type FeatureScope } from "@adeildo/pi-kit";
+import { canAsk, type FeatureScope, TYPING_STATUS } from "@adeildo/pi-kit";
 import type { ToolCall } from "@earendil-works/pi-ai";
 import {
 	type ExtensionAPI,
@@ -47,7 +47,6 @@ import { askViaSelector } from "#ui/selector.ts";
 import { isRecord } from "#util/primitives.ts";
 
 const JUDGE_STATUS = `${NAME}:judge`;
-const TYPING_STATUS = "waiting for you to finish typing";
 
 export function registerEvents(scope: FeatureScope, state: SessionState): void {
 	scope.on("session_start", (_event, ctx) => {

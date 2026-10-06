@@ -268,3 +268,34 @@ test("two asks at once draw one after the other, since pi strands a replaced dia
 	await tick();
 	expect(answered).toEqual(["ask-1", "ask-2"]);
 });
+
+test("the model's questions open once you stop typing in the editor", async () => {
+	writeFileSync(
+		settingsPath,
+		JSON.stringify({ questions: { bell: false, typing: { pause: 40 } } }),
+	);
+	let type: ((data: string) => void) | undefined;
+	const statuses: (string | undefined)[] = [];
+	let openedAt = 0;
+	const ctx = fakeContext([], true, {
+		ui: {
+			onTerminalInput: (handler: (data: string) => void) => {
+				type = handler;
+				return () => {};
+			},
+			setStatus: (_key: string, text: string | undefined) => statuses.push(text),
+			custom: async () => {
+				openedAt = Date.now();
+				return { answers: [], cancelled: true };
+			},
+		},
+	});
+	const { tool } = await mounted(ctx);
+
+	type?.("a");
+	const typedAt = Date.now();
+	await run(tool, PARAMS, ctx);
+
+	expect(openedAt - typedAt).toBeGreaterThanOrEqual(35);
+	expect(statuses).toEqual(["waiting for you to finish typing", undefined]);
+});

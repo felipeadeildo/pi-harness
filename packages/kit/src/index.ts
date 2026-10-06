@@ -9,6 +9,7 @@ export * from "./control.ts";
 export * from "./decode.ts";
 export * from "./events.ts";
 export * from "./one-at-a-time.ts";
+export * from "./typing.ts";
 export {
 	globalSettingsPath,
 	projectSettingsPath,
