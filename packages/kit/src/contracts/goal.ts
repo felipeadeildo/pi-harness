@@ -131,7 +131,7 @@ export function applyGoalOps(
 	const mark: GoalMark = options.entry === undefined ? { at } : { at, entry: options.entry };
 	const find = (id: string) => next.items.find((item) => item.id === id);
 	// The same words as an item already listed mean that item, not a new one.
-	const listed = (text: string) =>
+	const sameAs = (text: string) =>
 		next.items.find((item) => item.status !== "dropped" && sameWords(item.text, text));
 	const move = (item: GoalItem, status: ItemStatus) => {
 		item.status = status;
@@ -174,7 +174,7 @@ export function applyGoalOps(
 			case "start": {
 				const text = op.text.trim();
 				if (text === "") break;
-				const known = listed(text);
+				const known = sameAs(text);
 				if (known?.status === "now") break;
 				pauseNow(known);
 				if (known === undefined) add(text, "now", { activeForm: op.active?.trim() });
@@ -203,7 +203,7 @@ export function applyGoalOps(
 				break;
 			}
 			case "later":
-				if (op.text.trim() !== "" && listed(op.text) === undefined)
+				if (op.text.trim() !== "" && sameAs(op.text) === undefined)
 					add(op.text.trim(), "later", { activeForm: op.active?.trim(), note: op.note });
 				break;
 			case "drop": {
@@ -230,13 +230,16 @@ export function applyGoalOps(
 	return next;
 }
 
+/** Equal once case and punctuation are set aside. */
 function sameWords(left: string, right: string): boolean {
-	const words = (text: string) =>
-		text
-			.toLowerCase()
-			.replace(/[^\p{L}\p{N}]+/gu, " ")
-			.trim();
-	return words(left) === words(right);
+	return wordsOf(left) === wordsOf(right);
+}
+
+function wordsOf(text: string): string {
+	return text
+		.toLowerCase()
+		.replace(/[^\p{L}\p{N}]+/gu, " ")
+		.trim();
 }
 
 function withoutEmpty(extra: Partial<GoalItem>): Partial<GoalItem> {

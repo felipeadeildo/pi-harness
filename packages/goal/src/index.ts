@@ -23,7 +23,7 @@ import { modelsFor } from "./model.ts";
 import { registerScreen } from "./screen.ts";
 import { GOAL_SETTINGS, interval, model, SECTIONS } from "./settings.ts";
 import { propose, type Proposal, tidy } from "./updater.ts";
-import { lastMessage, workSince } from "./work.ts";
+import { lastMessage, type Work, workSince } from "./work.ts";
 
 /** The status key, which the look's goal segment draws in its own place. */
 export const GOAL_STATUS = "pi-goal";
@@ -102,9 +102,14 @@ export const goal = defineFeature({
 			return modelsFor(model.get(scope), ctx.modelRegistry, ctx.model);
 		}
 
-		function fromMessage(ctx: ExtensionContext, text: string): Promise<void> {
+		/** Runs after the updates before it, and gives up when the session ends. */
+		function queued(task: (signal: AbortSignal) => Promise<void>): Promise<void> {
 			const signal = stop.signal;
-			return turns(async () => {
+			return turns(() => task(signal), signal).catch(() => undefined);
+		}
+
+		function fromMessage(ctx: ExtensionContext, text: string): Promise<void> {
+			return queued(async (signal) => {
 				const request = { state, trigger: "message" as const, news: text };
 				const proposal = await propose(ctx.modelRegistry, models(ctx), request, signal);
 				if (proposal === undefined || signal.aborted) return;
@@ -115,14 +120,13 @@ export const goal = defineFeature({
 					entry,
 					covers: { from: entry, to: entry },
 				});
-			}, signal).catch(() => undefined);
+			});
 		}
 
 		function fromWork(ctx: ExtensionContext): Promise<void> {
 			clearTimeout(pace.workTimer);
 			pace.workTimer = undefined;
-			const signal = stop.signal;
-			return turns(async () => {
+			return queued(async (signal) => {
 				const branch = ctx.sessionManager.getBranch();
 				const work = workSince(branch, readUpTo);
 				if (work.text === "") return;
@@ -132,15 +136,13 @@ export const goal = defineFeature({
 				const request = { state, trigger: "work" as const, news: work.text, asked };
 				const proposal = await propose(ctx.modelRegistry, models(ctx), request, signal);
 				if (proposal === undefined || signal.aborted) return;
-				const covers = { from: work.from, to: work.to };
-				keeper.apply(proposal.ops, "work", { proposal, entry: work.to, covers });
-			}, signal).catch(() => undefined);
+				keeper.apply(proposal.ops, "work", { proposal, entry: work.to, covers: coversOf(work) });
+			});
 		}
 
 		/** After a run: one look at the whole timeline, to merge repeats and close what was finished. */
 		function tidyUp(ctx: ExtensionContext): Promise<void> {
-			const signal = stop.signal;
-			return turns(async () => {
+			return queued(async (signal) => {
 				if (!untidy) return;
 				untidy = false;
 				const work = workSince(ctx.sessionManager.getBranch(), tidiedUpTo);
@@ -148,8 +150,8 @@ export const goal = defineFeature({
 				const proposal = await tidy(ctx.modelRegistry, models(ctx), request, signal);
 				if (proposal === undefined || signal.aborted) return;
 				tidiedUpTo = work.to ?? tidiedUpTo;
-				keeper.apply(proposal.ops, "tidy", { proposal, entry: work.to, covers: work });
-			}, signal).catch(() => undefined);
+				keeper.apply(proposal.ops, "tidy", { proposal, entry: work.to, covers: coversOf(work) });
+			});
 		}
 
 		/** During a long turn: at most one update per interval, and only with work to read. */
@@ -220,6 +222,10 @@ export const goal = defineFeature({
 		registerScreen(scope, keeper);
 	},
 });
+
+function coversOf(work: Work): GoalUpdate["covers"] {
+	return { from: work.from, to: work.to };
+}
 
 function sameItems(left: SessionGoal, right: SessionGoal): boolean {
 	return (

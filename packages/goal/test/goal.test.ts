@@ -204,12 +204,12 @@ describe("from the agent's work", () => {
 		]);
 
 		// After the work, one tidy pass looks at the whole timeline.
-		expect(updates_(models).tidies).toBe(1);
+		expect(requests(models).tidies).toBe(1);
 
 		// The same work is not read twice, and nothing changed, so no second tidy.
 		await fake.fire("agent_settled", { type: "agent_settled" }, ctx);
 		await new Promise((resolve) => setTimeout(resolve, 10));
-		expect(updates_(models)).toEqual({ works: 1, tidies: 1 });
+		expect(requests(models)).toEqual({ works: 1, tidies: 1 });
 	});
 
 	test("the digest starts after the last goal update and leaves tool results out", () => {
@@ -315,7 +315,7 @@ function assistant(id: string, command: string) {
 }
 
 /** How many update and tidy requests the models got, whichever model answered. */
-function updates_(models: { asked: { model: string; prompt: string }[] }) {
+function requests(models: { asked: { model: string; prompt: string }[] }) {
 	const first = (kind: string) =>
 		new Set(models.asked.filter((entry) => entry.prompt.startsWith(kind)).map((e) => e.prompt))
 			.size;
@@ -353,7 +353,7 @@ describe("while the agent works", () => {
 		// Nothing new since: the end of the run reads no work, only tidies what changed.
 		await fake.fire("agent_settled", {}, ctx);
 		await tick();
-		expect(updates_(models).works).toBe(1);
+		expect(requests(models).works).toBe(1);
 	});
 
 	test("while it works the step reads in its running form, and goes back when it stops", async () => {
