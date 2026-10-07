@@ -370,8 +370,8 @@ export const CASES: Case[] = [
 		expect: { dropped: ["g2"] },
 	},
 	{
-		name: "a follow-up the agent leaves goes to later",
-		why: "Must keep working: the agent finished and named what is left.",
+		name: "what a finished step leaves is its missing, not a new item",
+		why: "The agent finished the step and named what it does after; the updater also wrote it down as a new later item.",
 		request: {
 			state: timeline("Avaliar o goal com dados", [["g1", "now", "Montar a avaliação do goal"]]),
 			trigger: "work",
@@ -383,7 +383,7 @@ export const CASES: Case[] = [
 				"said: A avaliação roda: 14 casos, 9 passam com o prompt atual. Ficou faltando documentar como rodar no README, faço depois do prompt novo.",
 			].join("\n"),
 		},
-		expect: { mentions: /readme|document/i },
+		expect: { done: ["g1"], noNew: true, mentions: /readme|document/i },
 	},
 	{
 		name: "a line about what comes next is not proof",
@@ -541,8 +541,29 @@ export const CASES: Case[] = [
 				"said: Rodei simplify, code-review e unslop. O `bun run verify` passa (786 testes). Ainda não fiz commit. Os revisores separados não rodaram: a ferramenta de subagentes usou a conta ranqia, que estava no limite.",
 			].join("\n"),
 		},
-		// A later for the reviewers repeats what missing says, which is noise but not wrong.
-		expect: { done: ["g2"], mentions: /revis|review|subagent/i },
+		expect: { done: ["g2"], noNew: true, mentions: /revis|review|subagent/i },
+	},
+	{
+		name: "a commit the step left is not a new item",
+		why: "The agent cleaned the comments and said nothing was committed; the updater closed the step and also added 'Fazer commit da limpeza'.",
+		request: {
+			state: timeline("Resolver problemas do sistema de goal", [
+				["g1", "done", "Verificar por que a sessão deepseek não gerou nada"],
+				["g2", "now", "Remover comentários desnecessários do código"],
+			]),
+			trigger: "work",
+			final: true,
+			asked:
+				"tem muito comentario de merda... as vezes mais comentario do que codigo... acho que poderiamos remover um monte deles",
+			news: [
+				"call: bash grep -nE '^\\s*(//|/\\*\\*)' src/ops.ts src/updates.ts",
+				"call: bash python3 - <<'PYEOF'",
+				"call: bash bun run verify",
+				"call: bash bun run goal:eval --runs 5",
+				"said: Ficou mais limpo, e a eval se manteve: **166/180 (92%)**. O verify passou com 795 testes. **Nada commitado ainda.** Faço os três commits?",
+			].join("\n"),
+		},
+		expect: { done: ["g2"], noNew: true, mentions: /commit/i },
 	},
 	{
 		name: "in English: moving on is not done",

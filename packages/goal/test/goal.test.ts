@@ -620,6 +620,22 @@ test("a call that failed or was refused says so, without its output", () => {
 	expect(workSince(branch).text).toBe(`call: bash gh pr merge 28 ${FAILED}\ncall: bash git status`);
 });
 
+test("what a closed step left stays in its note, not in a new later item", () => {
+	const state = applyGoalOps(emptyGoal(), [{ op: "start", text: "Limpar os comentários" }], {
+		at: 1,
+		source: "you",
+	});
+	const read = "said: Limpei os comentários. Nada commitado ainda.";
+	const later = { op: "later" as const, text: "Fazer commit da limpeza" };
+	const closed = stepOf(
+		{ proof: "Limpei os comentários", missing: "commit", finished: true },
+		state,
+	);
+	expect(checkOps([...closed, later], "work", untimed(read), state).rejected).toEqual([later]);
+	// With the step still open, a follow-up the agent left is kept.
+	expect(checkOps([later], "work", untimed(read), state).ops).toEqual([later]);
+});
+
 test("a call is not proof that it worked", () => {
 	const state = applyGoalOps(emptyGoal(), [{ op: "start", text: "Fazer o merge" }], {
 		at: 1,

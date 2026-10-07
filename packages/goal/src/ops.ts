@@ -200,7 +200,9 @@ export function checkOps(
 	let opened = false;
 	for (const proposed of ops) {
 		const op = moment === "tidy" ? repeatOfOpen(proposed, state) : proposed;
-		if (restatesStep(op, state)) {
+		// What a closed step left is its missing, not a new item.
+		const left = moment === "work" && op.op === "later" && checked.ops.some((o) => o.op === "done");
+		if (left || restatesStep(op, state)) {
 			// Only your message may put the step off.
 			if (moment === "message") checked.ops.push({ op: "pause", ...field("note", op.note) });
 			else checked.rejected.push(op);

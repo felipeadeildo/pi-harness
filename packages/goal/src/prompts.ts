@@ -37,7 +37,7 @@ The agent's run ended, and <work> is all of it since the operator's last message
   - proof: copied exactly from one "said:" line that reports the step or its result done. Never a plan, a question, or what the agent is about to do ("I'll...", "Now..."). A call shows only what was tried, and a call marked failed or refused did not happen.
   - missing: what is left, like a commit the agent asked about or a part that did not run; "" when nothing. A commit, push or merge the agent asks about goes here, unless it is the step itself.
   - finished: the step's own work finished, even with something left. False when it stopped halfway, waits on the operator's answer, or no step is under way.
-- ops: later for a follow-up the agent left for after, with why it waits. What the step left goes in missing, not here. Most of the time ops is empty.`;
+- ops: later for a follow-up the agent left for after, with why it waits, only when no step finished. Most of the time ops is empty.`;
 
 const TIDY = `${TIMELINE}
 
