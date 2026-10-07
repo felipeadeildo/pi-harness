@@ -1,4 +1,4 @@
-// When the goal's model runs: on your message, once per interval during a run, and at its end.
+// When the goal's model runs: on your message and at the end of each run.
 import { type GoalUpdate, oneAtATime } from "@adeildo/pi-kit";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -7,14 +7,17 @@ import { propose, tidy } from "./ask.ts";
 import type { Keeper } from "./keeper.ts";
 import { type Excerpt, lastMessage, messageEntry, sessionSince, workSince } from "./transcript.ts";
 
+/** A call stuck past this, like on a dialog nobody sees, gives its turn up. */
+const CALL_LIMIT_MS = 90_000;
+
 export interface UpdateOptions {
 	models(ctx: ExtensionContext): Model<Api>[];
-	/** Seconds between updates during a run. 0 waits for the end of the run. */
 	interval(): number;
 	/** Your last message is in the timeline. */
 	settled(): void;
-	/** Your words as the model reads them, with each skill you named explained. */
+	/** Your words with each skill you named explained. */
 	explain(text: string): string;
+	limitMs?: number;
 }
 
 export class Updates {
@@ -26,7 +29,7 @@ export class Updates {
 	#lastWork = 0;
 	#workTimer: ReturnType<typeof setTimeout> | undefined;
 	#workReadTo: string | undefined;
-	/** Where the last end of a run read to, so a run that adds nothing is not read again. */
+	/** So a run that adds nothing is not read again. */
 	#closedTo: string | undefined;
 	#tidiedTo: string | undefined;
 	#untidy = false;
@@ -106,7 +109,7 @@ export class Updates {
 		this.#workTimer = undefined;
 	}
 
-	/** Mid-run, the work since the last read; at the end, the whole run, since steps close only then. */
+	/** At the end of a run it reads the whole run, since steps close only then. */
 	#readWork(ctx: ExtensionContext, final: boolean): Promise<void> {
 		clearTimeout(this.#workTimer);
 		this.#workTimer = undefined;
@@ -140,10 +143,17 @@ export class Updates {
 		});
 	}
 
-	/** One call at a time, each on the timeline the one before left; dropped when the session ends. */
+	/** One call at a time; the race drops one that ignores its signal. */
 	#queued(task: (signal: AbortSignal) => Promise<void>): Promise<void> {
-		const signal = this.#stop.signal;
-		return this.#turns(() => task(signal), signal).catch(() => undefined);
+		const stop = this.#stop.signal;
+		const limit = this.#options.limitMs ?? CALL_LIMIT_MS;
+		return this.#turns(() => {
+			const signal = AbortSignal.any([stop, AbortSignal.timeout(limit)]);
+			const given = new Promise<never>((_, reject) => {
+				signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+			});
+			return Promise.race([task(signal), given]);
+		}, stop).catch(() => undefined);
 	}
 }
 

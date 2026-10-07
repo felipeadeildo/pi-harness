@@ -19,6 +19,7 @@ import { fakeContext, fakePi } from "@adeildo/pi-kit/testing";
 import type { Api, Model } from "@earendil-works/pi-ai";
 
 import { goal, GOAL_STATUS } from "../src/index.ts";
+import { Keeper } from "../src/keeper.ts";
 import { modelsFor } from "../src/models.ts";
 import { checkOps, opsOf, stepOf } from "../src/ops.ts";
 import { laterOps, nowOps } from "../src/screen.ts";
@@ -30,6 +31,7 @@ import {
 	withSkills,
 	workSince,
 } from "../src/transcript.ts";
+import { Updates } from "../src/updates.ts";
 
 let dir: string;
 beforeEach(() => {
@@ -50,7 +52,7 @@ const OPUS = model("opus", 15);
 const HAIKU = model("haiku", 1);
 
 /** A registry whose models answer with the operations queued for them, or fail. */
-function registry(answers: Record<string, unknown[] | "fail" | "words">[]) {
+function registry(answers: Record<string, unknown[] | "fail" | "words" | "hang">[]) {
 	const asked: { model: string; prompt: string }[] = [];
 	const activities: string[] = [];
 	return {
@@ -75,6 +77,8 @@ function registry(answers: Record<string, unknown[] | "fail" | "words">[]) {
 				}
 				asked.push({ model: target.id, prompt });
 				const answer = answers.shift()?.[target.id];
+				// A request that waits on something nobody answers, like a dialog that was replaced.
+				if (answer === "hang") return await new Promise<never>(() => {});
 				if (answer === undefined || answer === "fail")
 					return { stopReason: "error", content: [], usage: usage() };
 				if (answer === "words")
@@ -98,7 +102,7 @@ function usage() {
 }
 
 async function mounted(
-	answers: Record<string, unknown[] | "fail" | "words">[],
+	answers: Record<string, unknown[] | "fail" | "words" | "hang">[],
 	branch: unknown[] = [],
 	settings: Record<string, unknown> = {},
 ) {
@@ -467,6 +471,36 @@ function requests(models: { asked: { model: string; prompt: string }[] }) {
 }
 
 const tick = (ms = 10) => new Promise((resolve) => setTimeout(resolve, ms));
+
+test("a call that never comes back lets the next message through", async () => {
+	const models = registry([
+		{ haiku: "hang" },
+		{ haiku: [{ op: "start", text: "Corrigir a paginação" }] },
+	]);
+	const written: unknown[] = [];
+	const keeper = new Keeper(
+		(_type, data) => written.push(data),
+		() => {},
+	);
+	const updates = new Updates(keeper, {
+		models: () => [HAIKU],
+		interval: () => 0,
+		settled: () => {},
+		explain: (text) => text,
+		limitMs: 30,
+	});
+	const ctx = fakeContext([], true, {
+		model: HAIKU,
+		modelRegistry: models,
+		sessionManager: { getBranch: () => [] },
+	});
+	updates.message(ctx, "vamos usar a conta que bateu no limite");
+	updates.message(ctx, "vamos corrigir a paginação");
+	await tick(120);
+	expect(models.asked).toHaveLength(2);
+	expect(nowOf(keeper.state())?.text).toBe("Corrigir a paginação");
+	expect(updates.pending).toBe(false);
+});
 
 describe("while the agent works", () => {
 	test("a long turn updates the goal once per interval, with your last message beside the work", async () => {
