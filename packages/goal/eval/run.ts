@@ -115,7 +115,7 @@ async function attempt(c: Case, target: Model<Api>): Promise<Outcome> {
 	};
 }
 
-/** A failed call is the API's, so it is tried again before it counts. */
+/** A call the API failed is tried again before it counts. */
 async function answered(c: Case, target: Model<Api>): Promise<Outcome> {
 	let outcome = await attempt(c, target);
 	for (let retry = 0; retry < 3 && !outcome.answered; retry++) {
@@ -127,7 +127,6 @@ async function answered(c: Case, target: Model<Api>): Promise<Outcome> {
 	return outcome;
 }
 
-/** At most `size` calls at once. */
 function limit(size: number): <T>(task: () => Promise<T>) => Promise<T> {
 	let running = 0;
 	const waiting: (() => void)[] = [];

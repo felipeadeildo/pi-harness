@@ -24,7 +24,6 @@ interface Part {
 	arguments?: unknown;
 }
 
-/** One line of an excerpt, and when its entry was written, when the entry says. */
 export interface Line {
 	text: string;
 	at?: number;
@@ -37,7 +36,7 @@ export interface Excerpt {
 	to?: string;
 }
 
-/** The agent's work after `after`, or after the last goal update when `after` is not on the branch. */
+/** After `after`, or after the last goal update when `after` is not on the branch. */
 export function workSince(branch: readonly unknown[], after?: string): Excerpt {
 	const entries = branch as readonly Entry[];
 	const seen = indexOf(entries, after);
@@ -45,7 +44,7 @@ export function workSince(branch: readonly unknown[], after?: string): Excerpt {
 	return excerpt(entries.slice(start), false);
 }
 
-/** Your messages and the agent's work after `after`: you are the one who says a command you ran is done. */
+/** With your messages, since you are the one who says a command you ran is done. */
 export function sessionSince(branch: readonly unknown[], after?: string): Excerpt {
 	const entries = branch as readonly Entry[];
 	return excerpt(entries.slice(indexOf(entries, after) + 1), true);
@@ -55,9 +54,8 @@ function indexOf(entries: readonly Entry[], id: string | undefined): number {
 	return id === undefined ? -1 : entries.findIndex((entry) => entry.id === id);
 }
 
-/** How a call starts in the excerpt. A call only shows what was tried, so it proves nothing. */
 export const CALL = "call: ";
-/** What a failed call shows the model in place of its output, which it never reads. */
+/** In place of the output, which the model never reads. */
 export const FAILED = "(failed or refused, so it did not happen)";
 
 function excerpt(read: readonly Entry[], conversation: boolean): Excerpt {
@@ -86,12 +84,11 @@ function excerpt(read: readonly Entry[], conversation: boolean): Excerpt {
 	return { text, lines: kept, from: read[0]?.id, to: read.at(-1)?.id };
 }
 
-/** Text as lines with no time, for what the model reads that is not a session excerpt. */
 export function untimed(text: string): Line[] {
 	return text.split("\n").map((line) => ({ text: line }));
 }
 
-/** The calls whose result came back as an error, a refusal among them. Only the flag is read. */
+/** Only the error flag is read, never the output. */
 function failedCalls(read: readonly Entry[]): Set<unknown> {
 	const ids = read.flatMap((entry) =>
 		entry.message?.role === "toolResult" && entry.message.isError === true
@@ -101,7 +98,6 @@ function failedCalls(read: readonly Entry[]): Set<unknown> {
 	return new Set(ids);
 }
 
-/** The path of a file tool, the first line of a command, else the arguments. */
 function callOf(name: string, args: unknown): string {
 	const fields = typeof args === "object" && args !== null ? (args as Record<string, unknown>) : {};
 	const target = [fields.path, fields.command, fields.query, fields.url].find(
@@ -111,7 +107,6 @@ function callOf(name: string, args: unknown): string {
 	return `${name} ${clip(shown, MAX_CALL)}`;
 }
 
-/** The last lines within `max` characters, and how many earlier ones were left out. */
 function newest(lines: readonly Line[], max: number): Line[] {
 	const kept: Line[] = [];
 	let size = 0;
@@ -167,7 +162,6 @@ export function withSkills(text: string, skills: readonly SkillNote[]): string {
 	});
 }
 
-/** The newest entry of yours with these words. */
 export function messageEntry(branch: readonly unknown[], text: string): string | undefined {
 	const entries = branch as readonly Entry[];
 	return entries.findLast(

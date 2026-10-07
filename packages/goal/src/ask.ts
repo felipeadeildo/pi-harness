@@ -63,9 +63,8 @@ export function tidy(
 
 interface Question {
 	moment: Moment;
-	/** The user message the model gets. */
 	content: string;
-	/** The session text it read, where a proof has to be found. */
+	/** Where a proof has to be found. */
 	read: readonly Line[];
 	state: SessionGoal;
 }

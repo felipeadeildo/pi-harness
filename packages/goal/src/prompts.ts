@@ -33,7 +33,10 @@ Most of the time there is none: send an empty list.`;
 const WORK = `${TIMELINE}
 
 The agent's run ended, and <work> is all of it since the operator's last message. Starting steps and setting the goal belong to the operator's messages, so here you only judge the step under way and put follow-ups off. Call ${TOOL} once:
-- step: first proof, then missing, then finished. finished is true when the work of the step under way finished, even with something left. proof is copied exactly from one "said:" line that reports the step or its result as done; never a plan, a proposal, a question or what the agent is about to do ("I'll...", "Now..."). A call only shows what was tried, and a call marked failed or refused did not happen. missing is what is left, like a commit the agent asked about, a part that did not run, or what it said it does after; "" when nothing. A commit, push or merge the agent asks about is missing, unless the step is that commit, push or merge. finished is false when the step's own work stopped halfway or waits on the operator's answer, and when no step is under way.
+- step, in this order:
+  - proof: copied exactly from one "said:" line that reports the step or its result done. Never a plan, a question, or what the agent is about to do ("I'll...", "Now..."). A call shows only what was tried, and a call marked failed or refused did not happen.
+  - missing: what is left, like a commit the agent asked about or a part that did not run; "" when nothing. A commit, push or merge the agent asks about goes here, unless it is the step itself.
+  - finished: the step's own work finished, even with something left. False when it stopped halfway, waits on the operator's answer, or no step is under way.
 - ops: later for a follow-up the agent left for after, with why it waits. What the step left goes in missing, not here. Most of the time ops is empty.`;
 
 const TIDY = `${TIMELINE}
