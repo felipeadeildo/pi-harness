@@ -1,5 +1,5 @@
 // Runs the cases against a real model and says which ones the timeline got right.
-// bun packages/goal/eval/run.ts [--runs 3] [--model anthropic/claude-haiku-4-5] [--case text] [--show]
+// bun packages/goal/eval/run.ts [--runs 3] [--parallel 6] [--model anthropic/claude-haiku-4-5] [--case text] [--show]
 // It signs in with an Anthropic account from the harness's accounts file, billed to its plan.
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -28,6 +28,7 @@ const CLAUDE_CODE = "2.1.280";
 const { values } = parseArgs({
 	options: {
 		runs: { type: "string", default: "3" },
+		parallel: { type: "string", default: "6" },
 		model: { type: "string", default: "anthropic/claude-haiku-4-5" },
 		case: { type: "string" },
 		show: { type: "boolean", default: false },
@@ -45,15 +46,20 @@ let passed = 0;
 let total = 0;
 let cost = 0;
 let refused = 0;
+let unanswered = 0;
 
+const slot = limit(Number(values.parallel));
 const results = await Promise.all(
 	cases.map(async (c) => {
-		const outcomes = await Promise.all(Array.from({ length: runs }, () => attempt(c, chosen)));
-		return { c, outcomes };
+		const tries = Array.from({ length: runs }, () => slot(() => answered(c, chosen)));
+		return { c, outcomes: await Promise.all(tries) };
 	}),
 );
 
-for (const { c, outcomes } of results) {
+for (const { c, outcomes: all } of results) {
+	// A call the API never answered says nothing about the prompt.
+	const outcomes = all.filter((o) => o.answered);
+	unanswered += all.length - outcomes.length;
 	const ok = outcomes.filter((o) => o.problems.length === 0).length;
 	passed += ok;
 	total += outcomes.length;
@@ -69,11 +75,13 @@ for (const { c, outcomes } of results) {
 	}
 }
 const share = Math.round((passed / total) * 100);
+const lost = unanswered === 0 ? "" : `, ${unanswered} never answered`;
 console.log(
-	`\n${passed}/${total} (${share}%), ${refused} refused by the checks, $${cost.toFixed(3)}`,
+	`\n${passed}/${total} (${share}%), ${refused} refused by the checks${lost}, $${cost.toFixed(3)}`,
 );
 
 interface Outcome {
+	answered: boolean;
 	problems: string[];
 	ops: unknown;
 	rejected?: unknown[];
@@ -94,15 +102,44 @@ async function attempt(c: Case, target: Model<Api>): Promise<Outcome> {
 				)
 			: await propose(registry, [target], request, signal);
 	if (proposal === undefined)
-		return { problems: ["no answer"], ops: [], after: request.state, cost: 0 };
+		return { answered: false, problems: ["no answer"], ops: [], after: request.state, cost: 0 };
 	const source = request.trigger === "message" ? "you" : "work";
 	const after = applyGoalOps(request.state, proposal.ops, { at: 1, source });
 	return {
+		answered: true,
 		problems: check(request.state, after, c.expect),
 		ops: proposal.ops,
 		rejected: proposal.rejected,
 		after,
 		cost: proposal.usage.cost,
+	};
+}
+
+/** A failed call is the API's, so it is tried again before it counts. */
+async function answered(c: Case, target: Model<Api>): Promise<Outcome> {
+	let outcome = await attempt(c, target);
+	for (let retry = 0; retry < 3 && !outcome.answered; retry++) {
+		// oxlint-disable-next-line no-await-in-loop -- a retry waits for the one before
+		await Bun.sleep(2000 * (retry + 1));
+		// oxlint-disable-next-line no-await-in-loop -- a retry waits for the one before
+		outcome = await attempt(c, target);
+	}
+	return outcome;
+}
+
+/** At most `size` calls at once. */
+function limit(size: number): <T>(task: () => Promise<T>) => Promise<T> {
+	let running = 0;
+	const waiting: (() => void)[] = [];
+	return async (task) => {
+		if (running >= size) await new Promise<void>((resolve) => waiting.push(resolve));
+		running++;
+		try {
+			return await task();
+		} finally {
+			running--;
+			waiting.shift()?.();
+		}
 	};
 }
 

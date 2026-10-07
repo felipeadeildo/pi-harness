@@ -84,6 +84,7 @@ export const CASES: Case[] = [
 		request: {
 			state: timeline(undefined),
 			trigger: "work",
+			final: true,
 			asked: "qual o proximo paso?",
 			news: [
 				"call: bash git log -12 --format='%h %ad %s'; ls; grep -n -i -A25 'goal' ROADMAP.md",
@@ -104,14 +105,15 @@ export const CASES: Case[] = [
 		expect: { open: ["g1"], now: /roadmap/i },
 	},
 	{
-		name: "waiting on the operator is not done",
-		why: "The agent edited and asked to commit; the updater started and finished the step with 'Aguardando commit'.",
+		name: "work that waits only on a commit is done, and says so",
+		why: "The agent edited the roadmap and asked to commit; the updater started and finished it at once with 'Aguardando commit'. The edit is the step, the commit is what is left.",
 		request: {
 			state: timeline("Atualizar o roadmap", [
 				["g1", "later", "Mergear o PR de release 5.6.0"],
 				["g2", "now", "Atualizar o roadmap"],
 			]),
 			trigger: "work",
+			final: true,
 			asked: "vamos atualizar o roadmap",
 			news: [
 				'call: codemode {"code":"tools.read({path:\\"ROADMAP.md\\"})"}',
@@ -122,8 +124,25 @@ export const CASES: Case[] = [
 				"said: Atualizei o `ROADMAP.md`, mas ainda não fiz commit. Posso fazer o commit como `docs(roadmap): add the goal`?",
 			].join("\n"),
 		},
-		// A later item for the commit the agent asked about is fine; closing the step is not.
-		expect: { open: ["g1", "g2"], now: "g2" },
+		expect: { open: ["g1"], done: ["g2"], mentions: /commit/i },
+	},
+	{
+		name: "a step whose own work waits on the operator stays open",
+		why: "The step is the merge, and the agent stopped to ask before merging.",
+		request: {
+			state: timeline("Publicar o 5.6.0", [
+				["g1", "done", "Fazer push das mudanças"],
+				["g2", "now", "Fazer merge do PR de release 5.6.0"],
+			]),
+			trigger: "work",
+			final: true,
+			asked: "ve se o PR de release ta pronto pra merge",
+			news: [
+				"call: bash gh pr view 29 --json mergeable,statusCheckRollup",
+				"said: O PR #29 está verde e sem conflitos, pronto para o merge. Posso fazer o merge em squash?",
+			].join("\n"),
+		},
+		expect: { open: ["g2"], now: "g2" },
 	},
 	{
 		name: "a question finishes nothing",
@@ -227,6 +246,7 @@ export const CASES: Case[] = [
 				["g6", "done", "Arredondar os cantos da janela do Alt+G"],
 			]),
 			trigger: "work",
+			final: true,
 			asked: "outra coisa essa janelinha do Alt+G poderia ser pontas redondas tbm... saca?",
 			news: "said: Corrigi os dois e já fiz push: `1566bf6` está no GitHub, e o `verify` passa (776 testes). Os cantos da janela do Alt+G agora são arredondados.",
 		},
@@ -311,6 +331,7 @@ export const CASES: Case[] = [
 				["g2", "now", "Arredondar os cantos da janela do Alt+G"],
 			]),
 			trigger: "work",
+			final: true,
 			asked: "essa janelinha do Alt+G poderia ser pontas redondas tbm... saca?",
 			news: [
 				"call: edit packages/goal/src/view.ts",
@@ -354,6 +375,7 @@ export const CASES: Case[] = [
 		request: {
 			state: timeline("Avaliar o goal com dados", [["g1", "now", "Montar a avaliação do goal"]]),
 			trigger: "work",
+			final: true,
 			asked: "pode seguir",
 			news: [
 				"call: write packages/goal/eval/run.ts",
@@ -362,6 +384,243 @@ export const CASES: Case[] = [
 			].join("\n"),
 		},
 		expect: { mentions: /readme|document/i },
+	},
+	{
+		name: "a line about what comes next is not proof",
+		why: "Mid-run, the updater finished the research with 'Vou guardar a pesquisa em ...', a plan.",
+		request: {
+			state: timeline("Resolver problemas do sistema de goal", [
+				["g1", "done", "Fazer push do código"],
+				["g2", "now", "Pesquisar implementações de recap/goal/todo list para agentes"],
+			]),
+			trigger: "work",
+			asked:
+				"anyway, pesquisa na internet sobre como outros implementaram isso que a gente esta implementando, tbm pode ser chamado de recap, goal, todo list",
+			news: [
+				"said: Vou guardar a pesquisa em `packages/goal/docs/prior-art.md`, no mesmo formato do `quota.md` dos providers, para ficar no repo:",
+				"call: write /home/adeildo/Projects/pi-harness/packages/goal/docs/prior-art.md",
+				"call: bash bunx oxfmt packages/goal/docs/prior-art.md 2>&1 | tail -2",
+				'call: memory_write {"target":"daily","content":"[[pi-harness]] [[pi-goal]] 06/10 noite: push…',
+			].join("\n"),
+		},
+		expect: { open: ["g2"], now: "g2" },
+	},
+	{
+		name: "what the agent will look at next is not proof",
+		why: "Mid-run, the updater finished an item that waited in later with 'Agora preciso ver como ...'.",
+		request: {
+			state: timeline("Resolver problemas do sistema de goal", [
+				["g1", "done", "Fazer push do código"],
+				["g2", "done", "Pesquisar implementações de recap/goal/todo list para agentes"],
+				["g3", "later", "Comparar o que o goal publica com os 3 casos de uso"],
+			]),
+			trigger: "work",
+			asked:
+				"ok, vamos la! vamos melhorar, mas NAO IREMOS COMMITAR ISSO DE PRIOR ART, a ideia era so pra gente se basear",
+			news: [
+				"call: read /home/adeildo/Projects/pi-harness/packages/goal/eval/run.ts",
+				"said: Agora preciso ver como o trabalho chega ao modelo: que sinal do runtime existe hoje em cada `call:`.",
+				"call: read /home/adeildo/Projects/pi-harness/packages/goal/src/transcript.ts",
+				"said: A ordem combinada começa por medir. Primeiro levanto quantas chamadas reais do goal já estão gravadas:",
+				"call: bash bun packages/goal/eval/extract.ts > /tmp/goal-calls.jsonl",
+			].join("\n"),
+		},
+		expect: { open: ["g3"], noNew: true },
+	},
+	{
+		name: "words about other work do not close the step",
+		why: "Mid-run, the updater finished 'Corrigir ascii de borda' with a line about ops.ts.",
+		request: {
+			state: timeline("Facilitar a classificação do goal", [
+				["g1", "done", "Fazer push das mudanças"],
+				["g2", "later", "Investigar erros na sessão atual"],
+				["g3", "now", "Corrigir ascii de borda quebrado"],
+			]),
+			trigger: "work",
+			asked:
+				'outra coisa, a ordem em que o goal eh cadastrado, meio que define oq que eh "now" e o que que eh "later" e nao necessariamente a ordem esta certa... saca?',
+			news: [
+				"call: bash cd packages/goal/src; sed -n 25,48p transcript.ts",
+				"call: bash cd packages/goal && python3 - <<'EOF'",
+				"said: Agora o `ops.ts`: prova só depois de o item existir, e um passo por mensagem.",
+				"call: bash cd packages/goal && sed -n 125,175p src/ops.ts",
+			].join("\n"),
+		},
+		expect: { open: ["g3"] },
+	},
+	{
+		name: "files written mid-run do not finish a large step",
+		why: "Mid-run, the updater finished 'Validar hipóteses com análises' when two pages were written.",
+		request: {
+			state: timeline("Documentar a investigação com análises verificáveis", [
+				["g1", "done", "Tirar os IDs dos títulos do research"],
+				["g2", "now", "Validar hipóteses com análises de dados"],
+			]),
+			trigger: "work",
+			asked:
+				"ou seja, ter uns graficos que mostram umas correlacoes eh boa... tipo: requests para .md antes do rebuild e DEPOIS do rebuild. oq foi isso?",
+			news: [
+				"call: bash cd ~/Projects/research && sed -i \"s/^select date_trunc('day', created_at)::date as day,/select date…",
+				"call: write /home/adeildo/Projects/research/docs/achados/a05-crawlers-leem-o-md.md",
+				"call: write /home/adeildo/Projects/research/docs/achados/a04-robos-nao-mandam-query-string.md",
+			].join("\n"),
+		},
+		expect: { open: ["g2"], now: "g2" },
+	},
+	{
+		name: "a call for something else does not close the step",
+		why: "The updater finished 'Limpar e reorganizar a timeline' on a release merge call.",
+		request: {
+			state: timeline("Deixar o pi-goal pronto para usar", [
+				["g1", "done", "Mostrar o goal na faixa de cima"],
+				["g2", "later", "Adicionar a visualização da sessão (Alt+G)"],
+				["g3", "now", "Limpar e reorganizar a timeline com clareza"],
+			]),
+			trigger: "work",
+			asked:
+				'e pq caralhos ainda estamos presos nesse "desenvolver a extensao goal do pi-harness" sempre sempre sempre?',
+			news: "call: bash gh pr merge 28 --squash 2>&1 | tail -1; sleep 15; gh run list --workflow release.yml",
+		},
+		expect: { open: ["g3"] },
+	},
+	{
+		name: "a confident close over a failed call is not done",
+		why: "Agents claim success over failures, and a confident line fools a reader of the transcript.",
+		request: {
+			state: timeline("Publicar o 5.6.0", [
+				["g1", "done", "Fazer commit das mudanças"],
+				["g2", "now", "Fazer push das mudanças"],
+			]),
+			trigger: "work",
+			final: true,
+			asked: "ok vamos fazer push",
+			news: [
+				`call: bash git push origin main 2>&1 | tail -25 ${FAILED}`,
+				"said: Push feito, está tudo no GitHub e o verify passou.",
+			].join("\n"),
+		},
+		expect: { open: ["g2"], now: "g2" },
+	},
+	{
+		name: "a push that came back is done, and the agent moves on",
+		why: "Must keep working: the push finished, then the agent answered what comes next.",
+		request: {
+			state: timeline(undefined, [["g1", "now", "Fazer push do código"]]),
+			trigger: "work",
+			final: true,
+			asked:
+				"vamos fazer push e ir para o proximo passo, oq mais precisamos implementar / corrigir?",
+			news: [
+				"call: bash git status --short && git log --oneline origin/main..HEAD",
+				"said: Árvore limpa, 3 commits locais. Fazendo push (o pre-push roda o verify):",
+				"call: bash git push origin main 2>&1 | tail -25",
+				"said: Push feito (`4e89852..632cbcc`, verify 792 verdes). Agora o que falta:",
+				"call: read /home/adeildo/Projects/pi-harness/ROADMAP.md",
+				"call: bash gh issue list --limit 30; gh pr list",
+				"said: Feito o push: `4e89852..632cbcc` em `main`. O verify passou com 792 testes. Também tem a PR #29 aberta. ## O que falta, por prioridade ... Quer que eu comece pelo goal?",
+			].join("\n"),
+		},
+		expect: { done: ["g1"], noNew: true },
+	},
+	{
+		name: "a run that did part of the step says what it left out",
+		why: "Must keep working: the skills ran, the reviewers did not, and that is what the step left out.",
+		request: {
+			state: timeline("Facilitar a classificação do goal", [
+				["g1", "done", "Fazer push das mudanças"],
+				["g2", "now", "Rodar simplify, code-review e unslop nas mudanças"],
+			]),
+			trigger: "work",
+			final: true,
+			asked: "/skill:simplify  e /skill:code-review  e /skill:unslop",
+			news: [
+				"call: bash git diff --stat",
+				"call: edit packages/goal/src/ops.ts",
+				`call: subagent {"agent":"reviewer"} ${FAILED}`,
+				"call: bash bun run verify",
+				"said: Rodei simplify, code-review e unslop. O `bun run verify` passa (786 testes). Ainda não fiz commit. Os revisores separados não rodaram: a ferramenta de subagentes usou a conta ranqia, que estava no limite.",
+			].join("\n"),
+		},
+		// A later for the reviewers repeats what missing says, which is noise but not wrong.
+		expect: { done: ["g2"], mentions: /revis|review|subagent/i },
+	},
+	{
+		name: "in English: moving on is not done",
+		why: "The same case in English, so the rules do not lean on Portuguese words.",
+		request: {
+			state: timeline(
+				"Ship release 5.6.0",
+				[["g1", "now", "Merge the 5.6.0 release PR"]],
+				"English",
+			),
+			trigger: "message",
+			news: "let's update the roadmap",
+		},
+		expect: { open: ["g1"], now: /roadmap/i },
+	},
+	{
+		name: "in English: a question finishes nothing",
+		why: "The same case in English, so the rules do not lean on Portuguese words.",
+		request: {
+			state: timeline(
+				"Get pi-goal ready to use",
+				[
+					["g1", "done", "Show the goal on the top strip"],
+					["g2", "later", "Publish the pi-goal placeholder to npm", "needs 2FA"],
+					["g3", "now", "Merge the release PR and watch the workflow"],
+				],
+				"English",
+			),
+			trigger: "message",
+			news: "it showed up already...\n\ntell me something, are we passing the intent to the judge yet?",
+		},
+		expect: { open: ["g2", "g3"], noNew: true },
+	},
+	{
+		name: "in English: work that finished is done",
+		why: "The same case in English, so the rules do not lean on Portuguese words.",
+		request: {
+			state: timeline(
+				"Get pi-goal ready to use",
+				[
+					["g1", "done", "Show the goal on the top strip"],
+					["g2", "now", "Round the corners of the Alt+G window"],
+				],
+				"English",
+			),
+			trigger: "work",
+			final: true,
+			asked: "that Alt+G window could have round corners too, you know?",
+			news: [
+				"call: edit packages/goal/src/view.ts",
+				"call: bash bun run verify",
+				"said: The window corners are rounded now (╭╮╰╯), and verify passes (776 tests).",
+				"call: bash git commit -qm 'fix(goal): round the Alt+G panel corners' && git push",
+				"said: Done, `1566bf6` is on GitHub.",
+			].join("\n"),
+		},
+		expect: { done: ["g2"], noNew: true },
+	},
+	{
+		name: "tidy: a repeat in another language is the same work",
+		why: "Items that say the same work in two languages are one.",
+		request: {
+			trigger: "tidy",
+			state: timeline(
+				"Get pi-goal ready to use",
+				[
+					["g1", "done", "Arredondar os cantos da janela do Alt+G"],
+					["g2", "later", "Round the corners of the Alt+G window"],
+					["g3", "later", "Frame the operator's message"],
+				],
+				"English",
+			),
+			session: [
+				"operator: that Alt+G window could have round corners too",
+				"said: The window corners are rounded now, and verify passes.",
+			].join("\n"),
+		},
+		expect: { done: ["g2"], open: ["g3"] },
 	},
 	{
 		name: "tidy: a repeat of done work is closed as the same",

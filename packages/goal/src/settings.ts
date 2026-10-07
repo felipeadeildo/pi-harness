@@ -29,13 +29,13 @@ const seconds: Decoder<number> = {
 
 export const interval = setting({
 	id: "goal.interval",
-	default: 60,
+	default: 0,
 	decoder: seconds,
 	ui: {
 		section: MODEL_SECTION,
 		label: "While the agent works",
 		description:
-			"Seconds between updates of the goal during a long turn. 0 updates it only on your messages and when the agent stops.",
+			"Seconds between updates during a long turn, which can only put follow-ups off: steps close when the agent stops. 0, the default, updates it only on your messages and when the agent stops.",
 		control: { type: "number", min: 0, max: 3600, step: 15, unit: "s" },
 	},
 });

@@ -29,7 +29,7 @@ Done:
 - **Done** keeps a finished step from being done again. Its note says what the step left out, like `docs not written yet`, which a later step has to close.
 - **Later** is what was put off, with why it waits. It keeps those items in view after the conversation moves on.
 
-Work that stops halfway goes back to later with what is missing, not to done.
+A step whose work finished is done even when something is left, like a commit the agent asked about: the item says what is missing. A step stays under way when its own work waits on you, like a merge the agent asks before running.
 
 ## How it stays current
 
@@ -38,14 +38,14 @@ Nobody has to write it. Each item is written for someone who reads the session l
 A model reads the timeline and only what changed since the last update. It answers with operations, like starting a step, pausing it, finishing it with what it left out, or putting something off. It never sends a whole new list, so it cannot rewrite what was done.
 
 - Your message updates it at once, so the judge has your intent before the agent's first call.
-- During a long turn, it updates once a minute at most, and only when the agent made new calls. Most of those updates change nothing, and then nothing is written. Your last message goes with the work, so the model can tell whether the work answered it.
-- When the agent stops, it reads what is left.
+- When the agent stops, it reads the whole run since your last message, with your message beside it, and only then can a step finish. Mid-run, the agent's words say what it does next more than what it did.
+- `goal.interval` adds updates during a long turn, which can only put follow-ups off. It is off by default.
 - After each run, one tidy pass looks at the whole timeline: it merges items that say the same work and finishes the step under way when the work completed it.
 
 What the model may send depends on what it read:
 
-- After your message, it can start a step, take one back up from later, put one off, give one up or finish one, and set the goal. A message opens one step, the first thing it asks for, and the other asks wait in later. A question or a comment changes nothing. When you move to another subject, the step under way goes back to later instead of being finished. When you say a step marked done did not happen, it opens again.
-- After the agent's work, it can only finish a step or put a follow-up off. Only your messages start steps and set the goal, so when the agent proposes a plan, no step starts.
+- After your message, it can start a step, take one back up from later, put one off, give one up or finish one, and set the goal. Your words finish or give up only what the line they are on names: "it showed up" finishes nothing. A message opens one step, the first thing it asks for, and the other asks wait in later. A question or a comment changes nothing. When you move to another subject, the step under way goes back to later instead of being finished. When you say a step marked done did not happen, it opens again.
+- After the agent's work, it can only finish a step or put a follow-up off. Only your messages start steps and set the goal, so when the agent proposes a plan, no step starts. A finish stands on a line where the agent reports the step done, never one about what it is about to do, and never right after a call that failed.
 - In the tidy pass, it only merges repeats, finishes the step under way and renames.
 
 To finish or give up a step, the model has to copy the words that show it, like `rodei o npm publish` or the agent saying it pushed. The extension looks for those words in the text the model read before it accepts the close, so a model that imagines a merge cannot record one. A command the agent ran does not count, because the model never sees its output, and neither do words written before the step existed, like the message that put it off. A call that failed or that you refused reaches the model marked as one that did not happen. Each refused operation stays in the session entry under `rejected`.

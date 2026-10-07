@@ -20,7 +20,7 @@ import type { Api, Model } from "@earendil-works/pi-ai";
 
 import { goal, GOAL_STATUS } from "../src/index.ts";
 import { modelsFor } from "../src/models.ts";
-import { checkOps, opsOf } from "../src/ops.ts";
+import { checkOps, opsOf, stepOf } from "../src/ops.ts";
 import { laterOps, nowOps } from "../src/screen.ts";
 import {
 	FAILED,
@@ -357,7 +357,18 @@ test("the agent's work only closes or puts off: it cannot start a step or set th
 		{ op: "done", id: "g1", proof: "p" },
 		{ op: "later", text: "l", why: "w" },
 	];
-	expect(opsOf(raw, "work").map((op) => op.op)).toEqual(["done", "later"]);
+	// The end of a run closes only the step under way, through its verdict; mid-run nothing closes.
+	expect(opsOf(raw, "work").map((op) => op.op)).toEqual(["later"]);
+	expect(opsOf(raw, "working").map((op) => op.op)).toEqual(["later"]);
+	const state = applyGoalOps(emptyGoal(), [{ op: "start", text: "Rodar os testes" }], {
+		at: 1,
+		source: "you",
+	});
+	expect(stepOf({ finished: true, proof: "Os testes passam", missing: "nenhum" }, state)).toEqual([
+		{ op: "done", id: "g1", proof: "Os testes passam" },
+	]);
+	expect(stepOf({ finished: false, proof: "", missing: "" }, state)).toEqual([]);
+	expect(stepOf({ finished: true, proof: "x", missing: "" }, emptyGoal())).toEqual([]);
 	expect(opsOf(raw, "tidy").map((op) => op.op)).toEqual(["goal", "done"]);
 });
 
@@ -403,6 +414,26 @@ describe("a step closes only on words that are there", () => {
 			{ op: "done", id: "g2", note: "same as g1" },
 		]);
 		expect(rejected).toEqual([{ op: "done", id: "g2", note: "same as g9" }]);
+	});
+
+	test("the tidy pass never closes done work as a repeat of an open item: the open one closes", () => {
+		const done = applyGoalOps(state, [{ op: "done", id: "g1", proof: "x" }], {
+			at: 2,
+			source: "you",
+		});
+		const ops = opsOf(
+			[
+				{ op: "drop", id: "g1", same_as: "g2" },
+				{ op: "done", id: "g1", same_as: "g2" },
+			],
+			"tidy",
+		);
+		const { ops: kept, rejected } = checkOps(ops, "tidy", [], done);
+		expect(kept).toEqual([
+			{ op: "done", id: "g2", note: "same as g1" },
+			{ op: "done", id: "g2", note: "same as g1" },
+		]);
+		expect(rejected).toEqual([]);
 	});
 });
 
@@ -457,10 +488,13 @@ describe("while the agent works", () => {
 		expect(models.asked[0]?.prompt).toContain("The operator last asked:\n<asked>\nrode os testes");
 		expect(updates()[0]?.covers).toEqual({ from: "u1", to: "a1" });
 
-		// Nothing new since: the end of the run reads no work, only tidies what changed.
+		// Steps close only at the end of a run, so it reads the whole run again, from your message.
 		await fake.fire("agent_settled", {}, ctx);
 		await tick();
-		expect(requests(models).works).toBe(1);
+		expect(requests(models).works).toBe(2);
+		const last = models.asked.map((entry) => entry.prompt).findLast(isWork);
+		expect(last).toContain("Later:\n- [g1] Documentar os testes");
+		expect(last).toContain("<work>\ncall: bash bun test");
 	});
 
 	test("the status keeps one wording while the agent works", async () => {
@@ -558,13 +592,10 @@ test("a call is not proof that it worked", () => {
 		source: "you",
 	});
 	const read = "call: bash gh pr merge 28 --squash\nsaid: Mergeei o PR 28 na main.";
-	const ops = opsOf(
-		[
-			{ op: "done", id: "g1", proof: "gh pr merge 28 --squash" },
-			{ op: "done", id: "g1", proof: "Mergeei o PR 28 na main" },
-		],
-		"work",
-	);
+	const ops = [
+		...stepOf({ finished: true, proof: "gh pr merge 28 --squash", missing: "" }, state),
+		...stepOf({ finished: true, proof: "Mergeei o PR 28 na main", missing: "" }, state),
+	];
 	const { ops: kept, rejected } = checkOps(ops, "work", untimed(read), state);
 	expect(kept).toEqual([{ op: "done", id: "g1", proof: "Mergeei o PR 28 na main" }]);
 	expect(rejected).toEqual([{ op: "done", id: "g1", proof: "gh pr merge 28 --squash" }]);

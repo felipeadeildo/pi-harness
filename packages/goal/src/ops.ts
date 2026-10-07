@@ -1,9 +1,9 @@
 // The model's operations: which ones each moment may send, read defensively, and checked against
 // the session, so a step only closes on words that are really there.
-import { type GoalOp, isObject, type SessionGoal } from "@adeildo/pi-kit";
+import { type GoalOp, isObject, nowOf, type SessionGoal } from "@adeildo/pi-kit";
 import { type TSchema, Type } from "@earendil-works/pi-ai";
 
-import { CALL, type Line } from "./transcript.ts";
+import { CALL, FAILED, type Line } from "./transcript.ts";
 
 const MAX_TEXT = 240;
 /** The note of a done step dropped because it was only an idea. Only `not_done` writes it. */
@@ -11,8 +11,12 @@ const NOT_DONE = "only an idea, not done";
 /** A proof shorter than this matches too much to prove anything. */
 const MIN_PROOF = 8;
 
-/** Your message opens and closes steps, the agent's work only closes or puts off, the tidy pass cleans. */
-export type Moment = "message" | "work" | "tidy";
+/**
+ * Your message opens and closes steps. The agent's work closes or puts off once its run ended, and
+ * only puts off while it is `working`, when its words say more about the next call than the result.
+ * The tidy pass cleans.
+ */
+export type Moment = "message" | "working" | "work" | "tidy";
 
 /** `not_done` is the model's word for a done step that did not happen; it becomes reopen or drop. */
 type OpName = Exclude<GoalOp["op"], "reopen"> | "not_done";
@@ -30,7 +34,9 @@ export const OPS_FOR: Record<Moment, readonly OpName[]> = {
 		"not_done",
 		"rename",
 	],
-	work: ["done", "later"],
+	working: ["later"],
+	// The step under way gets its own verdict at the end of a run, so a list cannot leave it out.
+	work: ["later"],
 	tidy: ["goal", "done", "drop", "rename"],
 };
 
@@ -40,6 +46,7 @@ function text(description: string): TSchema {
 
 const ID = text("An item's id, like g3.");
 const ACTIVE = text("The same item as it runs, like 'Showing the goal on the top strip'.");
+const MISSING = text('What the step left out or left for after, or "" when nothing.');
 const PROOF = text(
 	"Words copied exactly from the input that show it, at least a few words. Never a paraphrase.",
 );
@@ -47,13 +54,20 @@ const PROOF = text(
 const SHAPES: Record<OpName, (moment: Moment) => TSchema> = {
 	goal: () => shape("goal", { text: text("What the session is after, above the step.") }),
 	language: () => shape("language", { text: text("Its English name, like 'Portuguese'.") }),
-	start: () => shape("start", { text: text("A new step, imperative."), active: ACTIVE }),
+	start: () =>
+		shape("start", {
+			text: text("A new step, imperative. The step under way moves to later by itself."),
+			active: ACTIVE,
+		}),
 	resume: () => shape("resume", { id: ID }),
 	pause: () => shape("pause", {}, { missing: text("What the step still needs.") }),
 	later: () =>
 		shape(
 			"later",
-			{ text: text("What was put off, imperative."), active: ACTIVE },
+			{
+				text: text("What was put off, imperative."),
+				active: ACTIVE,
+			},
 			{ why: text("Why it waits.") },
 		),
 	done: (moment) =>
@@ -63,7 +77,7 @@ const SHAPES: Record<OpName, (moment: Moment) => TSchema> = {
 					{ id: ID },
 					{ proof: PROOF, same_as: text("The done item this one repeats.") },
 				)
-			: shape("done", { id: ID, proof: PROOF }, { missing: text("What the step left out.") }),
+			: shape("done", { id: ID, proof: PROOF }, { missing: MISSING }),
 	drop: (moment) =>
 		moment === "tidy"
 			? shape("drop", { id: ID, same_as: text("The open item this one repeats.") })
@@ -90,10 +104,38 @@ function shape(
 	return Type.Object({ op: Type.Literal(op), ...required, ...fields });
 }
 
+/** Evidence before the verdict: the model copies the line and says what is left, then decides. */
+const STEP = Type.Object({
+	proof: text(
+		'Words copied exactly from one "said:" line that report the step under way done, or "" when no line does.',
+	),
+	missing: MISSING,
+	finished: Type.Boolean({
+		description: "The work of the step under way finished, even with something left.",
+	}),
+});
+
 /** The parameters of the tool for one moment: only its operations, each with its own fields. */
 export function opsSchema(moment: Moment): TSchema {
 	const shapes = OPS_FOR[moment].map((op) => SHAPES[op](moment));
-	return Type.Object({ ops: Type.Array(Type.Union(shapes)) });
+	const ops = Type.Array(Type.Union(shapes));
+	return moment === "work" ? Type.Object({ step: STEP, ops }) : Type.Object({ ops });
+}
+
+/** The end of a run's verdict on the step under way, as the done it means. */
+export function stepOf(raw: unknown, state: SessionGoal): GoalOp[] {
+	const current = nowOf(state);
+	if (current === undefined || !isObject(raw) || raw.finished !== true) return [];
+	const proof = clean(raw.proof);
+	const missing = given(raw.missing);
+	return [
+		{
+			op: "done",
+			id: current.id,
+			...(proof === undefined ? {} : { proof }),
+			...(missing === undefined ? {} : { note: missing }),
+		},
+	];
 }
 
 /** Well formed operations this moment may send, in the timeline's terms. */
@@ -131,7 +173,7 @@ function entryOf(raw: unknown): GoalOp | undefined {
 			return { op: "pause", ...field("note", clean(raw.missing)) };
 		case "done": {
 			if (!id) return undefined;
-			const left = sameAs ? `same as ${sameAs}` : clean(raw.missing);
+			const left = sameAs ? `same as ${sameAs}` : given(raw.missing);
 			return { op: "done", id, ...field("note", left), ...proven };
 		}
 		case "not_done": {
@@ -169,12 +211,22 @@ export function checkOps(
 	read: readonly Line[],
 	state: SessionGoal,
 ): Checked {
-	const haystack = read
-		.filter((line) => !line.text.startsWith(CALL))
-		.map((line) => ({ at: line.at, text: normalized(line.text) }));
+	const haystack = read.map((line) => ({
+		at: line.at,
+		text: normalized(line.text),
+		call: line.text.startsWith(CALL),
+		failed: line.text.endsWith(FAILED),
+	}));
 	const checked: Checked = { ops: [], rejected: [] };
 	let opened = false;
-	for (const op of ops) {
+	for (const proposed of ops) {
+		const op = moment === "tidy" ? repeatOfOpen(proposed, state) : proposed;
+		if (restatesStep(op, state)) {
+			// Your message puts the step off; the agent's work cannot, so its copy of the step goes.
+			if (moment === "message") checked.ops.push(pauseOf(op));
+			else checked.rejected.push(op);
+			continue;
+		}
 		if (op.op === "start" || op.op === "resume") {
 			if (opened) {
 				// The first ask is the step; a second one waits, and a resume of a listed item leaves it.
@@ -193,6 +245,27 @@ export function checkOps(
 
 function activeOf(op: Extract<GoalOp, { op: "start" }>): { active?: string } {
 	return op.active === undefined ? {} : { active: op.active };
+}
+
+/** A later that writes down the step under way again, as if it were new. */
+function restatesStep(op: GoalOp, state: SessionGoal): op is Extract<GoalOp, { op: "later" }> {
+	const current = nowOf(state);
+	return op.op === "later" && current !== undefined && sameWords(op.text, current.text);
+}
+
+function pauseOf(op: Extract<GoalOp, { op: "later" }>): GoalOp {
+	return op.note === undefined ? { op: "pause" } : { op: "pause", note: op.note };
+}
+
+/** Done work that repeats an open item stays; the open item is what closes, as the same. */
+function repeatOfOpen(op: GoalOp, state: SessionGoal): GoalOp {
+	if (op.op !== "drop" && op.op !== "done") return op;
+	const repeated = repeatedId(op);
+	const item = state.items.find((entry) => entry.id === op.id);
+	const original = state.items.find((entry) => entry.id === repeated);
+	if (item?.status !== "done" || original === undefined) return op;
+	if (original.status === "done" || original.status === "dropped") return op;
+	return { op: "done", id: original.id, note: `same as ${item.id}` };
 }
 
 /** A drop of something already done is that work finished, not abandoned. */
@@ -215,10 +288,17 @@ function repeatedId(op: Proven): string | undefined {
 	return /^same as (g\d+)$/.exec(op.note ?? "")?.[1];
 }
 
+interface Read {
+	at?: number;
+	text: string;
+	call: boolean;
+	failed: boolean;
+}
+
 function closes(
 	op: Proven,
 	moment: Moment,
-	haystack: readonly Line[],
+	haystack: readonly Read[],
 	state: SessionGoal,
 ): boolean {
 	const repeated = repeatedId(op);
@@ -233,15 +313,70 @@ function closes(
 	// The tidy pass reads a stretch of talk, where agreeing to wait reads like finishing.
 	if (op.proof === undefined || (moment === "tidy" && item?.status === "later")) return false;
 	// Words written before the item existed cannot say it finished, like the ask that put it off.
-	return found(op.proof, haystack, item?.createdAt ?? 0);
+	const at = found(op.proof, haystack, item?.createdAt ?? 0);
+	if (at === -1) return false;
+	// Your words close what the line they are on names: "it showed up" could be about anything.
+	const said = haystack[at]?.text ?? "";
+	if (moment === "message" && item !== undefined && !sharesWord(said, item.text)) return false;
+	// A confident line right after a call that failed is the agent's claim, not what happened.
+	return !(moment === "work" && haystack.slice(0, at).findLast((line) => line.call)?.failed);
 }
 
-function found(proof: string, haystack: readonly Line[], since: number): boolean {
+/** The first line written since `since` that holds the proof, never a call; -1 when none does. */
+function found(proof: string, haystack: readonly Read[], since: number): number {
 	const needle = normalized(proof.replace(/^(said|call|operator):\s*/i, "")).replace(/…$/, "");
-	if (needle.length < MIN_PROOF) return false;
-	return haystack.some(
-		(line) => (line.at === undefined || line.at >= since) && line.text.includes(needle),
+	if (needle.length < MIN_PROOF) return -1;
+	return haystack.findIndex(
+		(line) =>
+			!line.call && (line.at === undefined || line.at >= since) && line.text.includes(needle),
 	);
+}
+
+/** How many first letters make two words one, past their endings: "publiquei" names "Publicar". */
+const STEM = 5;
+/** Words any message has, which name no step. */
+const COMMON = new Set([
+	"agora",
+	"aqui",
+	"esse",
+	"essa",
+	"isso",
+	"esta",
+	"está",
+	"para",
+	"pode",
+	"feito",
+	"fazer",
+	"tudo",
+	"with",
+	"that",
+	"this",
+	"done",
+	"already",
+	"just",
+	"have",
+]);
+
+function stems(words: string): Set<string> {
+	return new Set(
+		normalized(words)
+			.split(/[^\p{L}\p{N}]+/u)
+			.filter((word) => word.length >= 4 && !COMMON.has(word))
+			.map((word) => word.slice(0, STEM)),
+	);
+}
+
+function sharesWord(left: string, right: string): boolean {
+	const named = stems(right);
+	return [...stems(left)].some((stem) => named.has(stem));
+}
+
+/** Most of the words of both, in any order. */
+function sameWords(left: string, right: string): boolean {
+	const a = stems(left);
+	const b = stems(right);
+	const shared = [...a].filter((stem) => b.has(stem)).length;
+	return shared > 0 && shared / Math.max(a.size, b.size) >= 0.75;
 }
 
 /** Case, quotes, markdown marks and spacing do not count. */
@@ -251,6 +386,14 @@ function normalized(value: string): string {
 		.replace(/[*_`"'“”‘’]/g, "")
 		.replace(/\s+/g, " ")
 		.trim();
+}
+
+/** Words that say nothing is missing, which a required field gets filled with. */
+const NOTHING = /^(-|n\/?a|none|nothing|nenhum|nenhuma|nada)\.?$/i;
+
+function given(value: unknown): string | undefined {
+	const words = clean(value);
+	return words === undefined || NOTHING.test(words) ? undefined : words;
 }
 
 function clean(value: unknown): string | undefined {

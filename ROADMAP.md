@@ -77,7 +77,7 @@ flowchart TD
 | ------------------------ | ------ | --------------------------------------------------------------------------------------------------------------------- |
 | The timeline             | done   | the goal, the step under way, what was done with what it left out, and what waits with why                            |
 | Kept by a small model    | done   | it answers with operations, never a new list, so it cannot rewrite what was done                                      |
-| When it updates          | done   | on my message at once, once a minute at most in a long turn, when the agent stops, and one tidy pass after each run   |
+| When it updates          | done   | on my message at once, when the agent stops, and one tidy pass after each run. A step closes only when the run ends   |
 | Only my words are intent | done   | the agent's work can finish or add a step, never set the goal the judge reads, and it never sees what a tool returned |
 | `Alt+G`                  | done   | the whole timeline as a tree over the chat, with a cursor and the item under it in full                               |
 | On the look              | done   | the step under way above the editor, with how many are done and how many wait                                         |

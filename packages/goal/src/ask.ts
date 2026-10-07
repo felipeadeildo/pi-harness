@@ -4,7 +4,7 @@ import type { Api, Model, Tool } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { modelRef } from "./models.ts";
-import { checkOps, type Moment, opsOf, opsSchema } from "./ops.ts";
+import { checkOps, type Moment, opsOf, opsSchema, stepOf } from "./ops.ts";
 import { PROMPTS, tidyMessage, TOOL, type UpdateRequest, updateMessage } from "./prompts.ts";
 import { type Line, untimed } from "./transcript.ts";
 
@@ -34,12 +34,16 @@ export function propose(
 	signal: AbortSignal,
 ): Promise<Proposal | undefined> {
 	const question = {
-		moment: request.trigger,
+		moment: momentOf(request),
 		content: updateMessage(request),
 		read: untimed(request.news),
 		state: request.state,
 	};
 	return askForOps(registry, models, question, signal);
+}
+
+function momentOf({ trigger, final }: UpdateRequest): Moment {
+	return trigger === "work" && final !== true ? "working" : trigger;
 }
 
 export function tidy(
@@ -87,11 +91,13 @@ async function askForOps(
 		if (reply.stopReason === "error" || reply.stopReason === "aborted") return undefined;
 		// An answer in words instead of a call is a model with nothing to change.
 		const call = reply.content.find((part) => part.type === "toolCall" && part.name === TOOL);
-		const raw = call?.type === "toolCall" ? call.arguments.ops : [];
-		return { raw, model: modelRef(model), usage: usageOf(reply.usage) };
+		const args = call?.type === "toolCall" ? call.arguments : {};
+		return { args, model: modelRef(model), usage: usageOf(reply.usage) };
 	});
 	if (answer === undefined) return undefined;
-	const checked = checkOps(opsOf(answer.raw, moment), moment, read, state);
+	const { step, ops } = answer.args;
+	const proposed = [...(moment === "work" ? stepOf(step, state) : []), ...opsOf(ops, moment)];
+	const checked = checkOps(proposed, moment, read, state);
 	return { ...checked, model: answer.model, usage: answer.usage };
 }
 

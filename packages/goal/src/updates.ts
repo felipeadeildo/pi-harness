@@ -26,6 +26,8 @@ export class Updates {
 	#lastWork = 0;
 	#workTimer: ReturnType<typeof setTimeout> | undefined;
 	#workReadTo: string | undefined;
+	/** Where the last end of a run read to, so a run that adds nothing is not read again. */
+	#closedTo: string | undefined;
 	#tidiedTo: string | undefined;
 	#untidy = false;
 	#messages = 0;
@@ -47,6 +49,7 @@ export class Updates {
 	/** A timeline that comes back from a file gets one tidy pass after the next run. */
 	reset(): void {
 		this.#workReadTo = undefined;
+		this.#closedTo = undefined;
 		this.#tidiedTo = undefined;
 		this.#untidy = this.#keeper.state().items.length > 0;
 	}
@@ -89,12 +92,12 @@ export class Updates {
 		const every = this.#options.interval() * 1000;
 		if (!this.#working || every === 0 || this.#workTimer !== undefined) return;
 		const wait = Math.max(0, this.#lastWork + every - Date.now());
-		this.#workTimer = setTimeout(() => void this.#readWork(ctx), wait);
+		this.#workTimer = setTimeout(() => void this.#readWork(ctx, false), wait);
 	}
 
 	runEnded(ctx: ExtensionContext): void {
 		this.#endRun();
-		void this.#readWork(ctx).then(() => this.#tidy(ctx));
+		void this.#readWork(ctx, true).then(() => this.#tidy(ctx));
 	}
 
 	#endRun(): void {
@@ -103,19 +106,21 @@ export class Updates {
 		this.#workTimer = undefined;
 	}
 
-	#readWork(ctx: ExtensionContext): Promise<void> {
+	/** Mid-run, the work since the last read; at the end, the whole run, since steps close only then. */
+	#readWork(ctx: ExtensionContext, final: boolean): Promise<void> {
 		clearTimeout(this.#workTimer);
 		this.#workTimer = undefined;
 		return this.#queued(async (signal) => {
 			const branch = ctx.sessionManager.getBranch();
-			const work = workSince(branch, this.#workReadTo);
-			if (work.text === "") return;
+			const last = lastMessage(branch);
+			const work = workSince(branch, final ? (last?.entry ?? this.#workReadTo) : this.#workReadTo);
+			if (work.text === "" || (final && work.to === this.#closedTo)) return;
 			this.#workReadTo = work.to;
+			if (final) this.#closedTo = work.to;
 			this.#lastWork = Date.now();
 			const state = this.#keeper.state();
-			const last = lastMessage(branch)?.text;
-			const asked = last === undefined ? undefined : this.#options.explain(last);
-			const request = { state, trigger: "work" as const, news: work.text, asked };
+			const asked = last === undefined ? undefined : this.#options.explain(last.text);
+			const request = { state, trigger: "work" as const, news: work.text, asked, final };
 			const proposal = await propose(ctx.modelRegistry, this.#options.models(ctx), request, signal);
 			if (proposal === undefined || signal.aborted) return;
 			this.#keeper.settle(proposal, "work", { entry: work.to, covers: coversOf(work) });

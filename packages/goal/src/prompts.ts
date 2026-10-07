@@ -13,7 +13,7 @@ Each item is a short imperative in the operator's language, under 60 characters,
 const MESSAGE = `${TIMELINE}
 
 The operator just wrote a message. Call ${TOOL} once with what the message itself asks for:
-- Asks for work (build, fix, change, find out why something went wrong, run, publish): that is the step now. When later or done already has it, in any words or language, resume its id. Otherwise start it. The step under way goes back to later by itself, so never finish it because the operator moved on.
+- Asks for work (build, fix, change, find out why something went wrong, run, publish): that is the step now. When later or done already has it, in any words or language, resume its id. Otherwise start it. The step under way goes back to later by itself when another starts: never finish it because the operator moved on, and never write it into later yourself.
 - Puts a step off: later. Gives a step up: drop it, with proof.
 - Says a step is finished, like a command they ran or something they did: done, with proof.
 - Says a step listed as done did not happen, or was only an idea: not_done {id, proof, still_wanted}.
@@ -21,15 +21,20 @@ The operator just wrote a message. Call ${TOOL} once with what the message itsel
 
 goal: set it when there is none, or when the operator now asks about something it does not name. Never copy the step into it.
 language: send it when the timeline has none or the operator switched.
-proof: the operator's words that say it, copied exactly from the message. Without such words, leave the step as it is.`;
+proof: the operator's words that say it, copied exactly from the message. They name the step or what it produced; words like "it worked" or "it showed up" alone prove nothing. Without such words, leave the step as it is.`;
+
+const WORKING = `${TIMELINE}
+
+The agent is still working, and its words now say more about the next call than about results. Steps close when its run ends, never here. Call ${TOOL} once:
+- later: a follow-up the agent said it leaves for after, with why it waits.
+
+Most of the time there is none: send an empty list.`;
 
 const WORK = `${TIMELINE}
 
-The agent worked since the last update. Starting steps and setting the goal belong to the operator's messages, so here you only close or put off. Call ${TOOL} once:
-- done {id, proof}: the work finished this step, and nothing it needs waits on the operator: no commit, merge or "may I?" the agent asked for. proof is the agent's words, copied exactly from a "said:" line, saying it did it. A call only shows what was tried, never that it worked, and a call marked failed or refused did not happen. A plan, a proposal or a question is never proof. missing says what the step left out, if anything.
-- later: a follow-up the agent left for after, with why it waits.
-
-A step that stopped halfway or waits on the operator's answer is still under way: leave it. Most of the time the work only continues the step: send an empty list. When unsure, send an empty list.`;
+The agent's run ended, and <work> is all of it since the operator's last message. Starting steps and setting the goal belong to the operator's messages, so here you only judge the step under way and put follow-ups off. Call ${TOOL} once:
+- step: first proof, then missing, then finished. finished is true when the work of the step under way finished, even with something left. proof is copied exactly from one "said:" line that reports the step or its result as done; never a plan, a proposal, a question or what the agent is about to do ("I'll...", "Now..."). A call only shows what was tried, and a call marked failed or refused did not happen. missing is what is left, like a commit the agent asked about, a part that did not run, or what it said it does after; "" when nothing. A commit, push or merge the agent asks about is missing, unless the step is that commit, push or merge. finished is false when the step's own work stopped halfway or waits on the operator's answer, and when no step is under way.
+- ops: later for a follow-up the agent left for after, with why it waits. What the step left goes in missing, not here. Most of the time ops is empty.`;
 
 const TIDY = `${TIMELINE}
 
@@ -39,7 +44,7 @@ You tidy the timeline after a run. It was updated one change at a time and it dr
 3. When the goal no longer names what the latest asks are about, set a new one.
 4. Rename an item only to write it in the operator's language, or to say what it changes when it names code.`;
 
-export const PROMPTS = { message: MESSAGE, work: WORK, tidy: TIDY } as const;
+export const PROMPTS = { message: MESSAGE, working: WORKING, work: WORK, tidy: TIDY } as const;
 
 export interface UpdateRequest {
 	state: SessionGoal;
@@ -48,6 +53,8 @@ export interface UpdateRequest {
 	news: string;
 	/** With work: your last message, to tell whether the work answered it. */
 	asked?: string;
+	/** With work: the run ended, so `news` is all of it since your last message. */
+	final?: boolean;
 }
 
 export function updateMessage({ state, trigger, news, asked }: UpdateRequest): string {
