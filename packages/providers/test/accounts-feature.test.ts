@@ -13,7 +13,7 @@ import {
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { activeAccount } from "../src/accounts/active.ts";
-import type { Watch } from "../src/accounts/attach.ts";
+import { sessionFor, type Watch } from "../src/accounts/attach.ts";
 import { type Accounts, pickAccount } from "../src/accounts/dialogs.ts";
 import { accounts } from "../src/accounts/feature.ts";
 import { nativeOf } from "../src/accounts/lift.ts";
@@ -711,3 +711,39 @@ test("the first account brings pi's own login along, under a name of its own", a
 async function settle(): Promise<void> {
 	await new Promise((resolve) => setTimeout(resolve, 0));
 }
+
+test("requests that hit a limit at once share one dialog and its answer", async () => {
+	const store = new AccountStore();
+	store.add("anthropic", "personal", OAUTH);
+	store.add("anthropic", "work", OTHER);
+	const [personal, work] = store.accounts("anthropic");
+	if (personal === undefined || work === undefined) throw new Error("no accounts");
+	const pins: Pins = new Map([["anthropic", personal.id]]);
+	const scope = fakeScope({ pi: fakePi() });
+	scope.settings.register([onLimit]);
+	let dialogs = 0;
+	const ctx = fakeContext([], true, {
+		model: { provider: "anthropic" },
+		modelRegistry: { getProvider: () => undefined },
+		ui: {
+			setStatus: () => {},
+			notify: () => {},
+			select: async (_title: string, options: string[]) => {
+				dialogs++;
+				await new Promise((resolve) => setTimeout(resolve, 10));
+				return options[0];
+			},
+		},
+	});
+	const watch: Watch = { limited: new Map(), usage: new Map(), quota: new Quota({}) };
+	const session = sessionFor(scope, store, pins, watch, ctx, "anthropic");
+
+	// The turn and the goal's call, both on the account that just ran out.
+	const [turn, goal] = await Promise.all([
+		session.afterLimit(personal.id, "429"),
+		session.afterLimit(personal.id, "429"),
+	]);
+	expect(dialogs).toBe(1);
+	expect(turn?.id).toBe(work.id);
+	expect(goal?.id).toBe(work.id);
+});

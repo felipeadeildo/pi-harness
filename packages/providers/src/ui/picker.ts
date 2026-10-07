@@ -1,5 +1,6 @@
 // Our dialogs wear the same frame as the rest of the harness. A host that cannot draw a component,
 // like RPC, falls back to pi's own select.
+import { oneAtATime } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
@@ -24,8 +25,24 @@ const MAX_VISIBLE = 10;
 const GAP = 2;
 const MIN_DESCRIPTION = 12;
 
-/** The options in our frame; undefined when the answer is cancelled. */
-export async function pick(
+/** Pi draws one dialog in the editor's place; a second one replaces the first without closing it. */
+const dialogs = oneAtATime();
+
+/** The options in our frame; undefined when the answer is cancelled. One opens at a time. */
+export function pick(
+	ctx: ExtensionContext,
+	title: string,
+	options: readonly (string | PickOption)[],
+	dialog: { signal?: AbortSignal } = {},
+): Promise<string | undefined> {
+	return dialogs(() => shown(ctx, title, options, dialog), dialog.signal).catch((error) => {
+		// Cancelled while it waited for another dialog to close.
+		if (dialog.signal?.aborted) return undefined;
+		throw error;
+	});
+}
+
+async function shown(
 	ctx: ExtensionContext,
 	title: string,
 	options: readonly (string | PickOption)[],

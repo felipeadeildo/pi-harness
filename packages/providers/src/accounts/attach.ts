@@ -49,7 +49,7 @@ export function attachProvider(
 	);
 }
 
-function sessionFor(
+export function sessionFor(
 	scope: FeatureScope,
 	store: AccountStore,
 	pins: Pins,
@@ -57,6 +57,16 @@ function sessionFor(
 	ctx: ExtensionContext,
 	providerId: string,
 ): AccountSession {
+	// The turn and the goal's call hit a limit together; they share one dialog and its answer.
+	const deciding = new Map<string, Promise<AccountCredential | undefined>>();
+	function once(
+		key: string,
+		decide: () => Promise<AccountCredential | undefined>,
+	): Promise<AccountCredential | undefined> {
+		const decision = deciding.get(key) ?? decide().finally(() => deciding.delete(key));
+		deciding.set(key, decision);
+		return decision;
+	}
 	return {
 		resolve: () => requestOf(activeAccount(store, pins, providerId)),
 		subscription: () =>
@@ -73,23 +83,26 @@ function sessionFor(
 		lockPath: accountsLockPath,
 		noteUsage: (id, headers) =>
 			noteUsage(watch.usage, providerId, id, watch.quota.fromHeaders(providerId, headers)),
-		afterLimit: async (currentId, detail) => {
-			const reading = await readingFor(watch, store, ctx, providerId, currentId);
-			const until = worstWindow(reading)?.window.resetsAt;
-			if (until !== undefined) store.markLimited(providerId, currentId, until);
-			return await afterLimit(
-				scope,
-				store,
-				pins,
-				ctx,
-				providerId,
-				currentId,
-				withReset(detail, reading),
-				watch.limited,
-			);
-		},
+		afterLimit: (currentId, detail) =>
+			once(`limit:${currentId}`, async () => {
+				const reading = await readingFor(watch, store, ctx, providerId, currentId);
+				const until = worstWindow(reading)?.window.resetsAt;
+				if (until !== undefined) store.markLimited(providerId, currentId, until);
+				return await afterLimit(
+					scope,
+					store,
+					pins,
+					ctx,
+					providerId,
+					currentId,
+					withReset(detail, reading),
+					watch.limited,
+				);
+			}),
 		afterAuthFailure: (currentId, detail) =>
-			afterAuthFailure(scope, store, pins, ctx, providerId, currentId, detail),
+			once(`auth:${currentId}`, () =>
+				afterAuthFailure(scope, store, pins, ctx, providerId, currentId, detail),
+			),
 	};
 }
 
