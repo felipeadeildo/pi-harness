@@ -244,7 +244,7 @@ export const peers = defineFeature({
 			await ctx.ui.custom<void>(
 				(tui, theme, _keybindings, done) => {
 					hideImagesUnderOverlays(tui);
-					// The ages change with the clock, and the spinners with the frame. A still room redraws once a second.
+					// Every frame while something moves, otherwise once a second.
 					let quiet = 0;
 					const ticks = setInterval(() => {
 						quiet += FRAME_MS;

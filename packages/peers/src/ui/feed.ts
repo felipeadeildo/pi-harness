@@ -1,24 +1,18 @@
-// The right column of the room: what was said and what happened, in order. A message shows who wrote it
-// to whom, its words on a rail in the writer's color, and one line of what became of it. An answer hangs
-// under the question it answers, and the comings, goings and commits stay short and quiet.
 import type { Delivery } from "@adeildo/pi-kit";
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
 import type { Happening, Peer, Posted, RoomItem } from "../folder.ts";
 import type { Typing } from "../here.ts";
-import type { Named } from "../names.ts";
+import { byHandle, type Named } from "../names.ts";
 import { award, TAKE_MS, turnToTake } from "../rules.ts";
 import { blink, dots, isFresh, spin } from "./motion.ts";
 
-/** The time, then two spaces. */
 const GUTTER = 7;
-/** Under an answer, the words sit this much further in. */
 const NEST = 2;
 const BAR_CELLS = 5;
-/** Joins and leaves this close together read as one line. */
 const TOGETHER_MS = 60_000;
-/** After this, a message nobody logged is sent and not on its way, and a request is no longer moving. */
+/** A message nobody logged after this stops spinning. */
 const ON_ITS_WAY_MS = 60_000;
 
 const ARRIVED: Record<Delivery, string> = {
@@ -36,7 +30,6 @@ export interface FeedOptions {
 	names: ReadonlyMap<string, Named>;
 	live: readonly Peer[];
 	clock: (at: number) => string;
-	/** Only what this session wrote, was sent or took. */
 	only?: string;
 }
 
@@ -55,7 +48,6 @@ export function feedLines(
 		if (item === undefined) continue;
 		if (item.kind === "happening") {
 			if (item.happening.kind === "took") continue;
-			// Comings and goings in a row read as one line.
 			const group: Happening[] = [item.happening];
 			while (true) {
 				const next = shown[index + 1];
@@ -106,7 +98,6 @@ function messageLines(
 		head += theme.fg("dim", `  re: ${answered.text.split("\n")[0] ?? ""}`);
 	const lines = [truncateToWidth(`${time}  ${head}`, width, "...")];
 
-	// The rail lights up in the writer's color while the message is new, then settles.
 	const rail = fresh ? theme.fg(color, "\u2503") : theme.fg("borderMuted", "\u2502");
 	const room = Math.max(8, width - indent.length - 2);
 	const body = message.unsent ? `withdrawn: ${message.text}` : message.text;
@@ -117,7 +108,6 @@ function messageLines(
 	return lines;
 }
 
-/** One line of what became of a message: sent, arrived and how, read; or the bids and who took it. */
 function receiptLines(message: Posted, options: FeedOptions): string[] {
 	const { theme, now, live } = options;
 	if (message.unsent) return [];
@@ -130,7 +120,6 @@ function receiptLines(message: Posted, options: FeedOptions): string[] {
 		const received = message.received.get(session);
 		if (received !== undefined)
 			return `${theme.fg("muted", "\u2713\u2713")}${who} ${theme.fg("dim", ARRIVED[received.mode])}`;
-		// A message on its way spins until the other side logs it, unless that side is gone.
 		const waiting =
 			live.some((peer) => peer.session === session) && now - message.at < ON_ITS_WAY_MS;
 		return waiting
@@ -140,11 +129,9 @@ function receiptLines(message: Posted, options: FeedOptions): string[] {
 	return [parts.join("   ")];
 }
 
-/** A request to everyone: the bids as they come in, then who is in line, then who took it. */
 function requestLines(message: Posted, options: FeedOptions): string[] {
 	const { theme, now, live } = options;
 	const ranking = award(message, live, now);
-	// Once someone took it, the busy ones said nothing worth the room.
 	const parts = [...message.bids]
 		.filter(([, bid]) => bid.idle || ranking.kind !== "taken")
 		.toSorted(([, a], [, b]) => Number(b.idle) - Number(a.idle) || b.fit - a.fit)
@@ -200,11 +187,9 @@ function typingLines(typing: Typing, options: FeedOptions): string[] {
 			? theme.fg("muted", "everyone")
 			: typing.to
 					.split(",")
-					.map((part) => part.trim().replace(/^@/, ""))
-					.map((written) => {
-						const one = [...options.names.values()].find(
-							(candidate) => candidate.handle === written,
-						);
+					.map((part) => {
+						const written = part.trim().replace(/^@/, "");
+						const one = byHandle(options.names, written);
 						return theme.fg((one?.color ?? "muted") as ThemeColor, written);
 					})
 					.join(theme.fg("dim", ", "));
@@ -255,7 +240,6 @@ function happeningLine(group: readonly Happening[], options: FeedOptions): strin
 	return truncateToWidth(`${time}  ${line}`, width, "...");
 }
 
-/** Joins with joins and leaves with leaves, close together; anything else stands alone. */
 function together(first: Happening | undefined, next: Happening): boolean {
 	if (first === undefined || first.kind !== next.kind) return false;
 	if (first.kind !== "joined" && first.kind !== "left") return false;
@@ -272,10 +256,7 @@ function lastWasHappening(room: readonly RoomItem[], index: number): boolean {
 	return false;
 }
 
-/**
- * Which message each message answers: the last one its addressee sent to its writer, or the request to
- * everyone its addressee posted and its writer took.
- */
+/** A message answers the last one its addressee sent its writer, or the request its writer took. */
 function answers(room: readonly RoomItem[]): Map<string, Posted> {
 	const found = new Map<string, Posted>();
 	const asked = new Map<string, Posted>();
@@ -334,7 +315,6 @@ function handle(session: string, options: FeedOptions): string {
 	);
 }
 
-/** As many bids as fit on the line, best first, and how many more there are. */
 function fitting(parts: readonly string[], width: number, theme: Theme): string {
 	const gap = "  ";
 	let line = "";
@@ -349,7 +329,6 @@ function fitting(parts: readonly string[], width: number, theme: Theme): string 
 	return line;
 }
 
-/** A fit as five cells, filled in the bidder's color. */
 function bar(value: number, color: ThemeColor, theme: Theme): string {
 	const filled = Math.max(0, Math.min(BAR_CELLS, Math.round(value * BAR_CELLS)));
 	return (
@@ -361,7 +340,6 @@ function fit(value: number): string {
 	return value >= 1 ? "1.0" : value.toFixed(2).replace(/^0/, "");
 }
 
-/** Anything in the room moving right now: someone bidding, a message that just landed or one on its way. */
 export function feedMoving(room: readonly RoomItem[], live: readonly Peer[], now: number): boolean {
 	for (let index = room.length - 1; index >= 0; index--) {
 		const item = room[index];

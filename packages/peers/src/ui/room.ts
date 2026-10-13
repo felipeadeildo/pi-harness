@@ -1,6 +1,3 @@
-// Alt+G: the agents in this folder on the left, the room on the right, and one line to write in, inside
-// the same rounded frame as the harness's other dialogs. The two time axes stay apart: what each one is
-// doing now, and what happened and was said.
 import { spread } from "@adeildo/pi-kit";
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import {
@@ -22,11 +19,8 @@ import { clock } from "./message.ts";
 import { spin } from "./motion.ts";
 
 const PAD = 2;
-/** The frame's two sides and the padding inside them. */
 const CHROME_X = 2 + PAD * 2;
-/** Top and bottom border, the line under the title, the divider and the line you write in. */
 const CHROME_Y = 5;
-/** Below this the agents sit over the room instead of beside it. */
 const BESIDE = 90;
 const AGENTS_MIN = 30;
 const AGENTS_MAX = 44;
@@ -36,34 +30,29 @@ const MENTION_TAIL = /(?:^|\s)@([a-z0-9-]*)$/i;
 export interface RoomOptions {
 	theme: Theme;
 	here: Here;
-	/** The folder this session is in, for the title. */
 	folder: string;
 	close: () => void;
 	requestRender: () => void;
-	/** Now, for the ages and the motion. Kept out of the wall clock so the pictures do not move. */
+	/** Injected so the docs pictures do not depend on when or where they are drawn. */
 	now?: () => number;
-	/** The clock the room reads, so a picture does not depend on where it was drawn. */
 	clock?: (at: number) => string;
-	/** What you wrote, sent. */
 	send: (text: string) => void;
 	rows: () => number;
 }
 
 export class RoomView implements Component, Focusable {
-	/** Set by the TUI when the overlay takes input, and passed on to the line you write in. */
 	focused = false;
 
 	readonly #options: RoomOptions;
 	readonly #composer: Input;
 	#selected = 0;
-	/** The agent the room is narrowed to, by session. */
 	#only: string | undefined;
 	#offset = 0;
 	#height = 0;
 	#follow = true;
 	#unread = 0;
 	#pick = 0;
-	/** The text the @ list was closed on, so it stays closed until you write more. */
+	/** The text the @ list was closed on: it stays closed until the text changes. */
 	#dismissed: string | undefined;
 
 	constructor(options: RoomOptions) {
@@ -76,12 +65,10 @@ export class RoomView implements Component, Focusable {
 		this.#composer.invalidate();
 	}
 
-	/** The room always shows its newest line, unless you scrolled back. */
 	get following(): boolean {
 		return this.#follow;
 	}
 
-	/** Something on screen moves: an agent at work, one writing, a bid, a message just in or on its way. */
 	moving(): boolean {
 		const { here } = this.#options;
 		const live = here.live();
@@ -114,7 +101,6 @@ export class RoomView implements Component, Focusable {
 		this.#options.requestRender();
 	}
 
-	/** The wheel scrolls the room back and stops following it. */
 	handleMouse(event: { type: string; wheelDelta?: number }): { handled: boolean } | undefined {
 		const delta = event.type === "wheel" ? (event.wheelDelta ?? 0) : 0;
 		if (delta === 0) return undefined;
@@ -199,7 +185,6 @@ export class RoomView implements Component, Focusable {
 		];
 	}
 
-	/** The folder in the frame's top edge, and how many agents work, wait and idle. */
 	#top(live: readonly Peer[], width: number): string {
 		const { theme } = this.#options;
 		const border = (text: string) => theme.fg("border", text);
@@ -223,24 +208,16 @@ export class RoomView implements Component, Focusable {
 		return edge(border, "\u256d", "\u256e", title, right, width);
 	}
 
-	/** Where the agents and the room meet the line you write in, with how far back you scrolled. */
 	#divider(width: number, split: number | undefined): string {
 		const { theme } = this.#options;
-		const hint =
-			this.#unread > 0 && !this.#follow
-				? theme.fg("accent", `\u2193 ${this.#unread} new`)
-				: this.#follow
-					? ""
-					: theme.fg("dim", `\u2191 ${this.#offset} above`);
 		const only =
 			this.#only === undefined
 				? ""
 				: `${theme.fg("dim", "only ")}${this.#nameOf(this.#only)}${theme.fg("dim", ", ctrl+f for all")}`;
-		const right = [only, hint].filter(Boolean).join(theme.fg("dim", "   "));
+		const right = [only, this.#scrollHint()].filter(Boolean).join(theme.fg("dim", "   "));
 		const line = (text: string) => theme.fg("border", text);
 		const fill = Math.max(0, width - 2);
 		let rule = "\u2500".repeat(fill);
-		// The column line ends on the divider, under the room's first column.
 		if (split !== undefined) {
 			const at = PAD + split + 1;
 			rule = `${rule.slice(0, at)}\u2534${rule.slice(at + 1)}`;
@@ -250,7 +227,13 @@ export class RoomView implements Component, Focusable {
 		return `${line(`\u251c${rule.slice(0, Math.max(0, room))} `)}${right}${line(` \u2500\u2524`)}`;
 	}
 
-	/** The agents an @ being written could mean, under the room and over the line you write in. */
+	#scrollHint(): string {
+		const { theme } = this.#options;
+		if (this.#follow) return "";
+		if (this.#unread > 0) return theme.fg("accent", `\u2193 ${this.#unread} new`);
+		return theme.fg("dim", `\u2191 ${this.#offset} above`);
+	}
+
 	#picker(
 		candidates: readonly Named[],
 		names: ReadonlyMap<string, Named>,
@@ -273,7 +256,6 @@ export class RoomView implements Component, Focusable {
 		});
 	}
 
-	/** The line you write in, with where it goes in front of it. */
 	#composerLine(width: number, names: ReadonlyMap<string, Named>): string {
 		const { theme } = this.#options;
 		const prompt = `${theme.fg("accent", "\u276f")} ${this.#destination(this.#composer.getValue(), names)}  `;
@@ -282,7 +264,6 @@ export class RoomView implements Component, Focusable {
 		return `${prompt}${drawn}`;
 	}
 
-	/** Mentions go to those agents; anything else goes to everyone, and the best fit takes it. */
 	#destination(text: string, names: ReadonlyMap<string, Named>): string {
 		const { theme } = this.#options;
 		const mentioned = [...text.matchAll(/(?<![\w@])@([a-z][a-z0-9-]*)(?=\s|$|[.,:;!?])/gi)].map(
@@ -305,7 +286,6 @@ export class RoomView implements Component, Focusable {
 			.join(theme.fg("muted", ", "))}`;
 	}
 
-	/** The keys in the frame's bottom edge, the ones that do something right now. */
 	#bottom(width: number, live: readonly Peer[], names: ReadonlyMap<string, Named>): string {
 		const { theme } = this.#options;
 		const keys: [string, string][] = [];
@@ -359,7 +339,6 @@ export class RoomView implements Component, Focusable {
 		this.#options.requestRender();
 	}
 
-	/** The agents the @ at the end of the line could mean, unless you closed the list on this text. */
 	#candidates(): Named[] {
 		const value = this.#composer.getValue();
 		if (value === this.#dismissed) return [];
@@ -368,7 +347,6 @@ export class RoomView implements Component, Focusable {
 		const prefix = (match[1] ?? "").toLowerCase();
 		const { here } = this.#options;
 		const others = [...here.names().values()].filter((named) => named.session !== here.session);
-		// A name already written in full needs no list.
 		if (others.some((named) => named.handle === prefix)) return [];
 		return others.filter((named) => named.handle.startsWith(prefix));
 	}
@@ -383,7 +361,6 @@ export class RoomView implements Component, Focusable {
 		this.#options.requestRender();
 	}
 
-	/** Tab with no @ being written starts one, and the list opens. */
 	#startMention(): void {
 		const value = this.#composer.getValue();
 		this.#composer.setValue(value === "" || value.endsWith(" ") ? `${value}@` : `${value} @`);
@@ -402,7 +379,6 @@ export class RoomView implements Component, Focusable {
 		this.#options.requestRender();
 	}
 
-	/** Enter on an empty line starts a message to the selected agent. */
 	#writeToSelected(): void {
 		const { here } = this.#options;
 		const selected = here.live()[this.#selected];
@@ -413,7 +389,6 @@ export class RoomView implements Component, Focusable {
 		this.#options.requestRender();
 	}
 
-	/** The room shows only what the selected agent wrote, was sent or took; again shows everything. */
 	#narrow(): void {
 		const selected = this.#options.here.live()[this.#selected];
 		this.#only = this.#only !== undefined || selected === undefined ? undefined : selected.session;
@@ -431,12 +406,10 @@ export class RoomView implements Component, Focusable {
 		const live = this.#options.here.live();
 		if (live.length === 0) return;
 		this.#selected = (this.#selected + delta + live.length) % live.length;
-		// A narrowed room follows the selection.
 		if (this.#only !== undefined) this.#only = live[this.#selected]?.session;
 		this.#options.requestRender();
 	}
 
-	/** Follows the newest line, unless you scrolled back to read something. */
 	#followRoom(total: number): void {
 		const most = Math.max(0, total - this.#height);
 		if (!this.#follow) {
@@ -450,7 +423,6 @@ export class RoomView implements Component, Focusable {
 	}
 }
 
-/** A top or bottom edge of the frame: the corners, a label on the left and one on the right. */
 function edge(
 	border: (text: string) => string,
 	left: string,
@@ -466,7 +438,6 @@ function edge(
 	return `${border(`${left}\u2500`)}${head}${border("\u2500".repeat(dashes))}${tail}${border(`\u2500${right}`)}`;
 }
 
-/** The lines that fit, keeping the selected agent in view. */
 function window(lines: readonly string[], from: number, to: number, height: number): string[] {
 	if (lines.length <= height) return [...lines];
 	const end = Math.min(lines.length, Math.max(height, to));

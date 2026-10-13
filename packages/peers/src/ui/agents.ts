@@ -1,5 +1,3 @@
-// The left column of the room: one entry per agent, its state on the right, the selected one opened up
-// to everything it is doing. The others stay at two lines so the column reads at a glance.
 import { spread, type SessionTasks, tasksWith } from "@adeildo/pi-kit";
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
@@ -36,7 +34,6 @@ export function stateOf(peer: Peer): AgentState {
 	return peer.state === "running" ? "running" : "idle";
 }
 
-/** The agent's mark: it spins while it works, is hollow while idle, and flags what waits on you. */
 export function markOf(peer: Peer, color: ThemeColor, theme: Theme, now: number): string {
 	switch (stateOf(peer)) {
 		case "waiting":
@@ -48,7 +45,6 @@ export function markOf(peer: Peer, color: ThemeColor, theme: Theme, now: number)
 	}
 }
 
-/** Working since when, idle, or waiting on you. */
 export function stateText(peer: Peer, theme: Theme, now: number): string {
 	switch (stateOf(peer)) {
 		case "waiting":
@@ -60,7 +56,6 @@ export function stateText(peer: Peer, theme: Theme, now: number): string {
 	}
 }
 
-/** The column's lines, and the line the selected agent starts on so a short column can keep it in view. */
 export function agentLines(
 	live: readonly Peer[],
 	names: ReadonlyMap<string, Named>,
@@ -100,7 +95,6 @@ export function agentLines(
 	return { lines, selectedAt, selectedEnd };
 }
 
-/** At most two lines: what it is on, and what waits on you. */
 function closed(peer: Peer, theme: Theme, width: number): string[] {
 	const tasks = peer.tasks;
 	if (tasks === undefined) return [];
@@ -114,7 +108,6 @@ function closed(peer: Peer, theme: Theme, width: number): string[] {
 	return lines;
 }
 
-/** Everything the agent is doing: its tasks, what it last finished, ran and edited. */
 function opened(peer: Peer, theme: Theme, width: number): string[] {
 	const lines = peer.tasks === undefined ? [] : taskLines(peer.tasks, theme, width);
 	const ran = peer.ran.at(-1);
