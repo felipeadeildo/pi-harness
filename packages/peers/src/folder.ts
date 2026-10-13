@@ -21,10 +21,8 @@ export interface Peer {
 	handle?: string;
 	title?: string;
 	state: SessionState;
-	/** When it last went running or idle. */
 	stateAt: number;
 	tasks?: SessionTasks;
-	/** Each file it edited, and when it last did. */
 	edited: Map<string, number>;
 	ran: { command: string; ok: boolean; at: number }[];
 	commits: { sha: string; subject: string; at: number }[];
@@ -39,7 +37,6 @@ export interface Bid {
 
 export interface Posted {
 	id: string;
-	/** The session it was written in. */
 	session: string;
 	from: "you" | "agent";
 	to: string[] | "all";

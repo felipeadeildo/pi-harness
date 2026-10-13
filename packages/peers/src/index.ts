@@ -1,12 +1,14 @@
 import { isAbsolute, relative, resolve } from "node:path";
 
 import {
+	answerPeers,
 	createApp,
 	defineFeature,
 	eventsRoot,
 	hideImagesUnderOverlays,
 	modelRef,
 	modelsFor,
+	PEERS_STATE,
 } from "@adeildo/pi-kit";
 import { Type } from "@earendil-works/pi-ai";
 import type {
@@ -91,6 +93,20 @@ export const peers = defineFeature({
 			if (ctx === undefined) return;
 			ctx.ui.setStatus(PEERS_STATUS, statusLine(here.summary(), ctx.ui.theme));
 		}
+
+		// The look draws its own peers segment from this, so the footer can show names and colours.
+		scope.events.on(PEERS_STATE, (data: unknown) => {
+			const summary = here.summary();
+			answerPeers(
+				data,
+				summary.others.map((one) => ({
+					handle: one.handle,
+					color: one.color,
+					state: one.state,
+				})),
+				summary.unread,
+			);
+		});
 
 		scope.onSessionStart((ctx) => {
 			session = ctx;
