@@ -53,6 +53,10 @@ function said(id: string, session: string, to: Posted["to"], text: string, at: n
 	};
 }
 
+function joined(session: string, at: number): RoomItem {
+	return { kind: "happening", happening: { kind: "joined", session, at } };
+}
+
 function draw(room: RoomItem[], only?: string): string[] {
 	return feedLines(room, [], {
 		theme: plain,
@@ -89,10 +93,6 @@ describe("the room", () => {
 	});
 
 	test("joins close together read as one line", () => {
-		const joined = (session: string, at: number): RoomItem => ({
-			kind: "happening",
-			happening: { kind: "joined", session, at },
-		});
 		expect(draw([joined("a", 0), joined("b", 10), joined("c", 20)])).toEqual([
 			"12:00  \u2192 oauth, migration and docs joined",
 		]);
