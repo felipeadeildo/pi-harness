@@ -15,6 +15,7 @@ import { Here, PEER_MESSAGE, type PeerMessageDetails } from "./here.ts";
 import { byHandle, mentionsIn } from "./names.ts";
 import { model, PEERS_SETTINGS } from "./settings.ts";
 import { messageBlock } from "./ui/message.ts";
+import { FRAME_MS } from "./ui/motion.ts";
 import { RoomView } from "./ui/room.ts";
 import { PEERS_STATUS, statusLine } from "./ui/status.ts";
 import { toolRenderers } from "./ui/tool.ts";
@@ -235,9 +236,15 @@ export const peers = defineFeature({
 			if (ctx.mode !== "tui") return;
 			await ctx.ui.custom<void>(
 				(tui, theme, _keybindings, done) => {
-					// The ages on the board change with the clock, not with an event.
-					const ticks = setInterval(() => tui.requestRender(), 1_000);
-					return new RoomView({
+					// The ages change with the clock, and the spinners with the frame. A still room redraws once a second.
+					let quiet = 0;
+					const ticks = setInterval(() => {
+						quiet += FRAME_MS;
+						if (!view.moving() && quiet < 1_000) return;
+						quiet = 0;
+						tui.requestRender();
+					}, FRAME_MS);
+					const view: RoomView = new RoomView({
 						theme,
 						here,
 						folder: ctx.cwd.split("/").findLast(Boolean) ?? ctx.cwd,
@@ -253,6 +260,7 @@ export const peers = defineFeature({
 							here.post(named.length === 0 ? "all" : named.map((one) => one.session), text, "you");
 						},
 					});
+					return view;
 				},
 				{
 					overlay: true,
