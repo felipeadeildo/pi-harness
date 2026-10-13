@@ -1,6 +1,13 @@
 import { isAbsolute, relative, resolve } from "node:path";
 
-import { createApp, defineFeature, eventsRoot, modelRef, modelsFor } from "@adeildo/pi-kit";
+import {
+	createApp,
+	defineFeature,
+	eventsRoot,
+	hideImagesUnderOverlays,
+	modelRef,
+	modelsFor,
+} from "@adeildo/pi-kit";
 import { Type } from "@earendil-works/pi-ai";
 import type {
 	AgentToolResult,
@@ -236,6 +243,7 @@ export const peers = defineFeature({
 			if (ctx.mode !== "tui") return;
 			await ctx.ui.custom<void>(
 				(tui, theme, _keybindings, done) => {
+					hideImagesUnderOverlays(tui);
 					// The ages change with the clock, and the spinners with the frame. A still room redraws once a second.
 					let quiet = 0;
 					const ticks = setInterval(() => {
