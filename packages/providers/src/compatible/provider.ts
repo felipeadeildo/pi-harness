@@ -1,5 +1,5 @@
 import { createProvider, type Model, type Provider } from "@earendil-works/pi-ai";
-import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
+import { openAICompletionsApi } from "@earendil-works/pi-ai/compat";
 
 import type { Completions } from "./catalog.ts";
 import {

@@ -53,9 +53,12 @@ writeFileSync(
 	)}\n`,
 );
 console.log(`Installing ${packed.length} package(s) into ${app}\n`);
-const install = await $`npm install --no-audit --no-fund --ignore-scripts --loglevel error`
-	.cwd(app)
-	.nothrow();
+// The pi SDK peers stay out, as in pi's own extension directory: every pi import has to go through
+// the loader's aliases, so a subpath they do not cover fails here.
+const install =
+	await $`npm install --no-audit --no-fund --ignore-scripts --legacy-peer-deps --loglevel error`
+		.cwd(app)
+		.nothrow();
 if (install.exitCode !== 0) {
 	console.error(install.stderr.toString());
 	process.exit(1);
