@@ -106,11 +106,12 @@ const PI_ASKS = new Set([
  * The gate each feature sits behind, from the `{beta, when}` table a build keeps beside the registry.
  *
  * The predicate is minified but the names it tests are not, so the class comes from the identifiers
- * in the window rather than from reading the expression. A window with none of them is left out
- * instead of guessed at.
+ * in the window rather than from reading the expression, or from the body of the function a
+ * predicate like `()=>D8()` calls. A window with none of them is left out instead of guessed at.
  */
 const GATES: readonly (readonly [string, string])[] = [
 	["firstPartyOnlyBetas", "Anthropic's own API only."],
+	["anthropicAws", "Anthropic's own API only."],
 	["firstPartyCapabilityBetas", "Only when the account has the capability."],
 	["experimentalBetasOff", "Off once experimental betas are disabled."],
 	["vertex", "Vertex and Foundry only."],
@@ -121,18 +122,13 @@ const GATES: readonly (readonly [string, string])[] = [
 ];
 
 /** The class of gate each header sits behind, when the build states one. */
-function gates(source: string, declared: readonly Declaration[]): Map<string, string> {
+export function gates(source: string, declared: readonly Declaration[]): Map<string, string> {
 	const known = new Map(declared.map(({ variable, header }) => [variable, header]));
 	const found = new Map<string, string>();
 	for (const match of source.matchAll(/\{beta:([A-Za-z_$][\w$]*),when:/g)) {
 		const header = known.get(match[1] ?? "");
 		if (header === undefined || match.index === undefined) continue;
-		// The predicate ends at the object's own brace, and reaching past it reads the next feature's
-		// gate instead of this one.
-		const close = source.indexOf("}", match.index);
-		const identifiers = new Set(
-			source.slice(match.index, close === -1 ? match.index + 200 : close).split(/[^A-Za-z0-9_$]+/),
-		);
+		const identifiers = new Set(predicate(source, match.index).split(/[^A-Za-z0-9_$]+/));
 		for (const [keyword, phrase] of GATES)
 			if (identifiers.has(keyword)) {
 				found.set(header, phrase);
@@ -140,6 +136,23 @@ function gates(source: string, declared: readonly Declaration[]): Map<string, st
 			}
 	}
 	return found;
+}
+
+/** The text of the predicate at `at`, or of the function it only calls. */
+function predicate(source: string, at: number): string {
+	const own = untilBrace(source, at);
+	const callee = /when:\(\)=>([A-Za-z_$][\w$]*)\(\)$/.exec(own)?.[1];
+	if (callee === undefined) return own;
+
+	// Minified names repeat across modules, so the closest definition before the table wins.
+	const defined = source.lastIndexOf(`function ${callee}(){`, at);
+	return defined === -1 ? own : untilBrace(source, defined);
+}
+
+// Past the object's own brace starts the next feature's gate.
+function untilBrace(source: string, from: number): string {
+	const close = source.indexOf("}", from);
+	return source.slice(from, close === -1 ? from + 200 : close);
 }
 
 function describe(header: string, gate: string | undefined): string {
@@ -374,6 +387,9 @@ async function probeTurn(binary: string, prompt: string): Promise<Turn> {
 			CLAUDE_CONFIG_DIR: config,
 			ANTHROPIC_BASE_URL: `http://127.0.0.1:${port}`,
 			ANTHROPIC_API_KEY: KEY,
+			// Otherwise the local server counts as a custom URL, and the turn is not the one
+			// api.anthropic.com gets.
+			_CLAUDE_CODE_ASSUME_FIRST_PARTY_BASE_URL: "1",
 			DISABLE_TELEMETRY: "1",
 			DISABLE_AUTOUPDATER: "1",
 			CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
