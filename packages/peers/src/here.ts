@@ -158,6 +158,7 @@ export class Here implements Sender {
 		const others = [...this.marks().values()];
 		let unread = 0;
 		for (const message of this.#folder.messages.values()) {
+			if (message.at < this.#openedAt) continue;
 			if (message.from === "you" || !reaches(message, this.session ?? "")) continue;
 			if (message.read.has(this.session ?? "")) continue;
 			unread++;

@@ -398,6 +398,21 @@ describe("what the footer shows", () => {
 		expect(statusLine(a.here.summary(), plain)).toBe("\u25c7");
 	});
 
+	test("what was said before this session opened is not counted", async () => {
+		const b = session("b");
+		name(b.here, "oauth");
+		b.here.post("all", "the release is out", "agent");
+		now += 60_000;
+		const a = session("a");
+		name(a.here, "migration");
+		await settle(a, b);
+		expect(a.here.summary().unread).toBe(0);
+
+		b.here.post("all", "and the docs too", "agent");
+		await settle(a, b);
+		expect(a.here.summary().unread).toBe(1);
+	});
+
 	test("a request to anyone is not on the footer, and neither is your own message", async () => {
 		const a = session("a");
 		const b = session("b");
