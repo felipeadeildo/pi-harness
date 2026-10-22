@@ -1,29 +1,33 @@
 {
-	"version": "2.1.306",
-	"userAgent": "claude-cli/2.1.306 (external, cli)",
+	"version": "2.1.308",
+	"userAgent": "claude-cli/2.1.308 (external, cli)",
 	"entrypoint": "cli",
 	"identity": "You are Claude Code, Anthropic's official CLI for Claude.",
 	"system": [
 		{
-			"length": 70,
+			"length": 190,
 			"cacheControl": false
 		},
 		{
 			"length": 57,
+			"cacheControl": false
+		},
+		{
+			"length": 1229,
 			"cacheControl": true
 		},
 		{
-			"length": 5923,
+			"length": 4692,
 			"cacheControl": true
 		}
 	],
 	"fields": [
 		"context_management",
+		"diagnostics",
 		"max_tokens",
 		"metadata",
 		"model",
 		"output_config",
-		"safeguards",
 		"stream",
 		"thinking",
 		"tools"
@@ -146,7 +150,7 @@
 		{
 			"name": "afk_mode",
 			"header": "afk-mode-2026-01-31",
-			"turn": true,
+			"turn": false,
 			"description": "The server acts on it, and nothing in the request changes."
 		},
 		{
@@ -158,7 +162,7 @@
 		{
 			"name": "cache_diagnosis",
 			"header": "cache-diagnosis-2026-04-07",
-			"turn": false,
+			"turn": true,
 			"description": "The reply says what the cache did; Claude Code drops this one when the API refuses it."
 		},
 		{
@@ -242,7 +246,7 @@
 		{
 			"name": "dangerous_tool_use",
 			"header": "dangerous-tool-use-2026-09-03",
-			"turn": true,
+			"turn": false,
 			"description": "Travels with `safeguards`."
 		},
 		{
@@ -254,7 +258,7 @@
 		{
 			"name": "thinking_binding_controls",
 			"header": "thinking-binding-controls-2026-08-01",
-			"turn": false,
+			"turn": true,
 			"description": "Travels with `thinking.block_binding`. Pi already asks for this one, so this switch cannot turn it off."
 		},
 		{
