@@ -1,292 +1,588 @@
 # Remote: your sessions from anywhere
 
-This is the design for reaching pi sessions from a phone, a browser or another terminal, and for keeping sessions running in the background. Nothing here ships yet. The plan lives in [`ROADMAP.md`](../ROADMAP.md#from-anywhere), and this document says how it works and why.
+This is the design for reaching pi sessions from a phone, a browser or a pi on another machine, for keeping sessions running with no terminal, and for agents on different machines to share a room. Nothing here ships yet. The plan lives in [`ROADMAP.md`](../ROADMAP.md#from-anywhere), and this document says how it works and why.
 
 ## What it is for
 
-The agent asks for a decision while I am away from the desk, and the run waits until I come back. Most of what I need on the phone is to answer that call, read what happened, and send the next message. The same pieces also let a session run without a terminal attached, which is what a harness on a VPS needs.
+The agent asks for a decision while I am away from the desk, and the run waits until I come back. Most of what I need away from the desk is to answer that call, read what happened, and send the next message. The same pieces let a session run with no terminal attached, which is what a harness on a VPS needs, and let my laptop's pi drive a session on the VPS.
 
-Five things should work when this is done:
+Six things should work when this is done:
 
 1. I open `pi` in a terminal as I do today. My phone shows that session live, and I can answer its questions and steer it from there. Whichever side answers a question first wins, and the other side closes its dialog.
-2. I close the laptop lid or leave the SSH connection, and a session started in the background keeps working. Later I take it back from a terminal with one command, even in the middle of a run.
-3. From the phone I start a new session in a folder I allowed, pick the model, and send the first message.
-4. On a VPS, one command sets up the service, and I reach it through Tailscale, a Cloudflare tunnel, or my own reverse proxy with a login page.
-5. When a session needs me and I am not at the keyboard, the phone gets a notification. When I am typing in a terminal on that machine, it stays quiet.
+2. I close the laptop lid or leave the SSH connection, and a session started in the background keeps working. Later I take it back from any pi, on that machine or another, in the middle of a run.
+3. From the phone or from my laptop's pi, I start a session on any of my machines that accepts it, in a folder I allowed.
+4. On a VPS, one setting keeps the service up, and I reach it through Tailscale, a Cloudflare tunnel, or my own reverse proxy with a login page.
+5. When a session needs me and I am not active on any client, the phone gets a notification.
+6. An agent on my laptop and an agent on the VPS talk in one room, as two agents in one folder do today.
 
 ## Decisions
 
-| Question                                                       | Decision                                                                                                                                         | Why                                                                                                                                                                                                                                         |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Build it or use [pi-mobile](https://pi.dev/packages/pi-mobile) | Build it on the kit's contracts, and take pi-mobile's good ideas                                                                                 | pi-mobile forwards pi's `select`, `confirm` and `input` by replacing them on `ctx.ui`. Our permission and question dialogs are `ctx.ui.custom()` components, which it cannot forward. It also has no tasks, rulings, costs or peers to show |
-| Who runs the hub                                               | A separate process that the first pi starts, that outlives it, and that exits after 5 minutes with no session                                    | No service to install for the common case, and closing the first terminal does not take the others down. A VPS keeps it up for good with `pi-remote serve`                                                                                  |
-| Where a background session runs                                | An interactive `pi` inside a detached tmux session                                                                                               | Taking it back from a terminal is `tmux attach`, mid-run included, and our dialogs draw in the terminal exactly as they do today. See [Hosting a session](#hosting-a-session) for what was weighed                                          |
-| How the phone reaches the machine                              | The hub listens on loopback. Tailscale serve, a Cloudflare tunnel, a bound interface or a reverse proxy expose it, with a login the hub provides | Each user picks the reach they trust. The hub never assumes a network is private                                                                                                                                                            |
-| The client                                                     | One Expo codebase for the web, iOS and Android. The web build is served by the hub                                                               | One set of screens, and the web build already installs as a PWA. Native builds add push, QR scanning and the camera later                                                                                                                   |
-| Starting sessions remotely                                     | Only in folders under the roots set on the Remote settings tab, `~` by default                                                                   | Starting pi in a folder runs code there. It is its own setting, apart from the permission grants                                                                                                                                            |
-| The permission mode `full`                                     | Never set from outside the machine                                                                                                               | Kept from the roadmap: a stolen phone must not turn approvals off                                                                                                                                                                           |
+| Question                                                       | Decision                                                                                                                                       | Why                                                                                                                                                                                                                                                 |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Build it or use [pi-mobile](https://pi.dev/packages/pi-mobile) | Build it on the kit's contracts, and take pi-mobile's good ideas                                                                               | pi-mobile forwards pi's `select`, `confirm` and `input` by replacing them on `ctx.ui`. Our permission and question dialogs are `ctx.ui.custom()` components, which it cannot forward. It also has no tasks, rulings, costs, peers or second machine |
+| Who runs the daemon                                            | One per machine. The first pi starts it and it exits after 5 minutes with no session, or the Background setting keeps it up as a user service  | No service to install for the common case, and one setting for the machine that should always answer                                                                                                                                                |
+| How a background session runs                                  | `pi-remote run` holds `pi --mode rpc` on a pipe. Whatever keeps that process alive is the user's choice                                        | Not tied to tmux: the daemon's own child, nohup, systemd, docker and tmux all work. RPC also gives a background session commands an extension cannot run (`fork`, `clone`, `new_session`)                                                           |
+| How a session is taken back                                    | As a client: any pi opens a view of any session on any linked machine. tmux is an optional runner for the exact same terminal                  | The same mechanism serves "take it back" and "my laptop's pi drives the VPS's pi"                                                                                                                                                                   |
+| How machines see each other                                    | Daemons pair into links. A client connects to one daemon and sees every linked machine through it                                              | No central server. The machine behind NAT dials out, and one connection carries both directions                                                                                                                                                     |
+| Who holds the truth                                            | The machine that owns a session. Clients never sync with each other                                                                            | Every client converges on the owner, so there is nothing to merge                                                                                                                                                                                   |
+| Control with one operator                                      | Soft presence: no locks. The client with the latest input is the active one                                                                    | One person is never in two places, so a lock only costs a key press                                                                                                                                                                                 |
+| What peers and remote share                                    | Presence, the inbox, session state, addresses and `by` live in the kit. Neither package imports the other                                      | Both read and write the same facts, so each has one owner                                                                                                                                                                                           |
+| How the phone reaches the machine                              | The daemon listens on loopback. Tailscale serve, a Cloudflare tunnel, a bound interface or a reverse proxy expose it, with the daemon's login  | Each user picks the reach they trust. The daemon never assumes a network is private                                                                                                                                                                 |
+| The client                                                     | One Expo codebase for the web, iOS and Android. The daemon serves the web build                                                                | One set of screens, and the web build installs as a PWA                                                                                                                                                                                             |
+| Who hosts a session                                            | Only a machine. A browser or a phone is always a client, and a pi is a client whenever it shows a view. A session never moves                  | Where a session runs never depends on who asked for it, so there is one place to look for its file, its process and its truth                                                                                                                       |
+| Starting sessions remotely                                     | Each machine chooses whether it hosts sessions started elsewhere, on by default, and only in folders under its roots. It publishes that policy | Starting pi in a folder runs code there. A published policy lets a client show only what will work there                                                                                                                                            |
+| The permission mode `full`                                     | Never set from outside the machine                                                                                                             | A stolen phone must not turn approvals off                                                                                                                                                                                                          |
+
+## Terms
+
+| Term    | Meaning                                                                                                                            |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| machine | A computer that runs the daemon. It has an id, the fingerprint of its key, and a name, its hostname unless renamed                 |
+| handle  | A session's call sign, one word drawn when it opens, such as `kestrel`. Agents mention it as `@kestrel`. See [Naming](#naming)     |
+| title   | What a session is about, such as "OAuth for the MCP server". The tasks feature writes it, and it is pi's session name              |
+| daemon  | The process of one machine. It routes, caches, serves the web app, logs clients in, starts background sessions and keeps the links |
+| bridge  | The extension in every pi process. It publishes the session's events and runs what the daemon forwards                             |
+| runner  | `pi-remote run`, the process that holds a background session's `pi --mode rpc`                                                     |
+| link    | A trusted connection between the daemons of two machines                                                                           |
+| client  | Anything with a screen connected to a daemon that hosts nothing: the web app, the native app, or a pi's view. See [Roles](#roles)  |
+| start   | To create a pi process. It happens only on a machine                                                                               |
+| open    | To show a session that already exists, in a view, on any client                                                                    |
+| policy  | What a machine lets clients and linked machines do there, published with the machine. See [A machine's policy](#a-machines-policy) |
+| device  | A paired client, such as a phone or a browser                                                                                      |
+| view    | A pi's full-screen display of another session, local or remote, with its composer                                                  |
+| address | `handle@machine`, such as `kestrel@server`, for people and agents. The wire uses the machine id and the session id                 |
+| epoch   | One life of a pi process. It changes when the process restarts, and with it the live stream's numbering                            |
 
 ## The pieces
 
 ```mermaid
 flowchart LR
-  subgraph machine["the machine"]
-    subgraph s1["pi in a terminal"]
-      b1["bridge extension"]
-    end
-    subgraph s2["pi in tmux, hosted"]
-      b2["bridge extension"]
-    end
-    hub["hub process"]
-    disk[("pi session files\nharness event logs")]
-    b1 <-->|"unix socket"| hub
-    b2 <-->|"unix socket"| hub
-    b1 -->|writes| disk
-    b2 -->|writes| disk
-    hub -->|reads history| disk
-    hub -->|"tmux new / kill"| s2
+  subgraph laptop["machine: laptop"]
+    t1["pi in a terminal\n(bridge)"]
+    v1["pi showing a view\n(bridge)"]
+    d1["daemon"]
+    t1 <-->|unix socket| d1
+    v1 <-->|unix socket| d1
   end
-  reach["Tailscale serve, Cloudflare tunnel,\nbound interface or reverse proxy"]
-  hub <-->|"HTTP + WebSocket on 127.0.0.1"| reach
-  reach <--> web["browser / PWA"]
-  reach <--> app["iOS and Android app"]
-  cli["pi-remote CLI"] <-->|"unix socket"| hub
+  subgraph server["machine: server"]
+    r2["pi-remote run\n└ pi --mode rpc (bridge)"]
+    t2["pi in tmux\n(bridge)"]
+    d2["daemon"]
+    disk2[("session files\nharness logs")]
+    r2 <-->|unix socket| d2
+    t2 <-->|unix socket| d2
+    d2 -->|reads| disk2
+  end
+  d1 <==>|"link: one WebSocket,\nopened by the side that can reach"| d2
+  phone["phone / browser"] <-->|"HTTPS + WebSocket\nthrough the chosen reach"| d1
 ```
 
-| Piece    | What it does                                                                                                                                                                                                                         | Where it lives                                                                                                        |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| Bridge   | An extension in every pi process. It publishes the session's events, answers the hub's snapshot request, runs the commands the hub forwards, and enters the race for every dialog. It starts the hub when none is running            | `@adeildo/pi-remote`, loaded by `@adeildo/pi-harness` like the other pieces                                           |
-| Hub      | One process per machine. It keeps the list of live sessions, routes events to clients and commands to sessions, keeps a replay buffer, serves the web app, handles login and pairing, starts hosted sessions and sends notifications | Another entry of `@adeildo/pi-remote`, run as its own Node process                                                    |
-| Protocol | The shapes on the wire, their decoders, the version, and the reducers that rebuild a transcript from events. No Node imports and no pi imports, so the hub, the bridge, the web and the native app all use it                        | `@adeildo/pi-remote-protocol`                                                                                         |
-| Client   | The screens. It talks only to the hub                                                                                                                                                                                                | `apps/remote`, an Expo app. Not published to npm: its web build is copied into `@adeildo/pi-remote` at release        |
-| CLI      | Lists sessions, starts one, takes one back, pairs devices, runs the hub in the foreground                                                                                                                                            | The `pi-remote` bin of `@adeildo/pi-remote`, for a global install. `/remote` inside pi does the same from any session |
+| Piece    | What it does                                                                                                                                                                                                            | Where it lives                                                                                                 |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Bridge   | Publishes the session's events, answers the snapshot request, runs forwarded commands, enters the race for every dialog, registers the session in the presence index, and shows views. Starts the daemon when none runs | `@adeildo/pi-remote`, loaded by `@adeildo/pi-harness` like the other pieces                                    |
+| Runner   | Holds a background session's `pi --mode rpc`: keeps its stdin open, reads its stdout, forwards its dialogs and its RPC-only commands, and exits with it                                                                 | The `pi-remote run` command of `@adeildo/pi-remote`                                                            |
+| Daemon   | Keeps the live sessions and their snapshots, routes events and commands, keeps a replay buffer, serves the web app, logs clients in, starts background sessions, keeps the links, replicates rooms, sends pushes        | Another entry of `@adeildo/pi-remote`, run as its own Node process                                             |
+| Protocol | The shapes on the wire, their decoders, the version, and the reducers that rebuild a transcript from events. No Node imports and no pi imports                                                                          | `@adeildo/pi-remote-protocol`                                                                                  |
+| Client   | The screens. It talks only to its daemon                                                                                                                                                                                | `apps/remote`, an Expo app. Not published to npm: its web build is copied into `@adeildo/pi-remote` at release |
+| CLI      | Status, sessions, the runner, views, the service, links, devices                                                                                                                                                        | The `pi-remote` bin of `@adeildo/pi-remote`                                                                    |
 
-### What the hub may import
+### What the daemon and the runner may import
 
-The hub runs as its own process, so pi's extension loader does not resolve its imports. Pi installs packages without their peers, so `@earendil-works/*` is not on disk next to ours (that is the 5.11.1 bug, see [`scripts/smoke.ts`](../scripts/smoke.ts)). The hub therefore imports only Node's standard library and `@adeildo/pi-remote-protocol`. It reads pi's session files through the documented [session format](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/session-format.md) instead of pi's `SessionManager`.
+They run as their own processes, so pi's extension loader does not resolve their imports. Pi installs packages without their peers, so `@earendil-works/*` is not on disk next to ours (the cause of the 5.11.1 bug, see [`scripts/smoke.ts`](../scripts/smoke.ts)). Both import only Node's standard library and `@adeildo/pi-remote-protocol`. The daemon reads pi's session files through the documented [session format](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/session-format.md), and the runner speaks pi's [RPC protocol](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/rpc.md) with its own reader, which splits records on LF only, never with Node's `readline`, as pi's documentation requires.
 
-The hub is TypeScript run by the Node binary that runs pi (`process.execPath`), and pi requires Node 22.19 or newer, where Node strips types by itself. Its code is limited to syntax Node can strip: no `enum`, no parameter properties, no `namespace`. Its package turns on `erasableSyntaxOnly` so `tsc` refuses the rest.
+Both are TypeScript run by the Node binary that runs pi (`process.execPath`). Pi requires Node 22.19 or newer, where Node strips types by itself, so their code is limited to erasable syntax and their package turns on `erasableSyntaxOnly`.
 
-## The hub's lifecycle
+## Roles
+
+A session runs only on a machine. Who asked for it never changes where it runs.
+
+| Who                                             | Hosts            | Opens views          | Starts sessions                          |
+| ----------------------------------------------- | ---------------- | -------------------- | ---------------------------------------- |
+| A pi in a terminal                              | Its own session  | Of any session       | On any machine that accepts              |
+| A runner (`pi-remote run`)                      | Its own session  | No                   | No                                       |
+| `pi-remote attach` (`pi --no-session --remote`) | Nothing          | The one it was given | From that view, on the viewed machine    |
+| The web app, the phone                          | Nothing, ever    | Of any session       | On any machine that accepts              |
+| A linked machine's daemon                       | Its own sessions | For its clients      | For its clients, on machines that accept |
+
+- **The role comes from the transport.** A hello as `bridge` or `runner` is accepted only on the unix socket, a file with mode 0600 under the user's `~/.pi/agent/harness/remote/`, so only a process of that user on that machine registers a session. Over TCP a hello is `client` or `link`, nothing else. A browser cannot pose as a session, with or without a valid token.
+- **Every start names a machine.** `session.start` carries a `machine` from the machine list, and that list holds only daemons. Clients appear only as viewers, in presence. A daemon spawns only on itself. For another machine it forwards the start over the link, and the target checks its own policy, roots and trust.
+- **Sessions do not move.** A session lives where its file is, and continuing a closed one starts on that machine. To work elsewhere, start a new session there.
+- **On the screens.** The new-session picker lists machines, never "this browser". A machine that refuses starts shows greyed, with the reason. A view's new-session action names the machine ("New session on server"). A pi's "open in the browser", the address and QR code from `/remote`, opens a view of that session and nothing more.
+
+### A machine's policy
+
+Each machine publishes what clients and linked machines may do there, so a client draws only what will work. The policy travels with the machine in `GET /machines`, over links, and in `policy.changed` when a setting changes. Logged-in clients and linked machines see it. The unauthenticated `/.well-known/pi-remote` leaves it out, because roots are paths on disk.
+
+```ts
+interface MachinePolicy {
+	/** The `acceptStarts` setting. Off: only the machine's own terminal and CLI start sessions there. */
+	acceptStarts: boolean;
+	/** Where a start may happen, as set, `~`-relative. */
+	roots: string[];
+	/** What a folder pi has not trusted gets. "refuse" until open question 2 is settled. */
+	untrusted: "refuse" | "ask";
+	runner: "child" | "tmux";
+	/** Whether clients answer other extensions' dialogs in terminal sessions here. */
+	forwardOtherDialogs: boolean;
+}
+```
+
+The limits every machine applies, such as never setting `full` from outside (see [What a client or a linked machine may not do](#what-a-client-or-a-linked-machine-may-not-do)), are not part of the policy, because no machine can change them.
+
+A refused start answers with the reason, `starts-off`, `outside-roots`, `missing`, `untrusted` or `offline`, and the client shows it next to the machine. The client never decides alone: the target checks again, since the policy it drew from can be a few seconds old.
+
+## Where state lives
+
+| State                                                                    | Its owner                      | Where it persists                                                       |
+| ------------------------------------------------------------------------ | ------------------------------ | ----------------------------------------------------------------------- |
+| The conversation                                                         | The pi process                 | pi's session file, on its machine                                       |
+| The harness's facts: tasks, rulings, questions, the room's messages      | The session that wrote them    | That session's harness log, on its machine. Shared rooms are replicated |
+| Live state: the streamed message, open questions, the queue, mode, model | The bridge                     | Nowhere. The daemon keeps a materialized copy for clients               |
+| Which sessions are open                                                  | The presence index, in the kit | `~/.pi/agent/harness/events/live/`, one file per session                |
+| The machine's identity, links, devices, credentials, settings            | The daemon                     | `~/.pi/agent/harness/remote/`                                           |
+| Where the operator is active                                             | The daemon                     | Memory only, sent to every client                                       |
+| Drafts, scroll, the open session, the cache                              | The client                     | The client                                                              |
+
+A client is a replica. It never holds a fact nobody else has, so losing a client loses only its cache and its outbox.
+
+## Machines and links
+
+- **Identity.** On its first start the daemon creates an ed25519 key in `remote/machine.json`. The machine id is the fingerprint of the public key. Its name follows [Naming](#naming).
+- **Finding.** The daemon listens on port 7878 by default and answers `GET /.well-known/pi-remote` with its id, name, version, protocol version and public key. When it listens beyond loopback it also announces `_pi-remote._tcp` over mDNS, and with Tailscale it looks for the same port on each node from `tailscale status --json`. A URL typed by hand always works.
+- **Linking.** Finding a machine grants nothing. On one machine, the link action on the Remote tab or `pi-remote link` shows a code good for 5 minutes. On the other, `pi-remote link <url> <code>` sends it. Each side keeps the other's public key, name and the addresses it was reached at, and every link connection opens with a handshake signed by both keys. Unlinking on either side removes the link there at once, and on the other side when it next connects.
+- **Direction.** A link is one WebSocket, opened by whichever side can reach the other and reconnected by that side. The laptop behind NAT dials the server, and events and commands then flow both ways. When neither side reaches the other, there is no link, and Tailscale or a tunnel is the answer. A relay that only forwards sealed bytes is planned for later.
+- **Through one daemon.** A client connects to one daemon and sees every machine linked to it. That daemon forwards the client's commands to the machine that owns the session, and the events back. A linked machine is trusted like a paired device: it may do what a device may do and nothing more, and a command keeps the `by` of the client that sent it.
+- **What crosses a link.** Each side's session list and states, the streams of sessions someone on the other side is viewing, the commands for those sessions, and the shared rooms both machines are members of. Files, settings and credentials never cross.
+
+## Naming
+
+A name has to be short enough to type and say, stable enough that an agent can keep using it, and editable. No single string does all three, so every session and machine has three layers, the way petname systems keep a secure key under a memorable name ([Zooko's triangle](https://files.spritely.institute/papers/implementation-of-petname-system-in-existing-chat-app.html)).
+
+| Layer   | Session                                                       | Machine                              | Changes                                                                                          |
+| ------- | ------------------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| id      | pi's session id                                               | The fingerprint of the machine's key | Never. The disk and the wire keep ids only, mentions included                                    |
+| handle  | One word drawn from the harness's list when the session opens | The hostname, cleaned                | Only when the operator renames it                                                                |
+| aliases | Earlier handles                                               | Earlier names                        | Resolve while the session is live or closed less than 7 days ago, unless someone else holds them |
+
+A session also has a title, what it is about, which the tasks feature writes and which is pi's session name. People read `kestrel · OAuth for the MCP server`; agents write `@kestrel`. The handle is a call sign, never the only label: the title next to it says what the session is.
+
+### The word list
+
+The list lives in the kit, and its flavor is sky and field. π is the circle constant and the harness's mark is a π, so half the words are things that orbit (moons, stars, constellations, comets) and half are a naturalist's field guide (birds, trees, stones, the sea):
+
+```text
+sky     vega  rigel  deneb  lyra  titan  miranda  oberon  phoebe  callisto  halley
+field   kestrel  heron  wren  birch  juniper  quartz  basalt  fjord  kelp  orca
+```
+
+A test holds the list to these rules:
+
+- At least 600 words, so 7 days of reserved handles still leave most of the list free. The operator's sessions run at about 70 a week.
+- Lowercase ASCII, 3 to 8 letters, one word.
+- Every word has its own first three letters, so `@kes` and Tab completes it ([EFF's short list](https://www.eff.org/deeplinks/2016/07/new-wordlists-random-passphrases) has the same property).
+- Any two words are at least 3 edits apart, so one typo still resolves to one word.
+- No word that reads as code or as an instruction (`test`, `main`, `build`, `merge`, `push`), and none that is a pi or harness command.
+
+### Drawing a handle
+
+- On `session_start`, a session with no handle draws a word at random among those nobody holds or reserves: the handles and aliases of live sessions and of sessions closed less than 7 days ago, on this machine and on the linked machines it knows.
+- The handle is logged once, in `session.named`, and never recomputed from the order sessions opened in.
+- A continued session keeps its handle when nobody else holds it. When someone does, it draws a new one and logs a rename.
+- With every word taken, the draw adds a number (`kestrel-2`), once, and keeps it.
+- Two machines out of contact can draw the same word. Neither is renamed: where both appear they show as `kestrel@laptop` and `kestrel@server`, and a bare `@kestrel` there asks which one.
+
+### Machine names
+
+- The hostname, cleaned to lowercase letters, digits and dashes (`John's-MacBook-Pro.local` becomes `johns-macbook-pro`). It follows the hostname until the operator edits it, and editing pins it, as [Tailscale](https://tailscale.com/kb/1098/machine-names) does.
+- Unique among linked machines. A link that would bring a second `server` asks for another name, suggesting `server-2`, before it completes.
+
+### Renaming
+
+- Only the operator renames: a session from the panel or `pi-remote rename`, a machine from the Remote tab or `pi-remote machines rename`. Agents never rename, and nothing renames by itself.
+- A rename is a fact in the log, `session.renamed { from, to, by }` or `machine.renamed { from, to }`, sent over the links like any other. Every reader computes names from these facts, the way a Matrix room carries each display name change as an event.
+
+### What the agent knows
+
+- **Itself.** A `harness_identity` section in pi's structured system prompt (`systemPromptOptions.sections`) says its handle, its machine, how others mention it, and its earlier handles. Pi records a changed section as a delta in the transcript, so a rename costs a few tokens and the cached prompt stays valid.
+- **The others.** Peers' notes, which already say who joined and who left, say "heron is now db (was heron)".
+- **Old names it writes.** A mention of an alias reaches the session that holds it, and the writer's agent is told "delivered to auth (was oauth)", so its next message uses the new handle.
+- **Old names it reads.** A message keeps its text as typed, and its `to` holds session ids. A screen draws the current handles; the agent reads the text as written, with the rename notes before it.
+
+## The daemon's lifecycle
 
 ```mermaid
 sequenceDiagram
   participant A as pi A (first)
-  participant H as hub
+  participant D as daemon
   participant B as pi B
-  A->>H: connect to ~/.pi/agent/harness/remote/hub.sock
-  Note over A: refused: no hub yet
-  A->>H: spawn node hub.ts, detached
-  A->>H: connect, hello
-  B->>H: connect, hello
+  A->>D: connect to remote/daemon.sock
+  Note over A: refused: no daemon yet
+  A->>D: spawn node daemon.ts, detached
+  A->>D: hello
+  B->>D: hello
   Note over A: pi A exits
-  A--xH: socket closes
-  Note over H: B is still live, the hub stays
+  Note over D: B is live, the daemon stays
   Note over B: pi B exits
-  Note over H: no session for 5 minutes
-  H->>H: exit, remove the socket
+  Note over D: Background = with pi:<br/>no session for 5 minutes
+  D->>D: exit, remove the socket
 ```
 
-- **Start.** On `session_start`, the bridge connects to `hub.sock` under `~/.pi/agent/harness/remote/`. When nothing answers, it spawns the hub with `detached: true` and `stdio: "ignore"` and lets it go, then connects with a short backoff. Two pi processes starting at once both spawn; the hub that binds the socket first wins and the other exits, because binding is the lock. A socket file with no process behind it is removed after a failed connect.
-- **Stay.** The hub lives while any session is connected, and while a hosted session exists even if its bridge is reconnecting. With no session for `idleExitMinutes` (5 by default), it exits. `never` keeps it up, which is what a VPS wants.
-- **Foreground.** `pi-remote serve` runs the hub attached to the terminal, for systemd or a container. It never exits on idle.
-- **Upgrade.** Every hello carries the protocol version and the package version. A hub older than a connecting bridge exits as soon as it has no client mid-request, and the bridges start the new one. Losing the hub loses only the replay buffer: the sessions keep running, the bridges reconnect, and the clients resync from a snapshot. This is why the hub keeps no state of its own beyond devices, credentials and settings, which are files.
-- **Web app version.** The hub reads the web build into memory when it starts and serves that copy. `pi update` replaces the files on disk while an old hub is still running, and serving from disk would hand the phone an app that does not match the hub. pi-mobile hit the same problem.
+- **Start.** On `session_start`, the bridge connects to `daemon.sock` under `~/.pi/agent/harness/remote/`. When nothing answers, it spawns the daemon with `detached: true` and `stdio: "ignore"`, then connects with a short backoff. Binding the socket is the lock: of two daemons started at once, the second exits. A socket file with no process behind it is removed after a failed connect.
+- **The Background setting.** `with pi`, the default, lets the daemon exit after `idleExitMinutes` with no session, while no background session exists. `always` installs a user service and keeps the daemon up:
+  - Linux: `~/.config/systemd/user/pi-remote.service` running `pi-remote serve`, enabled and started. It asks before running `loginctl enable-linger`, which keeps it up with nobody logged in.
+  - macOS: a LaunchAgent in `~/Library/LaunchAgents/` with `RunAtLoad` and `KeepAlive`.
+  - Elsewhere: the setting says no service manager was found and shows the `pi-remote serve` line to run under any supervisor.
+
+  Going back to `with pi` stops and removes the service. `pi-remote service install | uninstall | status` does the same from a shell.
+
+- **Handover.** When the service starts while a daemon started by a pi holds the socket, it asks that daemon to exit, waits for the socket and takes it. Bridges, runners and clients reconnect and resync.
+- **Status.** `pi-remote status` and the Remote tab show the pid, who started the daemon (a pi, the service, or a shell), uptime, version, reach and links.
+- **Upgrade.** Every hello carries the protocol version and the package version. A daemon older than a connecting bridge exits as soon as no client request is in flight, and the bridges start the new one. Losing the daemon loses only its replay buffer, because everything else it keeps is a file.
+- **Web app version.** The daemon reads the web build into memory when it starts and serves that copy, so `pi update` replacing the files never hands the phone an app that does not match the daemon.
 
 ## Sessions
 
 ### Two kinds
 
-| Kind             | Who started it                                                        | Taking it back from a terminal                                                                             |
-| ---------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Terminal session | You, by running `pi` in any terminal                                  | It is already in that terminal. From another terminal, close it first and open it with `pi --session`      |
-| Hosted session   | The hub, because you asked from the phone, the web or `pi-remote new` | `pi-remote attach <name>`, which runs `tmux attach -t pi-<name>`. Detaching (`Ctrl-b d`) leaves it running |
+| Kind       | Started by                                                 | Kept alive by                                                                     | Taking it back                                                                                   |
+| ---------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Terminal   | You, running `pi` in a terminal                            | The terminal                                                                      | It is in that terminal. Any other pi or client opens a view of it                                |
+| Background | `pi-remote new`, the phone, or a view's new-session action | The runner, under the daemon by default, or under nohup, systemd, docker, or tmux | A view from any pi (`pi-remote attach kestrel@server`), or `tmux attach` when the runner is tmux |
 
-Both kinds load the bridge, so the phone sees no difference. A hosted session is only a terminal session whose terminal nobody is looking at.
+Both kinds load the bridge, so clients see no difference beyond the commands a background session adds.
+
+### The runner
+
+`pi-remote run [folder] [--handle h] [--title t] [--model m] [--session id] [--approve | --no-approve]` starts `pi --mode rpc` with those flags, the title as pi's `--name` and the handle as `--handle`, a flag the bridge registers. It then:
+
+- keeps pi's stdin open, because closing it is how pi shuts down in RPC mode;
+- reads pi's stdout continuously, since a reader that stops can stall pi;
+- forwards pi's `extension_ui_request` dialogs (`select`, `confirm`, `input`, `editor`) to the daemon as questions, writes the answer back as `extension_ui_response`, and forwards `notify`, `setStatus`, `setWidget` and `setTitle` as notices;
+- runs the commands only RPC has (`fork`, `clone`, `new_session`, `switch_session`, `get_tree`, `get_entries`, `clear_queue`, `get_commands`, `get_session_stats`) for clients;
+- exits when pi exits, with pi's exit code, and on SIGTERM closes pi's stdin, then kills pi after a grace period.
+
+The bridge runs inside that pi as in any other and does everything else. When the runner dies, pi's stdin closes and pi shuts down, so a background session never outlives its runner.
+
+The daemon starts the runner as its own detached child in a new session (`setsid`), with its output in `remote/runs/<handle>.log`, so a background session outlives the daemon that started it. Any supervisor works as well:
+
+```bash
+nohup pi-remote run ~/Projects/x &
+systemd-run --user pi-remote run ~/Projects/x --handle vega
+tmux new -d -s pi-vega pi --handle vega      # the tmux runner: an interactive pi
+```
+
+With `runner: tmux` on the Remote tab, the daemon starts an interactive pi in a detached tmux session instead, and `pi-remote attach` on that machine offers `tmux attach -t pi-<handle>`.
+
+### Trust
+
+Pi resolves project trust before it loads extensions, so the bridge cannot forward that question. In RPC mode with no saved decision, pi skips the project's resources without asking. A background session started in a folder pi has not trusted would therefore run silently without the project's extensions. The runner never leaves that to chance: it reads `~/.pi/agent/trust.json` for the folder and its parents, and passes `--approve` or `--no-approve` explicitly. A folder with no decision is refused, with a line saying to trust it from a terminal, until the open question on asking from the phone is settled.
+
+### The view
+
+- Any pi with the bridge opens a full-screen view of any session on any linked machine from the panel (see [Peers and remote](#peers-and-remote)). Esc goes back to its own session.
+- `pi-remote attach kestrel@server` runs `pi --no-session --remote kestrel@server`, a flag the bridge registers with `pi.registerFlag`, which opens straight into the view and closes pi with it.
+- The view draws the transcript with pi-tui's components and the harness's own renderers: tool calls, rulings, tasks, the prune line. A tool another package renders shows in a generic form, with its name, arguments and output. That is the cost of not depending on a terminal multiplexer.
+- The composer sends `prompt.send` with `deliverAs` set the way pi's editor sets it while a run is under way.
+- A question the viewed session asks is asked again locally on `harness:ask`, so the viewing pi's ask-questions draws it exactly as it draws its own. The answer goes back as `ask.answer`.
+- A background session's view adds the RPC-only actions: fork, clone, a new session in the same folder, the tree.
 
 ### One writer per session
 
-Pi has no lock on a session file. Two processes opened with the same `--session` would both append to it. The bridge adds the lock pi lacks: on `session_start` it registers the session id with the hub, and when another live process already holds it, it says so in the chat and tells you where the session is running (`pi-remote attach <name>`). When the hub is not running, the bridge keeps a lock file next to the event log (`<session>.lock` with the pid) and checks it the same way.
+Pi has no lock on a session file. The bridge adds one: on `session_start` it registers the session in the presence index, and when a live process already holds that session, it says so in the chat and names the view that reaches it. A session continued from another machine starts on the machine that holds its file.
 
 ### Starting a session remotely
 
 ```mermaid
 sequenceDiagram
-  participant P as phone
-  participant H as hub
-  participant T as tmux
-  participant S as new pi
-  P->>H: POST /sessions { cwd, model, name, prompt }
-  H->>H: cwd under an allowed root? folder exists?
-  H->>T: tmux new-session -d -s pi-<name> -c <cwd> pi --name <name> ...
-  T->>S: starts pi
-  S->>H: hello (bridge)
-  H->>S: prompt
-  H-->>P: { session, name }
+  participant C as client
+  participant D1 as daemon (laptop)
+  participant D2 as daemon (server)
+  participant R as runner
+  participant S as pi --mode rpc
+  C->>D1: POST /sessions { machine: server, cwd, model, name, prompt }
+  D1->>D2: session.start (over the link)
+  D2->>D2: accepts starts? cwd under a root? exists? trusted?
+  D2->>R: spawn pi-remote run, detached
+  R->>S: pi --mode rpc --handle ... --approve
+  S->>D2: hello (bridge)
+  D2->>S: prompt.send
+  D2-->>D1: { session, name }
+  D1-->>C: { session, name }
 ```
 
-- **Where.** The hub only starts pi in a folder under one of the roots on the Remote settings tab, `~` by default. It resolves symlinks before checking, so a link out of the root does not count. The folder picker lists the folders under each root, recent session folders first, read from pi's session directories.
-- **How.** The hub passes only `--name`, `--model` and `--session` when continuing. Anything else comes from the folder's settings, like any pi you open.
-- **Trust.** Pi asks before trusting a project's own extensions, and that question runs before any extension loads, so the bridge cannot forward it. The hub refuses to start a session in a folder pi has not trusted, and says to open it once in a terminal or to trust it from there. A later version can trust it on request after asking on the phone.
-- **Continuing a closed session.** The session list includes recent sessions that no process holds. Opening one starts a hosted pi with `--session <id>`.
-- **Stopping.** The phone can ask a hosted session to end (`ctx.shutdown()`, which waits for the run to settle) or kill it. A terminal session can only be asked.
-- **A worktree per session.** Later: the hub can create a git worktree for a new session, as Claude Code's `--spawn worktree` does.
+- **Where.** Only on a machine whose policy accepts starts, and only in a folder under one of its roots, `~` by default, with symlinks resolved before the check. The folder picker lists the folders under each root, recent session folders first.
+- **How.** The daemon passes only the handle it drew, the title when the client gave one, `--model`, `--session`, and the trust flag. Everything else comes from the folder's settings.
+- **Continuing a closed session.** The session list includes recent sessions no process holds. Opening one starts a runner with `--session <id>` on the machine that holds it.
+- **Stopping.** A client can ask any session to end (`ctx.shutdown()`, which waits for `agent_settled`), and kill a background session with `force`.
+- **A crashed background session** shows as crashed with a continue action. Nothing restarts it by itself, because a run that died mid-tool may have left work half done.
 
-### Hosting a session
+## Sync
 
-Three ways to run a session nobody is looking at were weighed.
+### Three kinds of data, three cursors
 
-|                                      | Interactive pi in tmux                  | `pi --mode rpc` under the hub                                                                                                                | Sessions inside the hub through the SDK |
-| ------------------------------------ | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| Take it back from a terminal mid-run | Yes, `tmux attach`                      | No. Pi's terminal cannot attach to an RPC process, so the hub waits for the run to settle, stops it and opens `pi --session` in the terminal | No, same handoff                        |
-| Our `custom()` dialogs               | Draw in the terminal and race the phone | Fall back to the plain select and input of `packages/ask-questions/src/rpc.ts`                                                               | Same as RPC, and no terminal at all     |
-| Events and dialogs reach the hub     | Through the bridge                      | Through RPC's own stream and its extension UI protocol, with no replacing of `ctx.ui`                                                        | Directly                                |
-| A crash takes down                   | One session                             | One session                                                                                                                                  | Every session                           |
-| Needs                                | tmux                                    | Nothing                                                                                                                                      | Nothing                                 |
+| Data                | Nature                                    | Cursor                                                                          |
+| ------------------- | ----------------------------------------- | ------------------------------------------------------------------------------- |
+| The conversation    | Durable, append only, a tree of entries   | pi's entry id. Pi documents it as a durable cursor (`get_entries` with `since`) |
+| The harness's facts | Durable, append only, one writer per file | The byte offset in the file                                                     |
+| Live state          | Ephemeral                                 | `(epoch, seq)`: `seq` is assigned by the bridge and restarts with each epoch    |
 
-tmux wins because taking a session back mid-run is the point of having it in the background, and because every dialog keeps working on both sides. RPC stays the better host for work nobody will ever attach to, like a scheduled job, and can be added later as a second host behind the same bridge. Without tmux on the machine, the hub can still show and control terminal sessions but starts none.
+For a background session the daemon asks the runner for `get_entries`. For a terminal session it reads the session file itself and remembers a byte offset per file, so following a session costs one read of what was appended.
+
+### The first load
+
+1. The client asks for the machines and the sessions: a small list with names, states, costs and last lines. It draws at once.
+2. Opening a session fetches a snapshot: the tail of the active branch, from the last compaction or the last 50 messages, whichever is shorter, plus the live state and the entry cursor. Then the live stream follows from the snapshot's `seq`.
+3. Older history comes in pages as the client scrolls up, by entry id.
+
+### The cache
+
+Each client keeps what it downloaded, keyed by machine, session and entry id: IndexedDB on the web, SQLite in the native app, a file under `remote/cache/` for a viewing pi. The next time it draws the cache at once and asks for the entries after its cursor, then the live snapshot. When the owner does not know the cursor, the client drops that session's cache and fetches the tail again. Logging out, unpairing or unlinking clears the cache.
+
+### Resuming the live stream
+
+A client that reconnects sends `(epoch, seq)` for each open session. When the epoch matches and the daemon still holds every event after that `seq`, it sends them. Otherwise it asks the bridge for a snapshot. A new epoch always means a snapshot.
+
+### Rooms across machines
+
+Linked daemons exchange, for every shared room both machines are members of, each file's name and size. The side with more sends the bytes after the other's size, and the receiver appends them to `rooms/<id>/<session>.jsonl`. A file has one writer, local or replicated, so replication never conflicts. A daemon forwards room files to its other linked members, and the same bytes arriving by two paths are recognized by offset.
+
+## Offline
+
+### Rules
+
+- **Only the owner declares a session ended.** A lost link makes a remote session "out of contact since 14:02", never ended.
+- **Timeouts use the measuring side's monotonic clock.** `at` is for display. Order comes from `seq` or the offset, never from another machine's clock.
+- **Nothing blocks pi.** With the daemon gone, the bridge keeps working, drops deltas, and its facts are on disk already.
+- **Commands carry an id.** The bridge keeps the last 1,000 ids per session and ignores a repeat, so resending is safe.
+
+### Heartbeats
+
+| Connection        | Ping every | Lost after | Starting value, to tune |
+| ----------------- | ---------- | ---------- | ----------------------- |
+| Bridge and daemon | 10 s       | 3 missed   | yes                     |
+| Client and daemon | 15 s       | 3 missed   | yes                     |
+| Link              | 15 s       | 3 missed   | yes                     |
+
+### When something goes away
+
+| What goes                                 | Who notices                                           | What clients show                                                    | What happens to what was pending                                                                                                                                               | Coming back                                                                                  |
+| ----------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| A client                                  | The daemon: the socket closes or pings stop           | It leaves the viewer marks, and notifications apply again            | What was typed stays in the client's outbox                                                                                                                                    | See [the outbox](#the-outbox)                                                                |
+| The daemon                                | Bridges, runners, clients, links                      | "Reconnecting"                                                       | Sessions keep running, background ones included. The replay buffer is lost                                                                                                     | Bridges reconnect (with `with pi`, one starts a daemon); clients resume or take a snapshot   |
+| A bridge's socket                         | Both ends                                             | The session as "reconnecting"                                        | Open questions stay open in the terminal                                                                                                                                       | The hello carries `(epoch, seq)`; open questions come back in the snapshot                   |
+| pi, ending normally                       | The bridge sends `session.ended`                      | The session moves to recent                                          | Open questions close with `by: gone`; pending commands are refused                                                                                                             | Continue opens it with `--session`                                                           |
+| pi, crashing                              | The daemon: the socket closes and the process is gone | "Crashed", with the last known state                                 | The message being streamed is lost; the session file ends at the last finished message                                                                                         | Continue. The run does not restart by itself                                                 |
+| pi, frozen (a sleeping laptop, `SIGSTOP`) | Pings go unanswered while the process exists          | "Not answering"                                                      | Nothing                                                                                                                                                                        | It answers again by itself                                                                   |
+| A link, or the machine behind it          | Both daemons                                          | The machine "offline since 14:02"; its sessions greyed "as of 14:02" | Commands to it are refused at once, with an offer to keep them in the outbox. Its questions show "waiting on server". Room messages to its agents stay in my log, on their way | The handshake exchanges cursors and fills the gaps; room messages arrive and get their ticks |
+| A machine, for good                       | Nobody can tell it from a long outage                 | Offline indefinitely                                                 | Nothing                                                                                                                                                                        | Unlinking it removes its sessions and replicas from every list                               |
+
+### The outbox
+
+What a client sends while it cannot reach the owner waits in an outbox on that client, each item with its id and the time it was typed, marked "not sent". After a reconnect, items typed in the last 2 minutes go out in order on their own. Older items wait for the operator to send, edit or discard them, because "go ahead and push" from an hour ago is not the same instruction now. An answer to a question that someone else answered meanwhile comes back as "answered on laptop" and is dropped.
+
+### Presence and liveness
+
+The presence index in the kit is the one list of open sessions, read by peers and remote alike. An entry holds the session id, the machine id, the pid, the process start time, the folder, the name and the state.
+
+- **A local entry is live** while a process with that pid and that start time exists. The start time comes from `/proc/<pid>/stat` on Linux and `ps -o lstart=` on macOS. A pid the system gave to another process no longer passes, and neither does another user's process.
+- **A remote entry is live** while its lease is fresh. The daemon writes the entries of linked machines' sessions and touches them every 15 seconds while the link is up. A reader treats an entry whose file is older than 45 seconds, by its own clock, as out of contact.
+- **A session's state** is pi's own vocabulary from the [program status protocol](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/terminal-setup.md#program-status): `working`, `blocked`, `done`, `error`, `idle`. Peers' flag, remote's push and the session list read this one state.
 
 ## The protocol
 
 ### Transport
 
-- **Clients and the hub:** HTTP for login, the snapshot, history and files, and one WebSocket per client for everything live. JSON text frames.
-- **Bridges and the hub:** the unix socket, one JSON object per line, with the same envelope. Lines split on `\n` only, never with a reader that also splits on U+2028, as pi's RPC documentation warns.
+- **Clients and their daemon:** HTTP for login, the session list, snapshots, history pages and files, and one WebSocket per client for everything live. JSON text frames.
+- **Bridges and runners with their daemon:** the unix socket, one JSON object per line, split on LF only. Only here does a hello take the role `bridge` or `runner`; elsewhere it is `client` or `link` (see [Roles](#roles)).
+- **Daemons over a link:** one WebSocket, the same envelopes, with `permessage-deflate`.
 
 ### Envelope
 
 ```ts
 interface Envelope {
 	v: 1;
-	kind: "hello" | "event" | "command" | "reply" | "snapshot" | "error";
-	/** The session it is about. Absent for hub-level messages. */
+	kind: "hello" | "event" | "state" | "command" | "reply" | "error";
+	/** The machine that owns the session. Absent for messages about the connection itself. */
+	machine?: string;
+	/** pi's session id. */
 	session?: string;
-	/** Per session, increasing. A client resumes from the last one it saw. */
+	/** The life of the pi process that sent it. */
+	epoch?: string;
+	/** Per epoch, increasing, assigned by the bridge. */
 	seq?: number;
-	/** Pairs a command with its reply. */
+	/** Pairs a command with its reply, and makes a resent command a repeat. */
 	id?: string;
 	type: string;
 	data: unknown;
 	at: number;
+	/** Who caused it. */
+	by?: { kind: "terminal" | "client" | "agent"; name: string; machine: string };
 }
 ```
 
-A shape only grows. A field that changes meaning gets a new name, and an incompatible change gets `v: 2`. This is the rule the event log already follows.
+A shape only grows. A field that changes meaning gets a new name, and an incompatible change gets `v: 2`, the rule the harness log follows.
 
-### A session's stream
+### Naming
 
-1. The client subscribes to a session with the last `seq` it saw.
-2. When the hub still holds every event after that `seq`, it sends them. Otherwise it asks the bridge for a snapshot and sends it, then the events after it.
-3. Events follow, in order.
+One name per fact, the same on disk, on the wire and inside the process.
 
-The hub keeps a ring of recent events per session, sized by count (20,000 across the machine, the size pi-mobile settled on). Only the session a client has open streams text deltas and tool output to it. The other sessions send state changes only: started, waiting on you, settled, the title, the cost. Ten busy sessions cost the phone little battery and data.
+| Kind               | Form                                 | Examples                                                                 |
+| ------------------ | ------------------------------------ | ------------------------------------------------------------------------ |
+| A fact             | `<subject>.<verb in the past>`       | `ask.opened`, `call.ruled`, `mode.changed`, `machine.linked`             |
+| A command          | `<subject>.<verb in the imperative>` | `prompt.send`, `ask.answer`, `model.set`, `session.stop`                 |
+| A state            | `<subject>`                          | `tasks`, `account`, `mode`, `peers`                                      |
+| pi's own events    | `pi.<pi's name>`, unchanged          | `pi.message_update`, `pi.agent_settled`                                  |
+| Inside the process | `harness:` + the name                | `harness:tasks` to ask the state, `harness:tasks.changed` for its change |
+
+The log types already on disk keep their names, because readers depend on them: `activity`, `session.state`, `session.prompted`, `tasks.board`, `request.bid`. Inside the process, `defineContract` emits a change on both `harness:<name>.changed` and the older `harness:<name>:changed` while packages of earlier versions can be installed beside it.
+
+Ephemeral events never reach the disk or the replay buffer beyond the message being streamed: `pi.message_update`, `pi.tool_execution_update`, `presence.changed`, `draft.typed`.
 
 ### The snapshot
 
-What a client needs to draw a session without replaying it:
+| Field                                     | From                                                               |
+| ----------------------------------------- | ------------------------------------------------------------------ |
+| The tail of the active branch, its cursor | `ctx.sessionManager.getBranch()`, or `get_entries` from the runner |
+| The message being streamed                | The bridge's copy of the partial message                           |
+| The queue                                 | The last `queue_update`                                            |
+| Model, thinking level, context use        | `ctx.model`, `ctx.thinkingLevel`, `ctx.getContextUsage()`          |
+| Tasks and decisions                       | `TASKS.current()`                                                  |
+| Rulings of the calls in view              | `RULING.current()` for each call                                   |
+| Open questions                            | The bridge's list of open asks                                     |
+| Permission mode                           | The permission feature's state                                     |
+| Account and quota windows                 | `ACCOUNT.current()`                                                |
+| Peers in the folder                       | `PEERS.current()`                                                  |
+| Cost of the session                       | The session's usage totals                                         |
+| Viewers and the active client             | Added by the daemon                                                |
 
-| Field                               | From                                                        |
-| ----------------------------------- | ----------------------------------------------------------- |
-| The transcript of the active branch | `ctx.sessionManager.getBranch()`, as pi's message types     |
-| The message being streamed, if any  | The bridge's own copy of the partial message                |
-| The queue                           | The last `queue_update`                                     |
-| Model, thinking level, context use  | `ctx.model`, `ctx.thinkingLevel`, `ctx.getContextUsage()`   |
-| Tasks and decisions                 | `TASKS.current()`                                           |
-| Rulings of the calls in view        | `RULING.current()` for each call                            |
-| Open questions                      | The bridge's list of open asks                              |
-| Permission mode                     | The permission feature's state                              |
-| Account and quota windows           | `ACCOUNT.current()`                                         |
-| Peers in the folder                 | `PEERS.current()`                                           |
-| Cost of the session                 | The session's usage totals                                  |
-| Who is looking                      | The hub adds the viewers and whether a terminal is attached |
+### Events
 
-### Event families
+**`pi.*`** is pi's event stream in the shapes of its [JSON and RPC modes](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/json.md), so the client follows pi's rules for rebuilding a streamed message: buffer the deltas of each `contentIndex`, replace the block on its `*_end`, and replace the whole message on `message_end`. The bridge subscribes with `pi.on()` and drops the cumulative `partial` fields, as pi's JSON mode does. `pi.model_select` has no JSON form in pi, so the bridge sends one in the same style.
 
-**`pi.*`** is pi's own event stream in the shapes of its JSON and RPC modes (`JsonAgentSessionEvent`, see [JSON Event Stream](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/json.md)), so the client follows pi's rules for rebuilding a streamed message and pi's documentation covers them. The bridge subscribes with `pi.on()` and drops the cumulative `partial` fields, as pi's JSON mode does.
+**Harness facts:**
 
-| Event                                                     | What the client does with it                                                                                     |
-| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `pi.agent_start`, `pi.agent_settled`                      | Working, then idle. `agent_settled` is the one that means nothing more will happen                               |
-| `pi.message_start`, `pi.message_update`, `pi.message_end` | Build the message from deltas, replace each block on its `*_end`, and replace the whole message on `message_end` |
-| `pi.tool_execution_start`, `_update`, `_end`              | One row per call, with its output. Nested calls carry `parentToolCallId`                                         |
-| `pi.queue_update`                                         | The steering and follow-up queues                                                                                |
-| `pi.compaction_start`, `pi.compaction_end`                | A line in the transcript                                                                                         |
-| `pi.auto_retry_start`, `pi.auto_retry_end`                | A line while it waits                                                                                            |
-| `pi.session_info_changed`, `pi.thinking_level_changed`    | The header                                                                                                       |
-| `pi.model_select`                                         | The header. Pi has no JSON event for it, so the bridge sends one in the same style                               |
+| Event              | Data                                                             | Logged |
+| ------------------ | ---------------------------------------------------------------- | ------ |
+| `tasks.changed`    | `SessionTasks`                                                   | yes    |
+| `call.ruled`       | `{ toolCallId, ruling: CallRuling }`                             | yes    |
+| `ask.opened`       | `{ id, source, questions: AskQuestion[], expiresAt? }`           | yes    |
+| `ask.closed`       | `{ id, by, result: AskResult }`                                  | yes    |
+| `mode.changed`     | `{ mode: "manual" \| "edits" \| "judge" \| "full" }`             | yes    |
+| `account.switched` | `AccountState`                                                   | yes    |
+| `peers.changed`    | `{ peers: PeerMark[], unread }`                                  | no     |
+| `context.pruned`   | `{ calls, tokensFreed, rewriteCost }`                            | yes    |
+| `turn.used`        | `{ input, output, cacheRead, cacheWrite, cost, model }`          | yes    |
+| `prompt.received`  | `{ by }`, written next to a prompt that came from a client       | yes    |
+| `notice.shown`     | `{ text, level }`, from `ctx.ui.notify` and the runner's notices | no     |
 
-**`harness.*`** are the kit's contracts, the things only this harness knows. [Events inside the harness](#events-inside-the-harness) lists what each feature has to publish for these to exist.
+**Session and machine facts**, from the bridge and the daemon:
 
-| Event                     | Data                                                             |
-| ------------------------- | ---------------------------------------------------------------- |
-| `harness.tasks.changed`   | `SessionTasks`                                                   |
-| `harness.call.ruled`      | `{ toolCallId, ruling: CallRuling }`                             |
-| `harness.ask.opened`      | `{ id, source, questions: AskQuestion[], expiresAt? }`           |
-| `harness.ask.closed`      | `{ id, by: "terminal" \| "device", device?, result: AskResult }` |
-| `harness.mode.changed`    | `{ mode: "manual" \| "edits" \| "judge" \| "full" }`             |
-| `harness.account.changed` | `AccountState`                                                   |
-| `harness.peers.changed`   | `{ peers: PeerMark[], unread }`                                  |
-| `harness.context.pruned`  | `{ calls, tokensFreed, rewriteCost }`                            |
-| `harness.usage.turn`      | `{ input, output, cacheRead, cacheWrite, cost, model }`          |
-| `harness.notice`          | `{ text, level }`, from `ctx.ui.notify`                          |
-
-**`host.*`** come from the bridge and the hub about the process itself.
-
-| Event                  | Data                                                                                                                                                |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `host.session.live`    | `{ pid, cwd, name, kind: "terminal" \| "hosted", tmux? }`                                                                                           |
-| `host.session.gone`    | `{ reason: "exit" \| "crash" \| "lost" }`                                                                                                           |
-| `host.terminal.prompt` | `{ open: number, kind, title }`, from `ui_prompt_start` and `ui_prompt_end`, so the phone can say a dialog it cannot answer is open in the terminal |
-| `host.terminal.typed`  | `{ at }`, at most once a minute, from `ctx.ui.onTerminalInput`, for [presence](#notifications)                                                      |
-| `host.viewers`         | `{ devices: string[], terminal: boolean }`                                                                                                          |
+| Event               | Data                                                                       |
+| ------------------- | -------------------------------------------------------------------------- |
+| `session.live`      | `{ pid, startedAt, cwd, name, kind: "terminal" \| "background", runner? }` |
+| `session.state`     | `{ state: "working" \| "blocked" \| "done" \| "error" \| "idle" }`         |
+| `session.gone`      | `{ reason: "exit" \| "crash" \| "unanswered" }`                            |
+| `session.renamed`   | `{ from, to, by }`, logged                                                 |
+| `machine.renamed`   | `{ machine, from, to }`                                                    |
+| `policy.changed`    | `{ machine, policy }`, see [A machine's policy](#a-machines-policy)        |
+| `terminal.prompted` | `{ open, kind, title }`, from `ui_prompt_start` and `ui_prompt_end`        |
+| `machine.online`    | `{ machine, name, version }`                                               |
+| `machine.offline`   | `{ machine, since }`                                                       |
+| `presence.changed`  | `{ clients: { name, machine, active }[], terminal: boolean }`              |
 
 ### Commands
 
-Sent by a client to a session. The hub checks the device's rights, the bridge checks the session's state, and each one gets a reply with an error or nothing.
+| Command           | Data                            | Runs                                                                 | Where      |
+| ----------------- | ------------------------------- | -------------------------------------------------------------------- | ---------- |
+| `prompt.send`     | `{ text, images?, deliverAs? }` | The kit's inbox (see [Peers and remote](#peers-and-remote))          | any        |
+| `queue.clear`     |                                 | Returns the queued text, as pi's Esc does                            | any        |
+| `run.abort`       |                                 | `ctx.abort()`                                                        | any        |
+| `ask.answer`      | `{ ask, result: AskResult }`    | Wins the race for that question when it is still open                | any        |
+| `model.set`       | `{ provider, id }`              | `pi.setModel()`                                                      | any        |
+| `thinking.set`    | `{ level }`                     | `pi.setThinkingLevel()`                                              | any        |
+| `mode.set`        | `{ mode }`                      | The permission feature's own change. `full` is refused from a client | any        |
+| `session.compact` | `{ instructions? }`             | `ctx.compact()`                                                      | any        |
+| `session.rename`  | `{ name }`                      | `pi.setSessionName()`                                                | any        |
+| `session.stop`    | `{ force? }`                    | `ctx.shutdown()`, or with `force` the runner's kill                  | any        |
+| `output.get`      | `{ toolCallId }`                | The call's whole output                                              | any        |
+| `entries.get`     | `{ since?, before?, limit }`    | A page of entries                                                    | any        |
+| `session.fork`    | `{ entryId }`                   | RPC `fork`                                                           | background |
+| `session.clone`   |                                 | RPC `clone`                                                          | background |
+| `tree.get`        |                                 | RPC `get_tree`                                                       | background |
 
-| Command      | Data                            | Runs                                                                                                                |
-| ------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `prompt`     | `{ text, images?, deliverAs? }` | `pi.sendUserMessage()`. While a run is under way, `deliverAs` is required, as pi requires it: `steer` or `followUp` |
-| `abort`      |                                 | `ctx.abort()`                                                                                                       |
-| `answer`     | `{ ask, result: AskResult }`    | Wins the race for that ask when it is still open                                                                    |
-| `model`      | `{ provider, id }`              | `pi.setModel()`                                                                                                     |
-| `thinking`   | `{ level }`                     | `pi.setThinkingLevel()`                                                                                             |
-| `mode`       | `{ mode }`                      | The permission feature's own change. `full` is refused from a device                                                |
-| `compact`    | `{ instructions? }`             | `ctx.compact()`                                                                                                     |
-| `name`       | `{ name }`                      | `pi.setSessionName()`                                                                                               |
-| `toolOutput` | `{ toolCallId }`                | Replies with the call's whole output, which the stream cut                                                          |
-| `stop`       | `{ force? }`                    | `ctx.shutdown()`, or for a hosted session with `force`, `tmux kill-session`                                         |
+A terminal session cannot fork, clone or switch from outside: pi offers those only inside a slash command. Every command from a client is logged with its `by`, and a prompt from a client shows in the terminal as `From <client>: …`.
 
-Pi's own slash commands are not in the list: pi offers no way to run them from an event handler, and `newSession`, `fork` and `switchSession` exist only inside a command. A command a client cannot run is a session it starts, through the hub.
+### The daemon's HTTP API
 
-Every command from a device is written to the session's event log with the device name, and a prompt from a device shows in the terminal as `From <device>: …`.
+| Route                                 | Does                                                                   |
+| ------------------------------------- | ---------------------------------------------------------------------- |
+| `GET /.well-known/pi-remote`          | Machine id, name, version, protocol, public key                        |
+| `GET /health`                         | Version, protocol, uptime                                              |
+| `POST /login`, `POST /logout`         | Password login, a cookie for the web app                               |
+| `POST /pair`, `POST /pair/claim`      | Pairing a device with a code or a QR                                   |
+| `GET /devices`, `DELETE /devices/:id` | The paired devices, and revoking one                                   |
+| `GET /machines`                       | This machine and the linked ones, with their state and policy          |
+| `GET /sessions`                       | Sessions of every machine it sees, live first, sorted by who needs you |
+| `POST /sessions`                      | Starts a background session on a machine that accepts starts           |
+| `GET /sessions/:machine/:id/entries`  | Entries by cursor, in pages                                            |
+| `GET /folders?machine=&root=`         | Folders under an allowed root, for the picker                          |
+| `GET /models?machine=`                | The models that machine can use, from a live bridge                    |
+| `POST /push`                          | Registers a Web Push subscription or a native push token               |
+| `GET /ws`                             | The WebSocket                                                          |
 
-### The hub's own API
+## Streaming and performance
 
-| Route                                 | Does                                                                  |
-| ------------------------------------- | --------------------------------------------------------------------- |
-| `GET /health`                         | Version, protocol, uptime                                             |
-| `POST /login`, `POST /logout`         | Password login, a cookie for the web app                              |
-| `POST /pair`, `POST /pair/claim`      | Pairing a device with a code or a QR                                  |
-| `GET /devices`, `DELETE /devices/:id` | The paired devices, and revoking one                                  |
-| `GET /sessions`                       | Live sessions, then recent ones nobody holds, sorted by who needs you |
-| `POST /sessions`                      | Starts a hosted session                                               |
-| `GET /sessions/:id/history?before=`   | Older transcript pages, read from pi's session file                   |
-| `GET /folders?root=`                  | Folders under an allowed root, for the picker                         |
-| `GET /models`                         | The models the machine can use, from a live bridge                    |
-| `POST /push`                          | Registers a Web Push subscription or a native push token              |
-| `GET /ws`                             | The WebSocket                                                         |
+- **The bridge batches.** Deltas of one message are joined in windows of about 33 ms, so a fast model costs about 30 frames a second, not one per token. The bridge does constant work per delta and never builds a snapshot on that path. `bun run bench:typing` must show no cost from the bridge on a local session.
+- **Interest decides volume.** Only a session some client has open streams deltas and tool output to it. The others send state changes only. Over a link, a daemon sends a session's stream only while a client on the other side views it.
+- **Tool output in the stream** is the last 4 KB of each call, at most 10 updates a second. The whole output is fetched with `output.get`.
+- **Backpressure.** Each client has a bounded queue. When a slow client passes the bound, the daemon drops its pending deltas and sends a resync with the current message. Deltas can be dropped because `message_end` replaces the message; facts are never dropped.
+- **Large payloads** (images, whole outputs, history pages) go over HTTP, never through the WebSocket.
+- **Memory.** The daemon's replay buffer has a byte budget across the machine, and a session's deltas collapse into its current message once that message ends.
+- **pi's own backpressure.** The runner reads pi's stdout continuously, so a slow client never stalls pi.
+
+## Peers and remote
+
+Peers works today with files only: each session writes its own log, and the others read it. Remote adds a process per machine and a second machine. The two meet in several places, and each meeting has one owner.
+
+### What moves to the kit
+
+| Piece         | What it is                                                                                                                                                   |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Presence      | The one index of open sessions, with machine, pid, start time and lease, as described in [Presence and liveness](#presence-and-liveness)                     |
+| Session state | `working`, `blocked`, `done`, `error`, `idle`                                                                                                                |
+| The inbox     | The one way to put a message into a session. It decides between starting a run, steering and following up, and puts the operator's messages ahead of agents' |
+| Names         | The word list, the draw, renames and aliases, and the identity section, as described in [Naming](#naming)                                                    |
+| `by`          | Who caused a fact: a terminal, a client, or an agent, with the machine                                                                                       |
+
+Peers and remote each use these and never import each other. Peers works without remote as it does today, and remote works without peers with no rooms.
+
+### Where they meet
+
+| Meeting                                                          | Resolution                                                                                                                                                              |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Two lists of open sessions                                       | One, in the kit. The daemon writes the other machines' sessions into it                                                                                                 |
+| Two machines drawing the same handle while out of contact        | Neither is renamed. Where both appear they show as `kestrel@laptop` and `kestrel@server`, and a bare `@kestrel` there asks which                                        |
+| Is a prompt from the phone the operator?                         | Yes. It is `by: client`, depth 0, and it counts as the operator's first message for a session peers keeps from being woken until then                                   |
+| A replicated log saying `from: "you"`                            | It means the operator typed it in that session on that machine. Only a linked machine's daemon writes replicas, and only from the link                                  |
+| Peers waking or steering a session while a client sends a prompt | Both go through the kit's inbox, which orders them in the one thread of the process                                                                                     |
+| Peers' "waits on you" flag and remote's push                     | Both read the session state `blocked`                                                                                                                                   |
+| Agents on two machines writing to each other                     | A shared room spans machines; its members carry their machine. The reply depth travels with the message, so the limit on agents waking each other holds across machines |
+| A message to an agent whose session ended                        | Marked "not delivered: kestrel closed", with the offer to send it to anyone. One to an agent out of contact stays on its way                                            |
+| Drafts shown while someone types in a room                       | Local to the machine. They do not cross a link                                                                                                                          |
+| Two lists of agents in the terminal                              | One panel with two groupings, below                                                                                                                                     |
+
+### The panel
+
+`Alt+G` opens one panel. Its left list groups the agents by room, as peers does today, or by machine, and one key switches between the two. Enter on an agent opens its session view. Without remote it is the panel of today; without peers, the machine grouping is the only one. The panel's design is open and gets its own pass.
 
 ## Events inside the harness
 
 The harness publishes in two ways.
 
-1. **The event log on disk** (`~/.pi/agent/harness/events/<folder>/<session>.jsonl`, version 1, written by `logEvent` in `packages/kit/src/events/log.ts`). It was built for "peers, the bridge and the web UI", but only the peers and tasks features write to it: sessions starting and ending, their names and states, tasks, edits and commands, and the room's messages.
-2. **`pi.events` inside the process.** Whoever wants a state asks and the owner answers on the spot, at the moment of drawing, and the owner also announces each change.
+1. **The log on disk**, one file per session under `~/.pi/agent/harness/events/<folder>/`, version 1, written by `logEvent` in `packages/kit/src/events/log.ts`. Today the peers and tasks features write to it.
+2. **`pi.events` inside the process.** Every state contract is a `defineContract` in `packages/kit/src/contract.ts`: readers ask on `harness:<name>`, and the owner announces each change with the whole value.
 
-Every state contract is a `defineContract` in `packages/kit/src/contract.ts`: readers ask on `harness:<name>` and the owner announces each change on `harness:<name>:changed` with the whole value.
-
-| Contract        | Channel                                                      | Pushes a change                           |
+| Contract        | Channel                                                      | Announces a change                        |
 | --------------- | ------------------------------------------------------------ | ----------------------------------------- |
 | Tasks           | `harness:tasks`, and `harness:tasks:settled`                 | Yes                                       |
 | Rulings         | `harness:calls:ruling`, keyed by tool call                   | Yes                                       |
@@ -296,218 +592,221 @@ Every state contract is a `defineContract` in `packages/kit/src/contract.ts`: re
 | Questions       | `harness:ask`, `harness:ask:answer`, `harness:ask:available` | Request and answer only                   |
 | Settings screen | `harness:screen:*`, `harness:settings:changed`               | Changed only, and its rows hold functions |
 
-### The rule from here
+### The rule
 
-- **Every contract that crosses packages has a state and a change.** A probe for whoever draws, and a `*:changed` event that carries the whole new value. The bridge listens to the changes and never polls. The permission mode is the one left without a contract.
-- **What crosses is JSON.** A contract's values are plain data so the bridge can forward them without knowing them. The settings screen keeps its `Preview` functions on the terminal. Its remote form is the JSON part of each row (label, control, value), and only the Remote tab and the permission mode are offered on the phone at first.
-- **Every feature writes its own facts to the log**, through `logFrom`, not only the peers feature. The log keeps what happened. The live stream adds what is only worth seeing as it happens: text deltas, tool output, the streamed message. Those never go to disk, because pi's session file already has the final text.
-- **The hub reads history from files.** For a session it did not watch, the hub reads pi's session file for the transcript and the harness log for the rest. A phone that was away for a day sees the same story as one that watched.
+- **Every contract that crosses packages has a state and a change**, and the change carries the whole new value. The bridge listens to changes and never polls. The permission mode is the one left without a contract.
+- **What crosses is JSON**, so the bridge forwards values without knowing them. The settings screen keeps its `Preview` functions on the terminal; its remote form is the JSON part of each row.
+- **Every feature writes its own facts to the log** through `logFrom`. The log keeps what happened, and the live stream adds what is only worth seeing as it happens.
+- **The daemon reads history from files**, so a client that was away for a day sees the same story as one that watched.
 
 ### What each feature adds
 
-| Feature        | Adds                                                                                                                                      | To the log                                                   |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| kit / ask      | `harness:ask:opened`, `harness:ask:closed` with `by`, and `harness:ask:cancel` so a provider closes its dialog when another side answered | `ask.opened`, `ask.closed`                                   |
-| ask-questions  | Closes its dialog on `harness:ask:cancel` and answers nothing                                                                             |                                                              |
-| ask-permission | `harness:permission:mode` (state) and `harness:permission:mode-changed`                                                                   | `mode.changed`, and `call.ruled` for every ruling, with `by` |
-| providers      | The turn's usage                                                                                                                          | `account.switched`, `usage.turn`                             |
-| compact        |                                                                                                                                           | `context.pruned`                                             |
-| peers          | (done)                                                                                                                                    | (already writes)                                             |
-| tasks          |                                                                                                                                           | (already in `tasks.changed`)                                 |
-| look           | Nothing: it only draws                                                                                                                    |                                                              |
+| Feature        | Adds                                                                                                                                                       | To the log                                                   |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| kit            | Presence, session state, the inbox, addresses. `ask.opened`, `ask.closed` with `by`, and `harness:ask.cancel`, which closes a dialog another side answered | `ask.opened`, `ask.closed`                                   |
+| ask-questions  | Closes its dialog on `harness:ask.cancel`. Draws only when `ctx.mode` is `tui`                                                                             |                                                              |
+| ask-permission | `harness:mode` (state) and its change                                                                                                                      | `mode.changed`, and `call.ruled` for every ruling, with `by` |
+| providers      | The turn's usage                                                                                                                                           | `account.switched`, `turn.used`                              |
+| compact        |                                                                                                                                                            | `context.pruned`                                             |
+| peers          | Reads presence, state and the inbox from the kit; marks undelivered messages                                                                               | (already writes)                                             |
+| tasks          |                                                                                                                                                            | (already writes `tasks.changed`)                             |
+| look           | Nothing: it only draws                                                                                                                                     |                                                              |
 
-New log types extend `LogEventMap` in `packages/kit/src/contracts/events.ts`, which keeps version 1, because the shape only grows.
+New log types extend `LogEventMap` in `packages/kit/src/contracts/events.ts`, which keeps version 1.
 
 ## Dialogs
 
-Every question the phone can answer is one `AskRequest`: questions with options, previews, notes and a typed answer. Three kinds of dialog reach the bridge, and two of them can be answered from the phone.
+Every question a client can answer is one `AskRequest`: questions with options, previews, notes and a typed answer.
 
 ```mermaid
 flowchart TD
   ours["the harness's dialogs\n(permission, ask_questions)"] -->|harness:ask| race
-  plain["pi's and other extensions'\nselect, confirm, input"] -->|"ctx.ui, wrapped by the bridge"| race
-  custom["other extensions'\ncustom() components"] -->|ui_prompt_start| shown["shown on the phone as\n'waiting in the terminal: title'"]
-  race{"race"} -->|terminal answers| t["the bridge sends harness.ask.closed by terminal"]
-  race -->|device answers| d["harness:ask:cancel closes the terminal dialog,\nthe answer goes to the asker"]
+  plain["pi's and other extensions'\nselect, confirm, input, editor"] -->|"terminal: ctx.ui wrapped by the bridge\nbackground: the runner's extension_ui_request"| race
+  custom["other extensions'\ncustom() components"] -->|ui_prompt_start| shown["shown on clients as\n'waiting in the terminal: title'"]
+  race{"race"} -->|terminal answers| t["ask.closed by terminal"]
+  race -->|client answers| d["harness:ask.cancel closes the terminal dialog,\nthe answer goes to the asker"]
 ```
 
-- **The harness's own dialogs** go through `harness:ask`, so the bridge only listens: it sends `harness.ask.opened` to the hub and waits. The first answer wins. When the device wins, the bridge emits the answer on `harness:ask:answer` and `harness:ask:cancel` for the questions feature to close its dialog. No method of pi is replaced.
-- **Pi's own dialogs and other extensions'** `select`, `confirm` and `input` are reached the way pi-mobile reaches them: `ctx.ui` is one object shared by every extension, so the bridge wraps those three methods and races the terminal against the phone, passing an `AbortSignal` to the terminal dialog so it closes when the phone answers. A setting turns this off, and pi lacks a supported way to do it (see [What pi lacks](#what-pi-lacks)). A `select` becomes one question, a `confirm` a question with yes and no, an `input` a question with only the typed answer.
-- **`custom()` components** of other extensions cannot be described as questions. The phone shows that the terminal is waiting on one, with its title, and that it needs the keyboard.
-- **Expiry.** A permission question or an `ask_questions` call stays open until someone answers, as in Claude Code. A dialog with a `timeout` shows its deadline on the phone and closes with the dialog's default.
-- **Permission answers from a device.** Yes, no and a note work as in the terminal. An "always yes" from a device is limited to the session and the project scopes; "everywhere" needs the terminal. The ruling line says the device answered.
+- **The harness's own dialogs** go through `harness:ask`, so the bridge only listens and sends `ask.opened`. The first answer wins. When a client wins, the bridge emits the answer and `harness:ask.cancel` for the drawing feature to close its dialog. In a background session there is no terminal, so the bridge alone provides `harness:ask` and clients draw the full dialog.
+- **Pi's own dialogs and other extensions'** `select`, `confirm`, `input` and `editor`:
+  - in a terminal session, the bridge wraps those methods on the shared `ctx.ui` and races the terminal against the clients, passing an `AbortSignal` that closes the terminal dialog when a client answers. The `forwardOtherDialogs` setting turns this off;
+  - in a background session, pi sends them as `extension_ui_request` and the runner answers them, so nothing is wrapped.
+- **`custom()` components** of other extensions cannot be described as questions. Clients show that the terminal waits on one, with its title. In a background session `custom()` returns `undefined`, as pi's RPC mode defines.
+- **Expiry.** A permission question or an `ask_questions` call stays open until someone answers. A dialog with a `timeout` shows its deadline and closes with its default.
+- **Permission answers from a client.** Yes, no and a note work as in the terminal. "Always yes" from a client is limited to the session and the project; "everywhere" needs the terminal. The ruling line names the client.
 
-## The transcript on the client
+## Presence and control
 
-- The client rebuilds a streamed message by pi's rules: buffer the deltas of each `contentIndex`, replace the block with the content of its `text_end`, `thinking_end` or `toolcall_end`, and replace the whole message on `message_end`. These reducers live in the protocol package with tests, so the web and the native app cannot disagree.
-- Tool output in the stream is cut to the last lines. The whole output comes on request with the `toolOutput` command.
-- Images in a message come as files over HTTP, not inline in the WebSocket.
-- Older pages of a long session come from `GET /sessions/:id/history`.
-- Edits show as diffs, from the `edit` call's arguments.
+- **No locks.** Every client sees every session and can send to it. The daemon serializes commands per session, and in a dialog the first answer wins.
+- **The active client** is the one with the latest input: a key in a pi terminal (`ctx.ui.onTerminalInput`), a key or a tap in a client. The daemon sends `presence.changed` to every client.
+- **What clients show:**
+  - each session's viewers, with the active one marked;
+  - where something came from: "from phone" on a prompt, "answered on laptop" on a closed dialog;
+  - each command's progress: sent, accepted (pi's `disposition`), applied, the way peers marks a message on its way and read;
+  - each machine's link: live, catching up with how far behind, or offline since when.
 
 ## Access and security
 
-Anyone who reaches the hub and gets past its login can run code on the machine as you. Every choice below follows from that.
+Anyone who reaches a daemon and gets past its login can run code on that machine as you, and on every machine linked to it. Every choice below follows from that.
 
-### How the hub is reached
+### How a daemon is reached
 
-| Way                     | What it takes                                                                                                                                                                  | Who can reach it                                                                                                  |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| Loopback only (default) | Nothing                                                                                                                                                                        | This machine                                                                                                      |
-| Tailscale serve         | Tailscale on the machine and the phone. `/remote` runs `tailscale serve` for the hub's port, reusing a serve that already points there and never touching other serve settings | Your tailnet, over HTTPS with a real certificate                                                                  |
-| Cloudflare tunnel       | `cloudflared` and a hostname. Cloudflare Access in front of it is strongly advised                                                                                             | Whoever Access lets in. The hub can also check the `Cf-Access-Jwt-Assertion` header itself                        |
-| A bound interface       | `bind: "0.0.0.0"` or an address, set by hand                                                                                                                                   | Anyone on that network. The hub refuses plain HTTP off loopback unless `allowInsecure` is set, and says so in red |
-| A reverse proxy         | The proxy in front, `trustProxy` set to its address so the hub reads `X-Forwarded-*` from it alone                                                                             | Whoever the proxy lets through                                                                                    |
+| Way                     | What it takes                                                                                                                                                      | Who can reach it                                                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| Loopback only (default) | Nothing                                                                                                                                                            | This machine                                                                                                         |
+| Tailscale serve         | Tailscale on both ends. The Remote tab runs `tailscale serve` for the daemon's port, reusing a serve that already points there and touching no other serve setting | Your tailnet, over HTTPS with a real certificate                                                                     |
+| Cloudflare tunnel       | `cloudflared` and a hostname. Cloudflare Access in front of it is strongly advised                                                                                 | Whoever Access lets in. The daemon can also check the `Cf-Access-Jwt-Assertion` header itself                        |
+| A bound interface       | `bind: "0.0.0.0"` or an address, set by hand                                                                                                                       | Anyone on that network. The daemon refuses plain HTTP off loopback unless `allowInsecure` is set, and says so in red |
+| A reverse proxy         | The proxy in front, `trustProxy` set to its address so the daemon reads `X-Forwarded-*` from it alone                                                              | Whoever the proxy lets through                                                                                       |
 
 ### Who is let in
 
-The hub has its own login, whatever is in front of it.
+- **Paired devices.** The pair action on the Remote tab shows a QR code and a short code good for 5 minutes. The device sends its public key with the code and gets back a token bound to that key. Each request is signed with the device key, so a token copied off the wire is useless alone.
+- **Linked machines.** Their own keys, exchanged when linking, sign each link's handshake.
+- **Password.** For the web app on a machine whose QR code you cannot scan. Set with `pi-remote password`, stored as a scrypt hash, exchanged for an `HttpOnly`, `SameSite=Strict` cookie, rate limited and locked for a while after repeated failures.
+- **API keys.** For scripts. Shown once, stored hashed, limited to reading or to reading and prompting.
+- **The network's identity, optionally.** The `Tailscale-User-Login` header that `tailscale serve` adds, or the Cloudflare Access token, can stand in for a password.
 
-- **Paired devices.** `/remote`, or the pair action on the Remote tab, shows a QR code and a short code that are good for 5 minutes. The device sends its public key with the code, and gets back a token bound to that key. Each request is signed with the device key, so a token copied off the wire is useless alone. Devices are listed and revoked from the Remote tab, `pi-remote devices` or the phone.
-- **Password.** For the web app on a machine whose QR code you cannot scan, like a VPS. Set with `pi-remote password`, stored as a scrypt hash, exchanged for an `HttpOnly`, `SameSite=Strict` cookie. Logins are rate limited and lock for a while after repeated failures.
-- **API keys.** For scripts. Created on the machine, shown once, stored hashed, and limited to reading or to reading and prompting.
-- **The network's identity, optionally.** On Tailscale, the `Tailscale-User-Login` header that `tailscale serve` adds can stand in for a password. Behind Cloudflare Access, the Access token can.
+Every WebSocket and every request that changes something checks the `Origin` header against the daemon's own addresses.
 
-Every WebSocket and every request that changes something checks the `Origin` header against the hub's own addresses.
-
-### What a device may not do
+### What a client or a linked machine may not do
 
 - Set the permission mode to `full`.
 - Grant "always yes everywhere".
-- Change the Remote settings: the roots, the reach, the login methods. Those are set in a terminal on the machine.
-- Start a session outside the allowed roots, or in a folder pi has not trusted.
+- Change the Remote settings: the roots, the reach, the login methods, the links. Those are set in a terminal on the machine.
+- Start a session on a machine whose `acceptStarts` is off, outside its roots, or in a folder pi has not trusted.
+- Host a session. Only a process on the machine's unix socket registers one.
 
 ### Encryption
 
-Off loopback, the hub is reached only over TLS: Tailscale's certificate, Cloudflare's, or the proxy's. pi-mobile goes further and seals every message to the device's key, so even a proxy in the path reads nothing. The envelope is ready for that (the `data` of every message can be a sealed box) and it is planned for the Cloudflare and proxy cases, where a third party terminates TLS. It is not in the first version.
+Off loopback, a daemon is reached only over TLS: Tailscale's certificate, Cloudflare's, or the proxy's. The envelope is ready for sealing every `data` to the device's key, as pi-mobile does, so that a proxy in the path reads nothing. That is planned for the Cloudflare and proxy cases and for the relay, and it is not in the first version.
 
 ## Notifications
 
-- **When.** A question is waiting, a run that took more than two minutes settled, or a run failed. The session list says the same thing in its order: needs you, working, idle.
-- **Presence.** When someone typed in a pi terminal on that machine in the last two minutes, nothing is pushed. The bridge reports keys pressed in the terminal through `ctx.ui.onTerminalInput`, which sees every key and not only a sent message. Claude Code does the same with a presence file, and pi-mobile with the same two minutes.
-- **Channels.** Web Push with the hub's own VAPID keys for the PWA, which iOS delivers to a page added to the Home Screen. Expo's push service, which carries APNs and FCM, for the native app.
-- **Privacy.** A notification says "pi" and the session's name, never what the agent wrote. The app fetches the rest from the hub when it opens.
+- **When.** A question is waiting, a run longer than two minutes settled, or a run failed.
+- **Presence.** Nothing is pushed while a client is active: someone typed in a pi terminal on any linked machine, or used a client, in the last two minutes.
+- **Channels.** Web Push with the daemon's own VAPID keys for the PWA, which iOS delivers to a page added to the Home Screen. Expo's push service, which carries APNs and FCM, for the native app. Pushes are sent at most once; a daemon restart can skip one, and the session list still shows what needs you.
+- **Privacy.** A notification says "pi", the session's name and its machine, never what the agent wrote.
 
 ## The client
 
 ### One codebase
 
-Expo builds the web, iOS and Android from one React Native codebase, with React Native for Web on the browser and Expo Router for screens and links on every platform. `expo export -p web` produces static files the hub serves, which install as a PWA. The parts that render documents (markdown, code, diffs) are written once in React DOM and used in the native app as [DOM components](https://docs.expo.dev/guides/dom-components/) (`"use dom"`), which run that web code in a web view.
+Expo builds the web, iOS and Android from one React Native codebase, with React Native for Web in the browser and Expo Router for screens and links on every platform. `expo export -p web` produces the static files the daemon serves, which install as a PWA. The parts that render documents (markdown, code, diffs) are written once in React DOM and used in the native app as [DOM components](https://docs.expo.dev/guides/dom-components/).
 
-Two other ways were weighed. [Capacitor](https://capacitorjs.com/) wraps a web app in a native shell: everything is shared, but every screen is a web page, and lists and gestures feel like one. A PWA alone gets push on iOS only once it is added to the Home Screen, and no audio while the screen is locked, which voice would need. Expo keeps the option of native screens where they matter and costs one codebase.
+[Capacitor](https://capacitorjs.com/) was weighed and left out: every screen would be a web page. A PWA alone gets push on iOS only from the Home Screen, and no audio with the screen locked, which voice would need.
 
 ### Screens
 
-| Screen               | Shows                                                                                                                             |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Sessions             | Every session on the machine, the ones that need you first, each with its title, folder, state, cost and last line                |
-| Session              | The transcript, the tasks, the question sheet when one is open, and the composer, which steers or queues while a run is under way |
-| New session          | Folder picker under the allowed roots, model, name, first message                                                                 |
-| Question             | The questions with their options, previews and notes, the way the terminal shows them                                             |
-| Devices and settings | Paired devices, notifications, the machine's version                                                                              |
+| Screen               | Shows                                                                                                                         |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Sessions             | Every session on every machine it sees, the ones that need you first, each with its title, machine, state, cost and last line |
+| Session              | The transcript, the tasks, the question sheet when one is open, and the composer, with the outbox's items                     |
+| New session          | Machine (those that refuse starts greyed, with the reason), folder under its roots, model, name, first message                |
+| Question             | The questions with their options, previews and notes, the way the terminal shows them                                         |
+| Machines and devices | Linked machines with their state and policy, paired devices, notifications, versions                                          |
 
 ### Shared code
 
-`@adeildo/pi-remote-client` holds the connection (login, reconnect with backoff, resume from the last `seq`), the reducers and the decoded types. The Expo app and any other client use it. It has no React in it.
+`@adeildo/pi-remote-client` holds the connection (login, reconnect with backoff, resume by `(epoch, seq)`), the outbox, the cache's interface, the reducers and the decoded types. It has no React in it. The Expo app and the viewing pi use it.
 
 ## Settings
 
 A **Remote** tab on the harness's settings screen (`Alt+S` or `/harness`).
 
-| Setting               | Default      |                                                                        |
-| --------------------- | ------------ | ---------------------------------------------------------------------- |
-| `enabled`             | on           | The bridge connects to the hub and shares the session                  |
-| `idleExitMinutes`     | 5            | `never` keeps the hub up                                               |
-| `roots`               | `["~"]`      | Where a device may start a session                                     |
-| `reach`               | `loopback`   | `loopback`, `tailscale`, `cloudflare` or `bind`                        |
-| `bind`                | `127.0.0.1`  | The address for `bind`                                                 |
-| `port`                | 7878         |                                                                        |
-| `publicUrl`           |              | The HTTPS address a proxy or tunnel gives, put in the QR code          |
-| `trustProxy`          |              | The proxy's address                                                    |
-| `login`               | `["device"]` | Any of `device`, `password`, `apiKey`, `tailscale`, `cloudflareAccess` |
-| `forwardOtherDialogs` | on           | Wrap `ctx.ui` so the phone answers other extensions' dialogs too       |
-| `push`                | on           |                                                                        |
+| Setting               | Default      |                                                                                                                                                             |
+| --------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`             | on           | The bridge connects to the daemon and shares the session                                                                                                    |
+| `background`          | `with pi`    | `with pi`, or `always`, which installs a user service                                                                                                       |
+| `idleExitMinutes`     | 5            | How long a `with pi` daemon waits with no session                                                                                                           |
+| `machineName`         | hostname     |                                                                                                                                                             |
+| `runner`              | `child`      | `child` or `tmux`, for background sessions this daemon starts                                                                                               |
+| `acceptStarts`        | on           | Host sessions started by clients and linked machines. Off: only this machine's terminal and CLI start them; its sessions can still be viewed and controlled |
+| `roots`               | `["~"]`      | Where a client may start a session on this machine                                                                                                          |
+| `reach`               | `loopback`   | `loopback`, `tailscale`, `cloudflare` or `bind`                                                                                                             |
+| `bind`                | `127.0.0.1`  | The address for `bind`                                                                                                                                      |
+| `port`                | 7878         |                                                                                                                                                             |
+| `publicUrl`           |              | The HTTPS address a proxy or tunnel gives, put in the QR code and the link code                                                                             |
+| `trustProxy`          |              | The proxy's address                                                                                                                                         |
+| `login`               | `["device"]` | Any of `device`, `password`, `apiKey`, `tailscale`, `cloudflareAccess`                                                                                      |
+| `discovery`           | on           | mDNS and the Tailscale lookup, only when the daemon listens beyond loopback                                                                                 |
+| `forwardOtherDialogs` | on           | In terminal sessions, wrap `ctx.ui` so clients answer other extensions' dialogs too                                                                         |
+| `push`                | on           |                                                                                                                                                             |
 
-The tab also has actions: pair a device, list and revoke devices, set the password, create an API key, show the address and the QR code.
-
-The Remote feature talks to the others through the kit's contracts only. With the permission feature missing, the mode row and the ruling lines are hidden. With the questions feature missing, the harness's dialogs are answered on the phone alone. With the settings screen missing, `/remote settings` edits the same file.
+The tab's actions: pair a device, link a machine, list and revoke devices and links, set the password, create an API key, show the address and the QR code, and the service's status.
 
 ## The CLI
 
 ```bash
-pi-remote ls                      # live and recent sessions on this machine
-pi-remote new ~/Projects/x        # a hosted session, then attach to it
-pi-remote new ~/Projects/x -d     # a hosted session, and stay here
-pi-remote attach x                # tmux attach -t pi-x
-pi-remote stop x [--force]
-pi-remote serve                   # the hub in the foreground, never idles out
+pi-remote status                          # the daemon: pid, started by, reach, links
+pi-remote ls [machine]                    # live and recent sessions
+pi-remote new ~/Projects/x [--on server] [-d]
+pi-remote run ~/Projects/x [--handle h]   # the runner, for any supervisor
+pi-remote attach kestrel[@server]         # a view in pi; tmux attach for a tmux-run session here
+pi-remote stop kestrel[@server] [--force]
+pi-remote rename kestrel[@server] auth
+pi-remote serve                           # the daemon in the foreground, never idles out
+pi-remote service install | uninstall | status
+pi-remote machines | link [<url> <code>] | unlink <name>
 pi-remote pair | devices | password | keys
 ```
 
-Inside pi there is one command, `/remote`, which shows the address and the QR code. Pairing, the devices, the password and the keys are actions on the Remote tab, because the harness keeps slash commands few. `tmux attach -t pi-<name>` always works, with or without the CLI.
+Inside pi there is one command, `/remote`, which shows the address and the QR code. Everything else is on the Remote tab or in the panel, because the harness keeps slash commands few.
 
 ## A harness on a VPS
 
-1. Install pi and `pi install npm:@adeildo/pi-harness`, then `npm i -g @adeildo/pi-remote` for the CLI.
+1. Install pi, `pi install npm:@adeildo/pi-harness`, and `npm i -g @adeildo/pi-remote` for the CLI.
 2. Sign in to the providers once with `pi` and `/login`. The sign-ins that print a URL and wait for the code work over SSH.
-3. `pi-remote password`, and pick the reach: `tailscale up` and `reach: tailscale`, or a Cloudflare tunnel, or `bind` behind your own proxy.
-4. Run the hub as a user service, so it starts with the machine:
+3. `pi-remote password`, and pick the reach: `tailscale up` and `reach: tailscale`, a Cloudflare tunnel, or `bind` behind your own proxy.
+4. `pi-remote service install`, which sets Background to `always` and asks before enabling linger.
+5. On the laptop, `pi-remote link https://vps.tailnet.ts.net <code>` with the code the VPS shows.
 
-```ini
-# ~/.config/systemd/user/pi-remote.service
-[Service]
-ExecStart=%h/.npm-global/bin/pi-remote serve
-Restart=on-failure
-
-[Install]
-WantedBy=default.target
-```
-
-5. `systemctl --user enable --now pi-remote` and `loginctl enable-linger $USER`, so it keeps running with nobody logged in.
-
-From then on, sessions start from the phone or the web, and `ssh vps -t pi-remote attach x` takes one in a terminal.
+From then on the laptop's pi lists the VPS's sessions in the panel, the phone sees both machines through either daemon, and `pi-remote attach x@vps` opens a view.
 
 ## What pi lacks
 
-| Gap                                                                                                                                                              | What we do meanwhile                                                           | What to ask pi for                                                                                                                              |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| No supported way to mirror an interactive session to another client. Pi built one (`pi-client`, `pi-protocol`, `pi-server`) and removed it, unreleased, in 1.2.0 | The bridge rebuilds everything from extension events                           | Nothing yet: an extension does the job                                                                                                          |
-| No way for an extension to answer a dialog another extension opened                                                                                              | Wrap `select`, `confirm` and `input` on the shared `ctx.ui`, as pi-mobile does | A dialog answerer hook: an extension registers to receive every dialog with an `AbortSignal` and may answer it, so nobody replaces pi's methods |
-| `custom()` dialogs cannot be described or answered from outside                                                                                                  | Show that the terminal is waiting                                              | An optional plain description on `custom()` (a question and its options) that an answerer can use                                               |
-| No lock on a session file                                                                                                                                        | The bridge's registration with the hub, and a lock file                        | Pi refusing, or warning, when another process holds the session                                                                                 |
-| Slash commands cannot be run from an event handler, and `newSession`, `fork`, `switchSession` are command-only                                                   | Start another process instead                                                  | A way to run a command, built-in or registered, from an extension                                                                               |
-| The project trust question runs before extensions load                                                                                                           | Start sessions only in trusted folders                                         | A way to pass the trust decision on the command line for a session someone else asked for                                                       |
-
-Each one is worth an issue upstream once the first version shows which ones hurt.
+| Gap                                                                                                      | What we do meanwhile                                                                                                         | What to ask pi for                                                                        |
+| -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| No supported way to mirror an interactive session to another client                                      | The bridge rebuilds everything from extension events                                                                         | Nothing yet: an extension does the job                                                    |
+| In a terminal session, no way for an extension to answer a dialog another extension opened               | Wrap `select`, `confirm`, `input` and `editor` on the shared `ctx.ui`. A background session needs nothing: RPC forwards them | A dialog answerer hook that receives every dialog with an `AbortSignal` and may answer it |
+| `custom()` dialogs cannot be described or answered from outside                                          | Show that the terminal is waiting                                                                                            | An optional plain description on `custom()` that an answerer can use                      |
+| No lock on a session file                                                                                | The presence index                                                                                                           | Pi refusing, or warning, when another process holds the session                           |
+| In a terminal session, `newSession`, `fork` and `switchSession` exist only inside a slash command        | Offer them on background sessions, through RPC                                                                               | A way to run a command, built-in or registered, from an extension                         |
+| The trust question runs before extensions load, and RPC mode skips untrusted resources without saying so | The runner reads `trust.json` and passes `--approve` or `--no-approve`                                                       | A way to report that resources were skipped                                               |
 
 ## Prior art
 
-| Project                                                                                                                                  | How it works                                                                                                                                                                                                         | What we take                                                                                                                   |
-| ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| [Claude Code Remote Control](https://code.claude.com/docs/en/remote-control)                                                             | The machine only makes outbound calls to Anthropic, which relays the phone and stores the transcript. Terminal and phone share one session. A server mode hosts many sessions, with `--spawn worktree`               | Both sides on the same session, pushes for "needs you", a presence signal, dialogs that expire except permission and questions |
-| [Happy](https://happy.engineering/docs/how-it-works/)                                                                                    | A CLI wraps the agent, encrypts everything and sends it to a relay that cannot read it. The relay keeps what the phone missed                                                                                        | The phone catches up after losing signal. Sealed payloads, later                                                               |
-| [opencode serve](https://opencode.ai/docs/server/)                                                                                       | The terminal UI is itself a client of an HTTP server with an OpenAPI spec and an SSE stream. Basic auth, tunnels for remote                                                                                          | A documented API that any client can use                                                                                       |
-| [pi-mobile](https://pi.dev/packages/pi-mobile)                                                                                           | A hub per machine on loopback, `tailscale serve`, device pairing by QR, every message sealed to the device, wrapped `ctx.ui`, pushes through a relay that sees only ciphertext, silence for two minutes after typing | Most of the hub's shape. Where we differ: the harness's own dialogs, tasks, rulings and costs                                  |
-| [remote-pi](https://pi.dev/packages/remote-pi)                                                                                           | A broker on a unix socket with a leader that fails over, and a relay for the phone                                                                                                                                   | The broker shape. Not its relay: it reads the traffic                                                                          |
-| [ACP](https://agentclientprotocol.com/)                                                                                                  | JSON-RPC between an editor and an agent, over stdio. A remote transport over HTTP and WebSocket is a draft                                                                                                           | Not adopted: it has no place for tasks, rulings or several sessions per machine. An ACP adapter on the hub can come later      |
-| [Clusto](https://clusto.app/docs/tmux-alternative-for-ai-agents), [ccmux](https://ccmux.ai/), [flout](https://github.com/bgrgicak/flout) | A daemon owns agent sessions in tmux or its own terminals, and the CLI, an app or a browser attach                                                                                                                   | tmux as the host, and starting a session on another machine from the phone                                                     |
+| Project                                                                                                                                  | How it works                                                                                                                                                                                                                                                                                   | What we take                                                                                                                   |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| [Claude Code Remote Control](https://code.claude.com/docs/en/remote-control)                                                             | The machine only makes outbound calls to Anthropic, which relays the phone and stores the transcript. Terminal and phone share one session. A server mode hosts many sessions, with `--spawn worktree`                                                                                         | Both sides on the same session, pushes for "needs you", a presence signal, dialogs that expire except permission and questions |
+| [Happy](https://happy.engineering/docs/how-it-works/)                                                                                    | A CLI wraps the agent, encrypts everything and sends it to a relay that cannot read it. The relay keeps what the phone missed                                                                                                                                                                  | The phone catches up after losing signal. Sealed payloads and a blind relay, later                                             |
+| [opencode serve](https://opencode.ai/docs/server/)                                                                                       | The terminal UI is itself a client of an HTTP server with an OpenAPI spec and an SSE stream                                                                                                                                                                                                    | A terminal that is a client of a session elsewhere, which is the view                                                          |
+| [pi-mobile](https://pi.dev/packages/pi-mobile)                                                                                           | A hub per machine on loopback, `tailscale serve`, device pairing by QR, every message sealed to the device, wrapped `ctx.ui`, pushes through a relay that sees only ciphertext, silence for two minutes after typing                                                                           | Most of the daemon's shape. Where we differ: the harness's own dialogs, tasks, rulings, costs, links and rooms                 |
+| [remote-pi](https://pi.dev/packages/remote-pi)                                                                                           | A broker on a unix socket with a leader that fails over, and a relay for the phone                                                                                                                                                                                                             | The broker shape. Not its relay: it reads the traffic                                                                          |
+| [Syncthing](https://docs.syncthing.net/users/security.html)                                                                              | A device id is the hash of the device's key. Devices find each other by local discovery or a typed address, and trust only devices added by id                                                                                                                                                 | Machine ids, discovery that grants nothing, and links added by hand                                                            |
+| [Tailscale machine names](https://tailscale.com/kb/1098/machine-names)                                                                   | The machine name comes from the cleaned hostname and follows it until edited. A clash gets a suffix that stays                                                                                                                                                                                 | Machine names, and a suffix given once and kept                                                                                |
+| Slack and [Matrix](https://spec.matrix.org/unstable/client-server-api/)                                                                  | A mention is stored as the user's id and drawn with the current name. A display name change is an event in the room. Agents on Slack work best with mentions turned into names and a line saying who they are ([hermes-agent #55340](https://github.com/NousResearch/hermes-agent/pull/55340)) | Ids on disk, renames as events, and the identity section                                                                       |
+| Claude Code's generated names                                                                                                            | Plans and sessions get `adjective-verb-noun` names drawn at random, such as `dreamy-orbiting-quokka`. As a document's only name they say nothing about its content, which users raised in several issues                                                                                       | A drawn word as a call sign, with the title always beside it                                                                   |
+| [ACP](https://agentclientprotocol.com/)                                                                                                  | JSON-RPC between an editor and an agent, over stdio. A remote transport over HTTP and WebSocket is a draft                                                                                                                                                                                     | Not adopted: it has no place for tasks, rulings or several sessions per machine. An adapter on the daemon can come later       |
+| [Clusto](https://clusto.app/docs/tmux-alternative-for-ai-agents), [ccmux](https://ccmux.ai/), [flout](https://github.com/bgrgicak/flout) | A daemon owns agent sessions in tmux or its own terminals, and the CLI, an app or a browser attach                                                                                                                                                                                             | tmux as one runner, and starting a session on another machine from the phone                                                   |
 
 ## Phases
 
-| Phase                    | Delivers                                                                                                                | Done when                                                                                                         |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| F0. The harness's events | The contracts' change events, the new log types, `harness:ask:cancel`, the protocol package with its reducers and tests | A test reads a recorded session's events and rebuilds its transcript, tasks and rulings                           |
-| F1. Read only            | The bridge, the hub on loopback with its lifecycle, the web app's Sessions and Session screens                          | Two terminal sessions show live in a browser on the same machine, and closing the first terminal keeps the second |
-| F2. Control              | Prompts, steering, abort, model and thinking, answers to every dialog, the race                                         | A permission question is answered from the browser and the terminal's dialog closes                               |
-| F3. Hosted sessions      | `tmux` hosting, `pi-remote new`, `attach`, `stop`, the session lock, continuing a closed session                        | A session started from the browser is taken back with `pi-remote attach` mid-run                                  |
-| F4. Reach and login      | Device pairing, password, API keys, Tailscale serve, Cloudflare Access, bound interfaces, proxies, Web Push, presence   | The phone, off Wi-Fi, answers a question after a lock-screen notification                                         |
-| F5. Native apps          | iOS and Android builds of the same codebase, QR pairing, native push                                                    | The same as F4 from the installed app                                                                             |
-| F6. Later                | Sealed payloads, worktree per session, RPC hosting for unattended jobs, voice                                           |                                                                                                                   |
+| Phase                      | Delivers                                                                                                                                                                                                                                                                                                                                                                                                                       | Done when                                                                                                                                                                                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F0. The shared ground      | In the kit: presence with pid, start time, machine and lease, session state, the inbox, addresses, `by`, and naming (the word list, the draw, renames, aliases, the identity section). The contracts' change events under the new names, the new log types, `harness:ask.cancel`. Peers on the kit's presence and names, with undelivered messages marked. Tasks writes the title only. The protocol package with its reducers | A test rebuilds a recorded session's transcript, tasks and rulings; peers drops a session whose pid was reused; a handle survives the older session with the same word closing; `@oauth` after a rename reaches `auth`; a message to a closed session says so |
+| F1. Read only, one machine | The bridge, the daemon on loopback with its lifecycle, sync by cursors, the client cache, the web app's Sessions and Session screens                                                                                                                                                                                                                                                                                           | Two terminal sessions show live in a browser, a reload draws from the cache at once, and closing the first terminal keeps the second                                                                                                                          |
+| F2. Control                | Every command, the race for every dialog, the outbox, presence and its marks                                                                                                                                                                                                                                                                                                                                                   | A permission question answered in the browser closes the terminal's dialog, and a prompt typed offline asks before going out after 2 minutes                                                                                                                  |
+| F3. Background sessions    | The runner, `pi-remote new`, `run`, `attach` as a view, `stop`, the tmux runner, the Background setting and the service, roles by transport, `acceptStarts` and the published policy                                                                                                                                                                                                                                           | A session started from the browser is taken back in a pi's view mid-run, and stopping the daemon leaves it running                                                                                                                                            |
+| F4. Machines               | Identity, discovery, links, views through one daemon, room replication, the offline states, the panel's machine grouping                                                                                                                                                                                                                                                                                                       | The laptop's pi drives a session on the server; a room spans both; unplugging the network shows "offline since", and reconnecting fills the room                                                                                                              |
+| F5. Reach and login        | Device pairing, password, API keys, Tailscale serve, Cloudflare Access, bound interfaces, proxies, Web Push                                                                                                                                                                                                                                                                                                                    | The phone, off Wi-Fi, answers a question from a lock-screen notification                                                                                                                                                                                      |
+| F6. Native apps            | iOS and Android builds of the same codebase, QR pairing, native push                                                                                                                                                                                                                                                                                                                                                           | The same as F5 from the installed app                                                                                                                                                                                                                         |
+| F7. Later                  | Sealed payloads, a blind relay for machines that cannot reach each other, a worktree per session, voice                                                                                                                                                                                                                                                                                                                        |                                                                                                                                                                                                                                                               |
 
 ## Open questions
 
-- Should a device be able to approve "always yes" for a project, or only for the session?
-- Should the hub start sessions in folders pi has not trusted, after asking on the phone?
-- One hub per machine is the plan. Should one phone list several machines (laptop and VPS) in one list, as pi-mobile's `/remote add` does, or pick a machine first?
-- Does the transcript on the phone show thinking blocks, or only when tapped?
+- The panel's design: the two groupings, the view, and how a machine out of contact looks.
+- Should a client be able to approve "always yes" for a project, or only for the session?
+- Should a client start a session in a folder pi has not trusted, by asking the operator and passing `--approve` for that one run?
+- Does the transcript on a client show thinking blocks, or only when tapped?
 - Where do sealed payloads stop being optional: behind Cloudflare, behind any proxy, always?

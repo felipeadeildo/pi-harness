@@ -199,18 +199,20 @@ Open:
 
 ## From anywhere
 
-The design is in [`docs/remote.md`](docs/remote.md): the pieces, the protocol, the events each feature has to publish, background sessions, reach and login, the gaps in pi, and the prior art. The phases below are its phases.
+The design is in [`docs/remote.md`](docs/remote.md): the pieces, where state lives, machines and naming, sync, offline, the protocol, peers and remote together, reach and login, the gaps in pi, and the prior art. The phases below are its phases.
 
-| Item                 | Status  | Needs                | Note                                                                                                                                                                                                                  |
-| -------------------- | ------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The harness's events | planned | Event log            | F0. Every contract gets a change event with its whole value in JSON, every feature writes its facts to the log, `harness:ask:cancel` closes a dialog another side answered, and a protocol package rebuilds a session |
-| Bridge and hub       | planned | The harness's events | F1 and F2. A bridge in every pi, and a hub the first pi starts that outlives it and exits after 5 minutes alone. Watch and steer every session, and answer every dialog, first answer wins                            |
-| Hosted sessions      | planned | Bridge and hub       | F3. Sessions started from the phone or `pi-remote new` run in tmux, under the allowed roots (`~` by default). `pi-remote attach` takes one back mid-run. The bridge adds the session lock pi lacks                    |
-| Reach and login      | planned | Bridge and hub       | F4. Loopback by default, then Tailscale serve, a Cloudflare tunnel, a bound interface or a reverse proxy, with device pairing, a password or API keys. Push when a session needs you and you are not typing           |
-| Native apps          | later   | Reach and login      | F5. The same Expo codebase as the web app, built for iOS and Android, with QR pairing and native push                                                                                                                 |
-| Voice                | later   |                      | Local whisper, with the text pasted into the editor                                                                                                                                                                   |
+| Item                | Status  | Needs               | Note                                                                                                                                                                                                                               |
+| ------------------- | ------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The shared ground   | planned | Event log           | F0. Presence with pid, start time and lease, session state, the inbox, `by`, and names drawn from a sky-and-field list with renames and aliases, all in the kit. Peers moves onto them. Change events, new log types, the protocol |
+| Read only           | planned | The shared ground   | F1. A bridge in every pi and a daemon per machine, on loopback. The web app shows every session live, synced by cursors and cached                                                                                                 |
+| Control             | planned | Read only           | F2. Prompts, steering, abort, model, answers to every dialog with the first answer winning, the offline outbox, presence                                                                                                           |
+| Background sessions | planned | Control             | F3. `pi-remote run` holds `pi --mode rpc` under any supervisor. Any pi takes a session back as a view, mid-run. The Background setting installs a user service                                                                     |
+| Machines            | planned | Background sessions | F4. Machines link by pairing; a client sees every linked machine through one daemon. Shared rooms span machines. Offline machines show when they were last seen                                                                    |
+| Reach and login     | planned | Machines            | F5. Loopback by default, then Tailscale serve, a Cloudflare tunnel, a bound interface or a reverse proxy, with device pairing, a password or API keys. Push when a session needs you and you are active nowhere                    |
+| Native apps         | later   | Reach and login     | F6. The same Expo codebase as the web app, built for iOS and Android, with QR pairing and native push                                                                                                                              |
+| Voice               | later   |                     | Local whisper, with the text pasted into the editor                                                                                                                                                                                |
 
-A device never sets the permission mode to `full`, never grants "always yes everywhere", and never changes the Remote settings.
+A client or a linked machine never sets the permission mode to `full`, never grants "always yes everywhere", and never changes the Remote settings.
 
 ## Platform
 
