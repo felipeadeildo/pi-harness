@@ -4,7 +4,7 @@
 // and it refuses newer models to a version it considers too old. `turn` marks the features a turn
 // of Claude Code's TUI asks for, which is the side the settings screen offers.
 
-export const CLAUDE_CODE_VERSION = "2.1.306";
+export const CLAUDE_CODE_VERSION = "2.1.308";
 
 export const CLAUDE_CODE_FEATURES = [
 	{
@@ -132,7 +132,7 @@ export const CLAUDE_CODE_FEATURES = [
 	{
 		name: "afk_mode",
 		header: "afk-mode-2026-01-31",
-		turn: true,
+		turn: false,
 		description: "The server acts on it, and nothing in the request changes.",
 	},
 	{
@@ -144,7 +144,7 @@ export const CLAUDE_CODE_FEATURES = [
 	{
 		name: "cache_diagnosis",
 		header: "cache-diagnosis-2026-04-07",
-		turn: false,
+		turn: true,
 		description:
 			"The reply says what the cache did; Claude Code drops this one when the API refuses it.",
 	},
@@ -232,7 +232,7 @@ export const CLAUDE_CODE_FEATURES = [
 	{
 		name: "dangerous_tool_use",
 		header: "dangerous-tool-use-2026-09-03",
-		turn: true,
+		turn: false,
 		description: "Travels with `safeguards`.",
 	},
 	{
@@ -244,7 +244,7 @@ export const CLAUDE_CODE_FEATURES = [
 	{
 		name: "thinking_binding_controls",
 		header: "thinking-binding-controls-2026-08-01",
-		turn: false,
+		turn: true,
 		description:
 			"Travels with `thinking.block_binding`. Pi already asks for this one, so this switch cannot turn it off.",
 	},
