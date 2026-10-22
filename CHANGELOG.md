@@ -2,6 +2,13 @@
 
 Every `@adeildo/` package in this repository shares one version, one tag and this changelog. The entries below 4.0.0 are from before, when `pi-ask-permission` was the only package.
 
+## [5.12.1](https://github.com/felipeadeildo/pi-harness/compare/v5.12.0...v5.12.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* **providers:** the Claude Code eval captures the turn api.anthropic.com gets ([edea84a](https://github.com/felipeadeildo/pi-harness/commit/edea84aa7e9b4dd3d8cdb5a63dec862f29343675))
+
 ## [5.12.0](https://github.com/felipeadeildo/pi-harness/compare/v5.11.2...v5.12.0) (2026-10-21)
 
 
