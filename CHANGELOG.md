@@ -2,6 +2,13 @@
 
 Every `@adeildo/` package in this repository shares one version, one tag and this changelog. The entries below 4.0.0 are from before, when `pi-ask-permission` was the only package.
 
+## [5.12.2](https://github.com/felipeadeildo/pi-harness/compare/v5.12.1...v5.12.2) (2026-10-22)
+
+
+### Bug Fixes
+
+* **peers:** the footer counts only what arrived after the session opened ([6b6d8eb](https://github.com/felipeadeildo/pi-harness/commit/6b6d8eb62f504427ccd17f9ce475bf695c7c4c80))
+
 ## [5.12.1](https://github.com/felipeadeildo/pi-harness/compare/v5.12.0...v5.12.1) (2026-10-22)
 
 
