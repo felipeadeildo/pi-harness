@@ -11,7 +11,6 @@ import {
 	fstatSync,
 	watch,
 } from "node:fs";
-import { hostname } from "node:os";
 import { join } from "node:path";
 
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
@@ -132,7 +131,7 @@ export function logFrom<K extends EventType>(
 	return logEvent(targetOf(ctx.sessionManager as LogSession), bus, type, data, entry);
 }
 
-export const HOST = hostname();
+export { HOST } from "../host.ts";
 
 /** Reads the whole events written after `offset`. A line still being written waits for the next read. */
 export function readFrom(path: string, offset: number): { events: LoggedEvent[]; offset: number } {
