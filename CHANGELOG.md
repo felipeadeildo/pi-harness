@@ -2,6 +2,14 @@
 
 Every `@adeildo/` package in this repository shares one version, one tag and this changelog. The entries below 4.0.0 are from before, when `pi-ask-permission` was the only package.
 
+## [5.14.0](https://github.com/felipeadeildo/pi-harness/compare/v5.13.0...v5.14.0) (2026-10-23)
+
+
+### Features
+
+* **ask-questions:** answer the options already whole while the model writes, each lighting up as it arrives ([3535037](https://github.com/felipeadeildo/pi-harness/commit/353503726e002a7c1681f66d8a88d2f2a48d755f))
+* **ask-questions:** the dialog opens while the model writes, so you answer as the questions arrive ([a26102c](https://github.com/felipeadeildo/pi-harness/commit/a26102c670f422f6b014b3287cff15999ba360e2))
+
 ## [5.13.0](https://github.com/felipeadeildo/pi-harness/compare/v5.12.2...v5.13.0) (2026-10-23)
 
 
