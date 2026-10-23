@@ -42,6 +42,23 @@ function aboutTasks(messages: { content: unknown }[]): boolean {
 
 let runs = 0;
 
+/**
+ * Takes this machine out of a recording: the folders it ran in, the home it read from, and the
+ * paths pi prints for its own packages. Longest first, since the home folder holds the rest.
+ */
+export function scrub(text: string, parts: readonly string[]): string {
+	let scrubbed = text;
+	for (const part of parts) scrubbed = scrubbed.replaceAll(part, "/session");
+	// Whatever path is left inside a package is a path on this machine, not a fact of the run.
+	scrubbed = scrubbed.replaceAll(/(?:\/[^\s"\\]+)+\/node_modules\/[^\s"\\]*/g, "/node_modules/…");
+	const left = PRIVATE.filter((part) => scrubbed.includes(part));
+	if (left.length > 0) throw new Error(`the recording still names ${left.join(", ")}`);
+	return scrubbed;
+}
+
+/** What must never reach the repository, whatever the run did. */
+export const PRIVATE = [homedir(), "pi-rig-", "worktrees", "/node_modules/.bun"] as const;
+
 /** What the scripted model answers: the tasks list, the run itself, and pi's summaries. */
 function answer(context: { messages: { role: string; content: unknown }[] }): AssistantMessage {
 	if (aboutTasks(context.messages)) {
@@ -69,59 +86,50 @@ function answer(context: { messages: { role: string; content: unknown }[] }): As
 	return fauxAssistantMessage([fauxText("Done.")], { stopReason: "stop" });
 }
 
-const rig = await createRig({
-	answer,
-	extensions: [
-		(pi) => {
-			createApp(pi, { name: "pi-harness" }).use(tasks).build();
-		},
-	],
-	// The tasks feature asks a model of its own, and the catalogue holds every provider. Without
-	// this it would reach for a real one.
-	settings: { tasks: { model: SCRIPTED } },
-});
+async function record(): Promise<void> {
+	const rig = await createRig({
+		answer,
+		extensions: [
+			(pi) => {
+				createApp(pi, { name: "pi-harness" }).use(tasks).build();
+			},
+		],
+		// The tasks feature asks a model of its own, and the catalogue holds every provider. Without
+		// this it would reach for a real one.
+		settings: { tasks: { model: SCRIPTED } },
+	});
 
-try {
-	// A turn with thinking, a tool call, and the tasks feature reading it.
-	await rig.prompt("List what is in this folder.");
-	const first = rig.session.sessionManager.getBranch()[0];
-	// A second turn, which the tasks feature reads too.
-	await rig.prompt("Now read the log.");
-	// A move in the tree and a turn after it. `branch` only moves the leaf, so without the third
-	// turn nothing in the file says the tree moved: the entries written next hang from the older one.
-	if (first !== undefined) rig.session.sessionManager.branch(first.id);
-	await rig.prompt("What did the first turn leave?");
-	// An aborted turn and a compaction need timing the scripted model does not control. They are
-	// written by hand in the protocol's reducer tests, from lines captured out of a real run.
-	await rig.until((line) => line.type === "tasks.changed");
-} finally {
-	mkdirSync(out, { recursive: true });
-	// The recording goes into a public repository. The folder the run used becomes a fixed one, and
-	// every other trace of this machine goes: the home folder, the checkout the script ran from, and
-	// the packages pi's prompt quotes.
-	// Longest first: once the home folder is gone, the paths under it no longer match.
-	const private_ = [rig.root, process.cwd(), dirname(process.cwd()), homedir()];
-	const settle = (from: string) => {
-		let text = readFileSync(from, "utf8");
-		for (const part of private_) text = text.replaceAll(part, "/session");
-		// Whatever path is left inside a package is a path on this machine, not a fact of the run.
-		text = text.replaceAll(/(?:\/[^\s"\\]+)+\/node_modules\/[^\s"\\]*/g, "/node_modules/…");
-		const left = [homedir(), "pi-rig-", "worktrees", "/node_modules/.bun"].filter((part) =>
-			text.includes(part),
+	try {
+		// A turn with thinking, a tool call, and the tasks feature reading it.
+		await rig.prompt("List what is in this folder.");
+		const first = rig.session.sessionManager.getBranch()[0];
+		// A second turn, which the tasks feature reads too.
+		await rig.prompt("Now read the log.");
+		// A move in the tree and a turn after it. `branch` only moves the leaf, so without the third
+		// turn nothing in the file says the tree moved: the entries written next hang from the older
+		// one.
+		if (first !== undefined) rig.session.sessionManager.branch(first.id);
+		await rig.prompt("What did the first turn leave?");
+		// An aborted turn and a compaction need timing the scripted model does not control. They are
+		// written by hand in the protocol's reducer tests, from lines captured out of a real run.
+		await rig.until((line) => line.type === "tasks.changed");
+	} finally {
+		mkdirSync(out, { recursive: true });
+		const private_ = [rig.root, process.cwd(), dirname(process.cwd()), homedir()];
+		const settle = (from: string) => scrub(readFileSync(from, "utf8"), private_);
+		const session = rig.session.sessionFile;
+		if (session !== undefined) writeFileSync(join(out, "session.jsonl"), settle(session));
+		writeFileSync(
+			join(out, "harness.jsonl"),
+			settle(logPath({ dir: eventsDir(rig.cwd, rig.events), session: rig.session.sessionId })),
 		);
-		if (left.length > 0) throw new Error(`${from} still names ${left.join(", ")}`);
-		return text;
-	};
-	const session = rig.session.sessionFile;
-	if (session !== undefined) writeFileSync(join(out, "session.jsonl"), settle(session));
-	writeFileSync(
-		join(out, "harness.jsonl"),
-		settle(logPath({ dir: eventsDir(rig.cwd, rig.events), session: rig.session.sessionId })),
-	);
-	writeFileSync(
-		join(out, "README.md"),
-		`# A recorded session\n\nWritten by \`bun scripts/record-session.ts\`. A scripted model ran three\nturns: the first with thinking and a tool call, the other two plain. The tasks feature kept the list\nafter each one. Between the second and the third, the tree moved back to the first entry, so the\nthird turn hangs from an older entry than the one before it. \`session.jsonl\` is pi's file and\n\`harness.jsonl\` is the harness's log. The reducers in \`test/transcript.test.ts\` rebuild both.\n\nAn aborted turn and a compaction are not here: the scripted model cannot be stopped mid answer,\nand pi refuses to compact a session this short. \`test/edges.test.ts\` covers them with lines\ncaptured from a real run.\n`,
-	);
-	console.log(`wrote ${out}`);
-	rig.dispose();
+		writeFileSync(
+			join(out, "README.md"),
+			`# A recorded session\n\nWritten by \`bun scripts/record-session.ts\`. A scripted model ran three\nturns: the first with thinking and a tool call, the other two plain. The tasks feature kept the list\nafter each one. Between the second and the third, the tree moved back to the first entry, so the\nthird turn hangs from an older entry than the one before it. \`session.jsonl\` is pi's file and\n\`harness.jsonl\` is the harness's log. The reducers in \`test/transcript.test.ts\` rebuild both.\n\nAn aborted turn and a compaction are not here: the scripted model cannot be stopped mid answer,\nand pi refuses to compact a session this short. \`test/edges.test.ts\` covers them with lines\ncaptured from a real run.\n`,
+		);
+		console.log(`wrote ${out}`);
+		rig.dispose();
+	}
 }
+
+if (import.meta.main) await record();
