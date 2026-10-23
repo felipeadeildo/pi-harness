@@ -33,7 +33,10 @@ const copyOfRuling = (ruling: KitRuling): CallRuling => ruling;
  * The facts the kit's log writes today. The rest of `FACT_TYPES` comes from the bridge and the
  * daemon, which have no log of their own: `session.live`, `session.gone`, `stream.bound`,
  * `leaf.changed` and `prompt.received`. `call.ruled` and `mode.changed` join the kit's log with A3,
- * and `session.renamed` with N3.
+ * and `session.renamed` with N3. `session.state` and `session.named` are left out on purpose: the
+ * bridge rewrites both for the wire (`running`/`idle` becomes the client's five states, and the
+ * title becomes the handle), so the copy here is not the kit's shape and the bridge's decoder is
+ * what holds the pair together.
  */
 const IN_THE_KIT = ["tasks.changed", "ask.opened", "ask.closed"] as const;
 

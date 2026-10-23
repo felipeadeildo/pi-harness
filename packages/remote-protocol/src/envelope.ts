@@ -52,7 +52,7 @@ export function isEnvelope(value: unknown): value is Envelope {
 		(value.machine === undefined || typeof value.machine === "string") &&
 		(value.session === undefined || typeof value.session === "string") &&
 		(value.epoch === undefined || typeof value.epoch === "string") &&
-		(value.seq === undefined || Number.isInteger(value.seq)) &&
+		(value.seq === undefined || (Number.isInteger(value.seq) && (value.seq as number) >= 0)) &&
 		(value.id === undefined || typeof value.id === "string") &&
 		(value.by === undefined || isBy(value.by))
 	);

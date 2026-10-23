@@ -29,7 +29,9 @@ export type TranscriptItem =
 	| { kind: "session"; entry: string; at?: string; name?: string }
 	| { kind: "label"; entry: string; at?: string; target: string; label?: string }
 	| { kind: "usage"; entry: string; at?: string }
-	| { kind: "edit"; entry: string; at?: string; target: string };
+	| { kind: "edit"; entry: string; at?: string; target: string }
+	/** An entry a newer pi writes, kept so the transcript shows it happened without inventing a shape. */
+	| { kind: "other"; entry: string; at?: string; type: string };
 
 /** What a reader holds of one session: the branch, and where it ends. */
 export interface Transcript {
@@ -143,7 +145,7 @@ export function itemOf(entry: Entry): TranscriptItem {
 				target: field<string>(entry, "targetId") ?? "",
 			};
 		default:
-			return { kind: "usage", entry: entry.id, at: entry.timestamp };
+			return { kind: "other", entry: entry.id, at: entry.timestamp, type: entry.type };
 	}
 }
 
