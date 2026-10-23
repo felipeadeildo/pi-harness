@@ -1,6 +1,6 @@
 {
-	"version": "2.1.308",
-	"userAgent": "claude-cli/2.1.308 (external, cli)",
+	"version": "2.1.309",
+	"userAgent": "claude-cli/2.1.309 (external, cli)",
 	"entrypoint": "cli",
 	"identity": "You are Claude Code, Anthropic's official CLI for Claude.",
 	"system": [
