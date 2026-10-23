@@ -24,7 +24,7 @@ export interface FileSourceOptions {
  * The source for `address`: a provider's, such as remote's, or else the session's file when it is on
  * this machine. Undefined when neither can show it.
  */
-export function openSource(
+export function sourceFor(
 	events: ExtensionAPI["events"],
 	address: SourceAddress,
 	options: FileSourceOptions = {},
@@ -48,6 +48,8 @@ export function fileSource(path: string, options: FileSourceOptions = {}): Sessi
 			const fold = new Fold();
 			// Entries up to the cursor only feed the snapshot.
 			let waiting = after?.entry;
+			// A cursor with nothing this source reads, such as a newer one, is a cursor it does not know.
+			if (after !== undefined && waiting === undefined) on({ kind: "reset" });
 			let sent = "";
 			return followFile(
 				path,

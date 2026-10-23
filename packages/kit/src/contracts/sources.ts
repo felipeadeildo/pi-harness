@@ -37,8 +37,9 @@ export interface SourceCursor {
 /**
  * - `entry`: one of pi's session entries, the durable part.
  * - `snapshot`: the live state, once the entries held so far are sent, and again when it changes.
- * - `reset`: the source does not know the cursor it was given, or lost its place. Drop every entry
- *   held for this session: the entries from the start follow.
+ * - `reset`: the source does not know the cursor it was given, or lost its place. A cursor with none
+ *   of the fields the source reads counts as unknown. Drop every entry held for this session: the
+ *   entries from the start follow.
  * - `ended`: the session closed, and nothing more comes.
  */
 export type SourceItem =
@@ -51,7 +52,8 @@ export interface SessionSource {
 	snapshot(): Promise<SessionSnapshot>;
 	/**
 	 * Calls `on` with what comes after `after`, or everything from the start without it, then with what
-	 * comes live, until the returned function is called.
+	 * comes live, until the returned function is called. What the source already holds may come before
+	 * `follow` returns.
 	 */
 	follow(after: SourceCursor | undefined, on: (item: SourceItem) => void): () => void;
 }
@@ -65,11 +67,6 @@ export interface SourceAddress {
 
 /** Remote answers here with its daemon and link sources. The kit's file source is the fallback. */
 export const SOURCES = "harness:sources";
-/** A request to show a session over the screen. The look answers it. */
-export const VIEW_OPEN = "harness:view.open";
-/** A view provider answers this to say it can show a session right now. */
-export const VIEW_AVAILABLE = "harness:view.available";
-
 interface SourceRequest {
 	address: SourceAddress;
 	source?: SessionSource;
@@ -82,7 +79,8 @@ export function provideSources(
 ): () => void {
 	return events.on(SOURCES, (data) => {
 		const request = data as SourceRequest;
-		if (!isObject(data) || request.source !== undefined || !isAddress(request.address)) return;
+		if (!isObject(data) || request.source !== undefined || !isSourceAddress(request.address))
+			return;
 		request.source = answer(request.address);
 	});
 }
@@ -94,41 +92,7 @@ export function askSource(events: Events, address: SourceAddress): SessionSource
 	return request.source;
 }
 
-/** True when a feature in this process can show a session right now. */
-export function canOpenView(events: Events): boolean {
-	const probe = { available: false };
-	events.emit(VIEW_AVAILABLE, probe);
-	return probe.available;
-}
-
-/** Asks for `address` to be shown. False when nobody took the request. */
-export function openView(events: Events, address: SourceAddress): boolean {
-	const request = { address, opened: false };
-	events.emit(VIEW_OPEN, request);
-	return request.opened;
-}
-
-/** Shows sessions: says it is available, and takes a request when `open` returns true. */
-export function provideViews(
-	events: Events,
-	open: (address: SourceAddress) => boolean,
-	available: () => boolean = () => true,
-): () => void {
-	const stops = [
-		events.on(VIEW_AVAILABLE, (data) => {
-			if (isObject(data) && available()) data.available = true;
-		}),
-		events.on(VIEW_OPEN, (data) => {
-			if (!isObject(data) || data.opened === true || !isAddress(data.address)) return;
-			data.opened = open(data.address);
-		}),
-	];
-	return () => {
-		for (const stop of stops) stop();
-	};
-}
-
-function isAddress(value: unknown): value is SourceAddress {
+export function isSourceAddress(value: unknown): value is SourceAddress {
 	return (
 		isObject(value) &&
 		typeof value.session === "string" &&

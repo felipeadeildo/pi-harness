@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { appendFileSync, mkdtempSync, renameSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdtempSync, renameSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -101,6 +101,17 @@ describe("a rewritten file", () => {
 		tail.poll();
 		writeFileSync(path, line("x") + line("y") + line("z"));
 		expect(ids(tail.poll())).toEqual(["reset", "x", "y", "z"]);
+	});
+
+	test("to the same size is read again", () => {
+		const path = file();
+		writeFileSync(path, line("a") + line("b"));
+		// The first write is long past, so the rewrite's modification time differs on any filesystem.
+		utimesSync(path, 1, 1);
+		const tail = new FileTail(path);
+		tail.poll();
+		writeFileSync(path, line("x") + line("y"));
+		expect(ids(tail.poll())).toEqual(["reset", "x", "y"]);
 	});
 
 	test("finds the line before its offset however long that line is", () => {

@@ -137,7 +137,7 @@ These rules hold for every contract:
 - The value is plain JSON, with no functions, classes or `Date`, so a remote control or a web UI can forward any contract without knowing what is inside.
 - A value can gain fields but never lose them.
 
-A session to show is the exception: a `SessionSource` is an object with functions, so it travels on the raw channel `harness:sources`, where remote answers with its own. `openSource` asks there first and falls back to the session's file when the session is on this machine. `openView` asks on `harness:view.open` for a session to be shown over the screen, and `canOpenView` says whether anyone would.
+A session to show is the exception: a `SessionSource` is an object with functions, so it travels on the raw channel `harness:sources`, where remote answers with its own. `sourceFor` asks there first and falls back to the session's file when the session is on this machine. Showing one over the screen goes through `contracts/views.ts`: `openView` asks on `harness:view.open`, and `canOpenView` says whether anyone would.
 
 ## Testing
 

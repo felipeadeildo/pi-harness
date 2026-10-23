@@ -13,6 +13,8 @@ export interface FollowState {
 	lastId: string | undefined;
 	ino: number;
 	size: number;
+	/** A rewrite can keep the file's size, but not its modification time. */
+	mtimeMs: number;
 }
 
 export interface FileRecord {
@@ -26,7 +28,7 @@ export interface FileRecord {
  */
 export type TailItem = { kind: "record"; record: FileRecord } | { kind: "reset" };
 
-const START: FollowState = { offset: 0, lastId: undefined, ino: 0, size: 0 };
+const START: FollowState = { offset: 0, lastId: undefined, ino: 0, size: 0, mtimeMs: 0 };
 
 export class FileTail {
 	readonly #path: string;
@@ -57,9 +59,9 @@ export class FileTail {
 	}
 
 	#read(fd: number): TailItem[] {
-		const { ino, size } = fstatSync(fd);
+		const { ino, size, mtimeMs } = fstatSync(fd);
 		const state = this.#state;
-		if (ino === state.ino && size === state.size) return [];
+		if (ino === state.ino && size === state.size && mtimeMs === state.mtimeMs) return [];
 		const rewritten =
 			(state.ino !== 0 && ino !== state.ino) ||
 			size < state.offset ||
@@ -72,6 +74,7 @@ export class FileTail {
 			lastId: records.at(-1)?.id ?? (rewritten ? undefined : state.lastId),
 			ino,
 			size,
+			mtimeMs,
 		};
 		if (skipTo === undefined) return records.map(asItem);
 		const seen = records.findIndex((record) => record.id === skipTo);
@@ -81,8 +84,8 @@ export class FileTail {
 }
 
 /**
- * Calls `on` with what the file gains, as it gains it, until the returned function is called. It
- * waits for a file that does not exist yet. `every` is the poll that backs up the directory watch,
+ * Calls `on` with what the file gains, as it gains it, until the returned function is called. What
+ * the file already holds comes before `followFile` returns. It waits for a file that does not exist yet. `every` is the poll that backs up the directory watch,
  * which some filesystems never fire.
  */
 export function followFile(

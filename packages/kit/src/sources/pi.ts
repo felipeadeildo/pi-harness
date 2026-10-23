@@ -73,6 +73,8 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 			return Promise.resolve(snapshotOf(ctx));
 		},
 		follow(after, on) {
+			// A cursor with nothing this source reads, such as a newer one, is a cursor it does not know.
+			if (after !== undefined && after.entry === undefined) on({ kind: "reset" });
 			const follower: Follower = { on, after: after?.entry, seen: undefined, sent: undefined };
 			followers.add(follower);
 			if (ctx !== undefined) catchUp(follower, ctx);

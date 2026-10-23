@@ -11,15 +11,14 @@ import {
 
 import {
 	askSource,
-	canOpenView,
-	openView,
 	provideSources,
-	provideViews,
 	type SessionSource,
+	type SourceCursor,
 	type SourceItem,
 } from "../src/contracts/sources.ts";
+import { canOpenView, openView, provideViews } from "../src/contracts/views.ts";
 import { HOST } from "../src/events/log.ts";
-import { fileSource, openSource } from "../src/sources/file.ts";
+import { fileSource, sourceFor } from "../src/sources/file.ts";
 import { piSource } from "../src/sources/pi.ts";
 import { fakePi } from "../src/testing.ts";
 
@@ -63,14 +62,12 @@ function append(path: string, ...lines: object[]): void {
 /** Follows until `done` holds, then stops. */
 async function collect(
 	source: SessionSource,
-	after: string | undefined,
+	after: SourceCursor | undefined,
 	done: (items: SourceItem[]) => boolean,
 	meanwhile: () => void = () => {},
 ): Promise<SourceItem[]> {
 	const items: SourceItem[] = [];
-	const stop = source.follow(after === undefined ? undefined : { entry: after }, (item) =>
-		items.push(item),
-	);
+	const stop = source.follow(after, (item) => items.push(item));
 	meanwhile();
 	await until(() => done(items));
 	stop();
@@ -150,7 +147,7 @@ describe("a session file as a source", () => {
 		const b = user("b");
 		const items = await collect(
 			fileSource(sessionFile(HEADER, a, b)),
-			a.id,
+			{ entry: a.id },
 			(got) => got.length >= 2,
 		);
 		expect(kinds(items)).toEqual([b.id, "snapshot"]);
@@ -160,9 +157,15 @@ describe("a session file as a source", () => {
 		const a = user("a");
 		const items = await collect(
 			fileSource(sessionFile(HEADER, a)),
-			"gone",
+			{ entry: "gone" },
 			(got) => got.length >= 3,
 		);
+		expect(kinds(items)).toEqual(["reset", a.id, "snapshot"]);
+	});
+
+	test("a cursor with nothing it reads starts over, saying so", async () => {
+		const a = user("a");
+		const items = await collect(fileSource(sessionFile(HEADER, a)), {}, (got) => got.length >= 3);
 		expect(kinds(items)).toEqual(["reset", a.id, "snapshot"]);
 	});
 
@@ -254,6 +257,10 @@ describe("this pi as a source", () => {
 		const unknown: SourceItem[] = [];
 		source.follow({ entry: "gone" }, (item) => unknown.push(item));
 		expect(kinds(unknown)).toEqual(["reset", a.id, b.id, "snapshot"]);
+		// What a newer cursor looks like to this source: none of the fields it reads.
+		const unread: SourceItem[] = [];
+		source.follow({}, (item) => unread.push(item));
+		expect(kinds(unread)).toEqual(["reset", a.id, b.id, "snapshot"]);
 	});
 });
 
@@ -262,16 +269,16 @@ describe("finding a source", () => {
 		const events = createEventBus();
 		const address = { session: "s1", machine: HOST, file: "/tmp/s1.jsonl" };
 		expect(askSource(events, address)).toBeUndefined();
-		expect(openSource(events, address)).toBeDefined();
-		expect(openSource(events, { ...address, machine: "elsewhere" })).toBeUndefined();
-		expect(openSource(events, { session: "s1", machine: HOST })).toBeUndefined();
+		expect(sourceFor(events, address)).toBeDefined();
+		expect(sourceFor(events, { ...address, machine: "elsewhere" })).toBeUndefined();
+		expect(sourceFor(events, { session: "s1", machine: HOST })).toBeUndefined();
 
 		const provided = fileSource("/tmp/other.jsonl");
 		const stop = provideSources(events, (asked) =>
 			asked.machine === "elsewhere" ? provided : undefined,
 		);
-		expect(openSource(events, { ...address, machine: "elsewhere" })).toBe(provided);
-		expect(openSource(events, address)).not.toBe(provided);
+		expect(sourceFor(events, { ...address, machine: "elsewhere" })).toBe(provided);
+		expect(sourceFor(events, address)).not.toBe(provided);
 		stop();
 		expect(askSource(events, { ...address, machine: "elsewhere" })).toBeUndefined();
 	});
@@ -308,9 +315,18 @@ describe("asking for a view", () => {
 	});
 });
 
-test("the follower imports only node:*, because the daemon bundles it", () => {
-	const source = readFileSync(join(import.meta.dir, "../src/sources/follow.ts"), "utf8");
-	const imports = [...source.matchAll(/^import[^"]*"([^"]+)"/gm)].map((match) => match[1]);
-	expect(imports.length).toBeGreaterThan(0);
-	expect(imports.filter((name) => !name?.startsWith("node:"))).toEqual([]);
+test("the follower bundles with nothing outside it but node:*, as the daemon bundles it", async () => {
+	const build = await Bun.build({
+		entrypoints: [join(import.meta.dir, "../src/sources/follow.ts")],
+		target: "node",
+		packages: "external",
+		metafile: true,
+	});
+	expect(build.success).toBe(true);
+	const outside = Object.values(build.metafile?.inputs ?? {})
+		.flatMap((input) => input.imports)
+		.filter((one) => one.external === true)
+		.map((one) => one.path);
+	expect(outside.length).toBeGreaterThan(0);
+	expect(outside.filter((path) => !path.startsWith("node:"))).toEqual([]);
 });
