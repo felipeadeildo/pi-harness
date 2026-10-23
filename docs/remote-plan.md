@@ -7,7 +7,7 @@ This plan splits [the remote design](remote.md) into slices that land on `main` 
 A slice is ticked in the commit that lands it.
 
 - [x] C1. The `By` type in the kit (core, F0)
-- [ ] C2. Presence and session state in the kit (core, F0)
+- [x] C2. Presence in the kit (core, F0)
 - [x] P1. The rig (protocol, F0)
 - [ ] P2. The protocol package and its reducers (protocol, F0)
 - [x] A1. The kit's ask client in every mode (ask, F0)
@@ -99,7 +99,7 @@ A merged slice reaches the operator's pi at once, because his pi runs `~/Project
 
 ```mermaid
 flowchart LR
-  C1["C1 By"] --> C2["C2 presence, state"] --> C4["C4 bridge"] --> C5["C5 daemon"]
+  C1["C1 By"] --> C2["C2 presence"] --> C4["C4 bridge"] --> C5["C5 daemon"]
   C1 --> A1
   C1 --> P2
   P1["P1 rig"] --> P2["P2 protocol"] --> C3["C3 package, build"] --> C4
@@ -122,7 +122,7 @@ C1, P1, N1, V1 and W1 need nothing, and A1 needs only C1, which is a type. The c
 
 ## F0. The shared ground, lean
 
-F0 keeps what F1 and the parallel tracks build on: who caused a fact, presence and state, the rig and the protocol, the questions and the names. The inbox moves to [before F2](#before-f2-the-inbox), because F1 only reads.
+F0 keeps what F1 and the parallel tracks build on: who caused a fact, presence, the rig and the protocol, the questions and the names. The inbox moves to [before F2](#before-f2-the-inbox), because F1 only reads.
 
 ### C1. The `By` type in the kit
 
@@ -130,7 +130,7 @@ Owner: core. Needs: nothing.
 
 `packages/kit/src/contracts/by.ts` holds the type every fact uses to say who caused it, as the design's envelope has it: `{ kind: "terminal" | "client" | "agent"; name: string; machine: string }`. It lands alone and first, because A1 and P2 need it and nothing else from the core track.
 
-### C2. Presence and session state in the kit
+### C2. Presence in the kit
 
 Owner: core. Needs: C1.
 
@@ -139,8 +139,6 @@ Peers keeps two lists of open sessions today. One is the folder log's `session.s
 - `packages/peers/src/live.ts` moves to `packages/kit/src/presence/`. An entry holds the session id, the machine (the hostname until F5 gives machines ids), the pid and the process start time. It also holds the folder, the session file, the handle, the title, the state and when it was written.
 - A local entry is live while its pid exists with the same start time. On Linux that is field 22 of `/proc/<pid>/stat`, read after the last `)` because the command name may hold spaces; on macOS it is `ps -o lstart= -p <pid>`. An entry written before C2 has no start time and is checked as today. The start time is read through a function the tests replace, as they replace `hooks.alive` today.
 - `session.started` gains the start time, so `livePeers` applies the same check to the folder log.
-- The contract `harness:session.state` carries pi's program status words: `working`, `blocked`, `done`, `error` and `idle`. The log's `session.state` writes the same words, and peers maps them onto its own running and idle. `blocked` follows `ask.opened` and `ask.closed` once A1 lands.
-- `defineContract` announces a change on `harness:<name>.changed` and on the older `harness:<name>:changed`.
 - Readers that change: `rooms.ts` (its `live()` and its writes), `here.ts` (its `live()`), `folder.ts` (`livePeers`), and the tests that inject `hooks.alive`.
 - Done when: peers drops a session whose pid was reused, in a test and in a real pi with two sessions open in one folder.
 
@@ -294,6 +292,7 @@ The bridge registers only in a pi in tui mode. It connects to `remote/daemon.soc
 - At `turn_end` it emits `stream.bound` with the entry ids, and a `/tree` move emits `leaf.changed`. `/new`, `/resume` and `/fork` end the old session with `session.gone { reason: "replaced" }`.
 - Past 1 MB waiting on the socket it drops deltas and marks a resync, and past 8 MB it reconnects with a snapshot.
 - It adds the remote's surfaces to the protected list: the files under `remote/`, the socket, the daemon's port and `pi-remote`.
+- The kit gets the session's status in pi's program status words, `working`, `blocked`, `done`, `error` and `idle`, as the contract `harness:session.status`. It follows `agent_start`, the outcome at `turn_end`, `agent_settled`, compaction, `ui_prompt_start` and `ui_prompt_end`, and the open `harness:ask` requests, so a background session with no dialog on screen still reads `blocked`. The bridge publishes it, and peers can read it later in place of its own running and idle.
 - Tests with the rig and a fake daemon: a scripted run's events arrive in order with their sequence; `stream.bound` pairs each streamed message with its entry; `/reload` starts a new epoch; `/new` sends `session.gone`.
 
 ### C5. The daemon
