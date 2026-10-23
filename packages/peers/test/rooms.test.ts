@@ -281,6 +281,55 @@ describe("a shared room", () => {
 		expect(api.changes.at(-1)).toMatchObject({ kind: "left", reason: "closed" });
 	});
 
+	test("closes once its open agents all work in one folder, after the grace", () => {
+		const api = session("api", "backend");
+		const client = session("client", "frontend");
+		api.rooms.create("backend+frontend", [{ folder: api.cwd }, { folder: client.cwd }]);
+		sync(api, client);
+		client.rooms.end();
+		sync(api);
+		now += 29_000;
+		sync(api);
+		expect(api.rooms.rooms()).toHaveLength(2);
+		now += 1_000;
+		sync(api);
+		expect(api.rooms.rooms()).toHaveLength(1);
+		expect(api.changes.at(-1)).toMatchObject({ kind: "left", reason: "closed" });
+	});
+
+	test("a folder whose agents all closed leaves, and the room stays for the others", () => {
+		const api = session("api", "backend");
+		const client = session("client", "frontend");
+		const docs = session("docs", "research");
+		api.rooms.create("three", [{ folder: api.cwd }, { folder: client.cwd }, { folder: docs.cwd }]);
+		sync(api, client, docs);
+		docs.rooms.end();
+		sync(api, client);
+		now += 30_000;
+		sync(api, client);
+		const [, room] = api.rooms.rooms();
+		expect(room?.folders.map((folder) => folder.path)).toEqual([api.cwd, client.cwd]);
+		// A session opened there later no longer joins.
+		const later = session("later", "research");
+		sync(api, later);
+		expect(later.rooms.rooms()).toHaveLength(1);
+	});
+
+	test("an agent back within the grace keeps the room", () => {
+		const api = session("api", "backend");
+		const client = session("client", "frontend");
+		api.rooms.create("backend+frontend", [{ folder: api.cwd }, { folder: client.cwd }]);
+		sync(api, client);
+		client.rooms.end();
+		sync(api);
+		now += 20_000;
+		const again = session("client", "frontend");
+		sync(api, again);
+		now += 20_000;
+		sync(api, again);
+		expect(api.rooms.rooms()).toHaveLength(2);
+	});
+
 	test("carries the board's part of the tasks, not the whole snapshot", () => {
 		const api = session("api", "backend");
 		const client = session("client", "frontend");

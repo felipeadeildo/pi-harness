@@ -1,4 +1,14 @@
-import { AUTO_MODEL, literal, modelChoice, setting, string } from "@adeildo/pi-kit";
+import {
+	AUTO_MODEL,
+	type Decoder,
+	fail,
+	literal,
+	modelChoice,
+	pass,
+	problem,
+	setting,
+	string,
+} from "@adeildo/pi-kit";
 
 import { BUSY_DELIVERIES, type BusyDelivery } from "./rules.ts";
 
@@ -62,4 +72,26 @@ export const link = setting<LinkRule>({
 	},
 });
 
-export const PEERS_SETTINGS = [delivery, model, link];
+/** A whole number of seconds, zero or more. */
+const seconds: Decoder<number> = {
+	control: { type: "number", min: 0, step: 5, unit: "s" },
+	decode(input, path) {
+		if (typeof input !== "number" || !Number.isInteger(input) || input < 0)
+			return fail(problem(path, "expected a whole number of seconds, zero or more"));
+		return pass(input);
+	},
+};
+
+export const roomGrace = setting<number>({
+	id: "peers.roomGrace",
+	default: 30,
+	decoder: seconds,
+	ui: {
+		section: ROOMS_SECTION,
+		label: "Room grace",
+		description:
+			"How long a shared room waits after a folder's last agent closes. Then the folder leaves, and a room whose open agents are all in one folder closes. A reload or a restart shorter than this keeps the room.",
+	},
+});
+
+export const PEERS_SETTINGS = [delivery, model, link, roomGrace];

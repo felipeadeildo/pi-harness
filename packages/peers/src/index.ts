@@ -30,7 +30,7 @@ import {
 import { ANYONE_MENTION, completeMentions, EVERYONE_MENTION } from "./mention.ts";
 import type { Named } from "./names.ts";
 import { type Post, Rooms } from "./rooms.ts";
-import { delivery, link, model, PEERS_SETTINGS } from "./settings.ts";
+import { delivery, link, model, PEERS_SETTINGS, roomGrace } from "./settings.ts";
 import { heldBlock, type HeldDelivery } from "./ui/held.ts";
 import { deliveryBlock, membershipNotice, messageBlock } from "./ui/message.ts";
 import { openPanel } from "./ui/panel.ts";
@@ -147,6 +147,7 @@ export const peers = defineFeature({
 				}
 			},
 			busyDelivery: () => delivery.get(scope),
+			roomGrace: () => roomGrace.get(scope) * 1000,
 		});
 		let typingShown = false;
 		/** What let each call of the tool through, from the permission gate, by call id. */

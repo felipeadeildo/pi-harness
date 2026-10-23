@@ -95,16 +95,18 @@ its name, like `api · backend`, and a message from a shared room says which roo
 
 <!-- /docs -->
 
-The list also changes the rooms. A folder brings every session opened there, today and later; a session brings
-only itself. Making a room or adding to one opens a picker where the conversation was.
+The list also changes the rooms. A folder brings every session opened there while it stays in the room. A session
+brings only itself. Making a room or adding to one opens a picker where the conversation was. It lists only what is
+open, so a folder with no agent open cannot join. Under the open room, the list shows its agents, then its folders
+with how many agents are open in each.
 
-| Key | On the list                                                                      |
-| --- | -------------------------------------------------------------------------------- |
-| `n` | A new room: pick from what is open on this machine, or type a path, then name it |
-| `a` | Add to the open room                                                             |
-| `r` | Take the agent under the cursor out of the open room                             |
-| `l` | Take this session out of the open room                                           |
-| `x` | Close the open room, after asking                                                |
+| Key | On the list                                                        |
+| --- | ------------------------------------------------------------------ |
+| `n` | A new room: pick from what is open on this machine, then name it   |
+| `a` | Add to the open room                                               |
+| `r` | Take the agent or the folder under the cursor out of the open room |
+| `l` | Take this session out of the open room                             |
+| `x` | Close the open room, after asking                                  |
 
 The folder's room has no `a`, `r`, `l` or `x`.
 
@@ -114,8 +116,13 @@ A shared room is a directory of logs like a folder's: `events/rooms/<id>/`, wher
 its own file. Each open session also keeps `events/live/<session>.json`, so finding who is open on the machine
 reads no logs.
 
-A folder brings every session opened in it, now and later. A session removed by name stays out even while its
+A folder brings every session opened in it while the folder is in. A session removed by name stays out even while its
 folder is in, and comes back only when it is added by name again. A closed room counts nobody.
+
+A room ends when nobody uses it. When the last agent of a member folder closes, the folder leaves. A session added
+by name leaves once it closes. When the open agents of a room all work in one folder, the room closes, since they
+already share the folder's room. Each waits for the room grace setting first, 30 seconds by default, so a reload or
+a restart keeps the room. Any open session does this, so a room everyone left closes too.
 
 A name finds its room on its own. When the two sessions share several, the message goes by the folder's room,
 else by the room where they last talked, else by the oldest. A name that means two agents is ambiguous, and the
@@ -243,6 +250,7 @@ On the Peers tab of `Alt+S`, stored under `peers` in `~/.pi/agent/extensions/pi-
 | While it runs                 | between calls               | How a colleague's message reaches your agent while its run is going: between calls (the default), after the run ends, or with your next prompt. A message marked urgent always attaches between calls |
 | Model                         | `auto`                      | The model that bids for this session. `auto` is the cheapest of the session's provider                                                                                                                |
 | When an agent asks for a room | the permission mode decides | Who lets an agent's `link` through: the permission mode like any call, always you (even in `full`), or only you, from `Alt+G`                                                                         |
+| Room grace                    | 30 s                        | How long a shared room waits after a folder's last agent closes before the folder leaves, or the room closes when its open agents are all in one folder                                               |
 
 Part of [pi-harness](https://github.com/felipeadeildo/pi-harness), which brings every piece in one install.
 

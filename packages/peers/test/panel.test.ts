@@ -309,15 +309,26 @@ describe("changing the rooms", () => {
 		expect(rooms.calls).toEqual(["create backend+repo session:me folder:/home/x/backend"]);
 	});
 
-	test("a path nothing is open in still links, as a folder", () => {
+	test("a folder with no open agent cannot join", () => {
 		const rooms = new Rooms(session("me", "/repo"));
 		shared(rooms);
 		const panel = panelOf(rooms);
 		const drawn = press(panel, TAB, DOWN, DOWN, "a", ..."/srv/lab");
-		expect(drawn).toContain("Add to backend+frontend");
-		expect(drawn).toContain("/srv/lab");
+		expect(drawn).toContain("Nothing open matches");
 		press(panel, ENTER);
-		expect(rooms.calls).toEqual(["add r1 folder:/srv/lab"]);
+		expect(rooms.calls).toEqual([]);
+	});
+
+	test("r on a member folder takes the folder out of the room", () => {
+		const rooms = new Rooms(session("me", "/repo"));
+		shared(rooms);
+		const panel = panelOf(rooms);
+		// The room, this session, then its folders.
+		const drawn = press(panel, TAB, DOWN, DOWN, DOWN, DOWN, DOWN);
+		expect(drawn).toMatch(/❯ frontend\/ +1 open/);
+		expect(drawn).toContain("r remove folder");
+		press(panel, "r");
+		expect(rooms.calls).toEqual(["remove r1 folder:/home/x/frontend"]);
 	});
 
 	test("esc in the picker goes back to the room, and Alt+G closes the panel from anywhere", () => {

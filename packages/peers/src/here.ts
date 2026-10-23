@@ -62,6 +62,8 @@ export interface Hooks extends InboxHooks {
 	inbox?: Inbox;
 	now?(): number;
 	alive?(pid: number): boolean;
+	/** How long, in milliseconds, a shared room keeps a member with no open agent. */
+	roomGrace?(): number;
 }
 
 /** A shared room, as this session knows it. */

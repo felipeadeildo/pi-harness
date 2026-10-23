@@ -29,7 +29,7 @@ import { Folder, isAlive } from "./folder.ts";
 import { Here, type Hooks, PEER_NOTE } from "./here.ts";
 import { Inbox } from "./inbox.ts";
 import { readLive, removeLive, writeLive } from "./live.ts";
-import type { Addition } from "./membership.ts";
+import type { Addition, Membership } from "./membership.ts";
 import { ANYONE_MENTION, groupIn, recipientsOf } from "./mention.ts";
 import type {
 	LiveSession,
@@ -45,6 +45,8 @@ import { byHandle, mentionedNames, type Named } from "./names.ts";
 const SNAPSHOT_FILES = 8;
 /** How many done tasks a shared room carries, as the board shows them. */
 const BOARD_DONE = 3;
+/** How long a room keeps a member with no open agent. */
+export const ROOM_GRACE_MS = 30_000;
 
 interface SessionSource {
 	getCwd(): string;
@@ -90,6 +92,9 @@ export class Rooms implements RoomsView {
 	#state: SessionState = "idle";
 	#stops: (() => void)[] = [];
 	#soonTimer: ReturnType<typeof setTimeout> | undefined;
+	/** When each stale member or room was first seen, by `staleIn`'s key. */
+	#stale = new Map<string, number>();
+	#wake: { at: number; timer: ReturnType<typeof setTimeout> } | undefined;
 	/** The part of the tasks last written to the shared rooms, so an unchanged board is not written again. */
 	#board = "";
 	readonly #listeners = new Set<() => void>();
@@ -151,6 +156,9 @@ export class Rooms implements RoomsView {
 		this.#stops = [];
 		if (this.#soonTimer !== undefined) clearTimeout(this.#soonTimer);
 		this.#soonTimer = undefined;
+		clearTimeout(this.#wake?.timer);
+		this.#wake = undefined;
+		this.#stale = new Map();
 		for (const room of this.#shared.values()) {
 			room.here?.close();
 			room.stop();
@@ -175,7 +183,46 @@ export class Rooms implements RoomsView {
 			}
 			this.#reconcile();
 		});
+		this.#prune();
 		this.#changed();
+	}
+
+	// Closes a room left with one folder and drops members with no open agent, after the grace.
+	#prune(): void {
+		const rooms = [...this.#shared.values()].filter((room) => !room.folder.membership.closed);
+		const live = rooms.length === 0 ? [] : this.live();
+		const now = this.#now();
+		const grace = this.#hooks.roomGrace?.() ?? ROOM_GRACE_MS;
+		const stale = new Map<string, number>();
+		let next = Number.POSITIVE_INFINITY;
+		for (const room of rooms)
+			for (const { key, member } of staleIn(room.id, room.folder.membership, live)) {
+				const since = this.#stale.get(key) ?? now;
+				if (now - since < grace) {
+					stale.set(key, since);
+					next = Math.min(next, since + grace);
+				} else if (member === undefined) this.#write(room.id, "room.closed", {});
+				else this.#write(room.id, "room.removed", { member });
+			}
+		this.#stale = stale;
+		this.#wakeAt(next);
+	}
+
+	// Nothing may change in the logs when a grace runs out, so a timer looks again.
+	#wakeAt(at: number): void {
+		if (this.#wake?.at === at) return;
+		clearTimeout(this.#wake?.timer);
+		this.#wake = undefined;
+		if (at === Number.POSITIVE_INFINITY) return;
+		const timer = setTimeout(
+			() => {
+				this.#wake = undefined;
+				this.sync();
+			},
+			Math.max(0, at - this.#now()),
+		);
+		timer.unref?.();
+		this.#wake = { at, timer };
 	}
 
 	// What the session does goes into every room it is in.
@@ -822,6 +869,26 @@ export function real(path: string): string {
 	} catch {
 		return absolute;
 	}
+}
+
+/** The room itself when its open agents share one folder, else its members with none open. */
+function staleIn(
+	id: string,
+	membership: Membership,
+	live: readonly LiveSession[],
+): { key: string; member?: Member }[] {
+	const open = live.filter((entry) => membership.includes(entry.session, entry.cwd));
+	const folders = new Set(open.map((entry) => entry.cwd));
+	if (folders.size < 2) return [{ key: id }];
+	const stale: { key: string; member?: Member }[] = [];
+	for (const folder of membership.folders.keys())
+		if (!folders.has(folder)) stale.push({ key: `${id} ${folder}`, member: { folder } });
+	for (const [session, cwd] of membership.sessions) {
+		// A member folder decides for its sessions: removing one would keep it out.
+		if (membership.folders.has(cwd) || open.some((entry) => entry.session === session)) continue;
+		stale.push({ key: `${id} ${session}`, member: { session, cwd } });
+	}
+	return stale;
 }
 
 function normal(member: Member): Member {

@@ -1,3 +1,5 @@
+import { basename } from "node:path";
+
 // The `Alt+G` panel, over the whole screen. On the left, the rooms this session is in, the folder's
 // first, with the open one's agents under its name. On the right, the open room's conversation and the
 // line you write in. The two sides never move or change width, whatever is open, so switching rooms
@@ -43,8 +45,11 @@ const BESIDE = 72;
 
 type Pane = "rooms" | "write";
 
-/** A line of the list on the left: a room, or an agent of the open one. */
-type Entry = { kind: "room"; room: Room } | { kind: "agent"; room: Room; peer: Peer };
+/** A line of the list on the left: a room, or an agent or a member folder of the open one. */
+type Entry =
+	| { kind: "room"; room: Room }
+	| { kind: "agent"; room: Room; peer: Peer }
+	| { kind: "folder"; room: Room; path: string; open: number };
 
 export interface PanelOptions {
 	theme: Theme;
@@ -150,7 +155,8 @@ export class PeersPanel implements Component, Focusable {
 				this.#options.requestRender();
 				return true;
 			case "r":
-				if (entry?.kind === "agent" && entry.peer.session !== this.#me()) {
+				if (entry?.kind === "folder") this.#act(() => view.remove(shared, { folder: entry.path }));
+				else if (entry?.kind === "agent" && entry.peer.session !== this.#me()) {
 					const { session, cwd } = entry.peer;
 					this.#act(() => view.remove(shared, { session, cwd: cwd ?? "" }));
 				}
@@ -236,6 +242,12 @@ export class PeersPanel implements Component, Focusable {
 			});
 			if (selected >= 0) cursorAt = lines.length + agents.selectedAt;
 			lines.push(...agents.lines);
+			for (const folder of room.id === undefined ? [] : room.folders) {
+				const pointed = this.#cursor === folderKey(folder.path);
+				if (pointed) cursorAt = lines.length;
+				const left = `  ${pointer(theme, pointed, focused)}${theme.fg("muted", `${basename(folder.path)}/`)}`;
+				lines.push(spread(left, theme.fg("dim", `${folder.open} open`), width));
+			}
 		}
 		if (rooms.length === 1)
 			lines.push("", `  ${theme.fg("muted", "n")}  ${theme.fg("dim", "new room")}`);
@@ -303,6 +315,7 @@ export class PeersPanel implements Component, Focusable {
 			keys.push(["enter", "write to"], ["ctrl+f", "only"]);
 			if (shared) keys.push(["r", "remove"]);
 		} else keys.push(["enter", "write"]);
+		if (entry?.kind === "folder") keys.push(["r", "remove folder"]);
 		keys.push(["n", "new room"]);
 		if (shared) keys.push(["a", "add"], ["l", "leave"], ["x", "close room"]);
 		keys.push(["tab", "write"], ["esc", "close"]);
@@ -320,6 +333,8 @@ export class PeersPanel implements Component, Focusable {
 			if (here === undefined) continue;
 			for (const peer of inOrder(here.live(), here.session))
 				entries.push({ kind: "agent", room, peer });
+			for (const folder of room.id === undefined ? [] : room.folders)
+				entries.push({ kind: "folder", room, ...folder });
 		}
 		return entries;
 	}
@@ -446,7 +461,18 @@ function keyOf(room: Room): string {
 }
 
 function keyOfEntry(entry: Entry): string {
-	return entry.kind === "room" ? keyOf(entry.room) : entry.peer.session;
+	switch (entry.kind) {
+		case "room":
+			return keyOf(entry.room);
+		case "agent":
+			return entry.peer.session;
+		case "folder":
+			return folderKey(entry.path);
+	}
+}
+
+function folderKey(path: string): string {
+	return `folder ${path}`;
 }
 
 function plural(count: number, word: string): string {

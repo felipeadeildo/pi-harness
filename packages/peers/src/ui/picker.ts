@@ -1,17 +1,8 @@
 // The picker that makes a room or adds to one, from what is open on this machine. It draws in the
 // panel's conversation pane, over the room it was opened from, until it is done or left.
-import { basename, isAbsolute, resolve } from "node:path";
+import { basename } from "node:path";
 
-import {
-	GLYPH,
-	type KeyHint,
-	type Member,
-	pointer,
-	rule,
-	spread,
-	expandHome,
-	tildify,
-} from "@adeildo/pi-kit";
+import { GLYPH, type KeyHint, type Member, pointer, rule, spread, tildify } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Input, Key, matchesKey, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
@@ -58,10 +49,7 @@ export interface PickerOptions {
 	done: (room: string | undefined) => void;
 }
 
-/**
- * What is open on this machine, by folder, filtered by what you type. A path that nothing is open in
- * yet still links: the folder's row stands alone until a session opens there.
- */
+/** What is open on this machine, by folder, filtered by what you type. A folder needs an open agent. */
 export class Picker {
 	focused = false;
 
@@ -149,7 +137,7 @@ export class Picker {
 				...lines,
 				...wrapped(
 					theme,
-					"Nothing open matches. Type a folder's path to link it before a session opens there.",
+					"Nothing open matches. A folder joins a room only while an agent is open in it.",
 					width,
 				),
 			];
@@ -194,8 +182,7 @@ export class Picker {
 	/** Each folder open on the machine and its sessions, those already in the room left out. */
 	#rows(): Row[] {
 		const { view, room } = this.#options;
-		const typed = this.#query.getValue().trim();
-		const query = typed.toLowerCase();
+		const query = this.#query.getValue().trim().toLowerCase();
 		const inFolders = new Set(room?.folders.map((folder) => folder.path));
 		const inSessions = new Set(room?.sessions.map((session) => session.session));
 		const byFolder = new Map<string, LiveSession[]>();
@@ -215,9 +202,6 @@ export class Picker {
 			if (matching.length === 0) continue;
 			rows.push(folderRow(path), ...matching.map(sessionRow));
 		}
-		const path = pathOf(typed);
-		if (path !== undefined && !byFolder.has(path) && !inFolders.has(path))
-			rows.push(folderRow(path));
 		return rows;
 	}
 
@@ -263,12 +247,6 @@ export class Picker {
 		this.#cursor = (this.#cursor + delta + count) % count;
 		this.#options.requestRender();
 	}
-}
-
-/** What you typed, read as a folder's path when it looks like one. */
-function pathOf(query: string): string | undefined {
-	const path = expandHome(query);
-	return isAbsolute(path) ? resolve(path) : undefined;
 }
 
 export function wrapped(theme: Theme, text: string, width: number): string[] {
