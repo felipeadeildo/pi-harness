@@ -5,11 +5,19 @@
 // like the screen's `run` does.
 import { isObject } from "../decode.ts";
 import { GLYPH } from "../ui/glyphs.ts";
+import type { By } from "./by.ts";
 
 /** A provider answers this to say it can draw a question right now. */
 export const AVAILABLE = "harness:ask:available";
 export const ASK = "harness:ask";
 export const ANSWER = "harness:ask:answer";
+/**
+ * The question closed: someone answered it, or the asker gave up. Only the asker's client emits it,
+ * since it decides the race. A provider drawing the question closes its dialog, and one still holding
+ * it in a queue drops it without drawing. A provider whose dialog closes on its own, as on Esc,
+ * answers with `cancelled: true` and never emits this: without that answer the asker waits forever.
+ */
+export const CANCEL = "harness:ask.cancel";
 
 export interface AskOption {
 	label: string;
@@ -54,7 +62,14 @@ export interface AskResult {
 
 export interface AnswerEvent {
 	id: string;
+	/** Who answered. An answer without it is logged as from nobody known, never as the terminal. */
+	by?: By;
 	result: AskResult;
+}
+
+export interface AskCancel {
+	id: string;
+	reason: "answered" | "aborted";
 }
 
 export function isAskResult(value: unknown): value is AskResult {

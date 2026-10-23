@@ -10,7 +10,7 @@ A slice is ticked in the commit that lands it.
 - [ ] C2. Presence and session state in the kit (core, F0)
 - [ ] P1. The rig (protocol, F0)
 - [ ] P2. The protocol package and its reducers (protocol, F0)
-- [ ] A1. The kit's ask client in every mode (ask, F0)
+- [x] A1. The kit's ask client in every mode (ask, F0)
 - [ ] A2. ask-questions asks through the bus (ask, F0)
 - [ ] A3. ask-permission through the bus, its mode and its rulings (ask, F0)
 - [ ] A4. The protected list (ask, F0)

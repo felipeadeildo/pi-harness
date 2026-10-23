@@ -2,6 +2,8 @@
 // shape only grows: a field that changes meaning gets a new name, and a new version of the log
 // would get a new `v`.
 import type { SessionTasks } from "../tasks/state.ts";
+import type { AskQuestion, AskResult } from "./ask.ts";
+import type { By } from "./by.ts";
 
 export type SessionState = "running" | "idle";
 
@@ -75,4 +77,8 @@ export interface LogEventMap {
 	"room.removed": { member: Member };
 	/** Nobody joins any more, and every member leaves. */
 	"room.closed": Record<string, never>;
+	/** A question went out through `harness:ask`. `source` is the feature that asked. */
+	"ask.opened": { id: string; source: string; questions: AskQuestion[]; expiresAt?: number };
+	/** It closed, with who answered, or who gave up on it. Without `by`, nobody known did. */
+	"ask.closed": { id: string; by?: By; result: AskResult };
 }

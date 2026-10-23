@@ -47,7 +47,7 @@ interface Bus {
 	emit(channel: string, data: unknown): void;
 }
 
-interface SessionSource {
+export interface SessionSource {
 	getCwd(): string;
 	getSessionId(): string;
 }
