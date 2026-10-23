@@ -14,7 +14,7 @@ A slice is ticked in the commit that lands it.
 - [x] A2. ask-questions asks through the bus (ask, F0)
 - [x] A3. ask-permission through the bus, its mode and its rulings (ask, F0)
 - [ ] A4. The protected list (ask, F0)
-- [ ] N1. The word list (names, F0)
+- [x] N1. The word list (names, F0)
 - [ ] N2. The draw (names, F0)
 - [ ] N3. Renames, aliases and the identity section (names, F0)
 - [ ] N4. Peers reads names from the kit (names, F0)
