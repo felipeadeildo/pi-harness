@@ -16,7 +16,6 @@ import {
 	type LoggedEvent,
 	type Member,
 	type PeerMark,
-	processLives,
 	processStart,
 	readPresence,
 	removePresence,
@@ -303,7 +302,7 @@ export class Rooms implements RoomsView {
 	}
 
 	live(): LiveSession[] {
-		return readPresence(this.#hooks.alive ?? processLives, HOST);
+		return readPresence(this.#hooks.alive === undefined ? {} : { lives: this.#hooks.alive });
 	}
 
 	/** The folder's marks first, so the footer can set the other rooms apart after them. */
