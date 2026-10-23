@@ -28,6 +28,7 @@ import { assistantText, userMessage } from "./messages.ts";
 import { peersRoom, SHARED_ROOM } from "./peers.ts";
 import { settingsLines } from "./settings.ts";
 import { tasksPanel } from "./tasks.ts";
+import { drawView } from "./view.ts";
 
 export interface Scene {
 	name: string;
@@ -391,6 +392,12 @@ export const SCENES: readonly Scene[] = [
 		caption: "The start card, then a prompt halfway through its answer.",
 		alt: "Pi with the look: the start card, then the strip with the stopwatch and the last call, the task under way with how many wait, are queued and are done, the framed editor with the branch, the model and the context, and below it the cost, the tokens, the cache and the average speeds.",
 		draw: drawLook,
+	},
+	{
+		name: "look/view",
+		caption: "Another session over the screen, read from its file as it grows.",
+		alt: "A session titled Read the rig log, on the machine server, drawn over the whole screen in one frame with live on the right of its top edge. Its last question and the answer sit above an editor box whose edges carry the session's title, its folder, its machine and its model, and whose only line says the session is read only. The bottom edge says alt+g goes back.",
+		draw: drawView,
 	},
 	{
 		name: "tasks/panel",

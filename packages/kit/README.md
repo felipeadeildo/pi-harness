@@ -63,14 +63,15 @@ A `setup` that throws turns into a warning and the other features still mount. I
 
 Besides the app and the settings, the kit holds what every package would otherwise write twice.
 
-| Module                                                       | What it gives                                                                                                    |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| `ui/frame.ts`, `ui/entry.ts`, `ui/glyphs.ts`, `ui/scroll.ts` | The frame an entry wears, the lines and glyphs it is drawn with, and where a scroll bar's thumb sits             |
-| `format.ts`                                                  | How a token count, a price and a time of day read, the same in a footer, a panel and a table                     |
-| `betas.ts`                                                   | Merging the betas an Anthropic request carries, keeping the payload untouched when nothing had to be added       |
-| `events/log.ts`                                              | The folder log every session appends to and reads                                                                |
-| `sources/`                                                   | A session to show, read from this pi or from its file, followed as it grows                                      |
-| `contracts/`, `tasks/`                                       | The names this suite writes into a pi session and the events that cross packages, plus the task list's own types |
+| Module                                                       | What it gives                                                                                                                              |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ui/frame.ts`, `ui/entry.ts`, `ui/glyphs.ts`, `ui/scroll.ts` | The frame an entry wears, the lines and glyphs it is drawn with, and where a scroll bar's thumb sits                                       |
+| `format.ts`                                                  | How a token count, a price and a time of day read, the same in a footer, a panel and a table                                               |
+| `betas.ts`                                                   | Merging the betas an Anthropic request carries, keeping the payload untouched when nothing had to be added                                 |
+| `events/log.ts`                                              | The folder log every session appends to and reads                                                                                          |
+| `sources/`                                                   | A session to show, read from this pi or from its file, followed as it grows                                                                |
+| `app/renderers.ts`                                           | The tool and message renderers the features register, resolved as pi resolves them, so a view draws another session's entries the same way |
+| `contracts/`, `tasks/`                                       | The names this suite writes into a pi session and the events that cross packages, plus the task list's own types                           |
 
 ## Settings
 
