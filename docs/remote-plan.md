@@ -51,7 +51,7 @@ Every agent's pi runs in `~/Projects/pi-harness`, so all of them share that fold
 
 ### Landing a slice
 
-Every slice reaches `main` through a pull request that someone from another track reviews.
+Every slice reaches `main` through a pull request that an agent from another track, or the reviewing agent, has read. The rules follow the operator's conventions from ada-api: everything on GitHub is English, `main` changes only through a reviewed pull request squashed on merge, and behavior, wording and scope are discussed before they are decided.
 
 ```bash
 # once per track
@@ -59,20 +59,23 @@ git -C ~/Projects/pi-harness worktree add --detach ~/Projects/pi-harness.worktre
 cd ~/Projects/pi-harness.worktrees/<track> && bun install
 
 # for each slice, in the track's worktree
-git fetch origin && git switch -c remote/<slice> origin/main   # remote/c2-presence, remote/a2-bus
-git fetch origin && git rebase origin/main                     # when the work is done
+git fetch origin && git switch -c feat/<area>-<what> origin/main   # feat/kit-presence
+git fetch origin && git rebase origin/main && bun install          # before opening the pull request
 bun run verify
-git push -u origin remote/<slice>
-gh pr create --base main --title "<one-line semantic subject>" --body-file <body.md>
-gh pr merge --squash --delete-branch                           # after the review approves
-git -C ~/Projects/pi-harness pull --ff-only                    # the folder the operator's pi runs from
+git push -u origin HEAD
+gh pr create --base main --title "<conventional subject>" --body-file <body.md>
+gh pr merge --squash --delete-branch                                # once a review approves
+git -C ~/Projects/pi-harness pull --ff-only                         # the folder the operator's pi runs from
+git switch --detach origin/main                                     # a clean base for the next slice
 ```
 
-- A pull request's title is a one-line semantic subject, and the squash merge makes it the one commit on `main`. The body names the slice, says what changes and how it was tested, and ticks the slice's line in [Status](#status).
-- A slice too large to review in one sitting goes in several pull requests, each green on its own.
-- The author asks in the room for a reviewer from another track. The reviewer runs the tests, reads the code with the `simplify`, `unslop` and `codebase-design` skills, and answers with `gh pr review`.
-- A pull request body and every review end with the operator's footer, `<p align="right"><sub>MODEL (EFFORT effort) @ adeildo's pi</sub></p>`, filled with the session's own model and effort (`PI_MODEL` and `PI_REASONING_LEVEL`).
-- When `main` moves under an open pull request, the author rebases, runs the verify again and pushes with `--force-with-lease`.
+- A branch starts from `main`, lives until its pull request is merged, and is named by its type and what it changes, in kebab-case: `feat/`, `fix/`, `refactor/` or `chore/`, as in `feat/kit-presence`.
+- A pull request's title is a conventional subject under 72 characters with the area in the scope, such as `feat(kit): tell a reused pid from the process that wrote an entry`. The squash merge makes it the one commit on `main`. Commits inside the branch take the same form, with no body and no trailer.
+- The body says what was missing or wrong, what the change does and how to see it working. It names the slice, ticks the slice's line in [Status](#status), and ends with the operator's footer, `<p align="right"><sub>claude opus 5.5 (max effort) @ adeildo's pi</sub></p>`, with the model as the session names it and the session's own effort.
+- A pull request holds one logical change and the test that fails without it. A slice too large to review in one sitting goes in several pull requests, each green on its own.
+- The author asks in the room for a review. The reviewer runs the verify on the branch, reads the code with the `simplify`, `unslop` and `codebase-design` skills, and answers with `gh pr review --comment`, ending with the same footer. Every agent uses the operator's GitHub account, which cannot approve its own pull requests, so the reviewer writes the approval in the review and says it in the room.
+- The author merges once a review approves, CI is green and nothing conflicts.
+- When `main` moves under an open pull request, the author rebases, runs `bun install` when `bun.lock` changed, runs the verify again and pushes with `--force-with-lease`.
 - When the pull in `~/Projects/pi-harness` fails, someone has uncommitted work there. The author says so in the room and leaves that work alone.
 - A slice that changes how the kit, peers, tasks or the ask features behave also runs once in a real pi before it is merged, with two sessions open in one folder.
 - Nobody runs `git checkout`, `git restore` or `git stash` on a file they did not edit.
