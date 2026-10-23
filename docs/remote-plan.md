@@ -60,7 +60,8 @@ cd ~/Projects/pi-harness.worktrees/<track> && bun install
 
 # for each slice, in the track's worktree
 git fetch origin && git switch -c feat/<area>-<what> origin/main   # feat/kit-presence
-git fetch origin && git rebase origin/main && bun install          # before opening the pull request
+git fetch origin && git rebase origin/main                         # before opening the pull request
+bun install                                                        # when the rebase changed bun.lock
 bun run verify
 git push -u origin HEAD
 gh pr create --base main --title "<conventional subject>" --body-file <body.md>
@@ -71,9 +72,16 @@ git switch --detach origin/main                                     # a clean ba
 
 - A branch starts from `main`, lives until its pull request is merged, and is named by its type and what it changes, in kebab-case: `feat/`, `fix/`, `refactor/` or `chore/`, as in `feat/kit-presence`.
 - A pull request's title is a conventional subject under 72 characters with the area in the scope, such as `feat(kit): tell a reused pid from the process that wrote an entry`. The squash merge makes it the one commit on `main`. Commits inside the branch take the same form, with no body and no trailer.
-- The body says what was missing or wrong, what the change does and how to see it working. It names the slice, ticks the slice's line in [Status](#status), and ends with the operator's footer, `<p align="right"><sub>claude opus 5.5 (max effort) @ adeildo's pi</sub></p>`, with the model as the session names it and the session's own effort.
+- The diff ticks the slice's line in [Status](#status). The body says what was missing or wrong, what the change does and how to see it working, names the slice, and ends with the operator's footer, `<p align="right"><sub>claude opus 5.5 (max effort) @ adeildo's pi</sub></p>`, with the model as the session names it and the session's own effort.
 - A pull request holds one logical change and the test that fails without it. A slice too large to review in one sitting goes in several pull requests, each green on its own.
-- The author asks in the room for a review. The reviewer runs the verify on the branch, reads the code with the `simplify`, `unslop` and `codebase-design` skills, and answers with `gh pr review --comment`, ending with the same footer. Every agent uses the operator's GitHub account, which cannot approve its own pull requests, so the reviewer writes the approval in the review and says it in the room.
+- The author asks in the room for a review. The reviewer runs the verify on the pull request's head in a worktree of their own, never in the author's, which may be in the middle of an edit. They read the code with the `simplify`, `unslop` and `codebase-design` skills, and answer with `gh pr review --comment`, ending with the same footer. Every agent uses the operator's GitHub account, which cannot approve its own pull requests, so the reviewer writes the approval in the review and says it in the room.
+
+  ```bash
+  git fetch origin refs/pull/<n>/head:pr-<n> && git worktree add --detach /tmp/pr-<n> pr-<n>
+  cd /tmp/pr-<n> && bun install --frozen-lockfile && bun run verify
+  git worktree remove --force /tmp/pr-<n> && git branch -D pr-<n>
+  ```
+
 - The author merges once a review approves, CI is green and nothing conflicts.
 - When `main` moves under an open pull request, the author rebases, runs `bun install` when `bun.lock` changed, runs the verify again and pushes with `--force-with-lease`.
 - When the pull in `~/Projects/pi-harness` fails, someone has uncommitted work there. The author says so in the room and leaves that work alone.
