@@ -69,6 +69,7 @@ Besides the app and the settings, the kit holds what every package would otherwi
 | `format.ts`                                                  | How a token count, a price and a time of day read, the same in a footer, a panel and a table                     |
 | `betas.ts`                                                   | Merging the betas an Anthropic request carries, keeping the payload untouched when nothing had to be added       |
 | `events/log.ts`                                              | The folder log every session appends to and reads                                                                |
+| `sources/`                                                   | A session to show, read from this pi or from its file, followed as it grows                                      |
 | `contracts/`, `tasks/`                                       | The names this suite writes into a pi session and the events that cross packages, plus the task list's own types |
 
 ## Settings
@@ -135,6 +136,8 @@ These rules hold for every contract:
 - It is declared in `contracts/` here, never in the package that owns the state. The reader then does not depend on the owner, and either one works without the other.
 - The value is plain JSON, with no functions, classes or `Date`, so a remote control or a web UI can forward any contract without knowing what is inside.
 - A value can gain fields but never lose them.
+
+A session to show is the exception: a `SessionSource` is an object with functions, so it travels on the raw channel `harness:sources`, where remote answers with its own. `sourceFor` asks there first and falls back to the session's file when the session is on this machine. Showing one over the screen goes through `contracts/views.ts`: `openView` asks on `harness:view.open`, and `canOpenView` says whether anyone would.
 
 ## Testing
 
