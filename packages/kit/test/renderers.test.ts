@@ -53,18 +53,19 @@ test("a feature mounted again for the next session replaces what it registered",
 	expect(labelOf(resolveToolRenderers("bash", () => base))).not.toContain("again(again(");
 });
 
+const NOTE_RENDERER: MessageRenderer = () => undefined;
+
 test("a custom message type's renderer is the one a feature registered", () => {
-	const renderer: MessageRenderer = () => undefined;
 	const { pi } = fakePi();
 	createApp(pi, { name: "test", settingsPath })
 		.use(
 			defineFeature({
 				id: "notes",
 				description: "notes",
-				setup: (scope) => scope.registerMessageRenderer("note", renderer),
+				setup: (scope) => scope.registerMessageRenderer("note", NOTE_RENDERER),
 			}),
 		)
 		.build();
-	expect(messageRendererFor("note")).toBe(renderer);
+	expect(messageRendererFor("note")).toBe(NOTE_RENDERER);
 	expect(messageRendererFor("nobody")).toBeUndefined();
 });

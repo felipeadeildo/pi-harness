@@ -11,7 +11,10 @@ import {
 	type FeatureScope,
 	hideImagesUnderOverlays,
 	SKILL_REF,
+	provideViews,
+	type SessionSource,
 	skillNames,
+	sourceFor,
 } from "@adeildo/pi-kit";
 import type {
 	ExtensionAPI,
@@ -54,6 +57,7 @@ import { frameQueue } from "./ui/queue.ts";
 import type { Screen, SlotName } from "./ui/screen.ts";
 import { registerToolFrames } from "./ui/tool-frame.ts";
 import { type Activity, describe, draftedTool } from "./ui/working.ts";
+import { SessionView } from "./view/view.ts";
 
 export { SEGMENT_IDS, SEGMENTS, type SegmentId } from "./render/segments.ts";
 import type { SegmentId } from "./render/segments.ts";
@@ -117,6 +121,19 @@ export const look = defineFeature({
 		const visitsFile = join(dirname(scope.settings.globalPath), "look-visits.json");
 		let visited = false;
 		let lastVisit: LastVisit | undefined;
+
+		// Another session over the screen, when the panel or remote asks for one.
+		provideViews(
+			scope.events,
+			(address) => {
+				const ctx = live.ctx;
+				const source = sourceFor(scope.events, address);
+				if (ctx === undefined || ctx.mode !== "tui" || source === undefined) return false;
+				void openView(ctx, screen, source);
+				return true;
+			},
+			() => live.ctx?.mode === "tui",
+		);
 
 		scope.registerShortcut(Key.alt("o"), {
 			description: "A tool call's whole output, to scroll; the arrows move between calls",
@@ -480,6 +497,26 @@ export default function piLook(pi: ExtensionAPI): void {
 }
 
 /** Alt+O: the session's tool output, one call at a time, newest first. */
+async function openView(
+	ctx: ExtensionContext,
+	screen: Screen,
+	source: SessionSource,
+): Promise<void> {
+	let view: SessionView | undefined;
+	await ctx.ui.custom<void>(
+		(tui, theme, _keybindings, done) => {
+			hideImagesUnderOverlays(tui);
+			view = new SessionView({ tui, theme, screen, source, close: () => done() });
+			return view;
+		},
+		{
+			overlay: true,
+			overlayOptions: { anchor: "center", width: "100%", maxHeight: "100%" },
+		},
+	);
+	view?.dispose();
+}
+
 async function openOutputs(ctx: ExtensionContext): Promise<void> {
 	if (ctx.mode !== "tui") return;
 	const outputs = outputsOf(ctx.sessionManager.getBranch());
