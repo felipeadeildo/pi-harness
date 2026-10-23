@@ -13,7 +13,7 @@ import {
 } from "../contracts/ask.ts";
 import { type By, isBy } from "../contracts/by.ts";
 import { isObject } from "../decode.ts";
-import { logFrom, type SessionSource } from "../events/log.ts";
+import { logFrom, type LogSession } from "../events/log.ts";
 
 type Events = ExtensionAPI["events"];
 
@@ -32,7 +32,7 @@ export interface AskOptions {
 	/** Who closed it when `signal` aborts. Without it, `ask.closed` says nobody. */
 	cancelledBy?: By;
 	/** The session whose log gets `ask.opened` and `ask.closed`. Without it, nothing is logged. */
-	ctx?: { sessionManager: Partial<SessionSource> };
+	ctx?: { sessionManager: Partial<LogSession> };
 	/**
 	 * The request's id, when the caller already has one, such as the tool call's. Keeping it unique is
 	 * the caller's job: two open asks with one id would both close on the first answer.

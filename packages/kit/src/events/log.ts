@@ -47,7 +47,7 @@ interface Bus {
 	emit(channel: string, data: unknown): void;
 }
 
-export interface SessionSource {
+export interface LogSession {
 	getCwd(): string;
 	getSessionId(): string;
 }
@@ -80,7 +80,7 @@ export function liveDir(root = eventsRoot()): string {
 	return join(root, "live");
 }
 
-export function targetOf(session: SessionSource, root?: string): LogTarget {
+export function targetOf(session: LogSession, root?: string): LogTarget {
 	return { dir: eventsDir(session.getCwd(), root), session: session.getSessionId() };
 }
 
@@ -121,7 +121,7 @@ export function logEvent<K extends EventType>(
 
 /** Logs from a handler's context. A context with no session behind it logs nothing. */
 export function logFrom<K extends EventType>(
-	ctx: { sessionManager: Partial<SessionSource> },
+	ctx: { sessionManager: Partial<LogSession> },
 	bus: Bus | undefined,
 	type: K,
 	data: LogEventMap[K],
@@ -129,7 +129,7 @@ export function logFrom<K extends EventType>(
 ): LoggedEvent<K> | undefined {
 	const { getCwd, getSessionId } = ctx.sessionManager;
 	if (getCwd === undefined || getSessionId === undefined) return undefined;
-	return logEvent(targetOf(ctx.sessionManager as SessionSource), bus, type, data, entry);
+	return logEvent(targetOf(ctx.sessionManager as LogSession), bus, type, data, entry);
 }
 
 export const HOST = hostname();
