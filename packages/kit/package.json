@@ -21,6 +21,7 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
+		"./rig": "./src/rig.ts",
 		"./testing": "./src/testing.ts"
 	},
 	"publishConfig": {

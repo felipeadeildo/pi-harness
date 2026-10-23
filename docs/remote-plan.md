@@ -8,7 +8,7 @@ A slice is ticked in the commit that lands it.
 
 - [x] C1. The `By` type in the kit (core, F0)
 - [ ] C2. Presence and session state in the kit (core, F0)
-- [ ] P1. The rig (protocol, F0)
+- [x] P1. The rig (protocol, F0)
 - [ ] P2. The protocol package and its reducers (protocol, F0)
 - [x] A1. The kit's ask client in every mode (ask, F0)
 - [x] A2. ask-questions asks through the bus (ask, F0)
