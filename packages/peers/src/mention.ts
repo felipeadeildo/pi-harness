@@ -43,6 +43,13 @@ export function typingMention(text: string): string | undefined {
 	return TYPING_PATTERN.exec(text)?.[1]?.slice(1).toLowerCase();
 }
 
+/** "all" when the names include `@everyone`, else "any" when they include `@anyone`. */
+export function groupIn(mentioned: readonly string[]): "all" | "any" | undefined {
+	if (mentioned.includes(EVERYONE_MENTION)) return "all";
+	if (mentioned.includes(ANYONE_MENTION)) return "any";
+	return undefined;
+}
+
 /**
  * The agents a message goes to: "all" for `@everyone`, "any" for `@anyone`. Undefined when it
  * mentions no other agent, so it goes to yours.
@@ -52,9 +59,8 @@ export function recipientsOf(
 	me: string | undefined,
 	text: string,
 ): Named[] | "all" | "any" | undefined {
-	const mentioned = mentionedNames(text);
-	if (mentioned.includes(EVERYONE_MENTION)) return "all";
-	if (mentioned.includes(ANYONE_MENTION)) return "any";
+	const group = groupIn(mentionedNames(text));
+	if (group !== undefined) return group;
 	const named = mentionsIn(names, text).filter((one) => one.session !== me);
 	return named.length === 0 ? undefined : named;
 }

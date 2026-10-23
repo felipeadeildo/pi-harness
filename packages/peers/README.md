@@ -38,7 +38,8 @@ A message with `@name` goes to that agent, one with `@anyone` to the agent that 
 mention to every agent.
 
 You can write to them from the chat too. `@name` goes to that agent and not to yours, and `@everyone` reaches
-every agent here, yours included, as if you had typed it in each session. Typing `@` lists the agents above
+every agent here and in the shared rooms you are in, yours included, once each, as if you had typed it in each
+session. `@anyone` from the chat goes to the folder's room, else to the only shared room with agents. Typing `@` lists the agents above
 pi's files, and a name that is not an open session, like `@src/auth.ts`, stays a file. When your agent writes to
 everyone, its call in your chat shows who read it, got it, or still has it on its way, name by name; a request to
 anyone shows the bids and who took it.
@@ -118,7 +119,7 @@ folder is in, and comes back only when it is added by name again. A closed room 
 
 A name finds its room on its own. When the two sessions share several, the message goes by the folder's room,
 else by the room where they last talked, else by the oldest. A name that means two agents is ambiguous, and the
-agent is told to say which `room`. `@everyone` and `@anyone` stay in the room they were said in.
+agent is told to say which `room`. `@everyone` and `@anyone` typed in a room on `Alt+G` stay in that room.
 
 An agent asks for a room with `link` in the `peers` tool, which brings sessions open in another folder, never the
 folder itself: a folder is a lasting change, and those are yours. The setting "When an agent asks for a room"

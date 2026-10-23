@@ -249,17 +249,15 @@ export const peers = defineFeature({
 					ctx.ui.notify(`${route.error} Write it in that room on Alt+G.`, "warning");
 					ctx.ui.setEditorText(event.text);
 					return { action: "handled" };
-				case "group": {
-					const home = rooms.home;
-					if (home === undefined || home.live().length < 2) {
-						ctx.ui.notify("No other agent works in this folder.", "warning");
+				case "group":
+					if (route.rooms.length === 0) {
+						ctx.ui.notify("No other agent is open in this folder or in your rooms.", "warning");
 						ctx.ui.setEditorText(event.text);
 						return { action: "handled" };
 					}
-					home.post(route.to, event.text, "you");
+					rooms.postGroup(route.to, event.text, route.rooms);
 					ctx.ui.notify(sentNotice(route.to), "info");
 					return { action: "handled" };
-				}
 				case "sessions":
 					for (const post of route.posts) post.here.post(sessionsOf(post), event.text, "you");
 					ctx.ui.notify(sentNotice(route.posts), "info");

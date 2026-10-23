@@ -30,7 +30,7 @@ import { Here, type Hooks, PEER_NOTE } from "./here.ts";
 import { Inbox } from "./inbox.ts";
 import { readLive, removeLive, writeLive } from "./live.ts";
 import type { Addition } from "./membership.ts";
-import { ANYONE_MENTION, EVERYONE_MENTION, recipientsOf } from "./mention.ts";
+import { ANYONE_MENTION, groupIn, recipientsOf } from "./mention.ts";
 import type {
 	LiveSession,
 	MembershipChange,
@@ -74,7 +74,7 @@ export type Route = { posts: Post[] } | { error: string };
 /** What a line you typed in the chat does. */
 export type ChatRoute =
 	| { kind: "yours" }
-	| { kind: "group"; to: "all" | "any" }
+	| { kind: "group"; to: "all" | "any"; rooms: Here[] }
 	| { kind: "sessions"; posts: Post[] }
 	| { kind: "unclear"; error: string };
 
@@ -367,8 +367,9 @@ export class Rooms implements RoomsView {
 	/** A line you typed: to another agent, to a group, or to yours. */
 	chat(text: string): ChatRoute {
 		const mentioned = mentionedNames(text);
-		if (mentioned.includes(EVERYONE_MENTION)) return { kind: "group", to: "all" };
-		if (mentioned.includes(ANYONE_MENTION)) return { kind: "group", to: "any" };
+		const group = groupIn(mentioned);
+		if (group === "all") return { kind: "group", to: group, rooms: this.#withOthers() };
+		if (group === "any") return this.#anyone();
 		const agents = mentioned.filter((name) =>
 			this.joined().some((here) => {
 				const named = byHandle(here.names(), name);
@@ -380,6 +381,39 @@ export class Rooms implements RoomsView {
 		return "error" in route
 			? { kind: "unclear", error: route.error }
 			: { kind: "sessions", posts: route.posts };
+	}
+
+	/** The rooms you are in with another agent open, the folder's first. */
+	#withOthers(): Here[] {
+		return this.joined().filter((here) =>
+			here.live().some((peer) => peer.session !== this.#session),
+		);
+	}
+
+	// The folder's room, else the only shared one with agents: in two rooms, two could take it.
+	#anyone(): ChatRoute {
+		const rooms = this.#withOthers();
+		const first = rooms[0];
+		if (first === undefined || first.room === undefined || rooms.length === 1)
+			return { kind: "group", to: "any", rooms: rooms.slice(0, 1) };
+		return {
+			kind: "unclear",
+			error: `@${ANYONE_MENTION} goes to one room, and agents are open in ${rooms.map(roomName).join(", ")}.`,
+		};
+	}
+
+	// The first room gets it as one to everyone, the next ones only name who has not got it yet.
+	postGroup(to: "all" | "any", text: string, rooms: readonly Here[]): void {
+		const reached = new Set<string>();
+		for (const [index, here] of rooms.entries()) {
+			const live = here.live().map((peer) => peer.session);
+			if (index === 0) here.post(to, text, "you");
+			else {
+				const fresh = live.filter((session) => session !== this.#session && !reached.has(session));
+				if (fresh.length > 0) here.post(fresh, text, "you");
+			}
+			for (const session of live) reached.add(session);
+		}
 	}
 
 	/** Every other agent across the rooms, once each, and where it is. */
@@ -837,6 +871,10 @@ function allowedLine(by: string | undefined): string {
 	}
 }
 
+function roomName(here: Here): string {
+	return here.room === undefined ? "this folder" : `the room ${here.room.name}`;
+}
+
 function roomLabel(here: Here): string {
-	return here.room === undefined ? "one in this folder" : `one in the room ${here.room.name}`;
+	return `one in ${roomName(here)}`;
 }

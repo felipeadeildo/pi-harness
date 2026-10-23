@@ -20,7 +20,7 @@ afterEach(() => {
 	rmSync(dir, { recursive: true, force: true });
 });
 
-async function mounted(id: string) {
+async function mounted(id: string, cwd = "/repo") {
 	writeFileSync(join(dir, "settings.json"), "{}");
 	const fake = fakePi();
 	let active = ["read", "bash"];
@@ -36,8 +36,8 @@ async function mounted(id: string) {
 	const notes: string[] = [];
 	let editor = "";
 	const ctx = fakeContext([], true, {
-		cwd: "/repo",
-		sessionManager: { getBranch: () => [], getCwd: () => "/repo", getSessionId: () => id },
+		cwd,
+		sessionManager: { getBranch: () => [], getCwd: () => cwd, getSessionId: () => id },
 		ui: {
 			notify: (message: string) => notes.push(message),
 			setEditorText: (text: string) => (editor = text),
@@ -170,9 +170,39 @@ test("@everyone tells every agent, yours too, @anyone asks for one, and a file s
 test("@everyone alone in the folder puts your words back in the editor", async () => {
 	const { fake, ctx, notes, editor } = await mounted("a");
 	await fake.fire("input", { text: "@everyone ship it", source: "interactive" }, ctx);
-	expect(notes).toEqual(["No other agent works in this folder."]);
+	expect(notes).toEqual(["No other agent is open in this folder or in your rooms."]);
 	expect(editor()).toBe("@everyone ship it");
 	expect(posted()).toEqual([]);
+});
+
+test("@everyone reaches an agent of another folder in a shared room, once each; @anyone asks the folder first", async () => {
+	const a = await mounted("a");
+	const b = await mounted("b", "/other");
+	const tool = a.fake.tools.find((candidate) => candidate.name === "peers");
+	await tool?.execute(
+		"1",
+		{ action: "link", folder: "/other" },
+		undefined,
+		undefined,
+		undefined as never,
+	);
+	// b joins on its next look.
+	await b.fake.fire("input", { text: "go on", source: "interactive" }, b.ctx);
+	const fire = (text: string) => a.fake.fire("input", { text, source: "interactive" }, a.ctx);
+	expect(await fire("@everyone ship it")).toEqual([{ action: "handled" }]);
+	expect(a.notes.at(-1)).toBe("Sent to @everyone: every agent here gets it.");
+	await b.fake.fire("input", { text: "go on", source: "interactive" }, b.ctx);
+	expect(b.fake.userMessages).toEqual(["@everyone ship it"]);
+	expect(a.fake.userMessages).toEqual(["@everyone ship it"]);
+
+	// With an agent in this folder too, @anyone stays in the folder's room: one request, one taker.
+	await mounted("c");
+	expect(await fire("@anyone take the deploy")).toEqual([{ action: "handled" }]);
+	expect(posted()).toMatchObject([{ to: "any", text: "@anyone take the deploy" }]);
+	expect(await fire("@everyone deploy at six")).toEqual([{ action: "handled" }]);
+	await b.fake.fire("input", { text: "go on", source: "interactive" }, b.ctx);
+	expect(b.fake.userMessages).toEqual(["@everyone ship it", "@everyone deploy at six"]);
+	expect(a.fake.userMessages).toEqual(["@everyone ship it", "@everyone deploy at six"]);
 });
 
 test("a run turns the tool back on when something else left it off", async () => {
