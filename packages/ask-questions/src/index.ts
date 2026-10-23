@@ -14,6 +14,7 @@ import {
 	defineFeature,
 	type FeatureScope,
 	HOST,
+	TASKS,
 	isObject,
 	oneAtATime,
 	TYPING_STATUS,
@@ -189,7 +190,7 @@ export const questions = defineFeature({
 			void answering.then((result) => {
 				if (pending.get(id) !== stop) return;
 				pending.delete(id);
-				const answer: AnswerEvent = { id, by: terminalBy(ctx), result };
+				const answer: AnswerEvent = { id, by: terminalBy(scope, ctx), result };
 				scope.events.emit(ANSWER, answer);
 			});
 		});
@@ -280,10 +281,14 @@ async function adopt(early: LiveAsk, raw: unknown, signal: AbortSignal): Promise
 	}
 }
 
-/** Who answers when the dialog in this terminal does. */
-function terminalBy(ctx: ExtensionContext): By {
-	const { sessionManager } = ctx;
-	const name = sessionManager.getSessionName() ?? sessionManager.getSessionId().slice(0, 8);
+/**
+ * Who answers when the dialog in this terminal does, under the handle peers shows: the one the
+ * tasks gave the session, or `new-` and the end of its id before it has one. Pi's session name is
+ * the title, which changes as the tasks retitle it.
+ */
+function terminalBy(scope: FeatureScope, ctx: ExtensionContext): By {
+	const handle = TASKS.current(scope)?.state.handle;
+	const name = handle ?? `new-${ctx.sessionManager.getSessionId().slice(-4)}`;
 	return { kind: "terminal", name, machine: HOST };
 }
 

@@ -204,7 +204,7 @@ test("another package asks through the same dialog", async () => {
 	});
 	bus.emit(ASK, request);
 	// The dialog in this terminal answered it, under the session's name.
-	const by = { kind: "terminal", name: "01234567", machine: expect.any(String) };
+	const by = { kind: "terminal", name: "new-cdef", machine: expect.any(String) };
 	expect(await answered).toEqual({ id: "ask-1", by, result: answer });
 });
 
