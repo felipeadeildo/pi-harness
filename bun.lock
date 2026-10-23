@@ -78,6 +78,7 @@
       "name": "@adeildo/pi-kit",
       "version": "5.15.0",
       "peerDependencies": {
+        "@earendil-works/pi-ai": "*",
         "@earendil-works/pi-coding-agent": "*",
         "@earendil-works/pi-tui": "*",
       },
