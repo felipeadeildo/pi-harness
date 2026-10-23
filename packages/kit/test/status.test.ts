@@ -88,18 +88,19 @@ describe("a session's status", () => {
 	});
 });
 
-describe("following the session", () => {
-	function followed() {
-		const fake = fakePi();
-		followSessionStatus(fake.pi);
-		const changes: (SessionStatus | undefined)[] = [];
-		SESSION_STATUS.onChanged({ events: fake.pi.events, warn: () => {} }, (value) =>
-			changes.push(value),
-		);
-		const current = () => SESSION_STATUS.current({ events: fake.pi.events, warn: () => {} });
-		return { fake, changes, current };
-	}
+/** A fake pi whose status is followed, with every change it announced. */
+function followed() {
+	const fake = fakePi();
+	followSessionStatus(fake.pi);
+	const changes: (SessionStatus | undefined)[] = [];
+	SESSION_STATUS.onChanged({ events: fake.pi.events, warn: () => {} }, (value) =>
+		changes.push(value),
+	);
+	const current = () => SESSION_STATUS.current({ events: fake.pi.events, warn: () => {} });
+	return { fake, changes, current };
+}
 
+describe("following the session", () => {
 	test("answers the status and announces each change once", async () => {
 		const { fake, changes, current } = followed();
 		const ctx = fakeContext();
