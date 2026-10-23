@@ -67,8 +67,12 @@ describe("a rewritten file", () => {
 		writeFileSync(path, line("a") + line("b"));
 		const tail = new FileTail(path);
 		tail.poll();
-		// Pi migrating a file rewrites every line, longer, with the same ids, and may append after.
-		writeFileSync(path, line("a", { v: 3 }) + line("b", { v: 3 }) + line("c", { v: 3 }));
+		// Pi migrating a file rewrites every line, longer, with the same ids, and may append after. The
+		// first line alone outgrows the old file, so only finding `b` again keeps it from coming twice.
+		writeFileSync(
+			path,
+			line("a", { v: 3, pad: "x".repeat(100) }) + line("b", { v: 3 }) + line("c", { v: 3 }),
+		);
 		expect(ids(tail.poll())).toEqual(["c"]);
 	});
 
@@ -83,7 +87,7 @@ describe("a rewritten file", () => {
 		expect(ids(tail.poll())).toEqual(["c"]);
 	});
 
-	test("under a new inode is read again", () => {
+	test("replaced by a new file is read again", () => {
 		const path = file();
 		writeFileSync(path, line("a") + line("b"));
 		const tail = new FileTail(path);

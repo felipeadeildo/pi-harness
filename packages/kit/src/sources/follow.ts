@@ -9,7 +9,10 @@ import { dirname } from "node:path";
 export interface FollowState {
 	/** Bytes read, always at the end of a line. */
 	offset: number;
-	/** The id of the record that ends at `offset`. */
+	/**
+	 * The id of the last record read, which ends at `offset` unless lines without an id follow it. Then
+	 * the next read takes the file for rewritten and reads it from the start, still sending nothing twice.
+	 */
 	lastId: string | undefined;
 	ino: number;
 	size: number;

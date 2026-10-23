@@ -21,6 +21,7 @@ interface Follower {
 export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 	let ctx: ExtensionContext | undefined;
 	let pending = false;
+	let ended = false;
 	const followers = new Set<Follower>();
 
 	function catchUp(follower: Follower, current: ExtensionContext): void {
@@ -53,7 +54,10 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 	}
 
 	// Each one may have appended an entry or changed the snapshot.
-	pi.on("session_start", (_event, next) => changed(next));
+	pi.on("session_start", (_event, next) => {
+		ended = false;
+		changed(next);
+	});
 	pi.on("session_info_changed", (_event, next) => changed(next));
 	pi.on("session_compact", (_event, next) => changed(next));
 	pi.on("session_tree", (_event, next) => changed(next));
@@ -63,6 +67,7 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 	pi.on("turn_end", (_event, next) => changed(next));
 	pi.on("session_shutdown", () => {
 		ctx = undefined;
+		ended = true;
 		for (const follower of followers) follower.on({ kind: "ended" });
 		followers.clear();
 	});
@@ -73,6 +78,11 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 			return Promise.resolve(snapshotOf(ctx));
 		},
 		follow(after, on) {
+			// One that comes late, such as a bridge reconnecting during `/new`, hears the end too.
+			if (ended) {
+				on({ kind: "ended" });
+				return () => {};
+			}
 			// A cursor with nothing this source reads, such as a newer one, is a cursor it does not know.
 			if (after !== undefined && after.entry === undefined) on({ kind: "reset" });
 			const follower: Follower = { on, after: after?.entry, seen: undefined, sent: undefined };

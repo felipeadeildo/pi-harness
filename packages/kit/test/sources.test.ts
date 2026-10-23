@@ -55,6 +55,10 @@ function sessionFile(...lines: object[]): string {
 	return path;
 }
 
+function sessionRewrite(path: string, ...lines: object[]): void {
+	writeFileSync(path, lines.map((line) => `${JSON.stringify(line)}\n`).join(""));
+}
+
 function append(path: string, ...lines: object[]): void {
 	appendFileSync(path, lines.map((line) => `${JSON.stringify(line)}\n`).join(""));
 }
@@ -169,6 +173,54 @@ describe("a session file as a source", () => {
 		expect(kinds(items)).toEqual(["reset", a.id, "snapshot"]);
 	});
 
+	test("goes on after its cursor without starting over again", async () => {
+		const a = user("a");
+		const b = user("b");
+		const c = user("c");
+		const path = sessionFile(HEADER, a, b);
+		const items = await collect(
+			fileSource(path, { every: 5 }),
+			{ entry: a.id },
+			(got) => kinds(got).includes(c.id),
+			() => setTimeout(() => append(path, c), 20),
+		);
+		expect(kinds(items)).toEqual([b.id, "snapshot", c.id, "snapshot"]);
+	});
+
+	test("sends the snapshot again only when it changed", async () => {
+		const a = user("a");
+		const b = user("b");
+		const path = sessionFile(HEADER, a);
+		const items = await collect(
+			fileSource(path, { every: 5 }),
+			undefined,
+			(got) => kinds(got).includes(b.id),
+			() => {
+				// A record that is not an entry changes nothing the snapshot says.
+				setTimeout(() => append(path, { id: "not-an-entry" }), 20);
+				setTimeout(() => append(path, b), 80);
+			},
+		);
+		expect(kinds(items)).toEqual([a.id, "snapshot", b.id, "snapshot"]);
+	});
+
+	test("a file rewritten as another session starts over, header and all", async () => {
+		const a = user("a");
+		const x = user("x");
+		const path = sessionFile(HEADER, a);
+		const items = await collect(
+			fileSource(path, { every: 5 }),
+			undefined,
+			(got) => got.length >= 5,
+			() => setTimeout(() => sessionRewrite(path, { ...HEADER, id: "s2", cwd: "/other" }, x), 20),
+		);
+		expect(kinds(items)).toEqual([a.id, "snapshot", "reset", x.id, "snapshot"]);
+		expect(items.at(-1)).toEqual({
+			kind: "snapshot",
+			snapshot: { session: "s2", machine: HOST, cwd: "/other", leafId: x.id },
+		});
+	});
+
 	test("a file rewritten with the same entries sends nothing twice, and a new entry once", async () => {
 		const a = user("a");
 		const b = user("b");
@@ -243,6 +295,80 @@ describe("this pi as a source", () => {
 
 		await fake.fire("session_shutdown", {}, ctx);
 		expect(items.at(-1)).toEqual({ kind: "ended" });
+	});
+
+	test("reads what pi writes after telling of `message_end`, with no other event", async () => {
+		const fake = fakePi();
+		const source = piSource(fake.pi);
+		const entries = [user("a")];
+		const ctx = session(entries);
+		await fake.fire("session_start", {}, ctx);
+		const items: SourceItem[] = [];
+		source.follow(undefined, (item) => items.push(item));
+		await fake.fire("message_end", {}, ctx);
+		const b = assistant(10);
+		entries.push(b);
+		await Bun.sleep(5);
+		expect(kinds(items).slice(2)).toEqual([b.id, "snapshot"]);
+	});
+
+	test("sends the snapshot again only when it changed", async () => {
+		const fake = fakePi();
+		const source = piSource(fake.pi);
+		const ctx = session([user("a")]);
+		await fake.fire("session_start", {}, ctx);
+		const items: SourceItem[] = [];
+		source.follow(undefined, (item) => items.push(item));
+		await fake.fire("turn_end", {}, ctx);
+		await Bun.sleep(5);
+		expect(kinds(items).slice(1)).toEqual(["snapshot"]);
+	});
+
+	test.each([
+		"session_tree",
+		"model_select",
+		"session_info_changed",
+		"session_compact",
+		"thinking_level_select",
+		"message_end",
+	])("hears a change after %s", async (event) => {
+		const fake = fakePi();
+		const source = piSource(fake.pi);
+		const entries = [user("a")];
+		await fake.fire("session_start", {}, session(entries));
+		const items: SourceItem[] = [];
+		source.follow(undefined, (item) => items.push(item));
+		await fake.fire(event, {}, session(entries, { thinkingLevel: "high" }));
+		await Bun.sleep(5);
+		expect(items.at(-1)).toMatchObject({ kind: "snapshot", snapshot: { thinkingLevel: "high" } });
+	});
+
+	test("a follower that stopped hears nothing more", async () => {
+		const fake = fakePi();
+		const source = piSource(fake.pi);
+		const a = user("a");
+		const entries = [a];
+		const ctx = session(entries);
+		await fake.fire("session_start", {}, ctx);
+		const items: SourceItem[] = [];
+		const stop = source.follow(undefined, (item) => items.push(item));
+		stop();
+		entries.push(user("b"));
+		await fake.fire("turn_end", {}, ctx);
+		await fake.fire("session_shutdown", {}, ctx);
+		await Bun.sleep(5);
+		expect(kinds(items)).toEqual([a.id, "snapshot"]);
+	});
+
+	test("a follower that comes after the session ended hears so at once", async () => {
+		const fake = fakePi();
+		const source = piSource(fake.pi);
+		const ctx = session([user("a")]);
+		await fake.fire("session_start", {}, ctx);
+		await fake.fire("session_shutdown", {}, ctx);
+		const items: SourceItem[] = [];
+		source.follow(undefined, (item) => items.push(item));
+		expect(items).toEqual([{ kind: "ended" }]);
 	});
 
 	test("starts after its cursor, and over when the session does not hold it", async () => {
