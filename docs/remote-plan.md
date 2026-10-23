@@ -132,7 +132,7 @@ Owner: protocol. Needs: nothing.
 P1 runs a real pi session inside a test, with a scripted model. `createAgentSession` gets a `SessionManager` that writes into a temporary folder, `PI_HARNESS_EVENTS` pointing at another, and a `DefaultResourceLoader` whose `extensionFactories` hold the features under test. One more factory registers a provider built on `createFauxCore` from `@earendil-works/pi-ai`, and a test scripts the replies with `fauxText`, `fauxThinking` and `fauxToolCall`.
 
 - Files: `packages/kit/src/rig.ts`, exported as `@adeildo/pi-kit/rig`, and `scripts/record-session.ts`, which plays a scripted run and writes its session file and harness log to a folder given on the command line.
-- The scripted run: a prompt, thinking, a `bash` call, tasks set and changed, an aborted second turn, a `/tree` move and a compaction. The recording gains an answered `ask_questions` call and the permission rulings when A2 and A3 land, and is recorded again then.
+- The scripted run: a prompt, thinking, a `bash` call, tasks set and changed, a `/tree` move, and a turn written after it so the move can be read back. An aborted turn and a compaction stay out of the recording: the scripted model cannot be stopped mid answer, and pi will not compact a session this short. P2 covers both with lines captured from a real run, in `test/edges.test.ts`. The recording gains an answered `ask_questions` call and the permission rulings when A2 and A3 land, and is recorded again then.
 - No session from anyone's history goes into the repository. The rig's recording comes from a real pi with a scripted model, so it has pi's real order of events and nothing private.
 - Tests: a turn run in the rig leaves its entries in the session file and its harness facts in the log.
 
@@ -380,10 +380,10 @@ The peers redesign in the design is a track of its own, not scheduled here. It c
 
 ## Risks retired first
 
-| Risk                                                                                 | Retired by | How                                                                                                              |
-| ------------------------------------------------------------------------------------ | ---------- | ---------------------------------------------------------------------------------------------------------------- |
-| Expo's web export needs inline scripts that the CSP forbids                          | W1         | It loads the export under the CSP in a headless browser before any screen is built                               |
-| Pi's events miss something the bridge needs, such as an entry id or a session switch | P1, C4     | The recording covers an abort, `/tree`, a compaction, `/reload` and `/new`, and the tests of C4 assert the order |
-| Moving presence or names breaks peers in every running session                       | C2, N4     | Both run in a real pi with two sessions in one folder before they land, because the operator's pi loads `main`   |
-| 600 animal names cannot meet the rules                                               | N1         | The script prints the counts before the list is fixed                                                            |
-| The view cannot draw another session's entries with pi's components                  | V2         | A spike already drew a session from its file this way ([The view](remote.md#the-view)), and V2 starts from it    |
+| Risk                                                                                 | Retired by | How                                                                                                                                         |
+| ------------------------------------------------------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Expo's web export needs inline scripts that the CSP forbids                          | W1         | It loads the export under the CSP in a headless browser before any screen is built                                                          |
+| Pi's events miss something the bridge needs, such as an entry id or a session switch | P1, C4     | `test/edges.test.ts` covers an abort and a compaction from captured lines, the recording covers `/tree`, and C4 covers `/reload` and `/new` |
+| Moving presence or names breaks peers in every running session                       | C2, N4     | Both run in a real pi with two sessions in one folder before they land, because the operator's pi loads `main`                              |
+| 600 animal names cannot meet the rules                                               | N1         | The script prints the counts before the list is fixed                                                                                       |
+| The view cannot draw another session's entries with pi's components                  | V2         | A spike already drew a session from its file this way ([The view](remote.md#the-view)), and V2 starts from it                               |

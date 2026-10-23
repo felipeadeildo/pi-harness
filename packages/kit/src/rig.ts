@@ -64,6 +64,9 @@ export interface RigSays {
 /** The model a rig answers as, so a feature's setting can name it. */
 export const SCRIPTED = "rig/scripted";
 
+/** The root of the rig in use, since the environment it sets is shared by the process. */
+let open: string | undefined;
+
 /** Puts an environment variable back the way the test found it. */
 function restore(name: string, before: string | undefined): void {
 	if (before === undefined) delete process.env[name];
@@ -77,15 +80,24 @@ function loggedIn(
 	session: string,
 ): { type: string; data: Record<string, unknown> }[] {
 	const file = logPath({ dir: eventsDir(cwd, events), session });
+	let text: string;
 	try {
-		return readFileSync(file, "utf8")
-			.trim()
-			.split("\n")
-			.filter((line) => line.length > 0)
-			.map((line) => JSON.parse(line) as { type: string; data: Record<string, unknown> });
+		text = readFileSync(file, "utf8");
 	} catch {
+		// No feature has written yet. That is a run with nothing to say, not a broken log.
 		return [];
 	}
+	return text
+		.trim()
+		.split("\n")
+		.filter((line) => line.length > 0)
+		.map((line, at) => {
+			try {
+				return JSON.parse(line) as { type: string; data: Record<string, unknown> };
+			} catch (error) {
+				throw new Error(`${file}:${at + 1} is not a log line: ${String(error)}`, { cause: error });
+			}
+		});
 }
 
 export interface Rig {
@@ -127,7 +139,8 @@ const BACKGROUND_TOKENS = new Set([
 
 /**
  * The theme pi ships as `dark`, built from the file pi reads. A scripted run has no terminal to
- * report one, and a feature that paints a status line still gets the colors it expects.
+ * report one, and a feature that paints a status line still gets the colors it expects. This reads a
+ * file inside pi's package, so a pi release that moves it breaks the rig loudly, at the first run.
  */
 function darkTheme(): Theme {
 	const root = dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent")));
@@ -198,11 +211,16 @@ function scriptedUI(says: RigSays): ExtensionUIContext {
 }
 
 /**
- * A pi session with the harness's extensions and a model that answers from a script. Two rigs in one
- * test are two sessions in two folders, which is what the phases check with a real pi.
+ * A pi session with the harness's extensions and a model that answers from a script. One at a time:
+ * the two variables a feature reads its log's folder and its settings from are process-wide, so a
+ * second rig open beside the first would write into the wrong folder.
  */
 export async function createRig(options: RigOptions = {}): Promise<Rig> {
+	if (open !== undefined) {
+		throw new Error(`a rig is already open on ${open}; dispose it before opening another`);
+	}
 	const root = options.root ?? mkdtempSync(join(tmpdir(), "pi-rig-"));
+	open = root;
 	const cwd = options.cwd ?? join(root, "work");
 	const sessions = join(root, "sessions");
 	const events = join(root, "events");
@@ -293,7 +311,11 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 			const deadline = Date.now() + ms;
 			for (;;) {
 				const lines = loggedIn(events, cwd, session.sessionId);
-				if (lines.some(match) || Date.now() > deadline) return lines;
+				if (lines.some(match)) return lines;
+				if (Date.now() > deadline) {
+					const seen = [...new Set(lines.map((line) => line.type))].join(", ") || "nothing";
+					throw new Error(`the log never held it in ${ms} ms; it held ${seen}`);
+				}
 				await new Promise((resolve) => setTimeout(resolve, 10));
 			}
 		},
@@ -301,6 +323,7 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 			session.dispose();
 			restore("PI_HARNESS_EVENTS", beforeEvents);
 			restore("PI_CODING_AGENT_DIR", beforeAgent);
+			open = undefined;
 			if (options.root === undefined) rmSync(root, { recursive: true, force: true });
 		},
 	};
