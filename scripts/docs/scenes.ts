@@ -108,22 +108,41 @@ function questionsReview(theme: Theme): string[] {
 	return dialog.render(WIDTH);
 }
 
-/** The call while the model writes it, then once you answered. */
+/**
+ * The model is still writing the call. The call keeps to one line in the chat, and the dialog under
+ * it is already open, with the first question answered and the second at its first option.
+ */
+function questionsWriting(theme: Theme): string[] {
+	const scope = { ...SCOPE, options: SCOPE.options.slice(0, 1) };
+	const dialog = openDialog(theme, [LAYOUT, scope], WIDTH, undefined, true);
+	press(dialog, KEYS.enter);
+	const call = drawCalls(
+		[
+			{
+				tool: "ask_questions",
+				args: { questions: [LAYOUT, scope] },
+				writing: true,
+				dialogOpen: true,
+				wroteMs: 6_400,
+				ranMs: 0,
+			},
+		],
+		WIDTH,
+	);
+	return [...call, "", ...dialog.render(WIDTH)];
+}
+
+/** The call once you answered, with every answer and your notes. */
 function questionsTranscript(theme: Theme): string[] {
 	const dialog = openDialog(theme, [LAYOUT, SCOPE, RULES], WIDTH, (result) => (answered = result));
 	let answered: AskResult | undefined;
 	answerAll(dialog);
 	press(dialog, KEYS.enter);
-	const questions = [LAYOUT, SCOPE, RULES];
-	const writing = {
-		questions: [LAYOUT, { ...SCOPE, question: "Where should the choice", options: [] }],
-	};
 	return drawCalls(
 		[
-			{ tool: "ask_questions", args: writing, writing: true, wroteMs: 6_400, ranMs: 0 },
 			{
 				tool: "ask_questions",
-				args: { questions },
+				args: { questions: [LAYOUT, SCOPE, RULES] },
 				output: "",
 				details: answered,
 				wroteMs: 9_100,
@@ -307,6 +326,13 @@ export const SCENES: readonly Scene[] = [
 		draw: questionsMulti,
 	},
 	{
+		name: "ask-questions/writing",
+		caption:
+			"The dialog opens while the model still writes the call, so you answer the first question as the second arrives.",
+		alt: "The ask_questions call on one line in the chat while the model writes it, and under it the open dialog. The first question is answered. The tab of the second has a spinner and a cursor, and a cursor blinks under its only option so far.",
+		draw: questionsWriting,
+	},
+	{
 		name: "ask-questions/review",
 		caption: "Every answer on one tab before it goes, then the whole call in the chat.",
 		alt: "The review tab: every question with its answer, before submitting.",
@@ -315,8 +341,8 @@ export const SCENES: readonly Scene[] = [
 	},
 	{
 		name: "ask-questions/transcript",
-		caption: "The questions in the chat, then every answer with your notes.",
-		alt: "Two ask_questions calls in the chat. The first is still being written and lists the questions so far. The second lists each question with the picked option, a note under it, a note on an option not picked, and an answer in quotes.",
+		caption: "The answered call in the chat, with your notes.",
+		alt: "An answered ask_questions call in the chat: each question with the picked option, a note under it, a note on an option not picked, and an answer in quotes.",
 		draw: questionsTranscript,
 	},
 	{

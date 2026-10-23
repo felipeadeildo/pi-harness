@@ -26,6 +26,8 @@ export interface CallSpec {
 	details?: unknown;
 	/** The model is still writing the call. */
 	writing?: boolean;
+	/** Its questions are open in the dialog under the chat, so the call keeps to one line. */
+	dialogOpen?: boolean;
 	/** How long the model took to write the call. */
 	wroteMs: number;
 	/** How long the call ran, or has run so far. */
@@ -44,6 +46,10 @@ const TOOLS = {
 	write: createWriteToolDefinition("/repo"),
 	ask_questions: askRenderers(() => false),
 } as Record<CallSpec["tool"], ToolRenderers>;
+const ASK_WITH_DIALOG = { ask_questions: askRenderers(() => true) } as Record<
+	"ask_questions",
+	ToolRenderers
+>;
 
 /**
  * A call as a session draws it. A picture needs numbers on it, so the clock is moved by hand
@@ -60,7 +66,7 @@ export function drawCall(spec: CallSpec, width: number): string[] {
 	Date.now = () => start + behind;
 
 	try {
-		const base = TOOLS[spec.tool];
+		const base = spec.dialogOpen === true ? ASK_WITH_DIALOG.ask_questions : TOOLS[spec.tool];
 		const fake = fakePi();
 		createApp(fake.pi, { name: "docs" }).use(look).build();
 		RULING.provide({ events: fake.pi.events, warn: () => {} }, () => spec.ruling);

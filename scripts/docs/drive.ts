@@ -23,6 +23,7 @@ export function openDialog(
 	questions: readonly AskQuestion[],
 	width: number = WIDTH,
 	complete: (result: AskResult) => void = () => {},
+	writing = false,
 ): QuestionDialog {
 	const tui = { requestRender() {}, terminal: { rows: 40, columns: width } } as unknown as TUI;
 	const dialog = new QuestionDialog({
@@ -31,7 +32,10 @@ export function openDialog(
 		markdownTheme: getMarkdownTheme(),
 		keybindings: { matches: () => false } as unknown as KeybindingsManager,
 		questions,
+		writing,
 		complete,
+		// A fixed clock, so the spinner and the cursor of a question being written draw the same.
+		now: () => 0,
 	});
 	dialog.focused = true;
 	return dialog;
