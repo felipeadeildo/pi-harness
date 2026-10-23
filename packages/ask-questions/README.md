@@ -122,6 +122,8 @@ if (canAsk(scope.events)) {
 
 A question can set `typed: false` to leave out the row for your own words, as the permission ask does. The model's tool always has that row. `canAsk` is a synchronous probe, and it exists because `askQuestions` would never settle with nobody to draw the dialog. The provider always answers, even when the dialog fails, and the answer carries the error.
 
+The model's tool asks the same way, with the tool call's id. So anything else that listens for questions, such as a phone, sees the model's questions too, and the first answer wins. The dialog here then closes as cancelled. Pass `signal` to give up on a question, and `ctx` to write `ask.opened` and `ask.closed` to the session's log.
+
 ## Settings
 
 On the **Questions** tab of `Alt+S`, stored under `questions` in `~/.pi/agent/extensions/pi-harness/settings.json`:
