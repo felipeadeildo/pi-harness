@@ -4,9 +4,9 @@ This plan splits [the remote design](remote.md) into slices that land on `main` 
 
 ## Status
 
-A slice is ticked, with the commit that landed it, in the push that lands it.
+A slice is ticked in the commit that lands it.
 
-- [ ] C1. The `By` type in the kit (core, F0)
+- [x] C1. The `By` type in the kit (core, F0)
 - [ ] C2. Presence and session state in the kit (core, F0)
 - [ ] P1. The rig (protocol, F0)
 - [ ] P2. The protocol package and its reducers (protocol, F0)
@@ -47,7 +47,7 @@ Six tracks run in parallel, each in its own git worktree. The operator's pi load
 | view     | V1 to V3          | open               | `view`                                            | `remote/view`     |
 | client   | W1 to W3          | open               | `client`                                          | `remote/client`   |
 
-A shared peers room named `remote` holds the main folder and every worktree. Each owner says there when a slice starts and when it lands. When a track runs out of slices, its owner takes the next open slice on the critical path, starting with C6.
+Every agent's pi runs in `~/Projects/pi-harness`, so all of them share that folder's peers room, and each works on its worktree through absolute paths. Every read, edit and write names a path under the worktree, and every bash command starts with `cd` into it. Each owner says in the room when a slice starts and when it lands. When a track runs out of slices, its owner takes the next open slice on the critical path, starting with C6.
 
 ### Landing a slice
 
