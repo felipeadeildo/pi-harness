@@ -61,8 +61,8 @@ export interface RigSays {
 	editor?: (string | undefined)[];
 }
 
-/** The provider the scripted model answers as, so a setting can name `rig/scripted`. */
-export const SCRIPTED = "rig";
+/** The model a rig answers as, so a feature's setting can name it. */
+export const SCRIPTED = "rig/scripted";
 
 /** Puts an environment variable back the way the test found it. */
 function restore(name: string, before: string | undefined): void {
@@ -224,7 +224,7 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 		);
 	}
 
-	const faux = fauxProvider({ provider: SCRIPTED, models: [{ id: "scripted", name: "Scripted" }] });
+	const faux = fauxProvider({ provider: "rig", models: [{ id: "scripted", name: "Scripted" }] });
 	const answer = options.answer;
 	if (answer === undefined) {
 		faux.setResponses([...(options.replies ?? [])]);

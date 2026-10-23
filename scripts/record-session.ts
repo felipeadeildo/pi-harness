@@ -17,7 +17,7 @@ import {
 
 import { createApp } from "../packages/kit/src/app/builder.ts";
 import { eventsDir, logPath } from "../packages/kit/src/index.ts";
-import { createRig } from "../packages/kit/src/rig.ts";
+import { createRig, SCRIPTED } from "../packages/kit/src/rig.ts";
 import { tasks } from "../packages/tasks/src/index.ts";
 
 const out =
@@ -77,7 +77,7 @@ const rig = await createRig({
 	],
 	// The tasks feature asks a model of its own, and the catalogue holds every provider. Without
 	// this it would reach for a real one.
-	settings: { tasks: { model: "rig/scripted" } },
+	settings: { tasks: { model: SCRIPTED } },
 });
 
 try {

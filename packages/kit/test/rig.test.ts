@@ -10,7 +10,7 @@ import {
 
 import { tasks } from "../../tasks/src/index.ts";
 import { createApp } from "../src/app/builder.ts";
-import { createRig, type Rig } from "../src/rig.ts";
+import { createRig, type Rig, SCRIPTED } from "../src/rig.ts";
 
 let rig: Rig | undefined;
 
@@ -73,7 +73,7 @@ describe("a real pi session with a scripted model", () => {
 			],
 			// The tasks feature keeps the list with a model of its own, and the catalogue holds every
 			// provider. Point it at the scripted one, or it reaches for a real model.
-			settings: { tasks: { model: "rig/scripted" } },
+			settings: { tasks: { model: SCRIPTED } },
 		});
 
 		await rig.prompt("What is in this folder?");
