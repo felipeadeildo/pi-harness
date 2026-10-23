@@ -1,4 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
 	ANSWER,
@@ -6,7 +9,13 @@ import {
 	type AskRequest,
 	type AskResult,
 	AVAILABLE,
+	type By,
+	type LoggedEvent,
+	logPath,
+	MODE,
 	oneAtATime,
+	readFrom,
+	targetOf,
 } from "@adeildo/pi-kit";
 import { fakePi, fakeScope, toolInfo } from "@adeildo/pi-kit/testing";
 import {
@@ -23,6 +32,7 @@ import { OpenFolders } from "#core/folders.ts";
 import type { PermissionMode } from "#core/mode.ts";
 import { DECIDED_EVENT } from "#pi/api.ts";
 import { registerEvents } from "#pi/events.ts";
+import { setSessionMode } from "#pi/mode.ts";
 import type { SessionState } from "#pi/session.ts";
 
 /**
@@ -190,7 +200,7 @@ describe("the ruling on each call", () => {
 });
 
 /** A questions feature in the same process: it says it is there, and answers with `script`. */
-function questionsProvider(script: AskResult[]): { bus: EventBus; asked: AskRequest[] } {
+function questionsProvider(script: AskResult[], by?: By): { bus: EventBus; asked: AskRequest[] } {
 	const bus = createEventBus();
 	const asked: AskRequest[] = [];
 	bus.on(AVAILABLE, (data: unknown) => void ((data as { available: boolean }).available = true));
@@ -200,6 +210,7 @@ function questionsProvider(script: AskResult[]): { bus: EventBus; asked: AskRequ
 		bus.emit(ANSWER, {
 			id: request.id,
 			result: script.shift() ?? { answers: [], cancelled: true },
+			...(by === undefined ? {} : { by }),
 		});
 	});
 	return { bus, asked };
@@ -246,6 +257,18 @@ describe("one dialog for the permission and the questions", () => {
 
 		expect(state.alwaysYes.has("bash", ["git push"])).toBe(true);
 		expect(asked).toHaveLength(3);
+	});
+
+	test("in RPC mode the gate still asks a provider, so a remote client can answer", async () => {
+		const { bus, asked } = questionsProvider([answerTo("yes")]);
+		const { toolCall } = harness("judge", "ask", bus);
+		let opened = 0;
+		const rpc = { ...fakeContext(() => void opened++), mode: "rpc" } as ExtensionContext;
+
+		await toolCall(judgeCall("call-1", "git push origin main"), rpc);
+
+		expect(opened).toBe(0);
+		expect(asked).toHaveLength(1);
 	});
 
 	test("with no questions feature the host's selector asks", async () => {
@@ -634,5 +657,64 @@ describe("the calls of a codemode script", () => {
 		await host.answer(yes);
 		expect(await first).toBeUndefined();
 		expect(host.screen()).toBeUndefined();
+	});
+});
+
+describe("what the log keeps of a ruling and of the mode", () => {
+	let root: string;
+	beforeEach(() => {
+		root = mkdtempSync(join(tmpdir(), "permission-log-"));
+		process.env.PI_HARNESS_EVENTS = root;
+	});
+	afterEach(() => {
+		delete process.env.PI_HARNESS_EVENTS;
+		rmSync(root, { recursive: true, force: true });
+	});
+
+	const SESSION = { getCwd: () => "/repo", getSessionId: () => "s1", getBranch: () => [] };
+	const PHONE: By = { kind: "client", name: "phone", machine: "laptop" };
+
+	function logged(): LoggedEvent[] {
+		return readFrom(logPath(targetOf(SESSION)), 0).events;
+	}
+
+	function withLog(ctx: ExtensionContext): ExtensionContext {
+		return { ...ctx, sessionManager: SESSION } as unknown as ExtensionContext;
+	}
+
+	test("an answered call is ruled by whoever answered the question", async () => {
+		const { bus } = questionsProvider([answerTo("no")], PHONE);
+		const { toolCall } = harness("judge", "ask", bus);
+		await toolCall(judgeCall("call-1", "git push origin main"), withLog(fakeContext()));
+
+		const events = logged();
+		expect(events.map((event) => event.type)).toEqual(["ask.opened", "ask.closed", "call.ruled"]);
+		expect(events[0]?.data).toMatchObject({ source: "ask-permission" });
+		expect(events[2]?.data).toMatchObject({ toolCallId: "call-1", by: PHONE });
+	});
+
+	test("a call the host's own selector decided is ruled with no by", async () => {
+		const { toolCall } = harness("manual");
+		await toolCall(writeCall("call-1", "/etc/hosts"), withLog(fakeContext()));
+		const ruled = logged().find((event) => event.type === "call.ruled");
+		expect(ruled?.data).toMatchObject({ toolCallId: "call-1" });
+		expect(ruled?.data).not.toHaveProperty("by");
+	});
+
+	test("a change of mode is logged, and anyone can read the mode", () => {
+		const { fake, state } = harness("manual");
+		const scope = fakeScope({ pi: fake });
+		MODE.provide(scope, () => state.mode);
+		const heard: unknown[] = [];
+		MODE.onChanged(scope, (mode) => heard.push(mode));
+
+		setSessionMode(scope, state, "judge", withLog(fakeContext()), false);
+		setSessionMode(scope, state, "judge", withLog(fakeContext()), false);
+
+		expect(MODE.current(scope)).toBe("judge");
+		expect(heard).toEqual(["judge"]);
+		expect(logged().map((event) => [event.type, event.data])).toEqual([
+			["mode.changed", { mode: "judge" }],
+		]);
 	});
 });

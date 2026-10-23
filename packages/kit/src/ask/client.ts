@@ -6,6 +6,7 @@ import {
 	AVAILABLE,
 	type AskCancel,
 	type AskQuestion,
+	type AskReply,
 	type AskRequest,
 	type AskResult,
 	CANCEL,
@@ -55,7 +56,7 @@ export function askQuestions(
 	events: Events,
 	questions: readonly AskQuestion[],
 	options: AskOptions = {},
-): Promise<AskResult> {
+): Promise<AskReply> {
 	const { signal, ctx } = options;
 	if (signal?.aborted) return Promise.resolve(aborted());
 	const id = options.id ?? crypto.randomUUID();
@@ -71,7 +72,7 @@ export function askQuestions(
 				logFrom(ctx, events, "ask.closed", { id, result, ...(by === undefined ? {} : { by }) });
 			const cancel: AskCancel = { id, reason };
 			events.emit(CANCEL, cancel);
-			resolve(result);
+			resolve(by === undefined ? result : { ...result, by });
 		};
 		const abort = () => close(aborted(), options.cancelledBy, "aborted");
 		const stop = events.on(ANSWER, (data) => {

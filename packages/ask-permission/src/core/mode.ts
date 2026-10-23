@@ -1,6 +1,6 @@
-export const PERMISSION_MODES = ["manual", "edits", "judge", "full"] as const;
+import { PERMISSION_MODES, type PermissionMode } from "@adeildo/pi-kit";
 
-export type PermissionMode = (typeof PERMISSION_MODES)[number];
+export { PERMISSION_MODES, type PermissionMode };
 
 export const DEFAULT_MODE: PermissionMode = "manual";
 
