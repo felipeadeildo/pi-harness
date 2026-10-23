@@ -39,6 +39,8 @@ describe("a recording leaves this machine out", () => {
 			for (const file of readdirSync(join(FIXTURES, folder))) {
 				const text = readFileSync(join(FIXTURES, folder, file), "utf8");
 				for (const part of PRIVATE) expect(text).not.toContain(part);
+				// A recording names folders it made up, never one this machine has.
+				expect(text).not.toMatch(/\/(?:home|Users|root|tmp)\/[\w.-]/);
 			}
 		}
 	});

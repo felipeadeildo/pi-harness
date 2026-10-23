@@ -281,20 +281,29 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 	});
 	await resourceLoader.reload();
 
-	const { session } = await createAgentSession({
-		cwd,
-		agentDir,
-		model: faux.getModel(),
-		thinkingLevel: "off",
-		modelRuntime,
-		settingsManager,
-		resourceLoader,
-		sessionManager: SessionManager.create(cwd, sessions),
-	});
+	let session: AgentSession;
+	try {
+		({ session } = await createAgentSession({
+			cwd,
+			agentDir,
+			model: faux.getModel(),
+			thinkingLevel: "off",
+			modelRuntime,
+			settingsManager,
+			resourceLoader,
+			sessionManager: SessionManager.create(cwd, sessions),
+		}));
 
-	// `session_start` reaches the extensions through the bindings, not through creation, so a rig
-	// that skips this one runs with every feature asleep. No terminal: this is a run, not a screen.
-	await session.bindExtensions({ mode: "rpc", uiContext: scriptedUI(options.says ?? {}) });
+		// `session_start` reaches the extensions through the bindings, not through creation, so a rig
+		// that skips this one runs with every feature asleep. No terminal: this is a run, not a screen.
+		await session.bindExtensions({ mode: "rpc", uiContext: scriptedUI(options.says ?? {}) });
+	} catch (error) {
+		// A session that never opened leaves nothing behind for the next rig in this file to trip on.
+		open = undefined;
+		restore("PI_HARNESS_EVENTS", beforeEvents);
+		restore("PI_CODING_AGENT_DIR", beforeAgent);
+		throw error;
+	}
 
 	const rig: Rig = {
 		session,

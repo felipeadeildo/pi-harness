@@ -56,8 +56,19 @@ export function scrub(text: string, parts: readonly string[]): string {
 	return scrubbed;
 }
 
-/** What must never reach the repository, whatever the run did. */
-export const PRIVATE = [homedir(), "pi-rig-", "worktrees", "/node_modules/.bun"] as const;
+/**
+ * What must never reach the repository, whatever the run did. The bare folders are here as well as
+ * the home of whoever records: the check travels to machines the recording never ran on.
+ */
+export const PRIVATE = [
+	homedir(),
+	"pi-rig-",
+	"worktrees",
+	"/node_modules/.bun",
+	"/home/",
+	"/Users/",
+	"/tmp/",
+] as const;
 
 /** What the scripted model answers: the tasks list, the run itself, and pi's summaries. */
 function answer(context: { messages: { role: string; content: unknown }[] }): AssistantMessage {
