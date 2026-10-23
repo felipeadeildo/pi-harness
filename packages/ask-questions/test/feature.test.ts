@@ -3,7 +3,18 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { ASK, ANSWER, type AskRequest, canAsk, createApp } from "@adeildo/pi-kit";
+import {
+	ASK,
+	ANSWER,
+	type AskRequest,
+	CANCEL,
+	canAsk,
+	createApp,
+	type LoggedEvent,
+	logPath,
+	readFrom,
+	targetOf,
+} from "@adeildo/pi-kit";
 import { type FakePi, fakeContext, fakePi } from "@adeildo/pi-kit/testing";
 import { createEventBus, initTheme } from "@earendil-works/pi-coding-agent";
 import type {
@@ -21,9 +32,24 @@ let settingsPath: string;
 beforeEach(() => {
 	dir = mkdtempSync(join(tmpdir(), "pi-ask-questions-"));
 	settingsPath = join(dir, "settings.json");
+	process.env.PI_HARNESS_EVENTS = join(dir, "events");
 });
 
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => {
+	delete process.env.PI_HARNESS_EVENTS;
+	rmSync(dir, { recursive: true, force: true });
+});
+
+const SESSION = {
+	getCwd: () => "/home/me/repo",
+	getSessionId: () => "0123456789abcdef",
+	getSessionName: () => undefined,
+};
+
+/** A session with a log, since the tool's questions are logged. */
+function context(...[notes, hasUI, extra = {}]: Parameters<typeof fakeContext>): ExtensionContext {
+	return fakeContext(notes, hasUI, { sessionManager: SESSION, ...extra });
+}
 
 // The dialog draws its editor with pi's theme.
 beforeAll(() => initTheme("dark", false));
@@ -34,8 +60,12 @@ interface Mounted {
 	active: string[];
 }
 
-async function mounted(ctx: ExtensionContext, active: string[] = [TOOL_NAME]): Promise<Mounted> {
-	const fake = fakePi();
+async function mounted(
+	ctx: ExtensionContext,
+	active: string[] = [TOOL_NAME],
+	bus = createEventBus(),
+): Promise<Mounted> {
+	const fake = fakePi(bus);
 	const state = { active };
 	Object.assign(fake.pi, {
 		getActiveTools: () => state.active,
@@ -83,18 +113,18 @@ const PARAMS = {
 };
 
 test("the tool asks the user, so scripts never call it and the permission gate lets it be", async () => {
-	const { tool } = await mounted(fakeContext());
+	const { tool } = await mounted(context());
 	expect(tool.exposure).toBe("model-only");
 	expect(tool.annotations?.readOnlyHint).toBe(true);
 });
 
 test("with no UI the tool leaves the model's list, and comes back with one", async () => {
-	const noUI = fakeContext([], false);
+	const noUI = context([], false);
 	const session = await mounted(noUI, ["read", TOOL_NAME]);
 	await session.fake.fire("before_agent_start", agentStart(), noUI);
 	expect(session.active).toEqual(["read"]);
 
-	await session.fake.fire("before_agent_start", agentStart(), fakeContext());
+	await session.fake.fire("before_agent_start", agentStart(), context());
 	expect(session.active).toEqual(["read", TOOL_NAME]);
 });
 
@@ -103,7 +133,7 @@ test("your own guidance joins the tool's guidelines", async () => {
 		settingsPath,
 		JSON.stringify({ questions: { guidance: "Always show a preview." } }),
 	);
-	const ctx = fakeContext();
+	const ctx = context();
 	const { fake } = await mounted(ctx);
 	const guidelines = { [TOOL_NAME]: ["built in"] };
 	await fake.fire("before_agent_start", agentStart(guidelines), ctx);
@@ -111,7 +141,7 @@ test("your own guidance joins the tool's guidelines", async () => {
 });
 
 test("no guidance leaves the prompt as it was", async () => {
-	const ctx = fakeContext();
+	const ctx = context();
 	const { fake } = await mounted(ctx);
 	const guidelines = { [TOOL_NAME]: ["built in"] };
 	await fake.fire("before_agent_start", agentStart(guidelines), ctx);
@@ -119,7 +149,7 @@ test("no guidance leaves the prompt as it was", async () => {
 });
 
 test("questions that cannot be asked fail the call", async () => {
-	const ctx = fakeContext();
+	const ctx = context();
 	const { tool } = await mounted(ctx);
 	const reserved = {
 		questions: [
@@ -141,7 +171,7 @@ test("the answer from the dialog is the result's details", async () => {
 		cancelled: false,
 		answers: [{ question: "Which?", header: "Pick", picked: ["B"], notes: [] }],
 	};
-	const ctx = fakeContext([], true, { ui: { custom: async () => answer } });
+	const ctx = context([], true, { ui: { custom: async () => answer } });
 	const { tool } = await mounted(ctx);
 	const result = await run(tool, PARAMS, ctx);
 	expect(result.details).toEqual(answer);
@@ -160,7 +190,7 @@ test("another package asks through the same dialog", async () => {
 	};
 	const bus = createEventBus();
 	const fake = fakePi(bus);
-	const ctx = fakeContext([], true, { ui: { custom: async () => answer } });
+	const ctx = context([], true, { ui: { custom: async () => answer } });
 	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
 	await fake.fire("session_start", {}, ctx);
 
@@ -173,7 +203,9 @@ test("another package asks through the same dialog", async () => {
 		bus.on(ANSWER, (data: unknown) => resolve(data));
 	});
 	bus.emit(ASK, request);
-	expect(answered).resolves.toEqual({ id: "ask-1", result: answer });
+	// The dialog in this terminal answered it, under the session's name.
+	const by = { kind: "terminal", name: "01234567", machine: expect.any(String) };
+	expect(await answered).toEqual({ id: "ask-1", by, result: answer });
 });
 
 test("with no session nothing is available, and a request is left alone", async () => {
@@ -192,7 +224,7 @@ test("a request that does not decode is answered with the reason", async () => {
 	const bus = createEventBus();
 	const fake = fakePi(bus);
 	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
-	await fake.fire("session_start", {}, fakeContext());
+	await fake.fire("session_start", {}, context());
 
 	const answered = new Promise<{ result: { error?: string; cancelled: boolean } }>((resolve) => {
 		bus.on(ANSWER, (data: unknown) => resolve(data as never));
@@ -206,7 +238,7 @@ test("a request that does not decode is answered with the reason", async () => {
 test("a dialog that throws still answers the asker", async () => {
 	const bus = createEventBus();
 	const fake = fakePi(bus);
-	const ctx = fakeContext([], true, {
+	const ctx = context([], true, {
 		ui: {
 			custom: async () => {
 				throw new Error("boom");
@@ -228,7 +260,7 @@ test("a dialog that throws still answers the asker", async () => {
 
 test("over RPC the questions go through the host's own dialogs", async () => {
 	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
-	const ctx = fakeContext([], true, {
+	const ctx = context([], true, {
 		mode: "rpc",
 		ui: { select: async () => "1. A: a", input: async () => undefined },
 	});
@@ -243,7 +275,7 @@ test("two asks at once draw one after the other, since pi strands a replaced dia
 	const bus = createEventBus();
 	const fake = fakePi(bus);
 	const open: ((result: unknown) => void)[] = [];
-	const ctx = fakeContext([], true, {
+	const ctx = context([], true, {
 		ui: { custom: () => new Promise((resolve) => open.push(resolve)) },
 	});
 	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
@@ -280,7 +312,7 @@ test("the model's questions open once you stop typing in the editor", async () =
 	let type: ((data: string) => void) | undefined;
 	const statuses: (string | undefined)[] = [];
 	let openedAt = 0;
-	const ctx = fakeContext([], true, {
+	const ctx = context([], true, {
 		ui: {
 			onTerminalInput: (handler: (data: string) => void) => {
 				type = handler;
@@ -322,7 +354,7 @@ function liveContext() {
 	const results: unknown[] = [];
 	let answer: ((result: unknown) => void) | undefined;
 	let opened = 0;
-	const ctx = fakeContext([], true, {
+	const ctx = context([], true, {
 		ui: {
 			custom: (factory: (...args: unknown[]) => Opened) =>
 				new Promise((resolve) => {
@@ -459,4 +491,123 @@ test("arguments that never parse close the dialog when the call ends", async () 
 	// Pi hands malformed JSON over as `{}` once the call is finished.
 	await fake.fire("message_update", streaming("call", {}, true), live.ctx);
 	expect(live.results).toEqual([{ answers: [], cancelled: true }]);
+});
+
+/** What this session's log holds, by type. */
+function logged(): LoggedEvent[] {
+	return readFrom(logPath(targetOf(SESSION)), 0).events;
+}
+
+const PICKED_A = {
+	cancelled: false,
+	answers: [{ question: "Which?", header: "Pick", picked: ["A"], notes: [] }],
+};
+
+test("an ask_questions call goes through the bus, so its question and its answer are logged", async () => {
+	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
+	const ctx = context([], true, { ui: { custom: async () => PICKED_A } });
+	const { tool } = await mounted(ctx);
+	await tool.execute("call-1", PARAMS, undefined, undefined, ctx as ExtensionToolContext);
+
+	const events = logged();
+	expect(events.map((event) => event.type)).toEqual(["ask.opened", "ask.closed"]);
+	expect(events[0]?.data).toEqual({
+		id: "call-1",
+		source: "ask-questions",
+		questions: PARAMS.questions,
+	});
+	expect(events[1]?.data).toMatchObject({ id: "call-1", by: { kind: "terminal" } });
+});
+
+test("the dialog that opened early is the one the call's question uses, logged once", async () => {
+	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
+	const live = liveContext();
+	const { fake, tool } = await mounted(live.ctx);
+	await fake.fire("message_update", streaming("call", PARAMS), live.ctx);
+	await fake.fire("message_update", streaming("call", PARAMS, true), live.ctx);
+	await tick();
+	const running = tool.execute(
+		"call",
+		PARAMS,
+		undefined,
+		undefined,
+		live.ctx as ExtensionToolContext,
+	);
+	live.answer(PICKED_A);
+
+	expect((await running).details).toEqual(PICKED_A);
+	expect(live.opened()).toBe(1);
+	expect(logged().filter((event) => event.type === "ask.opened")).toHaveLength(1);
+});
+
+test("when someone else answers first, the dialog here closes and the call takes their answer", async () => {
+	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
+	const bus = createEventBus();
+	const live = liveContext();
+	const { tool } = await mounted(live.ctx, [TOOL_NAME], bus);
+	const answers: unknown[] = [];
+	bus.on(ANSWER, (data: unknown) => void answers.push(data));
+
+	const running = tool.execute(
+		"call",
+		PARAMS,
+		undefined,
+		undefined,
+		live.ctx as ExtensionToolContext,
+	);
+	await tick();
+	expect(live.opened()).toBe(1);
+	const phone = { kind: "client", name: "phone", machine: "laptop" };
+	bus.emit(ANSWER, { id: "call", by: phone, result: PICKED_A });
+
+	expect((await running).details).toEqual(PICKED_A);
+	await tick();
+	// The dialog closed as cancelled, and this terminal never answered over the phone.
+	expect(live.results).toEqual([{ answers: [], cancelled: true }]);
+	expect(answers).toHaveLength(1);
+	expect(logged().at(-1)?.data).toMatchObject({ by: phone });
+});
+
+test("a cancel closes a drawn dialog, and drops a queued one before it draws", async () => {
+	const bus = createEventBus();
+	const fake = fakePi(bus);
+	const open: ((result: unknown) => void)[] = [];
+	const ctx = context([], true, {
+		ui: { custom: () => new Promise((resolve) => open.push(resolve)) },
+	});
+	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
+	await fake.fire("session_start", {}, ctx);
+	const answered: string[] = [];
+	bus.on(ANSWER, (data: unknown) => void answered.push((data as { id: string }).id));
+	const ask = (id: string) =>
+		bus.emit(ASK, {
+			id,
+			questions: [{ header: "Pick", question: "Which?", options: [{ label: "A" }] }],
+		});
+
+	ask("ask-1");
+	ask("ask-2");
+	await tick();
+	bus.emit(CANCEL, { id: "ask-2", reason: "answered" });
+	open[0]!(PICKED_A);
+	await tick();
+	await tick();
+	expect(open).toHaveLength(1);
+	expect(answered).toEqual(["ask-1"]);
+});
+
+test("a cancel closes the dialog on screen as cancelled, with no answer from here", async () => {
+	const bus = createEventBus();
+	const live = liveContext();
+	await mounted(live.ctx, [TOOL_NAME], bus);
+	const answered: unknown[] = [];
+	bus.on(ANSWER, (data: unknown) => void answered.push(data));
+	bus.emit(ASK, { id: "ask-1", questions: PARAMS.questions });
+	await tick();
+	expect(live.opened()).toBe(1);
+
+	bus.emit(CANCEL, { id: "ask-1", reason: "aborted" });
+	await tick();
+	expect(live.results).toEqual([{ answers: [], cancelled: true }]);
+	expect(answered).toEqual([]);
 });

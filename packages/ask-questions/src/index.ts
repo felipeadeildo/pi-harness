@@ -1,13 +1,19 @@
 import {
 	ASK,
 	ANSWER,
+	type AnswerEvent,
 	AVAILABLE,
+	askQuestions,
 	type AskQuestion,
 	type AskResult,
+	type By,
+	CANCEL,
+	canAsk,
 	createApp,
 	decodeAskRequest,
 	defineFeature,
 	type FeatureScope,
+	HOST,
 	isObject,
 	oneAtATime,
 	TYPING_STATUS,
@@ -24,7 +30,7 @@ import { answerText } from "./answers.ts";
 import { LiveAsk, opensEarly, streamedQuestions } from "./early.ts";
 import { DESCRIPTION, PROMPT_GUIDELINES, PROMPT_SNIPPET } from "./guidance.ts";
 import { askOverRpc, type DialogUI } from "./rpc.ts";
-import { PARAMETERS, type QuestionParams, TOOL_NAME } from "./schema.ts";
+import { PARAMETERS, TOOL_NAME } from "./schema.ts";
 import {
 	bell,
 	guidance,
@@ -48,7 +54,7 @@ const TYPING_KEY = "pi-ask-questions:typing";
 type Show = (
 	ctx: ExtensionContext,
 	asked: readonly AskQuestion[],
-	signal?: AbortSignal,
+	signal: AbortSignal | undefined,
 	live?: LiveAsk,
 ) => Promise<AskResult>;
 
@@ -65,14 +71,25 @@ export const questions = defineFeature({
 		const turns = oneAtATime();
 		/** The dialogs opened while the model writes their call, by tool call id. */
 		const live = new Map<string, LiveAsk>();
+		/** Every request this provider draws or holds in its queue, so a cancel reaches it. */
+		const pending = new Map<string, AbortController>();
+		/** The tool's own requests, which wait for your typing and ring the bell. */
+		const fromTool = new Set<string>();
 
 		// Keys typed into a dialog are not typing in the editor.
-		const shown = (ctx: ExtensionContext, asked: readonly AskQuestion[], early?: LiveAsk) => {
+		const shown = (
+			ctx: ExtensionContext,
+			asked: readonly AskQuestion[],
+			signal: AbortSignal | undefined,
+			early?: LiveAsk,
+		) => {
+			signal?.throwIfAborted();
 			typing.pause();
-			return draw(ctx, asked, early).finally(() => typing.resume());
+			return draw(ctx, asked, signal, early).finally(() => typing.resume());
 		};
 		// Another package that asks waits for your typing itself, with its own settings.
-		const showForOthers: Show = (ctx, asked) => turns(() => shown(ctx, asked));
+		const showForOthers: Show = (ctx, asked, signal) =>
+			turns(() => shown(ctx, asked, signal), signal);
 		const showForModel: Show = (ctx, asked, signal, early) =>
 			turns(async () => {
 				await typing.waitUntilQuiet(signal, (waiting) => {
@@ -80,10 +97,10 @@ export const questions = defineFeature({
 				});
 				signal?.throwIfAborted();
 				if (bell.get(scope)) ringBell();
-				return shown(ctx, asked, early);
+				return shown(ctx, asked, signal, early);
 			}, signal);
 
-		// The tool takes a dialog out of `live` when it runs, so what is left here belongs to a
+		// The call's own question takes its dialog out of `live`, so what is left here belongs to a
 		// call that will not run, and closes as cancelled.
 		const closeLive = (id?: string) => {
 			for (const [key, ask] of live) {
@@ -149,8 +166,9 @@ export const questions = defineFeature({
 			typing.stop();
 		});
 
-		// Other packages ask through here, so the permission dialog and the agent questions share one
-		// dialog, one set of keys and one note model.
+		// Every question asks through here, the tool's own included, so the permission dialog and the
+		// agent questions share one dialog, one set of keys and one note model. Whoever else listens,
+		// such as a phone, can answer first.
 		scope.events.on(AVAILABLE, (data: unknown) => {
 			if (canDraw(session) && isObject(data)) data.available = true;
 		});
@@ -158,10 +176,27 @@ export const questions = defineFeature({
 			const id = isObject(data) && typeof data.id === "string" ? data.id : undefined;
 			const ctx = session;
 			if (id === undefined || !canDraw(ctx)) return;
-			// The asker waits on the answer, so it goes out even when the dialog fails.
-			void askRequest(ctx, data, showForOthers).then((result) =>
-				scope.events.emit(ANSWER, { id, result }),
-			);
+			const stop = new AbortController();
+			pending.set(id, stop);
+			const early = live.get(id);
+			live.delete(id);
+			const answering =
+				early === undefined
+					? askRequest(ctx, data, fromTool.has(id) ? showForModel : showForOthers, stop.signal)
+					: adopt(early, data, stop.signal);
+			// The asker waits on the answer, so it goes out even when the dialog fails. A request
+			// someone else closed is no longer pending, and its asker stopped listening.
+			void answering.then((result) => {
+				if (pending.get(id) !== stop) return;
+				pending.delete(id);
+				const answer: AnswerEvent = { id, by: terminalBy(ctx), result };
+				scope.events.emit(ANSWER, answer);
+			});
+		});
+		scope.events.on(CANCEL, (data: unknown) => {
+			if (!isObject(data) || typeof data.id !== "string") return;
+			pending.get(data.id)?.abort();
+			pending.delete(data.id);
 		});
 
 		scope.registerTool<typeof PARAMETERS, AskResult>({
@@ -176,11 +211,25 @@ export const questions = defineFeature({
 			annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
 			executionMode: "sequential",
 			...askRenderers((id) => live.has(id)),
-			execute: (id, params, signal, _onUpdate, ctx) => {
-				const early = live.get(id);
-				if (early === undefined) return askTool(ctx, normalizeParams(params), showForModel, signal);
-				live.delete(id);
-				return answerLive(early, normalizeParams(params), signal);
+			execute: async (id, params, signal, _onUpdate, ctx) => {
+				const asked = normalizeParams(params);
+				if (!ctx.hasUI) return failed("There is no UI to ask in");
+				const problem = problemWith(asked);
+				if (problem !== undefined) {
+					closeLive(id);
+					throw new Error(problem);
+				}
+				// Without a provider, as in RPC mode with nothing listening, the tool draws over the
+				// host's own dialogs.
+				if (!canAsk(scope.events))
+					return reply(await showForModel(ctx, asked.questions, signal), asked.questions);
+				fromTool.add(id);
+				try {
+					const options = { id, signal, ctx, source: "ask-questions" };
+					return reply(await askQuestions(scope.events, asked.questions, options), asked.questions);
+				} finally {
+					fromTool.delete(id);
+				}
 			},
 		});
 
@@ -194,12 +243,17 @@ export const questions = defineFeature({
 	},
 });
 
-async function askRequest(ctx: ExtensionContext, raw: unknown, show: Show): Promise<AskResult> {
+async function askRequest(
+	ctx: ExtensionContext,
+	raw: unknown,
+	show: Show,
+	signal: AbortSignal,
+): Promise<AskResult> {
 	const problem = decodeAskRequest(raw);
 	if (problem !== undefined)
 		return { answers: [], cancelled: true, error: `the request did not decode: ${problem}` };
 	try {
-		return await show(ctx, (raw as { questions: AskQuestion[] }).questions);
+		return await show(ctx, (raw as { questions: AskQuestion[] }).questions, signal);
 	} catch (error) {
 		const reason = error instanceof Error ? error.message : String(error);
 		return { answers: [], cancelled: true, error: `the questions could not be drawn: ${reason}` };
@@ -210,38 +264,27 @@ function canDraw(ctx: ExtensionContext | undefined): ctx is ExtensionContext {
 	return ctx !== undefined && ctx.hasUI && ctx.mode === "tui";
 }
 
-async function askTool(
-	ctx: ExtensionContext,
-	params: QuestionParams,
-	show: Show,
-	signal: AbortSignal | undefined,
-): Promise<Result> {
-	if (!ctx.hasUI) return failed("There is no UI to ask in");
-	const problem = problemWith(params);
-	if (problem !== undefined) throw new Error(problem);
-
-	return reply(await show(ctx, params.questions, signal), params.questions);
+/**
+ * The answer from the dialog that opened while the model wrote the call. It takes the finished
+ * questions, which the tool checked, and closes when someone else answers first.
+ */
+async function adopt(early: LiveAsk, raw: unknown, signal: AbortSignal): Promise<AskResult> {
+	if (decodeAskRequest(raw) === undefined)
+		early.update((raw as { questions: AskQuestion[] }).questions, false);
+	const close = () => early.close();
+	signal.addEventListener("abort", close, { once: true });
+	try {
+		return await early.answer;
+	} finally {
+		signal.removeEventListener("abort", close);
+	}
 }
 
-/** The tool's answer from the dialog that opened while the model wrote the call. */
-async function answerLive(
-	early: LiveAsk,
-	params: QuestionParams,
-	signal: AbortSignal | undefined,
-): Promise<Result> {
-	const problem = problemWith(params);
-	if (problem !== undefined) {
-		early.close();
-		throw new Error(problem);
-	}
-	early.update(params.questions, false);
-	const abort = () => early.close();
-	signal?.addEventListener("abort", abort, { once: true });
-	try {
-		return reply(await early.answer, params.questions);
-	} finally {
-		signal?.removeEventListener("abort", abort);
-	}
+/** Who answers when the dialog in this terminal does. */
+function terminalBy(ctx: ExtensionContext): By {
+	const { sessionManager } = ctx;
+	const name = sessionManager.getSessionName() ?? sessionManager.getSessionId().slice(0, 8);
+	return { kind: "terminal", name, machine: HOST };
 }
 
 const NO_RENDER =
@@ -250,6 +293,7 @@ const NO_RENDER =
 async function draw(
 	ctx: ExtensionContext,
 	asked: readonly AskQuestion[],
+	signal: AbortSignal | undefined,
 	early?: LiveAsk,
 ): Promise<AskResult> {
 	if (ctx.mode === "tui") {
@@ -265,6 +309,9 @@ async function draw(
 				complete: done,
 			});
 			early?.attach(dialog);
+			// Someone else answered, or the asker gave up: the dialog closes as cancelled.
+			if (signal?.aborted) dialog.close();
+			else signal?.addEventListener("abort", () => dialog.close(), { once: true });
 			return dialog;
 		});
 		if (result !== undefined) return result;
