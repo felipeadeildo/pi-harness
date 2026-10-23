@@ -2,6 +2,18 @@
 
 Every `@adeildo/` package in this repository shares one version, one tag and this changelog. The entries below 4.0.0 are from before, when `pi-ask-permission` was the only package.
 
+## [5.13.0](https://github.com/felipeadeildo/pi-harness/compare/v5.12.2...v5.13.0) (2026-10-23)
+
+
+### Features
+
+* **peers:** a shared room ends when nobody uses it, and Alt+G lists and removes its folders ([44ab693](https://github.com/felipeadeildo/pi-harness/commit/44ab693de071308de4afb8409f4d5b376d6474c0))
+
+
+### Bug Fixes
+
+* **peers:** [@everyone](https://github.com/everyone) from the chat reaches the shared rooms too ([7a59028](https://github.com/felipeadeildo/pi-harness/commit/7a5902838c85e750a3503576be7d68b0a77a9856))
+
 ## [5.12.2](https://github.com/felipeadeildo/pi-harness/compare/v5.12.1...v5.12.2) (2026-10-22)
 
 
