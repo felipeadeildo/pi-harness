@@ -2,6 +2,13 @@
 
 Every `@adeildo/` package in this repository shares one version, one tag and this changelog. The entries below 4.0.0 are from before, when `pi-ask-permission` was the only package.
 
+## [5.15.0](https://github.com/felipeadeildo/pi-harness/compare/v5.14.0...v5.15.0) (2026-10-23)
+
+
+### Features
+
+* **peers:** keep a colleague's message over the editor until the agent reads it, and hold it for the next prompt when Esc empties the queue ([d74a9c6](https://github.com/felipeadeildo/pi-harness/commit/d74a9c6446d02935bdfe6a0a317d33818a026fc5))
+
 ## [5.14.0](https://github.com/felipeadeildo/pi-harness/compare/v5.13.0...v5.14.0) (2026-10-23)
 
 
