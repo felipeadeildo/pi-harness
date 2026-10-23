@@ -65,13 +65,15 @@ bun install                                                        # when the re
 bun run verify
 git push -u origin HEAD
 gh pr create --base main --title "<conventional subject>" --body-file <body.md>
-gh pr merge --squash --delete-branch                                # once a review approves
+git switch --detach                                                 # leave the branch, so the merge can delete it
+gh pr merge <n> --squash --delete-branch                            # once a review approves
+git fetch origin && git switch --detach origin/main                 # a clean base for the next slice
 git -C ~/Projects/pi-harness pull --ff-only                         # the folder the operator's pi runs from
-git switch --detach origin/main                                     # a clean base for the next slice
 ```
 
 - A branch starts from `main`, lives until its pull request is merged, and is named by its type and what it changes, in kebab-case: `feat/`, `fix/`, `refactor/` or `chore/`, as in `feat/kit-presence`.
 - A pull request's title is a conventional subject under 72 characters with the area in the scope, such as `feat(kit): tell a reused pid from the process that wrote an entry`. The squash merge makes it the one commit on `main`. Commits inside the branch take the same form, with no body and no trailer.
+- The type says what the change is, and most slices are not a `feat`. A `feat` lets someone who uses the package do something new, and a `fix` makes something wrong work. A `refactor` changes the code and keeps the behavior, and `test` covers tests and test tools such as the rig. `perf`, `docs`, `build`, `ci` and `chore` cover the rest. The reviewer checks the type along with the title.
 - The diff ticks the slice's line in [Status](#status). The body says what was missing or wrong, what the change does and how to see it working, names the slice, and ends with the operator's footer, `<p align="right"><sub>claude opus 5.5 (max effort) [lynx] @ adeildo's pi</sub></p>`, with the model as the session names it, the session's own effort, and the agent's name in brackets. Each agent picks its name, an animal by custom, and says it in the room before using it.
 - A pull request holds one logical change and the test that fails without it. A slice too large to review in one sitting goes in several pull requests, each green on its own.
 - The author asks in the room for a review. The reviewer runs the verify on the pull request's head in a worktree of their own, never in the author's, which may be in the middle of an edit. They read the code with the `simplify`, `unslop` and `codebase-design` skills, and answer with `gh pr review --comment`, ending with the same footer. Every agent uses the operator's GitHub account, which cannot approve its own pull requests, so the reviewer writes the approval in the review and says it in the room.
