@@ -92,13 +92,13 @@ const CLOCK = [0xf1456, ...Array.from({ length: 11 }, (_, hour) => 0xf144b + hou
 
 const MOTIONS: Record<IconSet, Partial<Record<CallPhase, Motion>>> = {
 	nerd: {
-		// nf-md-pencil_outline and nf-md-pencil: the pencil fills with ink and empties again.
-		writing: { frames: ["\u{f0cb6}", "\u{f03eb}"], stepMs: 350 },
+		// Braille, in every font a Nerd Font is built on: the same spinner as an agent writing.
+		writing: { frames: SPIN.braille, stepMs: 100 },
 		waiting: { frames: ["\u{f251}", "\u{f252}", "\u{f253}"], stepMs: 400 }, // nf-fa-hourglass_start..end
 		running: { frames: CLOCK, stepMs: 110 }, // nf-md-clock_time_*_outline
 	},
 	unicode: {
-		writing: { frames: SPIN.pencil, stepMs: 180 },
+		writing: { frames: SPIN.braille, stepMs: 100 },
 		waiting: { frames: SPIN.hourglass, stepMs: 500 },
 		running: { frames: SPIN.quadrants, stepMs: 150 },
 	},

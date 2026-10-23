@@ -89,7 +89,7 @@ it just wrote.
 ## Motion
 
 Something moves only to say something changed. A spinner turns while an agent works or writes, a mark
-moves for the phase of a tool call (a pen while it is written, an hourglass while it waits on you, a
+moves for the phase of a tool call (a spinner while it is written, an hourglass while it waits on you, a
 clock while it runs, each in its own cell), a rail lights up for a few seconds on a message that just
 arrived, and a cursor blinks where words arrive. A still panel redraws once a second; a moving one
 every frame. The start screen draws the pixel π once per launch, one row of the art at every
