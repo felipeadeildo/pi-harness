@@ -20,6 +20,7 @@ import { Key } from "@earendil-works/pi-tui";
 
 import { fitFor } from "./bid.ts";
 import { boardText } from "./board.ts";
+import { onQueueCleared } from "./cleared.ts";
 import {
 	PEER_BROADCAST,
 	PEER_HELD,
@@ -153,11 +154,12 @@ export const peers = defineFeature({
 		/** What let each call of the tool through, from the permission gate, by call id. */
 		const allowed = new Map<string, string>();
 
-		/** Over the editor while another agent writes to a room, gone when it sends. */
+		/** Over the editor while another agent writes to a room, and after, until the agent reads it. */
 		function showTyping(): void {
 			const ctx = session;
 			if (ctx === undefined || ctx.mode !== "tui") return;
-			const writing = rooms.othersTyping().length > 0;
+			// A message sent here stays over the editor until the model reads it, as your queued ones do.
+			const writing = rooms.othersTyping().length + rooms.queued().length > 0;
 			if (writing === typingShown) return;
 			typingShown = writing;
 			if (!writing) {
@@ -213,8 +215,24 @@ export const peers = defineFeature({
 			if (!active.includes(TOOL)) scope.setActiveTools([...active, TOOL]);
 		});
 
+		// Esc empties pi's queue, colleagues' messages included. The inbox puts them back or holds them.
+		let stopClearing: (() => void) | undefined;
+		function watchClearing(): () => void {
+			return onQueueCleared((id) => {
+				if (id !== rooms.session) return;
+				// Esc aborts right after it empties the queue, so look once that has happened.
+				queueMicrotask(() => {
+					const ctx = session;
+					if (ctx === undefined || id !== rooms.session) return;
+					rooms.cleared(!ctx.isIdle() && ctx.signal?.aborted !== true);
+				});
+			});
+		}
+
 		scope.onSessionStart((ctx) => {
 			session = ctx;
+			stopClearing?.();
+			stopClearing = watchClearing();
 			// The gate sees what each call does: a yes to sending never lets a link through.
 			scope.events.emit(DESCRIBE, {
 				name: TOOL,
@@ -229,6 +247,8 @@ export const peers = defineFeature({
 				);
 		});
 		scope.onShutdown(() => {
+			stopClearing?.();
+			stopClearing = undefined;
 			session?.ui.setStatus(PEERS_STATUS, undefined);
 			rooms.end();
 			session = undefined;

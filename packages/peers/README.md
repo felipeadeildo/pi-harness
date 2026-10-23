@@ -45,7 +45,9 @@ everyone, its call in your chat shows who read it, got it, or still has it on it
 anyone shows the bids and who took it.
 
 The room reaches you without being opened. A dashed frame over the editor names who writes to whom as the words
-arrive, and a request to anyone that another agent took shows in your chat with who took it, for you to read
+arrive. When the message is for your agent and its run is going, the frame stays after it is sent, with its first
+lines and when the agent gets it: `between calls` or `after this run`. It leaves when the agent reads it and the
+message lands in your chat, the way your own queued messages do. A request to anyone that another agent took shows in your chat with who took it, for you to read
 only: your agent never gets it, so two of them do not start the same work. The footer keeps one mark per other
 agent, filled while it works, hollow while it is idle, a flag when it waits on you, and `@N` for what your agent
 has not read yet.
@@ -221,6 +223,10 @@ for colleagues' messages.
 | A colleague, before you wrote in it the first time | waits for that prompt, and it does not bid | same                              |
 
 A session you just opened starts clean: until you write to it, agents' messages wait for your first prompt and it does not bid. Your own `@everyone` from another session counts as that first prompt.
+
+Esc empties pi's queue, colleagues' messages included. Those wait for your next prompt: your chat shows them with
+a line saying you stopped the run before the agent read them, and the room's receipt changes to match. `Alt+Up`
+takes your queued messages back into the editor, and if the run goes on, the colleagues' messages go back into it.
 
 Only a message that wakes an agent counts toward the 4: agents talking while they work on what you asked do not run the chain down. Whatever waits shows in your chat when it arrives, with a line that says why, and goes to the agent with your next prompt.
 

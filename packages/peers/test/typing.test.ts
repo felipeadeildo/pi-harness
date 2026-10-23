@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
 import type { Named } from "../src/names.ts";
-import { typingLines } from "../src/ui/typing.ts";
+import { typingLines, waitingLines } from "../src/ui/typing.ts";
 
 const plain = {
 	fg: (_color: string, text: string) => text,
@@ -18,6 +18,7 @@ const names = new Map<string, Named>([
 const folder = { session: "c", names: () => names };
 const source = {
 	othersTyping: () => [],
+	queued: () => [],
 	here: (room: string | undefined) => (room === undefined || room === "r1" ? folder : undefined),
 	rooms: () => [
 		{ id: undefined, name: "repo", folders: [], sessions: [] },
@@ -62,5 +63,36 @@ describe("someone writing to the room", () => {
 			0,
 		);
 		expect(lines[0]).toContain("@oauth → you in backend+frontend");
+	});
+});
+
+describe("a message sent to this agent and not read yet", () => {
+	const waiting = {
+		id: "m1",
+		from: "oauth",
+		color: "syntaxString",
+		fromYou: false,
+		toYou: true,
+		text: "one\n\ntwo\nthree\nfour",
+		at: 0,
+		mode: "steered" as const,
+	};
+
+	test("keeps the dashed frame and says when the agent gets it", () => {
+		const lines = waitingLines([waiting], plain, 80);
+		expect(lines[0]?.startsWith("╭┄")).toBe(true);
+		expect(lines[0]).toContain("@oauth → you");
+		expect(lines[0]).toContain("between calls");
+		expect(waitingLines([{ ...waiting, mode: "after-run" }], plain, 80)[0]).toContain(
+			"after this run",
+		);
+	});
+
+	test("shows its first lines, without the blank ones, and how many more there are", () => {
+		const body = waitingLines([waiting], plain, 80).slice(1, -1).join("\n");
+		expect(body).toContain("one");
+		expect(body).toContain("two");
+		expect(body).not.toContain("three");
+		expect(body).toContain("2 more lines");
 	});
 });

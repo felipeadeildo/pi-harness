@@ -35,7 +35,12 @@ export interface PeerDelivery {
 }
 
 /** Why a colleague's message waits for the next prompt instead of reaching the agent now. */
-export type Held = "asleep" | "quiet" | "full";
+export type Held = "asleep" | "quiet" | "full" | "stopped";
+
+/** A colleague's message in the agent's queue, which its model has not read yet. */
+export interface Waiting extends PeerMessageDetails {
+	mode: "steered" | "after-run";
+}
 
 export interface InboxHooks {
 	sendMessage: ExtensionAPI["sendMessage"];
@@ -53,6 +58,14 @@ export interface Sender {
 	handed(messages: readonly Posted[], mode: Delivery): void;
 }
 
+interface Queued {
+	from: Sender;
+	message: Posted;
+	/** What the transcript keeps, and the same with how it was queued, for the screen. */
+	details: PeerMessageDetails;
+	waiting: Waiting;
+}
+
 interface Arrival {
 	from: Sender;
 	messages: readonly Posted[];
@@ -66,6 +79,8 @@ export class Inbox {
 	#steers = 0;
 	#holding = 0;
 	#waiting: Arrival[] = [];
+	/** Handed between calls or after the run, by id: in pi's queue until the model reads them. */
+	#queued = new Map<string, Queued>();
 	/** The operator has written to this session: before that, a colleague's message waits for it. */
 	#awake = false;
 
@@ -99,6 +114,49 @@ export class Inbox {
 		this.#steers = 0;
 		this.#awake = false;
 		this.#waiting = [];
+		this.#queued.clear();
+	}
+
+	/** Colleagues' messages the agent has and has not read yet, oldest first. */
+	queued(): Waiting[] {
+		return [...this.#queued.values()].map(({ waiting }) => waiting);
+	}
+
+	/** The model read it, so it leaves the queue. Says whether it was there. */
+	read(id: string): boolean {
+		return this.#queued.delete(id);
+	}
+
+	/**
+	 * Pi emptied the agent's queue, which Esc and taking your queued messages back both do, and the
+	 * colleagues' messages in it went too. They are not dropped: the room already logged them as
+	 * received, so the writer counts on this agent reading them, and you stopped your own run, not the
+	 * conversation. A run that goes on gets them again the same way; one you stopped leaves them for
+	 * your next prompt, shown with why, and the room's receipt says so.
+	 */
+	cleared(running: boolean): void {
+		const queued = [...this.#queued.values()];
+		if (queued.length === 0) return;
+		if (running) {
+			// Pi draws a queued message only when the agent takes it, so the copy that went was never
+			// drawn, and this one shows once.
+			for (const mode of ["steered", "after-run"] as const) {
+				const items = queued
+					.filter(({ waiting }) => waiting.mode === mode)
+					.map(({ details }) => details);
+				if (items.length > 0) this.#send(items, mode, true);
+			}
+			return;
+		}
+		this.#queued.clear();
+		const items = queued.map(({ details }) => details);
+		this.#hooks.held?.({ items }, "stopped");
+		this.#send(items, "next-turn", this.#hooks.held === undefined);
+		// The room learns they wait now, so the writer does not count on them being read.
+		const bySender = new Map<Sender, Posted[]>();
+		for (const { from, message } of queued)
+			bySender.set(from, [...(bySender.get(from) ?? []), message]);
+		for (const [from, messages] of bySender) from.handed(messages, "next-turn");
 	}
 
 	/** Runs `work`, and hands over everything that arrived during it together. */
@@ -140,15 +198,27 @@ export class Inbox {
 	/** Colleagues' messages, wrapped so the agent knows who wrote and that they cannot approve. */
 	#handPeer(arrivals: readonly Arrival[]): void {
 		const { mode, held } = this.#modeFor(arrivals, true);
-		const items = inOrder(arrivals).map(({ from, message }) => from.details(message));
-		// What waits is shown now, and goes in with the next prompt without being drawn a second time.
+		const ordered = inOrder(arrivals).map(({ from, message }) => ({
+			from,
+			message,
+			details: from.details(message),
+		}));
+		const items = ordered.map(({ details }) => details);
+		// A held message is shown now, and goes in with the next prompt without being drawn a second time.
 		if (held !== undefined) this.#hooks.held?.({ items }, held);
-		const display = held === undefined || this.#hooks.held === undefined;
+		this.#send(items, mode, held === undefined || this.#hooks.held === undefined);
+		// Pi does not list what an extension queues, so the inbox keeps it until the model reads it.
+		if (mode === "steered" || mode === "after-run")
+			for (const one of ordered)
+				this.#queued.set(one.message.id, { ...one, waiting: { ...one.details, mode } });
+		this.#handed(arrivals, mode);
+	}
+
+	#send(items: PeerMessageDetails[], mode: Delivery, display: boolean): void {
 		this.#hooks.sendMessage(
 			{ customType: PEER_MESSAGE, content: forModel(items), display, details: { items } },
 			sendOptions(mode),
 		);
-		this.#handed(arrivals, mode);
 	}
 
 	/** Yours, sent from another session: the operator speaking, so no wrapper. */

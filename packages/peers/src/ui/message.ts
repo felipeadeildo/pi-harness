@@ -40,7 +40,7 @@ export function messageLines(details: PeerMessageDetails, theme: Theme, width: n
 }
 
 /** Who the message went to, as this session sees it, and in which shared room. */
-function addressed(details: PeerMessageDetails): string {
+export function addressed(details: PeerMessageDetails): string {
 	const room = details.room === undefined ? "" : ` in ${details.room}`;
 	if (details.toYou) return `${GLYPH.right} you${room}`;
 	if (details.everyone === true) return `${GLYPH.right} everyone${room}`;

@@ -27,7 +27,7 @@ import {
 
 import { Folder, isAlive } from "./folder.ts";
 import { Here, type Hooks, PEER_NOTE } from "./here.ts";
-import { Inbox } from "./inbox.ts";
+import { Inbox, type Waiting } from "./inbox.ts";
 import { readLive, removeLive, writeLive } from "./live.ts";
 import type { Addition, Membership } from "./membership.ts";
 import { ANYONE_MENTION, groupIn, recipientsOf } from "./mention.ts";
@@ -251,6 +251,18 @@ export class Rooms implements RoomsView {
 
 	read(id: string | undefined, text?: string): void {
 		for (const here of this.joined()) here.read(id, text);
+		if (id !== undefined && this.#inbox.read(id)) this.#changed();
+	}
+
+	/** Colleagues' messages the agent has and has not read yet. */
+	queued(): Waiting[] {
+		return this.#inbox.queued();
+	}
+
+	/** Pi emptied the agent's queue. `Inbox.cleared` says what happens to the colleagues' messages. */
+	cleared(running: boolean): void {
+		this.#inbox.cleared(running);
+		this.#changed();
 	}
 
 	/** What the agent is writing, shown in the room the message goes to. */

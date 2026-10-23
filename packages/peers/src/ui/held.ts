@@ -32,5 +32,7 @@ export function heldLine(held: HeldDelivery): string {
 			return `${them} for your next prompt: the agents answered each other ${QUIET_AFTER} times in a row, so this did not wake the agent.`;
 		case "full":
 			return `${them} for your next prompt: this run already took ${STEERS_PER_RUN} messages from other agents.`;
+		case "stopped":
+			return `${them} for your next prompt: you stopped the run before the agent read ${held.items.length === 1 ? "it" : "them"}.`;
 	}
 }

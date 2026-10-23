@@ -1,20 +1,36 @@
 // Over the editor, while another agent writes to the room: who, to whom, and the words as they
-// arrive. A draft has not happened yet, so it wears the dashed frame the send queue wears.
-import { ENTRY_X, entryFrame, GLYPH } from "@adeildo/pi-kit";
+// arrive. A draft has not happened yet, so it wears the dashed frame the send queue wears. Once sent
+// to this agent, the frame stays and says when the agent gets it, until its model reads it and it
+// lands in the chat.
+import { basename } from "node:path";
+
+import { ENTRY_X, entryFrame, formatClock, GLYPH } from "@adeildo/pi-kit";
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
-import { type Component } from "@earendil-works/pi-tui";
+import { type Component, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
 import type { Here } from "../here.ts";
+import type { Waiting } from "../inbox.ts";
 import { EVERYONE_MENTION } from "../mention.ts";
 import type { Room, RoomTyping } from "../model.ts";
 import { byHandle, type Named } from "../names.ts";
+import { addressed } from "./message.ts";
 import { dots, FRAME_MS, spin } from "./motion.ts";
 
 export const PEERS_TYPING = "pi-peers-typing";
 
+/** A message waiting for the agent shows this many lines of its words. */
+export const WAITING_SHOWN = 3;
+
+const WHEN: Record<Waiting["mode"], string> = {
+	steered: "between calls",
+	"after-run": "after this run",
+};
+
 /** The drafts in every room, and each room's names, which only that room knows. */
 export interface TypingSource {
 	othersTyping(): RoomTyping[];
+	/** What was sent to this agent and waits in its queue. */
+	queued(): Waiting[];
 	here(room: string | undefined): Pick<Here, "session" | "names"> | undefined;
 	rooms(): Room[];
 }
@@ -53,6 +69,31 @@ export function typingLines(
 	});
 }
 
+/** Sent and not read yet: the draft's frame, with its first lines and when the agent gets it. */
+export function waitingLines(waiting: readonly Waiting[], theme: Theme, width: number): string[] {
+	return waiting.flatMap((one) => {
+		const color = (one.fromYou ? "accent" : one.color) as ThemeColor;
+		const where = one.where === undefined ? "" : theme.fg("dim", ` \u00b7 ${basename(one.where)}`);
+		const body = firstLines(one.text, Math.max(1, width - ENTRY_X)).map((line) =>
+			line.more ? theme.fg("dim", line.text) : theme.fg("muted", line.text),
+		);
+		return entryFrame(body, width, theme, {
+			top: `${theme.fg(color, theme.bold(`@${one.from}`))}${where} ${theme.fg("dim", addressed(one))}`,
+			topRight: `${theme.fg("muted", WHEN[one.mode])} ${theme.fg("dim", formatClock(one.at))}`,
+			color,
+			dashed: true,
+		});
+	});
+}
+
+/** The first lines with words, and how many more there are when they do not all fit. */
+function firstLines(text: string, width: number): { text: string; more: boolean }[] {
+	const words = wrapTextWithAnsi(text.trim(), width).filter((line) => line.trim() !== "");
+	if (words.length <= WAITING_SHOWN) return words.map((line) => ({ text: line, more: false }));
+	const shown = words.slice(0, WAITING_SHOWN - 1).map((line) => ({ text: line, more: false }));
+	return [...shown, { text: `${words.length - WAITING_SHOWN + 1} more lines`, more: true }];
+}
+
 /** Redraws itself every frame while someone writes; pi drops it when nobody does. */
 export class TypingWidget implements Component {
 	readonly #source: TypingSource;
@@ -66,7 +107,11 @@ export class TypingWidget implements Component {
 	}
 
 	render(width: number): string[] {
-		return typingLines(this.#source.othersTyping(), this.#source, this.#theme, width, Date.now());
+		// What already arrived sits over what is still being written, which is the newest.
+		return [
+			...waitingLines(this.#source.queued(), this.#theme, width),
+			...typingLines(this.#source.othersTyping(), this.#source, this.#theme, width, Date.now()),
+		];
 	}
 
 	invalidate(): void {}

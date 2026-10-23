@@ -31,3 +31,12 @@ test("a held message is drawn with the reason it waits under it", () => {
 	);
 	expect(lines.at(-1)?.trim()).toBe("row, so this did not wake the agent.");
 });
+
+test("a message you stopped the run before it was read says so", () => {
+	const lines = heldBlock({ items: [item], why: "stopped" }, plain)
+		.render(100)
+		.map((line) => stripTerminalSequences(line));
+	expect(lines.at(-1)?.trim()).toBe(
+		"It waits for your next prompt: you stopped the run before the agent read it.",
+	);
+});
