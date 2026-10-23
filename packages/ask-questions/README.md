@@ -27,7 +27,7 @@
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-questions/assets/review.png" alt="The review tab: every question with its answer, before submitting." width="420">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-questions/assets/transcript.png" alt="Two ask_questions calls in the chat. The first is still being written and lists the questions so far. The second lists each question with the picked option, a note under it, a note on an option not picked, and an answer in quotes." width="420">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-questions/assets/transcript.png" alt="An answered ask_questions call in the chat: each question with the picked option, a note under it, a note on an option not picked, and an answer in quotes." width="420">
   <br>
   <em>Every answer on one tab before it goes, then the whole call in the chat.</em>
 </p>
@@ -40,7 +40,19 @@ The options sit on the left, one line each. The panel on the right shows the opt
 
 Several questions become tabs. `●` is where you are, `✓` is a question already answered, and `submit` turns green once every one has an answer.
 
-The dialog opens as soon as the model has written the text of the first question, without waiting for the rest of the call. The question still being written has a spinner on its tab that turns while the model writes, and a cursor blinks under its options where the next one will appear. You can read it and move through its options as they arrive, but you can't answer it yet, and its **Type something.** row shows up once its options are complete. Every earlier question is complete, so you can answer it while the next one arrives. After you answer the last complete one, the dialog moves to the question being written. `submit` stays locked until the model finishes the call. If the call never runs, the dialog closes by itself. That happens when you stop the model, when the reply ends early on an error or at the token limit, when the arguments arrive as broken JSON, or when the questions break a rule of the tool. A piece of the stream that parses to fewer questions than the one before is skipped, so a question you can see never disappears.
+The dialog opens as soon as the model has written the text of the first question, without waiting for the rest of the call. A spinner turns on the tab of the question still being written, and a cursor blinks under its options where the next option will appear. You can read that question and move through its options as they arrive, but you can't answer it yet. Its **Type something.** row shows up once its options are complete. Every earlier question is complete, so you answer it while the next one arrives. After you answer the last complete one, the dialog moves to the question being written. `submit` stays locked until the model finishes the call.
+
+<!-- docs:ask-questions/writing -->
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-questions/assets/writing.png" alt="The ask_questions call on one line in the chat while the model writes it, and under it the open dialog. The first question is answered. The tab of the second has a spinner and a cursor, and a cursor blinks under its only option so far." width="860">
+  <br>
+  <em>The dialog opens while the model still writes the call, so you answer the first question as the second arrives.</em>
+</p>
+
+<!-- /docs -->
+
+If the call never runs, the dialog closes as cancelled. That happens when you stop the model, when the reply ends early on an error or at the token limit, when the arguments arrive as broken JSON, or when the questions break a rule of the tool. A piece of the stream that parses to fewer questions than the one before is skipped, so a question you can see never disappears.
 
 | Key                 | Does                                                                   |
 | ------------------- | ---------------------------------------------------------------------- |
@@ -70,7 +82,7 @@ The review tab lists each question with what you said under it: `✓` before a p
 
 ## In the chat
 
-While the model writes the call and the dialog is not open yet (it waits while you type in the editor), the chat shows each question as it arrives, the last one in full with its options. Once the dialog opens, the call in the chat shrinks to one line with the headers. After you answer, the call keeps the same blocks as the review tab, and `ctrl+o` shows the questions uncut.
+Before the dialog opens, the chat shows each question as the model writes it, the last one in full with its options. You see this while you type in the editor, since the dialog waits for you to stop. Once the dialog opens, the call in the chat shrinks to one line with the headers. After you answer, the call keeps the same blocks as the review tab, and `ctrl+o` shows the questions uncut.
 
 Pi draws this dialog in the flow of the screen, like the permission dialog, so a tall one scrolls with the terminal and the chat above it stays in the scrollback. Over RPC, in an editor plugin or an ACP client, the questions go one at a time through the host's own select and input dialogs, without previews or notes. With no UI at all, the model never sees the tool.
 

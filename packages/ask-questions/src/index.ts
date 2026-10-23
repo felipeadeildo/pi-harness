@@ -83,13 +83,32 @@ export const questions = defineFeature({
 				return shown(ctx, asked, early);
 			}, signal);
 
-		// A call that ends without running its tool takes its dialog with it.
+		// The tool takes a dialog out of `live` when it runs, so what is left here belongs to a
+		// call that will not run, and closes as cancelled.
 		const closeLive = (id?: string) => {
 			for (const [key, ask] of live) {
 				if (id !== undefined && key !== id) continue;
 				live.delete(key);
-				if (!ask.adopted) ask.close();
+				ask.close();
 			}
+		};
+
+		const followStream = (id: string, args: unknown, writing: boolean, ctx: ExtensionContext) => {
+			const streamed = streamedQuestions(args);
+			const open = live.get(id);
+			if (open !== undefined) {
+				// Questions the tool would refuse, or arguments that never parsed, close the dialog.
+				if (!writing && problemWith({ questions: streamed }) !== undefined) closeLive(id);
+				else open.update(streamed, writing);
+				return;
+			}
+			if (!writing || !canDraw(ctx) || !opensEarly(streamed)) return;
+			const early = new LiveAsk(streamed);
+			live.set(id, early);
+			early.answer = showForModel(ctx, streamed, early.stop.signal, early).catch((): AskResult => ({
+				answers: [],
+				cancelled: true,
+			}));
 		};
 
 		scope.on("message_update", (event, ctx) => {
@@ -105,33 +124,16 @@ export const questions = defineFeature({
 					? update.toolCall
 					: update.partial.content[update.contentIndex];
 			if (call?.type !== "toolCall" || call.name !== TOOL_NAME) return;
-			// Whatever the model streams, a bad delta closes this dialog and never reaches the turn.
+			// An error while following the stream closes this dialog and does not reach pi's turn.
 			try {
 				followStream(call.id, call.arguments, update.type !== "toolcall_end", ctx);
 			} catch {
 				closeLive(call.id);
 			}
 		});
-		const followStream = (id: string, args: unknown, writing: boolean, ctx: ExtensionContext) => {
-			const streamed = streamedQuestions(args);
-			const open = live.get(id);
-			if (open !== undefined) {
-				// Questions the tool would refuse, or arguments that never parsed, are not left open.
-				if (!writing && problemWith({ questions: streamed }) !== undefined) closeLive(id);
-				else open.update(streamed, writing);
-				return;
-			}
-			if (!writing || !canDraw(ctx) || !opensEarly(streamed)) return;
-			const early = new LiveAsk(streamed);
-			live.set(id, early);
-			early.answer = showForModel(ctx, streamed, early.stop.signal, early).catch((): AskResult => ({
-				answers: [],
-				cancelled: true,
-			}));
-		};
 		scope.on("tool_execution_end", (event) => closeLive(event.toolCallId));
-		// Every turn ends here, also one the model never finished: an abort, an error, or a reply cut
-		// at the token limit. The tool has taken every call it ran by now, so what is left is closed.
+		// Every turn ends with this event, also one the model never finished: an abort, an error, or a
+		// reply cut at the token limit. By then the tool has run every call it was going to run.
 		scope.on("turn_end", () => closeLive());
 
 		scope.onSessionStart((ctx) => {
@@ -177,7 +179,6 @@ export const questions = defineFeature({
 			execute: (id, params, signal, _onUpdate, ctx) => {
 				const early = live.get(id);
 				if (early === undefined) return askTool(ctx, normalizeParams(params), showForModel, signal);
-				early.adopted = true;
 				live.delete(id);
 				return answerLive(early, normalizeParams(params), signal);
 			},

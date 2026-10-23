@@ -195,10 +195,11 @@ export class QuestionDialog implements Component, Focusable {
 
 	/** Redraws every frame while the model writes, and stops once it is done or you are. */
 	private animate(): void {
-		if (this.writing && !this.done) {
-			this.ticks ??= setInterval(() => this.tui.requestRender(), FRAME_MS);
-			this.ticks.unref?.();
-		} else this.stopTicks();
+		if (!this.writing || this.done) return this.stopTicks();
+		if (this.ticks !== undefined) return;
+		this.ticks = setInterval(() => this.tui.requestRender(), FRAME_MS);
+		// A dialog left open, as in a test or a docs picture, does not keep the process alive.
+		this.ticks.unref?.();
 	}
 
 	private stopTicks(): void {
@@ -206,13 +207,13 @@ export class QuestionDialog implements Component, Focusable {
 		this.ticks = undefined;
 	}
 
-	/** The spinner of the question being written, one frame of it. */
+	/** The frame of the spinner on the question being written. */
 	private spinner(): string {
 		const frames = SPIN.braille;
 		return frames[Math.floor(this.now() / FRAME_MS) % frames.length] ?? frames[0];
 	}
 
-	/** The cursor where words arrive, or a blank of its width half the time. */
+	/** The cursor where the words arrive, shown half the time, with a blank of its width otherwise. */
 	private cursor(): string {
 		return Math.floor(this.now() / BLINK_MS) % 2 === 0 ? GLYPH.cursor : " ";
 	}
@@ -872,8 +873,11 @@ export class QuestionDialog implements Component, Focusable {
 			if (!this.writing) keys.push(["enter", "submit"]);
 			keys.push(["esc", "cancel"]);
 		} else if (this.isLive(this.question)) {
-			if (tabs) keys.push([`${GLYPH.left}${GLYPH.right}`, "question"]);
-			keys.push([this.spinner(), "being written"], ["esc", "cancel"]);
+			keys.push(
+				[`${GLYPH.left}${GLYPH.right}`, "question"],
+				[this.spinner(), "being written"],
+				["esc", "cancel"],
+			);
 		} else if (this.noting) {
 			keys.push(
 				["type", "a note"],

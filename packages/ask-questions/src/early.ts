@@ -10,8 +10,6 @@ import { normalizeText } from "./validate.ts";
 export class LiveAsk {
 	questions: readonly AskQuestion[];
 	writing = true;
-	/** Whether the tool took this answer. If it did not, the call never ran and the dialog closes. */
-	adopted = false;
 	/** Leaves the queue, or the wait for your typing, when the call ends before the dialog opens. */
 	readonly stop = new AbortController();
 	answer: Promise<AskResult> = Promise.resolve({ answers: [], cancelled: true });
