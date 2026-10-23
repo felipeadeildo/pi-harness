@@ -214,7 +214,12 @@ test("another package asks through the same dialog", async () => {
 test("the terminal answers under the handle the tasks gave the session", async () => {
 	const bus = createEventBus();
 	const fake = fakePi(bus);
-	const ctx = context([], true, { ui: { custom: async () => PICKED_A } });
+	// Pi's session name holds the title, which is not what the room calls the session.
+	const titled = { ...SESSION, getSessionName: () => "Streaming response screen" };
+	const ctx = context([], true, {
+		sessionManager: titled,
+		ui: { custom: async () => PICKED_A },
+	});
 	const scope = { events: bus, warn: () => {} } as unknown as EventScope;
 	TASKS.provide(scope, () => ({ state: { ...emptyTasks(), handle: "otter" } }));
 	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
@@ -627,4 +632,22 @@ test("a cancel closes the dialog on screen as cancelled, with no answer from her
 	await tick();
 	expect(live.results).toEqual([{ answers: [], cancelled: true }]);
 	expect(answered).toEqual([]);
+});
+
+test("a request that does not decode closes the dialog the stream opened, with the reason", async () => {
+	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
+	const bus = createEventBus();
+	const live = liveContext();
+	const { fake } = await mounted(live.ctx, [TOOL_NAME], bus);
+	await fake.fire("message_update", streaming("call", PARAMS), live.ctx);
+	await tick();
+	expect(live.opened()).toBe(1);
+
+	const answered = new Promise<unknown>((resolve) => bus.on(ANSWER, resolve));
+	bus.emit(ASK, { id: "call", questions: [{ header: "Pick" }] });
+	expect(await answered).toMatchObject({
+		id: "call",
+		result: { cancelled: true, error: expect.stringContaining("the request did not decode") },
+	});
+	expect(live.results).toEqual([{ answers: [], cancelled: true }]);
 });
