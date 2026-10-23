@@ -17,17 +17,25 @@ import { type Asked, answerBlock } from "./answered.ts";
 
 type Streamed = NonNullable<Partial<QuestionParams>["questions"]>;
 
-/** What the tool registers, and what the docs draw. */
-export const ASK_RENDERERS = {
-	renderCall: (args: Partial<QuestionParams>, theme: Theme, context: { argsComplete: boolean }) =>
-		renderCall(args, theme, !context.argsComplete),
-	renderResult: (
-		result: AgentToolResult<AskResult | undefined>,
-		options: ToolRenderResultOptions,
-		theme: Theme,
-		context: { args: { questions?: readonly Asked[] } },
-	) => renderResult(result, options.expanded, theme, context.args.questions),
-};
+/**
+ * What the tool registers, and what the docs draw. While the dialog is open on a call the model is
+ * still writing, the transcript keeps one line, since the dialog under it shows the questions.
+ */
+export function askRenderers(dialogOpen: (toolCallId: string) => boolean) {
+	return {
+		renderCall: (
+			args: Partial<QuestionParams>,
+			theme: Theme,
+			context: { argsComplete: boolean; toolCallId: string },
+		) => renderCall(args, theme, !context.argsComplete && !dialogOpen(context.toolCallId)),
+		renderResult: (
+			result: AgentToolResult<AskResult | undefined>,
+			options: ToolRenderResultOptions,
+			theme: Theme,
+			context: { args: { questions?: readonly Asked[] } },
+		) => renderResult(result, options.expanded, theme, context.args.questions),
+	};
+}
 
 /**
  * While the model writes, one line for each question and the last one whole, its options arriving

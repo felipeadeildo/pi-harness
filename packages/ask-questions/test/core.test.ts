@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import type { AskAnswer } from "@adeildo/pi-kit";
 
 import { answerText } from "../src/answers.ts";
+import { opensEarly, streamedQuestions } from "../src/early.ts";
 import { askOverRpc, type DialogUI } from "../src/rpc.ts";
 import type { Question } from "../src/schema.ts";
 import { normalizeParams, problemWith } from "../src/validate.ts";
@@ -138,5 +139,38 @@ describe("over RPC", () => {
 		const result = await askOverRpc(scripted(["1. OAuth: login", undefined]), [AUTH, MANY]);
 		expect(result.cancelled).toBe(true);
 		expect(result.answers).toHaveLength(1);
+	});
+});
+
+describe("streamed questions", () => {
+	test("partial arguments become questions, keeping only what has arrived", () => {
+		expect(streamedQuestions(undefined)).toEqual([]);
+		expect(
+			streamedQuestions({
+				questions: [
+					{
+						question: "Which?\r",
+						header: "Pick",
+						options: [{ label: "A", description: "a" }],
+						multiSelect: true,
+					},
+					{ question: "How", options: [{ label: "B" }, { description: "no label yet" }] },
+				],
+			}),
+		).toEqual([
+			{
+				question: "Which?",
+				header: "Pick",
+				options: [{ label: "A", description: "a" }],
+				multiSelect: true,
+			},
+			{ question: "How", header: "", options: [{ label: "B" }] },
+		]);
+	});
+
+	test("the dialog opens once the first question has text", () => {
+		expect(opensEarly([])).toBe(false);
+		expect(opensEarly([{ question: " ", header: "", options: [] }])).toBe(false);
+		expect(opensEarly([{ question: "Which", header: "", options: [] }])).toBe(true);
 	});
 });

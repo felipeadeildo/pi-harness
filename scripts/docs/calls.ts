@@ -11,7 +11,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { TUI } from "@earendil-works/pi-tui";
 
-import { ASK_RENDERERS } from "../../packages/ask-questions/src/ui/transcript.ts";
+import { askRenderers } from "../../packages/ask-questions/src/ui/transcript.ts";
 import { RULING } from "../../packages/kit/src/contracts/calls.ts";
 import { createApp, type CallRuling } from "../../packages/kit/src/index.ts";
 import { fakePi } from "../../packages/kit/src/testing.ts";
@@ -42,7 +42,7 @@ const TOOLS = {
 	read: createReadToolDefinition("/repo"),
 	edit: createEditToolDefinition("/repo"),
 	write: createWriteToolDefinition("/repo"),
-	ask_questions: ASK_RENDERERS,
+	ask_questions: askRenderers(() => false),
 } as Record<CallSpec["tool"], ToolRenderers>;
 
 /**

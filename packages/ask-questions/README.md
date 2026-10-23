@@ -40,6 +40,8 @@ The options sit on the left, one line each. The panel on the right shows the opt
 
 Several questions become tabs. `●` is where you are, `✓` is a question already answered, and `submit` turns green once every one has an answer.
 
+The dialog opens as soon as the model has written the text of the first question, without waiting for the rest of the call. The question still being written has a spinner on its tab that turns while the model writes, and a cursor blinks under its options where the next one will appear. You can read it and move through its options as they arrive, but you can't answer it yet, and its **Type something.** row shows up once its options are complete. Every earlier question is complete, so you can answer it while the next one arrives. After you answer the last complete one, the dialog moves to the question being written. `submit` stays locked until the model finishes the call. If the call never runs, the dialog closes by itself. That happens when you stop the model, when the reply ends early on an error or at the token limit, when the arguments arrive as broken JSON, or when the questions break a rule of the tool. A piece of the stream that parses to fewer questions than the one before is skipped, so a question you can see never disappears.
+
 | Key                 | Does                                                                   |
 | ------------------- | ---------------------------------------------------------------------- |
 | `↑` `↓`, a number   | Move between the options                                               |
@@ -68,7 +70,7 @@ The review tab lists each question with what you said under it: `✓` before a p
 
 ## In the chat
 
-While the model writes the call, the chat shows each question as it arrives, the last one whole with its options. Once written, the call shrinks to one line with the headers, since the dialog under it shows the questions. After you answer, the call keeps the same blocks as the review tab, and `ctrl+o` shows the questions uncut.
+While the model writes the call and the dialog is not open yet (it waits while you type in the editor), the chat shows each question as it arrives, the last one in full with its options. Once the dialog opens, the call in the chat shrinks to one line with the headers. After you answer, the call keeps the same blocks as the review tab, and `ctrl+o` shows the questions uncut.
 
 Pi draws this dialog in the flow of the screen, like the permission dialog, so a tall one scrolls with the terminal and the chat above it stays in the scrollback. Over RPC, in an editor plugin or an ACP client, the questions go one at a time through the host's own select and input dialogs, without previews or notes. With no UI at all, the model never sees the tool.
 

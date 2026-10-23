@@ -547,3 +547,104 @@ describe("in the transcript", () => {
 		);
 	});
 });
+
+describe("while the model writes", () => {
+	function openWriting(...questions: Question[]) {
+		const results: AskResult[] = [];
+		const clock = { now: 0 };
+		const dialog = new QuestionDialog({
+			now: () => clock.now,
+			tui: TUI_STUB,
+			theme: plain,
+			markdownTheme: getMarkdownTheme(),
+			keybindings: NO_BINDINGS,
+			questions,
+			writing: true,
+			complete: (result) => results.push(result),
+		});
+		dialog.focused = true;
+		return { dialog, results, clock };
+	}
+
+	const PUSH: Question = { question: "How does the push", header: "Push", options: [] };
+
+	test("the question being written can be read, not answered", () => {
+		const { dialog, results } = openWriting(PUSH);
+		dialog.update([{ ...PUSH, options: [{ label: "Home" }] }], true);
+		press(dialog, KEYS.enter, KEYS.space, "1", KEYS.enter);
+		expect(results).toEqual([]);
+		const shown = dialog.render(80).join("\n");
+		expect(shown).toContain("How does the push");
+		expect(shown).toContain("Home");
+		// Its row for your own words waits until the options stop arriving.
+		expect(shown).not.toContain("Type something.");
+		expect(shown).toContain("being written");
+	});
+
+	test("a whole question is answered while the next one arrives", () => {
+		const { dialog, results } = openWriting(AUTH, PUSH);
+		press(dialog, KEYS.down, KEYS.enter);
+		// With nothing else to answer, you watch the one being written.
+		expect(dialog.render(80).join("\n")).toContain("being written");
+		dialog.update(
+			[AUTH, { ...PUSH, question: "How does the push arrive?", options: AUTH.options }],
+			false,
+		);
+		press(dialog, KEYS.enter, KEYS.enter);
+		expect(results).toEqual([
+			{
+				cancelled: false,
+				answers: [
+					{ question: AUTH.question, header: "Auth", picked: ["API key"], notes: [] },
+					{ question: "How does the push arrive?", header: "Push", picked: ["OAuth"], notes: [] },
+				],
+			},
+		]);
+	});
+
+	test("the question being written moves: a spinner turns on its tab, a cursor blinks under it", () => {
+		const { dialog, clock } = openWriting(AUTH, { ...PUSH, options: [{ label: "Home" }] });
+		press(dialog, KEYS.right);
+		const tab = () => dialog.render(80)[1] ?? "";
+		const first = dialog.render(80);
+		expect(tab()).toContain("\u280b Push\u258d");
+		const cursorRow = first[first.findIndex((line) => line.includes("1  Home")) + 1];
+		expect(cursorRow).toContain("\u258d");
+		clock.now = 200;
+		expect(tab()).toContain("\u2839 Push\u258d");
+		clock.now = 600;
+		expect(tab()).toContain("Push ");
+		expect(tab()).not.toContain("\u258d");
+		// Once written, nothing moves.
+		dialog.update([AUTH, { ...PUSH, options: AUTH.options }], false);
+		expect(dialog.render(80).join("\n")).not.toContain("\u2839");
+	});
+
+	test("an update with no question keeps the ones you see", () => {
+		const { dialog } = openWriting(AUTH, PUSH);
+		dialog.update([], true);
+		expect(dialog.render(80).join("\n")).toContain(AUTH.question);
+	});
+
+	test("submit waits for the model to finish", () => {
+		const { dialog, results } = openWriting(AUTH, PUSH);
+		press(dialog, KEYS.enter, KEYS.right, KEYS.enter);
+		expect(results).toEqual([]);
+		expect(dialog.render(80).join("\n")).toContain("still writing");
+	});
+
+	test("waiting on submit, you land on the question that arrives", () => {
+		const { dialog } = openWriting(AUTH, PUSH);
+		press(dialog, KEYS.enter, KEYS.right);
+		dialog.update([AUTH, { ...PUSH, options: AUTH.options }, FEATURES], true);
+		expect(dialog.render(80).join("\n")).toContain(PUSH.question);
+	});
+
+	test("closing cancels once, and an update after it is ignored", () => {
+		const { dialog, results } = openWriting(AUTH, PUSH);
+		dialog.close();
+		dialog.close();
+		dialog.update([AUTH], false);
+		expect(results).toEqual([{ cancelled: true, answers: [] }]);
+	});
+});

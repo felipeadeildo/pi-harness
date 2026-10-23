@@ -1,11 +1,11 @@
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeAll, beforeEach, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { ASK, ANSWER, type AskRequest, canAsk, createApp } from "@adeildo/pi-kit";
 import { type FakePi, fakeContext, fakePi } from "@adeildo/pi-kit/testing";
-import { createEventBus } from "@earendil-works/pi-coding-agent";
+import { createEventBus, initTheme } from "@earendil-works/pi-coding-agent";
 import type {
 	ExtensionContext,
 	ExtensionToolContext,
@@ -24,6 +24,9 @@ beforeEach(() => {
 });
 
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+// The dialog draws its editor with pi's theme.
+beforeAll(() => initTheme("dark", false));
 
 interface Mounted {
 	fake: FakePi;
@@ -298,4 +301,162 @@ test("the model's questions open once you stop typing in the editor", async () =
 
 	expect(openedAt - typedAt).toBeGreaterThanOrEqual(35);
 	expect(statuses).toEqual(["waiting for you to finish typing", undefined]);
+});
+
+function streaming(id: string, args: unknown, done = false) {
+	const toolCall = { type: "toolCall", id, name: TOOL_NAME, arguments: args };
+	const assistantMessageEvent = done
+		? { type: "toolcall_end", contentIndex: 0, toolCall }
+		: { type: "toolcall_delta", contentIndex: 0, delta: "", partial: { content: [toolCall] } };
+	return { type: "message_update", message: { role: "assistant" }, assistantMessageEvent };
+}
+
+interface Opened {
+	update: (questions: unknown[], writing: boolean) => void;
+	close: () => void;
+}
+
+/** A ctx whose dialog records what the stream fed it, and answers when told to. */
+function liveContext() {
+	const seen: { questions: number; writing: boolean }[] = [];
+	const results: unknown[] = [];
+	let answer: ((result: unknown) => void) | undefined;
+	let opened = 0;
+	const ctx = fakeContext([], true, {
+		ui: {
+			custom: (factory: (...args: unknown[]) => Opened) =>
+				new Promise((resolve) => {
+					opened++;
+					const done = (result: unknown) => {
+						results.push(result);
+						resolve(result);
+					};
+					answer = done;
+					const dialog = factory(
+						{ requestRender: () => {}, terminal: { rows: 40, columns: 100 } },
+						{ fg: (_: string, text: string) => text, bg: (_: string, text: string) => text },
+						{ matches: () => false },
+						done,
+					);
+					const update = dialog.update.bind(dialog);
+					dialog.update = (asked, writing) => {
+						seen.push({ questions: asked.length, writing });
+						update(asked, writing);
+					};
+				}),
+		},
+	});
+	return {
+		ctx,
+		seen,
+		results,
+		opened: () => opened,
+		answer: (result: unknown) => answer?.(result),
+	};
+}
+
+test("the dialog opens while the model writes, and the tool waits on the same answer", async () => {
+	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
+	const live = liveContext();
+	const { fake, tool } = await mounted(live.ctx);
+	const first = PARAMS.questions[0]!;
+	const params = { questions: [first, { ...first, question: "Again?" }] };
+
+	await fake.fire(
+		"message_update",
+		streaming("call", { questions: [{ question: "Wh" }] }),
+		live.ctx,
+	);
+	await tick();
+	expect(live.opened()).toBe(1);
+
+	await fake.fire(
+		"message_update",
+		streaming("call", { questions: [first, { question: "And" }] }),
+		live.ctx,
+	);
+	await fake.fire("message_update", streaming("call", params, true), live.ctx);
+	expect(live.seen).toEqual([
+		{ questions: 2, writing: true },
+		{ questions: 2, writing: false },
+	]);
+
+	const running = tool.execute(
+		"call",
+		params,
+		undefined,
+		undefined,
+		live.ctx as ExtensionToolContext,
+	);
+	const answer = {
+		cancelled: false,
+		answers: [{ question: "Which?", header: "Pick", picked: ["A"], notes: [] }],
+	};
+	live.answer(answer);
+	expect((await running).details).toEqual(answer);
+	expect(live.opened()).toBe(1);
+});
+
+test("a call that never runs closes the dialog it opened", async () => {
+	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
+	const live = liveContext();
+	const { fake } = await mounted(live.ctx);
+
+	await fake.fire(
+		"message_update",
+		streaming("call", { questions: [{ question: "Which?" }] }),
+		live.ctx,
+	);
+	await tick();
+	await fake.fire(
+		"tool_execution_end",
+		{ type: "tool_execution_end", toolCallId: "call" },
+		live.ctx,
+	);
+	expect(live.results).toEqual([{ answers: [], cancelled: true }]);
+	await fake.fire(
+		"message_update",
+		streaming("call", { questions: [{ question: "Which?" }] }, true),
+		live.ctx,
+	);
+	expect(live.seen).toEqual([]);
+});
+
+test("a stream that breaks mid-call never takes back a question or leaves the dialog open", async () => {
+	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
+	const live = liveContext();
+	const { fake } = await mounted(live.ctx);
+	const first = PARAMS.questions[0]!;
+	const fire = (args: unknown, done = false) =>
+		fake.fire("message_update", streaming("call", args, done), live.ctx);
+
+	await fire({ questions: [first, { question: "Next?" }] });
+	await tick();
+	// A delta that no longer parses comes back as `{}`, or with fewer questions: both are skipped.
+	await fire({});
+	await fire({ questions: [first] });
+	await fire("not an object");
+	await fire({ questions: [first, { question: "Next?", options: [{ label: 7 }, null] }] });
+	expect(live.seen).toEqual([{ questions: 2, writing: true }]);
+	expect(live.results).toEqual([]);
+
+	// The reply ends without finishing the call, as on an abort, an error or the token limit.
+	await fake.fire("turn_end", { type: "turn_end", toolResults: [] }, live.ctx);
+	expect(live.results).toEqual([{ answers: [], cancelled: true }]);
+});
+
+test("arguments that never parse close the dialog when the call ends", async () => {
+	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
+	const live = liveContext();
+	const { fake } = await mounted(live.ctx);
+
+	await fake.fire(
+		"message_update",
+		streaming("call", { questions: [{ question: "Which?" }] }),
+		live.ctx,
+	);
+	await tick();
+	// Pi hands malformed JSON over as `{}` once the call is finished.
+	await fake.fire("message_update", streaming("call", {}, true), live.ctx);
+	expect(live.results).toEqual([{ answers: [], cancelled: true }]);
 });

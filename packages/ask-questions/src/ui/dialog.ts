@@ -8,6 +8,7 @@ import {
 	type KeyHint,
 	GLYPH,
 	LINE,
+	SPIN,
 	thumbRange,
 } from "@adeildo/pi-kit";
 // Drawn inline instead of as an overlay, so a tall dialog scrolls with the terminal.
@@ -90,17 +91,30 @@ export interface QuestionDialogOptions {
 	markdownTheme: MarkdownTheme;
 	keybindings: KeybindingsManager;
 	questions: readonly Question[];
+	/** The model is still writing the last question, which arrives through `update`. */
+	writing?: boolean;
 	complete: (result: AskResult) => void;
+	/** The clock the marks that move read. A test passes a fixed one. */
+	now?: () => number;
 }
+
+// While the model writes, a spinner turns on its tab and a cursor blinks where its words arrive.
+const FRAME_MS = 100;
+const BLINK_MS = 500;
 
 export class QuestionDialog implements Component, Focusable {
 	private readonly theme: Theme;
-	private readonly questions: readonly Question[];
-	private readonly drafts: Draft[];
+	private questions: readonly Question[];
+	/** The last question is still being written: you can read it, not answer it. */
+	private writing: boolean;
+	private readonly drafts: Draft[] = [];
+	private readonly newEditor: () => Editor;
 	private readonly previews: PreviewCache;
 	private readonly keybindings: KeybindingsManager;
 	private readonly tui: Pick<TUI, "requestRender" | "terminal">;
 	private readonly complete: (result: AskResult) => void;
+	private readonly now: () => number;
+	private ticks: ReturnType<typeof setInterval> | undefined;
 
 	/** The question shown, or `questions.length` for the submit tab. */
 	private tab = 0;
@@ -129,10 +143,12 @@ export class QuestionDialog implements Component, Focusable {
 	constructor(options: QuestionDialogOptions) {
 		this.theme = options.theme;
 		this.questions = options.questions;
+		this.writing = options.writing ?? false;
 		this.keybindings = options.keybindings;
 		this.previews = new PreviewCache(options.markdownTheme);
 		this.tui = options.tui;
 		this.complete = options.complete;
+		this.now = options.now ?? Date.now;
 
 		const editorTheme = {
 			borderColor: (text: string) => this.theme.fg("borderMuted", text),
@@ -140,16 +156,88 @@ export class QuestionDialog implements Component, Focusable {
 		};
 		// The editor reads only requestRender and terminal.rows.
 		const tui = options.tui as TUI;
-		this.drafts = this.questions.map((question) => {
+		this.newEditor = () => {
 			const editor = new Editor(tui, editorTheme, { paddingX: 0 });
 			editor.onSubmit = (text) => this.submitTyped(text);
-			return {
+			return editor;
+		};
+		this.fitDrafts();
+		this.animate();
+	}
+
+	/**
+	 * The questions as the model has written them so far. What you already answered stays, by
+	 * position: a question the model finished does not change, and the one being written only grows.
+	 */
+	update(questions: readonly Question[], writing: boolean): void {
+		// A dialog with no question has nothing to draw, so a stream that lost them keeps the last.
+		if (this.done || questions.length === 0) return;
+		const onSubmit = this.onSubmitTab;
+		this.questions = questions;
+		this.writing = writing;
+		this.fitDrafts();
+		// Waiting on the submit tab for the rest, you land on the first question you can answer now.
+		if (onSubmit) this.goTo(this.nextOpen(-1));
+		else this.row = Math.max(0, Math.min(this.row, this.rowCount - 1));
+		this.syncFocus();
+		this.animate();
+		this.tui.requestRender();
+	}
+
+	/** Closes the dialog as cancelled, when the call it belongs to will not run. */
+	close(): void {
+		if (!this.done) this.finish(true);
+	}
+
+	dispose(): void {
+		this.stopTicks();
+	}
+
+	/** Redraws every frame while the model writes, and stops once it is done or you are. */
+	private animate(): void {
+		if (this.writing && !this.done) {
+			this.ticks ??= setInterval(() => this.tui.requestRender(), FRAME_MS);
+			this.ticks.unref?.();
+		} else this.stopTicks();
+	}
+
+	private stopTicks(): void {
+		clearInterval(this.ticks);
+		this.ticks = undefined;
+	}
+
+	/** The spinner of the question being written, one frame of it. */
+	private spinner(): string {
+		const frames = SPIN.braille;
+		return frames[Math.floor(this.now() / FRAME_MS) % frames.length] ?? frames[0];
+	}
+
+	/** The cursor where words arrive, or a blank of its width half the time. */
+	private cursor(): string {
+		return Math.floor(this.now() / BLINK_MS) % 2 === 0 ? GLYPH.cursor : " ";
+	}
+
+	private fitDrafts(): void {
+		for (const [index, question] of this.questions.entries()) {
+			const draft = (this.drafts[index] ??= {
 				picked: new Set<number>(),
 				via: undefined,
-				notes: question.options.map(() => new Input({ prompt: "", placeholder: "" })),
-				editor,
-			};
-		});
+				notes: [],
+				editor: this.newEditor(),
+			});
+			while (draft.notes.length < question.options.length)
+				draft.notes.push(new Input({ prompt: "", placeholder: "" }));
+		}
+	}
+
+	/** Whether this is the question the model is still writing. */
+	private isLive(question: Question | undefined): boolean {
+		return this.writing && question !== undefined && question === this.questions.at(-1);
+	}
+
+	/** Several questions, or more on the way. */
+	private get tabbed(): boolean {
+		return this.questions.length > 1 || this.writing;
 	}
 
 	handleInput(data: string): void {
@@ -181,7 +269,7 @@ export class QuestionDialog implements Component, Focusable {
 		const inner = frameInner(width);
 		const lines: string[] = [];
 		// The tabs, or a blank line, so the question does not touch the title.
-		lines.push(this.questions.length > 1 ? this.tabBar(inner) : "");
+		lines.push(this.tabbed ? this.tabBar(inner) : "");
 		this.overflow = false;
 		this.pickedLine = -1;
 		lines.push(
@@ -190,10 +278,9 @@ export class QuestionDialog implements Component, Focusable {
 				: this.questionLines(inner, this.tui.terminal.rows)),
 		);
 		const picked = this.pickedLine < 0 ? -1 : this.pickedLine + 1;
-		const count =
-			this.questions.length > 1
-				? this.theme.fg("dim", `${this.answeredCount()}/${this.questions.length}`)
-				: "";
+		const count = this.tabbed
+			? this.theme.fg("dim", `${this.answeredCount()}/${this.questions.length}`)
+			: "";
 		return frame(
 			this.theme,
 			width,
@@ -214,13 +301,20 @@ export class QuestionDialog implements Component, Focusable {
 		return this.drafts[this.tab];
 	}
 
+	/** The row for your own words. The question being written gets it once it is whole. */
+	private typedRow(question: Question): boolean {
+		return hasTypedRow(question) && !this.isLive(question);
+	}
+
 	private rowCountOf(question: Question): number {
-		return question.options.length + (hasTypedRow(question) ? 1 : 0);
+		return question.options.length + (this.typedRow(question) ? 1 : 0);
 	}
 
 	private get onTypedRow(): boolean {
 		const question = this.question;
-		return question !== undefined && hasTypedRow(question) && this.row === question.options.length;
+		return (
+			question !== undefined && this.typedRow(question) && this.row === question.options.length
+		);
 	}
 
 	private get rowCount(): number {
@@ -256,6 +350,8 @@ export class QuestionDialog implements Component, Focusable {
 		if (matchesKey(data, Key.down)) return this.move(1);
 		if (this.scrollKey(data)) return;
 		if (this.switchTab(data)) return;
+		// The question being written can be read, not answered: its options may still change.
+		if (this.isLive(this.question)) return;
 		if (matchesKey(data, Key.tab)) {
 			this.noting = true;
 			return;
@@ -292,7 +388,7 @@ export class QuestionDialog implements Component, Focusable {
 	private dispatchSubmit(data: string): void {
 		if (matchesKey(data, Key.escape)) return this.finish(true);
 		if (this.switchTab(data)) return;
-		if (this.isConfirm(data)) this.finish(false);
+		if (this.isConfirm(data) && !this.writing) this.finish(false);
 	}
 
 	// Pi has two names for enter, and a setup where enter adds a newline rebinds one of them.
@@ -306,7 +402,7 @@ export class QuestionDialog implements Component, Focusable {
 
 	private switchTab(data: string): boolean {
 		const tabs = this.questions.length;
-		if (tabs <= 1) return false;
+		if (!this.tabbed) return false;
 		let delta = 0;
 		if (matchesKey(data, Key.right)) delta = 1;
 		else if (matchesKey(data, Key.left) || matchesKey(data, Key.shift("tab"))) delta = -1;
@@ -316,6 +412,7 @@ export class QuestionDialog implements Component, Focusable {
 	}
 
 	private move(delta: number): void {
+		if (this.rowCount === 0) return;
 		this.row = (this.row + delta + this.rowCount) % this.rowCount;
 	}
 
@@ -368,13 +465,21 @@ export class QuestionDialog implements Component, Focusable {
 	}
 
 	private advance(): void {
-		if (this.questions.length === 1) return this.finish(false);
+		if (!this.tabbed) return this.finish(false);
+		this.goTo(this.nextOpen(this.tab));
+	}
+
+	/**
+	 * The first question after `from` that you can answer and have not. With none, the one being
+	 * written, so you watch it arrive, or the submit tab.
+	 */
+	private nextOpen(from: number): number {
 		const total = this.questions.length;
 		for (let step = 1; step <= total; step++) {
-			const next = (this.tab + step) % total;
-			if (this.answerOf(next) === undefined) return this.goTo(next);
+			const next = (from + step + total) % total;
+			if (!this.isLive(this.questions[next]) && this.answerOf(next) === undefined) return next;
 		}
-		this.goTo(total);
+		return this.writing ? total - 1 : total;
 	}
 
 	private goTo(tab: number): void {
@@ -389,6 +494,7 @@ export class QuestionDialog implements Component, Focusable {
 
 	private finish(cancelled: boolean): void {
 		this.done = true;
+		this.stopTicks();
 		this.complete({ answers: this.collect(), cancelled });
 	}
 
@@ -439,7 +545,7 @@ export class QuestionDialog implements Component, Focusable {
 	}
 
 	private title(): string {
-		if (this.questions.length > 1) return "questions";
+		if (this.tabbed) return "questions";
 		return this.question?.header ?? "question";
 	}
 
@@ -456,6 +562,10 @@ export class QuestionDialog implements Component, Focusable {
 
 	// A glyph and a color say the same thing, so the state survives a terminal with no color.
 	private tabLabel(text: string, index: number): string {
+		if (this.isLive(this.questions[index])) {
+			const live = `${this.spinner()} ${text}${this.cursor()}`;
+			return index === this.tab ? this.pill(live) : this.theme.fg("dim", ` ${live} `);
+		}
 		const done = this.answerOf(index) !== undefined;
 		if (index === this.tab) return this.pill(`${done ? GLYPH.check : GLYPH.dot} ${text}`);
 		return done
@@ -465,7 +575,7 @@ export class QuestionDialog implements Component, Focusable {
 
 	private submitLabel(): string {
 		if (this.onSubmitTab) return this.pill("submit");
-		const ready = this.answeredCount() === this.questions.length;
+		const ready = !this.writing && this.answeredCount() === this.questions.length;
 		return ready
 			? this.theme.fg("success", ` ${GLYPH.check} submit `)
 			: this.theme.fg("dim", " submit ");
@@ -547,7 +657,11 @@ export class QuestionDialog implements Component, Focusable {
 	/** One line per option, and the typed row last. */
 	private optionLines(question: Question, draft: Draft, width: number): string[] {
 		const rows = Array.from({ length: this.rowCountOf(question) }, (_, row) => row);
-		return rows.map((row) => this.optionRow(question, draft, row, width));
+		const lines = rows.map((row) => this.optionRow(question, draft, row, width));
+		// The next option arrives under the last one, where the cursor blinks.
+		if (this.isLive(question))
+			lines.push(this.theme.fg("accent", `${" ".repeat(ROW_LEAD)}${this.cursor()}`));
+		return lines;
 	}
 
 	private rowDone(question: Question, draft: Draft, row: number): boolean {
@@ -607,7 +721,7 @@ export class QuestionDialog implements Component, Focusable {
 	 * while you write one.
 	 */
 	private tallestPanel(question: Question, draft: Draft, width: number): number {
-		let tallest = hasTypedRow(question) ? TYPED_NEED : 0;
+		let tallest = this.typedRow(question) ? TYPED_NEED : 0;
 		for (const [row, option] of question.options.entries()) {
 			const detail = this.optionDetail(option, width);
 			const written = this.withNotes(detail, this.noteLines(draft, row, width));
@@ -727,6 +841,13 @@ export class QuestionDialog implements Component, Focusable {
 			if (index > 0) lines.push("");
 			lines.push(...answerBlock(question, answer, this.theme, inner, false, number));
 		}
+		if (this.writing) {
+			lines.push(
+				"",
+				this.theme.fg("muted", `${this.spinner()} The model is still writing the questions.`),
+			);
+			return lines;
+		}
 		const missing = this.questions.length - this.answeredCount();
 		if (missing > 0) {
 			const word = missing === 1 ? "question goes" : "questions go";
@@ -745,10 +866,14 @@ export class QuestionDialog implements Component, Focusable {
 
 	private hint(): KeyHint[] {
 		const keys: KeyHint[] = [];
-		const tabs = this.questions.length > 1;
+		const tabs = this.tabbed;
 		if (this.onSubmitTab) {
 			if (tabs) keys.push([`${GLYPH.left}${GLYPH.right}`, "question"]);
-			keys.push(["enter", "submit"], ["esc", "cancel"]);
+			if (!this.writing) keys.push(["enter", "submit"]);
+			keys.push(["esc", "cancel"]);
+		} else if (this.isLive(this.question)) {
+			if (tabs) keys.push([`${GLYPH.left}${GLYPH.right}`, "question"]);
+			keys.push([this.spinner(), "being written"], ["esc", "cancel"]);
 		} else if (this.noting) {
 			keys.push(
 				["type", "a note"],

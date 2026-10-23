@@ -21,6 +21,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 
 import { answerText } from "./answers.ts";
+import { LiveAsk, opensEarly, streamedQuestions } from "./early.ts";
 import { DESCRIPTION, PROMPT_GUIDELINES, PROMPT_SNIPPET } from "./guidance.ts";
 import { askOverRpc, type DialogUI } from "./rpc.ts";
 import { PARAMETERS, type QuestionParams, TOOL_NAME } from "./schema.ts";
@@ -33,7 +34,7 @@ import {
 	typingPause,
 } from "./settings.ts";
 import { QuestionDialog } from "./ui/dialog.ts";
-import { ASK_RENDERERS } from "./ui/transcript.ts";
+import { askRenderers } from "./ui/transcript.ts";
 import { normalizeParams, problemWith } from "./validate.ts";
 
 export type { AskAnswer, AskQuestion, AskResult } from "@adeildo/pi-kit";
@@ -48,6 +49,7 @@ type Show = (
 	ctx: ExtensionContext,
 	asked: readonly AskQuestion[],
 	signal?: AbortSignal,
+	live?: LiveAsk,
 ) => Promise<AskResult>;
 
 export const questions = defineFeature({
@@ -61,32 +63,87 @@ export const questions = defineFeature({
 		let session: ExtensionContext | undefined;
 		let typing = new TypingMonitor();
 		const turns = oneAtATime();
+		/** The dialogs opened while the model writes their call, by tool call id. */
+		const live = new Map<string, LiveAsk>();
 
 		// Keys typed into a dialog are not typing in the editor.
-		const shown = (ctx: ExtensionContext, asked: readonly AskQuestion[]) => {
+		const shown = (ctx: ExtensionContext, asked: readonly AskQuestion[], early?: LiveAsk) => {
 			typing.pause();
-			return draw(ctx, asked).finally(() => typing.resume());
+			return draw(ctx, asked, early).finally(() => typing.resume());
 		};
 		// Another package that asks waits for your typing itself, with its own settings.
 		const showForOthers: Show = (ctx, asked) => turns(() => shown(ctx, asked));
-		const showForModel: Show = (ctx, asked, signal) =>
+		const showForModel: Show = (ctx, asked, signal, early) =>
 			turns(async () => {
 				await typing.waitUntilQuiet(signal, (waiting) => {
 					ctx.ui.setStatus(TYPING_KEY, waiting ? TYPING_STATUS : undefined);
 				});
 				signal?.throwIfAborted();
 				if (bell.get(scope)) ringBell();
-				return shown(ctx, asked);
+				return shown(ctx, asked, early);
 			}, signal);
+
+		// A call that ends without running its tool takes its dialog with it.
+		const closeLive = (id?: string) => {
+			for (const [key, ask] of live) {
+				if (id !== undefined && key !== id) continue;
+				live.delete(key);
+				if (!ask.adopted) ask.close();
+			}
+		};
+
+		scope.on("message_update", (event, ctx) => {
+			const update = event.assistantMessageEvent;
+			if (
+				update.type !== "toolcall_start" &&
+				update.type !== "toolcall_delta" &&
+				update.type !== "toolcall_end"
+			)
+				return;
+			const call =
+				update.type === "toolcall_end"
+					? update.toolCall
+					: update.partial.content[update.contentIndex];
+			if (call?.type !== "toolCall" || call.name !== TOOL_NAME) return;
+			// Whatever the model streams, a bad delta closes this dialog and never reaches the turn.
+			try {
+				followStream(call.id, call.arguments, update.type !== "toolcall_end", ctx);
+			} catch {
+				closeLive(call.id);
+			}
+		});
+		const followStream = (id: string, args: unknown, writing: boolean, ctx: ExtensionContext) => {
+			const streamed = streamedQuestions(args);
+			const open = live.get(id);
+			if (open !== undefined) {
+				// Questions the tool would refuse, or arguments that never parsed, are not left open.
+				if (!writing && problemWith({ questions: streamed }) !== undefined) closeLive(id);
+				else open.update(streamed, writing);
+				return;
+			}
+			if (!writing || !canDraw(ctx) || !opensEarly(streamed)) return;
+			const early = new LiveAsk(streamed);
+			live.set(id, early);
+			early.answer = showForModel(ctx, streamed, early.stop.signal, early).catch((): AskResult => ({
+				answers: [],
+				cancelled: true,
+			}));
+		};
+		scope.on("tool_execution_end", (event) => closeLive(event.toolCallId));
+		// Every turn ends here, also one the model never finished: an abort, an error, or a reply cut
+		// at the token limit. The tool has taken every call it ran by now, so what is left is closed.
+		scope.on("turn_end", () => closeLive());
 
 		scope.onSessionStart((ctx) => {
 			session = ctx;
+			closeLive();
 			typing.stop();
 			typing = new TypingMonitor(typingPause.get(scope), typingMaxWait.get(scope));
 			typing.start(ctx);
 		});
 		scope.onShutdown(() => {
 			session = undefined;
+			closeLive();
 			typing.stop();
 		});
 
@@ -116,9 +173,14 @@ export const questions = defineFeature({
 			exposure: "model-only",
 			annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
 			executionMode: "sequential",
-			...ASK_RENDERERS,
-			execute: (_id, params, signal, _onUpdate, ctx) =>
-				askTool(ctx, normalizeParams(params), showForModel, signal),
+			...askRenderers((id) => live.has(id)),
+			execute: (id, params, signal, _onUpdate, ctx) => {
+				const early = live.get(id);
+				if (early === undefined) return askTool(ctx, normalizeParams(params), showForModel, signal);
+				early.adopted = true;
+				live.delete(id);
+				return answerLive(early, normalizeParams(params), signal);
+			},
 		});
 
 		scope.on("before_agent_start", (event, ctx) => {
@@ -160,22 +222,50 @@ async function askTool(
 	return reply(await show(ctx, params.questions, signal), params.questions);
 }
 
+/** The tool's answer from the dialog that opened while the model wrote the call. */
+async function answerLive(
+	early: LiveAsk,
+	params: QuestionParams,
+	signal: AbortSignal | undefined,
+): Promise<Result> {
+	const problem = problemWith(params);
+	if (problem !== undefined) {
+		early.close();
+		throw new Error(problem);
+	}
+	early.update(params.questions, false);
+	const abort = () => early.close();
+	signal?.addEventListener("abort", abort, { once: true });
+	try {
+		return reply(await early.answer, params.questions);
+	} finally {
+		signal?.removeEventListener("abort", abort);
+	}
+}
+
 const NO_RENDER =
 	"This host cannot render the questions. The user never saw them, so this is not a decline";
 
-async function draw(ctx: ExtensionContext, asked: readonly AskQuestion[]): Promise<AskResult> {
+async function draw(
+	ctx: ExtensionContext,
+	asked: readonly AskQuestion[],
+	early?: LiveAsk,
+): Promise<AskResult> {
 	if (ctx.mode === "tui") {
-		const result = await ctx.ui.custom<AskResult>(
-			(tui, theme, keybindings, done) =>
-				new QuestionDialog({
-					tui,
-					theme,
-					markdownTheme: getMarkdownTheme(),
-					keybindings,
-					questions: asked,
-					complete: done,
-				}),
-		);
+		const result = await ctx.ui.custom<AskResult>((tui, theme, keybindings, done) => {
+			// An early dialog opens on what the stream has by now, which is more than when it queued.
+			const dialog = new QuestionDialog({
+				tui,
+				theme,
+				markdownTheme: getMarkdownTheme(),
+				keybindings,
+				questions: early?.questions ?? asked,
+				writing: early?.writing ?? false,
+				complete: done,
+			});
+			early?.attach(dialog);
+			return dialog;
+		});
 		if (result !== undefined) return result;
 	}
 	// A host that cannot draw a component may still have the select and input dialogs.
