@@ -38,43 +38,51 @@ A slice is ticked in the commit that lands it.
 
 Six tracks run in parallel, each in its own git worktree. The operator's pi loads the harness straight from `~/Projects/pi-harness/packages/*/src`, through the `extensions` list in `~/.pi/agent/settings.json`. Whatever lands on `main` in that folder is live in every session at its next `/reload`, the agents' sessions included, so a slice in progress stays in its worktree until it is green.
 
-| Track    | Slices            | Owner              | Worktree under `~/Projects/pi-harness.worktrees/` | Branch            |
-| -------- | ----------------- | ------------------ | ------------------------------------------------- | ----------------- |
-| core     | C1 to C7          | remote-plan        | `core`                                            | `remote/core`     |
-| protocol | P1 to P3          | remote-plan-2      | `protocol`                                        | `remote/protocol` |
-| ask      | A1 to A4          | streaming-response | `ask`                                             | `remote/ask`      |
-| names    | N1 to N4, then I1 | open               | `names`                                           | `remote/names`    |
-| view     | V1 to V3          | open               | `view`                                            | `remote/view`     |
-| client   | W1 to W3          | open               | `client`                                          | `remote/client`   |
+| Track    | Slices            | Owner              | Worktree under `~/Projects/pi-harness.worktrees/` |
+| -------- | ----------------- | ------------------ | ------------------------------------------------- |
+| core     | C1 to C7          | remote-plan        | `core`                                            |
+| protocol | P1 to P3          | remote-plan-2      | `protocol`                                        |
+| ask      | A1 to A4          | streaming-response | `ask`                                             |
+| names    | N1 to N4, then I1 | open               | `names`                                           |
+| view     | V1 to V3          | agent-messages     | `view`                                            |
+| client   | W1 to W3          | open               | `client`                                          |
 
-Every agent's pi runs in `~/Projects/pi-harness`, so all of them share that folder's peers room, and each works on its worktree through absolute paths. Every read, edit and write names a path under the worktree, and every bash command starts with `cd` into it. Each owner says in the room when a slice starts and when it lands. When a track runs out of slices, its owner takes the next open slice on the critical path, starting with C6.
+Every agent's pi runs in `~/Projects/pi-harness`, so all of them share that folder's peers room, and each works on its worktree through absolute paths. Every read, edit and write names a path under the worktree, and every bash command starts with `cd` into it. Each owner says in the room when a slice starts and when it is merged. When a track runs out of slices, its owner takes the next open slice on the critical path, starting with C6.
 
 ### Landing a slice
 
+Every slice reaches `main` through a pull request that someone from another track reviews.
+
 ```bash
 # once per track
-git -C ~/Projects/pi-harness worktree add ~/Projects/pi-harness.worktrees/<track> -b remote/<track> origin/main
+git -C ~/Projects/pi-harness worktree add --detach ~/Projects/pi-harness.worktrees/<track> origin/main
 cd ~/Projects/pi-harness.worktrees/<track> && bun install
 
-# for each slice
-git fetch origin && git rebase origin/main
+# for each slice, in the track's worktree
+git fetch origin && git switch -c remote/<slice> origin/main   # remote/c2-presence, remote/a2-bus
+git fetch origin && git rebase origin/main                     # when the work is done
 bun run verify
-git push origin HEAD:main                     # fast-forward only
-git -C ~/Projects/pi-harness pull --ff-only   # the folder the operator's pi runs from
+git push -u origin remote/<slice>
+gh pr create --base main --title "<one-line semantic subject>" --body-file <body.md>
+gh pr merge --squash --delete-branch                           # after the review approves
+git -C ~/Projects/pi-harness pull --ff-only                    # the folder the operator's pi runs from
 ```
 
-- A slice lands as one-line semantic commits with no body, and ticks its line in [Status](#status) in the same push.
-- A rejected push means another track landed first. The owner fetches, rebases, runs the verify again and pushes again.
-- When the pull in `~/Projects/pi-harness` fails, someone has uncommitted work there. The owner says so in the room and leaves that work alone.
-- A slice that changes how the kit, peers, tasks or the ask features behave also runs once in a real pi before it lands, with two sessions open in one folder.
+- A pull request's title is a one-line semantic subject, and the squash merge makes it the one commit on `main`. The body names the slice, says what changes and how it was tested, and ticks the slice's line in [Status](#status).
+- A slice too large to review in one sitting goes in several pull requests, each green on its own.
+- The author asks in the room for a reviewer from another track. The reviewer runs the tests, reads the code with the `simplify`, `unslop` and `codebase-design` skills, and answers with `gh pr review`.
+- A pull request body and every review end with the operator's footer, `<p align="right"><sub>MODEL (EFFORT effort) @ adeildo's pi</sub></p>`, filled with the session's own model and effort (`PI_MODEL` and `PI_REASONING_LEVEL`).
+- When `main` moves under an open pull request, the author rebases, runs the verify again and pushes with `--force-with-lease`.
+- When the pull in `~/Projects/pi-harness` fails, someone has uncommitted work there. The author says so in the room and leaves that work alone.
+- A slice that changes how the kit, peers, tasks or the ask features behave also runs once in a real pi before it is merged, with two sessions open in one folder.
 - Nobody runs `git checkout`, `git restore` or `git stash` on a file they did not edit.
-- Several tracks change `packages/kit/src/index.ts`, `packages/kit/src/contracts/events.ts`, the root `package.json` and `bun.lock`. Whoever lands later resolves the conflict while rebasing, and regenerates `bun.lock` with `bun install` instead of merging it by hand.
+- Several tracks change `packages/kit/src/index.ts`, `packages/kit/src/contracts/events.ts`, the root `package.json` and `bun.lock`. Whoever merges later resolves the conflict while rebasing, and regenerates `bun.lock` with `bun install` instead of merging it by hand.
 
 ### Release
 
-The new packages (`packages/remote`, `packages/remote-protocol` and `packages/remote-client`) and the app (`apps/remote`) stay `"private": true` until the launch. The launch is one release: it publishes the packages and adds the bridge to `@adeildo/pi-harness`, after a phase the operator picks. Until then the operator turns the bridge on by adding `packages/remote/src/index.ts` to his `extensions`.
+Nothing is released until the remote is finished: nobody merges the release-please pull request until the operator says so. The launch is one release that publishes the new packages (`packages/remote`, `packages/remote-protocol` and `packages/remote-client`), which stay `"private": true` until then, and adds the bridge to `@adeildo/pi-harness`. The app (`apps/remote`) is never published to npm.
 
-Changes to the kit, peers, tasks and the ask features ship with the next release, as any change does. For anyone without the bridge they keep today's behavior, apart from the session names, which become animals when N4 lands. A published package cannot depend on a private one, so until the launch the kit imports nothing from the new packages.
+A merged slice reaches the operator's pi at once, because his pi runs `~/Projects/pi-harness`, and he turns the bridge on by adding `packages/remote/src/index.ts` to his `extensions`. For anyone else, every change waits for the launch. A published package cannot depend on a private one, so the kit imports nothing from the new packages.
 
 ## The order
 
