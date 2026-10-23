@@ -89,11 +89,12 @@ it just wrote.
 ## Motion
 
 Something moves only to say something changed. A spinner turns while an agent works or writes, a mark
-moves for the phase of a tool call (a spinner while it is written, an hourglass while it waits on you, a
-clock while it runs, each in its own cell), a rail lights up for a few seconds on a message that just
-arrived, and a cursor blinks where words arrive. A still panel redraws once a second; a moving one
-every frame. The start screen draws the pixel π once per launch, one row of the art at every
-`RISE_STEP_MS`, and that rise never delays typing.
+moves for the phase of a tool call (a spinner while it is written, an hourglass while it waits on you,
+a clock while it runs, each in its own cell), a rail lights up for a few seconds on a message that
+just arrived, a cursor blinks where words arrive, and what becomes usable comes up from a quiet color
+in a fifth of a second. A still panel redraws once a second; a moving one every frame. The start
+screen draws the pixel π once per launch, one row of the art at every `RISE_STEP_MS`, and that rise
+never delays typing.
 
 ## The transcript
 

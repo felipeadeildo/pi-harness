@@ -101,11 +101,18 @@ export interface QuestionDialogOptions {
 // While the model writes, a spinner turns on its tab and a cursor blinks where its words arrive.
 const FRAME_MS = 100;
 const BLINK_MS = 500;
+/** How long an option that just became answerable takes to come up from the quiet color. */
+const LIGHT_MS = 200;
+/** How long the tab of a question the model just finished stays in the accent. */
+const SETTLE_MS = 300;
 
 export class QuestionDialog implements Component, Focusable {
 	private readonly theme: Theme;
 	private questions: readonly Question[];
-	/** The last question is still being written: you can read it, not answer it. */
+	/**
+	 * The last question is still being written. You can answer it already, except for its last
+	 * option, which may still change.
+	 */
 	private writing: boolean;
 	private readonly drafts: Draft[] = [];
 	private readonly newEditor: () => Editor;
@@ -115,6 +122,12 @@ export class QuestionDialog implements Component, Focusable {
 	private readonly complete: (result: AskResult) => void;
 	private readonly now: () => number;
 	private ticks: ReturnType<typeof setInterval> | undefined;
+	/** When each option became answerable, by `question:option`, for the ones that did so while open. */
+	private readonly litAt = new Map<string, number>();
+	/** When the model finished each question, for the ones it finished while the dialog was open. */
+	private readonly settledAt = new Map<number, number>();
+	/** Until when something still moves after the model stopped writing. */
+	private movingUntil = 0;
 
 	/** The question shown, or `questions.length` for the submit tab. */
 	private tab = 0;
@@ -173,11 +186,16 @@ export class QuestionDialog implements Component, Focusable {
 		// A dialog with no question has nothing to draw, so a stream that lost them keeps the last.
 		if (this.done || questions.length === 0) return;
 		const onSubmit = this.onSubmitTab;
+		const before = this.questions.map((question) => this.answerableCount(question));
+		const live = this.writing ? this.questions.length - 1 : -1;
 		this.questions = questions;
 		this.writing = writing;
+		this.markChanges(before, live);
 		this.fitDrafts();
-		// Waiting on the submit tab for the rest, you land on the first question you can answer now.
-		if (onSubmit) this.goTo(this.nextOpen(-1));
+		// Waiting on the submit tab, you land on a question once there is something new to answer.
+		const open = onSubmit ? this.openAfter(-1) : undefined;
+		if (open !== undefined) this.goTo(open);
+		else if (this.finishedWaiting(live)) this.goTo(this.questions.length);
 		else this.row = Math.max(0, Math.min(this.row, this.rowCount - 1));
 		this.syncFocus();
 		this.animate();
@@ -193,11 +211,46 @@ export class QuestionDialog implements Component, Focusable {
 		this.stopTicks();
 	}
 
-	/** Redraws every frame while the model writes, and stops once it is done or you are. */
+	/** Notes the options that just became answerable and the question the model just finished. */
+	private markChanges(before: readonly number[], live: number): void {
+		const now = this.now();
+		for (const [index, question] of this.questions.entries()) {
+			for (let option = before[index] ?? 0; option < this.answerableCount(question); option++) {
+				this.litAt.set(`${index}:${option}`, now);
+				this.movingUntil = Math.max(this.movingUntil, now + LIGHT_MS);
+			}
+		}
+		if (live >= 0 && !this.isLive(this.questions[live])) {
+			this.settledAt.set(live, now);
+			this.movingUntil = Math.max(this.movingUntil, now + SETTLE_MS);
+		}
+	}
+
+	/**
+	 * Whether you answered everything and sat on the question being written until the model
+	 * finished it, so what is left is to send.
+	 */
+	private finishedWaiting(live: number): boolean {
+		if (this.writing || live < 0 || this.tab !== live || this.noting || this.onTypedRow)
+			return false;
+		return this.questions.every((_, index) => this.answerOf(index) !== undefined);
+	}
+
+	private get moving(): boolean {
+		return !this.done && (this.writing || this.now() < this.movingUntil);
+	}
+
+	/**
+	 * Redraws every frame while the model writes and while what it wrote last settles, then stops.
+	 * A still dialog draws nothing on its own.
+	 */
 	private animate(): void {
-		if (!this.writing || this.done) return this.stopTicks();
+		if (!this.moving) return this.stopTicks();
 		if (this.ticks !== undefined) return;
-		this.ticks = setInterval(() => this.tui.requestRender(), FRAME_MS);
+		this.ticks = setInterval(() => {
+			this.tui.requestRender();
+			if (!this.moving) this.stopTicks();
+		}, FRAME_MS);
 		// A dialog left open, as in a test or a docs picture, does not keep the process alive.
 		this.ticks.unref?.();
 	}
@@ -234,6 +287,23 @@ export class QuestionDialog implements Component, Focusable {
 	/** Whether this is the question the model is still writing. */
 	private isLive(question: Question | undefined): boolean {
 		return this.writing && question !== undefined && question === this.questions.at(-1);
+	}
+
+	/**
+	 * Whether this option is still arriving. In the question being written, every option but the last
+	 * is whole, since the model started the next one. The last may still change, so it waits.
+	 */
+	private arriving(question: Question, row: number): boolean {
+		return this.isLive(question) && row === question.options.length - 1;
+	}
+
+	private answerableCount(question: Question): number {
+		return question.options.length - (this.isLive(question) ? 1 : 0);
+	}
+
+	private get onArriving(): boolean {
+		const question = this.question;
+		return question !== undefined && this.arriving(question, this.row);
 	}
 
 	/** Several questions, or more on the way. */
@@ -351,17 +421,19 @@ export class QuestionDialog implements Component, Focusable {
 		if (matchesKey(data, Key.down)) return this.move(1);
 		if (this.scrollKey(data)) return;
 		if (this.switchTab(data)) return;
-		// The question being written can be read, not answered: its options may still change.
-		if (this.isLive(this.question)) return;
+		const number = Number.parseInt(data, 10);
+		if (data.length === 1 && number >= 1 && number <= this.rowCount) {
+			this.row = number - 1;
+			return;
+		}
+		// The option still arriving can be read, not answered: its words may still change.
+		if (this.onArriving) return;
 		if (matchesKey(data, Key.tab)) {
 			this.noting = true;
 			return;
 		}
 		if (data === " " && this.question?.multiSelect) return this.toggle(this.row);
 		if (this.isConfirm(data)) return this.confirmOption();
-
-		const number = Number.parseInt(data, 10);
-		if (data.length === 1 && number >= 1 && number <= this.rowCount) this.row = number - 1;
 	}
 
 	private dispatchNote(data: string): void {
@@ -372,7 +444,7 @@ export class QuestionDialog implements Component, Focusable {
 		}
 		if (matchesKey(data, Key.up) || matchesKey(data, Key.down)) {
 			this.move(matchesKey(data, Key.up) ? -1 : 1);
-			if (this.onTypedRow) this.noting = false;
+			if (this.onTypedRow || this.onArriving) this.noting = false;
 			return;
 		}
 		this.draft?.notes[this.row]?.handleInput(data);
@@ -476,11 +548,19 @@ export class QuestionDialog implements Component, Focusable {
 	 */
 	private nextOpen(from: number): number {
 		const total = this.questions.length;
+		return this.openAfter(from) ?? (this.writing ? total - 1 : total);
+	}
+
+	/** The first question after `from` with an option you can pick and no answer yet. */
+	private openAfter(from: number): number | undefined {
+		const total = this.questions.length;
 		for (let step = 1; step <= total; step++) {
 			const next = (from + step + total) % total;
-			if (!this.isLive(this.questions[next]) && this.answerOf(next) === undefined) return next;
+			const question = this.questions[next];
+			if (question === undefined || this.answerOf(next) !== undefined) continue;
+			if (this.answerableCount(question) > 0) return next;
 		}
-		return this.writing ? total - 1 : total;
+		return undefined;
 	}
 
 	private goTo(tab: number): void {
@@ -564,14 +644,16 @@ export class QuestionDialog implements Component, Focusable {
 	// A glyph and a color say the same thing, so the state survives a terminal with no color.
 	private tabLabel(text: string, index: number): string {
 		if (this.isLive(this.questions[index])) {
-			const live = `${this.spinner()} ${text}${this.cursor()}`;
+			const live = `${this.spinner()} ${text}`;
 			return index === this.tab ? this.pill(live) : this.theme.fg("dim", ` ${live} `);
 		}
 		const done = this.answerOf(index) !== undefined;
 		if (index === this.tab) return this.pill(`${done ? GLYPH.check : GLYPH.dot} ${text}`);
-		return done
-			? this.theme.fg("success", ` ${GLYPH.check} ${text} `)
-			: this.theme.fg("muted", ` ${GLYPH.ring} ${text} `);
+		if (done) return this.theme.fg("success", ` ${GLYPH.check} ${text} `);
+		// The model just finished this one, so for a moment its tab says you can answer it now.
+		const settled = this.settledAt.get(index);
+		const fresh = settled !== undefined && this.now() - settled < SETTLE_MS;
+		return this.theme.fg(fresh ? "accent" : "muted", ` ${GLYPH.ring} ${text} `);
 	}
 
 	private submitLabel(): string {
@@ -631,7 +713,8 @@ export class QuestionDialog implements Component, Focusable {
 			layout === "beside"
 				? this.besideBody(question, draft, { left, width, inner, wanted, budget, titled })
 				: this.belowBody(question, draft, { inner, wanted, budget, titled });
-		this.pickedLine = asked.length + 1 + this.row;
+		// The option still arriving gets no accent bar, since it cannot be picked yet.
+		this.pickedLine = this.onArriving ? -1 : asked.length + 1 + this.row;
 		return [...asked, "", ...body];
 	}
 
@@ -659,8 +742,8 @@ export class QuestionDialog implements Component, Focusable {
 	private optionLines(question: Question, draft: Draft, width: number): string[] {
 		const rows = Array.from({ length: this.rowCountOf(question) }, (_, row) => row);
 		const lines = rows.map((row) => this.optionRow(question, draft, row, width));
-		// The next option arrives under the last one, where the cursor blinks.
-		if (this.isLive(question))
+		// Before the first option, the cursor waits on the row where it will arrive.
+		if (this.isLive(question) && question.options.length === 0)
 			lines.push(this.theme.fg("accent", `${" ".repeat(ROW_LEAD)}${this.cursor()}`));
 		return lines;
 	}
@@ -680,9 +763,10 @@ export class QuestionDialog implements Component, Focusable {
 		const label = typed ? TYPED_LABEL : (question.options[row]?.label ?? "");
 		const active = row === this.row;
 		const done = this.rowDone(question, draft, row);
+		const arriving = !typed && this.arriving(question, row);
 
-		const pointer = active ? this.theme.fg("accent", POINTER) : "  ";
-		const number = this.theme.fg(active ? "accent" : "dim", String(row + 1));
+		const pointer = active ? this.theme.fg(arriving ? "dim" : "accent", POINTER) : "  ";
+		const number = this.theme.fg(active && !arriving ? "accent" : "dim", String(row + 1));
 		const ticked = draft.picked.has(row);
 		const box = !typed && question.multiSelect ? `${this.checkbox(ticked)} ` : "";
 		const prefix = ROW_LEAD + (box === "" ? 0 : BOX_WIDTH);
@@ -695,12 +779,22 @@ export class QuestionDialog implements Component, Focusable {
 		const mark = done ? CHECK.length : 0;
 		const labelRoom = Math.max(6, width - prefix - mark - (hasNote ? NOTE_MARK.length + 1 : 0));
 		const text = truncateToWidth(label, Math.max(1, labelRoom));
-		const styled = active
-			? this.theme.bold(this.theme.fg("text", text))
-			: this.theme.fg("text", text);
+		const color = arriving ? "dim" : this.lighting(row);
+		const styled =
+			active && !arriving
+				? this.theme.bold(this.theme.fg(color, text))
+				: this.theme.fg(color, text);
 		const check = done ? this.theme.fg("success", CHECK) : "";
-		const line = `${pointer}${number}  ${box}${styled}${check}${marker}`;
+		// The cursor blinks at the end of the label still arriving, where its words come in.
+		const cursor = arriving ? this.theme.fg("accent", this.cursor()) : "";
+		const line = `${pointer}${number}  ${box}${styled}${cursor}${check}${marker}`;
 		return truncateToWidth(line, width);
+	}
+
+	/** An option of this question that just became answerable comes up from the quiet color. */
+	private lighting(row: number): "muted" | "text" {
+		const lit = this.litAt.get(`${this.tab}:${row}`);
+		return lit !== undefined && this.now() - lit < LIGHT_MS ? "muted" : "text";
 	}
 
 	/** The detail of an option: what it means, then what it looks like. */
@@ -872,10 +966,10 @@ export class QuestionDialog implements Component, Focusable {
 			if (tabs) keys.push([`${GLYPH.left}${GLYPH.right}`, "question"]);
 			if (!this.writing) keys.push(["enter", "submit"]);
 			keys.push(["esc", "cancel"]);
-		} else if (this.isLive(this.question)) {
+		} else if (this.onArriving) {
 			keys.push(
 				[`${GLYPH.left}${GLYPH.right}`, "question"],
-				[this.spinner(), "being written"],
+				[`${GLYPH.up}${GLYPH.down}`, "move"],
 				["esc", "cancel"],
 			);
 		} else if (this.noting) {

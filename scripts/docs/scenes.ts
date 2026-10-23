@@ -110,10 +110,13 @@ function questionsReview(theme: Theme): string[] {
 
 /**
  * The model is still writing the call. The call keeps to one line in the chat, and the dialog under
- * it is already open, with the first question answered and the second at its first option.
+ * it is already open: the first question answered, the second with one option you can pick and the
+ * next one halfway through its label.
  */
 function questionsWriting(theme: Theme): string[] {
-	const scope = { ...SCOPE, options: SCOPE.options.slice(0, 1) };
+	const [whole, next] = SCOPE.options;
+	const arriving = { label: (next?.label ?? "").slice(0, 7) };
+	const scope = { ...SCOPE, options: whole === undefined ? [] : [whole, arriving] };
 	const dialog = openDialog(theme, [LAYOUT, scope], WIDTH, undefined, true);
 	press(dialog, KEYS.enter);
 	const call = drawCalls(
@@ -329,7 +332,7 @@ export const SCENES: readonly Scene[] = [
 		name: "ask-questions/writing",
 		caption:
 			"The dialog opens while the model still writes the call, so you answer the first question as the second arrives.",
-		alt: "The ask_questions call on one line in the chat while the model writes it, and under it the open dialog. The first question is answered. The tab of the second has a spinner and a cursor, and a cursor blinks under its only option so far.",
+		alt: "The ask_questions call on one line in the chat while the model writes it, and under it the open dialog. The first question is answered. A spinner turns on the tab of the second. Its first option can be picked already, and the next one arrives in a quiet color with a cursor at the end of its label.",
 		draw: questionsWriting,
 	},
 	{

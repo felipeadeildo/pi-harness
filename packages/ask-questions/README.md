@@ -40,12 +40,12 @@ The options sit on the left, one line each. The panel on the right shows the opt
 
 Several questions become tabs. `●` is where you are, `✓` is a question already answered, and `submit` turns green once every one has an answer.
 
-The dialog opens as soon as the model has written the text of the first question, without waiting for the rest of the call. A spinner turns on the tab of the question still being written, and a cursor blinks under its options where the next option will appear. You can read that question and move through its options as they arrive, but you can't answer it yet. Its **Type something.** row shows up once its options are complete. Every earlier question is complete, so you answer it while the next one arrives. After you answer the last complete one, the dialog moves to the question being written. `submit` stays locked until the model finishes the call.
+The dialog opens as soon as the model has written the text of the first question, without waiting for the rest of the call. You answer while the model writes. Every option that has another one after it is whole, so you can pick it, note it, or move on. Only the last option of the question being written waits: it arrives in a quiet color with a cursor blinking at the end of its label, and it comes up to full color the moment the model starts the next one. A spinner turns on the tab of that question, and when the model finishes it, the tab lights up for a moment. Its **Type something.** row shows up then too. If you answered everything and wait on the last question, the dialog moves to `submit` when the call is complete. `submit` stays locked until then.
 
 <!-- docs:ask-questions/writing -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-questions/assets/writing.png" alt="The ask_questions call on one line in the chat while the model writes it, and under it the open dialog. The first question is answered. The tab of the second has a spinner and a cursor, and a cursor blinks under its only option so far." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-questions/assets/writing.png" alt="The ask_questions call on one line in the chat while the model writes it, and under it the open dialog. The first question is answered. A spinner turns on the tab of the second. Its first option can be picked already, and the next one arrives in a quiet color with a cursor at the end of its label." width="860">
   <br>
   <em>The dialog opens while the model still writes the call, so you answer the first question as the second arrives.</em>
 </p>

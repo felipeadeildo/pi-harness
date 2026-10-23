@@ -568,53 +568,119 @@ describe("while the model writes", () => {
 
 	const PUSH: Question = { question: "How does the push", header: "Push", options: [] };
 
-	test("the question being written can be read, not answered", () => {
+	test("in the question being written, the option still arriving can be read, not picked", () => {
 		const { dialog, results } = openWriting(PUSH);
+		// Before the first option, the cursor waits on the row where it will arrive.
+		expect(dialog.render(80).join("\n")).toContain("\u258d");
 		dialog.update([{ ...PUSH, options: [{ label: "Home" }] }], true);
-		press(dialog, KEYS.enter, KEYS.space, "1", KEYS.enter);
+		press(dialog, KEYS.enter, KEYS.space, KEYS.tab, "x", KEYS.enter);
 		expect(results).toEqual([]);
 		const shown = dialog.render(80).join("\n");
 		expect(shown).toContain("How does the push");
 		expect(shown).toContain("Home");
+		expect(shown).not.toContain("x");
 		// Its row for your own words waits until the options stop arriving.
 		expect(shown).not.toContain("Type something.");
-		expect(shown).toContain("being written");
+		expect(shown).not.toContain("enter");
 	});
 
-	test("a whole question is answered while the next one arrives", () => {
+	test("the options already whole in the question being written can be picked", () => {
 		const { dialog, results } = openWriting(AUTH, PUSH);
 		press(dialog, KEYS.down, KEYS.enter);
 		// With nothing else to answer, you watch the one being written.
-		expect(dialog.render(80).join("\n")).toContain("being written");
+		expect(dialog.render(80)[1]).toContain("Push");
+		// Home is whole once Away starts, so it can be picked while Away arrives.
+		dialog.update([AUTH, { ...PUSH, options: [{ label: "Home" }, { label: "Aw" }] }], true);
+		press(dialog, "1", KEYS.enter);
 		dialog.update(
-			[AUTH, { ...PUSH, question: "How does the push arrive?", options: AUTH.options }],
+			[
+				AUTH,
+				{
+					...PUSH,
+					question: "How does the push arrive?",
+					options: [{ label: "Home" }, { label: "Away" }],
+				},
+			],
 			false,
 		);
-		press(dialog, KEYS.enter, KEYS.enter);
+		press(dialog, KEYS.enter);
 		expect(results).toEqual([
 			{
 				cancelled: false,
 				answers: [
 					{ question: AUTH.question, header: "Auth", picked: ["API key"], notes: [] },
-					{ question: "How does the push arrive?", header: "Push", picked: ["OAuth"], notes: [] },
+					{ question: "How does the push arrive?", header: "Push", picked: ["Home"], notes: [] },
 				],
 			},
 		]);
 	});
 
-	test("the question being written moves: a spinner turns on its tab, a cursor blinks under it", () => {
+	test("waiting on the submit tab, you are taken to a question only when it has something new", () => {
+		const { dialog } = openWriting(AUTH, { ...PUSH, options: [{ label: "Home" }] });
+		press(dialog, KEYS.enter);
+		press(dialog, KEYS.right);
+		// The submit tab has no rows to move through.
+		const onSubmit = () => !dialog.render(80).join("\n").includes("move");
+		expect(onSubmit()).toBe(true);
+		// The option still arriving grows, and there is nothing new to answer.
+		dialog.update([AUTH, { ...PUSH, options: [{ label: "Home again" }] }], true);
+		expect(onSubmit()).toBe(true);
+		// Now it is whole, so the question can be answered.
+		dialog.update([AUTH, { ...PUSH, options: [{ label: "Home again" }, { label: "A" }] }], true);
+		expect(onSubmit()).toBe(false);
+	});
+
+	test("an option comes up from the quiet color when it becomes answerable, and the tab of a finished question lights for a moment", () => {
+		// The theme writes down the color of every piece of text it paints.
+		const colors: string[] = [];
+		const clock = { now: 0 };
+		const dialog = new QuestionDialog({
+			now: () => clock.now,
+			tui: TUI_STUB,
+			theme: {
+				...plain,
+				fg: (color: string, text: string) => (colors.push(`${color}:${text}`), text),
+			} as Theme,
+			markdownTheme: getMarkdownTheme(),
+			keybindings: NO_BINDINGS,
+			questions: [AUTH, { ...PUSH, options: [{ label: "Home" }] }],
+			writing: true,
+			complete: () => {},
+		});
+		const colorOf = (text: string) => {
+			colors.length = 0;
+			dialog.render(80);
+			return colors
+				.filter((entry) => entry.endsWith(`:${text}`))
+				.map((entry) => entry.split(":")[0]);
+		};
+		press(dialog, KEYS.right);
+		expect(colorOf("Home")).toEqual(["dim"]);
+		dialog.update([AUTH, { ...PUSH, options: [{ label: "Home" }, { label: "Aw" }] }], true);
+		expect(colorOf("Home")).toEqual(["muted"]);
+		clock.now = 250;
+		expect(colorOf("Home")).toEqual(["text"]);
+		// The model finishes Push while you look at Auth: its tab is in the accent, then quiet.
+		press(dialog, KEYS.left);
+		dialog.update([AUTH, { ...PUSH, options: [{ label: "Home" }, { label: "Away" }] }], false);
+		expect(colorOf(` ${"\u25cb"} Push `)).toEqual(["accent"]);
+		clock.now = 600;
+		expect(colorOf(` ${"\u25cb"} Push `)).toEqual(["muted"]);
+	});
+
+	test("the question being written moves: a spinner turns on its tab, one cursor blinks where it writes", () => {
 		const { dialog, clock } = openWriting(AUTH, { ...PUSH, options: [{ label: "Home" }] });
 		press(dialog, KEYS.right);
 		const tab = () => dialog.render(80)[1] ?? "";
-		const first = dialog.render(80);
-		expect(tab()).toContain("\u280b Push\u258d");
-		const cursorRow = first[first.findIndex((line) => line.includes("1  Home")) + 1];
-		expect(cursorRow).toContain("\u258d");
-		clock.now = 200;
-		expect(tab()).toContain("\u2839 Push\u258d");
-		clock.now = 600;
-		expect(tab()).toContain("Push ");
+		const cursorRow = () => dialog.render(80).find((line) => line.includes("1  Home")) ?? "";
+		// The one cursor is at the end of the option still arriving; the tab has only the spinner.
+		expect(tab()).toContain("\u280b Push");
 		expect(tab()).not.toContain("\u258d");
+		expect(cursorRow()).toContain("\u258d");
+		clock.now = 200;
+		expect(tab()).toContain("\u2839 Push");
+		clock.now = 600;
+		expect(cursorRow()).not.toContain("\u258d");
 		// Once written, nothing moves.
 		dialog.update([AUTH, { ...PUSH, options: AUTH.options }], false);
 		expect(dialog.render(80).join("\n")).not.toContain("\u2839");
