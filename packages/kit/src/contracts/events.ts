@@ -25,8 +25,9 @@ export interface LogEventMap {
 	/**
 	 * A session opened in the folder, or joined a shared room. It is live while its process is. `cwd`
 	 * is where it works, so a room with sessions from several folders can say whose path is whose.
+	 * `start` tells its process from a later one that got the same pid.
 	 */
-	"session.started": { pid: number; host: string; model?: string; cwd?: string };
+	"session.started": { pid: number; host: string; model?: string; cwd?: string; start?: string };
 	"session.ended": Record<string, never>;
 	/** The short name others mention it by, and the title it took it from. */
 	"session.named": { handle: string; title: string };

@@ -17,8 +17,12 @@ function event<K extends keyof LogEventMap>(
 	return { v: 1, id: `${session}-${at}`, at, session, type, data };
 }
 
-function started(session: string, pid = 1): LoggedEvent {
-	return event(session, "session.started", { pid, host: "here" });
+function started(session: string, pid = 1, start?: string): LoggedEvent {
+	return event(session, "session.started", {
+		pid,
+		host: "here",
+		...(start === undefined ? {} : { start }),
+	});
 }
 
 function folderOf(...events: LoggedEvent[]): Folder {
@@ -39,6 +43,17 @@ describe("the folder", () => {
 			"joined",
 			"left",
 		]);
+	});
+
+	test("a session whose pid the system gave to a later process is no longer open", () => {
+		const folder = folderOf(started("a", 10, "100"), started("b", 20, "200"));
+		// pid 10 runs again, but it started at 300: it is someone else.
+		const running = new Map([
+			[10, "300"],
+			[20, "200"],
+		]);
+		const lives = (pid: number, start: string | undefined) => running.get(pid) === start;
+		expect(livePeers(folder, lives, "here").map((open) => open.session)).toEqual(["b"]);
 	});
 
 	test("a finished task shows in the room, but not what a session had done before it joined", () => {

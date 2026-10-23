@@ -31,6 +31,7 @@ export * from "./decode.ts";
 export * from "./contract.ts";
 export * from "./format.ts";
 export * from "./paths.ts";
+export * from "./presence/index.ts";
 export * from "./models.ts";
 export * from "./one-at-a-time.ts";
 export * from "./overlay-images.ts";

@@ -11,6 +11,8 @@ import {
 	type LogEventMap,
 	logEvent,
 	type LogTarget,
+	processLives,
+	processStart,
 	targetOf,
 	tasksWith,
 	tildify,
@@ -19,7 +21,7 @@ import type { PeerMark } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import type { Fit } from "./bid.ts";
-import { Folder, isAlive, livePeers, type Peer, type Posted, reaches } from "./folder.ts";
+import { Folder, livePeers, type Peer, type Posted, reaches } from "./folder.ts";
 import { Inbox, type InboxHooks, type PeerMessageDetails, type Sender } from "./inbox.ts";
 import { type Named, namesOf } from "./names.ts";
 import { award, turnToTake } from "./rules.ts";
@@ -61,7 +63,8 @@ export interface Hooks extends InboxHooks {
 	/** The session's inbox, when it reads several rooms. A room alone gets its own. */
 	inbox?: Inbox;
 	now?(): number;
-	alive?(pid: number): boolean;
+	/** Whether a process of this machine runs, given its pid and the start it recorded. */
+	alive?(pid: number, start: string | undefined): boolean;
 	/** How long, in milliseconds, a shared room keeps a member with no open agent. */
 	roomGrace?(): number;
 }
@@ -148,7 +151,7 @@ export class Here implements Sender {
 	}
 
 	live(): Peer[] {
-		return livePeers(this.#folder, this.#hooks.alive ?? isAlive, HOST);
+		return livePeers(this.#folder, this.#hooks.alive ?? processLives, HOST);
 	}
 
 	names(): Map<string, Named> {
@@ -211,8 +214,10 @@ export class Here implements Sender {
 		const me = this.#folder.peers.get(this.session ?? "");
 		this.#openedAt = me?.startedAt ?? this.#now();
 		if (me?.prompted === true) this.#inbox.wake();
+		const start = processStart(process.pid);
 		this.log("session.started", {
 			pid: process.pid,
+			...(start === undefined ? {} : { start }),
 			host: HOST,
 			cwd: place.cwd,
 			...(place.model === undefined ? {} : { model: place.model }),

@@ -1,7 +1,7 @@
 // What the screen reads of the rooms this session is in, and what it can change. The rooms
 // themselves are directories of logs, folded the same way by every session; this is the view one
 // session has of them.
-import type { Member, PeerMark, SessionState } from "@adeildo/pi-kit";
+import type { Member, PeerMark, PresenceEntry, SessionState } from "@adeildo/pi-kit";
 
 import type { Here, Typing } from "./here.ts";
 
@@ -28,19 +28,7 @@ export interface RoomSession {
 }
 
 /** A session open on this machine, from the index, so finding one reads no logs. */
-export interface LiveSession {
-	session: string;
-	pid: number;
-	host: string;
-	cwd: string;
-	handle?: string;
-	title?: string;
-	state: SessionState;
-	/** When the session opened, which orders the list. */
-	startedAt: number;
-	/** When the entry last changed. */
-	at: number;
-}
+export type LiveSession = PresenceEntry;
 
 /** This session joined or left a shared room. */
 export type MembershipChange =
