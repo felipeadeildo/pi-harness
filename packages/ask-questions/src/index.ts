@@ -270,8 +270,12 @@ function canDraw(ctx: ExtensionContext | undefined): ctx is ExtensionContext {
  * questions, which the tool checked, and closes when someone else answers first.
  */
 async function adopt(early: LiveAsk, raw: unknown, signal: AbortSignal): Promise<AskResult> {
-	if (decodeAskRequest(raw) === undefined)
-		early.update((raw as { questions: AskQuestion[] }).questions, false);
+	const problem = decodeAskRequest(raw);
+	if (problem !== undefined) {
+		early.close();
+		return { answers: [], cancelled: true, error: `the request did not decode: ${problem}` };
+	}
+	early.update((raw as { questions: AskQuestion[] }).questions, false);
 	const close = () => early.close();
 	signal.addEventListener("abort", close, { once: true });
 	try {

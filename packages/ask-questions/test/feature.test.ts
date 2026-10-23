@@ -10,9 +10,12 @@ import {
 	CANCEL,
 	canAsk,
 	createApp,
+	emptyTasks,
+	type EventScope,
 	type LoggedEvent,
 	logPath,
 	readFrom,
+	TASKS,
 	targetOf,
 } from "@adeildo/pi-kit";
 import { type FakePi, fakeContext, fakePi } from "@adeildo/pi-kit/testing";
@@ -206,6 +209,20 @@ test("another package asks through the same dialog", async () => {
 	// The dialog in this terminal answered it, under the session's name.
 	const by = { kind: "terminal", name: "new-cdef", machine: expect.any(String) };
 	expect(await answered).toEqual({ id: "ask-1", by, result: answer });
+});
+
+test("the terminal answers under the handle the tasks gave the session", async () => {
+	const bus = createEventBus();
+	const fake = fakePi(bus);
+	const ctx = context([], true, { ui: { custom: async () => PICKED_A } });
+	const scope = { events: bus, warn: () => {} } as unknown as EventScope;
+	TASKS.provide(scope, () => ({ state: { ...emptyTasks(), handle: "otter" } }));
+	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
+	await fake.fire("session_start", {}, ctx);
+
+	const answered = new Promise<unknown>((resolve) => bus.on(ANSWER, resolve));
+	bus.emit(ASK, { id: "ask-1", questions: PARAMS.questions });
+	expect(await answered).toMatchObject({ by: { kind: "terminal", name: "otter" } });
 });
 
 test("with no session nothing is available, and a request is left alone", async () => {
