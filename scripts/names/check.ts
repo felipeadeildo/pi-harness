@@ -4,13 +4,18 @@
 // each so Tab completes it, three edits apart so a typo resolves to one word, and never a word that
 // reads as code or as a command. A candidate list is checked here before the operator fixes it,
 // because the counts say which rule the list cannot hold.
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 
 /** The fewest letters and the most a handle may have, so `@` plus the word stays easy to type. */
 const SHORTEST = 3;
 const LONGEST = 8;
-/** Two words this many edits apart still resolve to one word after a single typo. */
-const APART = 3;
+/**
+ * Two words this many edits apart, the most the list can hold: short animal names crowd, so at three
+ * edits 437 candidates leave 247 words, and 600 are needed. One typo still cannot turn one handle
+ * into another; Tab may offer a second word when the typo lands one edit from it.
+ */
+const APART = 2;
 /** A week of reserved handles at about 70 sessions a week leaves most of the list free. */
 const FEWEST = 600;
 
@@ -186,8 +191,9 @@ export function distance(a: string, b: string): number {
 }
 
 /**
- * The words that can be kept, in the file's order. A word that breaks a rule is left out and the
- * ones after it still count, so one bad candidate costs one word and not the list.
+ * The words that can be kept, in alphabetical order. The order of the candidate file must not
+ * change the answer, since the first word of a shared prefix wins and the chosen word is what the
+ * list ends up with. A word that breaks a rule is left out and the ones after it still count.
  */
 export function audit(candidates: readonly string[]): Audit {
 	const removed: Record<string, number> = { shape: 0, denied: 0, letters: 0, close: 0 };
@@ -196,7 +202,7 @@ export function audit(candidates: readonly string[]): Audit {
 	const seen = new Set<string>();
 	const starts = new Map<string, string>();
 
-	for (const raw of candidates) {
+	for (const raw of candidates.map((word) => word.toLowerCase()).toSorted()) {
 		const word = raw.toLowerCase();
 		if (seen.has(word)) continue;
 		seen.add(word);
@@ -286,6 +292,7 @@ function main(given: readonly string[]): void {
 		process.exit(1);
 	}
 	if (write) {
+		mkdirSync(dirname(listPath), { recursive: true });
 		writeFileSync(listPath, sourceOf(report.words));
 		console.log(`\nwrote ${report.words.length} words to ${listPath}`);
 	}

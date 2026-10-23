@@ -12,12 +12,12 @@ describe("a candidate list is held to the word list's rules", () => {
 	test("leaves out what breaks each rule, and says which rule", () => {
 		const report = audit(["otter", "otter", "test", "Ab", "gecko", "geckos", "utter", "wombat"]);
 
-		expect(report.words).toEqual(["otter", "gecko", "wombat"]);
+		expect(report.words).toEqual(["gecko", "otter", "wombat"]);
 		expect(report.left.map((one) => one.why)).toEqual([
-			"reads as code or as a command",
 			"not one lowercase word of 3 to 8 letters",
 			"starts with gec, as gecko does",
-			"less than 3 edits from otter",
+			"reads as code or as a command",
+			"less than 2 edits from otter",
 		]);
 		expect(report.removed).toEqual({ shape: 1, denied: 1, letters: 1, close: 1 });
 	});
