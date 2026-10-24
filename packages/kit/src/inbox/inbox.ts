@@ -14,7 +14,13 @@ export class Inbox {
 	/** Every held follow-up, in the order it arrived. `queue` is the order it goes in. */
 	readonly #held: Letter[] = [];
 	readonly #sent: Letter[] = [];
-	/** Ids already taken in this run, so a client's resend is not delivered twice. */
+	/**
+	 * Ids already taken in this run, so a client's resend is not delivered twice. This is memory
+	 * of this instance, not the authority: the authority is the log, which the command runner reads
+	 * back when it starts, so a resend across a restart is still a repeat. What has to be recorded
+	 * is the command's id, not the letter's: if a command's id changed on its way in, two guards
+	 * would disagree after a restart and nothing would catch it.
+	 */
 	readonly #done = new Set<string>();
 
 	/** Letters waiting for the agent to settle, in the order they go in. */
