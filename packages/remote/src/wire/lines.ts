@@ -37,18 +37,21 @@ export class Lines {
 		const out: string[] = [];
 		let start = 0;
 		for (let lf = chunk.indexOf("\n"); lf !== -1; lf = chunk.indexOf("\n", start)) {
+			// The length is measured before the line is built, so an oversized one never is.
 			if (this.#dropping) this.#dropping = false;
+			else if (this.#pending.length + lf - start > this.max) this.oversize();
 			else out.push(this.#pending + chunk.slice(start, lf));
 			this.#pending = "";
 			start = lf + 1;
 		}
 		if (this.#dropping) return out;
-		this.#pending += chunk.slice(start);
-		if (this.#pending.length > this.max) {
+		if (this.#pending.length + chunk.length - start > this.max) {
 			this.#pending = "";
 			this.#dropping = true;
 			this.oversize();
+			return out;
 		}
+		this.#pending += chunk.slice(start);
 		return out;
 	}
 }
