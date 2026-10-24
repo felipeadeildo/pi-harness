@@ -112,3 +112,36 @@ export class ClientAsks {
 		this.#options.events.emit(CANCEL, { id, ...(by === undefined ? {} : { by }) });
 	}
 }
+
+/**
+ * The questions open in this session, by id. A stop closes each one as a no before it aborts, so the
+ * extension that is waiting hears "no" and not an error, and no client is left with a dialog for a
+ * session that is going away.
+ */
+export class OpenAsks {
+	readonly #ids = new Set<string>();
+	readonly #stops: (() => void)[] = [];
+
+	/** Follows the bus: `ASK` opens a question, and an answer or a cancel closes it. */
+	watch(events: AsksOptions["events"]): void {
+		const tell = (data: unknown, open: boolean) => {
+			if (!isObject(data) || typeof data.id !== "string") return;
+			if (open) this.#ids.add(data.id);
+			else this.#ids.delete(data.id);
+		};
+		this.#stops.push(
+			events.on(ASK, (data: unknown) => tell(data, true)),
+			events.on(ANSWER, (data: unknown) => tell(data, false)),
+			events.on(CANCEL, (data: unknown) => tell(data, false)),
+		);
+	}
+
+	/** The ids still waiting, which a stop cancels. */
+	get open(): readonly string[] {
+		return [...this.#ids];
+	}
+
+	stop(): void {
+		for (const stop of this.#stops.splice(0)) stop();
+	}
+}
