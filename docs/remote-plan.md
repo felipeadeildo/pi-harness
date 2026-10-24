@@ -442,6 +442,8 @@ Owner: protocol. Needs: C8.
 
 - Tests with a scripted daemon: an item typed offline goes out after a reconnect within 2 minutes, an older one waits, and a resent command is answered as a repeat.
 
+The client side is in on its own: the queue, the id, and the reply that ends a command. What it cannot yet do is send a prompt that lands, because that half of C8 goes through the inbox, and the inbox slice is I1.
+
 ### C9. Presence and its marks
 
 Owner: core. Needs: C8.
