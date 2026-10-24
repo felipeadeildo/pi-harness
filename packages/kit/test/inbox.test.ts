@@ -1,0 +1,164 @@
+// What the inbox holds, and in which order: a steer goes in at once, a follow-up waits for the agent
+// to settle, what waits can be taken back, and the operator's words come before an agent's.
+import { describe, expect, test } from "bun:test";
+
+import { INBOX, INBOX_PORT, inboxPort } from "../src/contracts/inbox.ts";
+import { Inbox } from "../src/inbox/inbox.ts";
+import { type Letter, isLetter } from "../src/inbox/letter.ts";
+import { fakeScope } from "../src/testing.ts";
+
+const OPERATOR = { kind: "client", name: "phone", machine: "laptop" } as const;
+const AGENT = { kind: "agent", name: "otter", machine: "laptop" } as const;
+
+let next = 0;
+function letter(
+	text: string,
+	by: Letter["by"] = OPERATOR,
+	want: Letter["want"] = "followUp",
+): Letter {
+	next += 1;
+	return { id: `l${next}`, by, text, want };
+}
+
+describe("the inbox", () => {
+	test("holds a follow-up and keeps a steer on its way, in one queue and one list", () => {
+		const inbox = new Inbox();
+		const follow = letter("later", OPERATOR, "followUp");
+		const steer = letter("now", OPERATOR, "steer");
+		inbox.put(follow);
+		inbox.put(steer);
+		expect(inbox.queue().map((one) => one.id)).toEqual([follow.id]);
+		expect(inbox.sent().map((one) => one.id)).toEqual([steer.id]);
+	});
+
+	test("puts a resend of the same letter nowhere, so a retry is not a second message", () => {
+		const inbox = new Inbox();
+		const once = letter("hello");
+		inbox.put(once);
+		inbox.put(once);
+		expect(inbox.queue()).toHaveLength(1);
+		inbox.take();
+		inbox.put(once);
+		expect(inbox.queue()).toEqual([]);
+		expect(inbox.seen(once.id)).toBe(true);
+	});
+
+	test("takes one letter back, and the others stay in the order they go in", () => {
+		const inbox = new Inbox();
+		const first = letter("first");
+		const second = letter("second", AGENT);
+		inbox.put(first);
+		inbox.put(second);
+		expect(inbox.take([second.id]).map((one) => one.text)).toEqual(["second"]);
+		expect(inbox.queue().map((one) => one.text)).toEqual(["first"]);
+	});
+
+	test("settles with the operator's words first, then the agents', each in its own order", () => {
+		const inbox = new Inbox();
+		const fromAgent = letter("from an agent", AGENT);
+		const first = letter("first");
+		const second = letter("second");
+		const steer = letter("steer", OPERATOR, "steer");
+		const lastAgent = letter("another agent", AGENT);
+		for (const one of [fromAgent, first, second, steer, lastAgent]) inbox.put(one);
+		const letters = inbox.settle();
+		expect(letters.map((one) => one.text)).toEqual([
+			"steer",
+			"first",
+			"second",
+			"from an agent",
+			"another agent",
+		]);
+		expect(inbox.queue()).toEqual([]);
+	});
+
+	test("holds again what a run did not carry, in the order it arrived", () => {
+		const inbox = new Inbox();
+		const first = letter("first");
+		const second = letter("second");
+		inbox.put(first);
+		inbox.put(second);
+		const letters = inbox.settle();
+		// pi took the steer and none of the follow-ups, which the operator's Esc emptied.
+		inbox.hold(letters.filter((one) => one.want === "followUp"));
+		expect(inbox.queue().map((one) => one.text)).toEqual(["first", "second"]);
+		// A steer is inside pi already: it does not come back as something to send.
+		expect(inbox.queue().some((one) => one.want === "steer")).toBe(false);
+	});
+
+	test("forgets the repeats of a run that ended, so the same words go in again next time", () => {
+		const inbox = new Inbox();
+		const once = letter("hello");
+		inbox.put(once);
+		inbox.settle();
+		inbox.put(once);
+		expect(inbox.queue()).toEqual([]);
+		inbox.ended();
+		inbox.put(once);
+		expect(inbox.queue().map((one) => one.id)).toEqual([once.id]);
+	});
+
+	test("starts a new run with nothing held and no repeats remembered", () => {
+		const inbox = new Inbox();
+		inbox.put(letter("a"));
+		inbox.put(letter("b", OPERATOR, "steer"));
+		inbox.reset();
+		expect(inbox.queue()).toEqual([]);
+		expect(inbox.sent()).toEqual([]);
+	});
+});
+
+describe("a letter over the bus", () => {
+	test("reads what a client sends, and refuses what is not a letter", () => {
+		const one = letter("hello");
+		expect(isLetter(one)).toBe(true);
+		expect(isLetter({ ...one, want: "whenever" })).toBe(false);
+		expect(isLetter({ ...one, by: { kind: "phone" } })).toBe(false);
+		expect(isLetter({ ...one, id: "" })).toBe(false);
+		const custom = { ...one, custom: { customType: "peers:room", details: { room: "r" } } };
+		expect(isLetter(custom)).toBe(true);
+	});
+
+	test("the queue and the steers are one value the client can mirror", () => {
+		const scope = fakeScope();
+		const inbox = new Inbox();
+		const held = letter("held");
+		const steer = letter("steer", OPERATOR, "steer");
+		inbox.put(held);
+		inbox.put(steer);
+		INBOX.provide(scope, () => ({ queue: inbox.queue(), sent: [...inbox.sent()] }));
+		expect(INBOX.current(scope)?.queue.map((one) => one.text)).toEqual(["held"]);
+		expect(INBOX.current(scope)?.sent.map((one) => one.text)).toEqual(["steer"]);
+	});
+
+	test("a feature puts a letter in through the port, without importing the inbox", () => {
+		const scope = fakeScope();
+		const inbox = new Inbox();
+		INBOX_PORT.provide(scope, () => ({
+			put: (one) => inbox.put(one),
+			take: (ids) => inbox.take(ids),
+		}));
+		const port = inboxPort(scope);
+		if (port === undefined) throw new Error("no port");
+		const one = letter("through the port");
+		port.put(one);
+		expect(INBOX_PORT.current(scope)?.take()).toEqual([one]);
+	});
+
+	test("a change of the queue reaches every listener, decoded", () => {
+		const notes: string[] = [];
+		const scope = fakeScope({ notes });
+		const seen: string[][] = [];
+		const stop = INBOX.onChanged(scope, (value) =>
+			seen.push(value?.queue.map((one) => one.id) ?? []),
+		);
+		const one = letter("one");
+		INBOX.changed(scope, { queue: [one], sent: [] });
+		// A queue holding something that is not a letter is dropped with a warning, not drawn.
+		const wrong = { queue: [{ id: "x", by: { kind: "stop" }, text: "t", want: "now" }] };
+		INBOX.changed(scope, { ...(wrong as { queue: Letter[] }), sent: [] });
+		stop();
+		expect(seen).toEqual([[one.id]]);
+		expect(notes.join(" ")).toContain("ignored a change of inbox");
+	});
+});
