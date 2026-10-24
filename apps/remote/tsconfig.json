@@ -3,8 +3,9 @@
 	"compilerOptions": {
 		"strict": true,
 		"noUncheckedIndexedAccess": true,
-		"types": ["react", "react-native"]
+		"types": ["react", "react-native"],
+		"allowImportingTsExtensions": true
 	},
-	"include": ["app/**/*.ts", "app/**/*.tsx", "expo-env.d.ts"],
-	"exclude": ["dist"]
+	"include": ["src/**/*.ts", "src/**/*.tsx"],
+	"exclude": ["dist", "node_modules", "**/*.test.ts", "**/*.test.tsx"]
 }

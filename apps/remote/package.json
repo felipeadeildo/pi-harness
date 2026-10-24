@@ -6,24 +6,25 @@
 	"scripts": {
 		"export": "expo export -p web",
 		"check": "tsc --noEmit",
-		"csp": "bun check/csp.ts"
+		"csp": "bun scripts/csp.ts"
 	},
-	"dependencies": {
-		"expo": "54.0.0",
-		"expo-constants": "18.0.0",
-		"expo-linking": "8.0.0",
-		"expo-router": "6.0.0",
-		"expo-status-bar": "3.0.0",
-		"react": "19.1.0",
-		"react-dom": "19.1.0",
-		"react-native": "0.81.0",
-		"react-native-safe-area-context": "5.6.0",
-		"react-native-screens": "4.16.0",
-		"react-native-web": "0.21.0"
-	},
+	"dependencies": {},
 	"devDependencies": {
-		"@types/react": "19.1.0",
-		"playwright-core": "^1.64.1",
-		"typescript": "5.9.3"
+		"@expo/metro-runtime": "~58.0.15",
+		"@types/react": "^19.3.0",
+		"@types/react-dom": "^19.3.0",
+		"expo": "~58.0.19",
+		"expo-constants": "~58.0.13",
+		"expo-linking": "~58.0.14",
+		"expo-router": "~58.0.26",
+		"expo-status-bar": "~58.0.4",
+		"playwright-core": "1.64.1",
+		"react": "19.3.0",
+		"react-dom": "19.3.0",
+		"react-native": "0.88.0",
+		"react-native-safe-area-context": "~5.10.1",
+		"react-native-screens": "~4.30.0",
+		"react-native-web": "^0.21.4",
+		"typescript": "^7.0.2"
 	}
 }

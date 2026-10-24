@@ -24,3 +24,15 @@ jobs:
           if bun run verify; then exit 0; fi
           echo "::warning::verify failed, retrying once"
           bun run verify
+
+  # The web app's done-when is a browser, so it gets its own job: the export takes about twenty
+  # seconds and the check needs a Chrome, and neither belongs in the verify every PR pays for. The
+  # runner's own Chrome is used, so nothing is downloaded.
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run app:export
+      - run: bun run csp:check

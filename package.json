@@ -37,9 +37,9 @@
 		"publish": "bun scripts/publish.ts",
 		"trust": "bun scripts/setup-npm-trust.ts",
 		"peers:live": "bun packages/peers/eval/live.ts",
-		"app:check": "cd apps/remote && bunx tsc --noEmit",
-		"app:export": "bun --cwd apps/remote run export",
-		"csp:check": "bun --cwd apps/remote run csp"
+		"app:check": "bun run --cwd=apps/remote check",
+		"app:export": "bun run --cwd=apps/remote export",
+		"csp:check": "bun run --cwd=apps/remote csp"
 	},
 	"devDependencies": {
 		"@earendil-works/pi-ai": "1.4.0",
