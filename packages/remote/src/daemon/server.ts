@@ -22,6 +22,7 @@ import { dirname, join } from "node:path";
 import { envelope, type Envelope, isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
 import { envelopeOf, line, Lines } from "../wire/lines.ts";
+import { loadWebApp } from "./app.ts";
 import { Clients } from "./clients.ts";
 import { type GoneReason, type SessionLive, Sessions } from "./sessions.ts";
 
@@ -58,6 +59,8 @@ export interface DaemonOptions {
 	 * Port 0 takes any free port, which `clientPort` then says.
 	 */
 	clientPort?: number;
+	/** The folder of the web app's export, with its `files.json`. Without one, only the data routes. */
+	webDir?: string;
 	/** Called once, after the daemon stopped listening and removed its socket. */
 	exited?(reason: ExitReason): void;
 	warn?(message: string): void;
@@ -214,10 +217,15 @@ export class Daemon {
 	}
 
 	async #listenForClients(port: number): Promise<void> {
+		const dir = this.#options.webDir;
+		const web = dir === undefined ? undefined : loadWebApp(dir);
+		if (dir !== undefined && web === undefined)
+			this.#warn(`no web app in ${dir}: serving data only`);
 		const clients = new Clients({
 			sessions: this.sessions,
 			version: this.#options.version,
 			askSnapshot: (session) => this.#askSnapshot(session),
+			...(web === undefined ? {} : { web }),
 			warn: (message) => this.#warn(message),
 		});
 		this.clientPort = await clients.listen(port);
