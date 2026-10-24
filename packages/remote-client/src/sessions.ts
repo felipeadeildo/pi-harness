@@ -1,6 +1,11 @@
 // The daemon's list of sessions, as a client reads it. One request, one shape, and no React: the
 // screen that draws it decides what to show, and the app can be read by anything that speaks fetch.
-import { isObject, type SessionFacts, type SessionSnapshot } from "@adeildo/pi-remote-protocol";
+import {
+	isObject,
+	isSnapshot,
+	type SessionFacts,
+	type SessionSnapshot,
+} from "@adeildo/pi-remote-protocol";
 
 /** What `session.live` said about a session, which is the bridge's word, not the daemon's. */
 export interface LiveSession {
@@ -37,10 +42,21 @@ export async function listSessions(
 	const answer = await speaks(new URL("/sessions", base), {
 		headers: { accept: "application/json" },
 	});
-	if (!answer.ok) throw new Error(`the daemon answered ${answer.status} for its session list`);
+	if (!answer.ok) throw new DaemonAnswer(answer.status, "the session list");
 	const body: unknown = await answer.json();
-	if (!Array.isArray(body)) throw new Error("the daemon's session list is not a list");
+	if (!Array.isArray(body)) throw new DaemonAnswer(200, "a body that is not a list");
 	return body.filter(isListed);
+}
+
+/** A refusal that keeps the code, so a screen can say "not logged in" without matching text. */
+export class DaemonAnswer extends Error {
+	readonly status: number;
+
+	constructor(status: number, what: string) {
+		super(`the daemon answered ${status} for ${what}`);
+		this.name = "DaemonAnswer";
+		this.status = status;
+	}
 }
 
 function isListed(value: unknown): value is ListedSession {
@@ -53,8 +69,11 @@ function isListed(value: unknown): value is ListedSession {
 		typeof value.connected === "boolean" &&
 		isObject(live) &&
 		typeof live.pid === "number" &&
+		typeof live.startedAt === "number" &&
 		typeof live.cwd === "string" &&
 		(live.kind === "terminal" || live.kind === "background") &&
-		isObject(value.facts)
+		isObject(value.facts) &&
+		// The snapshot is the shape the rest of the package draws from, so it is the protocol's call.
+		(value.snapshot === undefined || isSnapshot(value.snapshot))
 	);
 }

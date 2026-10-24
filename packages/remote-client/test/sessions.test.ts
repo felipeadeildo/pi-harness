@@ -2,7 +2,7 @@
 // dropped instead of drawn half way.
 import { describe, expect, test } from "bun:test";
 
-import { listSessions } from "../src/sessions.ts";
+import { DaemonAnswer, listSessions } from "../src/sessions.ts";
 
 const live = { pid: 42, startedAt: 1, cwd: "/work", name: "the rig", kind: "terminal" };
 const facts = { tasks: undefined, rulings: {}, asks: {}, renamed: undefined };
@@ -48,8 +48,30 @@ describe("the daemon's session list", () => {
 		expect(sessions.map((one) => one.session)).toEqual(["s1"]);
 	});
 
-	test("a daemon that refuses is an error, not an empty list", async () => {
-		await expect(listSessions("http://127.0.0.1:7878", answering({}, 401))).rejects.toThrow("401");
+	test("a daemon that refuses is an error that carries the code", async () => {
+		const refused = listSessions("http://127.0.0.1:7878", answering({}, 401));
+		await expect(refused).rejects.toThrow("401");
+		await refused.catch((error: unknown) => {
+			expect(error).toBeInstanceOf(DaemonAnswer);
+			expect((error as DaemonAnswer).status).toBe(401);
+		});
+	});
+
+	test("each field the list needs is checked on its own", async () => {
+		const broken: Record<string, unknown>[] = [
+			row({ machine: 1 }),
+			row({ session: 1 }),
+			row({ epoch: 1 }),
+			row({ connected: "yes" }),
+			row({ live: { ...live, pid: "42" } }),
+			row({ live: { ...live, startedAt: "1" } }),
+			row({ live: { ...live, cwd: 1 } }),
+			row({ live: { ...live, kind: "remote" } }),
+			row({ facts: "none" }),
+			row({ snapshot: { session: "s1" } }),
+		];
+		const sessions = await listSessions("http://127.0.0.1:7878", answering([...broken, row()]));
+		expect(sessions.map((one) => one.session)).toEqual(["s1"]);
 	});
 
 	test("a body that is not a list is an error, not an empty list", async () => {
