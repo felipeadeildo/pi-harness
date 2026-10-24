@@ -43,14 +43,15 @@ draw.
 The list only grows. A field a reviewer adds is optional, so a daemon of a later version still reduces
 in a client of this one.
 
-## The snapshot and the cursor
+## The snapshot
 
 `SessionSnapshot` is where a client starts: the session's name, handle, model, state, tasks, mode,
 cost, queue, and the entry its branch ends at. `isSnapshot` checks it, and checks the queue letter by
 letter.
 
-`Cursor` is what a reconnect sends: the last entry, the last fact position, and the last `seq` of the
-epoch. The daemon replays what came after it, or answers with a snapshot when it cannot.
+A reconnect says where it stopped — the last entry it holds and the last `seq` of the epoch — and the
+daemon replays what came after, or answers with a snapshot when it cannot. The cursor itself belongs to
+the client; this package carries the snapshot and the envelopes that it resumes between.
 
 ## Commands
 
