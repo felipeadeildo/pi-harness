@@ -63,7 +63,10 @@ export function sessionOf(key: SessionKey, cached?: CachedSession): ClientSessio
 		entries: (cached?.entries ?? []) as Entry[],
 		facts: cached?.facts ?? [],
 		leaf: cached?.leaf,
-		presence: cached?.presence,
+		// `viewers` only says people were there, while `active` says someone is typing now, and a cache
+		// can be days old. The cut happens here, on the way in, so it also covers a file written before
+		// this rule existed; the `active` comes back from the snapshot or the next `presence.changed`.
+		presence: cached?.presence === undefined ? undefined : { viewers: cached.presence.viewers },
 		streamed: {},
 	};
 }
@@ -90,10 +93,7 @@ export function cachedOf(session: ClientSession): CachedSession {
 		entries: session.entries,
 		facts: session.facts,
 		leaf: session.leaf,
-		// Who was watching, without the one whose input came last: `viewers` only says people were
-		// there, while `active` says someone is typing now, and a cache can be days old. It comes
-		// back from the snapshot or the next `presence.changed`, never from a file.
-		presence: session.presence === undefined ? undefined : { viewers: session.presence.viewers },
+		presence: session.presence,
 	};
 }
 

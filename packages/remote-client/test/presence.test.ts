@@ -125,4 +125,22 @@ describe("who has the session open", () => {
 		const warm = sessionOf(key, await cache.read(key));
 		expect(warm.presence).toEqual({ viewers: [{ name: "phone", machine: "here" }] });
 	});
+
+	test("a cache written by an older client keeps the names and drops the claim about typing", () => {
+		// A file from before this rule carries `active` with whatever age the file has, so the read
+		// cuts it too; cutting only on write would leave every existing cache wrong for ever.
+		const older = {
+			key,
+			cursor: {},
+			entries: [],
+			facts: [],
+			presence: {
+				viewers: [{ name: "phone", machine: "here" }],
+				active: { kind: "client", name: "phone", machine: "here" },
+			},
+		};
+		expect(sessionOf(key, older as never).presence).toEqual({
+			viewers: [{ name: "phone", machine: "here" }],
+		});
+	});
 });
