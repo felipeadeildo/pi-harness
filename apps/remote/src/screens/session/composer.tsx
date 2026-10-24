@@ -37,6 +37,14 @@ export function Composer({ client, canPrompt, model, thinking, ask }: ComposerPr
 	// native target with no `document`, must not share the first input it finds.
 	const [draft, write] = useState("");
 	const queue = client.outbox().all();
+	// A command past the window waits for the person, and one inside it goes out on its own: the
+	// screen has to say which, or a prompt typed offline three minutes ago looks like one in flight.
+	const held = new Set(
+		client
+			.outbox()
+			.held()
+			.map((command) => command.id),
+	);
 	const send = (type: CommandType, data: unknown): void => {
 		client.send(type, data);
 	};
@@ -47,7 +55,7 @@ export function Composer({ client, canPrompt, model, thinking, ask }: ComposerPr
 		controls(send),
 		pickers(send, model, thinking),
 		ask === undefined ? null : naming(send, ask),
-		queueNode(queue, client),
+		queueNode(queue, client, held),
 	);
 }
 
@@ -163,7 +171,11 @@ function naming(
 
 /** What the queue holds, with the reason it is still here, and a way out of the two states a
  * person can act on: a command that waited past the window goes out when they say so, or is dropped. */
-function queueNode(queue: readonly Outgoing[], client: Client): ReactNode {
+function queueNode(
+	queue: readonly Outgoing[],
+	client: Client,
+	held: ReadonlySet<string>,
+): ReactNode {
 	if (queue.length === 0) return null;
 	return h(
 		"ul",
@@ -173,8 +185,14 @@ function queueNode(queue: readonly Outgoing[], client: Client): ReactNode {
 				"li",
 				{ key: command.id, className: `remote-composer-${command.state}` },
 				h("span", { className: "remote-composer-command" }, command.type),
-				h("span", { className: "remote-composer-state" }, stateOf(command)),
-				...(command.state === "waiting"
+				h(
+					"span",
+					{ className: "remote-composer-state" },
+					command.state === "waiting" && !held.has(command.id)
+						? "goes out when the daemon answers"
+						: stateOf(command),
+				),
+				...(command.state === "waiting" && held.has(command.id)
 					? [
 							h(
 								"button",

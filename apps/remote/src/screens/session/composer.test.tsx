@@ -9,14 +9,17 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { CLIENT_MODES, Composer, stateOf } from "./composer.tsx";
 
-function clientOf(queue: Outgoing[] = []): { client: Client; sent: [CommandType, unknown][] } {
+function clientOf(
+	queue: Outgoing[] = [],
+	held: Outgoing[] = [],
+): { client: Client; sent: [CommandType, unknown][] } {
 	const sent: [CommandType, unknown][] = [];
 	const client = {
 		send: (type: CommandType, data: unknown) => {
 			sent.push([type, data]);
 			return { id: "c1", type, data, at: 0, state: "waiting" as const };
 		},
-		outbox: () => ({ all: () => queue }),
+		outbox: () => ({ all: () => queue, held: () => held }),
 	} as unknown as Client;
 	return { client, sent };
 }
@@ -85,16 +88,17 @@ describe("the composer", () => {
 	});
 
 	test("a command that waited past the window can be sent now, or dropped", () => {
-		const { client } = clientOf([
-			{ id: "c1", type: "prompt.send", data: {}, at: 0, state: "waiting" },
-			{ id: "c2", type: "run.abort", data: {}, at: 0, state: "sent" },
-		]);
+		const late: Outgoing = { id: "c1", type: "prompt.send", data: {}, at: 0, state: "waiting" };
+		const recent: Outgoing = { id: "c2", type: "run.abort", data: {}, at: 0, state: "waiting" };
+		const { client } = clientOf([late, recent], [late]);
 		const html = draw({ client, canPrompt: true });
 		// Both states are `waiting`-free: one is waiting (so it can go or be dropped), the other is
 		// already out (so there is nothing to decide).
 		expect(html).toContain("Send now");
 		expect(html).toContain("Drop");
+		// One control per state, and the command inside the window says it goes out on its own.
 		expect(html.match(/Send now/g)).toHaveLength(1);
+		expect(html).toContain("goes out when the daemon answers");
 	});
 
 	test("a state reads as what the person does about it", () => {
