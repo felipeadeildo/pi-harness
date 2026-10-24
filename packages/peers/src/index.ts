@@ -31,8 +31,15 @@ import {
 import { ANYONE_MENTION, completeMentions, EVERYONE_MENTION } from "./mention.ts";
 import type { Named } from "./names.ts";
 import { type Post, Rooms } from "./rooms.ts";
-import { delivery, link, model, PEERS_SETTINGS, roomGrace } from "./settings.ts";
-import { heldBlock, type HeldDelivery } from "./ui/held.ts";
+import { chainLimit, delivery, link, model, PEERS_SETTINGS, roomGrace } from "./settings.ts";
+import {
+	heldBlock,
+	type HeldDelivery,
+	isWentIn,
+	PEER_WENT_IN,
+	type WentIn,
+	type WentInEntry,
+} from "./ui/held.ts";
 import { deliveryBlock, membershipNotice, messageBlock } from "./ui/message.ts";
 import { openPanel } from "./ui/panel.ts";
 import { PEERS_STATUS, statusLine } from "./ui/status.ts";
@@ -121,6 +128,11 @@ export const peers = defineFeature({
 		// started its run, and pi refuses the message.
 		if (inSubagent()) return;
 		let session: ExtensionContext | undefined;
+		/** Held messages a run that was not yours took, by id, so their line says so. */
+		const wentIn = new Map<string, WentIn>();
+		function remember({ ids, by }: WentInEntry): void {
+			for (const id of ids) wentIn.set(id, by === undefined ? {} : { by });
+		}
 		// Tool rows that show receipts, redrawn when a room changes.
 		const rows = new Set<() => void>();
 		const rooms = new Rooms({
@@ -148,6 +160,18 @@ export const peers = defineFeature({
 				}
 			},
 			busyDelivery: () => delivery.get(scope),
+			chainLimit: () => chainLimit.get(scope),
+			// The run that took them is starting, and its frames redraw the line. The entry keeps it
+			// for the next time the session opens.
+			wentIn: (ids, by) => {
+				const went: WentInEntry = { ids: [...ids], ...(by === undefined ? {} : { by }) };
+				remember(went);
+				try {
+					scope.appendEntry(PEER_WENT_IN, went);
+				} catch {
+					// During a reload the scope can still be the last session's; the line stays right until it closes.
+				}
+			},
 			roomGrace: () => roomGrace.get(scope) * 1000,
 		});
 		let typingShown = false;
@@ -231,6 +255,10 @@ export const peers = defineFeature({
 
 		scope.onSessionStart((ctx) => {
 			session = ctx;
+			wentIn.clear();
+			for (const entry of ctx.sessionManager.getEntries())
+				if (entry.type === "custom" && entry.customType === PEER_WENT_IN && isWentIn(entry.data))
+					remember(entry.data);
 			stopClearing?.();
 			stopClearing = watchClearing();
 			// The gate sees what each call does: a yes to sending never lets a link through.
@@ -487,7 +515,7 @@ export const peers = defineFeature({
 			entry.data === undefined ? undefined : messageBlock(entry.data, theme),
 		);
 		scope.registerEntryRenderer<HeldDelivery>(PEER_HELD, (entry, _options, theme) =>
-			entry.data === undefined ? undefined : heldBlock(entry.data, theme),
+			entry.data === undefined ? undefined : heldBlock(entry.data, theme, (id) => wentIn.get(id)),
 		);
 	},
 });

@@ -242,6 +242,7 @@ export class Rooms implements RoomsView {
 	}
 
 	started(): void {
+		this.#inbox.started();
 		this.#state = "running";
 		for (const here of this.joined()) here.started();
 		this.#writeLive();

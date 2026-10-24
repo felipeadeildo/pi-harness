@@ -6,7 +6,9 @@ import { join } from "node:path";
 import { createApp, eventsDir, FolderFeed } from "@adeildo/pi-kit";
 import { fakeContext, fakePi } from "@adeildo/pi-kit/testing";
 
+import { PEER_HELD } from "../src/inbox.ts";
 import { committed, peers } from "../src/index.ts";
+import { PEER_WENT_IN } from "../src/ui/held.ts";
 
 let dir: string;
 
@@ -20,7 +22,7 @@ afterEach(() => {
 	rmSync(dir, { recursive: true, force: true });
 });
 
-async function mounted(id: string, cwd = "/repo") {
+async function mounted(id: string, cwd = "/repo", entries: unknown[] = []) {
 	writeFileSync(join(dir, "settings.json"), "{}");
 	const fake = fakePi();
 	let active = ["read", "bash"];
@@ -37,7 +39,12 @@ async function mounted(id: string, cwd = "/repo") {
 	let editor = "";
 	const ctx = fakeContext([], true, {
 		cwd,
-		sessionManager: { getBranch: () => [], getCwd: () => cwd, getSessionId: () => id },
+		sessionManager: {
+			getBranch: () => [],
+			getEntries: () => entries,
+			getCwd: () => cwd,
+			getSessionId: () => id,
+		},
 		ui: {
 			notify: (message: string) => notes.push(message),
 			setEditorText: (text: string) => (editor = text),
@@ -260,4 +267,46 @@ test("a commit line is read from git's output, with or without a root-commit not
 		subject: "First",
 	});
 	expect(committed("nothing to commit")).toBeUndefined();
+});
+
+/** What the held entry says under its frames, drawn by the renderer the feature registered. */
+function heldLine(fake: ReturnType<typeof fakePi>, data: unknown): string {
+	const renderer = fake.renderers.get(PEER_HELD);
+	const theme = { fg: (_color: string, text: string) => text, bold: (text: string) => text };
+	const block = renderer?.({ data } as never, { expanded: false }, theme as never);
+	return (block?.render(200) ?? []).join("\n");
+}
+
+test("a held line that went in with a run you did not start still says so when the session opens again", async () => {
+	const a = await mounted("a");
+	const b = await mounted("b");
+	await a.fake.fire("input", { text: "go", source: "interactive" }, a.ctx);
+	const tool = a.fake.tools.find((candidate) => candidate.name === "peers");
+	await tool?.execute(
+		"1",
+		{ action: "send", to: "new-b", text: "look at this" },
+		undefined,
+		undefined,
+		a.ctx as never,
+	);
+	// b has no prompt yet, so it holds the message; then a run that is not yours starts.
+	await b.fake.fire("agent_settled", {}, b.ctx);
+	const held = b.fake.entries.find((entry) => entry.customType === PEER_HELD);
+	expect(heldLine(b.fake, held?.data)).toContain("It waits for your first prompt");
+	await b.fake.fire("agent_start", {}, b.ctx);
+	expect(heldLine(b.fake, held?.data)).toContain("It went in with the next run");
+	const went = b.fake.entries.filter((entry) => entry.customType === PEER_WENT_IN);
+	expect(went).toHaveLength(1);
+
+	// The same session opened again reads it back from its entries.
+	const again = await mounted("b", "/repo", [
+		{ type: "custom", customType: PEER_WENT_IN, data: went[0]?.data },
+	]);
+	expect(heldLine(again.fake, held?.data)).toContain("It went in with the next run");
+	// Another session in the same process starts clean.
+	await again.fake.fire("session_start", {}, {
+		...again.ctx,
+		sessionManager: { ...again.ctx.sessionManager, getEntries: () => [] },
+	} as never);
+	expect(heldLine(again.fake, held?.data)).toContain("It waits for your first prompt");
 });

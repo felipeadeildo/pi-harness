@@ -18,7 +18,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Fit } from "../src/bid.ts";
 import { Here, type Hooks, PEER_MESSAGE, PEER_NOTE, type PeerMessageDetails } from "../src/here.ts";
 import type { Held } from "../src/inbox.ts";
-import { BID_WINDOW_MS, QUIET_AFTER, STEERS_PER_RUN } from "../src/rules.ts";
+import { BID_WINDOW_MS, type BusyDelivery, CHAIN_LIMIT, STEERS_PER_RUN } from "../src/rules.ts";
 import { statusLine } from "../src/ui/status.ts";
 
 let root: string;
@@ -64,7 +64,9 @@ function session(
 	const sent: Sent[] = [];
 	const notes: Note[] = [];
 	const shown: PeerMessageDetails[] = [];
-	const held: { from: string[]; why: Held }[] = [];
+	const held: { from: string[]; why: Held; chain?: number }[] = [];
+	const wentIn: { ids: string[]; by: string | undefined }[] = [];
+	const limit: { chain: number; busy: BusyDelivery } = { chain: CHAIN_LIMIT, busy: "steered" };
 	const state = { idle: true };
 	const hooks: Hooks = {
 		events: { emit: () => {}, on: () => () => {} } as unknown as Hooks["events"],
@@ -85,7 +87,15 @@ function session(
 		fit: async () => fit,
 		changed: () => {},
 		show: (details) => shown.push(details),
-		held: (delivery, why) => held.push({ from: delivery.items.map((item) => item.text), why }),
+		held: (delivery, why) =>
+			held.push({
+				from: delivery.items.map((item) => item.text),
+				why,
+				...(delivery.chain === undefined ? {} : { chain: delivery.chain }),
+			}),
+		wentIn: (ids, by) => wentIn.push({ ids: [...ids], by }),
+		chainLimit: () => limit.chain,
+		busyDelivery: () => limit.busy,
 		now: () => now,
 		...(alive === null ? {} : { alive }),
 	};
@@ -93,7 +103,7 @@ function session(
 	opened.push(here);
 	here.open({ getCwd: () => "/repo", getSessionId: () => id }, undefined);
 	if (prompted) here.prompted();
-	return { here, sent, notes, shown, held, state };
+	return { here, sent, notes, shown, held, wentIn, limit, state };
 }
 
 function name(here: Here, handle: string, title = handle): void {
@@ -191,14 +201,14 @@ describe("a message", () => {
 		for (let i = 0; i < 6; i++) expect(b.sent[0]?.text).toContain(`ping ${i}`);
 	});
 
-	test("agents that only answer each other stop waking after four replies, until someone prompts", () => {
+	/** Two agents answering each other, each reply written in the run the last one woke. */
+	function pingPong(replies: number) {
 		const a = session("a");
 		const b = session("b");
 		const sessions = [a, b];
 		let writer = 0;
 		a.here.post(["b"], "start", "agent");
-		// Each reply is written in the run the last message woke.
-		for (let reply = 1; reply <= QUIET_AFTER; reply++) {
+		for (let reply = 1; reply <= replies; reply++) {
 			const reader = sessions[1 - writer];
 			reader?.here.sync();
 			expect(reader?.sent.at(-1)?.options).toEqual({ triggerTurn: true, deliverAs: "followUp" });
@@ -207,16 +217,168 @@ describe("a message", () => {
 		}
 		const last = sessions[1 - writer];
 		last?.here.sync();
+		return { last, other: sessions[writer], to: writer === 0 ? "b" : "a" };
+	}
+
+	test("agents that only answer each other stop waking at the chain limit, until someone prompts", () => {
+		const { last, other, to } = pingPong(CHAIN_LIMIT);
 		expect(last?.sent.at(-1)?.options).toEqual({ deliverAs: "nextTurn" });
-		// Shown now, and drawn only once: the held line says why.
-		expect(last?.held.at(-1)?.why).toBe("quiet");
+		// Shown now, and drawn only once: the held line says why, with the limit that stopped it.
+		expect(last?.held.at(-1)).toMatchObject({ why: "quiet", chain: CHAIN_LIMIT });
 		expect(last?.sent.at(-1)?.display).toBe(false);
 
 		last?.here.prompted();
-		last?.here.post([writer === 0 ? "b" : "a"], "you prompted, so this wakes", "agent");
-		const other = sessions[writer];
+		last?.here.post([to], "you prompted, so this wakes", "agent");
 		other?.here.sync();
 		expect(other?.sent.at(-1)?.options).toEqual({ triggerTurn: true, deliverAs: "followUp" });
+	});
+
+	test("short of the limit, they keep waking each other without asking you", () => {
+		const { last } = pingPong(CHAIN_LIMIT - 1);
+		expect(last?.sent.at(-1)?.options).toEqual({ triggerTurn: true, deliverAs: "followUp" });
+		expect(last?.held).toEqual([]);
+	});
+
+	test("a chain limit of 0 never stops them", () => {
+		const a = session("a");
+		const b = session("b");
+		a.limit.chain = 0;
+		b.limit.chain = 0;
+		let reader = b;
+		let writer = a;
+		writer.here.post(["b"], "start", "agent");
+		for (let reply = 1; reply <= 30; reply++) {
+			reader.here.sync();
+			expect(reader.sent.at(-1)?.options).toEqual({ triggerTurn: true, deliverAs: "followUp" });
+			[reader, writer] = [writer, reader];
+			writer.here.post([reader === a ? "a" : "b"], `reply ${reply}`, "agent");
+		}
+		expect([...a.held, ...b.held]).toEqual([]);
+	});
+});
+
+describe("what waits for your next prompt", () => {
+	test("goes in with a run a colleague's message starts, and says whose", () => {
+		const a = session("a");
+		const b = session("b");
+		const c = session("c");
+		name(c.here, "otter");
+		b.limit.chain = 1;
+		// a and b answer each other until the chain passes b's limit of 1.
+		a.here.post(["b"], "start", "agent");
+		b.here.sync();
+		b.here.started();
+		b.here.post(["a"], "deep", "agent");
+		b.here.settled();
+		a.here.sync();
+		a.limit.chain = 1;
+		a.here.started();
+		a.here.post(["b"], "too deep", "agent");
+		a.here.settled();
+		b.here.sync();
+		expect(b.held.at(-1)?.why).toBe("quiet");
+		expect(b.wentIn).toEqual([]);
+
+		// A message from a chain you started elsewhere wakes b, and the held one rides in with it.
+		c.here.post(["b"], "fresh", "agent");
+		c.here.sync();
+		b.here.sync();
+		expect(b.sent.at(-1)?.options).toEqual({ triggerTurn: true, deliverAs: "followUp" });
+		b.here.started();
+		const held = [...b.here.folder.messages.values()].find((one) => one.text === "too deep");
+		expect(b.wentIn).toEqual([{ ids: [held?.id ?? ""], by: "otter" }]);
+		// The room learns the agent got it, and the run is as deep as the deepest message in it.
+		expect(held?.received.get(b.here.session ?? "")?.mode).toBe("woke");
+		b.here.post(["a"], "next", "agent");
+		const next = [...b.here.folder.messages.values()].find((one) => one.text === "next");
+		// "too deep" was written two replies in, so the run it went in with is the third.
+		expect(next?.depth).toBe(3);
+	});
+
+	test("your words in a busy run do not make the next run yours", () => {
+		const a = session("a");
+		const b = session("b");
+		b.state.idle = false;
+		b.here.started();
+		for (let i = 0; i <= STEERS_PER_RUN; i++) {
+			a.here.post(["b"], `note ${i}`, "agent");
+			b.here.sync();
+		}
+		expect(b.held.at(-1)?.why).toBe("full");
+		// You steer the busy run, which starts no run of its own.
+		b.here.prompted();
+		b.state.idle = true;
+		b.here.settled();
+		const c = session("c");
+		name(c.here, "otter");
+		c.here.post(["b"], "fresh", "agent");
+		c.here.sync();
+		b.here.sync();
+		b.here.started();
+		expect(b.wentIn.map((went) => went.by)).toEqual(["otter"]);
+	});
+
+	test("your words from another session start a run that is yours", () => {
+		const a = session("a");
+		const b = session("b", undefined, false);
+		a.here.post(["b"], "while you were away", "agent");
+		b.here.sync();
+		expect(b.held.at(-1)?.why).toBe("asleep");
+		a.here.post(["b"], "the operator, from a", "you");
+		b.here.sync();
+		expect(b.sent.at(-1)?.kind).toBe("user");
+		b.here.started();
+		expect(b.wentIn).toEqual([]);
+	});
+
+	test("a message to the whole room is never held as a loop, but one to this agent is", () => {
+		const a = session("a");
+		const b = session("b");
+		b.limit.chain = 1;
+		// a writes from a run one reply deep, at b's limit.
+		b.here.post(["a"], "start", "agent");
+		a.here.sync();
+		a.here.started();
+		a.here.post("all", "to everyone", "agent");
+		b.here.sync();
+		expect(b.held).toEqual([]);
+		expect(b.sent.at(-1)?.options).toEqual({ triggerTurn: true, deliverAs: "followUp" });
+		// It still counts: the announcement carries a's depth, and the run it woke writes one deeper.
+		const messages = () => [...b.here.folder.messages.values()];
+		expect(messages().find((one) => one.text === "to everyone")?.depth).toBe(1);
+		b.here.started();
+		b.here.post(["c"], "after the announcement", "agent");
+		expect(messages().find((one) => one.text === "after the announcement")?.depth).toBe(2);
+		b.here.settled();
+		a.here.post(["b"], "to you", "agent");
+		b.here.sync();
+		expect(b.held.at(-1)?.why).toBe("quiet");
+	});
+
+	test("goes in with your prompt without a word more", () => {
+		const a = session("a");
+		const b = session("b", undefined, false);
+		a.here.post(["b"], "while you were away", "agent");
+		b.here.sync();
+		expect(b.held.at(-1)?.why).toBe("asleep");
+		b.here.prompted();
+		b.here.started();
+		expect(b.wentIn).toEqual([]);
+		// Once taken, a later run has nothing of it to report.
+		b.here.settled();
+		b.here.started();
+		expect(b.wentIn).toEqual([]);
+	});
+
+	test("a busy agent that queues for your next prompt by your setting is not held as a loop", () => {
+		const a = session("a");
+		const b = session("b");
+		b.state.idle = false;
+		b.limit.busy = "next-turn";
+		a.here.post(["b"], "later", "agent");
+		b.here.sync();
+		expect(b.sent.at(-1)?.options).toEqual({ deliverAs: "nextTurn" });
+		expect(b.held).toEqual([]);
 	});
 });
 
@@ -226,7 +388,10 @@ describe("agents talking while they work", () => {
 		const b = session("b");
 		a.state.idle = false;
 		b.state.idle = false;
-		for (let round = 0; round < QUIET_AFTER + 2; round++) {
+		// Past a chain limit of 4, so a deeper run would show.
+		a.limit.chain = 4;
+		b.limit.chain = 4;
+		for (let round = 0; round < 6; round++) {
 			a.here.post(["b"], `from a ${round}`, "agent");
 			b.here.sync();
 			b.here.post(["a"], `from b ${round}`, "agent");

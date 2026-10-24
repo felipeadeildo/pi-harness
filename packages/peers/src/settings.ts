@@ -2,6 +2,7 @@ import {
 	AUTO_MODEL,
 	type Decoder,
 	fail,
+	integer,
 	literal,
 	modelChoice,
 	pass,
@@ -10,7 +11,7 @@ import {
 	string,
 } from "@adeildo/pi-kit";
 
-import { BUSY_DELIVERIES, type BusyDelivery } from "./rules.ts";
+import { BUSY_DELIVERIES, type BusyDelivery, CHAIN_LIMIT } from "./rules.ts";
 
 export const SETTINGS_SECTION = "Requests to everyone";
 
@@ -44,6 +45,18 @@ export const delivery = setting<BusyDelivery>({
 				{ value: "next-turn", label: "with your next prompt" },
 			],
 		},
+	},
+});
+
+export const chainLimit = setting<number>({
+	id: "peers.chainLimit",
+	default: CHAIN_LIMIT,
+	decoder: integer(0, 1000),
+	ui: {
+		section: SETTINGS_SECTION,
+		label: "Replies before a loop stops",
+		description:
+			"Agents that answer each other keep waking each other without asking you. After this many replies in a row with no prompt from you, it reads as a loop: the next message waits for your prompt, and your chat says why. 0 never stops them.",
 	},
 });
 
@@ -94,4 +107,4 @@ export const roomGrace = setting<number>({
 	},
 });
 
-export const PEERS_SETTINGS = [delivery, model, link, roomGrace];
+export const PEERS_SETTINGS = [delivery, chainLimit, model, link, roomGrace];
