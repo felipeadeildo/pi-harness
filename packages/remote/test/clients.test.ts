@@ -212,6 +212,10 @@ describe("a client of the daemon", () => {
 		expect(list).toMatchObject([{ machine: "laptop", session: "s1", connected: true }]);
 		expect((await get("/sessions/desktop/s1/snapshot")).status).toBe(404);
 		expect((await get("/nowhere")).status).toBe(404);
+		// A segment that does not decode is refused, and the daemon goes on answering.
+		expect((await get("/sessions/laptop/%E0%A4%A/snapshot")).status).toBe(400);
+		expect((await get("/sessions/laptop/s%31/snapshot")).status).toBe(200);
+		expect((await get("/health")).status).toBe(200);
 	});
 });
 

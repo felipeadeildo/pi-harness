@@ -126,10 +126,12 @@ export class Clients {
 		if (path === "/sessions") return reply(response, 200, this.#list());
 		const snapshot = /^\/sessions\/([^/]+)\/([^/]+)\/snapshot$/.exec(path);
 		if (snapshot !== null) {
-			const [, machine, session] = snapshot.map((part) => decodeURIComponent(part));
-			const known = this.#options.sessions.get(session ?? "");
+			const [machine, session] = snapshot.slice(1).map(decoded);
+			if (machine === undefined || session === undefined)
+				return reply(response, 400, { error: "a machine and a session, percent-encoded" });
+			const known = this.#options.sessions.get(session);
 			const opening =
-				known?.machine === machine ? this.#options.sessions.opening(session ?? "") : undefined;
+				known?.machine === machine ? this.#options.sessions.opening(session) : undefined;
 			if (opening === undefined) return reply(response, 404, { error: "no snapshot" });
 			return reply(response, 200, opening[0]);
 		}
@@ -148,6 +150,15 @@ export class Clients {
 			...(one.snapshot === undefined ? {} : { snapshot: one.snapshot.snapshot }),
 			facts: one.facts,
 		}));
+	}
+}
+
+/** A path segment as written, or undefined for an encoding that does not decode. */
+function decoded(part: string): string | undefined {
+	try {
+		return decodeURIComponent(part);
+	} catch {
+		return undefined;
 	}
 }
 
