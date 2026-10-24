@@ -8,14 +8,12 @@ import { connect, memoryCache, type Transport } from "@adeildo/pi-remote-client"
 import { envelope, type Envelope, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
 import { requestLink } from "../src/cli/open.ts";
-import { Logins } from "../src/daemon/auth.ts";
-import { Clients } from "../src/daemon/clients.ts";
 import { FILES, History, type Page } from "../src/daemon/history.ts";
 import { Daemon } from "../src/daemon/server.ts";
-import { Sessions } from "../src/daemon/sessions.ts";
 import { envelopeOf, line, Lines } from "../src/wire/lines.ts";
 import { frame, Frames, MAX_MESSAGE } from "../src/wire/websocket.ts";
 import { until } from "./fakes.ts";
+import { logIn } from "./login.ts";
 
 let dir: string;
 let socket: string;
@@ -37,18 +35,6 @@ async function openDaemon(): Promise<{ daemon: Daemon; port: number; cookie: str
 	running.push(daemon);
 	const port = daemon.clientPort;
 	return { daemon, port, cookie: await logIn(daemon, port) };
-}
-
-/** Trades a token the daemon issued for its login cookie, as the web app does with `/remote`'s link. */
-async function logIn(daemon: Daemon, port: number): Promise<string> {
-	const response = await fetch(`http://127.0.0.1:${port}/login`, {
-		method: "POST",
-		headers: { Origin: `http://127.0.0.1:${port}`, "content-type": "application/json" },
-		body: JSON.stringify({ token: daemon.logins.issue().token }),
-	});
-	const cookie = response.headers.get("set-cookie")?.split(";")[0];
-	if (response.status !== 204 || cookie === undefined) throw new Error("no login");
-	return cookie;
 }
 
 /**
@@ -356,26 +342,6 @@ describe("logging in", () => {
 		expect(await requestLink(socket)).toEqual({
 			reason: "the daemon listens on no port for clients",
 		});
-	});
-
-	test("a file of the web build named like a route never stands in for it", async () => {
-		const logins = new Logins(join(dir, "logins.json"));
-		const clients = new Clients({
-			sessions: new Sessions(),
-			logins,
-			version: "1.2.0",
-			askSnapshot: () => false,
-			appFiles: new Set(["/sessions", "/ws", "/health", "/app.js"]),
-		});
-		const port = await clients.listen(0);
-		try {
-			const origin = `http://127.0.0.1:${port}`;
-			expect((await fetch(`${origin}/sessions`)).status).toBe(401);
-			// The app's own file needs no login; the daemon does not serve the build yet, so 404.
-			expect((await fetch(`${origin}/app.js`)).status).toBe(404);
-		} finally {
-			clients.close();
-		}
 	});
 });
 

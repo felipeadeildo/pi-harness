@@ -9,7 +9,7 @@ import { envelope, type Envelope, isObject, PROTOCOL } from "@adeildo/pi-remote-
 
 import { envelopeOf } from "../wire/lines.ts";
 import { accept, type WebSocket } from "../wire/websocket.ts";
-import { serveApp, type WebApp } from "./app.ts";
+import { isAppFile, serveApp, type WebApp } from "./app.ts";
 import { type Asking, authorize, type Logins, loginCookie, loopbackHosts } from "./auth.ts";
 import { History, PAGE } from "./history.ts";
 import type { Sessions } from "./sessions.ts";
@@ -24,15 +24,13 @@ const LOGIN_BYTES = 4_096;
 export interface ClientsOptions {
 	sessions: Sessions;
 	logins: Logins;
-	/**
-	 * The paths of the files the web build exported, which a browser loads before it holds a login.
-	 * Empty until the daemon serves the build.
-	 */
-	appFiles?: ReadonlySet<string>;
 	version: string;
 	/** Asks a session's bridge for a snapshot. False when no bridge of the session is connected. */
 	askSnapshot: (session: string) => boolean;
-	/** The web app, answered for every path the data routes leave. None in a daemon built without it. */
+	/**
+	 * The web app, answered for every path the data routes leave. Its files are the only paths a
+	 * browser loads before it holds a login. None in a daemon built without it.
+	 */
 	web?: WebApp;
 	warn?: (message: string) => void;
 	now?: () => number;
@@ -163,12 +161,13 @@ export class Clients {
 
 	/** What `authorize` checks a request against. */
 	#place(): { hosts: ReadonlySet<string>; logins: Logins; isAppFile(path: string): boolean } {
-		const files = this.#options.appFiles ?? new Set<string>();
+		const web = this.#options.web;
 		return {
 			hosts: this.#hosts,
 			logins: this.#options.logins,
-			// A route is answered as a route even when the build happens to hold a file of that name.
-			isAppFile: (path) => !isRoute(path) && files.has(path),
+			// A route is answered as a route even when the build happens to hold a page of that name,
+			// which `isAppFile` would find for `/sessions` in a `sessions.html`.
+			isAppFile: (path) => web !== undefined && !isRoute(path) && isAppFile(web, path),
 		};
 	}
 
