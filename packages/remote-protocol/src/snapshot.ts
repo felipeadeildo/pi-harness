@@ -86,8 +86,10 @@ export function isQueued(value: unknown): value is QueuedLetter {
 		value.id !== "" &&
 		isBy(value.by) &&
 		typeof value.text === "string" &&
+		value.text !== "" &&
 		(value.want === "steer" || value.want === "followUp") &&
 		typeof value.when === "number" &&
+		Number.isFinite(value.when) &&
 		(value.why === undefined || WHY.some((why) => why === value.why))
 	);
 }
