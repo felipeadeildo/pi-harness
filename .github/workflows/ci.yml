@@ -6,8 +6,6 @@ on:
   push:
     branches: [main]
   pull_request:
-  # The probe job below only runs when asked, so it costs nothing on a pull request.
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -51,29 +49,3 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run app:export
       - run: bun run csp:check
-
-  # One measurement, repeatable: does Bun still fail to spawn the shell in the bash timer tests on
-  # the runner? That is the only reason the retry above exists. Fifty runs of one file in one job,
-  # counting the failures by kind, with the commit and the Bun version next to the number so a
-  # later reader can compare. Run it with `gh workflow run ci.yml`, and read the failures in the log.
-  probe:
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.4
-      - run: bun install --frozen-lockfile
-      - name: bash timer, fifty times
-        run: |
-          echo "commit $(git rev-parse --short HEAD), bun $(bun --version)"
-          fails=0
-          for i in $(seq 1 50); do
-            if ! bun test packages/ask-permission/test/bash-timer.test.ts > /tmp/run.log 2>&1; then
-              fails=$((fails + 1))
-              echo "run $i failed:"
-              grep -E "epoll_ctl|EINVAL|error:|fail" /tmp/run.log | head -5
-            fi
-          done
-          echo "failures: $fails of 50"

@@ -1,0 +1,39 @@
+# Is the retry in ci.yml still needed? It exists because Bun failed to spawn the shell in the bash
+# timer tests on the runner, measured on 04/10 against a Bun nobody recorded. Run this by hand to
+# measure it again on the Bun the CI now pins: `gh workflow run probe-bash-timer.yml`.
+#
+# The run is red exactly when the bug reproduces, so the colour of the run is the answer, and the
+# log carries the count, the commit and the version. A green run means the retry can go, with these
+# fifty runs as its evidence.
+name: probe bash timer
+
+on: workflow_dispatch
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    # Spawning a shell can hang. Without this, a stuck run holds the runner for the default hours.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - name: bash timer, fifty times
+        run: |
+          echo "commit $(git rev-parse --short HEAD), bun $(bun --version)"
+          fails=0
+          for i in $(seq 1 50); do
+            if ! bun test packages/ask-permission/test/bash-timer.test.ts > /tmp/run.log 2>&1; then
+              fails=$((fails + 1))
+              echo "run $i failed:"
+              grep -E "epoll_ctl|EINVAL|error:|fail" /tmp/run.log | head -5
+            fi
+          done
+          echo "failures: $fails of 50"
+          if [ "$fails" -gt 0 ]; then
+            echo "the retry in ci.yml is still needed: the spawn bug reproduced $fails times in 50"
+            exit 1
+          fi
+          echo "no failure in 50: the retry in ci.yml has no reason left"
