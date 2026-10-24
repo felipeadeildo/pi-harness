@@ -10,11 +10,21 @@ const GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 /** A message larger than this closes the connection: a client sends commands, never files. */
 export const MAX_MESSAGE = 1024 * 1024;
 
+/**
+ * How long a connection may be quiet before the server asks whether the other end is there, and how
+ * long it waits for any answer. A socket whose peer died holds what it was watching until TCP notices,
+ * which can be never on a phone that lost signal: the ping is what turns that into a close.
+ */
+export const PING_EVERY_MS = 30_000;
+export const PONG_WAIT_MS = 10_000;
+
 const TEXT = 0x1;
 const CLOSE = 0x8;
 const PING = 0x9;
 const PONG = 0xa;
 const CONTINUATION = 0x0;
+/** Every opcode RFC 6455 defines. What is not here is reserved, and a reserved frame is not ours. */
+const KNOWN: ReadonlySet<number> = new Set([CONTINUATION, TEXT, CLOSE, PING, PONG]);
 
 export interface WebSocket {
 	send(text: string): void;
@@ -36,6 +46,7 @@ export function accept(
 	request: IncomingMessage,
 	socket: Duplex,
 	open: (ws: WebSocket) => WebSocketHandlers,
+	liveness: { pingEvery?: number; pongWait?: number } = {},
 ): WebSocket | undefined {
 	const key = request.headers["sec-websocket-key"];
 	const upgrade = request.headers.upgrade?.toLowerCase();
@@ -70,12 +81,35 @@ export function accept(
 		else if (opcode === PING) socket.write(frame(PONG, payload));
 		else if (opcode === CLOSE) ws.close();
 	});
+	// The peer answered something, so it is alive: every frame counts, because a pong is only one of
+	// the ways a live client speaks.
+	let alive = true;
+	let waiting: ReturnType<typeof setTimeout> | undefined;
+	const beat = setInterval(() => {
+		// The wait is always shorter than the beat (`PONG_WAIT_MS < PING_EVERY_MS`), so a peer that
+		// never answers is closed by the wait below, never here: this branch only asks again.
+		alive = false;
+		socket.write(frame(PING, Buffer.alloc(0)));
+		waiting = setTimeout(() => {
+			if (!alive) ws.close(1001);
+		}, liveness.pongWait ?? PONG_WAIT_MS);
+		waiting.unref?.();
+	}, liveness.pingEvery ?? PING_EVERY_MS);
+	// A timer that keeps the process alive would keep a daemon that nobody watches from exiting.
+	beat.unref?.();
 	socket.on("data", (chunk: Buffer) => {
+		alive = true;
+		if (waiting !== undefined) {
+			clearTimeout(waiting);
+			waiting = undefined;
+		}
 		const refused = reader.push(chunk);
 		if (refused !== undefined) ws.close(refused);
 	});
 	socket.on("error", () => socket.destroy());
 	socket.on("close", () => {
+		clearInterval(beat);
+		if (waiting !== undefined) clearTimeout(waiting);
 		closed = true;
 		handlers.closed();
 	});
@@ -124,15 +158,22 @@ export class Frames {
 			const next = this.#next();
 			if (next === "wait") return undefined;
 			if (next === "too large") return 1009;
-			if (next === "unmasked") return 1002;
+			if (next === "unmasked" || next === "rsv" || next === "control" || next === "opcode")
+				return 1002;
 		}
 	}
 
-	#next(): "read" | "wait" | "too large" | "unmasked" {
+	#next(): "read" | "wait" | "too large" | "unmasked" | "rsv" | "control" | "opcode" {
 		const buffer = this.#buffer;
 		if (buffer.length < 2) return "wait";
 		const final = (buffer[0]! & 0x80) !== 0;
 		const opcode = buffer[0]! & 0x0f;
+		// Nothing this server negotiates sets an extension bit, so a frame that sets one is a client
+		// talking a protocol we did not agree to. RFC 6455 says to fail the connection, not to guess.
+		if ((buffer[0]! & 0x70) !== 0) return "rsv";
+		// An opcode nobody defined is a client talking a protocol we do not know: RFC 6455 5.2 says to
+		// fail the connection, and reading it as if it were text would fold its bytes into a message.
+		if (!KNOWN.has(opcode)) return "opcode";
 		if ((buffer[1]! & 0x80) === 0) return "unmasked";
 		let length = buffer[1]! & 0x7f;
 		let offset = 2;
@@ -148,6 +189,9 @@ export class Frames {
 			offset = 10;
 		}
 		if (length > MAX_MESSAGE || this.#size + length > MAX_MESSAGE) return "too large";
+		// A control frame carries at most 125 bytes and is never fragmented: the rule exists so a close
+		// or a ping is read without buffering, and a big one is an attack on exactly that.
+		if (opcode >= CLOSE && (length > 125 || !final)) return "control";
 		const mask = offset;
 		offset += 4;
 		if (buffer.length < offset + length) return "wait";
