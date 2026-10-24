@@ -19,6 +19,8 @@ import { Markdown, plain } from "../../render/index.ts";
 
 /** How many lines of a tool's output show before the rest folds. */
 export const OUTPUT_LINES = 8;
+/** How wide a shown line of a tool's output gets before it is cut. */
+export const LINE_CHARS = 160;
 /** How much of the first line of a thought names the fold. */
 const THOUGHT_CHARS = 80;
 
@@ -80,8 +82,14 @@ function itemNodes(item: TranscriptItem): ReactNode[] {
 			return [line(item.entry, "branch summary", item.summary)];
 		case "model":
 			return [line(item.entry, "model", `${item.provider}/${item.model}`)];
+		case "custom":
+			// What an extension put in the chat, like a colleague's message: the terminal shows it, so
+			// does the screen, or the agent's answer would reply to nothing.
+			return item.display === true
+				? [line(item.entry, item.customType, textOf(partsOf(item.data)))]
+				: [];
 		default:
-			// Labels, usage, notes of extensions and what a newer pi writes are not the conversation.
+			// Labels, usage, extensions' state and what a newer pi writes are not the conversation.
 			return [];
 	}
 }
@@ -140,29 +148,39 @@ function assistantPart(key: string, part: Part): ReactNode {
 function thought(key: string, text: string): ReactNode {
 	const first = plain(text).trim().split("\n")[0] ?? "";
 	const named = first.length > THOUGHT_CHARS ? `${first.slice(0, THOUGHT_CHARS - 1)}…` : first;
+	// A redacted thought carries no text, so its fold is named by the word alone.
+	const summary = named === "" ? "thinking" : `thinking · ${named}`;
 	return h(
 		"li",
 		{ key, className: "remote-thinking" },
-		h(
-			"details",
-			undefined,
-			h("summary", undefined, `thinking · ${named}`),
-			h("pre", undefined, plain(text)),
-		),
+		h("details", undefined, h("summary", undefined, summary), h("pre", undefined, plain(text))),
 	);
 }
 
-/** A tool's output: its first lines, and the rest folded under how many there are. */
+/**
+ * A tool's output: its first lines, each cut at a width, and the whole of it in a fold under them
+ * when anything was left out. A single line can be a whole JSON dump, so lines are cut as well.
+ */
 function output(text: string): ReactNode {
 	const lines = plain(text).split("\n");
-	const shown = h("pre", undefined, lines.slice(0, OUTPUT_LINES).join("\n"));
-	if (lines.length <= OUTPUT_LINES) return shown;
-	const rest = lines.length - OUTPUT_LINES;
+	// Nearly every output ends with a newline, which is no line of its own.
+	if (lines.length > 1 && lines.at(-1) === "") lines.pop();
+	const first = lines.slice(0, OUTPUT_LINES);
+	const cut = first.map((one) =>
+		one.length > LINE_CHARS ? `${one.slice(0, LINE_CHARS - 1)}…` : one,
+	);
+	const shown = h("pre", undefined, cut.join("\n"));
+	const rest = lines.length - first.length;
+	const wide = cut.some((one, at) => one !== first[at]);
+	if (rest === 0 && !wide) return shown;
+	const more = rest === 0 ? "the whole output" : `${rest} more line${rest === 1 ? "" : "s"}`;
+	// The fold holds everything when a line was cut, and only the rest when none was.
+	const folded = wide ? lines : lines.slice(OUTPUT_LINES);
 	return h(
-		"details",
+		"div",
 		undefined,
-		h("summary", undefined, shown, `${rest} more line${rest === 1 ? "" : "s"}`),
-		h("pre", undefined, lines.slice(OUTPUT_LINES).join("\n")),
+		shown,
+		h("details", undefined, h("summary", undefined, more), h("pre", undefined, folded.join("\n"))),
 	);
 }
 

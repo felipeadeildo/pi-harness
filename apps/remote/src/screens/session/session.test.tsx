@@ -9,7 +9,7 @@ import { type ClientSession, sessionOf } from "@adeildo/pi-remote-client";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { OUTPUT_LINES, SessionScreen, titleOf } from "./session.tsx";
+import { LINE_CHARS, OUTPUT_LINES, SessionScreen, titleOf } from "./session.tsx";
 
 const RECORDING = join(
 	import.meta.dir,
@@ -65,6 +65,19 @@ function message(id: string, parentId: string | null, role: string, content: unk
 	return { id, parentId, type: "message", timestamp: "t", message: { role, content } };
 }
 
+function custom(id: string, parentId: string | null, display: boolean, text: string): unknown {
+	const content = [{ type: "text", text }];
+	return {
+		id,
+		parentId,
+		type: "custom_message",
+		timestamp: "t",
+		customType: "pi-peers:message",
+		content,
+		display,
+	};
+}
+
 function task(id: string, status: string, text: string): unknown {
 	return { id, text, status, origin: "you", created: { at: 0 }, asks: [], updatedAt: 0 };
 }
@@ -102,6 +115,51 @@ describe("what the recording does not hold", () => {
 		expect(html).toContain("3 more lines");
 		// The rest is in the fold, not lost.
 		expect(html).toContain(`line ${OUTPUT_LINES + 2}`);
+	});
+
+	test("an output that ends with a newline has no empty line to fold", () => {
+		const text = `${Array.from({ length: OUTPUT_LINES }, (_, at) => `line ${at}`).join("\n")}\n`;
+		const html = draw(handmade([message("a", null, "toolResult", [{ type: "text", text }])]));
+		expect(html).not.toContain("<details>");
+		const longer = `${text}line ${OUTPUT_LINES}\n`;
+		const folded = draw(
+			handmade([message("a", null, "toolResult", [{ type: "text", text: longer }])]),
+		);
+		expect(folded).toContain("1 more line<");
+	});
+
+	test("a line too wide is cut, with the whole output in the fold", () => {
+		const wide = "x".repeat(LINE_CHARS * 3);
+		const html = draw(handmade([message("a", null, "toolResult", [{ type: "text", text: wide }])]));
+		expect(html).toContain(`${"x".repeat(LINE_CHARS - 1)}…`);
+		expect(html).toContain("the whole output");
+		expect(html).toContain(wide);
+	});
+
+	test("a fold's summary holds only words, never a block", () => {
+		const text = Array.from({ length: OUTPUT_LINES + 2 }, (_, at) => `line ${at}`).join("\n");
+		const html = draw(handmade([message("a", null, "toolResult", [{ type: "text", text }])]));
+		const summaries = html.match(/<summary>.*?<\/summary>/g) ?? [];
+		expect(summaries).toEqual(["<summary>2 more lines</summary>"]);
+	});
+
+	test("a thought with no text is named by the word alone", () => {
+		const html = draw(
+			handmade([message("a", null, "assistant", [{ type: "thinking", thinking: "" }])]),
+		);
+		expect(html).toContain("<summary>thinking</summary>");
+	});
+
+	test("a message an extension shows in the chat shows, and one it keeps out does not", () => {
+		const html = draw(
+			handmade([
+				custom("a", null, true, "From otter: look at #107"),
+				custom("b", "a", false, "who is here"),
+			]),
+		);
+		expect(html).toContain("pi-peers:message");
+		expect(html).toContain("From otter: look at #107");
+		expect(html).not.toContain("who is here");
 	});
 
 	test("a short output is not folded", () => {

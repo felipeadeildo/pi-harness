@@ -15,6 +15,18 @@ import {
 
 const FIXTURE = join(import.meta.dir, "fixtures", "recording");
 
+function customMessage(id: string, display: boolean): Entry {
+	const content = "hi";
+	return {
+		id,
+		parentId: null,
+		type: "custom_message",
+		customType: "pi-peers:message",
+		content,
+		display,
+	} as Entry;
+}
+
 function lines(name: string): Record<string, unknown>[] {
 	return readFileSync(join(FIXTURE, name), "utf8")
 		.trim()
@@ -97,6 +109,13 @@ describe("the recording, read back", () => {
 		expect(transcriptOf([unknown]).items).toEqual([
 			{ kind: "other", entry: "x", at: "2026-01-01T00:00:00.000Z", type: "something_new" },
 		]);
+	});
+
+	test("a message an extension put in the chat says whether pi shows it", () => {
+		const [shown] = transcriptOf([customMessage("a", true)]).items;
+		const [hidden] = transcriptOf([customMessage("b", false)]).items;
+		expect(shown).toMatchObject({ kind: "custom", display: true });
+		expect(hidden).not.toHaveProperty("display");
 	});
 
 	test("the tasks come out of the log with the handle the session was given", () => {

@@ -21,7 +21,15 @@ export interface ChatMessage {
 
 export type TranscriptItem =
 	| { kind: "message"; entry: string; at?: string; message: ChatMessage }
-	| { kind: "custom"; entry: string; at?: string; customType: string; data: unknown }
+	| {
+			kind: "custom";
+			entry: string;
+			at?: string;
+			customType: string;
+			data: unknown;
+			/** A message an extension put in the session says whether pi shows it in the chat. */
+			display?: boolean;
+	  }
 	| { kind: "compaction"; entry: string; at?: string; summary: string; firstKept?: string }
 	| { kind: "branch"; entry: string; at?: string; from: string; summary: string }
 	| { kind: "model"; entry: string; at?: string; provider: string; model: string }
@@ -88,6 +96,7 @@ export function itemOf(entry: Entry): TranscriptItem {
 				at: entry.timestamp,
 				customType: field<string>(entry, "customType") ?? "",
 				data: field<unknown>(entry, "content"),
+				...(field<boolean>(entry, "display") === true ? { display: true } : {}),
 			};
 		case "compaction":
 			return {
