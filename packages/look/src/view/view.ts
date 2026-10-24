@@ -1,6 +1,6 @@
 // Another session over the whole screen: its transcript, then an editor box whose edges say its
 // folder, model and context as yours do, all inside one frame. A source that only reads, such as a
-// session file, has a line in place of the editor. See docs/remote.md, "The view".
+// session file, has a line in place of the editor.
 import { entryFrame, type SessionSnapshot, type SessionSource } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
