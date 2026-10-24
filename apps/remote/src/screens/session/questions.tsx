@@ -17,7 +17,10 @@ export function QuestionDialog({ ask, client }: { ask: OpenAsk; client: Client }
 	const last = index === ask.questions.length - 1;
 
 	return (
-		<View style={{ height: tallest === 0 ? undefined : tallest, overflow: "hidden" }}>
+		// A floor, not a fixed height: the panel grows with its content and never drops below the tallest
+		// it has been. A fixed height would constrain the child, so the measurement would come back
+		// already cut and the panel would never grow again.
+		<View style={{ minHeight: tallest === 0 ? undefined : tallest }}>
 			<View
 				onLayout={(event) => {
 					const { height } = event.nativeEvent.layout;
