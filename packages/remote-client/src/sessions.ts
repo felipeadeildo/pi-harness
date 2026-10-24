@@ -3,6 +3,7 @@
 import {
 	isObject,
 	isSnapshot,
+	openAsks,
 	type SessionFacts,
 	type SessionSnapshot,
 } from "@adeildo/pi-remote-protocol";
@@ -72,8 +73,43 @@ function isListed(value: unknown): value is ListedSession {
 		typeof live.startedAt === "number" &&
 		typeof live.cwd === "string" &&
 		(live.kind === "terminal" || live.kind === "background") &&
+		// The facts are typed with both collections, so a row that omits one is not this shape.
 		isObject(value.facts) &&
+		isObject(value.facts.asks) &&
+		isObject(value.facts.rulings) &&
 		// The snapshot is the shape the rest of the package draws from, so it is the protocol's call.
 		(value.snapshot === undefined || isSnapshot(value.snapshot))
 	);
+}
+
+/** How a session reads in one word: where it is, and whether anyone is watching. */
+export function stateOf(session: ListedSession): string {
+	if (session.gone !== undefined) return session.gone;
+	if (!session.connected) return "reconnecting";
+	return session.snapshot?.state ?? (session.live.kind === "background" ? "idle" : "working");
+}
+
+/**
+ * Whether this session is waiting on the person looking. The signal is a question nobody answered:
+ * the permission mode says how a session will behave when it edits, not that it is stuck now.
+ */
+export function wantsYou(session: ListedSession): boolean {
+	const state = stateOf(session);
+	return state === "blocked" || state === "error" || openAsks(session.facts).length > 0;
+}
+
+/** The ones that need you, then the running ones, then what ended. Ties broken by identity. */
+export function inOrder(sessions: readonly ListedSession[]): ListedSession[] {
+	const rank = (session: ListedSession): number => {
+		if (wantsYou(session)) return 0;
+		if (session.gone !== undefined) return 2;
+		return 1;
+	};
+	return [...sessions].sort((left, right) => {
+		const byRank = rank(left) - rank(right);
+		if (byRank !== 0) return byRank;
+		// Two sessions with the same title are still two rows, and the list must not dance between
+		// refreshes because the daemon answered in another order.
+		return `${left.machine}/${left.session}`.localeCompare(`${right.machine}/${right.session}`);
+	});
 }

@@ -4,6 +4,15 @@ export { type Cache, type CachedSession, memoryCache, type SessionKey } from "./
 export { type Client, type ConnectionOptions, connect, type Transport } from "./connection.ts";
 export { advance, type Cursor, decide, type Next } from "./cursor.ts";
 export {
+	DaemonAnswer,
+	inOrder,
+	type ListedSession,
+	type LiveSession,
+	listSessions,
+	stateOf,
+	wantsYou,
+} from "./sessions.ts";
+export {
 	cachedOf,
 	type ClientSession,
 	ENTRY,

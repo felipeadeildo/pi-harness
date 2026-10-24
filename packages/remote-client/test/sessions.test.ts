@@ -2,7 +2,14 @@
 // dropped instead of drawn half way.
 import { describe, expect, test } from "bun:test";
 
-import { DaemonAnswer, listSessions } from "../src/sessions.ts";
+import {
+	DaemonAnswer,
+	inOrder,
+	type ListedSession,
+	listSessions,
+	stateOf,
+	wantsYou,
+} from "../src/sessions.ts";
 
 const live = { pid: 42, startedAt: 1, cwd: "/work", name: "the rig", kind: "terminal" };
 const facts = { tasks: undefined, rulings: {}, asks: {}, renamed: undefined };
@@ -68,6 +75,8 @@ describe("the daemon's session list", () => {
 			row({ live: { ...live, cwd: 1 } }),
 			row({ live: { ...live, kind: "remote" } }),
 			row({ facts: "none" }),
+			row({ facts: {} }),
+			row({ facts: { asks: {} } }),
 			row({ snapshot: { session: "s1" } }),
 		];
 		const sessions = await listSessions("http://127.0.0.1:7878", answering([...broken, row()]));
@@ -78,5 +87,61 @@ describe("the daemon's session list", () => {
 		await expect(
 			listSessions("http://127.0.0.1:7878", answering({ sessions: [] })),
 		).rejects.toThrow("not a list");
+	});
+});
+
+describe("how a listed session reads", () => {
+	const listed = (over: Record<string, unknown> = {}): ListedSession =>
+		({
+			machine: "here",
+			session: "s1",
+			epoch: "e1",
+			connected: true,
+			live,
+			facts: { rulings: {}, asks: {} },
+			...over,
+		}) as unknown as ListedSession;
+
+	test("the state says where it is, and reconnecting is newer than the last word", () => {
+		expect(stateOf(listed())).toBe("working");
+		expect(stateOf(listed({ connected: false }))).toBe("reconnecting");
+		expect(stateOf(listed({ gone: "crash" }))).toBe("crash");
+		expect(stateOf(listed({ live: { ...live, kind: "background" } }))).toBe("idle");
+	});
+
+	test("a question nobody answered is what makes a session wait on you", () => {
+		const asking = {
+			rulings: {},
+			asks: { a: { id: "a", source: "ask-questions", questions: [] } },
+		};
+		expect(wantsYou(listed({ facts: asking }))).toBe(true);
+	});
+
+	test("the permission mode is how a session behaves, not that it is stuck", () => {
+		// `manual` says what happens when the agent edits; a session in it is not waiting on anybody.
+		expect(wantsYou(listed({ snapshot: { mode: "manual" } }))).toBe(false);
+		expect(wantsYou(listed({ snapshot: { state: "blocked" } }))).toBe(true);
+	});
+
+	test("the ones that need you come first, then the running ones, then what ended", () => {
+		const asking = {
+			rulings: {},
+			asks: { a: { id: "a", source: "ask-questions", questions: [] } },
+		};
+		const order = inOrder([
+			listed({ session: "ended", gone: "exit" }),
+			listed({ session: "running" }),
+			listed({ session: "waiting", facts: asking }),
+		]);
+		expect(order.map((one) => one.session)).toEqual(["waiting", "running", "ended"]);
+	});
+
+	test("two sessions with the same title keep their order by identity, not by what came first", () => {
+		const same = { name: "the rig" };
+		const order = inOrder([
+			listed({ machine: "b", session: "s2", snapshot: same }),
+			listed({ machine: "a", session: "s1", snapshot: same }),
+		]);
+		expect(order.map((one) => one.machine)).toEqual(["a", "b"]);
 	});
 });
