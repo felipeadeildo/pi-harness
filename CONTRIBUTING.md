@@ -50,6 +50,23 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
 - An entry of the transcript (a message, a tool call, a record) draws inside the kit's `entryFrame()`: what it is in the top edge, what became of it in the bottom one.
 - Characters come from the kit's `GLYPH` and `LINE` by name (`GLYPH.check`, `LINE.topLeft`), never as `\u2713` in place. A character missing from the table goes into it with a comment on where it is used. Marks that need a Nerd Font live in the look's icon sets, with their Unicode and ASCII fallbacks.
 
+## A pull request
+
+- A slice is ticked in the commit that lands it. A pull request that cannot tick it says why in the
+  body, and the next one ticks it.
+- The body says what was missing or wrong, what the change does and how to see it working, names the
+  slice, says `Closes #N` for each issue it closes, and ends with the footer
+  `<p align="right"><sub><model> (<effort> effort) [<name>] @ adeildo's pi</sub></p>`, with the agent's
+  own name in brackets. Each agent picks that name and says it in the room.
+- The reviewer runs `bun run verify` on the head in a worktree of their own, never the author's, which
+  may be in the middle of an edit. They read the code with the `simplify` and `unslop` skills, and
+  answer with `gh pr review --comment`, ending with the same footer. The account is shared and cannot
+  approve its own pull request, so the approval is written in the review and said in the room.
+- The author merges once a review approves, CI is green and nothing conflicts.
+- A review worktree under `/tmp` installs with `bun install --frozen-lockfile --ignore-scripts`, and
+  that same install is what lets a commit or a push there run the hooks: without `node_modules` the
+  `pre-push` exits 127 and git reports `failed to push some refs`, which reads like a conflict.
+
 ## Tests
 
 ```bash
