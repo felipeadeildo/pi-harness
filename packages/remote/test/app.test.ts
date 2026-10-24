@@ -14,6 +14,7 @@ import {
 import { serveExport } from "../src/daemon/preview.ts";
 import { Daemon } from "../src/daemon/server.ts";
 import { inlineHashes, POLICY } from "../src/daemon/web.ts";
+import { logIn } from "./login.ts";
 
 let dir: string;
 const running: Daemon[] = [];
@@ -106,66 +107,66 @@ test("the preview serves an export through the daemon's own routes, with no sess
 		expect(page.headers.get("content-security-policy")).toContain(
 			inlineHashes(PAGE)[0] ?? "no hash",
 		);
-		expect(await (await fetch(`${preview.url}sessions`)).json()).toEqual([]);
+		// The preview trades no login, so the app's files open and its data routes stay closed.
+		expect((await fetch(`${preview.url}sessions`)).status).toBe(401);
 	} finally {
 		preview.stop();
 	}
 });
 
 describe("the daemon serving the app", () => {
-	async function served(extra: Record<string, string> = {}) {
-		appOf(extra);
+	/** A daemon with the export in `webDir`, asked once without a login and once with one. */
+	async function daemonWith(webDir: string) {
 		const daemon = await Daemon.start({
 			socket: join(dir, "remote", "daemon.sock"),
 			version: "1.2.0",
 			clientPort: 0,
-			webDir: join(dir, "dist", "web"),
+			webDir,
 		});
 		if (daemon?.clientPort === undefined) throw new Error("the daemon did not start");
 		running.push(daemon);
-		return (path: string) => fetch(`http://127.0.0.1:${daemon.clientPort}${path}`);
+		const origin = `http://127.0.0.1:${daemon.clientPort}`;
+		const cookie = await logIn(daemon, daemon.clientPort);
+		return {
+			get: (path: string) => fetch(`${origin}${path}`),
+			loggedIn: (path: string) => fetch(`${origin}${path}`, { headers: { Cookie: cookie } }),
+		};
 	}
 
-	test("answers the data routes first, so a file named like one never answers for it", async () => {
-		const get = await served({ "sessions.html": "<p>a file that must not answer</p>" });
-		const sessions = await get("/sessions");
+	test("serves its files with no login, and a page named like a route never opens the route", async () => {
+		appOf({ "sessions.html": "<p>a file that must not answer</p>" });
+		const { get, loggedIn } = await daemonWith(join(dir, "dist", "web"));
+		// `sessions.html` would answer `/sessions` as a page, so the list would need no login.
+		expect((await get("/sessions")).status).toBe(401);
+		const sessions = await loggedIn("/sessions");
 		expect(sessions.headers.get("content-type")).toContain("application/json");
 		expect(await sessions.json()).toEqual([]);
 		const page = await get("/");
 		expect(page.status).toBe(200);
 		expect(page.headers.get("content-security-policy")).toContain("sha256-");
 		expect((await get("/session/laptop/s1")).status).toBe(200);
-		expect((await get("/nowhere")).status).toBe(404);
+		expect((await get("/_expo/static/js/web/entry-1234.js")).status).toBe(200);
+		// A path the export lacks is not one of its files, so it needs a login before its 404.
+		expect((await get("/nowhere")).status).toBe(401);
+		expect((await loggedIn("/nowhere")).status).toBe(404);
 	});
 
 	test("a list that does not read costs the app, and the data routes still answer", async () => {
 		appOf();
 		writeFileSync(join(dir, "dist", "web", "files.json"), "{ not json");
 		expect(loadWebApp(join(dir, "dist", "web"))).toBeUndefined();
-		const daemon = await Daemon.start({
-			socket: join(dir, "remote", "daemon.sock"),
-			version: "1.2.0",
-			clientPort: 0,
-			webDir: join(dir, "dist", "web"),
-		});
-		if (daemon?.clientPort === undefined) throw new Error("the daemon did not start");
-		running.push(daemon);
-		const get = (path: string) => fetch(`http://127.0.0.1:${daemon.clientPort}${path}`);
+		const { get, loggedIn } = await daemonWith(join(dir, "dist", "web"));
 		expect((await get("/health")).status).toBe(200);
-		expect((await get("/")).status).toBe(404);
+		expect((await loggedIn("/sessions")).status).toBe(200);
+		expect((await loggedIn("/")).status).toBe(404);
 	});
 
 	test("without an export, the daemon serves its data routes and nothing else", async () => {
-		const daemon = await Daemon.start({
-			socket: join(dir, "remote", "daemon.sock"),
-			version: "1.2.0",
-			clientPort: 0,
-			webDir: join(dir, "nothing"),
-		});
-		if (daemon?.clientPort === undefined) throw new Error("the daemon did not start");
-		running.push(daemon);
-		const get = (path: string) => fetch(`http://127.0.0.1:${daemon.clientPort}${path}`);
+		const { get, loggedIn } = await daemonWith(join(dir, "nothing"));
 		expect((await get("/health")).status).toBe(200);
-		expect((await get("/")).status).toBe(404);
+		expect((await loggedIn("/sessions")).status).toBe(200);
+		// With no export nothing is the app's, so even `/` needs a login.
+		expect((await get("/")).status).toBe(401);
+		expect((await loggedIn("/")).status).toBe(404);
 	});
 });

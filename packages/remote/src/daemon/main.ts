@@ -5,9 +5,10 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { CLIENT_PORT, daemonDir, daemonPaths } from "../places.ts";
 import { VERSION } from "../version.ts";
 import { FILES } from "./app.ts";
-import { CLIENT_PORT, Daemon, daemonDir, daemonPaths } from "./server.ts";
+import { Daemon } from "./server.ts";
 
 /**
  * The web app's export: next to the built daemon (`dist/web`), or, for a daemon run from `src/`, the

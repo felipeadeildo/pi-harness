@@ -25,10 +25,10 @@ afterAll(() => {
 });
 
 /** Runs the command and keeps what it printed. */
-function command(args: string[]) {
+async function command(args: string[]) {
 	const out: string[] = [];
 	const err: string[] = [];
-	const code = run(
+	const code = await run(
 		args,
 		(line) => out.push(line),
 		(line) => err.push(line),
@@ -65,14 +65,14 @@ describe("the built daemon and command", () => {
 });
 
 describe("the command", () => {
-	test("prints its version", () => {
-		expect(command(["--version"])).toEqual({ code: 0, out: [VERSION], err: [] });
+	test("prints its version", async () => {
+		expect(await command(["--version"])).toEqual({ code: 0, out: [VERSION], err: [] });
 	});
 
-	test("names a command it does not know, and shows the usage", () => {
-		const result = command(["attach"]);
+	test("names a command it does not know, and shows the usage", async () => {
+		const result = await command(["attach"]);
 		expect(result.code).toBe(2);
 		expect(result.err.join("\n")).toContain('unknown command "attach"');
-		expect(command([]).code).toBe(2);
+		expect((await command([])).code).toBe(2);
 	});
 });

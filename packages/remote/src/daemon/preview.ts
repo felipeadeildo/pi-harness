@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { loadWebApp, packageWeb } from "./app.ts";
+import { Logins } from "./auth.ts";
 import { Clients } from "./clients.ts";
 import { Sessions } from "./sessions.ts";
 
@@ -22,6 +23,9 @@ export async function serveExport(exported: string): Promise<Preview> {
 	if (web === undefined) throw new Error(`nothing to serve in ${exported}`);
 	const clients = new Clients({
 		sessions: new Sessions(),
+		// The preview serves the export and the open routes only: no login is traded there, and every
+		// data route would answer 401 without a cookie.
+		logins: new Logins(join(out, "logins.json")),
 		version: "preview",
 		askSnapshot: () => false,
 		web,

@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import {
+	chmodSync,
+	existsSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	statSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -20,13 +28,8 @@ import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import type { MessageStartEvent, MessageUpdateEvent } from "@earendil-works/pi-coding-agent";
 
 import { Bridge, SNAPSHOT_ENTRIES } from "../src/bridge/bridge.ts";
-import piRemote, {
-	DAEMON_PORT,
-	daemonSocket,
-	goneReason,
-	remote,
-	sessionKind,
-} from "../src/index.ts";
+import piRemote, { goneReason, remote, sessionKind } from "../src/index.ts";
+import { CLIENT_PORT, daemonPaths } from "../src/places.ts";
 import { VERSION } from "../src/version.ts";
 import { line } from "../src/wire/lines.ts";
 import { type FakeDaemon, fakeDaemon, held, until } from "./fakes.ts";
@@ -49,7 +52,7 @@ afterEach(async () => {
 });
 
 async function listening(): Promise<FakeDaemon> {
-	open = await fakeDaemon(daemonSocket(root));
+	open = await fakeDaemon(daemonPaths(root).socket);
 	return open;
 }
 
@@ -284,8 +287,8 @@ describe("the bridge", () => {
 		const fake = mounted();
 		await start(fake);
 		await until(() => types(daemon).includes("snapshot"));
-		const log = (session: string, type: string, data: unknown) =>
-			fake.pi.events.emit(LOGGED_EVENT, { v: 1, id: "x", at: 1, session, type, data });
+		const log = (owner: string, type: string, data: unknown) =>
+			fake.pi.events.emit(LOGGED_EVENT, { v: 1, id: "x", at: 1, session: owner, type, data });
 		log("other", "mode.changed", { mode: "full" });
 		log("s1", "session.state", { state: "running" });
 		log("s1", "message.posted", { id: "m1" });
@@ -314,7 +317,7 @@ describe("the bridge", () => {
 		log("call.ruled", { toolCallId: "c1", ruling: { head: "allowed", tone: "success" } });
 		daemon.sockets[0]?.write(line(envelope("command", "snapshot.get", {})));
 		await until(() => types(daemon).filter((type) => type === "snapshot").length === 2);
-		const snapshot = daemon.received.filter((one) => one.type === "snapshot").at(-1)?.data as
+		const snapshot = daemon.received.findLast((one) => one.type === "snapshot")?.data as
 			| { snapshot: Record<string, unknown>; facts: { type: string; data: unknown }[] }
 			| undefined;
 		expect(snapshot?.snapshot).toMatchObject({
@@ -336,7 +339,7 @@ describe("the bridge", () => {
 		const fake = mounted();
 		expect(protectedList(fake.pi.events)).toEqual({
 			paths: [root],
-			sockets: [daemonSocket(root), `127.0.0.1:${DAEMON_PORT}`, `localhost:${DAEMON_PORT}`],
+			sockets: [daemonPaths(root).socket, `127.0.0.1:${CLIENT_PORT}`, `localhost:${CLIENT_PORT}`],
 			commands: ["pi-remote"],
 		});
 	});
@@ -349,6 +352,51 @@ describe("the bridge", () => {
 		await until(() => types(daemon).includes("session.live"));
 		const live = daemon.received.find((one) => one.type === "session.live");
 		expect(live?.data).not.toHaveProperty("file");
+	});
+
+	test("/remote asks the daemon for a token and opens the link with it in the fragment", async () => {
+		const daemon = await listening();
+		const opened = join(root, "opened");
+		const browser = join(root, "browser.sh");
+		writeFileSync(browser, `#!/bin/sh\nprintf '%s' "$1" > '${opened}'\n`);
+		chmodSync(browser, 0o755);
+		process.env.BROWSER = browser;
+		const notes: string[] = [];
+		const fake = mounted();
+		const ctx = fakeContext(notes, true, {
+			cwd: "/work",
+			sessionManager: session().sessionManager,
+		});
+		await start(fake);
+		await until(() => types(daemon).includes("snapshot"));
+		const asked = fake.commands.get("remote")?.handler("", ctx as never);
+		await until(() => daemon.received.some((one) => one.kind === "command"));
+		const command = daemon.received.find((one) => one.kind === "command");
+		expect(command?.type).toBe("token.issue");
+		daemon.sockets[0]?.write(
+			line(
+				envelope(
+					"reply",
+					"token.issue",
+					{ url: "http://127.0.0.1:9123/#token=abc", expiresAt: 1 },
+					{ id: command?.id },
+				),
+			),
+		);
+		await asked;
+		await until(() => existsSync(opened));
+		delete process.env.BROWSER;
+		// The link is the daemon's, port and all: pi does not guess where the daemon listens.
+		expect(readFileSync(opened, "utf8")).toBe("http://127.0.0.1:9123/#token=abc");
+		expect(notes.at(-1)).toContain("works once, for a minute");
+	});
+
+	test("/remote with no daemon to ask says there is no link, and opens nothing", async () => {
+		const notes: string[] = [];
+		// No session started, so no bridge, and nothing tries to start a real daemon from dist/.
+		const fake = mounted();
+		await fake.commands.get("remote")?.handler("", fakeContext(notes, true) as never);
+		expect(notes).toEqual(["pi-remote: the daemon did not answer, so there is no link yet"]);
 	});
 
 	test("pi -p writes nothing and connects to nothing", async () => {
@@ -404,17 +452,18 @@ describe("the bridge", () => {
 	});
 });
 
-describe("one bridge", () => {
-	function source(onFollow: (on: (item: SourceItem) => void) => void = () => {}): SessionSource {
-		return {
-			snapshot: () => Promise.reject(new Error("unused")),
-			follow: (_after, on) => {
-				onFollow(on);
-				return () => {};
-			},
-		};
-	}
+/** A session source that only calls `onFollow` when someone follows it. */
+function source(onFollow: (on: (item: SourceItem) => void) => void = () => {}): SessionSource {
+	return {
+		snapshot: () => Promise.reject(new Error("unused")),
+		follow: (_after, on) => {
+			onFollow(on);
+			return () => {};
+		},
+	};
+}
 
+describe("one bridge", () => {
 	function bridged(from: SessionSource = source()) {
 		const { sockets, dial } = held();
 		const bridge = new Bridge(session(), from, {
