@@ -341,6 +341,9 @@ Owner: client. Needs: nothing.
 
 - When the export needs an inline script that the CSP forbids, the daemon adds the script's hash to `script-src` when it reads the build, and W1 records that here.
 - The app's type check and lint join `bun run verify`. When the app makes `bun install` in CI more than a minute slower, the app moves to a CI job of its own.
+
+What the export forced, and what the daemon must do with it: the page carries one inline script, so `script-src 'self'` is served with that script's `sha256` rather than `unsafe-inline`. React Native Web writes its styles at runtime, so `style-src` keeps `'unsafe-inline'`; narrowing that is a W2 decision, not a W1 one.
+
 - Done when: the exported app loads under the CSP with no violation in the console.
 
 ### W2. Text from elsewhere

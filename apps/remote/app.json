@@ -1,0 +1,16 @@
+{
+	"expo": {
+		"name": "pi remote",
+		"slug": "pi-remote",
+		"scheme": "piremote",
+		"version": "0.0.0",
+		"platforms": ["web"],
+		"web": {
+			"bundler": "metro",
+			"output": "static",
+			"favicon": "./assets/favicon.png"
+		},
+		"plugins": ["expo-router"],
+		"icon": "./assets/favicon.png"
+	}
+}

@@ -14,7 +14,8 @@
 		"url": "git+https://github.com/felipeadeildo/pi-harness.git"
 	},
 	"workspaces": [
-		"packages/*"
+		"packages/*",
+		"apps/*"
 	],
 	"type": "module",
 	"scripts": {
@@ -27,7 +28,7 @@
 		"perf": "bun test packages/*/test/perf.test.ts",
 		"bench:typing": "bun scripts/bench/typing.ts",
 		"tasks:eval": "bun packages/tasks/eval/run.ts",
-		"verify": "bun run check && bun run lint && bun run fmt:check && bun run test && bun run docs:check && bun run pi:defaults",
+		"verify": "bun run check && bun run lint && bun run fmt:check && bun run test && bun run app:check && bun run docs:check && bun run pi:defaults",
 		"docs": "bun scripts/docs/index.ts",
 		"docs:check": "bun scripts/docs/index.ts --check",
 		"pi:defaults": "bun scripts/pi-defaults.ts",
@@ -35,7 +36,10 @@
 		"publish:dry": "bun scripts/publish.ts --dry-run",
 		"publish": "bun scripts/publish.ts",
 		"trust": "bun scripts/setup-npm-trust.ts",
-		"peers:live": "bun packages/peers/eval/live.ts"
+		"peers:live": "bun packages/peers/eval/live.ts",
+		"app:check": "cd apps/remote && bunx tsc --noEmit",
+		"app:export": "bun --cwd apps/remote run export",
+		"csp:check": "bun --cwd apps/remote run csp"
 	},
 	"devDependencies": {
 		"@earendil-works/pi-ai": "1.4.0",
