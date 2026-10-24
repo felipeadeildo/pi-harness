@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { EventEmitter } from "node:events";
 import { mkdtempSync, rmSync } from "node:fs";
-import { connect, type Socket } from "node:net";
+import { connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -17,7 +16,7 @@ import {
 	RESTART_DAEMON_MS,
 } from "../src/bridge/connection.ts";
 import { line } from "../src/wire/lines.ts";
-import { type FakeDaemon, fakeDaemon, until } from "./fake-daemon.ts";
+import { type FakeDaemon, fakeDaemon, held, until } from "./fakes.ts";
 
 let dir = "";
 let daemon: FakeDaemon | undefined;
@@ -75,45 +74,6 @@ function connection(hooks: Partial<ConnectionHooks> = {}, seams: Partial<Connect
 	);
 	opened.push(made);
 	return { made, heard };
-}
-
-/** A socket whose write buffer the test sets, to stand for a daemon that stopped reading. */
-class HeldSocket extends EventEmitter {
-	writableLength = 0;
-	readonly written: Envelope[] = [];
-	destroyed = false;
-	setEncoding(): this {
-		return this;
-	}
-	unref(): this {
-		return this;
-	}
-	write(text: string): boolean {
-		this.written.push(JSON.parse(text));
-		return false;
-	}
-	end(text?: string): this {
-		if (text !== undefined) this.write(text);
-		return this.destroy();
-	}
-	destroy(): this {
-		if (this.destroyed) return this;
-		this.destroyed = true;
-		queueMicrotask(() => this.emit("close"));
-		return this;
-	}
-}
-
-function held() {
-	const sockets: HeldSocket[] = [];
-	return {
-		sockets,
-		dial: () => {
-			const socket = new HeldSocket();
-			sockets.push(socket);
-			return socket as unknown as Socket;
-		},
-	};
 }
 
 describe("a bridge and its daemon", () => {
@@ -290,6 +250,23 @@ describe("a daemon that stops reading", () => {
 		expect(made.event("tasks.changed", {})).toBe(false);
 		expect(socket.written.map((one) => one.type)).toEqual(["bridge"]);
 		socket.emit("close");
+	});
+
+	test("a warning that throws too, as from a runtime pi let go of, stays inside", () => {
+		const { sockets, dial } = held();
+		const { made } = connection(
+			{
+				connected: () => {
+					throw new Error("boom");
+				},
+				warn: () => {
+					throw new Error("stale");
+				},
+			},
+			{ dial },
+		);
+		made.start();
+		expect(() => sockets[0]?.emit("connect")).not.toThrow();
 	});
 
 	test("a hook that throws becomes a warning, and the connection goes on", () => {
