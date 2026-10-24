@@ -65,7 +65,7 @@ describe("a command on its way out", () => {
 			key,
 			cache: memoryCache(),
 			open: wire.open,
-			by: { kind: "client", name: "phone", machine: "here" },
+			by: { kind: "client", name: "phone-7", machine: "here" },
 			wait: (_ms, run) => {
 				queueMicrotask(run);
 				return () => {};
@@ -74,7 +74,19 @@ describe("a command on its way out", () => {
 		await session.load();
 		session.send("run.abort", {});
 		const sent = wire.sent.find((one) => one.kind === "command");
-		expect(sent?.by).toEqual({ kind: "client", name: "phone", machine: "here" });
+		// The whole identity, not just its kind: a name rewritten on the way would pass otherwise.
+		expect(sent?.by).toEqual({ kind: "client", name: "phone-7", machine: "here" });
+		session.stop();
+	});
+
+	test("a connection with no identity sends no author, instead of a generic one", async () => {
+		const wire = socket();
+		const session = client(wire);
+		await session.load();
+		session.send("run.abort", {});
+
+		const sent = wire.sent.find((one) => one.kind === "command");
+		expect(sent === undefined ? false : "by" in sent).toBe(false);
 		session.stop();
 	});
 
