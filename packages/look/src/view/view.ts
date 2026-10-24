@@ -20,8 +20,8 @@ import { type Screen, type SlotName, slotPieces } from "../ui/screen.ts";
 import { ViewState, Viewport } from "./state.ts";
 import { transcriptOf } from "./transcript.ts";
 
-/** Rows the frame and the editor box take from the screen. */
-const CHROME = 5;
+/** Rows the frame, the blank row over the editor box and the box take from the screen. */
+const CHROME = 6;
 const READ_ONLY = "Read only: write to this session through a room.";
 
 export interface ViewOptions {
@@ -81,7 +81,8 @@ export class SessionView implements Component, Focusable {
 		const body = [...Array.from({ length: height - shown.length }, () => ""), ...shown];
 		const snapshot = this.#state.snapshot;
 		const ended = this.#state.ended;
-		return entryFrame([...body, ...this.#editor(inner, snapshot)], width, theme, {
+		// A blank row sets the editor box apart from the transcript, as it is under your own.
+		return entryFrame([...body, "", ...this.#editor(inner, snapshot)], width, theme, {
 			top: titleOf(snapshot),
 			topRight: theme.fg(ended ? "dim" : "success", ended ? "ended" : "live"),
 			bottom: `${theme.fg("dim", "alt+g")} back`,
