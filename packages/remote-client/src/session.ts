@@ -113,8 +113,9 @@ export function readEnvelope(
 		const last = data.entries.at(-1);
 		// A snapshot with no entries leaves no leaf to point at, and the old one named an entry the
 		// client no longer holds.
-		session.leaf = last?.id;
-		session.cursor = { ...advance(session.cursor, value), entry: last?.id };
+		// The snapshot may name the leaf itself; the last entry is the fallback the format allows.
+		session.leaf = data.snapshot?.leaf ?? last?.id;
+		session.cursor = { ...advance(session.cursor, value), entry: session.leaf ?? undefined };
 		return { read: "now" };
 	}
 	const next = decide(session.cursor, value);
@@ -128,6 +129,14 @@ export function readEnvelope(
 		return { read: "now" };
 	}
 	if (isFactType(value.type)) {
+		if (value.type === "leaf.changed") {
+			const leaf = (value.data as { leaf: string | null }).leaf;
+			// A leaf the client does not hold is a branch it never read: a sibling, or one older than
+			// the snapshot. Only a snapshot can put it back, so nothing is applied here.
+			if (leaf !== null && !session.entries.some((held) => held.id === leaf)) {
+				return { read: "snapshot", why: "gap" };
+			}
+		}
 		session.facts.push({ type: value.type, data: value.data });
 		session.cursor = advance(session.cursor, value);
 		if (value.type === "leaf.changed") {
