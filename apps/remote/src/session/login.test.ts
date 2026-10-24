@@ -1,6 +1,6 @@
 // The login a link carries: the token stays out of the address it came in on, the cookie is asked
 // for, and only an accepted login lets the socket open. Each test drives the exchange by hand.
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 
 import { memoryCache } from "@adeildo/pi-remote-client";
 
@@ -124,24 +124,34 @@ describe("logging in", () => {
 });
 
 describe("the request itself", () => {
-	test("posts the token in the body, on the page's origin, with the cookie made explicit", async () => {
+	const real = globalThis.fetch;
+	afterEach(() => {
+		globalThis.fetch = real;
+	});
+
+	/** Runs `fetchLogin` against a fake `fetch`, and hands back what the request was. */
+	async function asked(): Promise<{ url: string; init: RequestInit | undefined }> {
 		const seen: { url: string; init: RequestInit | undefined }[] = [];
-		const real = globalThis.fetch;
 		globalThis.fetch = (async (url: string, init: RequestInit) => {
 			seen.push({ url, init });
 			return new Response(null, { status: 204 });
 		}) as typeof fetch;
-		try {
-			const answer = await fetchLogin.login("abc");
-			expect(answer).toEqual({ ok: true, status: 204 });
-		} finally {
-			globalThis.fetch = real;
-		}
+		expect(await fetchLogin.login("abc")).toEqual({ ok: true, status: 204 });
 		const [call] = seen;
-		expect(call?.url).toBe("/login");
-		expect(call?.init?.method).toBe("POST");
-		expect(call?.init?.credentials).toBe("same-origin");
-		expect(call?.init?.headers).toEqual({ "content-type": "application/json" });
-		expect(call?.init?.body).toBe(JSON.stringify({ token: "abc" }));
+		return call ?? { url: "", init: undefined };
+	}
+
+	test("posts the token in the body, on the page's origin, with the cookie made explicit", async () => {
+		const call = await asked();
+		expect(call.url).toBe("/login");
+		expect(call.init?.method).toBe("POST");
+		expect(call.init?.credentials).toBe("same-origin");
+		expect(call.init?.headers).toEqual({ "content-type": "application/json" });
+		expect(call.init?.body).toBe(JSON.stringify({ token: "abc" }));
+	});
+
+	test("says it answers JSON when it fails too, so a refusal reads as one", async () => {
+		globalThis.fetch = (async () => new Response(null, { status: 401 })) as typeof fetch;
+		expect(await fetchLogin.login("abc")).toEqual({ ok: false, status: 401 });
 	});
 });
