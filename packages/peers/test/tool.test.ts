@@ -1,4 +1,4 @@
-import { describe, expect, spyOn, test } from "bun:test";
+import { describe, expect, setSystemTime, spyOn, test } from "bun:test";
 
 import type { AgentToolResult, Theme } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
@@ -289,6 +289,94 @@ describe("a row drawn again and again", () => {
 		}
 		for (const again of rows.values()) again();
 		expect(drawnBy).toEqual(["again", "other"]);
+	});
+
+	test("works its receipts out again only when the room changes, the second turns, or the width", () => {
+		const here = source(posted("all", { read: new Set(["a"]) }), ["me", "a"]) as Source & {
+			folder: { version: number };
+		};
+		here.folder.version = 1;
+		let asked = 0;
+		const live = here.live.bind(here);
+		here.live = () => {
+			asked++;
+			return live();
+		};
+		const counted: Places = { here: () => here, rooms: () => [] };
+		// The clock stands still, so the second does not turn in the middle.
+		setSystemTime(new Date(1_000_000));
+		const row = { toolCallId: "c1", argsComplete: true, state: {}, invalidate: nothing };
+		const drawn = toolRenderers(counted, new Map()).renderResult(
+			sent,
+			{ expanded: false },
+			plain,
+			row,
+		);
+		drawn.render(80);
+		const once = asked;
+		for (let i = 0; i < 100; i++) drawn.render(80);
+		expect(asked).toBe(once);
+		here.folder.version++;
+		drawn.render(80);
+		expect(asked).toBe(once * 2);
+		drawn.render(60);
+		expect(asked).toBe(once * 3);
+		setSystemTime(new Date(1_001_000));
+		drawn.render(60);
+		expect(asked).toBe(once * 4);
+		setSystemTime();
+	});
+
+	test("a read that arrives shows in the same second, because the folder that brought it moved on", () => {
+		setSystemTime(new Date(1_000_000));
+		try {
+			const message = posted(["a", "b"]);
+			const here = source(message, ["me", "a", "b"]) as Source & { folder: { version: number } };
+			here.folder.version = 1;
+			const one: Places = { here: () => here, rooms: () => [] };
+			const row = { toolCallId: "c1", argsComplete: true, state: {}, invalidate: nothing };
+			const drawn = toolRenderers(one, new Map()).renderResult(
+				sent,
+				{ expanded: false },
+				plain,
+				row,
+			);
+			const before = drawn.render(80);
+			message.read.add("a");
+			here.folder.version++;
+			expect(drawn.render(80)).not.toEqual(before);
+		} finally {
+			setSystemTime();
+		}
+	});
+
+	test("draws again at once when pi hands it another state, or asks after a theme change", () => {
+		setSystemTime(new Date(1_000_000));
+		try {
+			const all = source(posted("all", { read: new Set(["a"]) }), ["me", "a"]);
+			const one: Places = { here: () => all, rooms: () => [] };
+			const renderers = toolRenderers(one, new Map());
+			const row = { toolCallId: "c1", argsComplete: true, state: {}, invalidate: nothing };
+			const drawn = renderers.renderResult(sent, { expanded: false }, plain, row);
+			const folded = drawn.render(80);
+			const again = { ...row, lastComponent: drawn };
+			expect(renderers.renderResult(sent, { expanded: true }, plain, again).render(80)).not.toEqual(
+				folded,
+			);
+			let painted = "";
+			const marked = {
+				...plain,
+				fg: (_color: string, text: string) => `${painted}${text}`,
+			} as Theme;
+			renderers.renderResult(sent, { expanded: true }, marked, again);
+			const before = drawn.render(80);
+			// A theme change repaints in place: pi calls invalidate, not renderResult.
+			painted = "*";
+			drawn.invalidate();
+			expect(drawn.render(80)).not.toEqual(before);
+		} finally {
+			setSystemTime();
+		}
 	});
 
 	test("lets go of what pi handed the first drawing", () => {

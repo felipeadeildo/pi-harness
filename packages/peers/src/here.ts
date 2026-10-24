@@ -36,6 +36,9 @@ export {
 	type PeerMessageDetails,
 } from "./inbox.ts";
 
+/** How long the open sessions are taken as they were, between two changes of the folder. */
+const LIVE_FOR_MS = 1_000;
+
 /** A quiet note for the agent: who else is in the room. It is not shown in the chat. */
 export const PEER_NOTE = "pi-peers:note";
 /** A request to everyone another session took, kept in this transcript only. */
@@ -98,6 +101,7 @@ interface SessionSource {
 export class Here implements Sender {
 	readonly #hooks: Hooks;
 	readonly #inbox: Inbox;
+	#live: { key: string; peers: Peer[]; names: Map<string, Named> | undefined } | undefined;
 	/** A room alone owns its inbox and tells it when a run starts; the session's rooms tell theirs once. */
 	readonly #ownInbox: boolean;
 	#target: LogTarget | undefined;
@@ -154,12 +158,26 @@ export class Here implements Sender {
 		return this.#openedAt;
 	}
 
+	/**
+	 * The sessions still open. Every drawing of the panel and of each `peers` row asks, and the answer
+	 * checks a process per peer, so it is worked out again only when the folder changed or a second
+	 * went by, which is how soon a session that died without a word shows as gone.
+	 */
 	live(): Peer[] {
-		return livePeers(this.#folder, this.#hooks.alive ?? processLives, HOST);
+		const key = `${this.#folder.version}:${Math.floor(this.#now() / LIVE_FOR_MS)}`;
+		if (this.#live?.key !== key) {
+			const peers = livePeers(this.#folder, this.#hooks.alive ?? processLives, HOST);
+			this.#live = { key, peers, names: undefined };
+		}
+		return this.#live.peers;
 	}
 
 	names(): Map<string, Named> {
-		return namesOf(this.live());
+		const peers = this.live();
+		const cached = this.#live;
+		if (cached === undefined) return namesOf(peers);
+		cached.names ??= namesOf(peers);
+		return cached.names;
 	}
 
 	/** One mark per other session, and how many asked this one something its agent has not read. */

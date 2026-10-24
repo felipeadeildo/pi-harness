@@ -147,11 +147,15 @@ class CallRow implements Component {
 	}
 }
 
-/** What became of the message, read from the room on every drawing. */
+/**
+ * What became of the message, read from the room. Pi draws every row on every frame, so the lines
+ * are kept until the room changes, the second turns, or the width does.
+ */
 class ResultRow implements Component {
 	#result: AgentToolResult<SentDetails | undefined> | undefined;
 	#expanded = false;
 	#theme: Theme | undefined;
+	#drawn: { here: Source | undefined; key: string; lines: string[] } | undefined;
 
 	constructor(
 		private readonly places: Places,
@@ -160,6 +164,8 @@ class ResultRow implements Component {
 	) {}
 
 	update(result: AgentToolResult<SentDetails | undefined>, expanded: boolean, theme: Theme): this {
+		if (result !== this.#result || expanded !== this.#expanded || theme !== this.#theme)
+			this.#drawn = undefined;
 		this.#result = result;
 		this.#expanded = expanded;
 		this.#theme = theme;
@@ -171,13 +177,20 @@ class ResultRow implements Component {
 		if (result === undefined || this.#theme === undefined) return [];
 		const now = Date.now();
 		const here = this.places.here(result.details?.room);
+		const key = `${width}:${here?.folder.version ?? -1}:${Math.floor(now / TICK_MS)}`;
+		const drawn = this.#drawn;
+		if (drawn !== undefined && drawn.here === here && drawn.key === key) return drawn.lines;
 		const message =
 			result.details === undefined ? undefined : here?.folder.messages.get(result.details.id);
 		if (here !== undefined && message !== undefined && moving(here, message, now)) this.#tick();
-		return resultLines(here, result, this.#expanded, this.#theme, width, now);
+		const lines = resultLines(here, result, this.#expanded, this.#theme, width, now);
+		this.#drawn = { here, key, lines };
+		return lines;
 	}
 
-	invalidate(): void {}
+	invalidate(): void {
+		this.#drawn = undefined;
+	}
 
 	// The folder only says when something arrives; a countdown or a bid window closing needs the clock.
 	#tick(): void {

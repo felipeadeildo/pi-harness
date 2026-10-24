@@ -100,7 +100,11 @@ export class Folder {
 	/** Who a shared room counts. The folder's own room has no `room.*` events and leaves it empty. */
 	readonly membership = new Membership();
 
+	/** Counts the reads that brought events, so what is worked out from the folder knows it is stale. */
+	version = 0;
+
 	apply(events: readonly LoggedEvent[]): void {
+		if (events.length > 0) this.version++;
 		for (const event of events) this.#apply(event);
 	}
 
