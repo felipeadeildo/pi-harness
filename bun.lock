@@ -119,6 +119,13 @@
         "@earendil-works/pi-tui": "*",
       },
     },
+    "packages/remote-protocol": {
+      "name": "@adeildo/pi-remote-protocol",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@adeildo/pi-kit": "workspace:*",
+      },
+    },
     "packages/skills": {
       "name": "@adeildo/pi-skills",
       "version": "5.15.0",
@@ -163,6 +170,8 @@
     "@adeildo/pi-peers": ["@adeildo/pi-peers@workspace:packages/peers"],
 
     "@adeildo/pi-providers": ["@adeildo/pi-providers@workspace:packages/providers"],
+
+    "@adeildo/pi-remote-protocol": ["@adeildo/pi-remote-protocol@workspace:packages/remote-protocol"],
 
     "@adeildo/pi-skills": ["@adeildo/pi-skills@workspace:packages/skills"],
 
