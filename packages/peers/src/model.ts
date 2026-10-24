@@ -1,7 +1,7 @@
 // What the screen reads of the rooms this session is in, and what it can change. The rooms
 // themselves are directories of logs, folded the same way by every session; this is the view one
 // session has of them.
-import type { Member, PeerMark, PresenceEntry, SessionState } from "@adeildo/pi-kit";
+import type { Member, PeerMark, PresenceEntry, RoomActivity } from "@adeildo/pi-kit";
 
 import type { Here, Typing } from "./here.ts";
 
@@ -24,7 +24,7 @@ export interface RoomSession {
 	handle?: string;
 	title?: string;
 	/** Closed: added by name, and not open now. */
-	state: SessionState | "closed";
+	state: RoomActivity | "closed";
 }
 
 /** A session open on this machine, from the index, so finding one reads no logs. */

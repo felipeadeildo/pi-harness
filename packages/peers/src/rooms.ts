@@ -21,7 +21,7 @@ import {
 	removePresence,
 	roomDir,
 	roomsDir,
-	type SessionState,
+	type RoomActivity,
 	type SessionTasks,
 	targetOf,
 	tasksWith,
@@ -94,7 +94,7 @@ export class Rooms implements RoomsView {
 	#file: string | undefined;
 	#model: string | undefined;
 	#startedAt = 0;
-	#state: SessionState = "idle";
+	#state: RoomActivity = "idle";
 	#stops: (() => void)[] = [];
 	#soonTimer: ReturnType<typeof setTimeout> | undefined;
 	/** When each stale member or room was first seen, by `staleIn`'s key. */
