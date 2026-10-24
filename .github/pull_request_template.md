@@ -7,8 +7,8 @@
 - [ ] `bun run verify` on the head, in a worktree of its own: `bun install --frozen-lockfile --ignore-scripts`
 - [ ] The footer, `<p align="right"><sub><model> (<effort> effort) [<name>] @ adeildo's pi</sub></p>`
 
-The rules behind these are in [`CONTRIBUTING.md`](../blob/main/CONTRIBUTING.md) and
-[`docs/remote-plan.md`](../blob/main/docs/remote-plan.md); this list is only the part that gets forgotten
+The rules behind these are in [`CONTRIBUTING.md`](../CONTRIBUTING.md) and
+[`docs/remote-plan.md`](../docs/remote-plan.md); this list is only the part that gets forgotten
 at the moment a pull request opens.
 
 ## What was wrong, what changes, and how to see it
