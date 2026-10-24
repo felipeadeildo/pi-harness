@@ -427,7 +427,7 @@ The daemon passes a client's command, a `command` envelope with an `id`, to the 
 
 Owner: ask. Needs: C8.
 
-A client answers an open question with `ask.answer { ask, result }`. The bridge emits the kit's answer with `by: { kind: "client" }`, and the asker's client closes the question for everyone, so the terminal's dialog closes through `harness:ask.cancel`. In a session with no terminal, the bridge answers the kit's `AVAILABLE`, and clients draw the whole dialog. An answer to a question someone else already answered comes back as "answered on <where>" and is dropped, so two phones never both think they decided.
+A client answers an open question with `ask.answer { ask, result }`. The bridge emits the kit's answer with `by: { kind: "client" }`, and the asker's client closes the question for everyone, so the terminal's dialog closes through `harness:ask.cancel`. In a session with no terminal, the bridge answers the kit's `AVAILABLE`, and clients draw the whole dialog. An answer to a question someone else already answered comes back as an error saying where it was answered and is dropped, so two phones never both think they decided.
 
 - "Always yes" from a client lasts until the session ends; a rule for the project or for everywhere needs the terminal.
 - Tests with the rig: a permission question answered by a client closes the terminal's dialog and logs `call.ruled` with the client's `by`, and of two answers only the first counts.
