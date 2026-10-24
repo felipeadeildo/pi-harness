@@ -16,6 +16,7 @@ import {
 } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
+import { ClientAsks } from "./bridge/asks.ts";
 import { Bridge, type SessionKind } from "./bridge/bridge.ts";
 import type { GoneReason } from "./bridge/connection.ts";
 import { openInBrowser } from "./browser.ts";
@@ -72,6 +73,7 @@ export const remote = defineFeature({
 			};
 		});
 		let bridge: Bridge | undefined;
+		let asks: ClientAsks | undefined;
 
 		scope.on("session_start", (_event, ctx) => {
 			const kind = sessionKind(ctx.mode);
@@ -97,8 +99,21 @@ export const remote = defineFeature({
 				warn: (message) => scope.warn(message),
 			});
 			bridge.start();
+			// A session with no terminal has no dialog to draw, so the questions go to the clients.
+			if (kind === "background") {
+				asks = new ClientAsks({
+					events: scope.events,
+					send: (event) => bridge?.event(event.type, event.data),
+					warn: (message) => scope.warn(message),
+				});
+				asks.start();
+			}
 		});
 
+		scope.onShutdown(() => {
+			asks?.stop();
+			asks = undefined;
+		});
 		scope.on("message_start", (event) => bridge?.stream.messageStart(event));
 		scope.on("message_update", (event) => bridge?.stream.messageUpdate(event));
 		scope.on("message_end", (event) => bridge?.stream.messageEnd(event));
