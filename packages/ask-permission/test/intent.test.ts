@@ -48,10 +48,11 @@ test("the last three operator messages come newest first, image-only ones taking
 		message("toolResult", "ok"),
 		message("user", "third ask"),
 		message("user", [{ type: "image" }]),
+		message("user", "fourth ask"),
 	];
-	expect(recentIntents(ctxWith(branch))).toEqual(["third ask", "second ask", "first ask"]);
+	expect(recentIntents(ctxWith(branch))).toEqual(["fourth ask", "third ask", "second ask"]);
 	expect(intentFor(ctxWith(branch, "release"))).toBe(
-		"Session: release\nThe operator's last messages, newest first:\n  1. third ask\n  2. second ask\n  3. first ask",
+		"Session: release\nThe operator's last messages, newest first:\n  1. fourth ask\n  2. third ask\n  3. second ask",
 	);
 });
 
