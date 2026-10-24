@@ -23,6 +23,8 @@ const CLOSE = 0x8;
 const PING = 0x9;
 const PONG = 0xa;
 const CONTINUATION = 0x0;
+/** Every opcode RFC 6455 defines. What is not here is reserved, and a reserved frame is not ours. */
+const KNOWN: ReadonlySet<number> = new Set([CONTINUATION, TEXT, CLOSE, PING, PONG]);
 
 export interface WebSocket {
 	send(text: string): void;
@@ -159,11 +161,12 @@ export class Frames {
 			const next = this.#next();
 			if (next === "wait") return undefined;
 			if (next === "too large") return 1009;
-			if (next === "unmasked" || next === "rsv" || next === "control") return 1002;
+			if (next === "unmasked" || next === "rsv" || next === "control" || next === "opcode")
+				return 1002;
 		}
 	}
 
-	#next(): "read" | "wait" | "too large" | "unmasked" | "rsv" | "control" {
+	#next(): "read" | "wait" | "too large" | "unmasked" | "rsv" | "control" | "opcode" {
 		const buffer = this.#buffer;
 		if (buffer.length < 2) return "wait";
 		const final = (buffer[0]! & 0x80) !== 0;
@@ -171,6 +174,9 @@ export class Frames {
 		// Nothing this server negotiates sets an extension bit, so a frame that sets one is a client
 		// talking a protocol we did not agree to. RFC 6455 says to fail the connection, not to guess.
 		if ((buffer[0]! & 0x70) !== 0) return "rsv";
+		// An opcode nobody defined is a client talking a protocol we do not know: RFC 6455 5.2 says to
+		// fail the connection, and reading it as if it were text would fold its bytes into a message.
+		if (!KNOWN.has(opcode)) return "opcode";
 		if ((buffer[1]! & 0x80) === 0) return "unmasked";
 		let length = buffer[1]! & 0x7f;
 		let offset = 2;

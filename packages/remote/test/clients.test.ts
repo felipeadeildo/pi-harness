@@ -984,6 +984,15 @@ describe("WebSocket frames a server must not read", () => {
 		expect(read).toEqual([0x9]);
 	});
 
+	test("an opcode nobody defined closes with 1002 instead of folding its bytes into a message", () => {
+		for (const opcode of [0x3, 0xb]) {
+			const read: number[] = [];
+			const frames = new Frames((one) => read.push(one));
+			expect(frames.push(masked(opcode, Buffer.from("evil")))).toBe(1002);
+			expect(read).toEqual([]);
+		}
+	});
+
 	test("a fragmented control frame closes with 1002", () => {
 		const frames = new Frames(() => {});
 		expect(frames.push(masked(0x9, Buffer.from("a"), { final: false }))).toBe(1002);
