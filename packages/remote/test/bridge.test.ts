@@ -16,9 +16,12 @@ import {
 	emptyTasks,
 	HOST,
 	LOGGED_EVENT,
+	logEvent,
+	logPath,
 	MODE,
 	protectedList,
 	TASKS,
+	targetOf,
 } from "@adeildo/pi-kit";
 import type { SessionSource, SourceItem } from "@adeildo/pi-kit";
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
@@ -154,6 +157,133 @@ describe("the bridge", () => {
 		await stop(fake, "quit");
 		await until(() => types(daemon).includes("session.gone"));
 		expect(daemon.received.at(-1)).toMatchObject({ data: { reason: "exit" } });
+	});
+
+	test("a command from a daemon runs in the session and is answered on the same id", async () => {
+		const daemon = await listening();
+		process.env.PI_HARNESS_EVENTS = join(root, "events");
+		const compacted: string[] = [];
+		const fake = mounted();
+		const ctx = fakeContext([], true, {
+			...session(),
+			compact: (options?: { customInstructions?: string }) =>
+				compacted.push(options?.customInstructions ?? ""),
+			sessionManager: {
+				getCwd: () => root,
+				getSessionId: () => "s1",
+				getSessionName: () => "Fix the release",
+				getSessionFile: () => "/sessions/s1.jsonl",
+				getEntries: () => entries(2),
+				getBranch: () => entries(2),
+				getLeafId: () => "e2",
+			},
+		});
+		await start(fake, ctx);
+		await until(() => types(daemon).includes("snapshot"));
+		const by = { kind: "client", name: "phone", machine: HOST } as const;
+		const at = { machine: HOST, session: "s1", epoch: "e1", id: "c1", by };
+		daemon.sockets[0]?.write(
+			line(envelope("command", "session.compact", { instructions: "keep the plan" }, at)),
+		);
+		await until(() => daemon.received.some((one) => one.kind === "reply"));
+		expect(compacted).toEqual(["keep the plan"]);
+		expect(daemon.received.find((one) => one.kind === "reply")).toMatchObject({
+			type: "session.compact",
+			id: "c1",
+		});
+		// The id is in the session's log, so a resend after a restart is still a repeat.
+		const log = readFileSync(
+			logPath(targetOf({ getCwd: () => root, getSessionId: () => "s1" })),
+			"utf8",
+		);
+		expect(log).toContain('"command.received"');
+		expect(log).toContain('"c1"');
+		await stop(fake, "quit");
+		delete process.env.PI_HARNESS_EVENTS;
+	});
+
+	test("a forced stop is refused with a reason, and the log says which command and why", async () => {
+		const daemon = await listening();
+		process.env.PI_HARNESS_EVENTS = join(root, "events");
+		const fake = mounted();
+		const stopped: string[] = [];
+		const ctx = fakeContext([], true, {
+			...session(),
+			abort: () => stopped.push("abort"),
+			shutdown: () => stopped.push("shutdown"),
+			sessionManager: {
+				getCwd: () => root,
+				getSessionId: () => "s1",
+				getSessionName: () => "Fix the release",
+				getSessionFile: () => "/sessions/s1.jsonl",
+				getEntries: () => entries(2),
+				getBranch: () => entries(2),
+				getLeafId: () => "e2",
+			},
+		});
+		await start(fake, ctx);
+		await until(() => types(daemon).includes("snapshot"));
+		const by = { kind: "client", name: "phone", machine: HOST } as const;
+		const at = { machine: HOST, session: "s1", epoch: "e1", by };
+		daemon.sockets[0]?.write(
+			line(envelope("command", "session.stop", { force: true }, { ...at, id: "c1" })),
+		);
+		await until(() => daemon.received.some((one) => one.kind === "error"));
+		expect(stopped).toEqual([]);
+		expect(daemon.received.find((one) => one.kind === "error")).toMatchObject({
+			type: "session.stop",
+			id: "c1",
+			data: { reason: "a forced stop needs a background session, which has a runner" },
+		});
+		const log = readFileSync(
+			logPath(targetOf({ getCwd: () => root, getSessionId: () => "s1" })),
+			"utf8",
+		);
+		// One line for the command before it ran, and one for how it ended: a `ran` command leaves one.
+		expect(log).toContain('"command.received"');
+		expect(log).toContain('"command.outcome"');
+		expect(log).toContain('"refused"');
+		await stop(fake, "quit");
+		delete process.env.PI_HARNESS_EVENTS;
+	});
+
+	test("a command id from an earlier run of the session is a repeat after the bridge restarts", async () => {
+		const daemon = await listening();
+		process.env.PI_HARNESS_EVENTS = join(root, "events");
+		const compacted: string[] = [];
+		const fake = mounted();
+		const ctx = fakeContext([], true, {
+			...session(),
+			compact: () => compacted.push("ran"),
+			sessionManager: {
+				getCwd: () => root,
+				getSessionId: () => "s1",
+				getSessionName: () => "Fix the release",
+				getSessionFile: () => "/sessions/s1.jsonl",
+				getEntries: () => entries(2),
+				getBranch: () => entries(2),
+				getLeafId: () => "e2",
+			},
+		});
+		// The earlier run of this session logged the command before the bridge that ran it went away.
+		logEvent(
+			targetOf({ getCwd: () => root, getSessionId: () => "s1" }),
+			undefined,
+			"command.received",
+			{ id: "before", command: "session.compact" },
+		);
+		await start(fake, ctx);
+		await until(() => types(daemon).includes("snapshot"));
+		const by = { kind: "client", name: "phone", machine: HOST } as const;
+		const at = { machine: HOST, session: "s1", epoch: "e1", by };
+		daemon.sockets[0]?.write(
+			line(envelope("command", "session.compact", {}, { ...at, id: "before" })),
+		);
+		await until(() => daemon.received.some((one) => one.kind === "reply"));
+		expect(compacted).toEqual([]);
+		expect(daemon.received.find((one) => one.kind === "reply")?.data).toEqual({ repeat: true });
+		await stop(fake, "quit");
+		delete process.env.PI_HARNESS_EVENTS;
 	});
 
 	test("after the snapshot, each entry pi appends goes out once", async () => {
@@ -471,6 +601,7 @@ describe("one bridge", () => {
 			scope: { events: fakePi().pi.events, warn: () => {} },
 			version: VERSION,
 			kind: "terminal",
+			rename: () => {},
 			startDaemon: () => {},
 			warn: () => {},
 			seams: { dial, backoff: [5] },

@@ -91,6 +91,7 @@ export const remote = defineFeature({
 				scope,
 				version: VERSION,
 				kind,
+				rename: (name) => scope.setSessionName(name),
 				startDaemon: () => startDaemon(dir),
 				warn: (message) => scope.warn(message),
 			});

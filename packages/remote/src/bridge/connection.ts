@@ -140,6 +140,18 @@ export class BridgeConnection {
 	}
 
 	/**
+	 * Answers a command on its id, in the shape the daemon sent it, so the daemon routes it back to
+	 * the client that asked. Returns whether the answer went out.
+	 */
+	answer(kind: "reply" | "error", type: string, data: unknown, id: string): boolean {
+		const socket = this.#socket;
+		if (!this.#up || socket === undefined || socket.destroyed) return false;
+		const { machine, session, epoch } = this.origin;
+		socket.write(line(envelope(kind, type, data, { machine, session, epoch, id })));
+		return true;
+	}
+
+	/**
 	 * Stops for good. With a reason, the daemon hears the session is gone before the socket ends.
 	 * Resolves once the socket is closed, or after a short wait when the daemon does not read.
 	 */

@@ -91,4 +91,12 @@ export interface LogEventMap {
 	/** What decided a tool call. `by` is the person who answered, when one did. */
 	"call.ruled": { toolCallId: string; ruling: CallRuling; by?: By };
 	"mode.changed": { mode: PermissionMode };
+	/**
+	 * A command a client sent for this session, logged before it runs so a resent id is a repeat even
+	 * across a restart. A command that did run writes only this line, so its absence from
+	 * `command.outcome` is what running looks like.
+	 */
+	"command.received": { id: string; command: string; by?: By };
+	/** How a command that did not run ended, on the id of its `command.received` line. */
+	"command.outcome": { id: string; command: string; by?: By; outcome: "refused" | "failed" };
 }
