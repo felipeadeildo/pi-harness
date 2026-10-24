@@ -91,6 +91,27 @@ describe("the inbox", () => {
 		expect(inbox.queue()).toMatchObject([{ id: steer.id, why: "stopped" }]);
 	});
 
+	test("a steered letter the Esc sent back is taken again, and one a run carried is a repeat", () => {
+		const inbox = new Inbox();
+		const steer = letter("steer", OPERATOR, "steer");
+		inbox.put(steer);
+		expect(inbox.cleared([steer], true).resend.map((one) => one.id)).toEqual([steer.id]);
+		// It never went into a run, so the same letter is not a repeat and can be sent again.
+		expect(inbox.seen(steer.id)).toBe(false);
+		inbox.put(steer);
+		expect(inbox.sent().map((one) => one.id)).toEqual([steer.id]);
+
+		// What a run carried is a repeat until that run ends, which is what stops a resend of it.
+		const follow = letter("follow", AGENT);
+		inbox.put(follow);
+		inbox.settle();
+		expect(inbox.seen(follow.id)).toBe(true);
+		inbox.put(follow);
+		expect(inbox.queue()).toEqual([]);
+		inbox.ended();
+		expect(inbox.seen(follow.id)).toBe(false);
+	});
+
 	test("a letter held for a reason reads back with it, and one without reads as it was", () => {
 		const inbox = new Inbox();
 		inbox.put(letter("asleep", AGENT));
