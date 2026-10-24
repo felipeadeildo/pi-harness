@@ -20,6 +20,8 @@
       "name": "@adeildo/pi-remote-app",
       "version": "0.0.0",
       "devDependencies": {
+        "@adeildo/pi-remote-client": "workspace:*",
+        "@adeildo/pi-remote-protocol": "workspace:*",
         "@expo/metro-runtime": "~58.0.15",
         "@types/react": "^19.3.0",
         "@types/react-dom": "^19.3.0",
