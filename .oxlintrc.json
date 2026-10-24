@@ -17,5 +17,5 @@
 		"no-var": "error",
 		"prefer-const": "error"
 	},
-	"ignorePatterns": ["node_modules/**", "dist/**"]
+	"ignorePatterns": ["node_modules/**", "dist/**", ".agents/**", "skills-lock.json"]
 }

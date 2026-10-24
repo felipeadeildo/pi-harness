@@ -7,5 +7,12 @@
 	"insertFinalNewline": true,
 	"sortImports": true,
 	"sortPackageJson": true,
-	"ignorePatterns": ["node_modules/**", "bun.lock", ".git/**", "CHANGELOG.md"]
+	"ignorePatterns": [
+		"node_modules/**",
+		"bun.lock",
+		".git/**",
+		"CHANGELOG.md",
+		".agents/**",
+		"skills-lock.json"
+	]
 }
