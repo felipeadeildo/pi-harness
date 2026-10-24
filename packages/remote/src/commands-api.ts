@@ -49,6 +49,7 @@ export function commandApi(scope: FeatureScope, ctx: ExtensionContext): SessionA
 				throw new Refused(`${level} is not a thinking level: ${THINKING_LEVELS.join(", ")}`);
 			scope.setThinkingLevel(level);
 		},
+		busy: () => !ctx.isIdle(),
 		send: (text, deliverAs) => {
 			scope.sendUserMessage(text, deliverAs === undefined ? {} : { deliverAs });
 		},
