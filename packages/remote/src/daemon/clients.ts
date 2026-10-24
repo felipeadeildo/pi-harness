@@ -243,14 +243,28 @@ export class Clients {
 	 */
 	#login(request: IncomingMessage, response: ServerResponse): void {
 		let body = "";
-		let tooLong = false;
+		let cut = false;
 		request.setEncoding("utf8");
 		request.on("data", (chunk: string) => {
+			if (cut) return;
+			if (body.length + chunk.length > LOGIN_BYTES) {
+				// A body past one token is no login, and it is cut here instead of held in memory.
+				cut = true;
+				body = "";
+				response.once("finish", () => request.destroy());
+				response.writeHead(413, {
+					"content-type": "application/json",
+					"cache-control": "no-store",
+					connection: "close",
+				});
+				response.end(JSON.stringify({ error: "a login carries one token" }));
+				return;
+			}
 			body += chunk;
-			if (body.length > LOGIN_BYTES) tooLong = true;
 		});
 		request.on("end", () => {
-			const token = tooLong ? undefined : tokenOf(body);
+			if (cut) return;
+			const token = tokenOf(body);
 			const cookie = token === undefined ? undefined : this.#options.logins.exchange(token);
 			if (cookie === undefined) {
 				return reply(response, 401, {

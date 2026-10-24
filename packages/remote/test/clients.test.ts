@@ -311,6 +311,18 @@ describe("logging in", () => {
 		).toBe(200);
 	});
 
+	test("a login body past one token is cut at once, and the daemon goes on trading tokens", async () => {
+		const { daemon, port } = await openDaemon();
+		const huge = await fetch(`http://127.0.0.1:${port}/login`, {
+			method: "POST",
+			headers: { Origin: `http://127.0.0.1:${port}`, "content-type": "application/json" },
+			body: JSON.stringify({ token: "x".repeat(8 * 1024 * 1024) }),
+		}).catch(() => undefined);
+		// The daemon answers 413 and closes; a client still sending may see the close instead.
+		if (huge !== undefined) expect(huge.status).toBe(413);
+		expect((await logIn(daemon, port)).startsWith("pi_remote=")).toBe(true);
+	});
+
 	test("a bridge gets a token for token.issue, answered on the same id", async () => {
 		await openDaemon();
 		const client: Socket = dial(socket);
