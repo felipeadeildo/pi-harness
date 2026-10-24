@@ -4,7 +4,7 @@
 // lands in the chat.
 import { basename } from "node:path";
 
-import { ENTRY_X, entryFrame, formatClock, GLYPH } from "@adeildo/pi-kit";
+import { ENTRY_X, entryFrame, formatClock } from "@adeildo/pi-kit";
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { type Component, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
@@ -14,11 +14,15 @@ import { EVERYONE_MENTION } from "../mention.ts";
 import type { Room, RoomTyping } from "../model.ts";
 import { byHandle, type Named } from "../names.ts";
 import { addressed } from "./message.ts";
-import { dots, FRAME_MS, spin } from "./motion.ts";
+import { FRAME_MS } from "./motion.ts";
 
 export const PEERS_TYPING = "pi-peers-typing";
 
-/** A message waiting for the agent shows this many lines of its words. */
+/**
+ * A message waiting for the agent shows this many lines of its words. The frame over the editor is
+ * this many lines plus the two dashed ones around them: a line added here changes the height the
+ * tests pin, so the assertion and the constant move together.
+ */
 export const WAITING_SHOWN = 3;
 
 const WHEN: Record<Waiting["mode"], string> = {
@@ -35,38 +39,39 @@ export interface TypingSource {
 	rooms(): Room[];
 }
 
-export function typingLines(
+/** Who is writing, to whom, in one line the footer draws: the frame over the editor is only for what waits here. */
+export interface WritingMark {
+	handle: string;
+	color: string;
+	to: string;
+}
+
+export function writingMarks(
 	typing: readonly RoomTyping[],
-	source: TypingSource,
-	theme: Theme,
-	width: number,
-	now: number,
-): string[] {
-	const rooms = new Map(source.rooms().map((room) => [room.id, room.name]));
-	return typing.flatMap((one) => {
+	source: Pick<TypingSource, "here">,
+): WritingMark[] {
+	return typing.map((one) => {
 		const here = source.here(one.room);
 		const names: ReadonlyMap<string, Named> = here?.names() ?? new Map();
-		// A message to this session reads "to you".
 		const me = here?.session === undefined ? undefined : names.get(here.session)?.handle;
-		// A draft in a shared room says which, as the room's messages do.
-		const name = one.room === undefined ? undefined : rooms.get(one.room);
-		const where = name === undefined ? "" : theme.fg("dim", ` in ${name}`);
 		const named = names.get(one.session);
-		const color = (named?.color ?? "muted") as ThemeColor;
-		// The newest words matter most while they arrive, so a long draft keeps its end.
-		const words = one.text.replaceAll(/\s+/g, " ").trim();
-		const room = Math.max(1, width - ENTRY_X - 4);
-		const body =
-			words === ""
-				? []
-				: [theme.fg("muted", words.length > room ? `...${words.slice(-room)}` : words)];
-		return entryFrame(body, width, theme, {
-			top: `${theme.fg(color, theme.bold(`@${named?.handle ?? "an agent"}`))}${theme.fg("dim", ` ${GLYPH.right} `)}${typingRecipients(one.to, names, theme, me)}${where}`,
-			topRight: `${theme.fg(color, spin(now))} ${theme.fg("dim", `writing${dots(now)}`)}`,
-			color,
-			dashed: true,
-		});
+		return {
+			handle: named?.handle ?? "an agent",
+			color: named?.color ?? "muted",
+			to: plainRecipients(one.to, names, me),
+		};
 	});
+}
+
+/** The same names the frame uses, without the theme: `you` for this session, `@handle` for the rest. */
+function plainRecipients(to: string, names: ReadonlyMap<string, Named>, me: string | undefined) {
+	if (to === EVERYONE_MENTION) return "everyone";
+	return to
+		.split(",")
+		.map((part) => part.trim().replace(/^@/, ""))
+		.filter((handle) => handle !== "")
+		.map((handle) => (handle === me ? "you" : `@${handle}`))
+		.join(", ");
 }
 
 /** Sent and not read yet: the draft's frame, with its first lines and when the agent gets it. */
@@ -107,11 +112,9 @@ export class TypingWidget implements Component {
 	}
 
 	render(width: number): string[] {
-		// What already arrived sits over what is still being written, which is the newest.
-		return [
-			...waitingLines(this.#source.queued(), this.#theme, width),
-			...typingLines(this.#source.othersTyping(), this.#source, this.#theme, width, Date.now()),
-		];
+		// Only what waits for this session: another agent's draft is not addressed here, and a frame
+		// over the editor for something not meant for you would move the editor you are typing in.
+		return waitingLines(this.#source.queued(), this.#theme, width);
 	}
 
 	invalidate(): void {}

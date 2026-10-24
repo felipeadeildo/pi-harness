@@ -164,8 +164,14 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 		// The whole folder, then one name, then the bare mark, as the line runs out of room.
 		render: ({ snapshot, glyphs, paint }) => {
 			const peers = snapshot.peers;
-			const mentions =
+			// A draft is a line here, not a frame over the editor: `@migration → you` while it types.
+			const drafts = (snapshot.peersWriting ?? []).map(
+				(mark) => `${paint.raw(mark.color, mark.handle)}${paint.dim(` \u2192 ${mark.to}`)}`,
+			);
+			const writing = drafts.length === 0 ? "" : paint.dim(drafts.join(", "));
+			const unread =
 				snapshot.peersUnread > 0 ? paint.role("waiting", `@${snapshot.peersUnread}`) : "";
+			const mentions = [writing, unread].filter((part) => part !== "").join(" ");
 			const first = peers[0];
 			if (first === undefined) return mentions === "" ? undefined : { text: mentions };
 			const named = (peer: PeerMark) => paint.raw(peer.color, `${glyphs.peers} ${peer.handle}`);

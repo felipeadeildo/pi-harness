@@ -385,12 +385,15 @@ function accountOf(scope: FeatureScope, provider: string | undefined): AccountSt
 	return provider === undefined ? undefined : ACCOUNT.current(scope, provider);
 }
 
-function tasksOf(scope: FeatureScope): Pick<LiveInputs, "tasks" | "peers" | "peersUnread"> {
+function tasksOf(
+	scope: FeatureScope,
+): Pick<LiveInputs, "tasks" | "peers" | "peersUnread" | "peersWriting"> {
 	const peers = PEERS.current(scope);
 	return {
 		tasks: TASKS.current(scope)?.state,
 		peers: peers?.peers,
 		peersUnread: peers?.unread,
+		peersWriting: peers?.writing,
 	};
 }
 

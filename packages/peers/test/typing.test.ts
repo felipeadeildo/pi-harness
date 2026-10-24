@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
 import type { Named } from "../src/names.ts";
-import { typingLines, waitingLines } from "../src/ui/typing.ts";
+import { TypingWidget, WAITING_SHOWN, waitingLines, writingMarks } from "../src/ui/typing.ts";
 
 const plain = {
 	fg: (_color: string, text: string) => text,
@@ -27,42 +27,26 @@ const source = {
 };
 
 describe("someone writing to the room", () => {
-	test("a draft wears the dashed frame, who writes to whom on top", () => {
-		const lines = typingLines(
+	test("is a line for the footer, not a frame over the editor", () => {
+		const marks = writingMarks(
 			[{ session: "a", to: "@docs, @migration", text: "", at: 0 }],
 			source,
-			plain,
-			80,
-			0,
 		);
-		expect(lines[0]?.startsWith("╭┄")).toBe(true);
-		expect(lines[0]).toContain("@oauth → you, @migration");
-		expect(lines.join("\n")).toContain("writing");
-		expect(lines.at(-1)?.startsWith("╰┄")).toBe(true);
+		expect(marks).toEqual([{ handle: "oauth", color: "syntaxString", to: "you, @migration" }]);
 	});
 
-	test("a long draft keeps its newest words, inside the frame", () => {
-		const text = `${"old words ".repeat(20)}the newest part`;
-		const lines = typingLines(
-			[{ session: "b", to: "everyone", text, at: 0 }],
+	test("a draft to everyone says so, and one in a shared room still resolves its names", () => {
+		const marks = writingMarks(
+			[
+				{ session: "b", to: "everyone", text: "", at: 0 },
+				{ session: "a", to: "@docs", text: "", at: 0, room: "r1" },
+			],
 			source,
-			plain,
-			70,
-			0,
 		);
-		expect(lines.join("\n")).toContain("the newest part");
-		expect(lines.every((line) => line.length <= 70)).toBe(true);
-	});
-
-	test("a draft in a shared room says which", () => {
-		const lines = typingLines(
-			[{ session: "a", to: "@docs", text: "", at: 0, room: "r1" }],
-			source,
-			plain,
-			80,
-			0,
-		);
-		expect(lines[0]).toContain("@oauth → you in backend+frontend");
+		expect(marks).toEqual([
+			{ handle: "migration", color: "syntaxType", to: "everyone" },
+			{ handle: "oauth", color: "syntaxString", to: "you" },
+		]);
 	});
 });
 
@@ -94,5 +78,32 @@ describe("a message sent to this agent and not read yet", () => {
 		expect(body).toContain("two");
 		expect(body).not.toContain("three");
 		expect(body).toContain("2 more lines");
+	});
+
+	test("a draft from someone else takes no line over the editor", () => {
+		// The editor is where you type: a frame that comes for a message not meant for you moves it.
+		const widget = new TypingWidget(
+			{ ...source, othersTyping: () => [{ session: "a", to: "@docs", text: "hi", at: 0 }] },
+			plain,
+			() => {},
+		);
+		try {
+			expect(widget.render(80)).toEqual([]);
+		} finally {
+			widget.dispose();
+		}
+	});
+
+	test("while a message waits for this session, the frame keeps its height", () => {
+		const widget = new TypingWidget({ ...source, queued: () => [waiting] }, plain, () => {});
+		try {
+			const first = widget.render(80);
+			// The words it shows, and the two dashed lines around them: never more, never fewer.
+			expect(first).toHaveLength(WAITING_SHOWN + 2);
+			expect(widget.render(80)).toEqual(first);
+			expect(widget.render(80)).toEqual(first);
+		} finally {
+			widget.dispose();
+		}
 	});
 });
