@@ -14,7 +14,7 @@ import {
 	provideProtected,
 	SESSION_STATUS,
 } from "@adeildo/pi-kit";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { ClientAsks } from "./bridge/asks.ts";
 import { Bridge, type SessionKind } from "./bridge/bridge.ts";
@@ -116,6 +116,18 @@ export const remote = defineFeature({
 		});
 		// A follow-up waits for this: the run is over, so what a client held goes in now.
 		scope.on("agent_settled", () => bridge?.settled());
+		/**
+		 * A compaction is the other moment a follow-up is held for, and it ends no run: pi emits this
+		 * before it clears the flag that makes a send throw, so the queue is drained on the next turn
+		 * of the loop, once the flag is gone, and only if pi would take a prompt then.
+		 */
+		const afterCompaction = (_event: unknown, ctx: ExtensionContext): void => {
+			setTimeout(() => {
+				if (ctx.isIdle()) bridge?.settled();
+			}, 0);
+		};
+		scope.on("session_compact", afterCompaction);
+		scope.on("session_compact_failed", afterCompaction);
 		scope.on("message_start", (event) => bridge?.stream.messageStart(event));
 		scope.on("message_update", (event) => bridge?.stream.messageUpdate(event));
 		scope.on("message_end", (event) => bridge?.stream.messageEnd(event));
