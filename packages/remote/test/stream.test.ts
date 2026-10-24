@@ -121,13 +121,13 @@ describe("the message being written", () => {
 			["pi.message_update", true],
 			["pi.message_end", false],
 		]);
-		expect(sent[0]?.data.stream).toBe(1);
+		expect(sent[0]?.data.stream).toBe("1");
 		expect(sent[1]?.data.assistantMessageEvent).toEqual({
 			type: "text_delta",
 			contentIndex: 0,
 			delta: "abc",
 		});
-		expect(sent[3]?.data).toMatchObject({ type: "message_end", stream: 1 });
+		expect(sent[3]?.data).toMatchObject({ type: "message_end", stream: "1" });
 	});
 
 	test("a delta of another block sends what the first one held, in order", () => {
@@ -191,8 +191,8 @@ describe("the message being written", () => {
 		stream.messageEnd(end());
 		stream.turnEnd(turnEnd("e11"));
 		expect(sent.filter((one) => one.type === "stream.bound").map((one) => one.data)).toEqual([
-			{ messages: [{ stream: 1, entry: "e9" }] },
-			{ messages: [{ stream: 2, entry: "e11" }] },
+			{ messages: [{ stream: "1", entry: "e9" }] },
+			{ messages: [{ stream: "2", entry: "e11" }] },
 		]);
 	});
 
@@ -205,7 +205,7 @@ describe("the message being written", () => {
 		stream.resync();
 		const resyncs = sent.filter((one) => one.type === "stream.resync");
 		expect(resyncs.map((one) => one.data)).toEqual([
-			{ stream: 1, message: message("assistant", "Hel") },
+			{ stream: "1", message: message("assistant", "Hel") },
 		]);
 	});
 });

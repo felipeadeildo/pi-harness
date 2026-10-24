@@ -158,6 +158,29 @@ describe("the bridge", () => {
 		}
 	});
 
+	test("a move in the tree names the new leaf, and a tree left with no leaf says nothing", async () => {
+		const daemon = await listening();
+		const fake = mounted();
+		const ctx = session();
+		await start(fake, ctx);
+		await until(() => types(daemon).includes("snapshot"));
+		await fake.fire(
+			"session_tree",
+			{ type: "session_tree", newLeafId: null, oldLeafId: "e2" },
+			ctx,
+		);
+		await fake.fire(
+			"session_tree",
+			{ type: "session_tree", newLeafId: "e1", oldLeafId: null },
+			ctx,
+		);
+		await until(() => types(daemon).includes("leaf.changed"));
+		await Bun.sleep(20);
+		expect(
+			daemon.received.filter((one) => one.type === "leaf.changed").map((one) => one.data),
+		).toEqual([{ leaf: "e1" }]);
+	});
+
 	test("pi -p writes nothing and connects to nothing", async () => {
 		const daemon = await listening();
 		await start(mounted(), session(entries(2), "print"));
@@ -229,7 +252,7 @@ describe("a real pi session", () => {
 		await rig.prompt("say hello");
 		await until(() => types(daemon).includes("stream.bound"));
 		const bound = daemon.received.find((one) => one.type === "stream.bound")?.data as
-			| { messages: { stream: number; entry: string }[] }
+			| { messages: { stream: string; entry: string }[] }
 			| undefined;
 		const pair = bound?.messages[0];
 		if (pair === undefined) throw new Error("no message was bound to an entry");

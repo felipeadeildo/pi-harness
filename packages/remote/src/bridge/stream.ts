@@ -32,7 +32,8 @@ interface WireUpdate {
 
 /** The message being written, as the snapshot and a resync carry it. */
 export interface Streaming {
-	stream: number;
+	/** Names the message among those this runtime streamed, as `stream.bound` refers to it. */
+	stream: string;
 	message: unknown;
 }
 
@@ -89,7 +90,7 @@ export class LiveStream {
 	#streams = 0;
 	#open: Streaming | undefined;
 	/** The message that ended in this turn, waiting for `turn_end` to name its entry. */
-	#ended: number | undefined;
+	#ended: string | undefined;
 	#batch: WireUpdate | undefined;
 	#flushTimer: ReturnType<typeof setTimeout> | undefined;
 	readonly #tools = new Map<string, Tool>();
@@ -107,12 +108,9 @@ export class LiveStream {
 	messageStart(event: MessageStartEvent): void {
 		if (event.message.role !== "assistant") return;
 		this.#streams += 1;
-		this.#open = { stream: this.#streams, message: event.message };
-		this.send("pi.message_start", {
-			type: "message_start",
-			stream: this.#streams,
-			message: event.message,
-		});
+		const stream = String(this.#streams);
+		this.#open = { stream, message: event.message };
+		this.send("pi.message_start", { type: "message_start", stream, message: event.message });
 	}
 
 	messageUpdate(event: MessageUpdateEvent): void {

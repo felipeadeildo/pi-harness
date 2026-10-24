@@ -90,7 +90,10 @@ export const remote = defineFeature({
 		scope.on("tool_execution_update", (event) => bridge?.stream.toolUpdate(event));
 		scope.on("tool_execution_end", (event) => bridge?.stream.toolEnd(event));
 		scope.on("turn_end", (event) => bridge?.stream.turnEnd(event));
-		scope.on("session_tree", (event) => bridge?.event("leaf.changed", { leaf: event.newLeafId }));
+		scope.on("session_tree", (event) => {
+			// A tree with no leaf left has no branch to draw, and a client keeps the one it holds.
+			if (event.newLeafId !== null) bridge?.event("leaf.changed", { leaf: event.newLeafId });
+		});
 		// pi's JSON mode has no form for a model change, so this one keeps the style of the others.
 		scope.on("model_select", (event) =>
 			bridge?.event("pi.model_select", {
