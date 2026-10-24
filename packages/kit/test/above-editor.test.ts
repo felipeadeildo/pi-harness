@@ -118,16 +118,31 @@ describe("the slot above the editor", () => {
 			finish: slot.finish,
 		}));
 		await host_.builtAtLeast(1);
-		const seen: number[] = [];
-		for (const drawn of [1, 5, 2]) {
-			lines = drawn;
-			host_.drawn.render(40);
-			seen.push(host_.overlay.overlayOptions().maxHeight);
-		}
+		// The host draws on its own, and reads the height from what it is given, so the frame is the
+		// measure: five lines once, then three, and the third frame is still five lines tall.
+		lines = 1;
+		const first = host_.drawn.render(40).length;
+		lines = 5;
+		const tallest = host_.drawn.render(40).length;
+		lines = 2;
+		const shorter = host_.drawn.render(40);
 		host_.drawn.handleInput("done");
 		await opened;
-		// It grew to five lines and stayed there when the dialog went back to two.
-		expect(seen).toEqual([1, 5, 5]);
+		expect([first, tallest, shorter.length]).toEqual([1, 5, 5]);
+		expect(shorter.slice(2)).toEqual(["", "", ""]);
+	});
+
+	test("no height is set for the host unless the caller asks for one", async () => {
+		const host_ = host();
+		const opened = openAboveEditor<string>(host_.ui, (slot) => ({
+			render: () => ["Ship it?"],
+			handleInput: (data) => slot.finish(data),
+			finish: slot.finish,
+		}));
+		await host_.builtAtLeast(1);
+		expect(host_.overlay.overlayOptions).toEqual({ anchor: "bottom-center" });
+		host_.drawn.handleInput("done");
+		await opened;
 	});
 
 	test("a second dialog waits for the first", async () => {

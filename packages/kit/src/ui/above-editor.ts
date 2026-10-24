@@ -53,10 +53,14 @@ export function openAboveEditor<T>(
 				const drawn = view({ finish: close, editor: () => ui.getEditorText() });
 				return {
 					invalidate(): void {},
+					// The height the host sees is the lines themselves, so growing and never shrinking is
+					// done here: a shorter step is padded to the tallest one drawn so far. Leaving it to a
+					// `maxHeight` would not work, because the host reads that once, before the first frame.
 					render(width: number): string[] {
 						const lines = drawn.render(width);
 						tallest = Math.max(tallest, lines.length);
-						return lines;
+						const padding = Array.from({ length: tallest - lines.length }, () => "");
+						return [...lines, ...padding];
 					},
 					handleInput(data: string): void {
 						drawn.handleInput(data);
@@ -65,12 +69,10 @@ export function openAboveEditor<T>(
 			},
 			{
 				overlay: true,
-				// The height only grows while the dialog is open: a shorter step must not move the
-				// editor under the reader's eyes any more than a shorter question moves a composer.
-				overlayOptions: () => ({
+				overlayOptions: {
 					anchor: "bottom-center",
-					maxHeight: options.maxHeight ?? tallest,
-				}),
+					...(options.maxHeight === undefined ? {} : { maxHeight: options.maxHeight }),
+				},
 			},
 		);
 		return ended;
