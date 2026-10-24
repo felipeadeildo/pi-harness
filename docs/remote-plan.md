@@ -224,6 +224,7 @@ Owner: names. Needs: N1, and C2 to reclaim the word of a session that crashed.
 - On `session_start`, a session with no handle draws a word that nobody holds and nobody reserved in the last 7 days. A resumed session gets its handle back when nobody holds it.
 - With every word taken, the draw adds a number (`kestrel-2`) once and keeps it.
 - The names feature logs `session.named { handle }` once. From then on tasks logs only the title, and readers still accept the older `{ handle, title }`. `bySession` reads the drawn handle from then on.
+- The `-2` suffix is the last resort: two sessions then sit behind the same first three letters, and `@kes` no longer completes to one handle. A folder that cannot take a claim leaves the session with `new-<id4>` instead of stopping it.
 - Tests: two sessions opening at once, in two processes, draw different words; a handle survives when the older session with the same word closes.
 
 ### N3. Renames, aliases and the identity section
