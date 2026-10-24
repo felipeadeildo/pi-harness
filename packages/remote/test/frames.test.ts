@@ -17,7 +17,7 @@ describe("a peer that stops answering", () => {
 					socket,
 					() => ({ message: () => {}, closed: () => seen.push("closed") }),
 					{
-						pingEvery: 20,
+						pingEvery: 100,
 						pongWait: 20,
 					},
 				);
@@ -55,8 +55,8 @@ describe("a peer that answers", () => {
 					socket,
 					() => ({ message: () => {}, closed: () => closed.push("closed") }),
 					{
-						pingEvery: 20,
-						pongWait: 60,
+						pingEvery: 30,
+						pongWait: 10,
 					},
 				);
 			});
@@ -87,7 +87,7 @@ describe("a peer that answers", () => {
 		);
 		// Three intervals with an answer to each ping: a heartbeat that closed live peers would show
 		// here, and a heartbeat that never pings would leave the count at zero.
-		await Bun.sleep(100);
+		await Bun.sleep(110);
 		expect(closed).toEqual([]);
 		client.end();
 		server.close();
