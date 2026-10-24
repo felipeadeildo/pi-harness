@@ -71,7 +71,7 @@ flowchart TD
 | One dialog for both        | done    | the permission ask goes through it, so both take the same keys                 |
 | `ctrl+g` in a typed answer | planned | opens the external editor, the last piece of the port                          |
 
-## Tasks. `@adeildo/pi-tasks`
+## Tasks. `@adeildo/pi-board`
 
 It replaced `@adeildo/pi-goal`. In a week of sessions, the goal timeline left most finished work in `later`. A message sent while the agent worked had pushed 72 of the 87 items there aside, and the end of the run could only close the one step under way.
 
