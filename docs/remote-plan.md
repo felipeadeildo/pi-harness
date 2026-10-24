@@ -4,7 +4,7 @@ This plan splits [the remote design](remote.md) into slices that land on `main` 
 
 ## Status
 
-A slice is ticked in the commit that lands it. A slice whose parts are on `main` and whose last part is an open pull request keeps its box empty and says `nearly:` with the pull request, because a task list counts boxes and the progress here is read from them.
+A slice is ticked in the commit that lands it. A slice whose parts are on `main` and whose last part is still coming keeps its box empty and says `nearly:` with what it waits on, because a task list counts boxes and that is where the progress is read.
 
 - [x] C1. The `By` type in the kit (core, F0)
 - [x] C2. Presence in the kit (core, F0)
@@ -30,8 +30,8 @@ A slice is ticked in the commit that lands it. A slice whose parts are on `main`
 - [x] W1. The Expo app and the CSP (client, F1)
 - [x] W2. Text from elsewhere (client, F1)
 - [x] W3. The Sessions and Session screens (client, F1)
-- [ ] I1. The inbox (names, before F2) — nearly: the kit's inbox is in, the wiring to pi is in review (#149)
-- [ ] C8. Commands through the bridge (core, F2) — nearly: the bridge and the daemon answer (#134, #145), the inbox half is #149
+- [ ] I1. The inbox (names, before F2) — nearly: peers delivering through the inbox waits on N4
+- [ ] C8. Commands through the bridge (core, F2) — nearly: prompt.send and queue.clear wait on I1
 - [ ] A5. Clients in the race for the harness's dialogs (ask, F2)
 - [ ] A6. pi's own dialogs in the race (ask, F2)
 - [x] P4. Commands and the outbox in the client library (protocol, F2)
