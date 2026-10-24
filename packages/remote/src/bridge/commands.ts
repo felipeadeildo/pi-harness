@@ -76,7 +76,12 @@ export class Commands {
 		}
 		this.#remember(id);
 		this.#options.received(id, type, by);
-		this.#pending = this.#pending.then(() => this.#execute(message));
+		// A reply that cannot go out, or a log that throws, must not leave the next command unanswered:
+		// the chain carries the failure and goes on with the one behind it.
+		this.#pending = this.#pending.then(
+			() => this.#execute(message),
+			() => this.#execute(message),
+		);
 		return this.#pending;
 	}
 

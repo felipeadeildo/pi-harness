@@ -88,6 +88,9 @@ describe("the commands' side of pi", () => {
 		const asked: string[] = [];
 		MODE_SET.provide(scope, () => ({ set: (mode) => asked.push(mode) }));
 		expect(() => commands.setMode("full", undefined)).toThrow("full is only set at the terminal");
+		// With a client saying it, which is the path a phone takes, and the one the rule is for.
+		const phone = { kind: "client", name: "phone", machine: "laptop" } as const;
+		expect(() => commands.setMode("full", phone)).toThrow("full is only set at the terminal");
 		expect(asked).toEqual([]);
 	});
 
@@ -103,8 +106,14 @@ describe("the commands' side of pi", () => {
 		);
 	});
 
+	test("takes off, which pi offers: a model that does not think at all", () => {
+		const { api: commands, thinking } = api();
+		commands.setThinking("off");
+		expect(thinking).toEqual(["off"]);
+	});
+
 	test("knows exactly the levels pi offers, and nothing between them", () => {
 		for (const level of THINKING_LEVELS) expect(isThinkingLevel(level)).toBe(true);
-		for (const other of ["off", "maximal", "", "HIGH"]) expect(isThinkingLevel(other)).toBe(false);
+		for (const other of ["none", "maximal", "", "HIGH"]) expect(isThinkingLevel(other)).toBe(false);
 	});
 });

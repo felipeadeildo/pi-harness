@@ -10,9 +10,10 @@ import {
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import type { SessionApi } from "./bridge/bridge.ts";
+import { Refused } from "./bridge/commands.ts";
 
-/** pi's own thinking levels, as the `/thinking` command offers them. */
-export const THINKING_LEVELS = ["minimal", "low", "medium", "high", "xhigh", "max"] as const;
+/** pi's own thinking levels, as the `/thinking` command offers them, `off` included. */
+export const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
 export type ThinkingLevel = (typeof THINKING_LEVELS)[number];
 
@@ -31,24 +32,24 @@ export function commandApi(scope: FeatureScope, ctx: ExtensionContext): SessionA
 		},
 		setModel: async (provider, id) => {
 			const model = ctx.modelRegistry.find(provider, id);
-			if (model === undefined) throw new Error(`no model ${provider}/${id} on this machine`);
+			if (model === undefined) throw new Refused(`no model ${provider}/${id} on this machine`);
 			// pi answers false when it kept the model it had: a client that hears nothing would think it
 			// switched, so the answer says it did not.
-			if (!(await scope.setModel(model))) throw new Error("the model stayed as it was");
+			if (!(await scope.setModel(model))) throw new Refused("the model stayed as it was");
 		},
 		setThinking: (level) => {
 			if (!isThinkingLevel(level))
-				throw new Error(`${level} is not a thinking level: ${THINKING_LEVELS.join(", ")}`);
+				throw new Refused(`${level} is not a thinking level: ${THINKING_LEVELS.join(", ")}`);
 			scope.setThinkingLevel(level);
 		},
 		setMode: (mode, by) => {
 			// `full` runs every call without asking, and a rule or a stolen phone must not reach it: it
 			// is set at the terminal, where the person is looking at the session it applies to.
-			if (mode === "full") throw new Error("full is only set at the terminal");
-			if (!isPermissionMode(mode)) throw new Error(`${mode} is not a permission mode`);
+			if (mode === "full") throw new Refused("full is only set at the terminal");
+			if (!isPermissionMode(mode)) throw new Refused(`${mode} is not a permission mode`);
 			const control = MODE_SET.current(scope);
 			if (control === undefined)
-				throw new Error("this session has no permission feature to change the mode");
+				throw new Refused("this session has no permission feature to change the mode");
 			control.set(mode, by);
 		},
 	};

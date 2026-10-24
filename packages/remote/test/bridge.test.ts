@@ -219,7 +219,9 @@ describe("the bridge", () => {
 		expect(daemon.received.find((one) => one.kind === "error")).toMatchObject({
 			type: "thinking.set",
 			id: "c2",
-			data: { reason: "turbo is not a thinking level: minimal, low, medium, high, xhigh, max" },
+			data: {
+				reason: "turbo is not a thinking level: off, minimal, low, medium, high, xhigh, max",
+			},
 		});
 		await stop(fake, "quit");
 	});

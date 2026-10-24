@@ -5,7 +5,7 @@ import { describe, expect, test } from "bun:test";
 import type { By } from "@adeildo/pi-kit";
 import { envelope, type Envelope } from "@adeildo/pi-remote-protocol";
 
-import { Commands, KEPT_COMMANDS, Refused } from "../src/bridge/commands.ts";
+import { type CommandEffects, Commands, KEPT_COMMANDS, Refused } from "../src/bridge/commands.ts";
 
 const PHONE: By = { kind: "client", name: "phone", machine: "laptop" };
 
@@ -17,9 +17,7 @@ interface Ran {
 }
 
 /** A bridge's side of the commands, with the session's effects recorded instead of performed. */
-function commands(
-	options: { history?: string[]; effects?: Partial<Record<string, () => void>> } = {},
-) {
+function commands(options: { history?: string[]; effects?: Partial<CommandEffects> } = {}) {
 	const answers: Ran[] = [];
 	const log: string[] = [];
 	const done: string[] = [];
@@ -129,6 +127,53 @@ describe("a command from a client", () => {
 		finish();
 		await running;
 		expect(answers[0]).toMatchObject({ kind: "reply", id: "c1" });
+	});
+
+	test("a command refused by policy is answered as refused, and the promise chain goes on", async () => {
+		const seen: string[] = [];
+		const { instance, answers } = commands({
+			effects: {
+				setMode: (mode: string) => {
+					if (mode === "full") throw new Refused("full is only set at the terminal");
+					seen.push(mode);
+				},
+			},
+		});
+		const refused = instance.run(command("mode.set", { mode: "full" }, "c1"));
+		const after = instance.run(command("session.rename", { name: "release check" }, "c2"));
+		await Promise.all([refused, after]);
+		expect(answers[0]).toMatchObject({ kind: "error", id: "c1" });
+		// The command behind a refused one still runs: the queue never waits on a policy answer.
+		expect(answers[1]).toMatchObject({ kind: "reply", id: "c2" });
+		expect(seen).toEqual([]);
+	});
+
+	test("a reply that cannot go out does not leave the commands behind it unanswered", async () => {
+		const answers: string[] = [];
+		let fail = true;
+		const instance = new Commands({
+			session: "s1",
+			effects: {
+				abort: () => {},
+				compact: () => {},
+				rename: () => {},
+				stop: () => {},
+				setModel: () => Promise.resolve(),
+				setThinking: () => {},
+				setMode: () => {},
+			},
+			answer: (_kind, type, _data, id) => {
+				// The reply and the error reply of the first command both miss their socket.
+				if (fail && id === "c1") throw new Error("the socket went away mid-answer");
+				fail = false;
+				answers.push(`${type}:${id}`);
+			},
+			received: () => {},
+			outcome: () => {},
+		});
+		void instance.run(command("run.abort", {}, "c1"));
+		await instance.run(command("run.abort", {}, "c2"));
+		expect(answers).toEqual(["run.abort:c2"]);
 	});
 
 	test("an effect that refuses the command answers with its reason, and the log says refused", async () => {
