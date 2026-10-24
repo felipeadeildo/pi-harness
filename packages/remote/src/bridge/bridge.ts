@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 
 import {
 	type By,
+	CANCEL,
 	type EventScope,
 	HOST,
 	logFrom,
@@ -21,6 +22,7 @@ import {
 import type { Envelope, SessionSnapshot } from "@adeildo/pi-remote-protocol";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
+import { OpenAsks } from "./asks.ts";
 import { Commands, Refused } from "./commands.ts";
 import { BridgeConnection, type ConnectionSeams, type GoneReason } from "./connection.ts";
 import { HarnessFacts, LOGGED_FACTS } from "./facts.ts";
@@ -97,6 +99,7 @@ export class Bridge {
 			options.seams,
 		);
 		this.stream = new LiveStream((type, data, send) => this.#connection.event(type, data, send));
+		this.#asks.watch(options.scope.events);
 		this.#commands = new Commands({
 			session: ctx.sessionManager.getSessionId(),
 			effects: {
@@ -109,13 +112,15 @@ export class Bridge {
 				setModel: (provider, id) => options.api.setModel(provider, id),
 				setThinking: (level) => options.api.setThinking(level),
 				setMode: (mode, by) => options.api.setMode(mode, by),
-				// The questions open at this point are closed as a no once the ask slice lands here.
+				// A question open here is closed as a no before the session goes, so the extension that
+				// is waiting hears "no" instead of an error, and no client keeps a dead dialog.
 				stop: (force) => {
 					// A terminal session stops by its own pi: it takes the answer to the run and exits.
 					// The kill a forced stop asks for belongs to a background session's runner, which
 					// F4 brings, so until there is one the answer says why it cannot be forced.
 					if (force)
 						throw new Refused("a forced stop needs a background session, which has a runner");
+					for (const id of this.#asks.open) options.scope.events.emit(CANCEL, { id });
 					ctx.abort();
 					ctx.shutdown();
 				},
@@ -138,6 +143,8 @@ export class Bridge {
 	}
 
 	/** Asks the daemon something, as `/remote` asks for a token. Nothing comes back without a daemon. */
+	readonly #asks = new OpenAsks();
+
 	request(type: string, data: unknown): Promise<Envelope | undefined> {
 		return this.#connection.request(type, data);
 	}

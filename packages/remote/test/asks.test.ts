@@ -4,7 +4,7 @@ import { ANSWER, ASK, type AnswerEvent, AVAILABLE, CANCEL, type By } from "@adei
 import { emptySessionFacts, isFact, reduceFact } from "@adeildo/pi-remote-protocol";
 import { createEventBus } from "@earendil-works/pi-coding-agent";
 
-import { ClientAsks } from "../src/bridge/asks.ts";
+import { ClientAsks, OpenAsks } from "../src/bridge/asks.ts";
 
 const CLIENT: By = { kind: "client", name: "my phone", machine: "phone" };
 const QUESTION = { id: "q1", questions: [{ question: "Which one?", header: "One", options: [] }] };
@@ -115,5 +115,18 @@ describe("the questions of a session with no terminal", () => {
 			facts = reduceFact(facts, event.type, event.data);
 		}
 		expect(Object.values(facts.asks).filter((one) => one.closed === undefined)).toEqual([]);
+	});
+
+	test("a stop closes the questions a session has open, and not the ones already answered", () => {
+		const events = createEventBus();
+		const open = new OpenAsks();
+		open.watch(events);
+		// The question the session has to close as a no before it aborts, and two that are done.
+		events.emit(ASK, QUESTION);
+		events.emit(ASK, { ...QUESTION, id: "answered" });
+		events.emit(ANSWER, { id: "answered", result: { answers: [] } });
+		events.emit(ASK, { ...QUESTION, id: "cancelled" });
+		events.emit(CANCEL, { id: "cancelled" });
+		expect(open.open).toEqual(["q1"]);
 	});
 });
