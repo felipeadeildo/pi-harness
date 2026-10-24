@@ -1,0 +1,219 @@
+import { describe, expect, test } from "bun:test";
+// A client against a fake daemon: the cursor it sends in its hello, the cache it draws before the
+// network answers, the reconnect after a drop, and the snapshot it asks for when it lost a number.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import type { Entry, Envelope } from "@adeildo/pi-remote-protocol";
+
+import { memoryCache } from "../src/cache.ts";
+import { connect } from "../src/connection.ts";
+import { factsOf, transcriptOfSession } from "../src/session.ts";
+
+const FIXTURE = join(
+	import.meta.dir,
+	"..",
+	"..",
+	"remote-protocol",
+	"test",
+	"fixtures",
+	"recording",
+);
+const key = { machine: "here", session: "01a16b15" };
+
+function lines(name: string): Record<string, unknown>[] {
+	return readFileSync(join(FIXTURE, name), "utf8")
+		.trim()
+		.split("\n")
+		.map((line) => JSON.parse(line) as Record<string, unknown>);
+}
+
+const entries = lines("session.jsonl").filter(
+	(entry) => entry.type !== "session",
+) as unknown as Entry[];
+const facts = lines("harness.jsonl") as { type: string; data: unknown }[];
+
+/** The envelopes the bridge sends after a snapshot: the log's facts, then the entries, numbered. */
+function stream(first: number): Envelope[] {
+	let seq = first;
+	const one = (type: string, data: unknown): Envelope => {
+		seq += 1;
+		return {
+			v: 1,
+			kind: "event",
+			machine: key.machine,
+			session: key.session,
+			epoch: "e1",
+			seq,
+			type,
+			data,
+			at: 0,
+		};
+	};
+	return [
+		...facts
+			.filter((fact) => fact.type !== "session.named")
+			.map((fact) => one(fact.type, fact.data)),
+		...entries.map((entry) => one("entry", entry)),
+	];
+}
+
+const snapshot: Envelope = {
+	v: 1,
+	kind: "event",
+	machine: key.machine,
+	session: key.session,
+	epoch: "e1",
+	seq: 1,
+	type: "snapshot",
+	data: {
+		snapshot: { session: key.session, machine: key.machine, cwd: "/work", kind: "terminal" },
+		entries: [],
+		facts: [],
+	},
+	at: 0,
+};
+
+/** The cursor a hello carries, which is what the daemon resumes from. */
+function cursorOf(envelope: Envelope): { epoch?: string; seq?: number } {
+	return (envelope.data as { cursor?: { epoch?: string; seq?: number } }).cursor ?? {};
+}
+
+describe("a client of a session", () => {
+	test("the hello carries the cursor, and what follows is read from it", async () => {
+		let hello: Envelope | undefined;
+		const client = connect({
+			key,
+			cache: memoryCache(),
+			open: (onMessage) => ({
+				send: (sent) => {
+					hello = sent;
+					// The daemon answers a client that lost its place with a snapshot, then streams.
+					for (const envelope of [snapshot, ...stream(1)]) onMessage(envelope);
+				},
+				close: () => {},
+			}),
+		});
+
+		await client.load();
+
+		expect(hello).toBeDefined();
+		expect(cursorOf(hello as Envelope)).toEqual({});
+		// The entries and the task facts of the recording arrived, each once, in pi's order.
+		expect(client.session().entries.map((entry) => entry.id)).toEqual(
+			entries.map((entry) => entry.id),
+		);
+		expect(client.session().facts.filter((fact) => fact.type === "tasks.changed")).toHaveLength(2);
+		expect(factsOf(client.session()).tasks?.handle).toBe("rig");
+		expect(transcriptOfSession(client.session()).items.length).toBeGreaterThan(0);
+		client.stop();
+	});
+
+	test("a warm cache draws before a single byte goes out, and hello resumes from it", async () => {
+		const cache = memoryCache();
+		await cache.write({
+			key,
+			cursor: { epoch: "e1", seq: 1, entry: entries.at(-1)?.id },
+			entries,
+			facts,
+		});
+		const order: string[] = [];
+		let drawn: number[] = [];
+
+		const client = connect({
+			key,
+			cache,
+			open: () => ({
+				send: () => order.push("hello"),
+				close: () => {},
+			}),
+		});
+		client.on((session) => {
+			drawn.push(transcriptOfSession(session).items.length);
+			order.push("drawn");
+		});
+
+		await client.load();
+
+		expect(order[0]).toBe("drawn");
+		expect(order).toContain("hello");
+		expect(drawn[0]).toBeGreaterThan(0);
+		drawn = [];
+		client.stop();
+	});
+
+	test("a drop reconnects with the cursor of the last envelope it read", async () => {
+		const envelopes = [snapshot, ...stream(1)];
+		const hellos: Envelope[] = [];
+		let attempts = 0;
+
+		const client = connect({
+			key,
+			cache: memoryCache(),
+			open: (onMessage, onClose) => {
+				attempts += 1;
+				const attempt = attempts;
+				return {
+					send: (hello) => {
+						hellos.push(hello);
+						const from = cursorOf(hello).seq ?? 0;
+						const rest = envelopes.filter((envelope) => (envelope.seq ?? 0) > from);
+						// The first attempt gets three envelopes and loses the link; the second one
+						// gets the rest, because the hello resumes where the first stopped.
+						const take = attempt === 1 ? rest.slice(0, 3) : rest;
+						queueMicrotask(() => {
+							for (const envelope of take) onMessage(envelope);
+							if (attempt === 1) onClose();
+						});
+					},
+					close: () => {},
+				};
+			},
+			wait: (_ms, run) => {
+				queueMicrotask(run);
+				return () => {};
+			},
+		});
+
+		await client.load();
+		await new Promise((resolve) => setTimeout(resolve, 30));
+
+		expect(attempts).toBeGreaterThan(1);
+		expect(cursorOf(hellos.at(-1) as Envelope).seq).toBeGreaterThanOrEqual(3);
+		// Nothing arrived twice: the entries the client holds are the recording's, in order.
+		expect(client.session().entries.map((entry) => entry.id)).toEqual(
+			entries.map((entry) => entry.id),
+		);
+		client.stop();
+	});
+
+	test("a hole in the numbering asks for a snapshot instead of drawing what comes next", async () => {
+		const cache = memoryCache();
+		await cache.write({ key, cursor: { epoch: "e1", seq: 1 }, entries: [], facts: [] });
+		const hellos: Envelope[] = [];
+
+		const client = connect({
+			key,
+			cache,
+			open: (onMessage) => ({
+				send: (hello) => {
+					hellos.push(hello);
+					if (hellos.length > 1) return;
+					// Two when one was expected, and then five: the client missed three numbers.
+					onMessage({ ...snapshot, seq: 2, type: "mode.changed", data: { mode: "edits" } });
+					onMessage({ ...snapshot, seq: 5, type: "mode.changed", data: { mode: "manual" } });
+				},
+				close: () => {},
+			}),
+			wait: () => () => {},
+		});
+
+		await client.load();
+
+		expect(hellos.length).toBeGreaterThan(1);
+		expect(cursorOf(hellos.at(-1) as Envelope).seq).toBeUndefined();
+		// What it read before the hole stands; what came after it was not drawn.
+		expect(factsOf(client.session()).mode).toBe("edits");
+		client.stop();
+	});
+});
