@@ -806,7 +806,10 @@ test("the first account brings pi's own login along, under a name of its own", a
 	expect(store.active("anthropic")?.label).toBe("work");
 });
 
-/** Lets the plans read in the background settle: the mocked fetch answers within microtasks. */
+/**
+ * Lets the plans read in the background settle. One turn is enough because the mocked fetch answers
+ * within microtasks; it is no wait for a real timer or the network, so a test with either needs more.
+ */
 async function settle(): Promise<void> {
 	await new Promise((resolve) => setTimeout(resolve, 0));
 }
