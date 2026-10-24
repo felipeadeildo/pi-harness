@@ -114,6 +114,8 @@ export const remote = defineFeature({
 			asks?.stop();
 			asks = undefined;
 		});
+		// A follow-up waits for this: the run is over, so what a client held goes in now.
+		scope.on("agent_settled", () => bridge?.settled());
 		scope.on("message_start", (event) => bridge?.stream.messageStart(event));
 		scope.on("message_update", (event) => bridge?.stream.messageUpdate(event));
 		scope.on("message_end", (event) => bridge?.stream.messageEnd(event));
