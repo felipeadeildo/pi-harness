@@ -9,7 +9,7 @@ import { type By, envelope, type Envelope, PROTOCOL } from "@adeildo/pi-remote-p
 
 import { requestLink } from "../src/cli/open.ts";
 import { FILES, History, type Page } from "../src/daemon/history.ts";
-import { Daemon } from "../src/daemon/server.ts";
+import { Daemon, portRefused } from "../src/daemon/server.ts";
 import { envelopeOf, line, Lines } from "../src/wire/lines.ts";
 import { frame, Frames, MAX_MESSAGE } from "../src/wire/websocket.ts";
 import { until } from "./fakes.ts";
@@ -687,7 +687,7 @@ describe("logging in", () => {
 		running.push(daemon);
 		// The message names what to do about it: a port another program holds is the operator's fix.
 		const link = await requestLink(socket);
-		expect("reason" in link ? link.reason : "").toContain("the port is taken by another program");
+		expect("reason" in link ? link.reason : "").toContain("no client can reach this daemon");
 		expect("reason" in link ? link.reason : "").toContain("Alt+S › Remote");
 	});
 });
@@ -927,5 +927,17 @@ describe("a session's older entries", () => {
 		expect(await first.json()).toMatchObject({ entries: [{ id: "a" }], more: false });
 		expect((await get("?since=gone")).status).toBe(410);
 		expect((await get("", "desktop")).status).toBe(404);
+	});
+});
+
+describe("a port that will not open", () => {
+	test("says the cause the error gave, and where the port is changed", () => {
+		expect(portRefused(7878, "EADDRINUSE")).toBe(
+			"port 7878 is already in use by another program; the port is set in Alt+S › Remote",
+		);
+		expect(portRefused(80, "EACCES")).toBe(
+			"port 80 needs privilege to be opened; the port is set in Alt+S › Remote",
+		);
+		expect(portRefused(7878, undefined)).toContain("no reason given");
 	});
 });

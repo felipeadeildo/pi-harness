@@ -32,10 +32,10 @@ export async function serveExport(exported: string): Promise<Preview> {
 		command: () => false,
 		web,
 	});
-	const port = await clients.listen(0);
-	if (port === undefined) throw new Error("the preview found no port to listen on");
+	const listened = await clients.listen(0);
+	if ("why" in listened) throw new Error(`the preview found no port to listen on: ${listened.why}`);
 	return {
-		url: `http://127.0.0.1:${port}/`,
+		url: `http://127.0.0.1:${listened.port}/`,
 		stop: () => {
 			clients.close();
 			rmSync(out, { recursive: true, force: true });

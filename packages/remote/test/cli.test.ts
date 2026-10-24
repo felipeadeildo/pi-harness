@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { run } from "../src/cli/run.ts";
+import { portFromSettings, run } from "../src/cli/run.ts";
 import { findWebDir } from "../src/daemon/app.ts";
 import { Daemon } from "../src/daemon/server.ts";
 import { until } from "./fakes.ts";
@@ -97,4 +97,24 @@ test("a daemon that stays up does not exit for being idle", async () => {
 	expect(exits).toEqual([]);
 	daemon?.stop();
 	await until(() => exits.length === 1);
+});
+
+test("the port comes from the settings, and a value the decoder refuses falls back to the default", () => {
+	// The CLI runs outside pi, so it reads the same file pi writes, in the agent directory.
+	const agent = join(dir, "agent");
+	const file = join(agent, "extensions", "pi-harness", "settings.json");
+	const before = process.env.PI_CODING_AGENT_DIR;
+	mkdirSync(join(agent, "extensions", "pi-harness"), { recursive: true });
+	try {
+		process.env.PI_CODING_AGENT_DIR = agent;
+		expect(portFromSettings()).toBe(7878);
+		writeFileSync(file, JSON.stringify({ "remote.port": 8123 }));
+		expect(portFromSettings()).toBe(8123);
+		// A number the setting does not accept is not a port the daemon may listen on.
+		writeFileSync(file, JSON.stringify({ "remote.port": 70_000 }));
+		expect(portFromSettings()).toBe(7878);
+	} finally {
+		if (before === undefined) delete process.env.PI_CODING_AGENT_DIR;
+		else process.env.PI_CODING_AGENT_DIR = before;
+	}
 });

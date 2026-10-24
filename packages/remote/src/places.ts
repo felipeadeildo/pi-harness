@@ -14,6 +14,20 @@ export function daemonDir(env: NodeJS.ProcessEnv = process.env): string {
 	return join(agent || join(homedir(), ".pi", "agent"), "harness", "remote");
 }
 
+/**
+ * The settings file pi writes, for the daemon and the command, which run outside pi and may import
+ * only Node's own modules. The kit owns the format; this is the path, spelled the same way.
+ */
+export function settingsPath(env: NodeJS.ProcessEnv = process.env): string {
+	const agent = env.PI_CODING_AGENT_DIR?.replace(/^~(?=\/|$)/, homedir());
+	return join(
+		agent || join(homedir(), ".pi", "agent"),
+		"extensions",
+		"pi-harness",
+		"settings.json",
+	);
+}
+
 export function daemonPaths(dir: string): { socket: string; current: string; logins: string } {
 	return {
 		socket: join(dir, "daemon.sock"),
