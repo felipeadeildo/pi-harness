@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 
 import type { AgentToolResult, Theme } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
@@ -193,7 +193,9 @@ describe("a row drawn again and again", () => {
 
 	/** Draws both halves of one row as pi does on each redraw, handing back what each returned. */
 	function redraw(times: number, keep: (first: object) => void) {
-		const renderers = toolRenderers(places, new Map());
+		const rows = new Map<string, () => void>();
+		const renderers = toolRenderers(places, rows);
+		const firsts: Component[] = [];
 		const state = {};
 		let call: Component | undefined;
 		let result: Component | undefined;
@@ -219,9 +221,10 @@ describe("a row drawn again and again", () => {
 			if (i === 0) {
 				keep(row);
 				keep(resultRow);
+				firsts.push(call, result);
 			}
 		}
-		return { call, result };
+		return { call, result, rows, firsts };
 	}
 
 	test("keeps the component it drew, updated, instead of a new one each time", () => {
@@ -236,6 +239,35 @@ describe("a row drawn again and again", () => {
 		});
 		expect(again).toBe(first);
 		expect(again.render(80).join("\n")).toContain("@anyone");
+
+		const result = renderers.renderResult(sent, { expanded: false }, plain, row);
+		const expanded = renderers.renderResult(sent, { expanded: true }, plain, {
+			...row,
+			lastComponent: result,
+		});
+		expect(expanded).toBe(result);
+	});
+
+	test("a receipt on its way asks the clock once for its next redraw, not once per drawing", () => {
+		const nowAt = Date.now();
+		const moving: Places = {
+			here: () => source(posted(["a"], { at: nowAt }), ["me", "a"]),
+			rooms: () => [],
+		};
+		const timers = spyOn(globalThis, "setTimeout");
+		try {
+			const row = { toolCallId: "c1", argsComplete: true, state: {}, invalidate: nothing };
+			const drawn = toolRenderers(moving, new Map()).renderResult(
+				sent,
+				{ expanded: false },
+				plain,
+				row,
+			);
+			for (let i = 0; i < 10; i++) drawn.render(80);
+			expect(timers).toHaveBeenCalledTimes(1);
+		} finally {
+			timers.mockRestore();
+		}
 	});
 
 	test("keeps one redraw per call, the one of the row pi drew last", () => {
@@ -261,9 +293,14 @@ describe("a row drawn again and again", () => {
 
 	test("lets go of what pi handed the first drawing", () => {
 		const first: WeakRef<object>[] = [];
-		const { call, result } = redraw(1_000, (row) => first.push(new WeakRef(row)));
+		const { call, result, rows, firsts } = redraw(1_000, (row) => first.push(new WeakRef(row)));
 		Bun.gc(true);
 		expect(first.map((ref) => ref.deref())).toEqual([undefined, undefined]);
+		// The same two components all along, and one redraw for the one call.
+		expect([call, result]).toEqual(firsts);
+		expect(call).toBe(firsts[0]);
+		expect(result).toBe(firsts[1]);
+		expect(rows.size).toBe(1);
 		// The last components are still in use; they only must not hold the rows before them.
 		expect(call?.render(80).length).toBeGreaterThan(0);
 		expect(result?.render(80).length).toBeGreaterThan(0);
