@@ -2,6 +2,7 @@
 // and the built files of its version, and `bin/pi-remote` runs them. The launcher's text never
 // changes, so a service or a link that points at it keeps working when pi updates and the package
 // moves on disk.
+import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -60,6 +61,35 @@ export function writeLauncher(dir: string, current: Current): void {
 	if (!existsSync(launcher) || readFileSync(launcher, "utf8") !== script) {
 		writeAtomically(launcher, script, 0o755);
 	}
+}
+
+/** What `current.json` names, or nothing when it is missing or not what a pi wrote. */
+export function readCurrent(dir: string): Current | undefined {
+	let value: unknown;
+	try {
+		value = JSON.parse(readFileSync(join(dir, "current.json"), "utf8"));
+	} catch {
+		return undefined;
+	}
+	if (typeof value !== "object" || value === null) return undefined;
+	const { node, cli, daemon, version } = value as Record<string, unknown>;
+	if (typeof node !== "string" || typeof cli !== "string") return undefined;
+	if (typeof daemon !== "string" || typeof version !== "string") return undefined;
+	return { node, cli, daemon, version };
+}
+
+/**
+ * Starts the daemon of the version the last pi wrote down, detached from this pi, so it outlives
+ * the session that started it and an older pi still starts the newest daemon.
+ */
+export function startDaemon(dir: string): void {
+	const current = readCurrent(dir);
+	if (current === undefined)
+		throw new Error(`${join(dir, "current.json")} names no daemon to start`);
+	const child = spawn(current.node, [current.daemon], { detached: true, stdio: "ignore" });
+	// A Node binary that moved since must not take pi down with it.
+	child.on("error", () => {});
+	child.unref();
 }
 
 function writeAtomically(path: string, text: string, mode = 0o644): void {

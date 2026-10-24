@@ -291,7 +291,7 @@ Owner: core. Needs: nothing.
 
 Owner: core. Needs: C2, C3, P2, A4, and P1 for its tests.
 
-The bridge registers only in a pi in tui mode. It connects to `remote/daemon.sock`, and spawns the daemon when nothing answers. Its hello carries the protocol and package versions and the epoch, which changes with every extension runtime.
+The bridge registers only in a pi in tui mode. It connects to `remote/daemon.sock`, and spawns the daemon when nothing answers. Its hello carries the protocol and package versions and the epoch, which changes with every extension runtime. The connection lives in `packages/remote/src/bridge/connection.ts` and the line format in `packages/remote/src/wire/lines.ts`, which the daemon bundles too. The bridge starts the daemon `current.json` names, so an older pi still starts the newest daemon.
 
 - It publishes pi's events, the harness's facts and the contracts' changes with a sequence number, and it answers the snapshot request.
 - At `turn_end` it emits `stream.bound` with the entry ids, and a `/tree` move emits `leaf.changed`. `/new`, `/resume` and `/fork` end the old session with `session.gone { reason: "replaced" }`.

@@ -15,3 +15,5 @@ bun run --cwd packages/remote build
 ```
 
 Every pi start writes `~/.pi/agent/harness/remote/current.json`, which names the Node binary and the built files of the version that started, and the same values as shell assignments in `current.sh`. `~/.pi/agent/harness/remote/bin/pi-remote` is a launcher that sources `current.sh` and runs that command. The launcher never changes, so a service or a link in `~/.local/bin` keeps working across updates.
+
+The bridge in a terminal session connects to the daemon on `~/.pi/agent/harness/remote/daemon.sock`, one JSON envelope per line. When nothing answers, it starts the daemon `current.json` names, detached, and keeps trying with a short backoff; it starts the daemon again at most every 10 seconds. A send never waits: while the daemon is away, nothing is sent, and on the next connection the bridge tells the daemon again what it must know. When more than 1 MB waits on the socket, the bridge drops streamed deltas until the socket drains, and past 8 MB it reconnects. A `pi -p` never connects.

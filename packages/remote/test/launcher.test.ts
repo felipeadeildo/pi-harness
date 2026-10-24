@@ -2,23 +2,22 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import {
 	copyFileSync,
+	existsSync,
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
 	rmSync,
 	statSync,
 	symlinkSync,
+	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createApp } from "@adeildo/pi-kit";
-import { type FakePi, fakeContext, fakePi } from "@adeildo/pi-kit/testing";
-
 import { buildRemote } from "../build.ts";
-import { remote } from "../src/index.ts";
-import { type Current, writeLauncher } from "../src/launcher.ts";
+import { type Current, readCurrent, startDaemon, writeLauncher } from "../src/launcher.ts";
 import { VERSION } from "../src/version.ts";
+import { until } from "./fake-daemon.ts";
 
 const NODE = Bun.which("node") ?? "node";
 
@@ -89,24 +88,32 @@ describe("the launcher", () => {
 	});
 });
 
-describe("the bridge", () => {
-	function mounted(): FakePi {
-		const fake = fakePi();
-		createApp(fake.pi, { name: "test", settingsPath: join(root, "settings.json") })
-			.use(remote)
-			.build();
-		return fake;
-	}
+describe("starting the daemon", () => {
+	test("reads what current.json names, and nothing that is not what a pi wrote", () => {
+		const dir = join(root, "read");
+		writeLauncher(dir, current);
+		expect(readCurrent(dir)).toEqual(current);
+		writeFileSync(join(dir, "current.json"), '{"node": 1}');
+		expect(readCurrent(dir)).toBeUndefined();
+		writeFileSync(join(dir, "current.json"), "not json");
+		expect(readCurrent(dir)).toBeUndefined();
+		expect(readCurrent(join(root, "nowhere"))).toBeUndefined();
+	});
 
-	test("writes the launcher when a session starts in a terminal, and not for pi -p", async () => {
-		const tui = join(root, "from-tui");
-		const print = join(root, "from-print");
-		process.env.PI_REMOTE_DIR = tui;
-		await mounted().fire("session_start", {}, fakeContext([], true));
-		process.env.PI_REMOTE_DIR = print;
-		await mounted().fire("session_start", {}, fakeContext([], false));
-		delete process.env.PI_REMOTE_DIR;
-		expect(JSON.parse(readFileSync(join(tui, "current.json"), "utf8")).version).toBe(VERSION);
-		expect(() => statSync(print)).toThrow();
+	test("starts the daemon current.json names, apart from this process", async () => {
+		const dir = join(root, "start");
+		mkdirSync(dir, { recursive: true });
+		const marker = join(dir, "started");
+		const daemon = join(dir, "daemon.js");
+		writeFileSync(daemon, `require("node:fs").writeFileSync(${JSON.stringify(marker)}, "yes");\n`);
+		writeLauncher(dir, { ...current, daemon });
+		startDaemon(dir);
+		await until(() => existsSync(marker));
+	});
+
+	test("says what is missing when no pi wrote current.json", () => {
+		expect(() => startDaemon(join(root, "nowhere"))).toThrow(
+			"current.json names no daemon to start",
+		);
 	});
 });

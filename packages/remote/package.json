@@ -27,7 +27,8 @@
 		"build": "bun build.ts"
 	},
 	"dependencies": {
-		"@adeildo/pi-kit": "workspace:*"
+		"@adeildo/pi-kit": "workspace:*",
+		"@adeildo/pi-remote-protocol": "workspace:*"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-ai": "*",
