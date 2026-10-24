@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { LoggedEvent, LogEventMap, Member } from "@adeildo/pi-kit";
 
+import { type Posted, receivesFor } from "../src/folder.ts";
 import { Membership } from "../src/membership.ts";
 
 let clock = 1_000;
@@ -82,5 +83,48 @@ describe("how a session stands in a room", () => {
 			event("you", "room.removed", { member: FOLDER }),
 		);
 		expect(membership.modeOf("s1", "/repo")).toBe("out");
+	});
+});
+
+describe("what a session standing in each mode takes", () => {
+	const message = (to: "all" | "any" | string[]): Posted =>
+		({
+			id: "m1",
+			session: "other",
+			from: "agent",
+			to,
+			text: "hi",
+			urgent: false,
+			depth: 0,
+			at: 0,
+			received: new Map(),
+			read: new Set(),
+			bids: new Map(),
+			takenBy: undefined,
+		}) as unknown as Posted;
+
+	test("in takes what names nobody, what names everyone and what names this session", () => {
+		expect(receivesFor("in", message(["s1"]), "s1")).toBe(true);
+		expect(receivesFor("in", message("all"), "s1")).toBe(true);
+	});
+
+	test("listening keeps what names the session, and nothing else", () => {
+		expect(receivesFor("listening", message(["s1"]), "s1")).toBe(true);
+		expect(receivesFor("listening", message(["other"]), "s1")).toBe(false);
+	});
+
+	test("listening ignores a message addressed to everyone, because everyone is who takes part", () => {
+		expect(receivesFor("listening", message("all"), "s1")).toBe(false);
+	});
+
+	test("listening ignores a message addressed to anyone, because anyone is who takes part", () => {
+		expect(receivesFor("listening", message("any"), "s1")).toBe(false);
+	});
+
+	test("out takes nothing, whatever it is addressed to", () => {
+		for (const to of [["s1"], ["s1", "s2"]] as string[][])
+			expect(receivesFor("out", message(to), "s1")).toBe(false);
+		expect(receivesFor("out", message("all"), "s1")).toBe(false);
+		expect(receivesFor("out", message("any"), "s1")).toBe(false);
 	});
 });

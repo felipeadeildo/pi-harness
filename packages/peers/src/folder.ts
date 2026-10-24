@@ -6,6 +6,7 @@ import {
 	type Lives,
 	type LoggedEvent,
 	type RoomActivity,
+	type RoomMode,
 	type SessionTasks,
 	tasksWith,
 } from "@adeildo/pi-kit";
@@ -69,6 +70,18 @@ export function reaches(message: Posted, session: string): boolean {
 	if (message.to === "any") return false;
 	if (message.to === "all") return !(message.from === "agent" && message.session === session);
 	return message.to.includes(session);
+}
+
+/**
+ * Whether a session standing in `mode` takes this message. Taking part takes what `reaches` says;
+ * listening takes only what names the session, and nothing addressed to the room, because
+ * `@everyone` and `@anyone` are addresses of the ones taking part; out takes nothing.
+ */
+export function receivesFor(mode: RoomMode, message: Posted, session: string): boolean {
+	if (mode === "out") return false;
+	if (mode === "listening")
+		return message.to !== "all" && message.to !== "any" && message.to.includes(session);
+	return reaches(message, session);
 }
 
 /**

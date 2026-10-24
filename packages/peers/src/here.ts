@@ -18,11 +18,11 @@ import {
 	tasksWith,
 	tildify,
 } from "@adeildo/pi-kit";
-import type { PeerMark } from "@adeildo/pi-kit";
+import type { PeerMark, RoomMode } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import type { Fit } from "./bid.ts";
-import { Folder, livePeers, type Peer, type Posted, reaches } from "./folder.ts";
+import { Folder, livePeers, type Peer, type Posted, reaches, receivesFor } from "./folder.ts";
 import { Inbox, type InboxHooks, type PeerMessageDetails, type Sender } from "./inbox.ts";
 import { type Named, namesOf } from "./names.ts";
 import { award, turnToTake } from "./rules.ts";
@@ -393,6 +393,19 @@ export class Here implements Sender {
 		}
 	}
 
+	/** How this session stands in this room, which decides what it takes and whether it bids. */
+	#mode(): RoomMode {
+		if (this.session === undefined) return "in";
+		const membership = this.#folder.membership;
+		// The folder's room has no member list: being in it is taking part, and only a session that
+		// asked otherwise stands differently. A shared room asks its own membership.
+		if (this.#room === undefined) {
+			if (membership.closed || membership.out.has(this.session)) return "out";
+			return membership.listening.has(this.session) ? "listening" : "in";
+		}
+		return membership.modeOf(this.session, this.#cwd);
+	}
+
 	/** The agent's model read one of the messages it got. Another room's message is not this one's. */
 	read(id: string | undefined, text?: string): void {
 		const message = id ?? (text === undefined ? undefined : this.#unread.get(text));
@@ -502,6 +515,8 @@ export class Here implements Sender {
 	}
 
 	#consider(message: Posted): void {
+		// A session that listens does not bid: `@anyone` is an address of the ones taking part.
+		if (this.#mode() !== "in") return;
 		if (message.to !== "any" || !this.#recent(message) || !this.#inbox.awake) return;
 		// An agent asking everyone does not bid on its own request.
 		if (message.from === "agent" && message.session === this.session) return;
@@ -536,6 +551,8 @@ export class Here implements Sender {
 	}
 
 	#openRequests(): Posted[] {
+		// A session that listens does not bid: `@anyone` is an address of the ones taking part.
+		if (this.#mode() !== "in") return [];
 		const now = this.#now();
 		return [...this.#folder.messages.values()].filter(
 			(message) =>
@@ -608,7 +625,9 @@ export class Here implements Sender {
 	}
 
 	#due(message: Posted, me: string, now: number): boolean {
-		if (!reaches(message, me)) return false;
+		// How this session stands here decides what reaches it: listening keeps only what names it,
+		// and the agent and the screen both read this gate, so the silence is theirs too.
+		if (!receivesFor(this.#mode(), message, me)) return false;
 		if (message.received.has(me) || this.#delivered.has(message.id)) return false;
 		return this.#recent(message, now);
 	}
