@@ -7,56 +7,52 @@
 
 <p align="center"><code>pi-remote serve</code>, then open the link <code>/remote</code> prints.</p>
 
-The daemon serves this app on the clients' port, so there is nothing to install and no separate server.
-The build puts the export where the daemon looks for it (`packages/remote/dist/web`), and the app talks
-to the daemon on the page's own origin.
+The daemon serves this app on the port it listens on, so there is nothing to install and no separate
+server, and the app talks to the daemon on the page's own origin.
 
 ## Screens
 
-| Route                     | What it draws                                                                                                              |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `/`                       | The sessions this machine knows, from `GET /sessions`.                                                                     |
-| `/session/<machine>/<id>` | One session: its transcript, the tasks still open, and the question it waits on. Read only until the composer lands in W4. |
+| Where the browser is      | What it shows                                                                               |
+| ------------------------- | ------------------------------------------------------------------------------------------- |
+| `/`                       | The sessions this machine knows.                                                            |
+| `/session/<machine>/<id>` | One session: its transcript, the tasks still open, and the question it waits on, read only. |
 
-`src/app/` holds routes and nothing else. Everything else lives under `src/screens`, `src/session` and
-`src/render`, and a route file stays thin enough to read in one look.
+A session is read only until the composer lands in W4. Nothing here writes to the session yet.
 
 ## The login
 
-A link from `/remote` or `pi-remote open` carries `#token=…`. The app trades it for the login cookie at
-`POST /login`, takes the token out of the address before the request goes out, and only then opens the
-socket. It happens once per page, from `src/app/_layout.tsx`, because the link points at the root.
+The link carries `#token=…`. The app trades it for the login cookie at `POST /login`, takes the token out
+of the address before the request goes out, and only then opens the socket. It happens once per page, and
+a link without a token simply opens: the cookie is already there.
 
-`withoutFragment` is the one function for a URL that leaves the page: it drops the fragment and keeps
-the query. Every report that serializes a URL goes through it, because a report that skips it sends the
-token to whoever collects telemetry. That includes
-`performance.getEntriesByType("navigation")[0].name`, which keeps the URL from the start of the load and
-is not cleaned by `replaceState`.
+If the daemon cannot be reached, or refuses the link, the page says which of the two it was, because a
+spent link and a daemon that is down need different things from the person reading.
 
 ## Text from elsewhere
 
-A model's answer, a tool's output and a diff are drawn by `src/render`, which never interprets HTML: a
-tag comes out as the characters the model wrote, an image becomes a line naming where it lives, and a
-link becomes a link only when it is http or https. The renderer builds DOM nodes with `createElement`, so
-the native app can host it as a DOM component later.
+A model's answer, a tool's output and a diff are drawn and never interpreted: a tag comes out as the
+characters the model wrote, an image becomes a line naming where it lives, and a link becomes a link only
+when it is http or https. The renderer builds DOM nodes rather than native views, so the app can reuse it
+when the native screens arrive.
 
 ## Commands
 
+From the repository root:
+
 ```bash
-bun run --cwd apps/remote export   # the web build, into dist/
-bun run --cwd apps/remote check    # type check
-bun run --cwd apps/remote csp      # load the build through the daemon and fail on any policy violation
+bun run app:export   # the web build, into apps/remote/dist
+bun run app:check    # type check
+bun run csp:check    # load the build through the daemon and fail on any policy violation
 ```
 
-From the repository root, `bun run app:export`, `bun run app:check` and `bun run csp:check` do the same.
-The CI job runs the export and the policy check with a browser; `verify` runs only the type check.
+Inside `apps/remote` the same three are `bun run export`, `bun run check` and `bun run csp`. The CI job
+runs the export and the policy check with a browser; `verify` runs only the type check.
 
 ## The policy
 
-The daemon serves every page with a `Content-Security-Policy` that allows only its own scripts, with the
-hashes of the page's inline ones. `src/daemon/web.ts` in `packages/remote` owns that policy, and `csp`
-checks the export against it in a real browser, so a page that would be blocked fails here and not in
-someone's phone.
+Every page comes with a policy that allows only the app's own scripts, with the hashes of the page's
+inline ones. The daemon owns that policy and the app only consumes it, so `csp:check` loads the build the
+way the daemon would serve it, and a page that would be blocked in someone's phone fails here first.
 
 Part of [pi-harness](https://github.com/felipeadeildo/pi-harness), which brings every piece in one install.
 
