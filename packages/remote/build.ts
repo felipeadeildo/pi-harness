@@ -45,14 +45,18 @@ export async function buildRemote(outdir: string): Promise<Built> {
 export function nodeBuiltins(node = Bun.which("node") ?? "node"): Set<string> {
 	const script = "JSON.stringify(require('node:module').builtinModules)";
 	const result = spawnSync(node, ["-p", script], { encoding: "utf8" });
-	if (result.status !== 0)
-		throw new Error(`could not ask ${node} for its modules: ${result.stderr}`);
+	if (result.error !== undefined || result.status !== 0) {
+		const why = result.error?.message ?? result.stderr.trim();
+		throw new Error(
+			`the build checks its files against Node's own modules, and ${node} did not answer: ${why}`,
+		);
+	}
 	return new Set(JSON.parse(result.stdout) as string[]);
 }
 
 /** The imports a built file must not have: anything but Node's own modules. */
 export function foreign(outside: readonly string[], builtins: ReadonlySet<string>): string[] {
-	return outside.filter((path) => !path.startsWith("node:") && !builtins.has(path));
+	return outside.filter((path) => !builtins.has(path.startsWith("node:") ? path.slice(5) : path));
 }
 
 if (import.meta.main) {

@@ -50,9 +50,17 @@ describe("the built daemon and command", () => {
 		}
 	});
 
+	test("a Node that cannot be asked stops the build and says why", () => {
+		expect(() => nodeBuiltins("/nowhere/node")).toThrow("did not answer");
+	});
+
 	test("anything but a module of Node's counts as foreign, even what Bun calls its own", () => {
-		const outside = ["node:fs", "events", "http", "ws", "@earendil-works/pi-coding-agent"];
-		expect(foreign(outside, builtins)).toEqual(["ws", "@earendil-works/pi-coding-agent"]);
+		const outside = ["node:fs", "events", "node:nowhere", "ws", "@earendil-works/pi-coding-agent"];
+		expect(foreign(outside, builtins)).toEqual([
+			"node:nowhere",
+			"ws",
+			"@earendil-works/pi-coding-agent",
+		]);
 	});
 });
 

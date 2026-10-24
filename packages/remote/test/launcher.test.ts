@@ -1,6 +1,14 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync } from "node:fs";
+import {
+	copyFileSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	statSync,
+	symlinkSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -44,11 +52,16 @@ describe("the launcher", () => {
 		expect(result.status).toBe(0);
 		expect(result.stdout.trim()).toBe(VERSION);
 		expect(statSync(join(dir, "bin", "pi-remote")).mode & 0o111).not.toBe(0);
+		expect(readFileSync(join(dir, "current.sh"), "utf8")).toContain(`version='${VERSION}'`);
 	});
 
-	test("works through a link from elsewhere, and from a folder with a quote and a space", () => {
-		const dir = join(root, "it's my remote");
-		writeLauncher(dir, current);
+	test("works through a link, and with quotes, spaces and a dollar in every path", () => {
+		const odd = join(root, `it's a "remote" $HOME`);
+		const built = join(odd, "dist");
+		mkdirSync(built, { recursive: true });
+		copyFileSync(current.cli, join(built, "cli.js"));
+		const dir = join(odd, "remote");
+		writeLauncher(dir, { ...current, cli: join(built, "cli.js") });
 		const links = join(root, "links");
 		mkdirSync(links, { recursive: true });
 		symlinkSync(join(dir, "bin", "pi-remote"), join(links, "pi-remote"));

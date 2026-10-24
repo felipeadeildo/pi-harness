@@ -14,4 +14,4 @@ pi compiles an extension's TypeScript when it loads it, but nothing compiles the
 bun run --cwd packages/remote build
 ```
 
-Every pi start writes `~/.pi/agent/harness/remote/current.json`, which names the Node binary and the built command of the version that started, and `~/.pi/agent/harness/remote/bin/pi-remote`, a launcher that runs that command. The launcher never changes, so a service or a link in `~/.local/bin` keeps working across updates.
+Every pi start writes `~/.pi/agent/harness/remote/current.json`, which names the Node binary and the built files of the version that started, and the same values as shell assignments in `current.sh`. `~/.pi/agent/harness/remote/bin/pi-remote` is a launcher that sources `current.sh` and runs that command. The launcher never changes, so a service or a link in `~/.local/bin` keeps working across updates.

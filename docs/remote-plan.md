@@ -282,9 +282,9 @@ Owner: view. Needs: V2 and C2.
 
 Owner: core. Needs: nothing.
 
-`packages/remote` holds the bridge in `src/index.ts`, the daemon in `src/daemon/` and the CLI in `src/cli/`. `bun run --cwd packages/remote build` bundles the daemon into `dist/daemon.js` and the CLI into `dist/cli.js`, each one file with its dependencies inside. Whether a built file imports only Node's own modules is checked against the list of the Node that runs it, because Bun counts a few packages, `ws` among them, as its own. At every start of a pi in a terminal, the bridge writes `remote/current.json` and, when its text changed, the launcher `remote/bin/pi-remote`, which carries the path of `current.json` so a link to it works from anywhere.
+`packages/remote` holds the bridge in `src/index.ts`, the daemon in `src/daemon/` and the CLI in `src/cli/`. `bun run --cwd packages/remote build` bundles the daemon into `dist/daemon.js` and the CLI into `dist/cli.js`, each one file with its dependencies inside. Whether a built file imports only Node's own modules is checked against the list of the Node that runs it, because Bun counts a few packages, `ws` among them, as its own. At every start of a pi in a terminal, the bridge writes `remote/current.json`, the same values as quoted shell assignments in `remote/current.sh`, and, when its text changed, the launcher `remote/bin/pi-remote`. The launcher carries the path of `current.sh` so a link to it works from anywhere, and it sources that file, because a path may hold any character and shell cannot parse JSON.
 
-- Tests: the bundles import nothing but Node's own modules and run under Node; the launcher runs `pi-remote --version` through `current.json`, through a link, and from a folder whose path holds a quote and a space; a session in `pi -p` writes nothing.
+- Tests: the bundles import nothing but Node's own modules and run under Node; the launcher runs `pi-remote --version` directly, through a link, and from paths that hold quotes, spaces and a dollar; a session in `pi -p` writes nothing.
 
 ### C4. The bridge
 
