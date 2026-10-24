@@ -117,6 +117,36 @@ describe("a command on its way out", () => {
 		session.stop();
 	});
 
+	test("an answer without an id settles the one command in flight, instead of leaving it sent", async () => {
+		const wire = socket();
+		const session = client(wire);
+		await session.load();
+		const command = session.send("run.abort", {});
+		wire.arrive({ v: 1, kind: "reply", type: "reply", data: {}, at: 0 });
+
+		const [kept] = session.outbox().all();
+		expect(kept?.id).toBe(command.id);
+		expect(kept?.state).toBe("refused");
+		expect(kept?.why).toContain("without an id");
+		session.stop();
+	});
+
+	test("sent into a connection that dies, it goes out again on the next one", async () => {
+		const wire = socket();
+		const session = client(wire);
+		await session.load();
+		const command = session.send("run.abort", {});
+		expect(wire.sent.filter((one) => one.kind === "command")).toHaveLength(1);
+
+		wire.drop();
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		const again = wire.sent.filter((one) => one.kind === "command");
+		expect(again).toHaveLength(2);
+		// The same id both times, so the far side reads the second as a repeat.
+		expect(again[1]?.id).toBe(command.id);
+		session.stop();
+	});
+
 	test("typed offline, it waits and goes out on the next connection", async () => {
 		const wire = socket();
 		const outbox = new Outbox({ now: () => 0 });

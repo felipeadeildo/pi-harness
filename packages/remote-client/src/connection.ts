@@ -81,7 +81,16 @@ export function connect(options: ConnectionOptions): Client {
 		// because a malformed reply must not move the cursor.
 		if (!isObject(envelope) || (envelope.kind !== "reply" && envelope.kind !== "error"))
 			return false;
-		if (typeof envelope.id !== "string") return true;
+		if (typeof envelope.id !== "string") {
+			// The daemon answered without saying what: with one command in flight, that answer is its
+			// own, and leaving it waiting is what makes a command look sent forever.
+			const flight = outbox.all().filter((command) => command.state === "sent");
+			if (flight.length === 1 && flight[0] !== undefined) {
+				outbox.refused(flight[0].id, "the daemon answered without an id");
+				tell();
+			}
+			return true;
+		}
 		if (envelope.kind === "reply") {
 			outbox.applied(envelope.id);
 			tell();
