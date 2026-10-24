@@ -9,10 +9,11 @@ import { HOST } from "./host.ts";
  * A session as the `by` of what happens in it. The name is the handle the tasks feature gave the
  * session, which is what the room calls it, or `new-` and the last four characters of the id while it
  * has none, as peers shows an untitled session. Never the title: it changes with the work, and the
- * name of a fact must not.
+ * name of a fact must not. A client is named by its device, which a session cannot know, so a client
+ * builds its own `By`.
  */
 export function bySession(
-	kind: By["kind"],
+	kind: Exclude<By["kind"], "client">,
 	scope: EventScope,
 	session: { getSessionId(): string },
 	options: { machine?: string } = {},

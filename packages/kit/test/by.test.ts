@@ -52,6 +52,11 @@ describe("a session as the cause", () => {
 		expect(bySession("agent", fakeScope(), SESSION).name).toBe("new-d3d6");
 	});
 
+	test("is never a client, which only its device can name", () => {
+		// @ts-expect-error A session cannot name a phone.
+		expect(bySession("client", tasksScope("release"), SESSION).kind).toBe("client");
+	});
+
 	test("happened on this machine unless the caller says otherwise", () => {
 		const by = bySession("terminal", tasksScope("release"), SESSION);
 		expect(by.machine).toBe(HOST);
