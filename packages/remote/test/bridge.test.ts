@@ -203,6 +203,38 @@ describe("the bridge", () => {
 		delete process.env.PI_HARNESS_EVENTS;
 	});
 
+	test("a follow-up waits for the agent to settle, and then pi gets it", async () => {
+		const daemon = await listening();
+		const fake = mounted();
+		const ctx = session();
+		await start(fake, ctx);
+		await until(() => types(daemon).includes("snapshot"));
+		const by = { kind: "client", name: "phone", machine: HOST } as const;
+		daemon.sockets[0]?.write(
+			line(
+				envelope(
+					"command",
+					"prompt.send",
+					{ text: "one more thing" },
+					{
+						machine: HOST,
+						session: "s1",
+						epoch: "e1",
+						id: "p1",
+						by,
+					},
+				),
+			),
+		);
+		await until(() => daemon.received.some((one) => one.kind === "reply" && one.id === "p1"));
+		// It waits: nothing has reached pi while the agent has not settled.
+		expect(fake.userMessages).toEqual([]);
+		await fake.fire("agent_settled", { type: "agent_settled", aborted: false }, ctx);
+		await until(() => fake.userMessages.length === 1);
+		expect(fake.userMessages).toEqual(["one more thing"]);
+		await stop(fake, "quit");
+	});
+
 	test("a thinking level from a client reaches pi, and one pi does not know is refused", async () => {
 		const daemon = await listening();
 		const fake = mounted();

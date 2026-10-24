@@ -196,6 +196,11 @@ export class Bridge {
 		this.#connection.event(line.type, line.data);
 	}
 
+	/** The agent settled, so a follow-up that waited goes in now, if there is one. */
+	settled(): void {
+		this.#inbox.settle();
+	}
+
 	/** The session's status changed, in pi's program status words. */
 	status(state: SessionStatus): void {
 		this.#connection.event("session.state", { state });
