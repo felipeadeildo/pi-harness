@@ -64,6 +64,17 @@ describe("a letter waiting in the inbox", () => {
 	});
 });
 
+describe("a prompt that arrived from elsewhere", () => {
+	test("names who sent it, since that is the whole fact", () => {
+		expect(
+			isFact("prompt.received", { by: { kind: "client", name: "phone", machine: "here" } }),
+		).toBe(true);
+		// A prompt of nobody says nothing: the writer is the reason the fact exists.
+		expect(isFact("prompt.received", {})).toBe(false);
+		expect(isFact("prompt.received", { by: { kind: "client" } })).toBe(false);
+	});
+});
+
 describe("a snapshot without a queue, and one with an empty queue", () => {
 	const base = { session: "s1", machine: "here", cwd: "/work", kind: "terminal" as const };
 
