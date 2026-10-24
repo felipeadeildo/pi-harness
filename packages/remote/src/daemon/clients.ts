@@ -61,8 +61,8 @@ export class Clients {
 	 */
 	readonly #presence = new Map<WebSocket, By>();
 	/**
-	 * Whose input came last, per session: a socket, or the terminal that runs the session. A terminal
-	 * session starts with the terminal active, because someone is sitting at it.
+	 * Whose input came last, per session: a socket, or the terminal that runs the session. The terminal
+	 * becomes active when someone types there; until then, nobody is.
 	 */
 	readonly #latest = new Map<string, WebSocket | "terminal">();
 	/** Who a session's terminal is, by the bridge that said so when someone typed there. */
@@ -271,9 +271,9 @@ export class Clients {
 	}
 
 	/**
-	 * The viewers of a session and the one whose input came last. A session with a terminal counts the
-	 * terminal as a viewer: it is where the session runs, and the person at it is watching by being
-	 * there. A client that sends a command takes the mark, and a key at the terminal takes it back.
+	 * The viewers of a session and the one whose input came last. A session's terminal counts as a
+	 * viewer once someone has typed there: it is where the session runs, and the person at it is
+	 * watching by being there. A client that sends a command takes the mark, and a key takes it back.
 	 */
 	#presenceOf(session: string): { viewers: Viewer[]; active?: By } {
 		const viewers: Viewer[] = [];
