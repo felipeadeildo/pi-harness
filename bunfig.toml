@@ -1,5 +1,0 @@
-# Metro and Expo's own checks read the app's node_modules for a transitive package, which Bun's
-# isolated linker does not put there. Only that package is hoisted, so the rest of the repository
-# keeps the isolation that catches an import nobody declared.
-[install]
-publicHoistPattern = ["*metro-runtime*"]
