@@ -7,7 +7,12 @@ import type { By } from "./by.ts";
 import type { CallRuling } from "./calls.ts";
 import type { PermissionMode } from "./mode.ts";
 
-export type SessionState = "running" | "idle";
+/**
+ * How busy a session is, as the peers feature records it: running a turn, or idle. It is the value of
+ * the `session.state` event; the event keeps its name because it is already written in logs, and only
+ * the type is called what it is.
+ */
+export type RoomActivity = "running" | "idle";
 
 /** How a message reached the agent it was for. */
 export type Delivery = "woke" | "after-run" | "steered" | "next-turn";
@@ -39,7 +44,7 @@ export interface LogEventMap {
 	 * carried. That one write is a backfill, not a leftover.
 	 */
 	"session.named": { handle?: string; title?: string };
-	"session.state": { state: SessionState };
+	"session.state": { state: RoomActivity };
 	/** You sent a prompt in this session. What you said stays in pi's own session file. */
 	"session.prompted": Record<string, never>;
 	/**

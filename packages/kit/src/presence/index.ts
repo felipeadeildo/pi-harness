@@ -4,7 +4,7 @@
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import type { SessionState } from "../contracts/events.ts";
+import type { RoomActivity } from "../contracts/events.ts";
 import { isObject } from "../decode.ts";
 import { HOST, liveDir } from "../events/log.ts";
 import { processLives } from "./process.ts";
@@ -22,7 +22,7 @@ export interface PresenceEntry {
 	file?: string;
 	handle?: string;
 	title?: string;
-	state: SessionState;
+	state: RoomActivity;
 	/** When the session opened, which orders the list. */
 	startedAt: number;
 	/** When the entry last changed. */

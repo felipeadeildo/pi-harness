@@ -5,7 +5,7 @@ import {
 	type Delivery,
 	type Lives,
 	type LoggedEvent,
-	type SessionState,
+	type RoomActivity,
 	type SessionTasks,
 	tasksWith,
 } from "@adeildo/pi-kit";
@@ -27,7 +27,7 @@ export interface Peer {
 	endedAt?: number;
 	handle?: string;
 	title?: string;
-	state: SessionState;
+	state: RoomActivity;
 	stateAt: number;
 	/** The operator wrote here at least once. Until then nothing from the room wakes it. */
 	prompted?: boolean;
