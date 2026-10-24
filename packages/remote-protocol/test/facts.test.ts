@@ -25,3 +25,17 @@ describe("a fact the daemon has to carry", () => {
 		expect(isFact("leaf.changed", {})).toBe(false);
 	});
 });
+
+describe("a session's status", () => {
+	test("is one of pi's five words", () => {
+		for (const state of ["working", "blocked", "done", "error", "idle"]) {
+			expect(isFact("session.state", { state })).toBe(true);
+		}
+	});
+
+	test("is never peers' running or idle from the log, nor any other word", () => {
+		expect(isFact("session.state", { state: "running" })).toBe(false);
+		expect(isFact("session.state", { state: "waiting" })).toBe(false);
+		expect(isFact("session.state", {})).toBe(false);
+	});
+});

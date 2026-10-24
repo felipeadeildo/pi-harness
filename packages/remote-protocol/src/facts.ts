@@ -98,6 +98,9 @@ export interface CallRuling {
 
 export type PermissionMode = "manual" | "edits" | "judge" | "full";
 
+/** A session's status in pi's program status words, as `session.state` carries it. */
+export const SESSION_STATES = ["working", "blocked", "done", "error", "idle"] as const;
+
 /** Every fact the client reduces, with the shape each carries. */
 export interface FactMap {
 	"tasks.changed": { state: SessionTasks };
@@ -106,7 +109,7 @@ export interface FactMap {
 	"call.ruled": { toolCallId: string; ruling: CallRuling; by?: By };
 	"mode.changed": { mode: PermissionMode };
 	"session.renamed": { from: string; to: string; by?: By };
-	"session.state": { state: "working" | "blocked" | "done" | "error" | "idle" };
+	"session.state": { state: (typeof SESSION_STATES)[number] };
 	"session.live": {
 		pid?: number;
 		startedAt?: number;
@@ -167,7 +170,9 @@ export function isFact(type: string, data: unknown): boolean {
 				data.mode === "full"
 			);
 		case "session.state":
-			return typeof data.state === "string";
+			// pi's program status words only: the log's own `session.state` is peers' running or idle,
+			// and a line of it must never read as a status.
+			return SESSION_STATES.some((state) => state === data.state);
 		case "stream.bound":
 			// The number matters: a stream that is not pi's number cannot be matched to a transcript.
 			return (
