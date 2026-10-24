@@ -482,6 +482,26 @@ describe("logging in", () => {
 		};
 		expect(moved.active?.name).toBe("laptop");
 
+		// A second command from the same client changes nothing, so nothing is said twice.
+		const before = phone.heard.filter((one) => one.type === "presence.changed").length;
+		laptop.ws.send(
+			JSON.stringify(
+				envelope(
+					"command",
+					"run.abort",
+					{},
+					{
+						session: "s1",
+						id: "c2",
+						by: { kind: "client", name: "laptop", machine: "laptop" },
+					},
+				),
+			),
+		);
+		await until(() => bridge.asked.filter((one) => one.type === "run.abort").length === 2);
+		await Bun.sleep(20);
+		expect(phone.heard.filter((one) => one.type === "presence.changed")).toHaveLength(before);
+
 		// One leaving is one viewer fewer, and the mark goes with it: nobody there has the last input.
 		laptop.ws.close();
 		const presence = () =>

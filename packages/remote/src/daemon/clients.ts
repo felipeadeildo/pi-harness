@@ -138,9 +138,11 @@ export class Clients {
 					const was = watchers.delete(ws);
 					// A session nobody watches leaves no entry, whether it ended or never came.
 					if (watchers.size === 0) this.#watchers.delete(session);
-					if (was) this.#announcePresence(session);
+					if (was) this.#announce(session);
 				}
 				this.#presence.delete(ws);
+				// Not what clears the mark: `#presenceOf` only marks a socket still in `#watchers`, and
+				// this one just left it. This is so the map does not keep a socket nobody can see.
 				for (const [session, latest] of this.#latest) {
 					if (latest === ws) this.#latest.delete(session);
 				}
@@ -180,12 +182,12 @@ export class Clients {
 		if (catchUp !== undefined) {
 			for (const event of catchUp) this.#send(ws, event);
 			// After the catch-up, so a client reads its state first and the people watching second.
-			this.#announcePresence(session);
+			this.#announce(session);
 			return;
 		}
 		if (!this.#options.askSnapshot(session))
 			this.#send(ws, envelope("error", "hello", { reason: "no snapshot yet", session }));
-		this.#announcePresence(session);
+		this.#announce(session);
 	}
 
 	/**
@@ -247,10 +249,6 @@ export class Clients {
 	}
 
 	/** Tells everyone watching a session who has it open, and who had the latest input. */
-	#announcePresence(session: string): void {
-		this.#announce(session);
-	}
-
 	#announce(session: string): void {
 		const presence = this.#presenceOf(session);
 		// Nobody to name is nothing to say, and a watcher that named nobody changed nothing.
