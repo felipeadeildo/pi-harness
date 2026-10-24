@@ -1,0 +1,163 @@
+// Who has a session open, and whose input came last. It holds no socket and decides nothing in time:
+// a connection is anything a caller can name, so this is testable without a network. What the daemon
+// does with a change is not this module's business: it is told, and it decides.
+import type { By, Viewer } from "@adeildo/pi-remote-protocol";
+
+/** A connection, as the caller names it. A socket, a test's string: this module only compares them. */
+export type Connection = string;
+
+/** The terminal of a session, as the bridge named it the last time someone typed there. */
+const TERMINAL = "terminal";
+
+export interface PresenceOf {
+	viewers: Viewer[];
+	/** The one whose input came last: a client, or the session's own terminal. */
+	active?: By;
+}
+
+export class Presence {
+	/** Who watches each session, in the order they arrived. */
+	readonly #watching = new Map<string, Connection[]>();
+	/** The name each connection gave for itself: a client that never named one is not a viewer. */
+	readonly #by = new Map<Connection, By>();
+	/** The last connection to type in a session, or its terminal. */
+	readonly #latest = new Map<string, Connection>();
+	/** The `by` of each session's terminal, once its bridge has named it. */
+	readonly #terminal = new Map<string, By>();
+	/** What was announced last, so two changes that say the same thing are said once. */
+	readonly #announced = new Map<string, string>();
+	#listen: ((session: string, presence: PresenceOf) => void) | undefined;
+
+	/** What to do when a session's presence changed, which is what tells the clients watching it. */
+	onChange(listen: (session: string, presence: PresenceOf) => void): void {
+		this.#listen = listen;
+	}
+
+	/**
+	 * A connection opened a session. A client can watch a session whose bridge is not registered yet:
+	 * after a restart it can come back first, and it is still watching.
+	 */
+	watch(session: string, connection: Connection): void {
+		const watching = this.#watching.get(session);
+		if (watching === undefined) this.#watching.set(session, [connection]);
+		else if (!watching.includes(connection)) watching.push(connection);
+		this.#announce(session);
+	}
+
+	/**
+	 * A connection left a session, or closed. What it claimed does not outlive its watching: the maps
+	 * drop it rather than keep a name nobody can reach.
+	 */
+	leave(session: string, connection: Connection): void {
+		const watching = this.#watching.get(session);
+		if (watching === undefined) return;
+		const at = watching.indexOf(connection);
+		if (at === -1) return;
+		watching.splice(at, 1);
+		// A session nobody watches leaves no entry, whether it ended or never came.
+		if (watching.length === 0) this.#watching.delete(session);
+		// Not what clears the mark: `of` only marks a connection still watching. This is so the maps
+		// do not keep a name nobody can see.
+		if (this.#latest.get(session) === connection) this.#latest.delete(session);
+		if (![...this.#watching.values()].some((one) => one.includes(connection))) {
+			this.#by.delete(connection);
+		}
+		this.#announce(session);
+	}
+
+	/**
+	 * A connection says who it is, without claiming the input. Opening a session is not typing in it:
+	 * a client that just arrived is a viewer, and the mark stays with whoever typed last.
+	 */
+	name(session: string, connection: Connection, by: By): void {
+		if (this.#watching.get(session)?.includes(connection) !== true) return;
+		this.#by.set(connection, by);
+		this.#announce(session);
+	}
+
+	/** A connection typed: it is a viewer under that name, and it has the latest input. */
+	input(session: string, connection: Connection, by: By): void {
+		if (this.#watching.get(session)?.includes(connection) !== true) return;
+		this.#by.set(connection, by);
+		this.#latest.set(session, connection);
+		this.#announce(session);
+	}
+
+	/** A connection closed: it leaves every session it watched, and each one is announced once. */
+	drop(connection: Connection): void {
+		for (const session of this.#watching.keys()) this.leave(session, connection);
+		this.#by.delete(connection);
+	}
+
+	/**
+	 * The terminal of a session typed, so it is one of the session's viewers and the one with the last
+	 * input. The bridge says who it is; the daemon does not guess a handle it cannot see.
+	 */
+	typed(session: string, by: By): void {
+		this.#terminal.set(session, by);
+		this.#latest.set(session, TERMINAL);
+		this.#announce(session);
+	}
+
+	/** The viewers of a session and the one whose input came last. */
+	of(session: string): PresenceOf {
+		const viewers: Viewer[] = [];
+		let active: By | undefined;
+		const terminal = this.#terminal.get(session);
+		if (terminal !== undefined) viewers.push({ name: terminal.name, machine: terminal.machine });
+		for (const connection of this.#watching.get(session) ?? []) {
+			const by = this.#by.get(connection);
+			if (by === undefined) continue;
+			if (!viewers.some((one) => one.name === by.name && one.machine === by.machine)) {
+				viewers.push({ name: by.name, machine: by.machine });
+			}
+			if (this.#latest.get(session) === connection) active = by;
+		}
+		if (this.#latest.get(session) === TERMINAL && terminal !== undefined) active = terminal;
+		return active === undefined ? { viewers } : { viewers, active };
+	}
+
+	/** The connections watching a session, so whoever owns the sockets can send to them. */
+	connections(session: string): Connection[] {
+		return [...(this.#watching.get(session) ?? [])];
+	}
+
+	/**
+	 * A session ended, so nothing of it is kept: a relaunch with the same id starts with no viewers,
+	 * no mark, and no terminal from the life before it.
+	 */
+	forget(session: string): void {
+		const watching = this.#watching.get(session) ?? [];
+		this.#watching.delete(session);
+		this.#latest.delete(session);
+		this.#terminal.delete(session);
+		this.#announced.delete(session);
+		for (const connection of watching) {
+			if (![...this.#watching.values()].some((one) => one.includes(connection))) {
+				this.#by.delete(connection);
+			}
+		}
+	}
+
+	/** How many connections watch each session, which is what the daemon reports as its clients. */
+	counts(): Map<string, number> {
+		return new Map([...this.#watching].map(([session, watching]) => [session, watching.length]));
+	}
+
+	/**
+	 * Announces a change once. Two changes that leave a session looking the same are one event, because
+	 * what a client draws did not change either.
+	 */
+	#announce(session: string): void {
+		const presence = this.of(session);
+		// Nobody to name is nothing to say, and a watcher that named nobody changed nothing.
+		if (presence.viewers.length === 0) {
+			this.#announced.delete(session);
+			return;
+		}
+		const said = JSON.stringify(presence);
+		if (this.#announced.get(session) === said) return;
+		this.#announced.set(session, said);
+		this.#listen?.(session, presence);
+	}
+}
