@@ -3,7 +3,15 @@ import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createApp, emptyTasks, HOST, LOGGED_EVENT, MODE, TASKS } from "@adeildo/pi-kit";
+import {
+	createApp,
+	emptyTasks,
+	HOST,
+	LOGGED_EVENT,
+	MODE,
+	protectedList,
+	TASKS,
+} from "@adeildo/pi-kit";
 import type { SessionSource, SourceItem } from "@adeildo/pi-kit";
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
 import { type FakePi, fakeContext, fakePi } from "@adeildo/pi-kit/testing";
@@ -12,7 +20,13 @@ import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import type { MessageStartEvent, MessageUpdateEvent } from "@earendil-works/pi-coding-agent";
 
 import { Bridge, SNAPSHOT_ENTRIES } from "../src/bridge/bridge.ts";
-import piRemote, { daemonSocket, goneReason, remote, sessionKind } from "../src/index.ts";
+import piRemote, {
+	DAEMON_PORT,
+	daemonSocket,
+	goneReason,
+	remote,
+	sessionKind,
+} from "../src/index.ts";
 import { VERSION } from "../src/version.ts";
 import { line } from "../src/wire/lines.ts";
 import { type FakeDaemon, fakeDaemon, held, until } from "./fakes.ts";
@@ -309,6 +323,15 @@ describe("the bridge", () => {
 			"ask.opened",
 			"call.ruled",
 		]);
+	});
+
+	test("the remote's files, its socket, its port and its command are protected, whatever the mode", () => {
+		const fake = mounted();
+		expect(protectedList(fake.pi.events)).toEqual({
+			paths: [root],
+			sockets: [daemonSocket(root), `127.0.0.1:${DAEMON_PORT}`, `localhost:${DAEMON_PORT}`],
+			commands: ["pi-remote"],
+		});
 	});
 
 	test("pi -p writes nothing and connects to nothing", async () => {

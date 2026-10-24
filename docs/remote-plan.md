@@ -22,7 +22,7 @@ A slice is ticked in the commit that lands it.
 - [x] V2. The view (view, F1)
 - [ ] V3. The panel opens a view (view, F1)
 - [x] C3. The remote package and its build (core, F1)
-- [ ] C4. The bridge (core, F1)
+- [x] C4. The bridge (core, F1)
 - [ ] C5. The daemon (core, F1)
 - [ ] C6. Login and the Host check (core, F1)
 - [ ] C7. Sync by cursors (core, F1)

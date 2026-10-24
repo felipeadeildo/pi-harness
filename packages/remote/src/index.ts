@@ -11,6 +11,7 @@ import {
 	isObject,
 	LOGGED_EVENT,
 	piSource,
+	provideProtected,
 	SESSION_STATUS,
 } from "@adeildo/pi-kit";
 import { type ExtensionAPI, getAgentDir } from "@earendil-works/pi-coding-agent";
@@ -29,6 +30,9 @@ export function remoteDir(): string {
 export function daemonSocket(dir: string): string {
 	return join(dir, "daemon.sock");
 }
+
+/** Where the daemon serves clients. C6 makes it a setting. */
+export const DAEMON_PORT = 7878;
 
 /** The built daemon and command, next to this package's sources. */
 const DIST = fileURLToPath(new URL("../dist/", import.meta.url));
@@ -66,6 +70,16 @@ export const remote = defineFeature({
 		// The source registers its own handlers, so it is made while the extension loads.
 		const source = piSource(scope);
 		followSessionStatus(scope, (message) => scope.warn(message));
+		// The agent runs as you, so the permission feature asks before any call that reaches the remote:
+		// it could answer its own question, drive another session, or read the machine's key.
+		provideProtected(scope.events, () => {
+			const dir = remoteDir();
+			return {
+				paths: [dir],
+				sockets: [daemonSocket(dir), `127.0.0.1:${DAEMON_PORT}`, `localhost:${DAEMON_PORT}`],
+				commands: ["pi-remote"],
+			};
+		});
 		let bridge: Bridge | undefined;
 
 		scope.on("session_start", (_event, ctx) => {
