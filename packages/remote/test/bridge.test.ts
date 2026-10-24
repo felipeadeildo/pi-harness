@@ -341,6 +341,16 @@ describe("the bridge", () => {
 		});
 	});
 
+	test("a session with no file, as with --no-session, says it is live without one", async () => {
+		const daemon = await listening();
+		const ctx = session();
+		const manager = { ...ctx.sessionManager, getSessionFile: () => undefined };
+		await start(mounted(), fakeContext([], true, { ...ctx, sessionManager: manager }));
+		await until(() => types(daemon).includes("session.live"));
+		const live = daemon.received.find((one) => one.type === "session.live");
+		expect(live?.data).not.toHaveProperty("file");
+	});
+
 	test("pi -p writes nothing and connects to nothing", async () => {
 		const daemon = await listening();
 		await start(mounted(), session(entries(2), "print"));

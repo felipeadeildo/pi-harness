@@ -116,7 +116,11 @@ export interface FactMap {
 		cwd?: string;
 		name?: string;
 		kind: "terminal" | "background";
-		/** pi's session file, which the daemon pages older entries from. Absent until pi writes it. */
+		/**
+		 * pi's session file, which the daemon pages older entries from. pi knows the path from the
+		 * start, but writes the file only with the first message, so until then a page finds nothing:
+		 * `ENOENT` means no older entries yet. Absent only with `--no-session`.
+		 */
 		file?: string;
 	};
 	"session.gone": { reason: "exit" | "crash" | "unanswered" | "replaced" };
