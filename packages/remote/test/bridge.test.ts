@@ -16,6 +16,7 @@ import {
 	emptyTasks,
 	HOST,
 	LOGGED_EVENT,
+	logEvent,
 	logPath,
 	MODE,
 	protectedList,
@@ -197,6 +198,45 @@ describe("the bridge", () => {
 		);
 		expect(log).toContain('"command.received"');
 		expect(log).toContain('"c1"');
+		await stop(fake, "quit");
+		delete process.env.PI_HARNESS_EVENTS;
+	});
+
+	test("a command id from an earlier run of the session is a repeat after the bridge restarts", async () => {
+		const daemon = await listening();
+		process.env.PI_HARNESS_EVENTS = join(root, "events");
+		const compacted: string[] = [];
+		const fake = mounted();
+		const ctx = fakeContext([], true, {
+			...session(),
+			compact: () => compacted.push("ran"),
+			sessionManager: {
+				getCwd: () => root,
+				getSessionId: () => "s1",
+				getSessionName: () => "Fix the release",
+				getSessionFile: () => "/sessions/s1.jsonl",
+				getEntries: () => entries(2),
+				getBranch: () => entries(2),
+				getLeafId: () => "e2",
+			},
+		});
+		// The earlier run of this session logged the command before the bridge that ran it went away.
+		logEvent(
+			targetOf({ getCwd: () => root, getSessionId: () => "s1" }),
+			undefined,
+			"command.received",
+			{ id: "before", command: "session.compact" },
+		);
+		await start(fake, ctx);
+		await until(() => types(daemon).includes("snapshot"));
+		const by = { kind: "client", name: "phone", machine: HOST } as const;
+		const at = { machine: HOST, session: "s1", epoch: "e1", by };
+		daemon.sockets[0]?.write(
+			line(envelope("command", "session.compact", {}, { ...at, id: "before" })),
+		);
+		await until(() => daemon.received.some((one) => one.kind === "reply"));
+		expect(compacted).toEqual([]);
+		expect(daemon.received.find((one) => one.kind === "reply")?.data).toEqual({ repeat: true });
 		await stop(fake, "quit");
 		delete process.env.PI_HARNESS_EVENTS;
 	});

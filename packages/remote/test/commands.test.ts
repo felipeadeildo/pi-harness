@@ -41,8 +41,8 @@ function commands(
 		},
 		history: options.history,
 		answer: (kind, type, data, id) => answers.push({ kind, type, data, id }),
-		received: (id, command) => log.push(`received ${id} ${command}`),
-		outcome: (id, command, _by, outcome) => log.push(`${outcome} ${id} ${command}`),
+		received: (id, type) => log.push(`received ${id} ${type}`),
+		outcome: (id, type, _by, outcome) => log.push(`${outcome} ${id} ${type}`),
 	});
 	return { instance, answers, log, done };
 }
