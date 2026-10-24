@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { type ClientSession, sessionOf } from "@adeildo/pi-remote-client";
+import { applyLogged, emptyHarnessState } from "@adeildo/pi-remote-protocol";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -27,10 +28,10 @@ function lines(file: string): Record<string, unknown>[] {
 function recorded(): ClientSession {
 	const session = sessionOf({ machine: "server", session: "01a16b1b-a4b1-734c-81d9-0c534a12eac1" });
 	session.entries = lines("session.jsonl").filter((entry) => entry.type !== "session") as never;
-	session.facts = lines("harness.jsonl").map((fact) => ({
-		type: String(fact.type),
-		data: fact.data,
-	}));
+	session.harness = lines("harness.jsonl").reduce(
+		(state, fact) => applyLogged(state, String(fact.type), fact.data),
+		emptyHarnessState(),
+	);
 	return session;
 }
 
@@ -57,7 +58,10 @@ function handmade(
 ): ClientSession {
 	const session = sessionOf({ machine: "box", session: "abcdef12" });
 	session.entries = entries as never;
-	session.facts = facts;
+	session.harness = facts.reduce(
+		(state, fact) => applyLogged(state, fact.type, fact.data),
+		emptyHarnessState(),
+	);
 	return session;
 }
 
@@ -240,7 +244,7 @@ describe("drawing again on every envelope", () => {
 		expect(moved).not.toBe(pushed);
 		expect(moved.items).toHaveLength(1);
 
-		session.facts.push({ type: "mode.changed", data: { mode: "judge" } });
+		session.harness = applyLogged(session.harness, "mode.changed", { mode: "judge" });
 		expect(viewOf(session).facts.mode).toBe("judge");
 
 		// A snapshot swaps the list for one of the same length.

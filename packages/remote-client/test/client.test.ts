@@ -5,11 +5,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { Entry, Envelope } from "@adeildo/pi-remote-protocol";
+import { applyLogged, emptyHarnessState } from "@adeildo/pi-remote-protocol";
 
 import { memoryCache } from "../src/cache.ts";
 import { connect } from "../src/connection.ts";
 import { Outbox } from "../src/outbox.ts";
-import { factsOf, transcriptOfSession } from "../src/session.ts";
+import { harnessOf, transcriptOfSession } from "../src/session.ts";
 
 const FIXTURE = join(
 	import.meta.dir,
@@ -33,6 +34,10 @@ const entries = lines("session.jsonl").filter(
 	(entry) => entry.type !== "session",
 ) as unknown as Entry[];
 const facts = lines("harness.jsonl") as { type: string; data: unknown }[];
+
+/** The recording's facts folded once, which is what a cache holds now. */
+const folded = (list: { type: string; data: unknown }[]) =>
+	list.reduce((state, fact) => applyLogged(state, fact.type, fact.data), emptyHarnessState());
 
 /** The envelopes the bridge sends after a snapshot: the log's facts, then the entries, numbered. */
 function stream(first: number): Envelope[] {
@@ -70,7 +75,7 @@ const snapshot: Envelope = {
 	data: {
 		snapshot: { session: key.session, machine: key.machine, cwd: "/work", kind: "terminal" },
 		entries: [],
-		facts: [],
+		harness: emptyHarnessState(),
 	},
 	at: 0,
 };
@@ -129,8 +134,7 @@ describe("a client of a session", () => {
 		expect(client.session().entries.map((entry) => entry.id)).toEqual(
 			entries.map((entry) => entry.id),
 		);
-		expect(client.session().facts.filter((fact) => fact.type === "tasks.changed")).toHaveLength(2);
-		expect(factsOf(client.session()).tasks?.handle).toBe("rig");
+		expect(client.session().harness.tasks?.handle).toBe("rig");
 		expect(transcriptOfSession(client.session()).items.length).toBeGreaterThan(0);
 		client.stop();
 	});
@@ -141,7 +145,7 @@ describe("a client of a session", () => {
 			key,
 			cursor: { epoch: "e1", seq: 1, entry: entries.at(-1)?.id },
 			entries,
-			facts,
+			harness: folded(facts),
 		});
 		const order: string[] = [];
 		let drawn: number[] = [];
@@ -218,7 +222,12 @@ describe("a client of a session", () => {
 		let asked = 0;
 
 		const cache = memoryCache();
-		await cache.write({ key, cursor: { epoch: "e1", seq: 1 }, entries: [], facts: [] });
+		await cache.write({
+			key,
+			cursor: { epoch: "e1", seq: 1 },
+			entries: [],
+			harness: emptyHarnessState(),
+		});
 
 		const client = connect({
 			key,
@@ -244,15 +253,23 @@ describe("a client of a session", () => {
 
 		expect(asked).toBe(0);
 		expect(client.session().cursor.seq).toBe(3);
-		expect(client.session().facts).toHaveLength(
-			stream(1).filter((envelope) => envelope.seq === 2 || envelope.seq === 3).length,
+		// Read once each: the harness holds exactly what folding those two gives, and the duplicate
+		// left no second copy behind.
+		const read = stream(1).filter((envelope) => envelope.seq === 2 || envelope.seq === 3);
+		expect(client.session().harness).toEqual(
+			read.reduce((state, one) => applyLogged(state, one.type, one.data), emptyHarnessState()),
 		);
 		client.stop();
 	});
 
 	test("a delta with no number between two numbered events asks for nothing and moves no cursor", async () => {
 		const cache = memoryCache();
-		await cache.write({ key, cursor: { epoch: "e1", seq: 1 }, entries: [], facts: [] });
+		await cache.write({
+			key,
+			cursor: { epoch: "e1", seq: 1 },
+			entries: [],
+			harness: emptyHarnessState(),
+		});
 		const hellos: Envelope[] = [];
 		const { seq: _seq, ...unnumbered } = snapshot;
 
@@ -277,13 +294,18 @@ describe("a client of a session", () => {
 
 		expect(hellos).toHaveLength(1);
 		expect(client.session().cursor).toMatchObject({ epoch: "e1", seq: 3 });
-		expect(factsOf(client.session()).mode).toBe("manual");
+		expect(harnessOf(client.session()).mode).toBe("manual");
 		client.stop();
 	});
 
 	test("a hole in the numbering asks for a snapshot instead of drawing what comes next", async () => {
 		const cache = memoryCache();
-		await cache.write({ key, cursor: { epoch: "e1", seq: 1 }, entries: [], facts: [] });
+		await cache.write({
+			key,
+			cursor: { epoch: "e1", seq: 1 },
+			entries: [],
+			harness: emptyHarnessState(),
+		});
 		const hellos: Envelope[] = [];
 
 		const client = connect({
@@ -307,7 +329,7 @@ describe("a client of a session", () => {
 		expect(hellos.length).toBeGreaterThan(1);
 		expect(cursorOf(hellos.at(-1) as Envelope).seq).toBeUndefined();
 		// What it read before the hole stands; what came after it was not drawn.
-		expect(factsOf(client.session()).mode).toBe("edits");
+		expect(harnessOf(client.session()).mode).toBe("edits");
 		client.stop();
 	});
 });
