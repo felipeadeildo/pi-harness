@@ -114,7 +114,9 @@ describe("once the model has written the call", () => {
 			expect.stringMatching(/^\u2502 \+TWO +\u2502$/),
 		]);
 
-		await Bun.sleep(50);
+		// Wait for the diff itself, not for a fixed time: pi writes and diffs on disk, and under load a
+		// sleep long enough on an idle machine reads the screen before the diff exists.
+		await until(() => h.render("e").some((line) => line.includes("+2 TWO")));
 		const diffed = h.render("e");
 		// The frame pads the inside, so pi's path stays where the stream had it.
 		expect(diffed[2]).toMatch(/^\u2502 edit e\.ts +\u2502$/);
@@ -138,3 +140,12 @@ describe("once the model has written the call", () => {
 		expect(lines.some((line) => line.includes("more lines"))).toBe(true);
 	});
 });
+
+/** Waits until `test` holds, for at most `ms`, then lets the assertion say what is wrong. */
+async function until(test: () => boolean, ms = 2_000): Promise<void> {
+	const limit = Date.now() + ms;
+	while (Date.now() < limit) {
+		if (test()) return;
+		await Bun.sleep(10);
+	}
+}
