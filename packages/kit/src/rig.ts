@@ -116,6 +116,8 @@ export interface Rig {
 	events: string;
 	/** The folder pi's session files go in. */
 	sessions: string;
+	/** What the features told the terminal, in the order they said it: `ctx.ui.notify`, as it reads. */
+	notified: { message: string; level: string }[];
 	/** Sends a prompt and waits for the run it starts to settle. */
 	prompt(text: string): Promise<void>;
 	/**
@@ -176,7 +178,10 @@ function darkTheme(): Theme {
  * The screen a scripted run answers through. It holds only what a feature asks: the dialogs, which
  * come from the script, and no drawing at all.
  */
-function scriptedUI(says: RigSays): ExtensionUIContext {
+function scriptedUI(
+	says: RigSays,
+	notified: { message: string; level: string }[],
+): ExtensionUIContext {
 	const select = [...(says.select ?? [])];
 	const confirm = [...(says.confirm ?? [])];
 	const input = [...(says.input ?? [])];
@@ -185,7 +190,9 @@ function scriptedUI(says: RigSays): ExtensionUIContext {
 		select: async () => select.shift(),
 		confirm: async () => confirm.shift() ?? false,
 		input: async () => input.shift(),
-		notify: () => {},
+		notify: (message: string, level?: string) => {
+			notified.push({ message, level: level ?? "info" });
+		},
 		onTerminalInput: () => () => {},
 		setStatus: () => {},
 		setWorkingMessage: () => {},
@@ -290,6 +297,8 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 	});
 	await resourceLoader.reload();
 
+	// What the features said to the terminal, kept for a test that reads it instead of the screen.
+	const notified: { message: string; level: string }[] = [];
 	let session: AgentSession;
 	try {
 		({ session } = await createAgentSession({
@@ -305,7 +314,10 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 
 		// `session_start` reaches the extensions through the bindings, not through creation, so a rig
 		// that skips this one runs with every feature asleep. No terminal: this is a run, not a screen.
-		await session.bindExtensions({ mode: "rpc", uiContext: scriptedUI(options.says ?? {}) });
+		await session.bindExtensions({
+			mode: "rpc",
+			uiContext: scriptedUI(options.says ?? {}, notified),
+		});
 	} catch (error) {
 		// A session that never opened leaves nothing behind for the next rig in this file to trip on.
 		open = undefined;
@@ -321,6 +333,7 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 		cwd,
 		events,
 		sessions,
+		notified,
 		prompt: async (text) => {
 			await session.prompt(text);
 			await session.waitForIdle();

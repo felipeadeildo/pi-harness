@@ -10,6 +10,7 @@ import {
 
 import { tasks } from "../../tasks/src/index.ts";
 import { createApp } from "../src/app/builder.ts";
+import { defineFeature } from "../src/app/feature.ts";
 import { createRig, type Rig, SCRIPTED } from "../src/rig.ts";
 
 let rig: Rig | undefined;
@@ -102,5 +103,33 @@ describe("a real pi session with a scripted model", () => {
 		rig = await createRig({ replies: [] });
 		await rig.prompt("Anything?");
 		expect(rig.session.isIdle).toBe(true);
+	});
+});
+
+describe("what the terminal is told", () => {
+	test("a feature's notify reaches the test, with the level it asked for", async () => {
+		// A feature of three lines: the point is the screen the rig hands it, not the feature.
+		const say = defineFeature({
+			id: "say",
+			description: "says what a test reads back",
+			setup(scope) {
+				scope.onSessionStart((ctx) => {
+					ctx.ui.notify("pi-remote: http://127.0.0.1:7878/#token=abc works once", "info");
+					ctx.ui.notify("no daemon answered", "warning");
+				});
+			},
+		});
+		rig = await createRig({
+			extensions: [
+				(pi) => {
+					createApp(pi, { name: "say" }).use(say).build();
+				},
+			],
+		});
+		await rig.prompt("anything");
+		expect(rig.notified).toEqual([
+			{ message: "pi-remote: http://127.0.0.1:7878/#token=abc works once", level: "info" },
+			{ message: "no daemon answered", level: "warning" },
+		]);
 	});
 });
