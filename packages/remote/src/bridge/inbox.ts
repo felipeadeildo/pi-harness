@@ -43,6 +43,8 @@ export class SessionInbox {
 		// mistake to dedupe here by letter, since then the guarantee depends on the two being equal.
 		if (!this.#inbox.put(letter)) return;
 		// A message that did not come from this terminal says so, as the design's `From <client>: …`.
+		// It says it on arrival, not on delivery: a follow-up still waits here, and the person at the
+		// terminal is the one who can take it back, so they are the one who must see it.
 		if (letter.by.kind === "client") this.#session.arrived(letter.text, letter.by);
 		if (letter.want === "steer") this.#session.send(letter.text, "steer");
 		this.#publish();

@@ -1,8 +1,11 @@
 // What a client's `session.rename`, `model.set` and `thinking.set` reach: pi's own setters, and the
 // refusal each one gives instead of a silent nothing when it cannot be honoured.
 import { describe, expect, test } from "bun:test";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { type By, MODE_SET } from "@adeildo/pi-kit";
+import { logPath, readTail, targetOf } from "@adeildo/pi-kit";
 import { fakeContext, fakeScope } from "@adeildo/pi-kit/testing";
 
 import { commandApi, isThinkingLevel, THINKING_LEVELS } from "../src/commands-api.ts";
@@ -110,6 +113,37 @@ describe("the commands' side of pi", () => {
 		const { api: commands, thinking } = api();
 		commands.setThinking("off");
 		expect(thinking).toEqual(["off"]);
+	});
+
+	test("a prompt from a client writes the fact and says it in the terminal", () => {
+		const notes: string[] = [];
+		const events = process.env.PI_HARNESS_EVENTS;
+		process.env.PI_HARNESS_EVENTS = join(tmpdir(), `pi-remote-mark-${Math.random()}`);
+		const scope = fakeScope();
+		const cwd = join(tmpdir(), "pi-remote-mark-work");
+		// The terminal's notes come from the context, which is what `ui.notify` belongs to.
+		const ctx = fakeContext(notes, true, {
+			sessionManager: { getCwd: () => cwd, getSessionId: () => "s1" },
+		});
+		try {
+			commandApi(scope, ctx).arrived("hello\nthere", {
+				kind: "client",
+				name: "phone",
+				machine: "here",
+			});
+			const logged = readTail(logPath(targetOf({ getCwd: () => cwd, getSessionId: () => "s1" })));
+			expect(logged).toMatchObject([
+				{
+					type: "prompt.received",
+					data: { by: { kind: "client", name: "phone", machine: "here" } },
+				},
+			]);
+			// The terminal line is one line, and it says who it came from.
+			expect(notes).toEqual(["From phone: hello …"]);
+		} finally {
+			if (events === undefined) delete process.env.PI_HARNESS_EVENTS;
+			else process.env.PI_HARNESS_EVENTS = events;
+		}
 	});
 
 	test("knows exactly the levels pi offers, and nothing between them", () => {
