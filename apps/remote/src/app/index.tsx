@@ -1,7 +1,8 @@
 // The way in: every session the daemon knows, each row opening one. The link that `/remote` prints
 // lands here, so this is the first thing a phone shows after the login.
 import { type ListedSession, listSessions } from "@adeildo/pi-remote-client";
-import { createElement as h, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { Text, View } from "react-native";
 
 import { SessionsScreen } from "../screens/sessions/sessions.tsx";
 import { browserSource } from "../session/browser.ts";
@@ -37,7 +38,12 @@ export default function Sessions() {
 
 	// A blank frame while the daemon answers, and never an empty screen that says there is nothing:
 	// "no session is open" is a fact only the daemon can give.
-	if (why !== undefined) return h("main", { className: "remote-sessions" }, h("p", undefined, why));
-	if (sessions === undefined) return h("main", { className: "remote-sessions" });
-	return h(SessionsScreen, { sessions, hrefOf: sessionHref });
+	if (why !== undefined)
+		return (
+			<View style={{ flex: 1, padding: 24 }}>
+				<Text>{why}</Text>
+			</View>
+		);
+	if (sessions === undefined) return <View style={{ flex: 1 }} />;
+	return <SessionsScreen sessions={sessions} hrefOf={sessionHref} />;
 }
