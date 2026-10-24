@@ -38,7 +38,16 @@ export interface ClientSession {
 	entries: Entry[];
 	facts: { type: string; data: unknown }[];
 	snapshot?: SessionSnapshot;
-	/** The entry ids of a message being written, before pi writes it. */
+	/**
+	 * Where the branch ends, as the bridge last said. `null` means the root: the reader is at a point
+	 * before the first entry, which a `/tree` move can reach, and `undefined` means the snapshot has
+	 * not said yet and the last entry held stands.
+	 */
+	leaf?: string | null;
+	/**
+	 * The live messages being written, by the number the bridge gives the stream. Nothing writes it
+	 * until the client speaks WebSocket; the field is here so the shape does not move under it.
+	 */
 	streamed: Record<string, unknown>;
 }
 
@@ -48,13 +57,16 @@ export function sessionOf(key: SessionKey, cached?: CachedSession): ClientSessio
 		cursor: cached?.cursor ?? {},
 		entries: (cached?.entries ?? []) as Entry[],
 		facts: cached?.facts ?? [],
+		leaf: cached?.leaf,
 		streamed: {},
 	};
 }
 
-/** What the screen draws: the branch as the protocol reduces it. */
+/** What the screen draws: the branch as the protocol reduces it, from the leaf the bridge named. */
 export function transcriptOfSession(session: ClientSession): Transcript {
-	return transcriptOf(session.entries, session.cursor.entry);
+	// At the root there is no branch to walk: the entries the client holds came after the move.
+	if (session.leaf === null) return { items: [] };
+	return transcriptOf(session.entries, session.leaf ?? session.cursor.entry);
 }
 
 /** The tasks, rulings, questions, mode and rename of the session, from its log. */
@@ -71,6 +83,7 @@ export function cachedOf(session: ClientSession): CachedSession {
 		cursor: session.cursor,
 		entries: session.entries,
 		facts: session.facts,
+		leaf: session.leaf,
 	};
 }
 
@@ -100,7 +113,9 @@ export function readEnvelope(
 		const last = data.entries.at(-1);
 		// A snapshot with no entries leaves no leaf to point at, and the old one named an entry the
 		// client no longer holds.
-		session.cursor = { ...advance(session.cursor, value), entry: last?.id };
+		// The snapshot may name the leaf itself; the last entry is the fallback the format allows.
+		session.leaf = data.snapshot?.leaf ?? last?.id;
+		session.cursor = { ...advance(session.cursor, value), entry: session.leaf ?? undefined };
 		return { read: "now" };
 	}
 	const next = decide(session.cursor, value);
@@ -109,12 +124,28 @@ export function readEnvelope(
 		const entry = value.data as Entry;
 		// A message pi wrote after the client read it through the stream replaces the copy it bound.
 		if (!session.entries.some((held) => held.id === entry.id)) session.entries.push(entry);
+		session.leaf = entry.id;
 		session.cursor = { ...advance(session.cursor, value), entry: entry.id };
 		return { read: "now" };
 	}
 	if (isFactType(value.type)) {
+		if (value.type === "leaf.changed") {
+			const leaf = (value.data as { leaf: string | null }).leaf;
+			// A leaf the client does not hold is a branch it never read: a sibling, or one older than
+			// the snapshot. Only a snapshot can put it back, so nothing is applied here.
+			if (leaf !== null && !session.entries.some((held) => held.id === leaf)) {
+				return { read: "snapshot", why: "gap" };
+			}
+		}
 		session.facts.push({ type: value.type, data: value.data });
 		session.cursor = advance(session.cursor, value);
+		if (value.type === "leaf.changed") {
+			// A `/tree` move, including the one back to the root: the branch the screen draws ends
+			// where the bridge says, not where the last entry the client happens to hold ends.
+			const leaf = (value.data as { leaf: string | null }).leaf;
+			session.leaf = leaf;
+			session.cursor = { ...session.cursor, entry: leaf ?? undefined };
+		}
 		return { read: "now" };
 	}
 	session.cursor = advance(session.cursor, value);

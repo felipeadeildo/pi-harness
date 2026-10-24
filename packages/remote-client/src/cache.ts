@@ -16,6 +16,8 @@ export interface CachedSession {
 	entries: unknown[];
 	/** The harness's facts, in the order the log wrote them. */
 	facts: { type: string; data: unknown }[];
+	/** Where the branch ended, as the bridge last said; see `ClientSession.leaf`. */
+	leaf?: string | null;
 }
 
 export interface Cache {
