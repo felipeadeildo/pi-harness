@@ -80,6 +80,11 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
 - The author merges once a review approves, CI is green and nothing conflicts.
 - A pull request stacked on another one's branch moves its base to `main` with `gh pr edit <n> --base main` before the one below merges. Deleting a branch closes every open pull request based on it, and GitHub reopens none of them.
 - The merge runs in a worktree, which is detached before it. The operator's checkout in `~/Projects/pi-harness` stays on `main`, and after the merge it pulls with `git pull --ff-only`; if it is ever detached, `git switch main` comes first. A detached checkout cannot pull, so the `pi` that loads the harness from it runs code from before the merge.
+- Work happens in a worktree, never in `~/Projects/pi-harness`: that is the checkout the operator's
+  `pi` loads the harness from, and it stays on `main` and clean. The rule starts at `git switch -c`,
+  which is the first step of the mistake. A tree there that does not compile does not break a pull
+  request, it breaks the session the operator is about to start, and `pi` says nothing more than a
+  load that failed.
 - A review worktree under `/tmp` installs with `bun install --frozen-lockfile --ignore-scripts`, and
   that same install is what lets a commit or a push there run the hooks: without `node_modules` the
   `pre-push` exits 127 and git reports `failed to push some refs`, which reads like a conflict.
