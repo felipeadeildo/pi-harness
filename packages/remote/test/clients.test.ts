@@ -514,6 +514,45 @@ describe("logging in", () => {
 		bridge.close();
 	});
 
+	test("the terminal is a viewer, and typing there takes the mark from a client", async () => {
+		const { daemon, port, cookie } = await openDaemon();
+		const bridge = await bridgeOf("s1");
+		bridge.snapshot([]);
+		await until(() => daemon.sessions.get("s1") !== undefined);
+		const heard: Envelope[] = [];
+		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+			headers: { Origin: `http://127.0.0.1:${port}`, Cookie: cookie },
+		});
+		ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)) as Envelope);
+		await new Promise<void>((resolve) => (ws.onopen = () => resolve()));
+		const by = { kind: "client", name: "phone", machine: "laptop" } as const;
+		ws.send(
+			JSON.stringify(envelope("hello", "hello", { by }, { machine: "laptop", session: "s1" })),
+		);
+		await until(() => heard.some((one) => one.type === "presence.changed"));
+		// A client's command takes the mark.
+		ws.send(JSON.stringify(envelope("command", "run.abort", {}, { session: "s1", id: "c1", by })));
+		const presence = () =>
+			heard.filter((one) => one.type === "presence.changed").at(-1)?.data as
+				| { viewers: { name: string }[]; active?: { kind: string } }
+				| undefined;
+		await until(() => presence()?.active?.kind === "client");
+		// And a key at the terminal takes it back, with the terminal named as the one typing there.
+		bridge.send("presence.here", {
+			by: { kind: "terminal", name: "otter", machine: "laptop" },
+		});
+		await until(() => presence()?.active?.kind === "terminal");
+		expect(presence()).toMatchObject({
+			viewers: [
+				{ name: "otter", machine: "laptop" },
+				{ name: "phone", machine: "laptop" },
+			],
+			active: { kind: "terminal", name: "otter" },
+		});
+		ws.close();
+		bridge.close();
+	});
+
 	test("a command for a session with no bridge answers on its id, so the client is not left waiting", async () => {
 		const { port, cookie } = await openDaemon();
 		const origin = `http://127.0.0.1:${port}`;

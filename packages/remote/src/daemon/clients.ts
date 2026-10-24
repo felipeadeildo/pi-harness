@@ -12,6 +12,7 @@ import {
 	isBy,
 	isObject,
 	PROTOCOL,
+	type Viewer,
 } from "@adeildo/pi-remote-protocol";
 
 import { envelopeOf } from "../wire/lines.ts";
@@ -59,8 +60,13 @@ export class Clients {
 	 * A socket with no name is watching but cannot be told from another person, so it is not a viewer.
 	 */
 	readonly #presence = new Map<WebSocket, By>();
-	/** The socket whose input came last, per session: the one a tap or a key on it would come from. */
-	readonly #latest = new Map<string, WebSocket>();
+	/**
+	 * Whose input came last, per session: a socket, or the terminal that runs the session. A terminal
+	 * session starts with the terminal active, because someone is sitting at it.
+	 */
+	readonly #latest = new Map<string, WebSocket | "terminal">();
+	/** Who a session's terminal is, by the bridge that said so when someone typed there. */
+	readonly #terminal = new Map<string, By>();
 	/** What each session last told its clients, so an unchanged presence is not said twice. */
 	readonly #announced = new Map<string, string>();
 	readonly #sockets = new Set<WebSocket>();
@@ -264,10 +270,16 @@ export class Clients {
 		}
 	}
 
-	/** The viewers of a session, and the one whose input came last, both read from the sockets. */
-	#presenceOf(session: string): { viewers: { name: string; machine: string }[]; active?: By } {
-		const viewers: { name: string; machine: string }[] = [];
+	/**
+	 * The viewers of a session and the one whose input came last. A session with a terminal counts the
+	 * terminal as a viewer: it is where the session runs, and the person at it is watching by being
+	 * there. A client that sends a command takes the mark, and a key at the terminal takes it back.
+	 */
+	#presenceOf(session: string): { viewers: Viewer[]; active?: By } {
+		const viewers: Viewer[] = [];
 		let active: By | undefined;
+		const terminal = this.#terminalOf(session);
+		if (terminal !== undefined) viewers.push({ name: terminal.name, machine: terminal.machine });
 		for (const ws of this.#watchers.get(session) ?? []) {
 			const by = this.#presence.get(ws);
 			if (by === undefined) continue;
@@ -275,7 +287,27 @@ export class Clients {
 				viewers.push({ name: by.name, machine: by.machine });
 			if (this.#latest.get(session) === ws) active = by;
 		}
+		if (this.#latest.get(session) === "terminal" && terminal !== undefined) active = terminal;
 		return active === undefined ? { viewers } : { viewers, active };
+	}
+
+	/** The `by` of a session's terminal, as its bridge named it the last time someone typed. */
+	#terminalOf(session: string): By | undefined {
+		return this.#terminal.get(session);
+	}
+
+	/**
+	 * The terminal of a session typed, so it is one of the session's viewers and the one with the last
+	 * input. The bridge says who it is; the daemon does not guess a handle it cannot see.
+	 */
+	typed(session: string, by: By): void {
+		this.#terminal.set(session, by);
+		if (this.#latest.get(session) === "terminal") {
+			this.#announce(session);
+			return;
+		}
+		this.#latest.set(session, "terminal");
+		this.#announce(session);
 	}
 
 	/** A bridge's answer to a command, to the client that asked, and to nobody else. */

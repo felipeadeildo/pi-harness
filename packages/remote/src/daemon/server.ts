@@ -18,7 +18,7 @@ import {
 import { connect, createServer, type Server, type Socket } from "node:net";
 import { dirname, join } from "node:path";
 
-import { envelope, type Envelope, isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
+import { envelope, type Envelope, isBy, isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
 import { envelopeOf, line, Lines } from "../wire/lines.ts";
 import { loadWebApp } from "./app.ts";
@@ -242,6 +242,12 @@ export class Daemon {
 		}
 		if (message.kind !== "event") return;
 		switch (message.type) {
+			case "presence.here": {
+				// The terminal of this session typed: it is watching, and it has the last input.
+				const typist = isObject(message.data) ? message.data.by : undefined;
+				if (isBy(typist)) this.#clients?.typed(bridge.session, typist);
+				break;
+			}
 			case "session.live":
 				// A session.live that does not read never counts as connected, and the daemon would
 				// then exit as idle and be started again, so it says why.

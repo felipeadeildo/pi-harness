@@ -26,7 +26,7 @@ import {
 import { ANSWER, ASK, CANCEL } from "@adeildo/pi-kit";
 import type { SessionSource, SourceItem } from "@adeildo/pi-kit";
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
-import { type FakePi, fakeContext, fakePi } from "@adeildo/pi-kit/testing";
+import { type FakePi, fakeContext, fakePi, keystrokes } from "@adeildo/pi-kit/testing";
 import { envelope } from "@adeildo/pi-remote-protocol";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import type { MessageStartEvent, MessageUpdateEvent } from "@earendil-works/pi-coding-agent";
@@ -201,6 +201,30 @@ describe("the bridge", () => {
 		expect(log).toContain('"c1"');
 		await stop(fake, "quit");
 		delete process.env.PI_HARNESS_EVENTS;
+	});
+
+	test("a key at the terminal says who is there, once per couple of seconds", async () => {
+		const daemon = await listening();
+		const fake = mounted();
+		await start(fake);
+		await until(() => types(daemon).includes("snapshot"));
+		// The handler this session registered, which is the last one pi was given.
+		const press = keystrokes.at(-1);
+		if (press === undefined) throw new Error("no key handler was registered");
+		press("a");
+		await until(() => daemon.received.some((one) => one.type === "presence.here"));
+		const said = daemon.received.find((one) => one.type === "presence.here")?.data as
+			| { by: { kind: string; name: string; machine: string } }
+			| undefined;
+		expect(said?.by.kind).toBe("terminal");
+		expect(said?.by.machine).toBe(HOST);
+		expect(typeof said?.by.name).toBe("string");
+		// A person types faster than the others need to know, so the second key inside the window is
+		// not another event.
+		press("b");
+		await Bun.sleep(20);
+		expect(daemon.received.filter((one) => one.type === "presence.here")).toHaveLength(1);
+		await stop(fake, "quit");
 	});
 
 	test("a follow-up waits for the agent to settle, and then pi gets it", async () => {

@@ -8,6 +8,7 @@ import {
 	ANSWER,
 	CANCEL,
 	type EventScope,
+	bySession,
 	HOST,
 	logFrom,
 	type LogSession,
@@ -33,6 +34,9 @@ import { LiveStream } from "./stream.ts";
 
 /** How many entries of the branch a snapshot carries. A client pages through older ones over HTTP. */
 export const SNAPSHOT_ENTRIES = 50;
+
+/** How often the terminal tells the daemon that someone typed there, in milliseconds. */
+export const TYPED_EVERY_MS = 2_000;
 
 export type SessionKind = SessionSnapshot["kind"];
 
@@ -82,6 +86,8 @@ export class Bridge {
 	readonly #inbox: SessionInbox;
 	readonly #startedAt = Date.now();
 	#unfollow: (() => void) | undefined;
+	#stopTyping: (() => void) | undefined;
+	#typedAt = 0;
 
 	constructor(
 		private readonly ctx: ExtensionContext,
@@ -113,6 +119,18 @@ export class Bridge {
 			arrived: (text, by) => options.api.arrived(text, by),
 		});
 		this.#inbox.start();
+		// A key at the terminal is input, and it makes the terminal the session's active client. The
+		// daemon is told about it as it happens, and at most every couple of seconds, because a person
+		// types faster than the others need to know who is typing.
+		this.#stopTyping = ctx.ui.onTerminalInput(() => {
+			const now = Date.now();
+			if (now - this.#typedAt < TYPED_EVERY_MS) return undefined;
+			this.#typedAt = now;
+			this.#connection.event("presence.here", {
+				by: bySession("terminal", options.scope, ctx.sessionManager),
+			});
+			return undefined;
+		});
 		this.#commands = new Commands({
 			session: ctx.sessionManager.getSessionId(),
 			effects: {
@@ -212,6 +230,8 @@ export class Bridge {
 	async stop(reason: GoneReason | undefined): Promise<void> {
 		this.#unfollow?.();
 		this.#unfollow = undefined;
+		this.#stopTyping?.();
+		this.#stopTyping = undefined;
 		this.stream.stop();
 		await this.#connection.close(reason);
 	}

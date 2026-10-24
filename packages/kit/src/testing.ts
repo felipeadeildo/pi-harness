@@ -180,6 +180,9 @@ export function fakeScope(options: FakeScopeOptions = {}): FeatureScope {
 	};
 }
 
+/** The key handlers a context was given, so a test can fire a key at the terminal. */
+export const keystrokes: ((data: string) => unknown)[] = [];
+
 export function fakeContext(
 	notes: string[] = [],
 	hasUI = true,
@@ -197,7 +200,13 @@ export function fakeContext(
 			setStatus(key: string, text: string | undefined) {
 				this.statuses.set(key, text);
 			},
-			onTerminalInput: () => () => {},
+			onTerminalInput: (handler: (data: string) => unknown) => {
+				keystrokes.push(handler);
+				return () => {
+					const at = keystrokes.indexOf(handler);
+					if (at !== -1) keystrokes.splice(at, 1);
+				};
+			},
 			...(extra.ui as Record<string, unknown> | undefined),
 		},
 	} as unknown as ExtensionContext;
