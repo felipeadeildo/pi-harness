@@ -10,7 +10,7 @@ import { envelope, type Envelope, isObject, PROTOCOL } from "@adeildo/pi-remote-
 import { envelopeOf } from "../wire/lines.ts";
 import { accept, type WebSocket } from "../wire/websocket.ts";
 import { type Asking, checkPlace, loopbackHosts } from "./auth.ts";
-import { PAGE, pageOf } from "./history.ts";
+import { History, PAGE } from "./history.ts";
 import type { Sessions } from "./sessions.ts";
 
 const STATUS = { 401: "Unauthorized", 403: "Forbidden", 421: "Misdirected Request" } as const;
@@ -34,6 +34,7 @@ export class Clients {
 	/** Each session's clients, which every event of the session goes to. */
 	readonly #watchers = new Map<string, Set<WebSocket>>();
 	readonly #sockets = new Set<WebSocket>();
+	readonly #history = new History();
 	/** The names this daemon answers to, once it knows its port. Nothing answers before. */
 	#hosts: ReadonlySet<string> = new Set();
 
@@ -168,7 +169,12 @@ export class Clients {
 				return reply(response, 400, { error: "a machine and a session, percent-encoded" });
 			const known = this.#options.sessions.get(session);
 			if (known?.machine !== machine) return reply(response, 404, { error: "no such session" });
-			if (route[3] === "entries") return this.#entries(response, known.live.file, session, url);
+			if (route[3] === "entries") {
+				void this.#entries(response, known.live.file, session, url).catch(() =>
+					reply(response, 500, { error: "the session file could not be read" }),
+				);
+				return;
+			}
 			const opening = this.#options.sessions.opening(session);
 			if (opening === undefined) return reply(response, 404, { error: "no snapshot" });
 			return reply(response, 200, opening[0]);
@@ -177,11 +183,17 @@ export class Clients {
 	}
 
 	/** A page of the session's entries, read from its file: before an entry, since one, or the tail. */
-	#entries(response: ServerResponse, file: string | undefined, session: string, url: URL): void {
-		if (file === undefined) return reply(response, 404, { error: "no session file yet" });
+	async #entries(
+		response: ServerResponse,
+		file: string | undefined,
+		session: string,
+		url: URL,
+	): Promise<void> {
+		// Only a `pi --no-session` has no file at all, and it holds no older entries either.
+		if (file === undefined) return reply(response, 200, { entries: [], more: false });
 		const query = url.searchParams;
 		const limit = Number(query.get("limit") ?? PAGE);
-		const page = pageOf(file, session, {
+		const page = await this.#history.page(file, session, {
 			...(query.has("before") ? { before: query.get("before") ?? "" } : {}),
 			...(query.has("since") ? { since: query.get("since") ?? "" } : {}),
 			limit: Number.isFinite(limit) ? limit : PAGE,

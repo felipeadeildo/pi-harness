@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { connect, memoryCache, type Transport } from "@adeildo/pi-remote-client";
 import { envelope, type Envelope, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
-import { pageOf } from "../src/daemon/history.ts";
+import { FILES, History, type Page } from "../src/daemon/history.ts";
 import { Daemon } from "../src/daemon/server.ts";
 import { envelopeOf, line, Lines } from "../src/wire/lines.ts";
 import { frame, Frames, MAX_MESSAGE } from "../src/wire/websocket.ts";
@@ -400,7 +400,9 @@ describe("a session's older entries", () => {
 		return path;
 	}
 
-	test("come in pages before an entry, walking the branch, and since one, in file order", () => {
+	const ids = (page: Page) => ("entries" in page ? page.entries.map((one) => one.id) : page);
+
+	test("come in pages before an entry, walking the branch, and since one, in file order", async () => {
 		// a - b - c is the branch; x hangs off a and is not on it.
 		const path = sessionFile("s1", [
 			entry("a", null),
@@ -408,28 +410,62 @@ describe("a session's older entries", () => {
 			entry("x", "a"),
 			entry("c", "b"),
 		]);
-		const ids = (page: ReturnType<typeof pageOf>) =>
-			"entries" in page ? page.entries.map((one) => one.id) : page;
-		expect(ids(pageOf(path, "s1"))).toEqual(["a", "b", "c"]);
-		expect(pageOf(path, "s1", { before: "c", limit: 1 })).toMatchObject({
+		const history = new History();
+		expect(ids(await history.page(path, "s1"))).toEqual(["a", "b", "c"]);
+		expect(await history.page(path, "s1", { before: "c", limit: 1 })).toMatchObject({
 			entries: [{ id: "b" }],
 			more: true,
 		});
-		expect(pageOf(path, "s1", { before: "b" })).toMatchObject({
+		expect(await history.page(path, "s1", { before: "b" })).toMatchObject({
 			entries: [{ id: "a" }],
 			more: false,
 		});
-		expect(ids(pageOf(path, "s1", { since: "b" }))).toEqual(["x", "c"]);
-		expect(pageOf(path, "s1", { since: "gone" })).toEqual({ unknown: "gone" });
+		expect(ids(await history.page(path, "s1", { since: "b" }))).toEqual(["x", "c"]);
+		expect(await history.page(path, "s1", { since: "gone" })).toEqual({ unknown: "gone" });
+		// A limit is a count of entries, so a fraction rounds down the same way in both directions.
+		expect(ids(await history.page(path, "s1", { before: "c", limit: 1.5 }))).toEqual(["b"]);
+		expect(ids(await history.page(path, "s1", { since: "a", limit: 1.5 }))).toEqual(["b"]);
 	});
 
-	test("are read only from a file whose header names the session, skipping a line being written, and none before pi writes it", () => {
+	test("are read only from a file whose header names the session, skipping a line being written, and none before pi writes it", async () => {
 		const path = sessionFile("s1", [entry("a", null)]);
 		appendFileSync(path, '{"type":"message","id":"half');
-		expect(pageOf(path, "s1")).toMatchObject({ entries: [{ id: "a" }] });
-		expect(pageOf(path, "s2")).toEqual({ foreign: true });
+		const history = new History();
+		expect(await history.page(path, "s1")).toMatchObject({ entries: [{ id: "a" }] });
+		expect(await history.page(path, "s2")).toEqual({ foreign: true });
 		// Pi names the file when the session opens, and writes it at the first message.
-		expect(pageOf(join(dir, "none.jsonl"), "s1")).toEqual({ entries: [], more: false });
+		expect(await history.page(join(dir, "none.jsonl"), "s1")).toEqual({ entries: [], more: false });
+	});
+
+	test("follow what the file gains, and read it again when pi rewrites it", async () => {
+		const path = sessionFile("s1", [entry("a", null)]);
+		const history = new History();
+		expect(ids(await history.page(path, "s1"))).toEqual(["a"]);
+		appendFileSync(path, `${JSON.stringify(entry("b", "a"))}\n`);
+		expect(ids(await history.page(path, "s1", { since: "a" }))).toEqual(["b"]);
+		// A rewrite with fewer bytes, as a migration can leave, is indexed from the start.
+		sessionFile("s1", [entry("z", null)]);
+		expect(ids(await history.page(path, "s1"))).toEqual(["z"]);
+		// And so is a rewrite in place that grew: the last entry indexed is no longer where it was.
+		sessionFile("s1", [entry("q", null), entry("r", "q"), entry("s", "r")]);
+		expect(ids(await history.page(path, "s1"))).toEqual(["q", "r", "s"]);
+	});
+
+	test("end the walk at a parent seen before, so a cycle never pages forever", async () => {
+		const path = sessionFile("s1", [entry("x", "y"), entry("y", "x")]);
+		const history = new History();
+		const page = await history.page(path, "s1", { before: "y" });
+		expect(page).toEqual({ entries: [expect.objectContaining({ id: "x" })], more: false });
+		expect(await history.page(path, "s1")).toMatchObject({ more: false });
+	});
+
+	test("keep only the index, and an index for at most FILES files", async () => {
+		const history = new History();
+		const paths = Array.from({ length: FILES + 2 }, (_, at) =>
+			sessionFile(`s${at}`, [entry("a", null)]),
+		);
+		for (const [at, path] of paths.entries()) await history.page(path, `s${at}`);
+		expect(history.indexed()).toBe(FILES);
 	});
 
 	test("come over HTTP from the file the bridge named, and an unknown cursor is a 410", async () => {

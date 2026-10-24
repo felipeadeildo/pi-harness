@@ -12,11 +12,16 @@ if (import.meta.main) {
 	else {
 		// `--serve` is how `pi-remote serve --dev` runs this file: up until stopped, on its port.
 		const at = args.indexOf("--port");
+		const port = at === -1 ? CLIENT_PORT : Number(args[at + 1]);
+		if (!Number.isInteger(port) || port < 0 || port > 65_535) {
+			console.error("pi-remote daemon: --port takes a port number");
+			process.exit(2);
+		}
 		// When another daemon already answers on the socket, nothing is listening here and Node exits.
 		await Daemon.start({
 			...daemonPaths(daemonDir()),
 			version: VERSION,
-			clientPort: at === -1 ? CLIENT_PORT : Number(args[at + 1]),
+			clientPort: port,
 			stayUp: args.includes("--serve"),
 			exited: () => process.exit(0),
 			warn: (message) => console.error(`pi-remote daemon: ${message}`),
