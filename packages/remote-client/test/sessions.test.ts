@@ -55,6 +55,25 @@ describe("the daemon's session list", () => {
 		expect(sessions.map((one) => one.session)).toEqual(["s1"]);
 	});
 
+	test("a list where nothing decodes is an error, not the same picture as no sessions", async () => {
+		const unknown = [row({ session: undefined }), row({ live: undefined })];
+		await expect(listSessions("http://127.0.0.1:7878", answering(unknown))).rejects.toThrow(
+			"cannot read",
+		);
+	});
+
+	test("the request can be given up on while it hangs", async () => {
+		// A daemon that accepts the connection and never answers: only the signal ends the wait.
+		const speaks = ((_url: URL, init?: RequestInit) =>
+			new Promise((_resolve, reject) => {
+				init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+			})) as unknown as typeof fetch;
+		const abort = new AbortController();
+		const pending = listSessions("http://127.0.0.1:7878", speaks, { signal: abort.signal });
+		abort.abort();
+		await expect(pending).rejects.toThrow("aborted");
+	});
+
 	test("a daemon that refuses is an error that carries the code", async () => {
 		const refused = listSessions("http://127.0.0.1:7878", answering({}, 401));
 		await expect(refused).rejects.toThrow("401");
