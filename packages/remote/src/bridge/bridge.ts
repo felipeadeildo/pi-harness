@@ -80,6 +80,11 @@ export class Bridge {
 		this.#connection.start();
 	}
 
+	/** Asks the daemon something, as `/remote` asks for a token. Nothing comes back without a daemon. */
+	request(type: string, data: unknown): Promise<Envelope | undefined> {
+		return this.#connection.request(type, data);
+	}
+
 	/** Sends an event that needs no shaping, such as a model change. */
 	event(type: string, data: unknown): void {
 		this.#connection.event(type, data);
