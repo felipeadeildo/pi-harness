@@ -13,6 +13,15 @@ import { useEffect, useState } from "react";
 export interface SessionSource {
 	cache: Cache;
 	open: ConnectionOptions["open"];
+	/** Set when the page cannot open the socket at all, as a refused login leaves it. */
+	why?: string;
+}
+
+/** What a screen gets: the session, and why it has none when something stopped it. */
+export interface Held {
+	session: ClientSession | undefined;
+	changes: number;
+	why?: string;
 }
 
 /**
@@ -20,22 +29,27 @@ export interface SessionSource {
  * source is asked for only once the screen is in a browser: the static export renders the route on
  * a server, where there is no storage and no socket.
  */
-export function useSession(
-	key: SessionKey,
-	source: () => SessionSource,
-): { session: ClientSession | undefined; changes: number } {
-	const [held, setHeld] = useState<{ session: ClientSession | undefined; changes: number }>({
-		session: undefined,
-		changes: 0,
-	});
+export function useSession(key: SessionKey, source: () => Promise<SessionSource>): Held {
+	const [held, setHeld] = useState<Held>({ session: undefined, changes: 0 });
 	const { machine, session } = key;
-	useEffect(
-		() =>
-			openSession({ machine, session }, source(), (current) =>
+	useEffect(() => {
+		let open = true;
+		let stop: (() => void) | undefined;
+		void source().then((ready) => {
+			if (!open) return;
+			if (ready.why !== undefined) {
+				setHeld({ session: undefined, changes: 0, why: ready.why });
+				return;
+			}
+			stop = openSession({ machine, session }, ready, (current) =>
 				setHeld((before) => ({ session: current, changes: before.changes + 1 })),
-			),
-		[machine, session, source],
-	);
+			);
+		});
+		return () => {
+			open = false;
+			stop?.();
+		};
+	}, [machine, session, source]);
 	return held;
 }
 
