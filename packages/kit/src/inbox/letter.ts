@@ -7,6 +7,13 @@ import { isObject } from "../decode.ts";
 /** What a message becomes on the way in. `steer` goes in at once, between the agent's calls. */
 export type Want = "steer" | "followUp";
 
+/**
+ * Why a letter waits, when it is not simply waiting for the run to settle: the session is asleep, a
+ * chain of agents stopped waking it, a run is full of steers, or the operator stopped the run before
+ * the agent read it. Absent is the ordinary case, a follow-up of the run going on.
+ */
+export type Why = "asleep" | "quiet" | "full" | "stopped";
+
 export interface Letter {
 	/** Unique among the letters of one session, so a repeat in the same run is recognized. */
 	id: string;
@@ -17,6 +24,8 @@ export interface Letter {
 	custom?: { customType: string; details?: unknown; display?: boolean };
 	/** When it was written, in milliseconds, by the writer's clock. A held one shows its age. */
 	at?: number;
+	/** Set while the inbox holds it, and absent once it went in. */
+	why?: Why;
 }
 
 export function isLetter(value: unknown): value is Letter {
@@ -26,8 +35,11 @@ export function isLetter(value: unknown): value is Letter {
 	if (value.want !== "steer" && value.want !== "followUp") return false;
 	if (!isBy(value.by)) return false;
 	if (value.at !== undefined && typeof value.at !== "number") return false;
+	if (value.why !== undefined && !WHYS.has(value.why as string)) return false;
 	return value.custom === undefined || isCustom(value.custom);
 }
+
+const WHYS: ReadonlySet<string> = new Set<Why>(["asleep", "quiet", "full", "stopped"]);
 
 function isCustom(value: unknown): boolean {
 	return (

@@ -58,18 +58,47 @@ describe("the inbox", () => {
 		const fromAgent = letter("from an agent", AGENT);
 		const first = letter("first");
 		const second = letter("second");
+		// A steer went to pi when it was put, so the run it joins does not carry it again.
 		const steer = letter("steer", OPERATOR, "steer");
+		const waiting = letter("from the operator", OPERATOR);
 		const lastAgent = letter("another agent", AGENT);
-		for (const one of [fromAgent, first, second, steer, lastAgent]) inbox.put(one);
+		for (const one of [fromAgent, first, second, steer, lastAgent, waiting]) inbox.put(one);
 		const letters = inbox.settle();
+		// Inside each group, the order they were written in.
 		expect(letters.map((one) => one.text)).toEqual([
-			"steer",
 			"first",
 			"second",
+			"from the operator",
 			"from an agent",
 			"another agent",
 		]);
 		expect(inbox.queue()).toEqual([]);
+		expect(inbox.sent()).toEqual([]);
+	});
+
+	test("the Esc puts a steer back in the run, and keeps it for the next one when the run stopped", () => {
+		const inbox = new Inbox();
+		const steer = letter("steer", OPERATOR, "steer");
+		inbox.put(steer);
+		const running = inbox.cleared([steer], true);
+		expect(running.resend.map((one) => one.id)).toEqual([steer.id]);
+		expect(inbox.queue()).toEqual([]);
+
+		inbox.put(steer);
+		const stopped = inbox.cleared([steer], false);
+		expect(stopped.resend).toEqual([]);
+		expect(stopped.held).toMatchObject([{ id: steer.id, why: "stopped" }]);
+		expect(inbox.queue()).toMatchObject([{ id: steer.id, why: "stopped" }]);
+	});
+
+	test("a letter held for a reason reads back with it, and one without reads as it was", () => {
+		const inbox = new Inbox();
+		inbox.put(letter("asleep", AGENT));
+		inbox.holdFor(letter("plain", AGENT), undefined);
+		expect(inbox.queue().map((one) => one.why)).toEqual([undefined, undefined]);
+		const held = new Inbox();
+		held.holdFor(letter("quiet", AGENT), "quiet");
+		expect(held.queue()).toMatchObject([{ why: "quiet" }]);
 	});
 
 	test("holds again what a run did not carry, in the order it arrived", () => {

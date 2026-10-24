@@ -46,17 +46,39 @@ export class Inbox {
 	}
 
 	/**
-	 * The run that starts now: the steers on their way, then the held letters in the order they go in.
-	 * Whatever it carries is a repeat from here on, so a resend of it is not a second message.
+	 * The run that starts now takes what waited, in the order it goes in. Only the held letters are
+	 * answered: a steer was handed to pi when it was put, and answering it again would send it twice.
+	 * The steers on their way are forgotten, because the run they went into has begun.
 	 */
 	settle(): Letter[] {
-		const letters = [...this.#sent.splice(0), ...this.queue()];
+		const letters = this.queue();
+		this.#sent.length = 0;
 		for (const letter of letters) {
 			const at = this.#held.indexOf(letter);
 			if (at !== -1) this.#held.splice(at, 1);
 			this.#done.add(letter.id);
 		}
 		return letters;
+	}
+
+	/** Holds a letter that is not ready to go yet, with the reason the client reads. */
+	holdFor(letter: Letter, why: Letter["why"]): void {
+		if (this.#held.some((one) => one.id === letter.id)) return;
+		this.#held.push(why === undefined ? letter : { ...letter, why });
+	}
+
+	/**
+	 * pi emptied the queue it was handed, as Esc and taking your queued messages back both do, and the
+	 * steers in it went with it. A run that goes on gets them again, as steers; one that stopped leaves
+	 * them waiting for the next run, with the reason. The inbox sends nothing: the caller does.
+	 */
+	cleared(letters: readonly Letter[], running: boolean): { resend: Letter[]; held: Letter[] } {
+		const gone = letters.filter((one) => one.want === "steer");
+		this.#sent.length = 0;
+		if (running) return { resend: gone, held: [] };
+		const held = gone.map((one) => ({ ...one, why: "stopped" as const }));
+		for (const letter of held) this.holdFor(letter, "stopped");
+		return { resend: [], held };
 	}
 
 	/**
