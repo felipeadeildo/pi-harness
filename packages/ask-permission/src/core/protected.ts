@@ -57,11 +57,15 @@ function piecesOf(words: string[]): string[] {
 
 const HOME_VARIABLE = /^\$\{?HOME\}?(?=\/|$)/;
 
-const WALKERS = new Set(["find", "rg", "tar", "zip", "rsync", "du", "tree"]);
+const WALKERS = new Set(["find", "rg", "tar", "zip", "7z", "rsync", "du", "tree"]);
 
 /** Whether the call goes down through the folders it names, rather than looking at them. */
 function walks(call: Call, words: string[]): boolean {
 	if (call.toolName === "grep" || call.toolName === "find") return true;
+	// `cp -a` copies a folder whole; `ls -a` only lists it, so `-a` counts for `cp` alone.
+	const copies = words.some((word) => basename(word) === "cp");
+	if (copies && words.some((word) => word === "--archive" || /^-[a-zA-Z]*a/.test(word)))
+		return true;
 	return words.some(
 		(word) =>
 			WALKERS.has(basename(word)) ||

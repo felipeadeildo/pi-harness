@@ -128,13 +128,15 @@ describe("a call that reaches a protected entry", () => {
 			"rg secret ~",
 			"find ~ -name '*.key' -exec cat {} +",
 			"tar czf out.tgz ~",
+			"cp -a ~ /tmp/h",
+			"7z a out.7z ~",
 		]) {
 			// oxlint-disable-next-line no-await-in-loop -- one command at a time, so a failure names it
 			expect({ command, by: await by("bash", { command }) }).toEqual({ command, by: "protected" });
 		}
 		expect(await by("grep", { pattern: "secret", path: "~" })).toBe("protected");
 		// Looking at the home is not reaching into it.
-		for (const command of ["ls ~", "git -C ~ status", "cd ~"]) {
+		for (const command of ["ls ~", "ls -la ~", "git -C ~ status", "cd ~"]) {
 			// oxlint-disable-next-line no-await-in-loop -- one command at a time, so a failure names it
 			expect({ command, by: await by("bash", { command }) }).not.toEqual({
 				command,
