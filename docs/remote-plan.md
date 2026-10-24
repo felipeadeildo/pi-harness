@@ -67,7 +67,8 @@ git push -u origin HEAD
 gh pr create --base main --title "<conventional subject>" --body-file <body.md>
 git switch --detach                                                 # leave the branch before it goes
 gh pr merge <n> --squash                                            # once a review approves
-git push origin --delete feat/<area>-<what>                         # once no open pull request is based on it
+gh pr list --base feat/<area>-<what>                                # the pull requests based on it, which move to main first
+git push origin --delete feat/<area>-<what>                         # once that list is empty
 git fetch origin && git switch --detach origin/main                 # a clean base for the next slice
 git -C ~/Projects/pi-harness pull --ff-only                         # the folder the operator's pi runs from
 ```
