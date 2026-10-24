@@ -56,7 +56,7 @@ The `Always yes` section of the settings counts the rules per scope and forgets 
 | `judge`  | the same as `edits`, and the [judge](#let-a-model-decide) decides the rest |
 | `full`   | everything                                                                 |
 
-The workspace comes before the mode: a call outside `workspace.roots` asks you in every mode, `full` included. `Alt+W` lets calls outside through for the session, and a second press puts the check back, with `anywhere` in red on the status bar while it is off. A resumed session keeps its mode and its choice.
+A call that touches the protected list, such as the remote's key or its socket, asks you in every mode but `full`, past an always yes and the judge. The workspace comes before the mode: a call outside `workspace.roots` asks you in every mode, `full` included. `Alt+W` lets calls outside through for the session, and a second press puts the check back, with `anywhere` in red on the status bar while it is off. A resumed session keeps its mode and its choice.
 
 ### A folder next door
 

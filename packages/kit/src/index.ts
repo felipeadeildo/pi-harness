@@ -16,6 +16,7 @@ export * from "./card.ts";
 export * from "./contracts/events.ts";
 export * from "./contracts/peers.ts";
 export * from "./contracts/mode.ts";
+export * from "./contracts/protected.ts";
 export * from "./contracts/tasks.ts";
 export * from "./events/log.ts";
 export { fileSource, type FileSourceOptions, sourceFor } from "./sources/file.ts";

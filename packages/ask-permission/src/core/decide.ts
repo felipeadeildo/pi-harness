@@ -1,6 +1,6 @@
 // The first layer with an answer decides, so the order is the policy. The caller adds the judge.
 
-import { tildify } from "@adeildo/pi-kit";
+import { type ProtectedList, tildify } from "@adeildo/pi-kit";
 import type { ToolAnnotations } from "@earendil-works/pi-coding-agent";
 
 import type { AlwaysYes } from "#core/always-yes.ts";
@@ -17,6 +17,7 @@ import {
 	type ToolFacts,
 } from "#core/mcp.ts";
 import { MODES, type ModeRules, type PermissionMode } from "#core/mode.ts";
+import { protectedEntry } from "#core/protected.ts";
 import {
 	asToolInput,
 	type CallDescriptor,
@@ -43,6 +44,8 @@ export interface Call {
 	nested: boolean;
 	/** What an extension's tool says it does, unverified. Unset for the built-in tools. */
 	description?: string;
+	/** Where its relative paths start. */
+	cwd?: string;
 }
 
 export type Verdict =
@@ -63,6 +66,8 @@ export interface GateState {
 	outside: OutsideScope;
 	alwaysYes: Pick<AlwaysYes, "has">;
 	folders: Pick<OpenFolders, "covers">;
+	/** The protected list as the features of this process give it now. */
+	protected?: () => ProtectedList;
 }
 
 const ALLOW: Verdict = { action: "allow" };
@@ -101,12 +106,24 @@ export function describeCall(
 		hints: hintsOf(fact),
 		nested: extras.nested === true,
 		description: isBuiltInTool(toolName) ? undefined : fact?.description,
+		cwd,
 	};
 }
 
 export function gateLayers(state: GateState): Layer[] {
 	const rules = MODES[state.mode];
 	return [
+		{
+			// Before everything: only `full` lets a call that reaches a protected entry through, so the
+			// judge, the `edits` mode and an always yes never approve it.
+			name: "protected",
+			decide: (call) => {
+				if (rules.everything || state.protected === undefined) return undefined;
+				const entry = protectedEntry(call, state.protected());
+				if (entry === undefined) return undefined;
+				return { action: "ask", reason: `this call reaches ${entry}, which is protected` };
+			},
+		},
 		{
 			// Before everything, an always yes included: the tool keeps these calls with you.
 			name: "always asks",

@@ -123,11 +123,11 @@ export function resolveRoots(roots: string[], cwd: string): string[] {
 	return list.map((root) => canonical(resolvePath(root, cwd)));
 }
 
-function resolvePath(path: string, cwd: string): string {
+export function resolvePath(path: string, cwd: string): string {
 	return resolve(cwd, expandHome(path));
 }
 
-function canonical(path: string): string {
+export function canonical(path: string): string {
 	const lexical = normalize(path);
 	try {
 		return realpathSync(lexical);
@@ -140,7 +140,7 @@ function canonical(path: string): string {
 	}
 }
 
-function isInside(path: string, roots: string[]): boolean {
+export function isInside(path: string, roots: string[]): boolean {
 	return roots.some((root) => {
 		const prefix = root.endsWith(sep) ? root : `${root}${sep}`;
 		return path === root || path.startsWith(prefix);
