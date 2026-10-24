@@ -3,8 +3,9 @@
 # measure it again on the Bun the CI now pins: `gh workflow run probe-bash-timer.yml`.
 #
 # The run is red exactly when the bug reproduces, so the colour of the run is the answer, and the
-# log carries the count, the commit and the version. A green run means the retry can go, with these
-# fifty runs as its evidence.
+# log carries the count, the commit and the version. Each failure echoes up to five lines of its
+# output that name the cause, which is more useful than a count per kind. A green run means the
+# retry can go, with these fifty runs as its evidence.
 name: probe bash timer
 
 on: workflow_dispatch
@@ -13,7 +14,7 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     # Spawning a shell can hang. Without this, a stuck run holds the runner for the default hours.
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -28,7 +29,8 @@ jobs:
             if ! bun test packages/ask-permission/test/bash-timer.test.ts > /tmp/run.log 2>&1; then
               fails=$((fails + 1))
               echo "run $i failed:"
-              grep -E "epoll_ctl|EINVAL|error:|fail" /tmp/run.log | head -5
+              # `|| true` because the grep matching nothing must not end the loop under pipefail.
+              grep -E "epoll_ctl|EINVAL|error:|fail" /tmp/run.log | head -5 || true
             fi
           done
           echo "failures: $fails of 50"
