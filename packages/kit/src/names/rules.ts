@@ -8,7 +8,7 @@ export const SHORTEST = 3;
 export const LONGEST = 8;
 /**
  * Two words this many edits apart, the most the list can hold: short animal names crowd, so at three
- * edits 1,058 candidates leave 484 words, and 600 are needed; at two they leave 606. One typo still
+ * edits 1,057 candidates leave 484 words, and 600 are needed; at two they leave 607. One typo still
  * cannot turn one handle into another; Tab may offer a second word when the typo lands one edit
  * from it.
  */
@@ -17,9 +17,9 @@ export const APART = 2;
 export const FEWEST = 600;
 
 /**
- * Words that read as code, as an instruction or as a command of pi or of the harness. None of them
- * is an animal, so the list does not lose anything by keeping them out, and a handle that reads as
- * `@test` or `@build` would be taken for an instruction in a message.
+ * Words that read as code, as an instruction or as a command of pi or of the harness. A few are
+ * animals too, `bat`, `dog` and `pig`, and they stay out because a handle that reads as a command
+ * would be taken for one in a message; the list carries `batfish`, `dogfish` and `pigfish` instead.
  */
 const DENIED = new Set([
 	"add",
@@ -28,6 +28,7 @@ const DENIED = new Set([
 	"ask",
 	"auth",
 	"bash",
+	"bat",
 	"bin",
 	"branch",
 	"build",
@@ -52,6 +53,7 @@ const DENIED = new Set([
 	"dir",
 	"dist",
 	"docs",
+	"dog",
 	"drop",
 	"edit",
 	"env",
@@ -102,6 +104,7 @@ const DENIED = new Set([
 	"path",
 	"peer",
 	"peers",
+	"pig",
 	"push",
 	"quit",
 	"read",

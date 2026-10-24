@@ -22,7 +22,6 @@ bandicoot
 barb
 barnacle
 basilisk
-bat
 bear
 beaver
 bedbug
@@ -110,7 +109,6 @@ damselfly
 deer
 dingo
 dodo
-dog
 dogfish
 dolphin
 donkey
@@ -300,7 +298,6 @@ penguin
 perch
 petrel
 pheasant
-pig
 pigeon
 pika
 pike
@@ -1056,3 +1053,5 @@ dorado
 zander
 crucian
 orfe
+batfish
+pigfish

@@ -1,5 +1,5 @@
 // The words a session draws its handle from: animals with character, one first three letters
-// each, and three edits apart. `bun scripts/names/check.ts` holds the file to the rules in
+// each, and two edits apart. `bun scripts/names/check.ts` holds the file to the rules in
 // docs/remote.md#the-word-list, and the operator fixes the list.
 export const WORDS = [
 	"aardvark",
@@ -43,7 +43,7 @@ export const WORDS = [
 	"banteng",
 	"barb",
 	"basilisk",
-	"bat",
+	"bateleur",
 	"baya",
 	"beagle",
 	"becard",
@@ -92,7 +92,7 @@ export const WORDS = [
 	"canary",
 	"capelan",
 	"caracal",
-	"catalufa",
+	"cat",
 	"cavy",
 	"chafer",
 	"cheetah",
@@ -141,7 +141,7 @@ export const WORDS = [
 	"discus",
 	"diver",
 	"dodo",
-	"dog",
+	"dogfish",
 	"dolphin",
 	"donkey",
 	"dorado",
@@ -238,6 +238,7 @@ export const WORDS = [
 	"hoatzin",
 	"hobby",
 	"hocco",
+	"hog",
 	"hoopoe",
 	"hornbill",
 	"hound",
@@ -410,7 +411,7 @@ export const WORDS = [
 	"pewee",
 	"pheasant",
 	"phoebe",
-	"pig",
+	"pigeon",
 	"pika",
 	"pilchard",
 	"pintail",
@@ -431,6 +432,7 @@ export const WORDS = [
 	"prion",
 	"psyllid",
 	"puffin",
+	"pug",
 	"pukeko",
 	"puli",
 	"puma",
@@ -590,7 +592,6 @@ export const WORDS = [
 	"whelk",
 	"whimbrel",
 	"whydah",
-	"wigeon",
 	"willet",
 	"wisent",
 	"wolf",
