@@ -118,7 +118,9 @@ describe("the line on the call", () => {
 		const { state, draw } = setup();
 		state.prejudged.set("call-1", { summary: "npm install", verdict: Promise.resolve(undefined) });
 
-		restoreRulings(state, { sessionManager: { getBranch: () => [] } } as never);
+		restoreRulings(state, {
+			sessionManager: { getBranch: () => [], getSessionName: () => undefined },
+		} as never);
 
 		expect(state.prejudged.size).toBe(0);
 		expect(render(draw())).toBe("$ npm install");

@@ -5,22 +5,38 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { isRecord } from "#util/primitives.ts";
 
+/** How many of the operator's messages the judge reads: a short "yes" needs the one before it. */
+const RECENT_MESSAGES = 3;
+
 export function intentFor(ctx: Pick<ExtensionContext, "sessionManager">): string | undefined {
 	const parts: string[] = [];
-	const name = ctx.sessionManager.getSessionName?.()?.trim();
+	const name = ctx.sessionManager.getSessionName()?.trim();
 	if (name !== undefined && name !== "") parts.push(`Session: ${name}`);
-	const last = currentIntent(ctx);
-	if (last !== undefined) parts.push(`Last message: ${last}`);
+	const recent = recentIntents(ctx);
+	if (recent.length === 1) parts.push(`Last message: ${recent[0]}`);
+	else if (recent.length > 1) {
+		const lines = recent.map((text, index) => `  ${index + 1}. ${text}`);
+		parts.push(`The operator's last messages, newest first:\n${lines.join("\n")}`);
+	}
 	return parts.length === 0 ? undefined : parts.join("\n");
 }
 
-export function currentIntent(ctx: Pick<ExtensionContext, "sessionManager">): string | undefined {
+/** The operator's last messages, newest first. Image-only ones take no slot, agent turns no place. */
+export function recentIntents(
+	ctx: Pick<ExtensionContext, "sessionManager">,
+	limit = RECENT_MESSAGES,
+): string[] {
 	const branch: readonly unknown[] = ctx.sessionManager.getBranch();
-	for (let index = branch.length - 1; index >= 0; index--) {
+	const texts: string[] = [];
+	for (let index = branch.length - 1; index >= 0 && texts.length < limit; index--) {
 		const text = userText(branch[index]);
-		if (text !== undefined) return text;
+		if (text !== undefined) texts.push(text);
 	}
-	return undefined;
+	return texts;
+}
+
+export function currentIntent(ctx: Pick<ExtensionContext, "sessionManager">): string | undefined {
+	return recentIntents(ctx, 1)[0];
 }
 
 function userText(entry: unknown): string | undefined {

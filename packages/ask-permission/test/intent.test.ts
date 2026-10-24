@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { currentIntent, intentFor } from "#pi/intent.ts";
+import { currentIntent, intentFor, recentIntents } from "#pi/intent.ts";
 
 function ctxWith(branch: unknown[], name?: string): Pick<ExtensionContext, "sessionManager"> {
 	return {
@@ -37,6 +37,22 @@ test("a message with only an image says nothing, so an earlier one counts", () =
 test("no user message, no intent", () => {
 	expect(currentIntent(ctxWith([]))).toBeUndefined();
 	expect(currentIntent(ctxWith([message("assistant", "hi")]))).toBeUndefined();
+});
+
+test("the last three operator messages come newest first, image-only ones taking no slot", () => {
+	const branch = [
+		message("user", "first ask"),
+		message("assistant", "on it"),
+		message("user", [{ type: "image" }]),
+		message("user", "second ask"),
+		message("toolResult", "ok"),
+		message("user", "third ask"),
+		message("user", [{ type: "image" }]),
+	];
+	expect(recentIntents(ctxWith(branch))).toEqual(["third ask", "second ask", "first ask"]);
+	expect(intentFor(ctxWith(branch, "release"))).toBe(
+		"Session: release\nThe operator's last messages, newest first:\n  1. third ask\n  2. second ask\n  3. first ask",
+	);
 });
 
 test("the name the operator gave comes with the last message", () => {

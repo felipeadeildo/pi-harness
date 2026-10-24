@@ -109,7 +109,7 @@ function fakeContext(
 		cwd: "/repo",
 		signal: undefined,
 		modelRegistry: {},
-		sessionManager: { getBranch: () => [] },
+		sessionManager: { getBranch: () => [], getSessionName: () => undefined },
 		ui: {
 			theme: { fg: (_color: string, text: string) => text },
 			notify: () => {},
@@ -582,7 +582,7 @@ function oneSlotHost() {
 		cwd: "/repo",
 		signal: undefined,
 		modelRegistry: {},
-		sessionManager: { getBranch: () => [] },
+		sessionManager: { getBranch: () => [], getSessionName: () => undefined },
 		ui: {
 			theme: { fg: (_color: string, text: string) => text },
 			notify: () => {},
@@ -671,7 +671,12 @@ describe("what the log keeps of a ruling and of the mode", () => {
 		rmSync(root, { recursive: true, force: true });
 	});
 
-	const SESSION = { getCwd: () => "/repo", getSessionId: () => "s1", getBranch: () => [] };
+	const SESSION = {
+		getCwd: () => "/repo",
+		getSessionId: () => "s1",
+		getBranch: () => [],
+		getSessionName: () => undefined,
+	};
 	const PHONE: By = { kind: "client", name: "phone", machine: "laptop" };
 
 	function logged(): LoggedEvent[] {
