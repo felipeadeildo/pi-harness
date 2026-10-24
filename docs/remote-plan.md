@@ -35,7 +35,7 @@ A slice is ticked in the commit that lands it. A slice whose parts are on `main`
 - [ ] A5. Clients in the race for the harness's dialogs (ask, F2)
 - [ ] A6. pi's own dialogs in the race (ask, F2)
 - [x] P4. Commands and the outbox in the client library (protocol, F2)
-- [ ] C9. Presence and its marks (core, F2)
+- [ ] C9. Presence and its marks (core, F2) — nearly: the daemon and the client both carry presence; the terminal's keypress waits
 - [ ] W4. The composer and the controls (client, F2)
 
 ## How the work runs
@@ -457,6 +457,7 @@ Owner: core. Needs: C8.
 The daemon sends `presence.changed` to every client: who watches each session, and the active client, the one with the latest input. A terminal counts through `ctx.ui.onTerminalInput`, which the bridge reports. Clients mark where something came from, such as "from phone" on a prompt and "answered on laptop" on a closed question, and the terminal marks a ruling "approved on phone".
 
 - Tests: two clients and a terminal, where the latest key moves the active mark.
+- Where it stands: the daemon sends `presence.changed` with who watches a session and whose input came last, and the snapshot carries it for a reconnect. The client keeps it with the cache and never reduces it from a replay. What is left is the terminal, which reports a keypress through `ctx.ui.onTerminalInput` so it can be the active one.
 
 ### W4. The composer and the controls
 
