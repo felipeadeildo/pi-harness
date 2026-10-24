@@ -41,8 +41,9 @@ jobs:
       - if: steps.compare.outputs.test == 'true'
         run: bun add --dev --exact @earendil-works/pi-ai@latest @earendil-works/pi-coding-agent@latest @earendil-works/pi-tui@latest
 
-      # One retry, because Bun has flaked in the runner (EINVAL from epoll_ctl while spawning the
-      # shell in the bash timer tests). A second failure is worth an issue.
+      # One retry, on purpose and unlike `CI`: this job tests the newest pi against whatever Bun the
+      # runner has, so the probe's fifty runs on a pinned version do not apply here. A second
+      # failure is worth an issue.
       - id: verify
         if: steps.compare.outputs.test == 'true'
         continue-on-error: true

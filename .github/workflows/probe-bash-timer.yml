@@ -1,11 +1,11 @@
-# Is the retry in ci.yml still needed? It exists because Bun failed to spawn the shell in the bash
-# timer tests on the runner, measured on 04/10 against a Bun nobody recorded. Run this by hand to
-# measure it again on the Bun the CI now pins: `gh workflow run probe-bash-timer.yml`.
+# Did the spawn bug come back? Bun once failed to spawn the shell in the bash timer tests on the
+# runner, which put a retry in ci.yml from 04/10 to 24/10. Fifty runs on the pinned Bun found none,
+# and the retry went. Run this by hand after a Bun bump: `gh workflow run probe-bash-timer.yml`.
 #
 # The run is red exactly when the bug reproduces, so the colour of the run is the answer, and the
 # log carries the count, the commit and the version. Each failure echoes up to five lines of its
-# output that name the cause, which is more useful than a count per kind. A green run means the
-# retry can go, with these fifty runs as its evidence.
+# output that name the cause, which is more useful than a count per kind. A red run means the bug is
+# back and a retry is warranted again, with these runs as its evidence.
 name: probe bash timer
 
 on: workflow_dispatch
@@ -35,7 +35,7 @@ jobs:
           done
           echo "failures: $fails of 50"
           if [ "$fails" -gt 0 ]; then
-            echo "the retry in ci.yml is still needed: the spawn bug reproduced $fails times in 50"
+            echo "the spawn bug reproduced $fails times in 50: a retry in ci.yml is warranted again"
             exit 1
           fi
-          echo "no failure in 50: the retry in ci.yml has no reason left"
+          echo "no failure in 50: the spawn bug is gone on this Bun, and no retry is needed"
