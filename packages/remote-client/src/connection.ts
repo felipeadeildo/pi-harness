@@ -85,6 +85,11 @@ export function connect(options: ConnectionOptions): Client {
 	/** Already waiting for the snapshot it asked for, so a chatty daemon cannot make it ask twice. */
 	let asking = false;
 
+	/** What a screen needs, plus the queue: the visit after this one draws both. */
+	const save = (): void => {
+		void options.cache.write(cachedOf(session, outbox));
+	};
+
 	const tell = (): void => {
 		for (const handle of listeners) handle(session);
 	};
@@ -101,12 +106,14 @@ export function connect(options: ConnectionOptions): Client {
 			const flight = outbox.all().filter((command) => command.state === "sent");
 			if (flight.length === 1 && flight[0] !== undefined) {
 				outbox.refused(flight[0].id, "the daemon answered without an id");
+				save();
 				tell();
 			}
 			return true;
 		}
 		if (envelope.kind === "reply") {
 			outbox.applied(envelope.id);
+			save();
 			tell();
 			return true;
 		}
@@ -116,6 +123,7 @@ export function connect(options: ConnectionOptions): Client {
 					? envelope.data.reason
 					: "the daemon refused it";
 			outbox.refused(envelope.id, reason);
+			save();
 			tell();
 			return true;
 		}
@@ -153,7 +161,7 @@ export function connect(options: ConnectionOptions): Client {
 				if (answer.read === "snapshot") return;
 				if (answer.read === "skip") return;
 				waiting = backoff.first;
-				void options.cache.write(cachedOf(session));
+				save();
 				tell();
 			},
 			() => {
@@ -175,6 +183,7 @@ export function connect(options: ConnectionOptions): Client {
 		send: (type, data) => {
 			const command = outbox.add(type, data);
 			flush();
+			save();
 			tell();
 			return command;
 		},
@@ -183,13 +192,17 @@ export function connect(options: ConnectionOptions): Client {
 			const released = outbox.release(id);
 			if (released) {
 				flush();
+				save();
 				tell();
 			}
 			return released;
 		},
 		drop: (id) => {
 			const dropped = outbox.drop(id);
-			if (dropped) tell();
+			if (dropped) {
+				save();
+				tell();
+			}
 			return dropped;
 		},
 		on: (handle) => {
@@ -202,6 +215,8 @@ export function connect(options: ConnectionOptions): Client {
 			const cached = await options.cache.read(options.key).catch(() => undefined);
 			if (cached !== undefined) {
 				session = sessionOf(options.key, cached);
+				// What was typed before the tab died goes back in the queue, in the order it was typed.
+				outbox.restore(cached.outbox);
 				tell();
 			}
 			open();
