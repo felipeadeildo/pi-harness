@@ -22,7 +22,7 @@ export function sourceOf(words: readonly string[]): string {
 	const lines = words.map((word) => `\t"${word}",`).join("\n");
 	return `// The words a session draws its handle from: animals with character, one first three letters
 // each, and two edits apart. \`bun scripts/names/check.ts\` holds the file to the rules in
-// docs/remote.md#the-word-list, and the operator fixes the list.
+// \`names/rules.ts\`, and the operator fixes the list.
 export const WORDS = [
 ${lines}
 ] as const;

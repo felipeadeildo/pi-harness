@@ -1,7 +1,7 @@
-// The rules a word list must hold, from docs/remote.md#the-word-list: short, one word, one first
-// three letters each so Tab completes it, two edits apart so a typo cannot turn one handle into
-// another, and never a word that reads as code or as a command. The list's test asserts them here,
-// and scripts/names/check.ts prints the counts a candidate list gets under each one.
+// The rules a word list must hold: short, one word, one first three letters each so Tab completes it,
+// two edits apart so a typo cannot turn one handle into another, and never a word that reads as code
+// or as a command. The list's test asserts them here, and scripts/names/check.ts prints the counts a
+// candidate list gets under each one.
 
 /** The fewest letters and the most a handle may have, so `@` plus the word stays easy to type. */
 export const SHORTEST = 3;

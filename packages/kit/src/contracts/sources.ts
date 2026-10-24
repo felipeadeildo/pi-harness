@@ -1,6 +1,6 @@
 // Everything that shows a session reads it from a source, and the same screens draw whatever source
 // they are given: this pi, a session file on this machine, and once remote lands, another pi through
-// the daemon or another machine through a link. See docs/remote.md, "Sources and shells".
+// the daemon or another machine through a link.
 //
 // A source is an object with functions, so it travels on raw channels, which pass it by reference
 // inside the process, and not through `defineContract`, whose values are JSON.
