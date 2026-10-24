@@ -71,7 +71,8 @@ export function accept(
 		else if (opcode === CLOSE) ws.close();
 	});
 	socket.on("data", (chunk: Buffer) => {
-		if (!reader.push(chunk)) ws.close(1009);
+		const refused = reader.push(chunk);
+		if (refused !== undefined) ws.close(refused);
 	});
 	socket.on("error", () => socket.destroy());
 	socket.on("close", () => {
@@ -103,7 +104,8 @@ export function frame(opcode: number, payload: Buffer): Buffer {
 
 /**
  * Reads a client's frames out of the chunks the socket gives, joining a fragmented message. `push`
- * returns false once a message passes `MAX_MESSAGE`, and the caller closes the connection.
+ * returns the code to close the connection with: 1009 for a message past `MAX_MESSAGE`, and 1002 for
+ * a frame a client sent unmasked, which RFC 6455 says a server must not read.
  */
 export class Frames {
 	#buffer: Buffer = Buffer.alloc(0);
@@ -116,21 +118,22 @@ export class Frames {
 		this.#read = read;
 	}
 
-	push(chunk: Buffer): boolean {
+	push(chunk: Buffer): number | undefined {
 		this.#buffer = this.#buffer.length === 0 ? chunk : Buffer.concat([this.#buffer, chunk]);
 		for (;;) {
 			const next = this.#next();
-			if (next === "wait") return true;
-			if (next === "too large") return false;
+			if (next === "wait") return undefined;
+			if (next === "too large") return 1009;
+			if (next === "unmasked") return 1002;
 		}
 	}
 
-	#next(): "read" | "wait" | "too large" {
+	#next(): "read" | "wait" | "too large" | "unmasked" {
 		const buffer = this.#buffer;
 		if (buffer.length < 2) return "wait";
 		const final = (buffer[0]! & 0x80) !== 0;
 		const opcode = buffer[0]! & 0x0f;
-		const masked = (buffer[1]! & 0x80) !== 0;
+		if ((buffer[1]! & 0x80) === 0) return "unmasked";
 		let length = buffer[1]! & 0x7f;
 		let offset = 2;
 		if (length === 126) {
@@ -145,11 +148,11 @@ export class Frames {
 			offset = 10;
 		}
 		if (length > MAX_MESSAGE || this.#size + length > MAX_MESSAGE) return "too large";
-		const mask = masked ? offset : -1;
-		if (masked) offset += 4;
+		const mask = offset;
+		offset += 4;
 		if (buffer.length < offset + length) return "wait";
 		const payload = Buffer.from(buffer.subarray(offset, offset + length));
-		if (mask >= 0) for (let i = 0; i < payload.length; i++) payload[i]! ^= buffer[mask + (i % 4)]!;
+		for (let i = 0; i < payload.length; i++) payload[i]! ^= buffer[mask + (i % 4)]!;
 		this.#buffer = buffer.subarray(offset + length);
 
 		// A control frame may come between the fragments of a message, and is read at once.

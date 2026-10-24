@@ -219,6 +219,18 @@ describe("a client of the daemon", () => {
 	});
 });
 
+/** A frame as a client sends it: masked, with the length form its size needs. */
+function clientFrame(opcode: number, payload: Buffer, final = true): Buffer {
+	const mask = Buffer.from([1, 2, 3, 4]);
+	const body = Buffer.from(payload.map((byte, i) => byte ^ mask[i % 4]!));
+	const server = frame(opcode, body);
+	// A server frame has the same head with the mask bit off and no key, so the head is reused.
+	const head = Buffer.from(server.subarray(0, server.length - body.length));
+	head[0] = (final ? 0x80 : 0) | opcode;
+	head[1]! |= 0x80;
+	return Buffer.concat([head, mask, body]);
+}
+
 describe("WebSocket frames", () => {
 	const masked = (opcode: number, text: string, final = true) => {
 		const payload = Buffer.from(text);
@@ -235,8 +247,8 @@ describe("WebSocket frames", () => {
 		const read: string[] = [];
 		const frames = new Frames((_opcode, payload) => read.push(payload.toString()));
 		const whole = Buffer.concat([masked(0x1, "hel", false), masked(0x0, "lo")]);
-		expect(frames.push(whole.subarray(0, 5))).toBe(true);
-		expect(frames.push(whole.subarray(5))).toBe(true);
+		expect(frames.push(whole.subarray(0, 5))).toBeUndefined();
+		expect(frames.push(whole.subarray(5))).toBeUndefined();
 		expect(read).toEqual(["hello"]);
 	});
 
@@ -249,27 +261,46 @@ describe("WebSocket frames", () => {
 
 	test("a message past the limit is refused, even when it comes in fragments", () => {
 		const frames = new Frames(() => {});
-		const head = Buffer.from([0x81, 127, 0, 0, 0, 0, 0, 0, 0, 0]);
-		head.writeBigUInt64BE(BigInt(MAX_MESSAGE + 1), 2);
-		expect(frames.push(head)).toBe(false);
+		expect(frames.push(clientFrame(0x1, Buffer.alloc(MAX_MESSAGE + 1)))).toBe(1009);
 		const half = Buffer.alloc(MAX_MESSAGE / 2 + 1);
-		const piece = (opcode: number, final: boolean) =>
-			Buffer.concat([
-				Buffer.from([(final ? 0x80 : 0) | opcode, 127, 0, 0, 0, 0, 0, 0, 0, 0]),
-				half,
-			]);
 		const fragmented = new Frames(() => {});
-		const first = piece(0x1, false);
-		first.writeBigUInt64BE(BigInt(half.length), 2);
-		const second = piece(0x0, true);
-		second.writeBigUInt64BE(BigInt(half.length), 2);
-		expect(fragmented.push(first)).toBe(true);
-		expect(fragmented.push(second)).toBe(false);
+		expect(fragmented.push(clientFrame(0x1, half, false))).toBeUndefined();
+		expect(fragmented.push(clientFrame(0x0, half))).toBe(1009);
 	});
 
-	test("a server frame carries its length in the form the size needs", () => {
-		expect(frame(0x1, Buffer.alloc(5)).length).toBe(7);
+	test("an unmasked frame from a client closes the connection as a protocol error", () => {
+		const read: string[] = [];
+		const frames = new Frames((_opcode, payload) => read.push(payload.toString()));
+		expect(frames.push(frame(0x1, Buffer.from("hi")))).toBe(1002);
+		expect(read).toEqual([]);
+	});
+
+	test("a server frame takes the shortest length form, at each edge", () => {
+		// RFC 6455 wants the minimal form, and a browser fails a connection that breaks it.
+		const second = (size: number) => frame(0x1, Buffer.alloc(size))[1];
+		expect([125, 126, 65_535, 65_536].map(second)).toEqual([125, 126, 126, 127]);
 		expect(frame(0x1, Buffer.alloc(300)).subarray(0, 4)).toEqual(Buffer.from([0x81, 126, 1, 44]));
-		expect(frame(0x1, Buffer.alloc(70_000))[1]).toBe(127);
+	});
+
+	test("a ping gets a pong with its payload, and a close gets a close", async () => {
+		const { port } = await openDaemon();
+		const raw = dial(port, "127.0.0.1");
+		const got: Buffer[] = [];
+		raw.on("data", (chunk: Buffer) => got.push(chunk));
+		await new Promise<void>((resolve) => raw.once("connect", () => resolve()));
+		raw.write(
+			"GET /ws HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n" +
+				"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+		);
+		await until(() => Buffer.concat(got).includes("\r\n\r\n"));
+		got.length = 0;
+		raw.write(clientFrame(0x9, Buffer.from("beat")));
+		await until(() => got.length > 0);
+		expect(Buffer.concat(got).equals(frame(0xa, Buffer.from("beat")))).toBe(true);
+		got.length = 0;
+		raw.write(clientFrame(0x8, Buffer.from([0x03, 0xe8])));
+		await until(() => got.length > 0);
+		expect(Buffer.concat(got)[0]).toBe(0x88);
+		raw.destroy();
 	});
 });
