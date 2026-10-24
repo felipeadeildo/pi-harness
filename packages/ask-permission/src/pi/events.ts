@@ -49,6 +49,7 @@ const JUDGE_STATUS = `${NAME}:judge`;
 
 export function registerEvents(scope: FeatureScope, state: SessionState): void {
 	scope.on("session_start", (_event, ctx) => {
+		state.ctx = ctx;
 		loadSessionConfig(scope, state, ctx);
 		openAlwaysYes(state, ctx);
 		restoreSession(state, ctx);
@@ -60,6 +61,7 @@ export function registerEvents(scope: FeatureScope, state: SessionState): void {
 	});
 
 	scope.on("session_tree", (_event, ctx) => {
+		state.ctx = ctx;
 		restoreSession(state, ctx);
 		MODE.changed(scope, state.mode);
 		restoreRulings(state, ctx);

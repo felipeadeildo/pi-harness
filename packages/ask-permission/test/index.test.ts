@@ -3,13 +3,15 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { globalSettingsPath } from "@adeildo/pi-kit";
+import { globalSettingsPath, MODE, MODE_SET, type PermissionMode } from "@adeildo/pi-kit";
 import { fakePi } from "@adeildo/pi-kit/testing";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { configPath } from "#core/config/store.ts";
 
 import piAskPermission from "../src/index.ts";
+
+const BY = { kind: "client", name: "phone", machine: "laptop" } as const;
 
 let dir: string;
 let previous: string | undefined;
@@ -61,4 +63,27 @@ test("the first session moves an old config into the shared settings", async () 
 	expect(JSON.parse(readFileSync(globalSettingsPath(), "utf8"))).toEqual({
 		permission: { notes: "message" },
 	});
+});
+
+test("a mode asked for from outside is applied, announced, and refused before the session starts", async () => {
+	const fake = fakePi();
+	piAskPermission(fake.pi);
+	const scope = { events: fake.pi.events, warn: () => {} };
+	// The bridge asks through the contract, so the checks run on a decoded value, as they do in pi.
+	const ask = (mode: string) => MODE_SET.current(scope)?.set(mode as PermissionMode, BY);
+	expect(() => ask("edits")).toThrow("this session has not started yet");
+
+	const notes: string[] = [];
+	const live = {
+		...session(),
+		ui: { notify: (text: string) => notes.push(text), setStatus: () => {} },
+	};
+	await fake.fire("session_start", {}, live as unknown as ExtensionContext);
+	const seen: (string | undefined)[] = [];
+	MODE.onChanged(scope, (mode) => seen.push(mode));
+
+	ask("edits");
+	expect(MODE.current(scope)).toBe("edits");
+	expect(seen).toEqual(["edits"]);
+	expect(notes.at(-1)).toContain("set from phone");
 });

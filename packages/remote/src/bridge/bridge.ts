@@ -4,6 +4,7 @@
 import { randomUUID } from "node:crypto";
 
 import {
+	type By,
 	type EventScope,
 	HOST,
 	logFrom,
@@ -39,6 +40,8 @@ export interface SessionApi {
 	/** Switches the model, and answers only once it did, or refuses with a reason. */
 	setModel(provider: string, id: string): Promise<void>;
 	setThinking(level: string): void;
+	/** Applies the permission mode, or refuses with the reason a client shows. */
+	setMode(mode: string, by: By | undefined): void;
 }
 
 export interface BridgeOptions {
@@ -105,6 +108,7 @@ export class Bridge {
 				rename: (name) => options.api.rename(name),
 				setModel: (provider, id) => options.api.setModel(provider, id),
 				setThinking: (level) => options.api.setThinking(level),
+				setMode: (mode, by) => options.api.setMode(mode, by),
 				// The questions open at this point are closed as a no once the ask slice lands here.
 				stop: (force) => {
 					// A terminal session stops by its own pi: it takes the answer to the run and exits.

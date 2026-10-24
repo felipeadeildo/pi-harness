@@ -627,6 +627,7 @@ describe("one bridge", () => {
 				rename: () => {},
 				setModel: () => Promise.resolve(),
 				setThinking: () => {},
+				setMode: () => {},
 			},
 			startDaemon: () => {},
 			warn: () => {},

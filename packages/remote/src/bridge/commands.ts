@@ -19,6 +19,7 @@ export interface CommandEffects {
 	/** Switches the model, and answers only once it did or refused to. */
 	setModel(provider: string, id: string): Promise<void>;
 	setThinking(level: string): void;
+	setMode(mode: string, by: By | undefined): void;
 }
 
 export interface CommandOptions {
@@ -83,7 +84,7 @@ export class Commands {
 		const { id, type, by } = message;
 		if (id === undefined) return;
 		try {
-			await this.#effect(type, message.data);
+			await this.#effect(type, message.data, by);
 			this.#options.answer("reply", type, {}, id);
 		} catch (error) {
 			const reason = error instanceof Error ? error.message : "the command did not run";
@@ -104,7 +105,7 @@ export class Commands {
 		if (this.#ran.length > KEPT_COMMANDS) this.#ran.splice(0, this.#ran.length - KEPT_COMMANDS);
 	}
 
-	async #effect(type: string, data: unknown): Promise<void> {
+	async #effect(type: string, data: unknown, by: By | undefined): Promise<void> {
 		const fields = data as Record<string, unknown>;
 		const { effects } = this.#options;
 		switch (type) {
@@ -122,6 +123,8 @@ export class Commands {
 				return effects.setModel(String(fields.provider), String(fields.id));
 			case "thinking.set":
 				return effects.setThinking(String(fields.level));
+			case "mode.set":
+				return effects.setMode(String(fields.mode), by);
 			default:
 				// `prompt.send`, `queue.clear`, `ask.answer` and `mode.set` come with their own slices:
 				// a client hears "not yet" instead of a command that seems to work and does nothing.

@@ -33,6 +33,7 @@ function commands(
 			done.push(`model:${provider}/${id}`);
 		},
 		setThinking: (level: string) => done.push(`thinking:${level}`),
+		setMode: (mode: string, by: By | undefined) => done.push(`mode:${mode}:${by?.name ?? ""}`),
 		...options.effects,
 	};
 	const instance = new Commands({
@@ -44,6 +45,7 @@ function commands(
 			stop: (force) => effects.stop(force),
 			setModel: (provider, id) => effects.setModel(provider, id),
 			setThinking: (level) => effects.setThinking(level),
+			setMode: (mode, by) => effects.setMode(mode, by),
 		},
 		history: options.history,
 		answer: (kind, type, data, id) => answers.push({ kind, type, data, id }),

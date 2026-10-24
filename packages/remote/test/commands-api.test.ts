@@ -2,6 +2,7 @@
 // refusal each one gives instead of a silent nothing when it cannot be honoured.
 import { describe, expect, test } from "bun:test";
 
+import { type By, MODE_SET } from "@adeildo/pi-kit";
 import { fakeContext, fakeScope } from "@adeildo/pi-kit/testing";
 
 import { commandApi, isThinkingLevel, THINKING_LEVELS } from "../src/commands-api.ts";
@@ -70,6 +71,36 @@ describe("the commands' side of pi", () => {
 			`turbo is not a thinking level: ${THINKING_LEVELS.join(", ")}`,
 		);
 		expect(thinking).toEqual(["xhigh"]);
+	});
+
+	test("sets a permission mode through the feature that owns it, naming who asked", () => {
+		const { api: commands, scope } = api();
+		const asked: { mode: string; by?: By }[] = [];
+		MODE_SET.provide(scope, () => ({ set: (mode, by) => asked.push({ mode, by }) }));
+		commands.setMode("edits", { kind: "client", name: "phone", machine: "laptop" });
+		expect(asked).toEqual([
+			{ mode: "edits", by: { kind: "client", name: "phone", machine: "laptop" } },
+		]);
+	});
+
+	test("refuses full from a client: it runs every call, and it is set at the terminal", () => {
+		const { api: commands, scope } = api();
+		const asked: string[] = [];
+		MODE_SET.provide(scope, () => ({ set: (mode) => asked.push(mode) }));
+		expect(() => commands.setMode("full", undefined)).toThrow("full is only set at the terminal");
+		expect(asked).toEqual([]);
+	});
+
+	test("refuses a mode pi does not have, and a session with no permission feature", () => {
+		const { api: commands, scope } = api();
+		MODE_SET.provide(scope, () => ({ set: () => {} }));
+		expect(() => commands.setMode("sometimes", undefined)).toThrow(
+			"sometimes is not a permission mode",
+		);
+		const bare = api();
+		expect(() => bare.api.setMode("edits", undefined)).toThrow(
+			"this session has no permission feature to change the mode",
+		);
 	});
 
 	test("knows exactly the levels pi offers, and nothing between them", () => {
