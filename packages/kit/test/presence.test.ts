@@ -53,6 +53,11 @@ describe("the start of a process", () => {
 	});
 });
 
+/** A system where only this process has a start to read. */
+function onlyThisOne(pid: number): string | undefined {
+	return pid === process.pid ? "1" : undefined;
+}
+
 describe("whether the process that wrote an entry runs", () => {
 	test("a pid that runs with the start it recorded is the same process", () => {
 		expect(processLives(4242, "100", () => "100")).toBe(true);
@@ -60,7 +65,6 @@ describe("whether the process that wrote an entry runs", () => {
 
 	test("a pid the system gave to a later process is not, and neither is a pid that is gone", () => {
 		expect(processLives(4242, "100", () => "250")).toBe(false);
-		const onlyThisOne = (pid: number) => (pid === process.pid ? "1" : undefined);
 		expect(processLives(4242, "100", onlyThisOne)).toBe(false);
 	});
 
