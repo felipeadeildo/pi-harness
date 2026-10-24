@@ -7,7 +7,7 @@ import type { CommandType, PermissionMode } from "@adeildo/pi-remote-protocol";
 // Two halves are held back on purpose: sending and draining the queue need the inbox slice to be
 // served (until then the daemon refuses them), so they render disabled with the reason beside them
 // instead of failing on the first click.
-import { type ReactNode, createElement as h } from "react";
+import { type ReactNode, createElement as h, useEffect, useState } from "react";
 
 export interface ComposerProps {
 	/** The connection this session is drawn from, which is also where commands go. */
@@ -24,9 +24,18 @@ export interface ComposerProps {
 /** The three modes a client may set: `full` runs everything unasked, so only a terminal may choose it. */
 export const CLIENT_MODES: readonly PermissionMode[] = ["manual", "edits", "judge"];
 
-const THINKING = ["off", "low", "medium", "high"] as const;
+/** pi's seven levels, in its own order: a session on `max` has to find itself in the list. */
+const THINKING = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
 export function Composer({ client, canPrompt, model, thinking, ask }: ComposerProps): ReactNode {
+	// The queue changes without the session changing, so the composer hears the client itself.
+	// Reading `outbox()` once per render makes "drawn by state" true at the mount and a lie after.
+	const [, redraw] = useState(0);
+	useEffect(() => client.on(() => redraw((count) => count + 1)), [client]);
+
+	// The typed text belongs to the component, not to the document: two composers on a page, or a
+	// native target with no `document`, must not share the first input it finds.
+	const [draft, write] = useState("");
 	const queue = client.outbox().all();
 	const send = (type: CommandType, data: unknown): void => {
 		client.send(type, data);
@@ -34,7 +43,7 @@ export function Composer({ client, canPrompt, model, thinking, ask }: ComposerPr
 	return h(
 		"section",
 		{ className: "remote-composer" },
-		promptRow(client, canPrompt, send),
+		promptRow(client, canPrompt, send, draft, write),
 		controls(send),
 		pickers(send, model, thinking),
 		ask === undefined ? null : naming(send, ask),
@@ -46,45 +55,30 @@ function promptRow(
 	client: Client,
 	canPrompt: boolean,
 	send: (type: CommandType, data: unknown) => void,
+	draft: string,
+	write: (text: string) => void,
 ): ReactNode {
+	const take = (deliverAs: "steer" | "followUp"): void => {
+		const text = draft.trim();
+		if (text === "") return;
+		send("prompt.send", { text, deliverAs });
+		write("");
+	};
+	const empty = !canPrompt || draft.trim() === "";
 	return h(
 		"div",
 		{ className: "remote-composer-row" },
 		h("input", {
 			type: "text",
 			name: "prompt",
-			placeholder: canPrompt ? "Write to the session" : "Prompts arrive with the inbox slice",
+			value: draft,
+			placeholder: canPrompt ? "Write to the session" : "Prompts need the inbox slice",
 			disabled: !canPrompt,
 			"aria-label": "Prompt",
+			onChange: (event: { target: { value: string } }) => write(event.target.value),
 		}),
-		h(
-			"button",
-			{
-				type: "button",
-				disabled: !canPrompt,
-				onClick: () => {
-					const field = document.querySelector<HTMLInputElement>('input[name="prompt"]');
-					if (field === null || field.value.trim() === "") return;
-					send("prompt.send", { text: field.value, deliverAs: "followUp" });
-					field.value = "";
-				},
-			},
-			"Send",
-		),
-		h(
-			"button",
-			{
-				type: "button",
-				disabled: !canPrompt,
-				onClick: () => {
-					const field = document.querySelector<HTMLInputElement>('input[name="prompt"]');
-					if (field === null || field.value.trim() === "") return;
-					send("prompt.send", { text: field.value, deliverAs: "steer" });
-					field.value = "";
-				},
-			},
-			"Steer now",
-		),
+		h("button", { type: "button", disabled: empty, onClick: () => take("followUp") }, "Send"),
+		h("button", { type: "button", disabled: empty, onClick: () => take("steer") }, "Steer now"),
 		canPrompt
 			? null
 			: h("span", { className: "remote-composer-why" }, "waiting for the inbox slice"),

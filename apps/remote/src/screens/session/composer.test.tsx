@@ -25,12 +25,27 @@ const draw = (props: Parameters<typeof Composer>[0]): string =>
 	renderToStaticMarkup(createElement(Composer, props));
 
 describe("the composer", () => {
-	test("the prompt is disabled with the reason, until the inbox slice is served", () => {
+	test("the prompt is disabled with the reason, when the daemon does not serve it", () => {
 		const { client } = clientOf();
 		const html = draw({ client, canPrompt: false });
-		expect(html).toContain("Prompts arrive with the inbox slice");
+		expect(html).toContain("Prompts need the inbox slice");
 		expect(html).toContain("waiting for the inbox slice");
 		expect(html).toContain("disabled");
+	});
+
+	test("with the inbox slice served, the buttons wait for a draft instead of a flag", () => {
+		const { client } = clientOf();
+		const html = draw({ client, canPrompt: true });
+		expect(html).not.toContain("waiting for the inbox slice");
+		// Nothing typed yet, so nothing to send: the button is off for a reason the person controls.
+		expect(html).toContain("disabled");
+	});
+
+	test("the thinking picker carries every level pi offers, so a session on max is not blank", () => {
+		const { client } = clientOf();
+		const html = draw({ client, canPrompt: true, thinking: "max" });
+		for (const level of ["off", "minimal", "low", "medium", "high", "xhigh", "max"])
+			expect(html).toContain(`>${level}</option>`);
 	});
 
 	test("the controls that the daemon serves are there", () => {
