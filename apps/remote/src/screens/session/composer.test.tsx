@@ -48,6 +48,14 @@ describe("the composer", () => {
 		const html = draw({ client, thinking: "max" });
 		for (const level of ["off", "minimal", "low", "medium", "high", "xhigh", "max"])
 			expect(html).toContain(`>${level}</option>`);
+		// The level the session is on is the one selected, which a picker that ignores the prop fails.
+		expect(html).toMatch(/<select[^>]*name="thinking"[^>]*>.*?<option value="max" selected=""/s);
+	});
+
+	test("the mode picker starts on the mode the session is in", () => {
+		const { client } = clientOf();
+		const html = draw({ client, mode: "judge" });
+		expect(html).toMatch(/<select[^>]*name="mode"[^>]*>.*?<option value="judge" selected=""/s);
 	});
 
 	test("the controls that the daemon serves are there", () => {

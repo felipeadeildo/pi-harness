@@ -135,12 +135,13 @@ function pickers(
 			{
 				name: "thinking",
 				"aria-label": "Thinking",
+				// Controlled, like the mode: `selected` on an option is what React warns about, and a
+				// picker that ignores its prop looks the same as one that honours it.
+				value: thinking ?? "off",
 				onChange: (event: { target: { value: string } }) =>
 					send("thinking.set", { level: event.target.value }),
 			},
-			...THINKING_LEVELS.map((level) =>
-				h("option", { key: level, value: level, selected: level === thinking }, level),
-			),
+			...THINKING_LEVELS.map((level) => h("option", { key: level, value: level }, level)),
 		),
 		h("span", { className: "remote-composer-model" }, model === undefined ? "" : model.id),
 	);
