@@ -305,6 +305,37 @@ describe("the bridge", () => {
 		expect(fake.userMessages).toEqual(["typing while it compacts"]);
 	});
 
+	test("a compaction that ends as the session goes away leaves nothing running behind it", async () => {
+		const fake = mounted();
+		let stale = false;
+		// The context pi refuses once the session it belonged to is gone: the next turn of the loop is
+		// exactly when that can happen, and the error lands outside any test, which is how it reached
+		// the main with the suite green.
+		const ctx = {
+			...session(),
+			isIdle: () => {
+				if (stale) throw new Error("This extension ctx is stale after session replacement");
+				return true;
+			},
+		};
+		const uncaught: unknown[] = [];
+		const catchIt = (error: unknown): void => {
+			uncaught.push(error);
+		};
+		process.on("uncaughtException", catchIt);
+		try {
+			await start(fake, ctx);
+			await fake.fire("session_compact", { type: "session_compact", aborted: false }, ctx);
+			await stop(fake, "quit");
+			stale = true;
+			// The turn the drain was waiting for, after the shutdown: the timer is already cancelled.
+			await Bun.sleep(10);
+			expect(uncaught).toEqual([]);
+		} finally {
+			process.off("uncaughtException", catchIt);
+		}
+	});
+
 	test("a compaction that failed drains the queue too, as a run that ends would", async () => {
 		running = true;
 		const daemon = await listening();
