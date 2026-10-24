@@ -36,7 +36,7 @@ describe("who caused a fact", () => {
 });
 
 describe("the handle of a session", () => {
-	test("the drawn word wins over the tasks', and there is none without either", () => {
+	test("after a rename the drawn word wins over the tasks' old one, and there is none without either", () => {
 		const both = tasksScope("release");
 		NAMES.provide(both, () => ({ handle: "kestrel" }));
 		expect(handleOf(both)).toBe("kestrel");
