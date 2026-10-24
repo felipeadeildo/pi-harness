@@ -209,6 +209,24 @@ describe("following the session", () => {
 		expect(changes).toEqual(["working"]);
 	});
 
+	test("a status someone else provides does not stop the session from being followed", async () => {
+		const fake = fakePi();
+		const scope = { events: fake.pi.events, warn: () => {} };
+		const stop = SESSION_STATUS.provide(scope, () => "idle");
+		followSessionStatus(fake.pi);
+		stop();
+		await fake.fire("agent_start", { type: "agent_start" }, fakeContext());
+		expect(SESSION_STATUS.current(scope)).toBe("working");
+	});
+
+	test("an ended session says idle, whatever it was doing", async () => {
+		const { fake, changes } = followed();
+		const ctx = fakeContext();
+		await fake.fire("agent_start", { type: "agent_start" }, ctx);
+		await fake.fire("session_shutdown", { type: "session_shutdown" }, ctx);
+		expect(changes).toEqual(["working", "idle"]);
+	});
+
 	test("a status that does not decode is not an answer", () => {
 		SESSION_STATUS.provide(QUIET, () => "napping" as SessionStatus);
 		expect(SESSION_STATUS.current(QUIET)).toBeUndefined();

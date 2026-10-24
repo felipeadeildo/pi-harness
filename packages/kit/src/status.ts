@@ -31,6 +31,9 @@ export const SESSION_STATUS = defineContract<SessionStatus>(
 	guarded(isStatus, "a session status"),
 );
 
+/** Answered by the one follower of a process, so a second caller can tell it is not the first. */
+const FOLLOWING = "harness:session.status:following";
+
 /** How a compaction ended, as pi reports it. */
 export interface CompactionEnd {
 	/** `/compact`, as against a threshold or an overflow. */
@@ -115,14 +118,21 @@ export class StatusTracker {
 
 /**
  * Follows this process's session and answers `SESSION_STATUS`, announcing each change. Only the
- * first caller in a process follows, so the bridge and any other feature can both call it.
+ * first caller on a bus follows, so the bridge and any other feature can both call it. Asking who
+ * follows, and not who provides the status, keeps a test or a feature that provides one of its own
+ * from silently stopping the follower.
  */
 export function followSessionStatus(
 	pi: ExtensionAPI,
 	warn: (message: string) => void = () => {},
 ): void {
 	const scope: EventScope = { events: pi.events, warn };
-	if (SESSION_STATUS.current(scope) !== undefined) return;
+	const probe = { following: false };
+	pi.events.emit(FOLLOWING, probe);
+	if (probe.following) return;
+	pi.events.on(FOLLOWING, (data) => {
+		if (isObject(data)) data.following = true;
+	});
 
 	let tracker = new StatusTracker();
 	let last = tracker.status;
@@ -134,12 +144,13 @@ export function followSessionStatus(
 		SESSION_STATUS.changed(scope, last);
 	}
 
-	pi.on("session_start", () =>
-		after(() => {
-			// Another session in this process starts afresh, as pi's reporter resets on a switch.
-			tracker = new StatusTracker();
-		}),
-	);
+	function fresh(): void {
+		tracker = new StatusTracker();
+	}
+	// Another session in this process starts afresh, as pi's reporter resets on a switch, and an
+	// ended one says idle, so nobody reading the contract waits on a run that will never finish.
+	pi.on("session_start", () => after(fresh));
+	pi.on("session_shutdown", () => after(fresh));
 	pi.on("agent_start", () => after((now) => now.runStarted()));
 	pi.on("message_end", (event) => {
 		const { message } = event;
