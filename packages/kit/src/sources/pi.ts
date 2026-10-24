@@ -22,6 +22,8 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 	let ctx: ExtensionContext | undefined;
 	let pending = false;
 	let ended = false;
+	/** The turn a change waits for, kept so the shutdown can call it off. */
+	let turn: ReturnType<typeof setTimeout> | undefined;
 	const followers = new Set<Follower>();
 
 	function catchUp(follower: Follower, current: ExtensionContext): void {
@@ -42,12 +44,16 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 	}
 
 	function changed(next: ExtensionContext): void {
+		// A context that arrives after the session ended belongs to no session: pi still fires some
+		// events on the way out, and the turn below would read a context it no longer owns.
+		if (ended) return;
 		ctx = next;
 		// Pi tells extensions of `message_end` before it writes the entry.
 		if (pending) return;
 		pending = true;
-		setTimeout(() => {
+		turn = setTimeout(() => {
 			pending = false;
+			turn = undefined;
 			if (ctx === undefined) return;
 			for (const follower of followers) catchUp(follower, ctx);
 		}, 0);
@@ -66,6 +72,9 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 	pi.on("message_end", (_event, next) => changed(next));
 	pi.on("turn_end", (_event, next) => changed(next));
 	pi.on("session_shutdown", () => {
+		clearTimeout(turn);
+		turn = undefined;
+		pending = false;
 		ctx = undefined;
 		ended = true;
 		for (const follower of followers) follower.on({ kind: "ended" });
