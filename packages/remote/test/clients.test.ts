@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { connect, memoryCache, type Transport } from "@adeildo/pi-remote-client";
-import { envelope, type Envelope, PROTOCOL } from "@adeildo/pi-remote-protocol";
+import { type By, envelope, type Envelope, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
 import { requestLink } from "../src/cli/open.ts";
 import { FILES, History, type Page } from "../src/daemon/history.ts";
@@ -408,6 +408,109 @@ describe("logging in", () => {
 		expect(second.heard.some((one) => one.kind === "reply")).toBe(false);
 		first.ws.close();
 		second.ws.close();
+		bridge.close();
+	});
+
+	test("the clients watching a session are named, and the latest input marks the active one", async () => {
+		const { daemon, port, cookie } = await openDaemon();
+		const bridge = await bridgeOf("s1");
+		bridge.snapshot([]);
+		await until(() => daemon.sessions.get("s1") !== undefined);
+		const origin = `http://127.0.0.1:${port}`;
+		const open = async (name: string): Promise<{ ws: WebSocket; heard: Envelope[] }> => {
+			const heard: Envelope[] = [];
+			const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+				headers: { Origin: origin, Cookie: cookie },
+			});
+			ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)) as Envelope);
+			await new Promise<void>((resolve) => (ws.onopen = () => resolve()));
+			ws.send(
+				JSON.stringify(
+					envelope(
+						"hello",
+						"hello",
+						{
+							by: { kind: "client", name, machine: "laptop" },
+						},
+						{ machine: "laptop", session: "s1" },
+					),
+				),
+			);
+			await until(() => heard.length > 0);
+			return { ws, heard };
+		};
+		const phone = await open("phone");
+		const laptop = await open("laptop");
+		await until(() =>
+			phone.heard.some(
+				(one) =>
+					one.type === "presence.changed" &&
+					(one.data as { viewers: unknown[] }).viewers.length === 2,
+			),
+		);
+		const joined = phone.heard.filter((one) => one.type === "presence.changed").at(-1)?.data as {
+			viewers: { name: string }[];
+			active?: { name: string };
+		};
+		expect(joined.viewers.map((one) => one.name).sort()).toEqual(["laptop", "phone"]);
+		expect(joined.active).toBeUndefined();
+
+		// A command is input, so whoever sends it is the one the session answers now.
+		laptop.ws.send(
+			JSON.stringify(
+				envelope(
+					"command",
+					"run.abort",
+					{},
+					{
+						session: "s1",
+						id: "c1",
+						by: { kind: "client", name: "laptop", machine: "laptop" },
+					},
+				),
+			),
+		);
+		await until(() =>
+			phone.heard.some(
+				(one) =>
+					one.type === "presence.changed" &&
+					(one.data as { active?: { name: string } }).active?.name === "laptop",
+			),
+		);
+		const moved = phone.heard.filter((one) => one.type === "presence.changed").at(-1)?.data as {
+			active?: { name: string };
+		};
+		expect(moved.active?.name).toBe("laptop");
+
+		// A second command from the same client changes nothing, so nothing is said twice.
+		const before = phone.heard.filter((one) => one.type === "presence.changed").length;
+		laptop.ws.send(
+			JSON.stringify(
+				envelope(
+					"command",
+					"run.abort",
+					{},
+					{
+						session: "s1",
+						id: "c2",
+						by: { kind: "client", name: "laptop", machine: "laptop" },
+					},
+				),
+			),
+		);
+		await until(() => bridge.asked.filter((one) => one.type === "run.abort").length === 2);
+		await Bun.sleep(20);
+		expect(phone.heard.filter((one) => one.type === "presence.changed")).toHaveLength(before);
+
+		// One leaving is one viewer fewer, and the mark goes with it: nobody there has the last input.
+		laptop.ws.close();
+		const presence = () =>
+			phone.heard.filter((one) => one.type === "presence.changed").at(-1)?.data as
+				| { viewers: { name: string; machine: string }[]; active?: By }
+				| undefined;
+		await until(() => presence()?.viewers.length === 1);
+		expect(presence()).toEqual({ viewers: [{ name: "phone", machine: "laptop" }] });
+		phone.ws.close();
 		bridge.close();
 	});
 

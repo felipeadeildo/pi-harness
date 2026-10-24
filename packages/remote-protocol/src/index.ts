@@ -42,7 +42,15 @@ export {
 	type SessionFacts,
 } from "./reduce/state.ts";
 export { COMMAND_TYPES, type CommandMap, type CommandType, isCommand } from "./commands.ts";
-export { type CommandBy, isCommandBy, isSnapshot, type SessionSnapshot } from "./snapshot.ts";
+export {
+	type CommandBy,
+	isCommandBy,
+	isPresence,
+	isSnapshot,
+	type Presence,
+	type SessionSnapshot,
+	type Viewer,
+} from "./snapshot.ts";
 export {
 	branchOf,
 	type ChatMessage,

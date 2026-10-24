@@ -27,9 +27,41 @@ export interface SessionSnapshot {
 	/** The questions nobody answered yet, by id. */
 	openAsks?: string[];
 	cost?: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
-	/** The client that has the session open, and who else is watching it. */
-	active?: string;
-	viewers?: { name: string; machine: string }[];
+	/**
+	 * Who has the session open: the one with the latest input, and everyone watching it. They come
+	 * from the connection, not from the session, so they are replaced by `presence.changed` and never
+	 * reduced from a replay.
+	 */
+	active?: By;
+	viewers?: Viewer[];
+}
+
+/** One client watching a session: enough to tell two people apart, and nothing else. */
+export interface Viewer {
+	name: string;
+	machine: string;
+}
+
+/** What a client is told when someone opens a session, closes it, or takes the latest input. */
+export interface Presence {
+	viewers: Viewer[];
+	/** The one whose input came last, which is the one the session answers. */
+	active?: By;
+}
+
+/**
+ * Whether a presence this version reads. A viewer with no name or no machine would be a person
+ * nobody can tell from another, so it is not one.
+ */
+export function isPresence(value: unknown): value is Presence {
+	return (
+		isObject(value) &&
+		Array.isArray(value.viewers) &&
+		value.viewers.every(
+			(one) => isObject(one) && typeof one.name === "string" && typeof one.machine === "string",
+		) &&
+		(value.active === undefined || isBy(value.active))
+	);
 }
 
 /** Whether a value is a snapshot this version reads. */
@@ -43,7 +75,9 @@ export function isSnapshot(value: unknown): value is SessionSnapshot {
 		(value.name === undefined || typeof value.name === "string") &&
 		(value.leaf === undefined || typeof value.leaf === "string") &&
 		(value.tasks === undefined || isObject(value.tasks)) &&
-		(value.queue === undefined || (Array.isArray(value.queue) && value.queue.every(isQueued)))
+		(value.queue === undefined || (Array.isArray(value.queue) && value.queue.every(isQueued))) &&
+		(value.active === undefined || isBy(value.active)) &&
+		(value.viewers === undefined || isPresence({ viewers: value.viewers }))
 	);
 }
 
