@@ -40,7 +40,7 @@ type, and `reduceFact` folds that list into `SessionFacts`: the tasks as they st
 open, the ruling of each call, the mode and the rename. `openAsks` is the questions a screen should
 draw.
 
-The list only grows. A field a reviewer adds is optional, so a daemon of a later version still reduces
+The list only grows. A field a later version adds is optional, so a daemon of a later version still reduces
 in a client of this one.
 
 ## The snapshot
