@@ -123,7 +123,14 @@ test("a follow-up sent while pi compacts reaches pi after the compaction", async
 	// arrive while pi is inside it, which is the whole point of the test.
 	const compacting = rig.session.compact();
 	client.send("prompt.send", { text: "after the compaction" });
+	// While pi compacts it takes no prompt, so the message waits in the session's queue — the list the
+	// clients draw, and the reason a screen can show it and take it back. A send that escaped the
+	// compaction would never appear here, and `t2 > t1` alone could not tell the two apart.
+	await until(() => opened.client.session().state.queue.length === 1, SLOW);
+	expect(opened.client.session().state.queue[0]?.text).toBe("after the compaction");
 	await compacting;
+	// And the queue is empty once it went in: nothing waits after the compaction.
+	await until(() => opened.client.session().state.queue.length === 0, SLOW);
 
 	await until(() => branch().some((entry) => textOf(entry).includes("after the compaction")), SLOW);
 	await until(
