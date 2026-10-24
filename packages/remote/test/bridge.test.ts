@@ -89,6 +89,7 @@ function session(kept: Entry[] = entries(2), mode = "tui", branch: Entry[] = kep
 		sessionManager: {
 			getSessionId: () => "s1",
 			getSessionName: () => "Fix the release",
+			getSessionFile: () => "/sessions/s1.jsonl",
 			getEntries: () => kept,
 			getBranch: () => branch,
 			getLeafId: () => kept.at(-1)?.id ?? null,
@@ -121,7 +122,13 @@ describe("the bridge", () => {
 		expect(live).toMatchObject({
 			type: "session.live",
 			seq: 0,
-			data: { pid: process.pid, cwd: "/work", name: "Fix the release", kind: "terminal" },
+			data: {
+				pid: process.pid,
+				cwd: "/work",
+				name: "Fix the release",
+				kind: "terminal",
+				file: "/sessions/s1.jsonl",
+			},
 		});
 		expect(snapshot).toMatchObject({
 			type: "snapshot",
@@ -332,6 +339,16 @@ describe("the bridge", () => {
 			sockets: [daemonSocket(root), `127.0.0.1:${DAEMON_PORT}`, `localhost:${DAEMON_PORT}`],
 			commands: ["pi-remote"],
 		});
+	});
+
+	test("a session with no file, as with --no-session, says it is live without one", async () => {
+		const daemon = await listening();
+		const ctx = session();
+		const manager = { ...ctx.sessionManager, getSessionFile: () => undefined };
+		await start(mounted(), fakeContext([], true, { ...ctx, sessionManager: manager }));
+		await until(() => types(daemon).includes("session.live"));
+		const live = daemon.received.find((one) => one.type === "session.live");
+		expect(live?.data).not.toHaveProperty("file");
 	});
 
 	test("pi -p writes nothing and connects to nothing", async () => {

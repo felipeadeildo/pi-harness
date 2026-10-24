@@ -114,6 +114,7 @@ export class Bridge {
 			cwd: this.ctx.cwd,
 			name: manager.getSessionName(),
 			kind: this.options.kind,
+			file: manager.getSessionFile(),
 		});
 		this.#snapshot();
 		// What the snapshot does not carry is older than its tail or off the branch, and a client reads
