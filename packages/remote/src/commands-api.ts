@@ -2,6 +2,7 @@
 // context are at hand. The bridge holds the context, which aborts and compacts; renaming and the two
 // settings go through the API, and each one answers or refuses with a reason a client can show.
 import {
+	logFrom,
 	MODE_SET,
 	PERMISSION_MODES,
 	type PermissionMode,
@@ -16,6 +17,12 @@ import { Refused } from "./bridge/commands.ts";
 export const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
 export type ThinkingLevel = (typeof THINKING_LEVELS)[number];
+
+/** The first line of what arrived, since a terminal note is one line. */
+function firstLine(text: string): string {
+	const line = text.split("\n")[0] ?? "";
+	return text.includes("\n") ? `${line} …` : line;
+}
 
 export function isThinkingLevel(level: string): level is ThinkingLevel {
 	return THINKING_LEVELS.some((one) => one === level);
@@ -44,6 +51,12 @@ export function commandApi(scope: FeatureScope, ctx: ExtensionContext): SessionA
 		},
 		send: (text, deliverAs) => {
 			scope.sendUserMessage(text, deliverAs === undefined ? {} : { deliverAs });
+		},
+		arrived: (text, by) => {
+			// The fact is what a reader of the log needs; the line is what the person at the terminal
+			// needs, since the message itself already went in as an ordinary one.
+			logFrom(ctx, scope.events, "prompt.received", { by });
+			ctx.ui.notify(`From ${by.name}: ${firstLine(text)}`, "info");
 		},
 		setMode: (mode, by) => {
 			// `full` runs every call without asking, and a rule or a stolen phone must not reach it: it

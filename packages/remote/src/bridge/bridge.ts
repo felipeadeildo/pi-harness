@@ -49,6 +49,8 @@ export interface SessionApi {
 	setMode(mode: string, by: By | undefined): void;
 	/** Hands text to pi: a steer goes in at once, and a follow-up waits until the agent settles. */
 	send(text: string, deliverAs: "steer" | "followUp" | undefined): void;
+	/** Says in the terminal, and in the log, that a prompt came from outside it. */
+	arrived(text: string, by: By): void;
 }
 
 export interface BridgeOptions {
@@ -108,6 +110,7 @@ export class Bridge {
 		this.#asks.watch(options.scope.events);
 		this.#inbox = new SessionInbox(options.scope, {
 			send: (text, deliverAs) => options.api.send(text, deliverAs),
+			arrived: (text, by) => options.api.arrived(text, by),
 		});
 		this.#inbox.start();
 		this.#commands = new Commands({

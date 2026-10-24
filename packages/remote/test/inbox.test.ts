@@ -16,12 +16,14 @@ function wired() {
 	const fake = fakePi();
 	const scope = { events: fake.pi.events, warn: () => {} };
 	const sent: { text: string; deliverAs?: string }[] = [];
+	const notes: string[] = [];
 	const inbox = new SessionInbox(scope, {
 		send: (text, deliverAs) =>
 			void sent.push(deliverAs === undefined ? { text } : { text, deliverAs }),
+		arrived: (text, by) => void notes.push(`${by.name}: ${text}`),
 	});
 	const stop = inbox.start();
-	return { inbox, sent, scope, stop };
+	return { inbox, sent, notes, scope, stop };
 }
 
 let next = 0;
@@ -54,6 +56,18 @@ describe("a session's inbox", () => {
 		inbox.put(one);
 		inbox.put(one);
 		expect(sent).toEqual([{ text: "now", deliverAs: "steer" }]);
+	});
+
+	test("says in the terminal that a prompt came from a client, and keeps quiet for the terminal's own", () => {
+		const { inbox, notes } = wired();
+		inbox.put(letter("from the phone"));
+		inbox.put({
+			id: "local",
+			by: { kind: "terminal", name: "otter", machine: "laptop" },
+			text: "typed here",
+			want: "followUp",
+		});
+		expect(notes).toEqual(["phone: from the phone"]);
 	});
 
 	test("sends nothing when the agent settles with an empty queue", () => {

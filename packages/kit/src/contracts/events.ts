@@ -40,6 +40,12 @@ export interface LogEventMap {
 	"session.state": { state: SessionState };
 	/** You sent a prompt in this session. What you said stays in pi's own session file. */
 	"session.prompted": Record<string, never>;
+	/**
+	 * A prompt arrived from somewhere other than this terminal, such as a client. Who sent it is the
+	 * whole fact: what they said is in pi's own session file, as it is for a prompt typed here. The
+	 * writer always knows the name, and a reader of an older log treats a missing one as unknown.
+	 */
+	"prompt.received": { by: By };
 	"tasks.changed": { state: SessionTasks };
 	/**
 	 * What a shared room carries of a session's tasks: the part the board shows, which is what is

@@ -7,6 +7,8 @@ import { type By, Inbox, INBOX, INBOX_PORT, type Letter, type EventScope } from 
 export interface InboxSession {
 	/** Hands text to pi: a steer goes in at once, a follow-up waits for the agent to settle. */
 	send(text: string, deliverAs: "steer" | "followUp" | undefined): void;
+	/** Says in the terminal that the text came from elsewhere, and who sent it. */
+	arrived(text: string, by: By): void;
 }
 
 /**
@@ -40,6 +42,10 @@ export class SessionInbox {
 		// restart is `Commands`, which keeps the ids from the log: those are command ids, and it is a
 		// mistake to dedupe here by letter, since then the guarantee depends on the two being equal.
 		if (!this.#inbox.put(letter)) return;
+		// A message that did not come from this terminal says so, as the design's `From <client>: …`.
+		// It says it on arrival, not on delivery: a follow-up still waits here, and the person at the
+		// terminal is the one who can take it back, so they are the one who must see it.
+		if (letter.by.kind === "client") this.#session.arrived(letter.text, letter.by);
 		if (letter.want === "steer") this.#session.send(letter.text, "steer");
 		this.#publish();
 	}

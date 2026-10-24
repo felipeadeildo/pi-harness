@@ -128,7 +128,8 @@ export interface FactMap {
 	"stream.bound": { messages: { stream: number; entry: string }[] };
 	/** The entry the branch ends at, or null when a `/tree` move goes back to the root. */
 	"leaf.changed": { leaf: string | null };
-	"prompt.received": { by?: By };
+	/** Always written with who sent it, since that is the whole fact; read leniently, see `isFact`. */
+	"prompt.received": { by: By };
 }
 
 export type FactType = keyof FactMap;
@@ -193,6 +194,8 @@ export function isFact(type: string, data: unknown): boolean {
 		case "leaf.changed":
 			return data.leaf === null || typeof data.leaf === "string";
 		case "prompt.received":
+			// A prompt that reached the log names who sent it; anything else is not this fact.
+			return isBy(data.by);
 		case "session.renamed":
 			return data.by === undefined || isBy(data.by);
 		default:
