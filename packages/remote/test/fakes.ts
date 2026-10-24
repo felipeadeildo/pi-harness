@@ -1,4 +1,6 @@
-// A daemon that only listens: it records what bridges send, so a test can read it in order.
+// What the remote's tests stand in for: a daemon that only listens and records what bridges send, in
+// order, and a socket whose write buffer a test sets, to stand for a daemon that stopped reading.
+import { EventEmitter } from "node:events";
 import { createServer, type Socket } from "node:net";
 
 import type { Envelope } from "@adeildo/pi-remote-protocol";
@@ -50,4 +52,43 @@ export function until(test: () => boolean, ms = 2_000): Promise<void> {
 		return check();
 	};
 	return check();
+}
+
+export class HeldSocket extends EventEmitter {
+	writableLength = 0;
+	readonly written: Envelope[] = [];
+	destroyed = false;
+	setEncoding(): this {
+		return this;
+	}
+	unref(): this {
+		return this;
+	}
+	write(text: string): boolean {
+		this.written.push(JSON.parse(text));
+		return false;
+	}
+	end(text?: string): this {
+		if (text !== undefined) this.write(text);
+		return this.destroy();
+	}
+	destroy(): this {
+		if (this.destroyed) return this;
+		this.destroyed = true;
+		queueMicrotask(() => this.emit("close"));
+		return this;
+	}
+}
+
+/** A dial that hands out held sockets, and the sockets it handed out, oldest first. */
+export function held(): { sockets: HeldSocket[]; dial: () => Socket } {
+	const sockets: HeldSocket[] = [];
+	return {
+		sockets,
+		dial: () => {
+			const socket = new HeldSocket();
+			sockets.push(socket);
+			return socket as unknown as Socket;
+		},
+	};
 }

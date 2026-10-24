@@ -4,16 +4,18 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { createApp, HOST } from "@adeildo/pi-kit";
+import type { SessionSource, SourceItem } from "@adeildo/pi-kit";
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
 import { type FakePi, fakeContext, fakePi } from "@adeildo/pi-kit/testing";
 import { envelope } from "@adeildo/pi-remote-protocol";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
+import type { MessageStartEvent, MessageUpdateEvent } from "@earendil-works/pi-coding-agent";
 
-import { SNAPSHOT_ENTRIES } from "../src/bridge/bridge.ts";
+import { Bridge, SNAPSHOT_ENTRIES } from "../src/bridge/bridge.ts";
 import piRemote, { daemonSocket, goneReason, remote, sessionKind } from "../src/index.ts";
 import { VERSION } from "../src/version.ts";
 import { line } from "../src/wire/lines.ts";
-import { type FakeDaemon, fakeDaemon, until } from "./fake-daemon.ts";
+import { type FakeDaemon, fakeDaemon, held, until } from "./fakes.ts";
 
 let root = "";
 /** The daemon the current test listens with, stopped after it. */
@@ -59,8 +61,11 @@ function entries(count: number): Entry[] {
 	}));
 }
 
-/** A session pi titled, with the entries given, in a terminal unless `mode` says otherwise. */
-function session(held: Entry[] = entries(2), mode = "tui") {
+/**
+ * A session pi titled, with the entries given and the branch through them, in a terminal unless
+ * `mode` says otherwise.
+ */
+function session(held: Entry[] = entries(2), mode = "tui", branch: Entry[] = held) {
 	const ctx = fakeContext([], mode === "tui", {
 		mode,
 		cwd: "/work",
@@ -71,7 +76,7 @@ function session(held: Entry[] = entries(2), mode = "tui") {
 			getSessionId: () => "s1",
 			getSessionName: () => "Fix the release",
 			getEntries: () => held,
-			getBranch: () => held,
+			getBranch: () => branch,
 			getLeafId: () => held.at(-1)?.id ?? null,
 		},
 	});
@@ -158,7 +163,7 @@ describe("the bridge", () => {
 		}
 	});
 
-	test("a move in the tree names the new leaf, and a tree left with no leaf says nothing", async () => {
+	test("a move in the tree names the new leaf, and a tree left with no leaf sends a snapshot", async () => {
 		const daemon = await listening();
 		const fake = mounted();
 		const ctx = session();
@@ -166,19 +171,78 @@ describe("the bridge", () => {
 		await until(() => types(daemon).includes("snapshot"));
 		await fake.fire(
 			"session_tree",
-			{ type: "session_tree", newLeafId: null, oldLeafId: "e2" },
+			{ type: "session_tree", newLeafId: "e1", oldLeafId: "e2" },
 			ctx,
 		);
 		await fake.fire(
 			"session_tree",
-			{ type: "session_tree", newLeafId: "e1", oldLeafId: null },
+			{ type: "session_tree", newLeafId: null, oldLeafId: "e1" },
 			ctx,
 		);
-		await until(() => types(daemon).includes("leaf.changed"));
-		await Bun.sleep(20);
-		expect(
-			daemon.received.filter((one) => one.type === "leaf.changed").map((one) => one.data),
-		).toEqual([{ leaf: "e1" }]);
+		await until(() => types(daemon).filter((type) => type === "snapshot").length === 2);
+		expect(types(daemon).slice(-2)).toEqual(["leaf.changed", "snapshot"]);
+		expect(daemon.received.find((one) => one.type === "leaf.changed")?.data).toEqual({
+			leaf: "e1",
+		});
+	});
+
+	test("after a reconnect, each entry pi appends still goes out once", async () => {
+		const daemon = await listening();
+		const held = entries(2);
+		const fake = mounted();
+		const ctx = session(held);
+		await start(fake, ctx);
+		await until(() => types(daemon).includes("snapshot"));
+		daemon.sockets[0]?.destroy();
+		await until(() => types(daemon).filter((type) => type === "snapshot").length === 2, 3_000);
+		held.push({ type: "message", id: "e3", parentId: "e2" });
+		await fake.fire("turn_end", { type: "turn_end", messageEntryId: "e3" }, ctx);
+		await until(() => types(daemon).includes("entry"));
+		await Bun.sleep(30);
+		expect(types(daemon).filter((type) => type === "entry")).toHaveLength(1);
+	});
+
+	test("the snapshot carries the branch, not every entry the session holds", async () => {
+		const daemon = await listening();
+		const all = [...entries(2), { type: "message", id: "x9", parentId: "e1" }];
+		await start(mounted(), session(all, "tui", entries(2)));
+		await until(() => types(daemon).includes("snapshot"));
+		const snapshot = daemon.received.find((one) => one.type === "snapshot")?.data as
+			| { entries: Entry[] }
+			| undefined;
+		expect(snapshot?.entries).toEqual(entries(2));
+	});
+
+	test("a change of model, thinking or name, and a running tool's output, each go out", async () => {
+		const daemon = await listening();
+		const fake = mounted();
+		const ctx = session();
+		await start(fake, ctx);
+		await until(() => types(daemon).includes("snapshot"));
+		const model = { provider: "rig", id: "other" };
+		await fake.fire("model_select", { type: "model_select", model, source: "set" }, ctx);
+		await fake.fire("thinking_level_select", { type: "thinking_level_select", level: "low" }, ctx);
+		await fake.fire("session_info_changed", { type: "session_info_changed", name: "Ship it" }, ctx);
+		const call = { toolCallId: "c1", toolName: "bash" };
+		await fake.fire(
+			"tool_execution_start",
+			{ type: "tool_execution_start", ...call, args: {} },
+			ctx,
+		);
+		await fake.fire(
+			"tool_execution_update",
+			{ type: "tool_execution_update", ...call, args: {}, partialResult: { content: [] } },
+			ctx,
+		);
+		await until(() => types(daemon).includes("pi.tool_execution_update"));
+		expect(types(daemon).slice(3)).toEqual([
+			"pi.model_select",
+			"pi.thinking_level_select",
+			"pi.session_info_changed",
+			"pi.tool_execution_start",
+			"pi.tool_execution_update",
+		]);
+		expect(daemon.received[3]?.data).toEqual({ type: "model_select", model, source: "set" });
 	});
 
 	test("pi -p writes nothing and connects to nothing", async () => {
@@ -231,6 +295,81 @@ describe("the bridge", () => {
 		for (const reason of ["new", "resume", "fork"] as const) {
 			expect(goneReason(reason)).toBe("replaced");
 		}
+	});
+});
+
+describe("one bridge", () => {
+	function source(onFollow: (on: (item: SourceItem) => void) => void = () => {}): SessionSource {
+		return {
+			snapshot: () => Promise.reject(new Error("unused")),
+			follow: (_after, on) => {
+				onFollow(on);
+				return () => {};
+			},
+		};
+	}
+
+	function bridged(from: SessionSource = source()) {
+		const { sockets, dial } = held();
+		const bridge = new Bridge(session(), from, {
+			path: "/nowhere",
+			version: VERSION,
+			kind: "terminal",
+			startDaemon: () => {},
+			warn: () => {},
+			seams: { dial, backoff: [5] },
+		});
+		bridge.start();
+		const [socket] = sockets;
+		if (socket === undefined) throw new Error("no socket");
+		socket.emit("connect");
+		return { bridge, socket };
+	}
+
+	const writing = { type: "message_start", message: { role: "assistant", content: [] } };
+	const hel = {
+		type: "message_update",
+		message: { role: "assistant", content: [{ type: "text", text: "Hel" }] },
+		assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: "Hel" },
+	};
+
+	test("a snapshot asked for while deltas wait comes after them, and they never go out again", async () => {
+		const { bridge, socket } = bridged();
+		bridge.stream.messageStart(writing as unknown as MessageStartEvent);
+		bridge.stream.messageUpdate(hel as unknown as MessageUpdateEvent);
+		socket.emit("data", line(envelope("command", "snapshot.get", {})));
+		await Bun.sleep(50);
+		expect(socket.written.map((one) => one.type)).toEqual([
+			"bridge",
+			"session.live",
+			"snapshot",
+			"pi.message_start",
+			"pi.message_update",
+			"snapshot",
+		]);
+		await bridge.stop(undefined);
+	});
+
+	test("a source that lost its place makes the bridge send a new snapshot", async () => {
+		const { bridge, socket } = bridged(source((on) => on({ kind: "reset" })));
+		expect(socket.written.map((one) => one.type)).toEqual([
+			"bridge",
+			"session.live",
+			"snapshot",
+			"snapshot",
+		]);
+		await bridge.stop(undefined);
+	});
+
+	test("a tree with no leaf left sends a snapshot, and a leaf is named", async () => {
+		const { bridge, socket } = bridged();
+		bridge.treeMoved(null);
+		bridge.treeMoved("e1");
+		expect(socket.written.slice(3).map((one) => [one.type, one.data])).toEqual([
+			["snapshot", expect.anything()],
+			["leaf.changed", { leaf: "e1" }],
+		]);
+		await bridge.stop(undefined);
 	});
 });
 

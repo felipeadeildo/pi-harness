@@ -17,7 +17,7 @@ import { join } from "node:path";
 import { buildRemote } from "../build.ts";
 import { type Current, readCurrent, startDaemon, writeLauncher } from "../src/launcher.ts";
 import { VERSION } from "../src/version.ts";
-import { until } from "./fake-daemon.ts";
+import { until } from "./fakes.ts";
 
 const NODE = Bun.which("node") ?? "node";
 

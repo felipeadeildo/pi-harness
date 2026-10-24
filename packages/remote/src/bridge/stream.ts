@@ -120,7 +120,7 @@ export class LiveStream {
 		const update = wireUpdate(event);
 		const inner = update.assistantMessageEvent;
 		if (!DELTAS.has(inner.type)) {
-			this.#flush();
+			this.flush();
 			this.send("pi.message_update", update, { droppable: true });
 			return;
 		}
@@ -135,16 +135,16 @@ export class LiveStream {
 			batch.usage = update.usage;
 			return;
 		}
-		this.#flush();
+		this.flush();
 		this.#batch = update;
-		this.#flushTimer = setTimeout(() => this.#flush(), DELTA_WINDOW_MS);
+		this.#flushTimer = setTimeout(() => this.flush(), DELTA_WINDOW_MS);
 		this.#flushTimer.unref();
 	}
 
 	messageEnd(event: MessageEndEvent): void {
 		const open = this.#open;
 		if (open === undefined || event.message.role !== "assistant") return;
-		this.#flush();
+		this.flush();
 		this.send("pi.message_end", {
 			type: "message_end",
 			stream: open.stream,
@@ -201,7 +201,7 @@ export class LiveStream {
 
 	/** Names the entry the turn's message became, so a client swaps its streamed copy for the entry. */
 	turnEnd(event: TurnEndEvent): void {
-		this.#flush();
+		this.flush();
 		const stream = this.#ended;
 		this.#ended = undefined;
 		if (stream === undefined) return;
@@ -210,8 +210,20 @@ export class LiveStream {
 
 	/** After deltas were dropped: the message as it stands, which replaces whatever the daemon held. */
 	resync(): void {
-		this.#flush();
+		this.flush();
 		if (this.#open !== undefined) this.send("stream.resync", { ...this.#open });
+	}
+
+	/**
+	 * Sends what the window holds now. Whatever copies the message being written, such as a snapshot,
+	 * flushes first, since the copy already holds those deltas and the window would send them again.
+	 */
+	flush(): void {
+		clearTimeout(this.#flushTimer);
+		this.#flushTimer = undefined;
+		const batch = this.#batch;
+		this.#batch = undefined;
+		if (batch !== undefined) this.send("pi.message_update", batch, { droppable: true });
 	}
 
 	/** Stops the timers, as the session ends. */
@@ -220,14 +232,6 @@ export class LiveStream {
 		this.#batch = undefined;
 		for (const tool of this.#tools.values()) clearTimeout(tool.timer);
 		this.#tools.clear();
-	}
-
-	#flush(): void {
-		clearTimeout(this.#flushTimer);
-		this.#flushTimer = undefined;
-		const batch = this.#batch;
-		this.#batch = undefined;
-		if (batch !== undefined) this.send("pi.message_update", batch, { droppable: true });
 	}
 
 	#sendUpdate(tool: Tool, event: ToolExecutionUpdateEvent): void {

@@ -66,6 +66,15 @@ export class Bridge {
 		this.#connection.event(type, data);
 	}
 
+	/**
+	 * A move in the tree. A leaf a client can walk back from is named; with no leaf left, the branch is
+	 * empty, and only a snapshot can tell a client to drop what it holds.
+	 */
+	treeMoved(leaf: string | null): void {
+		if (leaf === null) this.#snapshot();
+		else this.#connection.event("leaf.changed", { leaf });
+	}
+
 	async stop(reason: GoneReason | undefined): Promise<void> {
 		this.#unfollow?.();
 		this.#unfollow = undefined;
@@ -101,6 +110,7 @@ export class Bridge {
 	}
 
 	#snapshot(): void {
+		this.stream.flush();
 		this.#connection.event("snapshot", {
 			snapshot: snapshotOf(this.ctx, this.options.kind),
 			entries: this.ctx.sessionManager.getBranch().slice(-SNAPSHOT_ENTRIES),

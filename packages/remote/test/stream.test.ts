@@ -152,6 +152,21 @@ describe("the message being written", () => {
 		expect(sent.map((one) => one.type)).toEqual(["pi.message_start", "pi.message_update"]);
 	});
 
+	test("a flush sends what the window holds, and nothing it held goes out again", async () => {
+		const { sent, stream } = recorded();
+		stream.messageStart(start());
+		stream.messageUpdate(update({ type: "text_delta", contentIndex: 0, delta: "Hel" }, "Hel"));
+		stream.flush();
+		const flushed = sent.length;
+		await Bun.sleep(DELTA_WINDOW_MS + 10);
+		expect(sent).toHaveLength(flushed);
+		expect(
+			sent
+				.filter((one) => one.type === "pi.message_update")
+				.map((one) => one.data.assistantMessageEvent.delta),
+		).toEqual(["Hel"]);
+	});
+
 	test("goes out without pi's cumulative copies, and a tool call's start keeps its id and name", () => {
 		const { sent, stream } = recorded();
 		stream.messageStart(start());
