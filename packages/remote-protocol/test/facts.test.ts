@@ -3,6 +3,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { isFact } from "../src/facts.ts";
+import { isQueued } from "../src/snapshot.ts";
 
 describe("a fact the daemon has to carry", () => {
 	test("a bound stream is the number pi numbered it with", () => {
@@ -37,5 +38,25 @@ describe("a session's status", () => {
 		expect(isFact("session.state", { state: "running" })).toBe(false);
 		expect(isFact("session.state", { state: "waiting" })).toBe(false);
 		expect(isFact("session.state", {})).toBe(false);
+	});
+});
+
+describe("a letter waiting in the inbox", () => {
+	const by = { kind: "client" as const, name: "phone", machine: "here" };
+	const letter = { id: "l1", by, text: "hold on", want: "followUp" as const, when: 1 };
+
+	test("the four reasons a letter waits are the ones the kit writes", () => {
+		for (const why of ["asleep", "quiet", "full", "stopped"] as const) {
+			expect(isQueued({ ...letter, why })).toBe(true);
+		}
+		expect(isQueued({ ...letter, why: "waiting" })).toBe(false);
+	});
+
+	test("a letter needs who wrote it, which is what puts a person's words first", () => {
+		expect(isQueued(letter)).toBe(true);
+		expect(isQueued({ ...letter, by: undefined })).toBe(false);
+		expect(isQueued({ ...letter, by: { kind: "client", name: "phone" } })).toBe(false);
+		expect(isQueued({ ...letter, want: "later" })).toBe(false);
+		expect(isQueued({ ...letter, id: "" })).toBe(false);
 	});
 });
