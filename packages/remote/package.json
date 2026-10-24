@@ -1,6 +1,6 @@
 {
 	"name": "@adeildo/pi-remote",
-	"version": "5.15.0",
+	"version": "5.16.0",
 	"private": true,
 	"description": "Your pi sessions from a phone, a browser or a pi on another machine: a bridge in every pi, a daemon per machine, and the pi-remote command.",
 	"license": "MIT",
