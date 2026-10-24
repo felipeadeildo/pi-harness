@@ -184,12 +184,9 @@ export class Sessions {
 			entry.facts = keep(entry.facts, { type: envelope.type, data: envelope.data });
 		}
 		entry.state.facts = facts;
-		if (envelope.seq === undefined) return undefined;
-		// A delta is not kept, but its number is: without it a replay has a hole where the delta was,
-		// and a client that resumes reads the hole as a gap and asks for a snapshot, again and again.
-		const kept = EPHEMERAL.has(envelope.type) ? skipped(envelope) : envelope;
-		const bytes = JSON.stringify(kept).length;
-		entry.replay.push({ envelope: kept, bytes });
+		if (EPHEMERAL.has(envelope.type) || envelope.seq === undefined) return undefined;
+		const bytes = JSON.stringify(envelope).length;
+		entry.replay.push({ envelope, bytes });
 		entry.bytes += bytes;
 		this.#bytes += bytes;
 		this.#evict();
@@ -276,14 +273,6 @@ export class Sessions {
 			largest.evicted = Math.max(largest.evicted, oldest.envelope.seq ?? -1);
 		}
 	}
-}
-
-/** What a replay holds in place of a delta: its number and nothing of what it said. */
-export const SKIPPED = "skipped";
-
-function skipped(envelope: Envelope): Envelope {
-	const { v, kind, machine, session, epoch, seq, at } = envelope;
-	return { v, kind, machine, session, epoch, seq, at, type: SKIPPED, data: {} };
 }
 
 /** The fact list with one more fact, dropping what it makes stale. */
