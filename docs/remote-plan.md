@@ -323,7 +323,7 @@ Owner: core. Needs: C5.
 
 - The checks live in `packages/remote/src/daemon/auth.ts`. `checkPlace` (the `Host` and the `Origin`) needs no login, so the daemon calls it from its first route on. `authorize` adds the cookie.
 - The token comes in the body of `POST /login`, never in the query, which access logs keep. The app drops the fragment once it has traded the token.
-- `isAppFile` answers from the list of files the web build exported, and a test shows `/sessions` and `/ws` never pass it.
+- `auth.ts` holds the checks. The routes in the next part call them, answer the API and socket paths before they look at the files, and pass `isAppFile` the list of files the web build exported. That part also brings the test that `/sessions` and `/ws` never pass it.
 - When the port becomes a setting, the protected list and the daemon read it from the same place, or the list protects a port nobody listens on.
 - Tests: a request with another `Host` gets 421; a request without the cookie gets 401; a token fails when used twice or after 60 seconds; a WebSocket from another origin is refused.
 
