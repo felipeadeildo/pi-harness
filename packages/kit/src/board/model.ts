@@ -222,8 +222,14 @@ function badTitle(title: string): string | undefined {
 	return undefined;
 }
 
-/** The board a session hands to others: the open cards, the backlog as a count, the last three done. */
-export function boardView(board: Board): { open: BoardCard[]; backlog: number; done: BoardCard[] } {
+/** What a session hands to others: the open cards, the backlog as a count, the last three done. */
+export interface BoardView {
+	open: BoardCard[];
+	backlog: number;
+	done: BoardCard[];
+}
+
+export function boardView(board: Board): BoardView {
 	const open = board.cards.filter((card) => OPEN_COLUMNS.has(card.column)).slice(0, OPEN);
 	const backlog = board.cards.filter((card) => card.column === "backlog").length;
 	const done = board.cards.filter((card) => card.column === "done").slice(-3);
