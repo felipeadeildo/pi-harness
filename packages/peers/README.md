@@ -117,7 +117,8 @@ The folder's room has no `a`, `r`, `l` or `x`.
 
 Every room wears a mark before its name, so the name never moves when the mode changes: `●` takes part, `◐` only
 listens, `○` stepped out. A room this session stepped out of keeps its row, so `m` brings it back; every other
-session that is out simply does not appear. Listening is hearing what names it, nothing else: the room's other
+session that is out simply does not appear. The folder's room is no exception: stepping out of it leaves the session
+working alone, with the room's row still there to come back. Listening is hearing what names it, nothing else: the room's other
 messages wait until you take part.
 `@anyone` and `@everyone` are addresses of the agents taking part, so listening is not taking part and a request to
 anyone never picks a session that listens. How a session opens is its own "When a room takes you in" setting, and it

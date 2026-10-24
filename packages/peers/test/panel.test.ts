@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import type { Member } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { stripTerminalSequences } from "@earendil-works/pi-tui";
+import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 
 import { Here, type Hooks } from "../src/here.ts";
 import type { LiveSession, Room, RoomsView } from "../src/model.ts";
@@ -346,8 +346,13 @@ describe("changing the rooms", () => {
 		const drawn = press(panelOf(rooms), TAB, "m");
 		expect(rooms.calls).toEqual(["mode here listening"]);
 		expect(drawn).toMatch(/m listen/);
-		// Drawn from the room as the line left it: the key now offers the way back.
+		// Drawn from the room as the line left it: the key says the next step.
 		rooms.shown[0] = withMode(rooms.shown[0], "listening") as Room;
+		expect(press(panelOf(rooms), TAB)).toMatch(/m step out/);
+		// The folder's room walks the same three states as any other: out is working alone.
+		press(panelOf(rooms), TAB, "m");
+		expect(rooms.calls.at(-1)).toBe("mode here out");
+		rooms.shown[0] = withMode(rooms.shown[0], "out") as Room;
 		expect(press(panelOf(rooms), TAB)).toMatch(/m take part/);
 		// A shared room goes one step further: from listening to out, and `m` again brings it back.
 		press(panelOf(rooms), TAB, DOWN, DOWN, "m");
@@ -371,8 +376,10 @@ describe("changing the rooms", () => {
 		expect(row(press(panelOf(rooms), TAB)) ?? "").toContain("❯ ● pi-harness");
 		rooms.shown[0] = withMode(rooms.shown[0], "listening") as Room;
 		expect(row(press(panelOf(rooms), TAB)) ?? "").toContain("❯ ◐ pi-harness");
-		// Same column for the name in both: the mark swaps, the layout does not.
-		const at = (line: string): number => line.indexOf("pi-harness");
+		// Same column for the name in both, measured the way the screen measures: the mark swaps,
+		// the layout does not, even if a mark were two cells wide.
+		const at = (line: string): number =>
+			visibleWidth(line.slice(0, Math.max(0, line.indexOf("pi-harness"))));
 		rooms.shown[0] = withMode(rooms.shown[0], "in") as Room;
 		expect(at(row(press(panelOf(rooms), TAB)) ?? "")).toBe(
 			at(row(press(panelOf(rooms), TAB)) ?? ""),

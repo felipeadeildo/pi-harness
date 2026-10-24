@@ -494,14 +494,13 @@ export class PeersPanel implements Component, Focusable {
 	}
 }
 
-/** What `m` does next: the room is a promise, and stepping out keeps the row so `m` brings it back. */
+/** What `m` does next: every room walks the same three states, and out keeps the row to come back. */
 function nextMode(room: Room): RoomMode {
 	if (room.mode === "in") return "listening";
-	if (room.mode === "listening") return room.id === undefined ? "in" : "out";
-	return "in";
+	return room.mode === "listening" ? "out" : "in";
 }
 
-/** What `m` says it will do, in the room's own words. The folder's room cannot be stepped out of. */
+/** What `m` says it will do, in the room's own words. */
 function modeKey(room: Room): string {
 	const next = nextMode(room);
 	if (next === "listening") return "listen";

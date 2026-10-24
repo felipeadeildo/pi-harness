@@ -370,8 +370,12 @@ export class Rooms implements RoomsView {
 	setMode(room: string | undefined, mode: RoomMode): void {
 		if (this.#session === undefined) return;
 		const member = { session: this.#session, cwd: this.#cwd };
-		// The folder's room cannot be left: there, stepping out is the farthest a session goes.
+		// Every room is the same: out is a removal, and a session that stepped out of the folder's
+		// room works alone until it comes back. The folder's room is written by its own log.
 		if (room === undefined) {
+			if (mode === "out") this.#home?.log("room.removed", { member });
+			else if (this.#home?.mode() === "out")
+				this.#home.log("room.added", { member: { ...member }, by: "you" });
 			if (mode !== "out") this.#home?.log("room.mode", { member, mode });
 			this.sync();
 			return;
@@ -837,6 +841,8 @@ export class Rooms implements RoomsView {
 
 	/** The shared rooms this session is in, oldest first. */
 	#joinedShared(): Shared[] {
+		// The only exception to "out is not in the list": a room this session stepped out of keeps
+		// its row, so `m` has a way back. A session removed by someone else simply is not here.
 		return [...this.#shared.values()]
 			.filter((room) => room.here !== undefined || this.#steppedOut.has(room.id))
 			.toSorted(
