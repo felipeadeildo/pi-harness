@@ -1,84 +1,189 @@
-// The one place that owns the row of the screen above the editor. A dialog drawn there takes every
-// key while it is open, so nothing the reader types lands in the editor by accident, and it reads the
-// editor's text once, at the moment the reader sends it.
+// The one row that belongs to nobody: the line above the editor, where a dialog asks something while
+// the reader keeps the text they were typing. The editor stays where it is, visible and usable, and
+// the dialog borrows the keys only while it has the focus.
 //
-// Each feature keeps its own view; this keeps the slot: who holds the keys, how tall it is, and that
-// only one of them is open at a time.
-import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+// Each feature brings its own view. This owns the slot: who has the keys, the frame that says so, the
+// text the reader had typed, and that only one dialog is open at a time.
+import type { ExtensionUIContext, Theme } from "@earendil-works/pi-coding-agent";
+import { type KeyId, matchesKey } from "@earendil-works/pi-tui";
 
-/** What a feature draws: lines for the width it is given, and the keys it reads. */
-export interface AboveEditorView<T> {
+import { frame } from "./frame.ts";
+
+/** The key that moves the focus between the dialog and the editor, as the bottom edge says. */
+export const ABOVE_EDITOR_FOCUS_KEY = "alt+e";
+
+/** How recently the reader typed for the editor to keep the focus when a dialog opens. */
+const RECENT_MS = 1_000;
+
+/** What a view is given when it opens. */
+export interface AboveEditorTools<T> {
+	/** Ends the dialog with this value; the editor's text goes with it. */
+	done(value: T): void;
+	/** Whether the dialog has the keys right now. */
+	focused(): boolean;
+	/** The rows the dialog may use, so it can fit inside them instead of being cut. */
+	rows(): number;
+}
+
+/** What a feature draws. */
+export interface AboveEditorView {
 	render(width: number): string[];
 	/** Reads a key. A key it does not read is dropped, never handed to the editor under it. */
 	handleInput(data: string): void;
-	/** Ends the dialog with what it decided. */
-	finish(value: T): void;
 }
 
-/** What a view is given when it opens. */
-export interface AboveEditorSlot<T> {
-	/** Ends the dialog with this value; the promise `openAboveEditor` returns resolves with it. */
-	finish(value: T): void;
-	/** The editor's text, read when it is asked and never before: what was typed while the dialog was up counts. */
-	editor(): string;
+export interface AboveEditorResult<T> {
+	value: T;
+	/** The editor's text at the moment the reader sent the answer, and the editor is empty after it. */
+	typed: string;
+}
+
+export interface AboveEditor<T> {
+	/** What the dialog decided, with the text the editor had. `undefined` when it was closed or escaped. */
+	result: Promise<AboveEditorResult<T> | undefined>;
+	/** Closes the dialog without answering, leaving the editor as it is. */
+	close(): void;
 }
 
 export interface AboveEditorOptions {
-	/** The tallest the dialog may become, so a long one does not cover the screen it is read on. */
-	maxHeight?: number;
+	/** What the dialog is, in the top edge of its frame. */
+	title?: string;
+	/** How recently the reader typed for the editor to keep the focus. */
+	recentMs?: number;
 }
 
-/** Only one dialog holds the slot: a second one waits for the first to finish. */
-let slot: Promise<unknown> = Promise.resolve();
+/** Only one dialog holds the row: a second one waits for the first to finish. */
+let queue: Promise<unknown> = Promise.resolve();
+/** When a key last went to the editor, so a dialog does not steal the focus from a reader typing. */
+let lastTypedAt = 0;
+let tracking: (() => void) | undefined;
+
+function track(ui: ExtensionUIContext): void {
+	tracking ??= ui.onTerminalInput(() => {
+		lastTypedAt = Date.now();
+		return undefined;
+	});
+}
 
 /**
- * Opens `view` above the editor, exclusive: it reads every key until it calls `finish`. Resolves with
- * what the view finished with, or `undefined` when the host could not draw it.
+ * Opens a dialog in the row above the editor. The editor keeps its text and stays usable: the dialog
+ * holds the keys until `Alt+E` hands them over, and takes them back the same way. The view is told how
+ * many rows it has, so it fits inside them rather than being cut where it matters.
  */
 export function openAboveEditor<T>(
 	ui: ExtensionUIContext,
-	view: (slot: AboveEditorSlot<T>) => AboveEditorView<T>,
+	make: (tools: AboveEditorTools<T>) => AboveEditorView,
 	options: AboveEditorOptions = {},
-): Promise<T | undefined> {
-	const run = (): Promise<T | undefined> => {
+): AboveEditor<T> {
+	let settle: (value: AboveEditorResult<T> | undefined) => void = () => {};
+	const result = new Promise<AboveEditorResult<T> | undefined>((resolve) => {
+		settle = resolve;
+	});
+
+	let stop = (): void => {};
+	let started = (): void => {};
+
+	const run = (): void => {
+		track(ui);
+		const recent = Date.now() - lastTypedAt < (options.recentMs ?? RECENT_MS);
+		let focused = !recent;
 		let tallest = 0;
-		let settled = false;
-		const ended = ui.custom<T | undefined>(
-			(_tui, _theme, _keybindings, done) => {
-				const close = (value: T | undefined): void => {
-					if (settled) return;
-					settled = true;
-					done(value);
-				};
-				const drawn = view({ finish: close, editor: () => ui.getEditorText() });
+		let finished = false;
+		let view: AboveEditorView | undefined;
+		let redraw = (): void => {};
+
+		const close = (value: AboveEditorResult<T> | undefined): void => {
+			if (finished) return;
+			finished = true;
+			ui.setWidget(KEY, undefined);
+			stop();
+			settle(value);
+			started();
+		};
+
+		ui.setWidget(
+			KEY,
+			(tui, theme: Theme) => {
+				const rows = () => tui.terminal.rows;
+				redraw = () => tui.requestRender();
+				view ??= make({
+					done: (value: T) => {
+						// The text is read once, here, and the same value leaves the editor: what the reader
+						// typed while the dialog was open is part of the answer.
+						const typed = ui.getEditorText();
+						ui.setEditorText("");
+						close({ value, typed });
+					},
+					focused: () => focused,
+					rows,
+				});
+				const drawn = view;
 				return {
 					invalidate(): void {},
-					// The height the host sees is the lines themselves, so growing and never shrinking is
-					// done here: a shorter step is padded to the tallest one drawn so far. Leaving it to a
-					// `maxHeight` would not work, because the host reads that once, before the first frame.
 					render(width: number): string[] {
-						const lines = drawn.render(width);
+						const lines = drawn.render(Math.max(1, width - 2));
+						// The row grows and never shrinks: a shorter step is padded to the tallest drawn
+						// so far, so the editor under it does not move.
 						tallest = Math.max(tallest, lines.length);
-						const padding = Array.from({ length: tallest - lines.length }, () => "");
-						return [...lines, ...padding];
+						const body = [...lines, ...Array.from({ length: tallest - lines.length }, () => "")];
+						return frame(theme, width, body, {
+							title: options.title ?? "",
+							keys: [
+								["esc", "close"],
+								[ABOVE_EDITOR_FOCUS_KEY, "editor"],
+							],
+							border: focused ? "accent" : "border",
+						});
 					},
 					handleInput(data: string): void {
 						drawn.handleInput(data);
 					},
 				};
 			},
-			{
-				overlay: true,
-				overlayOptions: {
-					anchor: "bottom-center",
-					...(options.maxHeight === undefined ? {} : { maxHeight: options.maxHeight }),
-				},
-			},
+			{ placement: "aboveEditor" },
 		);
-		return ended;
+
+		stop = ui.onTerminalInput((data) => {
+			if (finished) return undefined;
+			if (matchesKey(data, ABOVE_EDITOR_FOCUS_KEY as KeyId)) {
+				focused = !focused;
+				lastTypedAt = focused ? 0 : Date.now();
+				redraw();
+				return { consume: true };
+			}
+			// The key never reaches the editor without the editor having the focus.
+			if (!focused) {
+				lastTypedAt = Date.now();
+				return undefined;
+			}
+			if (matchesKey(data, "escape")) {
+				close(undefined);
+				return { consume: true };
+			}
+			view?.handleInput(data);
+			redraw();
+			return { consume: true };
+		});
 	};
 
-	const next = slot.then(run, run);
-	slot = next.catch(() => undefined);
-	return next;
+	const turn = queue.then(run);
+	queue = result.then(
+		() => undefined,
+		() => undefined,
+	);
+	started = () => {
+		void turn;
+	};
+
+	return {
+		result,
+		close: () => {
+			stop();
+			ui.setWidget(KEY, undefined);
+			settle(undefined);
+			started();
+		},
+	};
 }
+
+const KEY = "pi-kit:above-editor";

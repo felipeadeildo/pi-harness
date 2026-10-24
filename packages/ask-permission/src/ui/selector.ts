@@ -59,12 +59,19 @@ export async function askViaSelector(
 /** The keys the dialog reads, in the ones the terminal sends for them. */
 const ONE = "1".charCodeAt(0);
 const NINE = "9".charCodeAt(0);
-const ESCAPE = "\u001b";
 
 /** Whether this host can draw the question above the editor, keeping the editor under it. */
 function drawsAboveEditor(ctx: ExtensionContext): boolean {
-	const ui = ctx.ui as Partial<{ custom: unknown; getEditorText: unknown }>;
-	return typeof ui.custom === "function" && typeof ui.getEditorText === "function";
+	const ui = ctx.ui as Partial<{
+		setWidget: unknown;
+		onTerminalInput: unknown;
+		getEditorText: unknown;
+	}>;
+	return (
+		typeof ui.setWidget === "function" &&
+		typeof ui.onTerminalInput === "function" &&
+		typeof ui.getEditorText === "function"
+	);
 }
 
 /**
@@ -77,20 +84,26 @@ async function overEditor(
 	summary: string,
 	labels: readonly string[],
 ): Promise<string | undefined> {
-	const picked = await openAboveEditor<number>(ctx.ui, (slot) => ({
-		render: () => [title, summary, ...labels, `esc denies`],
-		handleInput: (data) => {
-			if (data === ESCAPE) {
-				slot.finish(-1);
-				return;
-			}
-			const code = data.charCodeAt(0);
-			// A key it does not read is dropped: the answer is one of the numbers, and nothing else.
-			if (data.length !== 1 || code < ONE || code > NINE) return;
-			const at = code - ONE;
-			if (at < labels.length) slot.finish(at);
-		},
-		finish: slot.finish,
-	}));
-	return picked === undefined || picked < 0 ? undefined : labels[picked];
+	const opened = openAboveEditor<number>(
+		ctx.ui,
+		(tools) => ({
+			// The rows are known before the first frame, so the answer that says "no" is never the line
+			// that gets cut: the list is shortened instead, and "esc denies" is drawn last, always.
+			render: () => {
+				const shown = labels.slice(0, Math.max(1, tools.rows() - 4));
+				const more = labels.length - shown.length;
+				return [title, summary, ...shown, ...(more > 0 ? [`and ${more} more`] : []), "esc denies"];
+			},
+			handleInput: (data) => {
+				const code = data.charCodeAt(0);
+				// A key it does not read is dropped: the answer is one of the numbers, and nothing else.
+				if (data.length !== 1 || code < ONE || code > NINE) return;
+				const at = code - ONE;
+				if (at < labels.length) tools.done(at);
+			},
+		}),
+		{ title },
+	);
+	const result = await opened.result;
+	return result === undefined ? undefined : labels[result.value];
 }
