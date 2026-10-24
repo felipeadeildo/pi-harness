@@ -1,6 +1,6 @@
 // The route of one session: it reads which one from the address and hands the screen what the client
 // holds. Everything else lives under `src/session` and `src/screens/session`.
-import { useLocalSearchParams } from "expo-router";
+import { Link, useLocalSearchParams } from "expo-router";
 import { Text, View } from "react-native";
 
 import { Composer } from "../../../screens/session/composer.tsx";
@@ -19,6 +19,10 @@ export default function SessionRoute() {
 		);
 	return session === undefined || client === undefined ? null : (
 		<View style={{ flex: 1 }}>
+			{/* The way back, because a phone opened this page from a list and has no browser chrome. */}
+			<Link href="/" style={{ paddingHorizontal: 24, paddingVertical: 12 }}>
+				All sessions
+			</Link>
 			<SessionScreen session={session} />
 			<Composer client={client} canPrompt />
 		</View>

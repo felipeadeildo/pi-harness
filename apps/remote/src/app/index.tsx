@@ -1,17 +1,49 @@
-// The first screen, which is a promise rather than a list: the app is not wired to a daemon yet.
-import { StyleSheet, Text, View } from "react-native";
+// The way in: every session the daemon knows, each row opening one. The link that `/remote` prints
+// lands here, so this is the first thing a phone shows after the login.
+import { type ListedSession, listSessions } from "@adeildo/pi-remote-client";
+import { useEffect, useState } from "react";
+import { Text, View } from "react-native";
 
-export default function Sessions() {
-	return (
-		<View style={styles.page}>
-			<Text style={styles.title}>pi remote</Text>
-			<Text style={styles.line}>No session is open yet.</Text>
-		</View>
-	);
+import { SessionsScreen } from "../screens/sessions/sessions.tsx";
+import { browserSource } from "../session/browser.ts";
+
+/** Where a row leads, in the app's own addresses. */
+export function sessionHref(session: ListedSession): string {
+	return `/session/${encodeURIComponent(session.machine)}/${encodeURIComponent(session.session)}`;
 }
 
-const styles = StyleSheet.create({
-	page: { flex: 1, alignItems: "flex-start", justifyContent: "center", padding: 24, gap: 8 },
-	title: { fontSize: 24, fontWeight: "600" },
-	line: { fontSize: 15, opacity: 0.7 },
-});
+export default function Sessions() {
+	const [sessions, setSessions] = useState<readonly ListedSession[]>();
+	const [why, setWhy] = useState<string>();
+
+	useEffect(() => {
+		let open = true;
+		void browserSource()
+			.then((ready) => {
+				if (ready.why !== undefined) throw new Error(ready.why);
+				// The page asks the daemon it came from: the socket's origin is where the sessions live.
+				return listSessions(globalThis.location.origin);
+			})
+			.then((listed) => {
+				if (open) setSessions(listed);
+			})
+			.catch((error: unknown) => {
+				if (open)
+					setWhy(error instanceof Error ? error.message : "The sessions could not be read.");
+			});
+		return () => {
+			open = false;
+		};
+	}, []);
+
+	// A blank frame while the daemon answers, and never an empty screen that says there is nothing:
+	// "no session is open" is a fact only the daemon can give.
+	if (why !== undefined)
+		return (
+			<View style={{ flex: 1, padding: 24 }}>
+				<Text>{why}</Text>
+			</View>
+		);
+	if (sessions === undefined) return <View style={{ flex: 1 }} />;
+	return <SessionsScreen sessions={sessions} hrefOf={sessionHref} />;
+}

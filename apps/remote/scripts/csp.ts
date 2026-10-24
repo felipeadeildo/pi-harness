@@ -39,13 +39,25 @@ export async function violations(url: string, browser?: Browser): Promise<string
 async function inspect(running: Browser, url: string, found: string[]): Promise<string[]> {
 	const page = await running.newPage();
 	page.on("console", (message) => {
-		if (message.type() === "error") found.push(`console: ${message.text()}`);
+		// The browser logs a failed request of its own; the response handler above already judges those,
+		// and a duplicate here would report the same 401 twice.
+		if (message.type() === "error" && !message.text().includes("Failed to load resource"))
+			found.push(`console: ${message.text()}`);
 	});
 	page.on("pageerror", (error) => found.push(`page: ${String(error)}`));
 	page.on("response", (answer) => {
-		if (answer.status() >= 400) found.push(`${answer.status()} ${answer.url()}`);
+		// 401 and 403 are the answer a page without a login token gets from the data routes. The check
+		// proves that nothing was blocked, not that it can log in, and counting them here would report
+		// an auth story as a policy violation.
+		if (answer.status() >= 400 && answer.status() !== 401 && answer.status() !== 403)
+			found.push(`${answer.status()} ${answer.url()}`);
 	});
-	const response = await page.goto(url, { waitUntil: "networkidle" });
+	// `load`, not `networkidle`: the app keeps a WebSocket open for the session it draws, so the network
+	// never goes idle and a check that waits for it can only time out. What the check is after is the
+	// page having run its own code, which `load` already means.
+	const response = await page.goto(url, { waitUntil: "load" });
+	// One tick for the first frame and the socket handshake, so a violation raised there is seen.
+	await page.waitForTimeout(500);
 	if (response === null || !response.ok()) found.push(`the page answered ${response?.status()}`);
 	return found;
 }

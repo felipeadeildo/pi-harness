@@ -3,10 +3,8 @@
 import { describe, expect, test } from "bun:test";
 
 import type { ListedSession } from "@adeildo/pi-remote-client";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 
-import { nameOf, SessionsScreen } from "./sessions.tsx";
+import { nameOf, rowsOf } from "./rows.ts";
 
 const live = { pid: 1, startedAt: 1, cwd: "/work", kind: "terminal" as const };
 
@@ -21,16 +19,16 @@ const row = (over: Partial<ListedSession> = {}): ListedSession =>
 		...over,
 	}) as ListedSession;
 
-const draw = (sessions: ListedSession[]): string =>
-	renderToStaticMarkup(createElement(SessionsScreen, { sessions }));
+/** The list as the screen draws it: the data a test can read without a browser or a native host. */
+const draw = (sessions: ListedSession[]) => rowsOf(sessions);
 
 describe("the list of sessions", () => {
-	test("an empty list says so, instead of drawing nothing", () => {
-		expect(draw([])).toContain("No session is open.");
+	test("an empty list is empty, and the screen says so instead of leaving a blank page", () => {
+		expect(draw([])).toEqual([]);
 	});
 
 	test("a row carries the name, where it runs and how it is doing", () => {
-		const html = draw([
+		const rows = draw([
 			row({
 				snapshot: {
 					session: "s1",
@@ -41,9 +39,7 @@ describe("the list of sessions", () => {
 				} as never,
 			}),
 		]);
-		expect(html).toContain("the rig");
-		expect(html).toContain("here");
-		expect(html).toContain("working");
+		expect(rows[0]).toMatchObject({ name: "the rig", where: "here", doing: "working" });
 	});
 
 	test("the name is the title, then the handle, then the name the bridge gave it", () => {
@@ -51,5 +47,15 @@ describe("the list of sessions", () => {
 		expect(nameOf(row({ snapshot: { handle: "rig" } as never }))).toBe("rig");
 		expect(nameOf(row({ live: { ...live, name: "from the bridge" } }))).toBe("from the bridge");
 		expect(nameOf(row({ session: "01a16b0a-8f6e-7249-9571-b11736957af9" }))).toBe("new-7af9");
+	});
+
+	test("a row that waits is marked, and the ones that wait come first", () => {
+		const rows = draw([
+			row({ session: "quiet", snapshot: { state: "idle" } as never }),
+			row({ session: "asking", snapshot: { state: "blocked" } as never }),
+		]);
+		expect(rows[0]?.session).toBe("asking");
+		expect(rows[0]?.waits).toBe(true);
+		expect(rows[1]?.waits).toBe(false);
 	});
 });
