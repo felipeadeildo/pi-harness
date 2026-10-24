@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
+import { afterEach, beforeEach, expect, type Mock, spyOn, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -31,14 +31,26 @@ const WINDOW = `429 {"type":"error","error":{"type":"rate_limit_error","message"
 
 let dir: string;
 let restore: () => void;
+/**
+ * Every `fetch` in this file. A session reads the plans without waiting, so a read that reached the
+ * network would answer a few hundred milliseconds later, in another test's spy. Refused at once, a
+ * read ends inside the test that started it. A test that needs an answer sets its own.
+ */
+let network: Mock<typeof fetch>;
 
 beforeEach(() => {
 	const fixture = agentDirFixture("pi-accounts-feature-");
 	dir = fixture.dir;
 	restore = fixture.restore;
+	network = spyOn(globalThis, "fetch").mockImplementation(
+		(async () => new Response("{}", { status: 401 })) as unknown as typeof fetch,
+	);
 });
 
-afterEach(() => restore());
+afterEach(() => {
+	network.mockRestore();
+	restore();
+});
 
 function native(): Provider {
 	return {
@@ -548,37 +560,32 @@ test("the account picker shows what each account has left", async () => {
 			},
 		],
 	};
-	const mock = spyOn(globalThis, "fetch");
-	mock.mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }));
-	try {
-		// The session reads the plans in the background; here it is the test that fills the cache.
-		await watch.quota.ensure("anthropic", work.id, "token");
-		let shown: string[] = [];
-		const ctx = fakeContext([], true, {
-			model: { provider: "anthropic" },
-			modelRegistry: { getProviderDisplayName: () => "Anthropic" },
-			ui: {
-				theme: { fg: (_role: string, text: string) => text, bold: (text: string) => text },
-				setStatus: () => {},
-				notify: () => {},
-				select: async (_title: string, options: string[]) => {
-					shown = options;
-					return undefined;
-				},
+	network.mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }));
+	// The session reads the plans in the background; here it is the test that fills the cache.
+	await watch.quota.ensure("anthropic", work.id, "token");
+	let shown: string[] = [];
+	const ctx = fakeContext([], true, {
+		model: { provider: "anthropic" },
+		modelRegistry: { getProviderDisplayName: () => "Anthropic" },
+		ui: {
+			theme: { fg: (_role: string, text: string) => text, bold: (text: string) => text },
+			setStatus: () => {},
+			notify: () => {},
+			select: async (_title: string, options: string[]) => {
+				shown = options;
+				return undefined;
 			},
-		});
+		},
+	});
 
-		await pickAccount(bundle(scope, store, watch), ctx);
+	await pickAccount(bundle(scope, store, watch), ctx);
 
-		// The api-key account has no endpoint to ask, so only the OAuth one carries numbers.
-		expect(shown).toHaveLength(2);
-		expect(shown[0]).toContain(
-			"work (subscription) ✓  5h    62% resets in 2h    week  30% resets in 4d",
-		);
-		expect(shown[1]).toBe("personal (api key)");
-	} finally {
-		mock.mockRestore();
-	}
+	// The api-key account has no endpoint to ask, so only the OAuth one carries numbers.
+	expect(shown).toHaveLength(2);
+	expect(shown[0]).toContain(
+		"work (subscription) ✓  5h    62% resets in 2h    week  30% resets in 4d",
+	);
+	expect(shown[1]).toBe("personal (api key)");
 });
 
 test("a session reads the plans in the background", async () => {
@@ -595,29 +602,24 @@ test("a session reads the plans in the background", async () => {
 		.use(accounts)
 		.build();
 
-	const mock = spyOn(globalThis, "fetch");
 	// The endpoint refuses and the one-token call answers with the window in its headers.
-	mock.mockResolvedValue(
+	network.mockResolvedValue(
 		new Response("{}", {
 			status: 429,
 			headers: { "anthropic-ratelimit-unified-5h-utilization": "0.5" },
 		}),
 	);
-	try {
-		const ctx = fakeContext([], true, {
-			model: { provider: "anthropic" },
-			modelRegistry: { getProvider: () => native() },
-			sessionManager: { getBranch: () => [] },
-			ui: { notify: () => {}, setStatus: () => {} },
-		});
-		await fake.fire("session_start", {}, ctx);
+	const ctx = fakeContext([], true, {
+		model: { provider: "anthropic" },
+		modelRegistry: { getProvider: () => native() },
+		sessionManager: { getBranch: () => [] },
+		ui: { notify: () => {}, setStatus: () => {} },
+	});
+	await fake.fire("session_start", {}, ctx);
 
-		expect(mock).toHaveBeenCalledTimes(2);
-		expect(String(mock.mock.calls[0]?.[0])).toContain("/api/oauth/usage");
-		expect(String(mock.mock.calls[1]?.[0])).toContain("/v1/messages");
-	} finally {
-		mock.mockRestore();
-	}
+	expect(network).toHaveBeenCalledTimes(2);
+	expect(String(network.mock.calls[0]?.[0])).toContain("/api/oauth/usage");
+	expect(String(network.mock.calls[1]?.[0])).toContain("/v1/messages");
 });
 
 test("a refused credential is remembered until a sign-in", async () => {
@@ -735,32 +737,20 @@ test("a model of another provider reads that provider's plans right away", async
 		.use(accounts)
 		.build();
 
-	const mock = spyOn(globalThis, "fetch");
-	mock.mockResolvedValue(new Response(JSON.stringify({ five_hour: { utilization: 40 } })));
-	try {
-		// A plan read an earlier test left in flight lands now, so it is not counted here.
-		await settle();
-		mock.mockClear();
-		const ctx = fakeContext([], true, {
-			model: { provider: "deepseek" },
-			modelRegistry: { getProvider: () => native() },
-			sessionManager: { getBranch: () => [] },
-			ui: { notify: () => {}, setStatus: () => {} },
-		});
-		await fake.fire("session_start", {}, ctx);
-		await settle();
-		expect(mock).not.toHaveBeenCalled();
+	network.mockResolvedValue(new Response(JSON.stringify({ five_hour: { utilization: 40 } })));
+	const ctx = fakeContext([], true, {
+		model: { provider: "deepseek" },
+		modelRegistry: { getProvider: () => native() },
+		sessionManager: { getBranch: () => [] },
+		ui: { notify: () => {}, setStatus: () => {} },
+	});
+	await fake.fire("session_start", {}, ctx);
+	await settle();
+	expect(network).not.toHaveBeenCalled();
 
-		await fake.fire(
-			"model_select",
-			{ type: "model_select", model: { provider: "anthropic" } },
-			ctx,
-		);
-		await settle();
-		expect(String(mock.mock.calls[0]?.[0])).toContain("/api/oauth/usage");
-	} finally {
-		mock.mockRestore();
-	}
+	await fake.fire("model_select", { type: "model_select", model: { provider: "anthropic" } }, ctx);
+	await settle();
+	expect(String(network.mock.calls[0]?.[0])).toContain("/api/oauth/usage");
 });
 
 test("the first account brings pi's own login along, under a name of its own", async () => {
@@ -816,7 +806,10 @@ test("the first account brings pi's own login along, under a name of its own", a
 	expect(store.active("anthropic")?.label).toBe("work");
 });
 
-/** Lets the plans read in the background settle: the mocked fetch answers within microtasks. */
+/**
+ * Lets the plans read in the background settle. One turn is enough because the mocked fetch answers
+ * within microtasks; it is no wait for a real timer or the network, so a test with either needs more.
+ */
 async function settle(): Promise<void> {
 	await new Promise((resolve) => setTimeout(resolve, 0));
 }
