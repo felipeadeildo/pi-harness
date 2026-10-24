@@ -202,6 +202,8 @@ describe("the daemon on its socket", () => {
 		await until(() => started?.sessions.get("s1")?.facts.mode !== undefined);
 		expect(started?.sessions.get("s1")?.facts.mode).toBe("judge");
 		expect(started?.sessions.get("s2")?.facts.mode).toBeUndefined();
+		// The facts are set as the event is read, before the daemon's own hello reaches this client.
+		await until(() => client.received.length > 0);
 		expect(client.received[0]).toMatchObject({ kind: "hello", type: "daemon" });
 	});
 
