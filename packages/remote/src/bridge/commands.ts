@@ -16,6 +16,10 @@ export interface CommandEffects {
 	rename(name: string): void;
 	/** Closes open questions as a no, aborts the run and shuts the session down. */
 	stop(force: boolean): void;
+	/** Switches the model, and answers only once it did or refused to. */
+	setModel(provider: string, id: string): Promise<void>;
+	setThinking(level: string): void;
+	setMode(mode: string, by: By | undefined): void;
 }
 
 export interface CommandOptions {
@@ -41,6 +45,8 @@ export class Commands {
 	readonly #options: CommandOptions;
 	/** The ids already run, oldest first. */
 	readonly #ran: string[];
+	/** The commands waiting to run, so their effects land in the order the client sent them. */
+	#pending: Promise<void> = Promise.resolve();
 
 	constructor(options: CommandOptions) {
 		this.#options = options;
@@ -52,21 +58,38 @@ export class Commands {
 		return this.#ran.includes(id);
 	}
 
-	run(message: Envelope): void {
+	/**
+	 * Runs one command and answers it. The id is checked and remembered before it runs, so a resend
+	 * right behind a slow one is a repeat; the effects themselves run one at a time, in the order the
+	 * client sent them, so two commands never land out of order.
+	 */
+	run(message: Envelope): Promise<void> {
 		const { id, type, by } = message;
-		if (id === undefined) return;
+		if (id === undefined) return Promise.resolve();
 		if (this.ran(id)) {
 			this.#options.answer("reply", type, { repeat: true }, id);
-			return;
+			return Promise.resolve();
 		}
 		if (!isCommand(type, message.data)) {
 			this.#refuse(message, "the command is not one this session knows, or it lacks a field");
-			return;
+			return Promise.resolve();
 		}
 		this.#remember(id);
 		this.#options.received(id, type, by);
+		// A reply that cannot go out, or a log that throws, must not leave the next command unanswered:
+		// the chain carries the failure and goes on with the one behind it.
+		this.#pending = this.#pending.then(
+			() => this.#execute(message),
+			() => this.#execute(message),
+		);
+		return this.#pending;
+	}
+
+	async #execute(message: Envelope): Promise<void> {
+		const { id, type, by } = message;
+		if (id === undefined) return;
 		try {
-			this.#effect(type, message.data);
+			await this.#effect(type, message.data, by);
 			this.#options.answer("reply", type, {}, id);
 		} catch (error) {
 			const reason = error instanceof Error ? error.message : "the command did not run";
@@ -87,25 +110,29 @@ export class Commands {
 		if (this.#ran.length > KEPT_COMMANDS) this.#ran.splice(0, this.#ran.length - KEPT_COMMANDS);
 	}
 
-	#effect(type: string, data: unknown): void {
+	async #effect(type: string, data: unknown, by: By | undefined): Promise<void> {
 		const fields = data as Record<string, unknown>;
 		const { effects } = this.#options;
 		switch (type) {
 			case "run.abort":
-				effects.abort();
-				return;
+				return effects.abort();
 			case "session.compact":
-				effects.compact(typeof fields.instructions === "string" ? fields.instructions : undefined);
-				return;
+				return effects.compact(
+					typeof fields.instructions === "string" ? fields.instructions : undefined,
+				);
 			case "session.rename":
-				effects.rename(String(fields.name));
-				return;
+				return effects.rename(String(fields.name));
 			case "session.stop":
-				effects.stop(fields.force === true);
-				return;
+				return effects.stop(fields.force === true);
+			case "model.set":
+				return effects.setModel(String(fields.provider), String(fields.id));
+			case "thinking.set":
+				return effects.setThinking(String(fields.level));
+			case "mode.set":
+				return effects.setMode(String(fields.mode), by);
 			default:
-				// `prompt.send`, `queue.clear`, `ask.answer` and the rest come with their own slices: a
-				// client hears "not yet" instead of a command that seems to work and does nothing.
+				// `prompt.send`, `queue.clear`, `ask.answer` and `mode.set` come with their own slices:
+				// a client hears "not yet" instead of a command that seems to work and does nothing.
 				throw new Refused(`${type} is not served by this session yet`);
 		}
 	}

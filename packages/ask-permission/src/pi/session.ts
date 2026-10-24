@@ -35,6 +35,8 @@ export interface JudgeHealth {
 }
 
 export interface SessionState {
+	/** The context pi handed this session, which a change from outside needs to record and show. */
+	ctx?: ExtensionContext;
 	config: PermissionConfig;
 	mode: PermissionMode;
 	outside: OutsideScope;
