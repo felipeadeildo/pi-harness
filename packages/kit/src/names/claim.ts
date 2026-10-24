@@ -1,5 +1,6 @@
-// One file per word: the claim is the file, and `wx` is the lock. A session that crashes leaves its
-// claim behind; the draw judges it against presence, so the word comes back instead of staying lost.
+// One file per word: the claim is the file, and `link` fails when the word is already taken. A
+// session that crashes leaves its claim behind; the draw judges it against presence, so the word
+// comes back instead of staying lost.
 import {
 	linkSync,
 	mkdirSync,
