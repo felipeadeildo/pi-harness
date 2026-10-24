@@ -22,7 +22,7 @@ A slice is ticked in the commit that lands it.
 - [x] V2. The view (view, F1)
 - [x] V3. The panel opens a view (view, F1)
 - [x] C3. The remote package and its build (core, F1)
-- [ ] C4. The bridge (core, F1)
+- [x] C4. The bridge (core, F1)
 - [ ] C5. The daemon (core, F1)
 - [ ] C6. Login and the Host check (core, F1)
 - [ ] C7. Sync by cursors (core, F1)
@@ -296,7 +296,7 @@ Owner: core. Needs: nothing.
 
 Owner: core. Needs: C2, C3, P2, A4, and P1 for its tests.
 
-The bridge registers only in a pi in tui mode. It connects to `remote/daemon.sock`, and spawns the daemon when nothing answers. Its hello carries the protocol and package versions and the epoch, which changes with every extension runtime. The connection lives in `packages/remote/src/bridge/connection.ts` and the line format in `packages/remote/src/wire/lines.ts`, which the daemon bundles too. The bridge starts the daemon `current.json` names, so an older pi still starts the newest daemon. A snapshot carries the last 50 entries of the branch and the message being written, and the daemon asks for one with `snapshot.get`. Entries go out as pi appends them, through the kit's `piSource`, and only the assistant's message streams: a user message and a tool result arrive as entries.
+The bridge registers only in a pi in tui mode. It connects to `remote/daemon.sock`, and spawns the daemon when nothing answers. Its hello carries the protocol and package versions and the epoch, which changes with every extension runtime. The connection lives in `packages/remote/src/bridge/connection.ts` and the line format in `packages/remote/src/wire/lines.ts`, which the daemon bundles too. The bridge starts the daemon `current.json` names, so an older pi still starts the newest daemon. A snapshot carries the last 50 entries of the branch and the message being written, and the daemon asks for one with `snapshot.get`. Entries go out as pi appends them, through the kit's `piSource`, and only the assistant's message streams: a user message and a tool result arrive as entries. The harness's facts go out as the kit logs them, heard on `harness:logged`, and a snapshot carries the facts that rebuild the current tasks, mode, open questions and latest rulings.
 
 - It publishes pi's events, the harness's facts and the contracts' changes with a sequence number, and it answers the snapshot request.
 - At `turn_end` it emits `stream.bound` with the entry ids, and a `/tree` move emits `leaf.changed`. `/new`, `/resume` and `/fork` end the old session with `session.gone { reason: "replaced" }`.

@@ -3,7 +3,15 @@ import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createApp, HOST } from "@adeildo/pi-kit";
+import {
+	createApp,
+	emptyTasks,
+	HOST,
+	LOGGED_EVENT,
+	MODE,
+	protectedList,
+	TASKS,
+} from "@adeildo/pi-kit";
 import type { SessionSource, SourceItem } from "@adeildo/pi-kit";
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
 import { type FakePi, fakeContext, fakePi } from "@adeildo/pi-kit/testing";
@@ -12,7 +20,13 @@ import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import type { MessageStartEvent, MessageUpdateEvent } from "@earendil-works/pi-coding-agent";
 
 import { Bridge, SNAPSHOT_ENTRIES } from "../src/bridge/bridge.ts";
-import piRemote, { daemonSocket, goneReason, remote, sessionKind } from "../src/index.ts";
+import piRemote, {
+	DAEMON_PORT,
+	daemonSocket,
+	goneReason,
+	remote,
+	sessionKind,
+} from "../src/index.ts";
 import { VERSION } from "../src/version.ts";
 import { line } from "../src/wire/lines.ts";
 import { type FakeDaemon, fakeDaemon, held, until } from "./fakes.ts";
@@ -244,6 +258,82 @@ describe("the bridge", () => {
 		expect(daemon.received[3]?.data).toEqual({ type: "model_select", model, source: "set" });
 	});
 
+	test("the session's status goes out in pi's words as it changes", async () => {
+		const daemon = await listening();
+		const fake = mounted();
+		const ctx = session();
+		await start(fake, ctx);
+		await until(() => types(daemon).includes("snapshot"));
+		await fake.fire("agent_start", { type: "agent_start" }, ctx);
+		await fake.fire("agent_settled", { type: "agent_settled", aborted: false }, ctx);
+		await until(() => types(daemon).filter((type) => type === "session.state").length === 2);
+		expect(
+			daemon.received.filter((one) => one.type === "session.state").map((one) => one.data),
+		).toEqual([{ state: "working" }, { state: "done" }]);
+	});
+
+	test("what the kit logs for this session goes out, and not another session's lines or peers' state", async () => {
+		const daemon = await listening();
+		const fake = mounted();
+		await start(fake);
+		await until(() => types(daemon).includes("snapshot"));
+		const log = (session: string, type: string, data: unknown) =>
+			fake.pi.events.emit(LOGGED_EVENT, { v: 1, id: "x", at: 1, session, type, data });
+		log("other", "mode.changed", { mode: "full" });
+		log("s1", "session.state", { state: "running" });
+		log("s1", "message.posted", { id: "m1" });
+		log("s1", "mode.changed", { mode: "edits" });
+		await until(() => types(daemon).includes("mode.changed"));
+		await Bun.sleep(20);
+		expect(daemon.received.slice(3).map((one) => [one.type, one.data])).toEqual([
+			["mode.changed", { mode: "edits" }],
+		]);
+	});
+
+	test("a snapshot carries the handle, the status, the tasks, the mode and the open questions, as facts too", async () => {
+		const daemon = await listening();
+		const fake = mounted();
+		const scope = { events: fake.pi.events, warn: () => {} };
+		const tasks = { ...emptyTasks(), handle: "otter" };
+		TASKS.provide(scope, () => ({ state: tasks }));
+		MODE.provide(scope, () => "edits");
+		await start(fake);
+		await until(() => types(daemon).includes("snapshot"));
+		const log = (type: string, data: unknown) =>
+			fake.pi.events.emit(LOGGED_EVENT, { v: 1, id: "x", at: 1, session: "s1", type, data });
+		log("ask.opened", { id: "q1", source: "agent", questions: [] });
+		log("ask.opened", { id: "q2", source: "agent", questions: [] });
+		log("ask.closed", { id: "q1", result: {} });
+		log("call.ruled", { toolCallId: "c1", ruling: { head: "allowed", tone: "success" } });
+		daemon.sockets[0]?.write(line(envelope("command", "snapshot.get", {})));
+		await until(() => types(daemon).filter((type) => type === "snapshot").length === 2);
+		const snapshot = daemon.received.filter((one) => one.type === "snapshot").at(-1)?.data as
+			| { snapshot: Record<string, unknown>; facts: { type: string; data: unknown }[] }
+			| undefined;
+		expect(snapshot?.snapshot).toMatchObject({
+			handle: "otter",
+			state: "idle",
+			tasks,
+			mode: "edits",
+			openAsks: ["q2"],
+		});
+		expect(snapshot?.facts.map((fact) => fact.type)).toEqual([
+			"tasks.changed",
+			"mode.changed",
+			"ask.opened",
+			"call.ruled",
+		]);
+	});
+
+	test("the remote's files, its socket, its port and its command are protected, whatever the mode", () => {
+		const fake = mounted();
+		expect(protectedList(fake.pi.events)).toEqual({
+			paths: [root],
+			sockets: [daemonSocket(root), `127.0.0.1:${DAEMON_PORT}`, `localhost:${DAEMON_PORT}`],
+			commands: ["pi-remote"],
+		});
+	});
+
 	test("pi -p writes nothing and connects to nothing", async () => {
 		const daemon = await listening();
 		await start(mounted(), session(entries(2), "print"));
@@ -312,6 +402,7 @@ describe("one bridge", () => {
 		const { sockets, dial } = held();
 		const bridge = new Bridge(session(), from, {
 			path: "/nowhere",
+			scope: { events: fakePi().pi.events, warn: () => {} },
 			version: VERSION,
 			kind: "terminal",
 			startDaemon: () => {},

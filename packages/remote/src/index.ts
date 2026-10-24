@@ -4,7 +4,16 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createApp, defineFeature, piSource } from "@adeildo/pi-kit";
+import {
+	createApp,
+	defineFeature,
+	followSessionStatus,
+	isObject,
+	LOGGED_EVENT,
+	piSource,
+	provideProtected,
+	SESSION_STATUS,
+} from "@adeildo/pi-kit";
 import { type ExtensionAPI, getAgentDir } from "@earendil-works/pi-coding-agent";
 
 import { Bridge, type SessionKind } from "./bridge/bridge.ts";
@@ -21,6 +30,9 @@ export function remoteDir(): string {
 export function daemonSocket(dir: string): string {
 	return join(dir, "daemon.sock");
 }
+
+/** Where the daemon serves clients. C6 makes it a setting. */
+export const DAEMON_PORT = 7878;
 
 /** The built daemon and command, next to this package's sources. */
 const DIST = fileURLToPath(new URL("../dist/", import.meta.url));
@@ -57,6 +69,17 @@ export const remote = defineFeature({
 	setup(scope) {
 		// The source registers its own handlers, so it is made while the extension loads.
 		const source = piSource(scope);
+		followSessionStatus(scope, (message) => scope.warn(message));
+		// The agent runs as you, so the permission feature asks before any call that reaches the remote:
+		// it could answer its own question, drive another session, or read the machine's key.
+		provideProtected(scope.events, () => {
+			const dir = remoteDir();
+			return {
+				paths: [dir],
+				sockets: [daemonSocket(dir), `127.0.0.1:${DAEMON_PORT}`, `localhost:${DAEMON_PORT}`],
+				commands: ["pi-remote"],
+			};
+		});
 		let bridge: Bridge | undefined;
 
 		scope.on("session_start", (_event, ctx) => {
@@ -75,6 +98,7 @@ export const remote = defineFeature({
 			}
 			bridge = new Bridge(ctx, source, {
 				path: daemonSocket(dir),
+				scope,
 				version: VERSION,
 				kind,
 				startDaemon: () => startDaemon(dir),
@@ -109,6 +133,16 @@ export const remote = defineFeature({
 		scope.on("session_info_changed", (event) =>
 			bridge?.event("pi.session_info_changed", { type: "session_info_changed", name: event.name }),
 		);
+
+		SESSION_STATUS.onChanged(scope, (state) => {
+			if (state !== undefined) bridge?.status(state);
+		});
+		// Every line the kit logs is published inside the process too, and the bridge keeps the facts.
+		scope.events.on(LOGGED_EVENT, (line: unknown) => {
+			if (!isObject(line) || typeof line.session !== "string" || typeof line.type !== "string")
+				return;
+			bridge?.logged({ session: line.session, type: line.type, data: line.data });
+		});
 
 		scope.on("session_shutdown", async (event) => {
 			const ending = bridge;
