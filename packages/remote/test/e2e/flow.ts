@@ -1,6 +1,7 @@
 // The gate, in a real browser: the daemon the bridge starts, the app it serves, and the flow the plan
 // calls done. One line per step, so a step a fix turns green shows up here instead of staying hidden
 // behind the ones still failing. Run it with the package's `bun run gate`.
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -66,10 +67,12 @@ async function main(): Promise<number> {
 			await page.goto(link.url);
 			reports.push({ step: 1, ...(await seesList(page)) });
 			reports.push({ step: 2, ...(await opensSession(page)) });
+			reports.push({ step: 3, ...(await sendsPrompt(page, rig)) });
 		} else {
 			reports.push({ step: 1, ok: false, why: link.why });
 		}
 	} finally {
+		stopDaemon();
 		await browser?.close();
 		browser = undefined;
 		rig?.dispose();
@@ -107,7 +110,13 @@ async function seesList(page: Page): Promise<Result> {
 		await rows.first().waitFor({ timeout: 30_000 });
 		return { ok: (await rows.count()) > 0 };
 	} catch (error) {
-		return { ok: false, why: `no session link (${short(error)})` };
+		const text = (
+			await page
+				.locator("body")
+				.innerText()
+				.catch(() => "")
+		).slice(0, 160);
+		return { ok: false, why: `no session link (${short(error)}) at ${page.url()}: ${text}` };
 	}
 }
 
@@ -122,6 +131,46 @@ async function opensSession(page: Page): Promise<Result> {
 		return { ok: true };
 	} catch (error) {
 		return { ok: false, why: short(error) };
+	}
+}
+
+/**
+ * A prompt sent from the browser reaches the session and the model answers. The session is idle when
+ * the prompt arrives, which is the case #188 fixed: the letter goes in at once instead of waiting for
+ * a settle that never comes.
+ */
+async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
+	try {
+		const box = page.locator("textarea, [contenteditable='true'], input[type='text']").first();
+		await box.click({ timeout: 20_000 });
+		await box.fill("say hello from the gate");
+		await page.keyboard.press("Enter");
+		const entries = (): number => rig.session.sessionManager.getBranch().length;
+		const before = entries();
+		const deadline = Date.now() + 20_000;
+		while (entries() <= before && Date.now() < deadline) await Bun.sleep(100);
+		return entries() > before ? { ok: true } : { ok: false, why: "the branch did not grow" };
+	} catch (error) {
+		return { ok: false, why: short(error) };
+	}
+}
+
+/**
+ * The daemon the bridge started is detached and outlives this process, so the run that leaves one
+ * behind makes the next run fail on a port it cannot have. It is found by the socket it holds.
+ */
+function stopDaemon(): void {
+	const { socket } = daemonPaths(root);
+	const found = spawnSync("lsof", ["-t", `--`, socket], { encoding: "utf8" });
+	for (const pid of (found.stdout ?? "").split("\n")) {
+		const at = Number(pid.trim());
+		if (Number.isInteger(at) && at > 0) {
+			try {
+				process.kill(at, "SIGTERM");
+			} catch {
+				// Already gone: the socket outlived it, and nothing else holds the port.
+			}
+		}
 	}
 }
 
