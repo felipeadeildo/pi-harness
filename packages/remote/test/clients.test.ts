@@ -7,8 +7,12 @@ import { join } from "node:path";
 import { connect, memoryCache, type Transport } from "@adeildo/pi-remote-client";
 import { envelope, type Envelope, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
+import { issueToken } from "../src/cli/open.ts";
+import { Logins } from "../src/daemon/auth.ts";
+import { Clients } from "../src/daemon/clients.ts";
 import { FILES, History, type Page } from "../src/daemon/history.ts";
 import { Daemon } from "../src/daemon/server.ts";
+import { Sessions } from "../src/daemon/sessions.ts";
 import { envelopeOf, line, Lines } from "../src/wire/lines.ts";
 import { frame, Frames, MAX_MESSAGE } from "../src/wire/websocket.ts";
 import { until } from "./fakes.ts";
@@ -27,11 +31,24 @@ afterEach(() => {
 	rmSync(dir, { recursive: true, force: true });
 });
 
-async function openDaemon(): Promise<{ daemon: Daemon; port: number }> {
+async function openDaemon(): Promise<{ daemon: Daemon; port: number; cookie: string }> {
 	const daemon = await Daemon.start({ socket, version: "1.2.0", clientPort: 0 });
 	if (daemon?.clientPort === undefined) throw new Error("the daemon did not start");
 	running.push(daemon);
-	return { daemon, port: daemon.clientPort };
+	const port = daemon.clientPort;
+	return { daemon, port, cookie: await logIn(daemon, port) };
+}
+
+/** Trades a token the daemon issued for its login cookie, as the web app does with `/remote`'s link. */
+async function logIn(daemon: Daemon, port: number): Promise<string> {
+	const response = await fetch(`http://127.0.0.1:${port}/login`, {
+		method: "POST",
+		headers: { Origin: `http://127.0.0.1:${port}`, "content-type": "application/json" },
+		body: JSON.stringify({ token: daemon.logins.issue().token }),
+	});
+	const cookie = response.headers.get("set-cookie")?.split(";")[0];
+	if (response.status !== 204 || cookie === undefined) throw new Error("no login");
+	return cookie;
 }
 
 /**
@@ -80,10 +97,10 @@ async function bridgeOf(session: string, epoch = "e1", file?: string) {
 }
 
 /** The P3 client over a real WebSocket, so the daemon is held to what the app will send. */
-function transportTo(port: number) {
+function transportTo(port: number, cookie: string) {
 	return (onMessage: (envelope: unknown) => void, onClose: () => void): Transport => {
 		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
-			headers: { Origin: `http://127.0.0.1:${port}` },
+			headers: { Origin: `http://127.0.0.1:${port}`, Cookie: cookie },
 		});
 		const queued: string[] = [];
 		ws.onopen = () => {
@@ -108,7 +125,7 @@ function entry(id: string, parentId: string | null) {
 
 describe("a client of the daemon", () => {
 	test("opens a session from the snapshot and the events after it, then follows it live", async () => {
-		const { daemon, port } = await openDaemon();
+		const { daemon, port, cookie } = await openDaemon();
 		const bridge = await bridgeOf("s1");
 		bridge.snapshot([entry("a", null)]);
 		bridge.send("entry", entry("b", "a"));
@@ -118,7 +135,7 @@ describe("a client of the daemon", () => {
 		const client = connect({
 			key: { machine: "laptop", session: "s1" },
 			cache: memoryCache(),
-			open: transportTo(port),
+			open: transportTo(port, cookie),
 		});
 		await client.load();
 		await until(() => client.session().entries.length === 2);
@@ -131,7 +148,7 @@ describe("a client of the daemon", () => {
 	});
 
 	test("two sessions reach one client, and closing one keeps the other", async () => {
-		const { port } = await openDaemon();
+		const { port, cookie } = await openDaemon();
 		const first = await bridgeOf("s1");
 		const second = await bridgeOf("s2");
 		first.snapshot([entry("a", null)]);
@@ -140,7 +157,7 @@ describe("a client of the daemon", () => {
 			connect({
 				key: { machine: "laptop", session },
 				cache: memoryCache(),
-				open: transportTo(port),
+				open: transportTo(port, cookie),
 			});
 		const one = open("s1");
 		const two = open("s2");
@@ -156,7 +173,7 @@ describe("a client of the daemon", () => {
 	});
 
 	test("a cursor it can resume from gets only what it missed", async () => {
-		const { daemon, port } = await openDaemon();
+		const { daemon, port, cookie } = await openDaemon();
 		const bridge = await bridgeOf("s1");
 		bridge.snapshot([entry("a", null)]);
 		for (const id of ["b", "c", "d"]) bridge.send("entry", entry(id, null));
@@ -164,7 +181,7 @@ describe("a client of the daemon", () => {
 
 		const got: Envelope[] = [];
 		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
-			headers: { Origin: `http://127.0.0.1:${port}` },
+			headers: { Origin: `http://127.0.0.1:${port}`, Cookie: cookie },
 		});
 		ws.onmessage = (event) => got.push(JSON.parse(String(event.data)));
 		await new Promise((resolve) => (ws.onopen = resolve));
@@ -176,12 +193,12 @@ describe("a client of the daemon", () => {
 	});
 
 	test("with no snapshot to give, the daemon asks the bridge, and its answer reaches the client", async () => {
-		const { port } = await openDaemon();
+		const { port, cookie } = await openDaemon();
 		const bridge = await bridgeOf("s1");
 		const client = connect({
 			key: { machine: "laptop", session: "s1" },
 			cache: memoryCache(),
-			open: transportTo(port),
+			open: transportTo(port, cookie),
 		});
 		await client.load();
 		await until(() => bridge.asked.length === 1);
@@ -192,11 +209,11 @@ describe("a client of the daemon", () => {
 	});
 
 	test("a client that comes before the bridge gets the session once the bridge registers it", async () => {
-		const { daemon, port } = await openDaemon();
+		const { daemon, port, cookie } = await openDaemon();
 		const client = connect({
 			key: { machine: "laptop", session: "s1" },
 			cache: memoryCache(),
-			open: transportTo(port),
+			open: transportTo(port, cookie),
 		});
 		await client.load();
 		await until(() => daemon.watched().get("s1") === 1);
@@ -209,7 +226,7 @@ describe("a client of the daemon", () => {
 	});
 
 	test("a snapshot carries the facts before it, without a closed question or a replaced mode", async () => {
-		const { daemon, port } = await openDaemon();
+		const { daemon, port, cookie } = await openDaemon();
 		const bridge = await bridgeOf("s1");
 		bridge.send("mode.changed", { mode: "manual" });
 		bridge.send("ask.opened", { id: "q1", source: "ask-questions", questions: [] });
@@ -220,16 +237,19 @@ describe("a client of the daemon", () => {
 		bridge.send("mode.changed", { mode: "judge" });
 		await until(() => daemon.sessions.get("s1")?.facts.mode === "judge");
 
-		const response = await fetch(`http://127.0.0.1:${port}/sessions/laptop/s1/snapshot`);
+		const response = await fetch(`http://127.0.0.1:${port}/sessions/laptop/s1/snapshot`, {
+			headers: { Cookie: cookie },
+		});
 		const snapshot = (await response.json()) as Envelope & { data: { facts: unknown[] } };
 		expect(snapshot.data.facts).toEqual([{ type: "mode.changed", data: { mode: "full" } }]);
 	});
 
 	test("the HTTP routes: health, the session list, and a snapshot only for a known machine", async () => {
-		const { daemon, port } = await openDaemon();
+		const { daemon, port, cookie } = await openDaemon();
 		const bridge = await bridgeOf("s1");
 		bridge.snapshot([]);
-		const get = (path: string) => fetch(`http://127.0.0.1:${port}${path}`);
+		const get = (path: string) =>
+			fetch(`http://127.0.0.1:${port}${path}`, { headers: { Cookie: cookie } });
 		await until(() => daemon.sessions.get("s1")?.snapshot !== undefined);
 
 		expect(await (await get("/health")).json()).toMatchObject({
@@ -244,6 +264,94 @@ describe("a client of the daemon", () => {
 		expect((await get("/sessions/laptop/%E0%A4%A/snapshot")).status).toBe(400);
 		expect((await get("/sessions/laptop/s%31/snapshot")).status).toBe(200);
 		expect((await get("/health")).status).toBe(200);
+	});
+});
+
+describe("logging in", () => {
+	test("with no login, the session list, a snapshot, a page and the WebSocket answer 401, and health does not", async () => {
+		const { port } = await openDaemon();
+		const origin = `http://127.0.0.1:${port}`;
+		expect((await fetch(`${origin}/sessions`)).status).toBe(401);
+		expect((await fetch(`${origin}/sessions/laptop/s1/snapshot`)).status).toBe(401);
+		expect((await fetch(`${origin}/sessions/laptop/s1/entries?before=b`)).status).toBe(401);
+		expect((await fetch(`${origin}/health`)).status).toBe(200);
+		expect(
+			(await fetch(`${origin}/sessions`, { headers: { Cookie: "pi_remote=forged" } })).status,
+		).toBe(401);
+		const opened = await new Promise<boolean>((resolve) => {
+			const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, { headers: { Origin: origin } });
+			ws.onopen = () => resolve(true);
+			ws.onerror = () => resolve(false);
+		});
+		expect(opened).toBe(false);
+	});
+
+	test("the pi-remote command gets a token on the socket, which trades once for an HttpOnly cookie", async () => {
+		const { daemon, port } = await openDaemon();
+		const token = await issueToken(socket);
+		if (token === undefined) throw new Error("no token");
+		expect(daemon.sessions.list()).toEqual([]);
+		const post = (body: string, query = "") =>
+			fetch(`http://127.0.0.1:${port}/login${query}`, {
+				method: "POST",
+				headers: { Origin: `http://127.0.0.1:${port}`, "content-type": "application/json" },
+				body,
+			});
+		// The token is read from the body only, never from the query, which access logs keep.
+		expect((await post("", `?token=${token}`)).status).toBe(401);
+		const traded = await post(JSON.stringify({ token }));
+		expect(traded.status).toBe(204);
+		const set = traded.headers.get("set-cookie") ?? "";
+		expect(set).toContain("HttpOnly");
+		expect(set).toContain("SameSite=Strict");
+		expect((await post(JSON.stringify({ token }))).status).toBe(401);
+		const cookie = set.split(";")[0] ?? "";
+		expect(
+			(await fetch(`http://127.0.0.1:${port}/sessions`, { headers: { Cookie: cookie } })).status,
+		).toBe(200);
+	});
+
+	test("a bridge gets a token for token.issue, answered on the same id", async () => {
+		await openDaemon();
+		const client: Socket = dial(socket);
+		await new Promise<void>((resolve) => client.once("connect", () => resolve()));
+		const replies: Envelope[] = [];
+		const lines = new Lines();
+		client.setEncoding("utf8");
+		client.on("data", (chunk: string) => {
+			for (const text of lines.push(chunk)) {
+				const message = envelopeOf(text);
+				if (message?.kind === "reply") replies.push(message);
+			}
+		});
+		const at = { machine: "laptop", session: "s1", epoch: "e1" };
+		client.write(line(envelope("hello", "bridge", { protocol: PROTOCOL, version: "1.2.0" }, at)));
+		client.write(line(envelope("command", "token.issue", {}, { ...at, id: "c7" })));
+		await until(() => replies.length === 1);
+		expect(replies[0]).toMatchObject({ type: "token.issue", id: "c7" });
+		const data = replies[0]?.data as { token?: unknown } | undefined;
+		expect(typeof data?.token).toBe("string");
+		client.destroy();
+	});
+
+	test("a file of the web build named like a route never stands in for it", async () => {
+		const logins = new Logins(join(dir, "logins.json"));
+		const clients = new Clients({
+			sessions: new Sessions(),
+			logins,
+			version: "1.2.0",
+			askSnapshot: () => false,
+			appFiles: new Set(["/sessions", "/ws", "/health", "/app.js"]),
+		});
+		const port = await clients.listen(0);
+		try {
+			const origin = `http://127.0.0.1:${port}`;
+			expect((await fetch(`${origin}/sessions`)).status).toBe(401);
+			// The app's own file needs no login; the daemon does not serve the build yet, so 404.
+			expect((await fetch(`${origin}/app.js`)).status).toBe(404);
+		} finally {
+			clients.close();
+		}
 	});
 });
 
@@ -265,20 +373,20 @@ describe("who reaches the daemon", () => {
 	}
 
 	test("a WebSocket from another page's Origin, or with none, is refused", async () => {
-		const { port } = await openDaemon();
+		const { port, cookie } = await openDaemon();
 		const host = `Host: 127.0.0.1:${port}\r\n`;
 		expect(await upgrade(port, `${host}Origin: https://evil.example\r\n`)).toBe(
 			"HTTP/1.1 403 Forbidden",
 		);
 		expect(await upgrade(port, `${host}Origin: null\r\n`)).toStartWith("HTTP/1.1 403");
 		expect(await upgrade(port, host)).toStartWith("HTTP/1.1 403");
-		expect(await upgrade(port, `${host}Origin: http://localhost:${port}\r\n`)).toStartWith(
-			"HTTP/1.1 101",
-		);
+		expect(
+			await upgrade(port, `${host}Origin: http://localhost:${port}\r\nCookie: ${cookie}\r\n`),
+		).toStartWith("HTTP/1.1 101");
 	});
 
 	test("a name the daemon does not answer to gets 421, so a rebound DNS name reads nothing", async () => {
-		const { daemon, port } = await openDaemon();
+		const { daemon, port, cookie } = await openDaemon();
 		const bridge = await bridgeOf("s1");
 		bridge.snapshot([entry("a", null)]);
 		await until(() => daemon.sessions.get("s1")?.snapshot !== undefined);
@@ -290,7 +398,7 @@ describe("who reaches the daemon", () => {
 				raw.on("data", (chunk: string) => (answer += chunk));
 				raw.on("close", () => resolve(Number(answer.split(" ")[1])));
 				raw.write(
-					`GET /sessions/laptop/s1/snapshot HTTP/1.1\r\nHost: ${host}\r\nConnection: close\r\n\r\n`,
+					`GET /sessions/laptop/s1/snapshot HTTP/1.1\r\nHost: ${host}\r\nCookie: ${cookie}\r\nConnection: close\r\n\r\n`,
 				);
 			});
 		expect(await status(`attacker.example:${port}`)).toBe(421);
@@ -368,13 +476,13 @@ describe("WebSocket frames", () => {
 	});
 
 	test("a ping gets a pong with its payload, and a close gets a close", async () => {
-		const { port } = await openDaemon();
+		const { port, cookie } = await openDaemon();
 		const raw = dial(port, "127.0.0.1");
 		const got: Buffer[] = [];
 		raw.on("data", (chunk: Buffer) => got.push(chunk));
 		await new Promise<void>((resolve) => raw.once("connect", () => resolve()));
 		raw.write(
-			`GET /ws HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\nOrigin: http://127.0.0.1:${port}\r\n` +
+			`GET /ws HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\nOrigin: http://127.0.0.1:${port}\r\nCookie: ${cookie}\r\n` +
 				"Upgrade: websocket\r\nConnection: Upgrade\r\n" +
 				"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
 		);
@@ -469,16 +577,18 @@ describe("a session's older entries", () => {
 	});
 
 	test("come over HTTP from the file the bridge named, and an unknown cursor is a 410", async () => {
-		const { daemon, port } = await openDaemon();
+		const { daemon, port, cookie } = await openDaemon();
 		const file = sessionFile("s1", [entry("a", null), entry("b", "a")]);
 		const bridge = await bridgeOf("s1", "e1", file);
 		bridge.snapshot([]);
-		const get = (query: string) =>
-			fetch(`http://127.0.0.1:${port}/sessions/laptop/s1/entries${query}`);
+		const get = (query: string, machine = "laptop") =>
+			fetch(`http://127.0.0.1:${port}/sessions/${machine}/s1/entries${query}`, {
+				headers: { Cookie: cookie },
+			});
 		await until(() => daemon.sessions.get("s1")?.live.file === file);
 		const first = await get("?before=b");
 		expect(await first.json()).toMatchObject({ entries: [{ id: "a" }], more: false });
 		expect((await get("?since=gone")).status).toBe(410);
-		expect((await fetch(`http://127.0.0.1:${port}/sessions/desktop/s1/entries`)).status).toBe(404);
+		expect((await get("", "desktop")).status).toBe(404);
 	});
 });

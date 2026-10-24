@@ -14,26 +14,14 @@ import {
 	provideProtected,
 	SESSION_STATUS,
 } from "@adeildo/pi-kit";
-import { type ExtensionAPI, getAgentDir } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { Bridge, type SessionKind } from "./bridge/bridge.ts";
 import type { GoneReason } from "./bridge/connection.ts";
 import { openInBrowser } from "./browser.ts";
 import { startDaemon, writeLauncher } from "./launcher.ts";
+import { CLIENT_PORT, daemonDir, daemonPaths } from "./places.ts";
 import { VERSION } from "./version.ts";
-
-/** Where the remote keeps its files. `PI_REMOTE_DIR` moves it, for tests. */
-export function remoteDir(): string {
-	return process.env.PI_REMOTE_DIR ?? join(getAgentDir(), "harness", "remote");
-}
-
-/** The socket the daemon listens on. */
-export function daemonSocket(dir: string): string {
-	return join(dir, "daemon.sock");
-}
-
-/** Where the daemon serves clients. C6 makes it a setting. */
-export const DAEMON_PORT = 7878;
 
 /** The built daemon and command, next to this package's sources. */
 const DIST = fileURLToPath(new URL("../dist/", import.meta.url));
@@ -74,10 +62,10 @@ export const remote = defineFeature({
 		// The agent runs as you, so the permission feature asks before any call that reaches the remote:
 		// it could answer its own question, drive another session, or read the machine's key.
 		provideProtected(scope.events, () => {
-			const dir = remoteDir();
+			const dir = daemonDir();
 			return {
 				paths: [dir],
-				sockets: [daemonSocket(dir), `127.0.0.1:${DAEMON_PORT}`, `localhost:${DAEMON_PORT}`],
+				sockets: [daemonPaths(dir).socket, `127.0.0.1:${CLIENT_PORT}`, `localhost:${CLIENT_PORT}`],
 				commands: ["pi-remote"],
 			};
 		});
@@ -86,7 +74,7 @@ export const remote = defineFeature({
 		scope.on("session_start", (_event, ctx) => {
 			const kind = sessionKind(ctx.mode);
 			if (kind === undefined) return;
-			const dir = remoteDir();
+			const dir = daemonDir();
 			try {
 				writeLauncher(dir, {
 					node: process.execPath,
@@ -98,7 +86,7 @@ export const remote = defineFeature({
 				scope.warn(`could not write the pi-remote launcher: ${String(error)}`);
 			}
 			bridge = new Bridge(ctx, source, {
-				path: daemonSocket(dir),
+				path: daemonPaths(dir).socket,
 				scope,
 				version: VERSION,
 				kind,
@@ -155,7 +143,7 @@ export const remote = defineFeature({
 					return;
 				}
 				// The token rides in the fragment, which no request carries to a server or a log.
-				const url = `http://127.0.0.1:${DAEMON_PORT}/#token=${token}`;
+				const url = `http://127.0.0.1:${CLIENT_PORT}/#token=${token}`;
 				openInBrowser(url);
 				ctx.ui.notify(`pi-remote: ${url} works once, for a minute`, "info");
 			},
