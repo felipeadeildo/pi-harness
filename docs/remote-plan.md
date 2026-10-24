@@ -65,13 +65,17 @@ bun install                                                        # when the re
 bun run verify
 git push -u origin HEAD
 gh pr create --base main --title "<conventional subject>" --body-file <body.md>
-git switch --detach                                                 # leave the branch, so the merge can delete it
-gh pr merge <n> --squash --delete-branch                            # once a review approves
+gh pr list --base feat/<area>-<what>                                # the pull requests stacked on it
+gh pr edit <stacked> --base main                                    # each one it lists, before the merge
+git switch --detach                                                 # leave the branch before it goes
+gh pr merge <n> --squash                                            # once a review approves
+git push origin --delete feat/<area>-<what>                         # once nothing is based on it
 git fetch origin && git switch --detach origin/main                 # a clean base for the next slice
 git -C ~/Projects/pi-harness pull --ff-only                         # the folder the operator's pi runs from
 ```
 
 - A branch starts from `main`, lives until its pull request is merged, and is named by its type and what it changes, in kebab-case: `feat/`, `fix/`, `refactor/` or `chore/`, as in `feat/kit-presence`.
+- A pull request stacked on another one's branch moves its base to `main` with `gh pr edit <n> --base main` before the one below is merged. Deleting a branch closes every open pull request based on it, and GitHub reopens none of them: a closed pull request cannot change its base, and it cannot reopen without its base.
 - A pull request's title is a conventional subject under 72 characters with the area in the scope, such as `feat(kit): tell a reused pid from the process that wrote an entry`. The squash merge makes it the one commit on `main`. Commits inside the branch take the same form, with no body and no trailer.
 - The type says what the change is, and most slices are not a `feat`. A `feat` lets someone who uses the package do something new, and a `fix` makes something wrong work. A `refactor` changes the code and keeps the behavior, and `test` covers tests, fixtures such as the rig's recording, and test tools such as the rig. `perf`, `docs`, `build`, `ci` and `chore` cover the rest. The reviewer checks the type along with the title.
 - The diff ticks the slice's line in [Status](#status). The body says what was missing or wrong, what the change does and how to see it working, names the slice, says `Closes #N` for each issue it closes, so the squash closes it, and ends with the operator's footer, `<p align="right"><sub><model> (<effort> effort) [<name>] @ adeildo's pi</sub></p>`, with the model as the session names it, the session's own effort, and the agent's name in brackets, as in `claude opus 5.5 (max effort) [lynx] @ adeildo's pi`. Each agent picks its name, an animal by custom, and says it in the room before using it.
