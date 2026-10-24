@@ -14,7 +14,7 @@ import {
 // the session were on it.
 import { type ReactNode, createElement as h, useEffect, useState } from "react";
 
-import { queuedLines, type QueuedLine } from "./pending.ts";
+import { queuedLines, type QueuedLine, withdraw } from "./pending.ts";
 
 export interface ComposerProps {
 	/** The connection this session is drawn from, which is also where commands go. */
@@ -72,7 +72,7 @@ export function Composer({
 		pickers(send, mode, model, thinking),
 		ask === undefined ? null : naming(send, ask),
 		queueNode(queue, client, held),
-		heldNode(queued, send),
+		heldNode(queued, client),
 	);
 }
 
@@ -258,10 +258,7 @@ export function dropNow(client: Client, id: string): void {
  * "waiting its turn" and not "sending", because this list belongs to the session, not to the device:
  * two phones see the same lines, and neither of them can make one go faster.
  */
-function heldNode(
-	lines: readonly QueuedLine[],
-	send: (type: CommandType, data: unknown) => void,
-): ReactNode {
+function heldNode(lines: readonly QueuedLine[], client: Client): ReactNode {
 	if (lines.length === 0) return null;
 	return h(
 		"ul",
@@ -274,7 +271,7 @@ function heldNode(
 				h("span", { className: "remote-composer-by" }, line.by),
 				h(
 					"button",
-					{ key: "withdraw", type: "button", onClick: () => send("queue.clear", {}) },
+					{ key: "withdraw", type: "button", onClick: () => withdraw(client, line.id) },
 					"Withdraw",
 				),
 			),

@@ -2,6 +2,7 @@
 // sent and the daemon has not answered, the queue is what the session itself is holding for the agent
 // to finish. A message moves from one to the other when the answer names it, and it is never in both.
 
+import type { Client } from "@adeildo/pi-remote-client";
 import type { QueuedMessage } from "@adeildo/pi-remote-protocol";
 
 /** One line of the session's queue, ready to draw and to read in a test. */
@@ -26,4 +27,12 @@ export function queuedLines(queue: readonly QueuedMessage[]): QueuedLine[] {
 				: message.text,
 		by: message.by.name,
 	}));
+}
+
+/**
+ * Takes one message back out of the session's queue. The ids go with the command, so the act names what
+ * it removes: a `queue.clear` without them empties the list every client is looking at.
+ */
+export function withdraw(client: Client, id: string): void {
+	client.send("queue.clear", { ids: [id] });
 }

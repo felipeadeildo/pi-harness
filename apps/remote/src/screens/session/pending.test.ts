@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { QueuedMessage } from "@adeildo/pi-remote-protocol";
 
-import { QUEUED_CHARS, queuedLines } from "./pending.ts";
+import { QUEUED_CHARS, queuedLines, withdraw } from "./pending.ts";
 
 const message = (over: Partial<QueuedMessage> = {}): QueuedMessage => ({
 	id: "q1",
@@ -37,5 +37,14 @@ describe("the session's queue", () => {
 
 	test("an empty queue draws nothing at all", () => {
 		expect(queuedLines([])).toEqual([]);
+	});
+});
+
+describe("withdrawing one message", () => {
+	test("names the message it takes, so the act removes one line and not the whole list", () => {
+		const sent: [string, unknown][] = [];
+		const client = { send: (type: string, data: unknown) => void sent.push([type, data]) };
+		withdraw(client as never, "q2");
+		expect(sent).toEqual([["queue.clear", { ids: ["q2"] }]]);
 	});
 });
