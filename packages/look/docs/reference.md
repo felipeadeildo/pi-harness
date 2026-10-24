@@ -76,3 +76,10 @@ A `status:<key>` segment is how a package gets a place of its own. [`@adeildo/pi
 When a line runs out of room, the least important pieces take their short form first (the folder becomes its last part, the model loses its provider, the effort meter loses its label), and then leave, one at a time. The two sides of a border compete for the same width, so an unimportant piece on the right leaves before an important one on the left. A line never goes empty: the last piece stays and is cut.
 
 The frame is the editor pi already has. Typing, history, autocomplete and every app key stay pi's; the class only changes what the lines look like and shifts mouse clicks by the width of the frame. The spinner is pi's, embedded through pi's own hook, and the working line only speaks through `setWorkingMessage`.
+
+Part of [pi-harness](https://github.com/felipeadeildo/pi-harness), which brings every piece in one install.
+
+<p align="center">
+  <a href="https://adeildo.dev"><img src="https://adeildo.dev/assets/images/cat.svg" width="42" height="42" alt="adeildo.dev"></a><br>
+  Brought to you by <a href="https://adeildo.dev">adeildo.dev</a>
+</p>
