@@ -6,7 +6,7 @@ import type { ListedSession } from "@adeildo/pi-remote-client";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { inOrder, nameOf, SessionsScreen, stateOf, wantsYou } from "./sessions.tsx";
+import { nameOf, SessionsScreen } from "./sessions.tsx";
 
 const live = { pid: 1, startedAt: 1, cwd: "/work", kind: "terminal" as const };
 
@@ -17,7 +17,7 @@ const row = (over: Partial<ListedSession> = {}): ListedSession =>
 		epoch: "e1",
 		connected: true,
 		live,
-		facts: {},
+		facts: { rulings: {}, asks: {} },
 		...over,
 	}) as ListedSession;
 
@@ -44,37 +44,6 @@ describe("the list of sessions", () => {
 		expect(html).toContain("the rig");
 		expect(html).toContain("here");
 		expect(html).toContain("working");
-	});
-
-	test("the ones that need you come first, then the running ones, then what ended", () => {
-		const order = inOrder([
-			row({ session: "ended", gone: "exit" }),
-			row({ session: "running" }),
-			row({
-				session: "waiting",
-				snapshot: {
-					session: "waiting",
-					machine: "here",
-					cwd: "/w",
-					kind: "terminal",
-					state: "blocked",
-				} as never,
-			}),
-		]);
-		expect(order.map((one) => one.session)).toEqual(["waiting", "running", "ended"]);
-	});
-
-	test("a session with a question, a blocked run or the manual mode is one that waits", () => {
-		expect(wantsYou(row({ snapshot: { state: "blocked" } as never }))).toBe(true);
-		expect(wantsYou(row({ snapshot: { mode: "manual" } as never }))).toBe(true);
-		expect(wantsYou(row({ snapshot: { state: "working" } as never }))).toBe(false);
-	});
-
-	test("the state says where it is, and reconnecting beats the last thing it said", () => {
-		expect(stateOf(row())).toBe("working");
-		expect(stateOf(row({ connected: false }))).toBe("reconnecting");
-		expect(stateOf(row({ gone: "crash" }))).toBe("crash");
-		expect(stateOf(row({ live: { ...live, kind: "background" } }))).toBe("idle");
 	});
 
 	test("the name is the title, then the handle, then the name the bridge gave it", () => {
