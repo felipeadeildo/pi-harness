@@ -60,18 +60,19 @@ A malformed value falls back and says what it dropped, so a typo never lets more
 
 The first step that answers wins.
 
-1. **Always yes** matches the tool and level: run it.
-2. **Codemode**: `codemode` and `tool_search` themselves run. Every call inside is decided on its own.
-3. **Workspace**: a call outside `workspace.roots` asks you, or is blocked with this session's outside set to `deny`. Nothing below can approve it. The call goes on with `allow`, or when every path it reaches is in a folder you opened.
-4. **MCP**: the policy of the server. `deny` blocks, `allow` runs, `ask` asks, and `trust hints` decides nothing here.
-5. **Read-only hint**: the tool declares that it only reads, run it.
-6. **Mode**: `full` runs it, `edits` and `judge` run an edit.
-7. **Allow list**: the tool is in `allow`, run it.
-8. **Read-only bash**: the command only reads, and its paths can be read, run it.
-9. **Judge**, in the `judge` mode: a confident yes runs it, a confident no blocks it.
-10. **No UI**: `noUI` decides.
-11. **Edit check**: an `edit` that cannot apply is blocked with pi's own error, so you never approve a failure.
-12. **You**, in the dialog.
+1. **Protected**: a call that reaches an entry of the kit's protected list asks you, in every mode but `full`. Nothing below can approve it, not an always yes, the `edits` mode or the judge, and the dialog names the entry. A path matches itself and everything under it, after `~` and symlinks. A command's words match a path, a `host:port` and a program's name. The list starts empty: the remote adds its key, its socket, its port and `pi-remote`.
+2. **Always yes** matches the tool and level: run it.
+3. **Codemode**: `codemode` and `tool_search` themselves run. Every call inside is decided on its own.
+4. **Workspace**: a call outside `workspace.roots` asks you, or is blocked with this session's outside set to `deny`. Nothing below can approve it. The call goes on with `allow`, or when every path it reaches is in a folder you opened.
+5. **MCP**: the policy of the server. `deny` blocks, `allow` runs, `ask` asks, and `trust hints` decides nothing here.
+6. **Read-only hint**: the tool declares that it only reads, run it.
+7. **Mode**: `full` runs it, `edits` and `judge` run an edit.
+8. **Allow list**: the tool is in `allow`, run it.
+9. **Read-only bash**: the command only reads, and its paths can be read, run it.
+10. **Judge**, in the `judge` mode: a confident yes runs it, a confident no blocks it.
+11. **No UI**: `noUI` decides.
+12. **Edit check**: an `edit` that cannot apply is blocked with pi's own error, so you never approve a failure.
+13. **You**, in the dialog.
 
 The judge answers three questions: a verdict, how reversible the call is, and whether it touches secrets. Code combines them into `risk = 0.6 × reversibility + 0.4 × sensitive` and approves only when the verdict is `allow`, confidence clears `thresholds.allow`, and risk is at most `riskCeiling`. The judge treats the tool call as data, so a command cannot talk its way past the policy or `alwaysAsk`.
 

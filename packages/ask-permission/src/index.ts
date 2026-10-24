@@ -1,5 +1,5 @@
 import { questions } from "@adeildo/pi-ask-questions";
-import { createApp, defineFeature, MODE } from "@adeildo/pi-kit";
+import { createApp, defineFeature, MODE, protectedList } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { PERMISSION_SETTINGS, readConfig, SECTIONS } from "#core/config/settings.ts";
@@ -25,6 +25,7 @@ export const permission = defineFeature({
 
 		const session = createSession();
 		MODE.provide(scope, () => session.mode);
+		session.protected = () => protectedList(scope.events);
 		registerRulingLine(scope, session);
 		registerEvents(scope, session);
 		listenForTools(scope, session.customTools);

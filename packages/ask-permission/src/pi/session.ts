@@ -1,4 +1,10 @@
-import { type FeatureScope, oneAtATime, type Turns, TypingMonitor } from "@adeildo/pi-kit";
+import {
+	type FeatureScope,
+	oneAtATime,
+	type ProtectedList,
+	type Turns,
+	TypingMonitor,
+} from "@adeildo/pi-kit";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { AlwaysYes, savedFileExists, type Scope } from "#core/always-yes.ts";
@@ -34,6 +40,7 @@ export interface SessionState {
 	outside: OutsideScope;
 	alwaysYes: AlwaysYes;
 	folders: OpenFolders;
+	protected?: () => ProtectedList;
 	pendingNotes: Map<string, string>;
 	judgeCache: Map<string, JudgeOutcome>;
 	judgeLog: JudgeRecord[];
