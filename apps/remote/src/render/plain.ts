@@ -15,7 +15,7 @@ export function plain(text: string): string {
 			.replace(ESCAPES, "")
 			.replace(/\r\n?/g, "\n")
 			// eslint-disable-next-line no-control-regex -- the control characters are the thing being removed.
-			.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
+			.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g, "")
 	);
 }
 

@@ -45,7 +45,9 @@ describe("text from elsewhere", () => {
 	test("the terminal's escape sequences never reach the screen", () => {
 		const text = "\u001b[31mred\u001b[0m and \u001b]0;title\u0007 after";
 		expect(plain(text)).toBe("red and  after");
+		expect(plain("\u009b2Jcleared")).toBe("2Jcleared");
 		expect(draw(text)).not.toContain("\u001b");
+		expect(draw("\u009b2Jcleared")).not.toContain("\u009b");
 	});
 
 	test("paragraphs, headings, lists and fenced code are drawn as what they are", () => {
