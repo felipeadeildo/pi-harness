@@ -6,15 +6,21 @@ import { randomUUID } from "node:crypto";
 import {
 	type EventScope,
 	HOST,
+	logFrom,
+	type LogSession,
+	logPath,
 	MODE,
+	readTail,
 	SESSION_STATUS,
 	type SessionSource,
 	type SessionStatus,
 	TASKS,
+	targetOf,
 } from "@adeildo/pi-kit";
 import type { Envelope, SessionSnapshot } from "@adeildo/pi-remote-protocol";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
+import { Commands } from "./commands.ts";
 import { BridgeConnection, type ConnectionSeams, type GoneReason } from "./connection.ts";
 import { HarnessFacts, LOGGED_FACTS } from "./facts.ts";
 import { LiveStream } from "./stream.ts";
@@ -29,6 +35,8 @@ export interface BridgeOptions {
 	path: string;
 	/** Where the bridge reads the harness's contracts: the tasks, the mode and the status. */
 	scope: EventScope;
+	/** Renames the session, as a client's `session.rename` does: pi owns the name. */
+	rename(name: string): void;
 	version: string;
 	kind: SessionKind;
 	startDaemon(): void;
@@ -47,6 +55,7 @@ export class Bridge {
 	readonly stream: LiveStream;
 	readonly #facts = new HarnessFacts();
 	readonly #connection: BridgeConnection;
+	readonly #commands: Commands;
 	readonly #startedAt = Date.now();
 	#unfollow: (() => void) | undefined;
 
@@ -74,6 +83,32 @@ export class Bridge {
 			options.seams,
 		);
 		this.stream = new LiveStream((type, data, send) => this.#connection.event(type, data, send));
+		this.#commands = new Commands({
+			session: ctx.sessionManager.getSessionId(),
+			effects: {
+				abort: () => ctx.abort(),
+				compact: (instructions) =>
+					ctx.compact(
+						instructions === undefined ? undefined : { customInstructions: instructions },
+					),
+				rename: (name) => options.rename(name),
+				// The questions open at this point are closed as a no once the ask slice lands here.
+				stop: () => {
+					ctx.abort();
+					ctx.shutdown();
+				},
+			},
+			history: this.#ran(),
+			answer: (kind, type, data, id) => {
+				this.#connection.answer(kind, type, data, id);
+			},
+			received: (id, command, by) => {
+				logFrom(ctx, options.scope.events, "command.received", { id, command, by });
+			},
+			outcome: (id, command, by, outcome) => {
+				logFrom(ctx, options.scope.events, "command.received", { id, command, by, outcome });
+			},
+		});
 	}
 
 	start(): void {
@@ -136,7 +171,24 @@ export class Bridge {
 	}
 
 	#heard(message: Envelope): void {
-		if (message.kind === "command" && message.type === "snapshot.get") this.#snapshot();
+		if (message.kind !== "command") return;
+		if (message.type === "snapshot.get") return this.#snapshot();
+		this.#commands.run(message);
+	}
+
+	/**
+	 * The command ids this session already ran, from its own log: a client that resends after the
+	 * bridge restarted gets a repeat instead of a second effect.
+	 */
+	#ran(): string[] {
+		// The manager's methods need the manager: pi's own read the session id off it. A context with
+		// no folder behind it has no log either, and nothing ran there.
+		const manager = this.ctx.sessionManager;
+		if (typeof manager.getCwd !== "function") return [];
+		const session = manager.getSessionId();
+		return readTail(logPath(targetOf(manager as LogSession)))
+			.filter((event) => event.session === session && event.type === "command.received")
+			.map((event) => (event.data as { id: string }).id);
 	}
 
 	#snapshot(): void {

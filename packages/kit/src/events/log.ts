@@ -159,6 +159,41 @@ export function readFrom(path: string, offset: number): { events: LoggedEvent[];
 	}
 }
 
+/**
+ * The last events of a log, read from its tail. A session's log grows for as long as the session
+ * lives, and a reader that needs only the newest lines, such as the ids of the commands it ran,
+ * should not read the whole file to find them.
+ */
+export function readTail(path: string, bytes = TAIL_BYTES): LoggedEvent[] {
+	let fd: number;
+	try {
+		fd = openSync(path, "r");
+	} catch {
+		return [];
+	}
+	try {
+		const size = fstatSync(fd).size;
+		const from = Math.max(0, size - bytes);
+		const buffer = Buffer.alloc(size - from);
+		if (buffer.length === 0) return [];
+		readSync(fd, buffer, 0, buffer.length, from);
+		const text = buffer.toString("utf8");
+		// The first line of a tail is usually cut in half, and half an event is not one.
+		const whole = from === 0 ? text : text.slice(text.indexOf("\n") + 1);
+		const end = whole.lastIndexOf("\n");
+		if (end === -1) return [];
+		return whole
+			.slice(0, end)
+			.split("\n")
+			.flatMap((line) => parsed(line));
+	} finally {
+		closeSync(fd);
+	}
+}
+
+/** Enough of a log's tail for the last commands of a long session, at a few hundred bytes each. */
+const TAIL_BYTES = 512 * 1024;
+
 function parsed(line: string): LoggedEvent[] {
 	try {
 		const value: unknown = JSON.parse(line);

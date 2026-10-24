@@ -91,4 +91,14 @@ export interface LogEventMap {
 	/** What decided a tool call. `by` is the person who answered, when one did. */
 	"call.ruled": { toolCallId: string; ruling: CallRuling; by?: By };
 	"mode.changed": { mode: PermissionMode };
+	/**
+	 * A command a client sent for this session, logged before it runs so a resent id is a repeat even
+	 * across a restart. `outcome` says whether the session did it, and `by` who asked.
+	 */
+	"command.received": {
+		id: string;
+		command: string;
+		by?: By;
+		outcome?: "ran" | "refused" | "failed";
+	};
 }
