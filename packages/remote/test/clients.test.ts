@@ -75,7 +75,9 @@ async function bridgeOf(session: string, epoch = "e1") {
 /** The P3 client over a real WebSocket, so the daemon is held to what the app will send. */
 function transportTo(port: number) {
 	return (onMessage: (envelope: unknown) => void, onClose: () => void): Transport => {
-		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+			headers: { Origin: `http://127.0.0.1:${port}` },
+		});
 		const queued: string[] = [];
 		ws.onopen = () => {
 			for (const text of queued.splice(0)) ws.send(text);
@@ -154,7 +156,9 @@ describe("a client of the daemon", () => {
 		await until(() => daemon.sessions.after("s1", { epoch: "e1", seq: 0 })?.length === 3);
 
 		const got: Envelope[] = [];
-		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+			headers: { Origin: `http://127.0.0.1:${port}` },
+		});
 		ws.onmessage = (event) => got.push(JSON.parse(String(event.data)));
 		await new Promise((resolve) => (ws.onopen = resolve));
 		const at = { machine: "laptop", session: "s1" };
@@ -216,6 +220,63 @@ describe("a client of the daemon", () => {
 		expect((await get("/sessions/laptop/%E0%A4%A/snapshot")).status).toBe(400);
 		expect((await get("/sessions/laptop/s%31/snapshot")).status).toBe(200);
 		expect((await get("/health")).status).toBe(200);
+	});
+});
+
+describe("who reaches the daemon", () => {
+	/** A raw upgrade with the headers a page would send, and the status line the daemon answers. */
+	async function upgrade(port: number, headers: string): Promise<string> {
+		const raw = dial(port, "127.0.0.1");
+		let answer = "";
+		raw.setEncoding("utf8");
+		raw.on("data", (chunk: string) => (answer += chunk));
+		await new Promise<void>((resolve) => raw.once("connect", () => resolve()));
+		raw.write(
+			`GET /ws HTTP/1.1\r\n${headers}Upgrade: websocket\r\nConnection: Upgrade\r\n` +
+				"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+		);
+		await until(() => answer.includes("\r\n"));
+		raw.destroy();
+		return answer.slice(0, answer.indexOf("\r\n"));
+	}
+
+	test("a WebSocket from another page's Origin, or with none, is refused", async () => {
+		const { port } = await openDaemon();
+		const host = `Host: 127.0.0.1:${port}\r\n`;
+		expect(await upgrade(port, `${host}Origin: https://evil.example\r\n`)).toStartWith(
+			"HTTP/1.1 403",
+		);
+		expect(await upgrade(port, `${host}Origin: null\r\n`)).toStartWith("HTTP/1.1 403");
+		expect(await upgrade(port, host)).toStartWith("HTTP/1.1 403");
+		expect(await upgrade(port, `${host}Origin: http://localhost:${port}\r\n`)).toStartWith(
+			"HTTP/1.1 101",
+		);
+	});
+
+	test("a name the daemon does not answer to gets 421, so a rebound DNS name reads nothing", async () => {
+		const { daemon, port } = await openDaemon();
+		const bridge = await bridgeOf("s1");
+		bridge.snapshot([entry("a", null)]);
+		await until(() => daemon.sessions.get("s1")?.snapshot !== undefined);
+		const status = (host: string) =>
+			new Promise<number>((resolve) => {
+				const raw = dial(port, "127.0.0.1");
+				let answer = "";
+				raw.setEncoding("utf8");
+				raw.on("data", (chunk: string) => (answer += chunk));
+				raw.on("close", () => resolve(Number(answer.split(" ")[1])));
+				raw.write(
+					`GET /sessions/laptop/s1/snapshot HTTP/1.1\r\nHost: ${host}\r\nConnection: close\r\n\r\n`,
+				);
+			});
+		expect(await status(`attacker.example:${port}`)).toBe(421);
+		expect(await status(`127.0.0.1:${port}`)).toBe(200);
+		expect(
+			await upgrade(
+				port,
+				`Host: attacker.example:${port}\r\nOrigin: http://attacker.example:${port}\r\n`,
+			),
+		).toStartWith("HTTP/1.1 421");
 	});
 });
 
@@ -289,7 +350,8 @@ describe("WebSocket frames", () => {
 		raw.on("data", (chunk: Buffer) => got.push(chunk));
 		await new Promise<void>((resolve) => raw.once("connect", () => resolve()));
 		raw.write(
-			"GET /ws HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n" +
+			`GET /ws HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\nOrigin: http://127.0.0.1:${port}\r\n` +
+				"Upgrade: websocket\r\nConnection: Upgrade\r\n" +
 				"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
 		);
 		await until(() => Buffer.concat(got).includes("\r\n\r\n"));

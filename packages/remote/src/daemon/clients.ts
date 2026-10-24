@@ -9,6 +9,7 @@ import { envelope, type Envelope, isObject, PROTOCOL } from "@adeildo/pi-remote-
 
 import { envelopeOf } from "../wire/lines.ts";
 import { accept, type WebSocket } from "../wire/websocket.ts";
+import { type Asking, checkPlace, loopbackHosts } from "./auth.ts";
 import type { Sessions } from "./sessions.ts";
 
 /** A client with this much unsent is too slow to keep up, and is closed to reconnect from its cursor. */
@@ -30,12 +31,20 @@ export class Clients {
 	/** Each session's clients, which every event of the session goes to. */
 	readonly #watchers = new Map<string, Set<WebSocket>>();
 	readonly #sockets = new Set<WebSocket>();
+	/** The names this daemon answers to, once it knows its port. Nothing answers before. */
+	#hosts: ReadonlySet<string> = new Set();
 
 	constructor(options: ClientsOptions) {
 		this.#options = options;
 		this.#started = (options.now ?? Date.now)();
 		this.#server = createServer((request, response) => this.#route(request, response));
 		this.#server.on("upgrade", (request: IncomingMessage, socket, head: Buffer) => {
+			// Any page can open a WebSocket to 127.0.0.1, so one from another Origin is refused here.
+			const placed = checkPlace(asking(request, true), this.#hosts);
+			if (!placed.ok) {
+				socket.end(`HTTP/1.1 ${placed.status} ${placed.reason}\r\nConnection: close\r\n\r\n`);
+				return;
+			}
 			if (new URL(request.url ?? "/", "http://daemon").pathname !== "/ws") {
 				socket.end("HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n");
 				return;
@@ -49,7 +58,11 @@ export class Clients {
 	listen(port: number, host = "127.0.0.1"): Promise<number | undefined> {
 		return new Promise((resolve) => {
 			this.#server.once("error", () => resolve(undefined));
-			this.#server.listen(port, host, () => resolve((this.#server.address() as AddressInfo).port));
+			this.#server.listen(port, host, () => {
+				const bound = (this.#server.address() as AddressInfo).port;
+				this.#hosts = loopbackHosts(bound);
+				resolve(bound);
+			});
 		});
 	}
 
@@ -117,6 +130,10 @@ export class Clients {
 	}
 
 	#route(request: IncomingMessage, response: ServerResponse): void {
+		// A page that resolved its own name to 127.0.0.1 is same-origin with the daemon, so the Host
+		// is checked before anything is read.
+		const placed = checkPlace(asking(request, false), this.#hosts);
+		if (!placed.ok) return reply(response, placed.status, { error: placed.reason });
 		const path = new URL(request.url ?? "/", "http://daemon").pathname;
 		if (request.method !== "GET") return reply(response, 405, { error: "GET only" });
 		if (path === "/health") {
@@ -151,6 +168,22 @@ export class Clients {
 			facts: one.facts,
 		}));
 	}
+}
+
+/** What `checkPlace` reads of a request. */
+function asking(request: IncomingMessage, upgrade: boolean): Asking {
+	const header = (name: string) => {
+		const value = request.headers[name];
+		return Array.isArray(value) ? value[0] : value;
+	};
+	return {
+		method: request.method ?? "GET",
+		path: new URL(request.url ?? "/", "http://daemon").pathname,
+		host: header("host"),
+		origin: header("origin"),
+		cookie: undefined,
+		upgrade,
+	};
 }
 
 /** A path segment as written, or undefined for an encoding that does not decode. */
