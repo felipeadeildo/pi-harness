@@ -741,6 +741,7 @@ describe("one bridge", () => {
 				setThinking: () => {},
 				setMode: () => {},
 				send: () => {},
+				arrived: () => {},
 			},
 			startDaemon: () => {},
 			warn: () => {},
