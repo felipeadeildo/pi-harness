@@ -4,10 +4,13 @@
 
 import {
 	FACT_TYPES,
+	PRESENCE,
 	isEnvelope,
 	isObject,
+	isPresence,
 	type Envelope,
 	type Entry,
+	type Presence,
 	type SessionFacts,
 	type SessionSnapshot,
 	type Transcript,
@@ -38,6 +41,8 @@ export interface ClientSession {
 	entries: Entry[];
 	facts: { type: string; data: unknown }[];
 	snapshot?: SessionSnapshot;
+	/** Who has the session open and who typed last, as the daemon last said. */
+	presence?: Presence;
 	/**
 	 * Where the branch ends, as the bridge last said. `null` means the root: the reader is at a point
 	 * before the first entry, which a `/tree` move can reach, and `undefined` means the snapshot has
@@ -58,6 +63,7 @@ export function sessionOf(key: SessionKey, cached?: CachedSession): ClientSessio
 		entries: (cached?.entries ?? []) as Entry[],
 		facts: cached?.facts ?? [],
 		leaf: cached?.leaf,
+		presence: cached?.presence,
 		streamed: {},
 	};
 }
@@ -84,6 +90,7 @@ export function cachedOf(session: ClientSession): CachedSession {
 		entries: session.entries,
 		facts: session.facts,
 		leaf: session.leaf,
+		presence: session.presence,
 	};
 }
 
@@ -126,6 +133,14 @@ export function readEnvelope(
 		if (!session.entries.some((held) => held.id === entry.id)) session.entries.push(entry);
 		session.leaf = entry.id;
 		session.cursor = { ...advance(session.cursor, value), entry: entry.id };
+		return { read: "now" };
+	}
+	// Presence is not a fact: reducing it from a replay would draw who was watching ten minutes ago.
+	// It is applied as it arrives, and the snapshot of a reconnect carries the current one.
+	if (value.type === PRESENCE) {
+		if (!isPresence(value.data)) return { read: "skip" };
+		session.presence = value.data;
+		session.cursor = advance(session.cursor, value);
 		return { read: "now" };
 	}
 	if (isFactType(value.type)) {
