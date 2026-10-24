@@ -29,8 +29,8 @@ export type Page =
 	| { entries: FileEntry[]; more: boolean }
 	/** The cursor is not in the file, so the client drops what it holds of the session. */
 	| { unknown: string }
-	/** The file cannot be read: the session has none yet, or it moved. */
-	| { missing: true };
+	/** The file is not this session's: its header names another, or it cannot be read as one. */
+	| { foreign: true };
 
 /**
  * A page of the session file at `path`. Without a cursor, the tail of the branch at the last entry.
@@ -38,7 +38,7 @@ export type Page =
  */
 export function pageOf(path: string, session: string, request: PageRequest = {}): Page {
 	const entries = entriesIn(path, session);
-	if (entries === undefined) return { missing: true };
+	if (entries === undefined) return { foreign: true };
 	const limit = Math.max(1, Math.min(request.limit ?? PAGE, PAGE));
 	if (request.since !== undefined) {
 		const at = entries.findIndex((entry) => entry.id === request.since);
@@ -66,15 +66,16 @@ export function pageOf(path: string, session: string, request: PageRequest = {})
 
 /**
  * The file's entries in the order pi wrote them, without the header, which names the session. A line
- * that does not parse is skipped, so a write in progress at the end never fails a page. Undefined for
- * a file that cannot be read or whose header names another session.
+ * that does not parse is skipped, so a write in progress at the end never fails a page. Pi names the
+ * file when the session opens and writes it at the first message, so a file not there yet holds no
+ * entries. Undefined for a file whose header names another session, or that cannot be read.
  */
 function entriesIn(path: string, session: string): FileEntry[] | undefined {
 	let text: string;
 	try {
 		text = readFileSync(path, "utf8");
-	} catch {
-		return undefined;
+	} catch (error) {
+		return (error as NodeJS.ErrnoException).code === "ENOENT" ? [] : undefined;
 	}
 	const entries: FileEntry[] = [];
 	let header: FileEntry | undefined;
@@ -94,7 +95,7 @@ function entriesIn(path: string, session: string): FileEntry[] | undefined {
 		}
 		entries.push(value);
 	}
-	return header === undefined ? undefined : entries;
+	return header === undefined && text.trim() !== "" ? undefined : entries;
 }
 
 function isEntry(value: unknown): value is FileEntry {

@@ -186,7 +186,7 @@ export class Clients {
 			...(query.has("since") ? { since: query.get("since") ?? "" } : {}),
 			limit: Number.isFinite(limit) ? limit : PAGE,
 		});
-		if ("missing" in page) return reply(response, 404, { error: "no session file" });
+		if ("foreign" in page) return reply(response, 404, { error: "not this session's file" });
 		// 410: the client's cursor is gone from the file, so it drops what it holds and starts over.
 		if ("unknown" in page)
 			return reply(response, 410, { error: "unknown entry", entry: page.unknown });

@@ -423,12 +423,13 @@ describe("a session's older entries", () => {
 		expect(pageOf(path, "s1", { since: "gone" })).toEqual({ unknown: "gone" });
 	});
 
-	test("are read only from a file whose header names the session, and skip a line being written", () => {
+	test("are read only from a file whose header names the session, skipping a line being written, and none before pi writes it", () => {
 		const path = sessionFile("s1", [entry("a", null)]);
 		appendFileSync(path, '{"type":"message","id":"half');
 		expect(pageOf(path, "s1")).toMatchObject({ entries: [{ id: "a" }] });
-		expect(pageOf(path, "s2")).toEqual({ missing: true });
-		expect(pageOf(join(dir, "none.jsonl"), "s1")).toEqual({ missing: true });
+		expect(pageOf(path, "s2")).toEqual({ foreign: true });
+		// Pi names the file when the session opens, and writes it at the first message.
+		expect(pageOf(join(dir, "none.jsonl"), "s1")).toEqual({ entries: [], more: false });
 	});
 
 	test("come over HTTP from the file the bridge named, and an unknown cursor is a 410", async () => {
