@@ -59,6 +59,37 @@ describe("a command on its way out", () => {
 		session.stop();
 	});
 
+	test("the command says who sent it, so the answer can name where it came from", async () => {
+		const wire = socket();
+		const session = connect({
+			key,
+			cache: memoryCache(),
+			open: wire.open,
+			by: { kind: "client", name: "phone-7", machine: "here" },
+			wait: (_ms, run) => {
+				queueMicrotask(run);
+				return () => {};
+			},
+		});
+		await session.load();
+		session.send("run.abort", {});
+		const sent = wire.sent.find((one) => one.kind === "command");
+		// The whole identity, not just its kind: a name rewritten on the way would pass otherwise.
+		expect(sent?.by).toEqual({ kind: "client", name: "phone-7", machine: "here" });
+		session.stop();
+	});
+
+	test("a connection with no identity sends no author, instead of a generic one", async () => {
+		const wire = socket();
+		const session = client(wire);
+		await session.load();
+		session.send("run.abort", {});
+
+		const sent = wire.sent.find((one) => one.kind === "command");
+		expect(sent === undefined ? false : "by" in sent).toBe(false);
+		session.stop();
+	});
+
 	test("a reply ends it, and an error keeps it with the reason", async () => {
 		const wire = socket();
 		const session = client(wire);

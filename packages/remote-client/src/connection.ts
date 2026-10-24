@@ -1,7 +1,7 @@
 // The connection: a warm cache drawn before the network answers, a hello that carries the cursors,
 // and a reconnect that resumes where the client stopped instead of asking for everything again.
 
-import { isObject, type CommandType, type Envelope } from "@adeildo/pi-remote-protocol";
+import { isObject, type By, type CommandType, type Envelope } from "@adeildo/pi-remote-protocol";
 
 import type { Cache, SessionKey } from "./cache.ts";
 import { Outbox, type Outgoing } from "./outbox.ts";
@@ -29,6 +29,12 @@ export interface ConnectionOptions {
 	wait?: (ms: number, run: () => void) => () => void;
 	/** The queue of commands typed while the daemon was away, so a test can read it. */
 	outbox?: Outbox;
+	/**
+	 * Who this client is, which travels in every command it sends: `kind: "client"` with the device's
+	 * name, or whatever the caller calls itself. Without it the session shows "a client" and the
+	 * answer cannot say where it came from.
+	 */
+	by?: By;
 }
 
 export interface Client {
@@ -113,7 +119,7 @@ export function connect(options: ConnectionOptions): Client {
 	const flush = (): void => {
 		if (transport === undefined) return;
 		for (const command of outbox.ready()) {
-			transport.send(commandOf(session, command));
+			transport.send(commandOf(session, command, options.by));
 			outbox.sent(command.id);
 		}
 	};
@@ -190,11 +196,12 @@ export function connect(options: ConnectionOptions): Client {
 }
 
 /** A command as it crosses: the envelope's `id` is what its reply comes back on. */
-function commandOf(session: ClientSession, command: Outgoing): Envelope {
+function commandOf(session: ClientSession, command: Outgoing, by: By | undefined): Envelope {
 	return {
 		v: 1,
 		kind: "command",
 		id: command.id,
+		...(by === undefined ? {} : { by }),
 		machine: session.key.machine,
 		session: session.key.session,
 		...(session.cursor.epoch === undefined ? {} : { epoch: session.cursor.epoch }),
