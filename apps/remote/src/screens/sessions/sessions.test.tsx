@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { ListedSession } from "@adeildo/pi-remote-client";
 
-import { nameOf, rowsOf } from "./rows.ts";
+import { nameOf, rowStyle, rowsOf } from "./rows.ts";
 
 const live = { pid: 1, startedAt: 1, cwd: "/work", kind: "terminal" as const };
 
@@ -57,5 +57,13 @@ describe("the list of sessions", () => {
 		expect(rows[0]?.session).toBe("asking");
 		expect(rows[0]?.waits).toBe(true);
 		expect(rows[1]?.waits).toBe(false);
+	});
+
+	test("a row's style is one object, because an array reaching the link's Slot is what blanked the page", () => {
+		// The browser throws setting `style[0]` when a spread turns an array into `{0: …}`. Static markup
+		// cannot show that, so what is pinned here is the type that causes it.
+		expect(Array.isArray(rowStyle(true))).toBe(false);
+		expect(Array.isArray(rowStyle(false))).toBe(false);
+		expect(rowStyle(true)).not.toEqual(rowStyle(false));
 	});
 });
