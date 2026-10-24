@@ -343,7 +343,12 @@ describe("what waits for your next prompt", () => {
 		b.here.sync();
 		expect(b.held).toEqual([]);
 		expect(b.sent.at(-1)?.options).toEqual({ triggerTurn: true, deliverAs: "followUp" });
+		// It still counts: the announcement carries a's depth, and the run it woke writes one deeper.
+		const messages = () => [...b.here.folder.messages.values()];
+		expect(messages().find((one) => one.text === "to everyone")?.depth).toBe(1);
 		b.here.started();
+		b.here.post(["c"], "after the announcement", "agent");
+		expect(messages().find((one) => one.text === "after the announcement")?.depth).toBe(2);
 		b.here.settled();
 		a.here.post(["b"], "to you", "agent");
 		b.here.sync();
