@@ -132,7 +132,7 @@ console.log(drawWord({ dir: process.env.DIR, random: () => 0 }, ["otter", "quokk
 		for (const list of lists)
 			for (const word of list) owners.set(word, (owners.get(word) ?? 0) + 1);
 
-		expect([...owners.values()].filter((owners) => owners > 1)).toEqual([]);
+		expect([...owners.values()].filter((times) => times > 1)).toEqual([]);
 		expect(owners.size).toBe(count);
 	});
 
