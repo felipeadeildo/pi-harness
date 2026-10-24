@@ -228,8 +228,19 @@ export class Daemon {
 
 	#bridgeSaid(bridge: { session: string; epoch: string }, message: Envelope): void {
 		// A bridge speaks for its own session and epoch only.
+		const own = message.session === bridge.session && message.epoch === bridge.epoch;
+		if (!own) return;
+		// An answer to a client's command goes back to the client that asked, not to every watcher.
+		if (message.kind === "reply" || message.kind === "error") {
+			if (message.id === undefined) {
+				// Nothing can route it, and the client it was for waits until its outbox window ends.
+				this.#warn(`a ${message.kind} of ${message.type} came with no id and reached nobody`);
+				return;
+			}
+			this.#clients?.answer(message);
+			return;
+		}
 		if (message.kind !== "event") return;
-		if (message.session !== bridge.session || message.epoch !== bridge.epoch) return;
 		switch (message.type) {
 			case "session.live":
 				// A session.live that does not read never counts as connected, and the daemon would
@@ -259,6 +270,7 @@ export class Daemon {
 			logins: this.logins,
 			version: this.#options.version,
 			askSnapshot: (session) => this.#askSnapshot(session),
+			command: (session, message) => this.#toBridge(session, message),
 			...(web === undefined ? {} : { web }),
 			warn: (message) => this.#warn(message),
 		});
@@ -271,6 +283,29 @@ export class Daemon {
 	/** The sessions some client watches, each with how many. */
 	watched(): Map<string, number> {
 		return this.#clients?.watched() ?? new Map();
+	}
+
+	/**
+	 * Writes a client's command to the session's bridge, stamped with the session and the life of the
+	 * process it belongs to, so a bridge only ever reads commands meant for it.
+	 */
+	#toBridge(session: string, message: Envelope): boolean {
+		const socket = this.#bridges.get(session);
+		const live = this.sessions.get(session);
+		if (socket === undefined || socket.destroyed || live === undefined) return false;
+		const { machine, epoch } = live;
+		socket.write(
+			line(
+				envelope("command", message.type, message.data, {
+					machine,
+					session,
+					epoch,
+					...(message.id === undefined ? {} : { id: message.id }),
+					...(message.by === undefined ? {} : { by: message.by }),
+				}),
+			),
+		);
+		return true;
 	}
 
 	/** Asks a session's bridge for a snapshot, which comes back as an event like any other. */

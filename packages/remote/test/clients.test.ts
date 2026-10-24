@@ -79,7 +79,9 @@ async function bridgeOf(session: string, epoch = "e1", file?: string) {
 			),
 		),
 	);
-	return { send, snapshot, asked, close: () => client.destroy() };
+	const reply = (id: string, type: string, data: unknown) =>
+		client.write(line(envelope("reply", type, data, { ...at, id })));
+	return { send, snapshot, asked, reply, close: () => client.destroy() };
 }
 
 /** The P3 client over a real WebSocket, so the daemon is held to what the app will send. */
@@ -310,6 +312,126 @@ describe("logging in", () => {
 		// The daemon answers 413 and closes; a client still sending may see the close instead.
 		if (huge !== undefined) expect(huge.status).toBe(413);
 		expect((await logIn(daemon, port)).startsWith("pi_remote=")).toBe(true);
+	});
+
+	test("a client's command reaches the session's bridge, and the answer comes back to it alone", async () => {
+		const { daemon, port, cookie } = await openDaemon();
+		const bridge = await bridgeOf("s1");
+		bridge.snapshot([]);
+		await until(() => daemon.sessions.get("s1") !== undefined);
+		const origin = `http://127.0.0.1:${port}`;
+		const open = async (): Promise<{ ws: WebSocket; heard: Envelope[] }> => {
+			const heard: Envelope[] = [];
+			const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+				headers: { Origin: origin, Cookie: cookie },
+			});
+			ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)) as Envelope);
+			await new Promise<void>((resolve) => (ws.onopen = () => resolve()));
+			const at = { machine: "laptop", session: "s1" };
+			ws.send(JSON.stringify(envelope("hello", "s1", {}, at)));
+			await until(() => heard.length > 0);
+			return { ws, heard };
+		};
+		const asker = await open();
+		const other = await open();
+		const by = { kind: "client", name: "phone", machine: "laptop" } as const;
+		asker.ws.send(
+			JSON.stringify(
+				envelope("command", "session.rename", { name: "release" }, { session: "s1", id: "c1", by }),
+			),
+		);
+		await until(() => bridge.asked.some((one) => one.type === "session.rename"));
+		const sent = bridge.asked.find((one) => one.type === "session.rename");
+		// The bridge only reads a command stamped for its own session and life.
+		expect(sent).toMatchObject({ kind: "command", machine: "laptop", session: "s1", epoch: "e1" });
+		bridge.reply(sent?.id ?? "", "session.rename", {});
+		await until(() => asker.heard.some((one) => one.kind === "reply" && one.id === "c1"));
+		expect(asker.heard.find((one) => one.kind === "reply")).toMatchObject({
+			type: "session.rename",
+			id: "c1",
+		});
+		// The window that only watches the session never sees the answer to another window's command.
+		await Bun.sleep(20);
+		expect(other.heard.some((one) => one.kind === "reply")).toBe(false);
+		asker.ws.close();
+		other.ws.close();
+		bridge.close();
+	});
+
+	test("a second client asking with an id in flight is refused, and the first keeps its answer", async () => {
+		const { daemon, port, cookie } = await openDaemon();
+		const bridge = await bridgeOf("s1");
+		bridge.snapshot([]);
+		await until(() => daemon.sessions.get("s1") !== undefined);
+		const origin = `http://127.0.0.1:${port}`;
+		const open = async (): Promise<{ ws: WebSocket; heard: Envelope[] }> => {
+			const heard: Envelope[] = [];
+			const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+				headers: { Origin: origin, Cookie: cookie },
+			});
+			ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)) as Envelope);
+			await new Promise<void>((resolve) => (ws.onopen = () => resolve()));
+			ws.send(JSON.stringify(envelope("hello", "s1", {}, { machine: "laptop", session: "s1" })));
+			await until(() => heard.length > 0);
+			return { ws, heard };
+		};
+		const first = await open();
+		const second = await open();
+		const ask = (ws: WebSocket) =>
+			ws.send(
+				JSON.stringify(
+					envelope(
+						"command",
+						"run.abort",
+						{},
+						{
+							session: "s1",
+							id: "c1",
+							by: { kind: "client", name: "phone", machine: "laptop" },
+						},
+					),
+				),
+			);
+		ask(first.ws);
+		await until(() => bridge.asked.some((one) => one.type === "run.abort"));
+		ask(second.ws);
+		await until(() => second.heard.some((one) => one.kind === "error" && one.id === "c1"));
+		expect(second.heard.find((one) => one.kind === "error" && one.id === "c1")?.data).toMatchObject(
+			{
+				reason: "a command with that id is already in flight",
+			},
+		);
+		// The bridge saw it once, and its answer goes to the window that asked first.
+		expect(bridge.asked.filter((one) => one.type === "run.abort")).toHaveLength(1);
+		bridge.reply("c1", "run.abort", {});
+		await until(() => first.heard.some((one) => one.kind === "reply" && one.id === "c1"));
+		expect(second.heard.some((one) => one.kind === "reply")).toBe(false);
+		first.ws.close();
+		second.ws.close();
+		bridge.close();
+	});
+
+	test("a command for a session with no bridge answers on its id, so the client is not left waiting", async () => {
+		const { port, cookie } = await openDaemon();
+		const origin = `http://127.0.0.1:${port}`;
+		const heard: Envelope[] = [];
+		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+			headers: { Origin: origin, Cookie: cookie },
+		});
+		ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)) as Envelope);
+		await new Promise<void>((resolve) => (ws.onopen = () => resolve()));
+		ws.send(JSON.stringify(envelope("hello", "gone", {}, { machine: "laptop", session: "gone" })));
+		await until(() => heard.length > 0);
+		ws.send(
+			JSON.stringify(
+				envelope("command", "run.abort", {}, { session: "gone", id: "c9", by: undefined }),
+			),
+		);
+		await until(() => heard.some((one) => one.kind === "error" && one.id === "c9"));
+		expect(heard.find((one) => one.kind === "error" && one.id === "c9")?.data).toMatchObject({
+			reason: "no session is connected to answer this",
+		});
+		ws.close();
 	});
 
 	test("a bridge gets a link for token.issue, answered on the same id", async () => {

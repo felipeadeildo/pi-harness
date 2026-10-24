@@ -28,6 +28,11 @@ export interface ClientsOptions {
 	/** Asks a session's bridge for a snapshot. False when no bridge of the session is connected. */
 	askSnapshot: (session: string) => boolean;
 	/**
+	 * Passes a client's command to the session's bridge. False when no bridge is connected, and then
+	 * the client hears why on the command's id instead of waiting for an answer that never comes.
+	 */
+	command: (session: string, message: Envelope) => boolean;
+	/**
 	 * The web app, answered for every path the data routes leave. Its files are the only paths a
 	 * browser loads before it holds a login. None in a daemon built without it.
 	 */
@@ -44,6 +49,8 @@ export class Clients {
 	readonly #watchers = new Map<string, Set<WebSocket>>();
 	readonly #sockets = new Set<WebSocket>();
 	readonly #history = new History();
+	/** Who asked for each command in flight, by session and id, so the answer goes back to it alone. */
+	readonly #asked = new Map<string, WebSocket>();
 	/** The names this daemon answers to, once it knows its port. Nothing answers before. */
 	#hosts: ReadonlySet<string> = new Set();
 
@@ -107,6 +114,7 @@ export class Clients {
 			message: (text) => {
 				const message = envelopeOf(text);
 				if (message?.kind === "hello") this.#hello(ws, message);
+				else if (message?.kind === "command") this.#command(ws, message);
 			},
 			closed: () => {
 				this.#sockets.delete(ws);
@@ -114,6 +122,10 @@ export class Clients {
 					watchers.delete(ws);
 					// A session nobody watches leaves no entry, whether it ended or never came.
 					if (watchers.size === 0) this.#watchers.delete(session);
+				}
+				// Its commands will never be answered, so nothing keeps a place for them.
+				for (const [wasAsked, asker] of this.#asked) {
+					if (asker === ws) this.#asked.delete(wasAsked);
 				}
 			},
 		};
@@ -148,6 +160,58 @@ export class Clients {
 		}
 		if (!this.#options.askSnapshot(session))
 			this.#send(ws, envelope("error", "hello", { reason: "no snapshot yet", session }));
+	}
+
+	/**
+	 * A client's command goes to the session's own process, and its answer comes back to this client
+	 * only: another window watching the same session sees the effect, not the answer.
+	 */
+	#command(ws: WebSocket, message: Envelope): void {
+		const session = message.session ?? "";
+		const id = message.id;
+		if (id === undefined) {
+			this.#send(
+				ws,
+				envelope("error", message.type, { reason: "a command needs an id" }, { session }),
+			);
+			return;
+		}
+		const wasAsked = `${session}\n${id}`;
+		// An id already in flight is refused here, so the client that asked first keeps its answer:
+		// taking its place would leave that one waiting for a reply delivered to another window.
+		if (this.#asked.has(wasAsked)) {
+			this.#send(
+				ws,
+				envelope(
+					"error",
+					message.type,
+					{ reason: "a command with that id is already in flight" },
+					{ session, id },
+				),
+			);
+			return;
+		}
+		this.#asked.set(wasAsked, ws);
+		if (this.#options.command(session, message)) return;
+		this.#asked.delete(wasAsked);
+		this.#send(
+			ws,
+			envelope(
+				"error",
+				message.type,
+				{ reason: "no session is connected to answer this" },
+				{ session, id },
+			),
+		);
+	}
+
+	/** A bridge's answer to a command, to the client that asked, and to nobody else. */
+	answer(message: Envelope): void {
+		const wasAsked = `${message.session ?? ""}\n${message.id ?? ""}`;
+		const ws = this.#asked.get(wasAsked);
+		if (ws === undefined) return;
+		this.#asked.delete(wasAsked);
+		this.#send(ws, message);
 	}
 
 	#send(ws: WebSocket, message: Envelope): void {
