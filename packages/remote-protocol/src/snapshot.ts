@@ -9,8 +9,10 @@ export interface SessionSnapshot {
 	session: string;
 	machine: string;
 	cwd: string;
-	/** The handle others mention it by. */
+	/** The session's title: the word `/name` sets, and what the tasks feature writes. */
 	name?: string;
+	/** The handle the room shows, which is what others mention the session by. */
+	handle?: string;
 	/** The entry the branch ends at, which is the cursor older history pages back from. */
 	leaf?: string;
 	model?: { provider: string; id: string };
