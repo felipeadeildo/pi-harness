@@ -326,7 +326,19 @@ describe("the replay buffer", () => {
 					entries: [],
 					facts: [
 						{ type: "mode.changed", data: { mode: "edits" } },
-						{ type: "tasks.changed", data: { tasks: { items: [{ id: "t1" }] } } },
+						{
+							type: "tasks.changed",
+							data: {
+								state: {
+									version: 1,
+									tasks: [{ id: "t1", state: "doing", text: "ship it" }],
+									decisions: [],
+									nextTask: 2,
+									nextDecision: 1,
+									updatedAt: 0,
+								},
+							},
+						},
 					],
 				},
 				{ ...ORIGIN, seq: 1 },
@@ -337,6 +349,7 @@ describe("the replay buffer", () => {
 		expect(facts).toHaveLength(2);
 		// The session the list draws comes from the same facts, not only from the events after them.
 		expect(sessions.get("s1")?.facts.mode).toBe("edits");
+		expect(sessions.get("s1")?.facts.tasks?.tasks.map((task) => task.id)).toEqual(["t1"]);
 	});
 
 	test("another epoch, or a gap the budget dropped, asks for a snapshot", () => {
