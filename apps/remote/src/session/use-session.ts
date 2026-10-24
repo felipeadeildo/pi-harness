@@ -29,23 +29,35 @@ export function useSession(
 		changes: 0,
 	});
 	const { machine, session } = key;
-	useEffect(() => {
-		const { cache, open } = source();
-		const client = connect({ key: { machine, session }, cache, open });
-		const stop = client.on((current) =>
-			setHeld((before) => ({ session: current, changes: before.changes + 1 })),
-		);
-		// Drawn once the cache is read, even when it held nothing, so a cold open shows the frame of the
-		// screen instead of nothing while the daemon answers.
-		void client
-			.load()
-			.then(() =>
-				setHeld((before) => ({ session: client.session(), changes: before.changes + 1 })),
-			);
-		return () => {
-			stop();
-			client.stop();
-		};
-	}, [machine, session, source]);
+	useEffect(
+		() =>
+			openSession({ machine, session }, source(), (current) =>
+				setHeld((before) => ({ session: current, changes: before.changes + 1 })),
+			),
+		[machine, session, source],
+	);
 	return held;
+}
+
+/**
+ * Connects to one session and tells `changed` about it: once the cache is read, even when it held
+ * nothing, so a cold open shows the frame of the screen while the daemon answers, and after each
+ * change. What it returns ends the connection and stops the telling, which is a screen's unmount.
+ */
+export function openSession(
+	key: SessionKey,
+	source: SessionSource,
+	changed: (session: ClientSession) => void,
+): () => void {
+	const client = connect({ key, cache: source.cache, open: source.open });
+	let open = true;
+	const stop = client.on(changed);
+	void client.load().then(() => {
+		if (open) changed(client.session());
+	});
+	return () => {
+		open = false;
+		stop();
+		client.stop();
+	};
 }

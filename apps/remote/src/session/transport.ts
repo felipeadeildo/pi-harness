@@ -46,6 +46,8 @@ export function openSocket(url: string, socket: SocketFactory): ConnectionOption
 		});
 		const transport: Transport = {
 			send(envelope) {
+				// A socket closing or closed never opens again: the client asks for a new attempt.
+				if (ws.readyState > OPEN) return;
 				const text = JSON.stringify(envelope);
 				if (ws.readyState === OPEN) ws.send(text);
 				else waiting.push(text);

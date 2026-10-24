@@ -4,8 +4,9 @@ import { describe, expect, test } from "bun:test";
 
 import { connect, memoryCache, type CachedSession } from "@adeildo/pi-remote-client";
 
-import { storageCache, type StorageLike } from "./cache.ts";
+import { KEPT, pageCache, storageCache, type StorageLike } from "./cache.ts";
 import { openSocket, type SocketLike, socketUrl } from "./transport.ts";
+import { openSession } from "./use-session.ts";
 
 class FakeSocket implements SocketLike {
 	static made: FakeSocket[] = [];
@@ -104,6 +105,46 @@ describe("the socket", () => {
 		expect(told).toBe(1);
 	});
 
+	test("drops what is sent once the socket is closing or closed", () => {
+		const transport = openSocket("ws://x/ws", make)(
+			() => {},
+			() => {},
+		);
+		const socket = FakeSocket.made.at(-1);
+		socket?.drop();
+		transport.send({ v: 1, kind: "hello", type: "hello", data: {}, at: 0 });
+		socket?.open();
+		expect(socket?.sent).toEqual([]);
+	});
+
+	test("a screen that goes closes its socket, and hears nothing after", async () => {
+		const told: number[] = [];
+		const end = openSession(
+			{ machine: "box", session: "s1" },
+			{ cache: memoryCache(), open: openSocket("ws://x/ws", make) },
+			(session) => told.push(session.entries.length),
+		);
+		await Bun.sleep(0);
+		const socket = FakeSocket.made.at(-1);
+		socket?.open();
+		const before = told.length;
+		end();
+		expect(socket?.closed).toBe(true);
+		socket?.say(
+			JSON.stringify({
+				v: 1,
+				kind: "event",
+				session: "s1",
+				epoch: "e1",
+				seq: 1,
+				type: "snapshot",
+				data: { entries: [] },
+				at: 0,
+			}),
+		);
+		expect(told.length).toBe(before);
+	});
+
 	test("lets the client say hello, read the snapshot and draw it", async () => {
 		const client = connect({
 			key: { machine: "box", session: "s1" },
@@ -183,10 +224,39 @@ describe("the store", () => {
 		expect(await storageCache(storage).read(key)).toBeUndefined();
 	});
 
-	test("keeps the page working when the store is full", async () => {
+	test("keeps the page working when the store is full, and lets go of what it held", async () => {
 		const storage = new FakeStorage();
+		const cache = storageCache(storage);
+		await cache.write(held);
 		storage.full = true;
-		await storageCache(storage).write(held);
-		expect(storage.items.size).toBe(0);
+		await cache.write({ ...held, cursor: { epoch: "e1", seq: 9 } });
+		// The older copy would draw a session that has moved on, so it is gone.
+		expect(await cache.read(key)).toBeUndefined();
+	});
+
+	test("keeps the sessions written last, and lets the oldest go", async () => {
+		const storage = new FakeStorage();
+		const cache = storageCache(storage, 2);
+		const at = (session: string) => ({ ...held, key: { machine: "box", session } });
+		await cache.write(at("a"));
+		await cache.write(at("b"));
+		// Writing a again makes b the oldest.
+		await cache.write(at("a"));
+		await cache.write(at("c"));
+		expect(await cache.read(at("b").key)).toBeUndefined();
+		expect(await cache.read(at("a").key)).toBeDefined();
+		expect(await cache.read(at("c").key)).toBeDefined();
+		await cache.drop(at("c").key);
+		await cache.write(at("d"));
+		expect(await cache.read(at("a").key)).toBeDefined();
+		expect(KEPT).toBeGreaterThan(1);
+	});
+
+	test("opens without a store when the browser refuses it", async () => {
+		const cache = pageCache(() => {
+			throw new Error("SecurityError");
+		});
+		await cache.write(held);
+		expect(await cache.read(key)).toEqual(held);
 	});
 });
