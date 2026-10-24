@@ -24,3 +24,10 @@ export {
 	sessionOf,
 	transcriptOfSession,
 } from "./session.ts";
+export {
+	GOES_ALONE,
+	Outbox,
+	type CommandState,
+	type OutboxOptions,
+	type Outgoing,
+} from "./outbox.ts";
