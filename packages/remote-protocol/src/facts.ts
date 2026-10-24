@@ -169,7 +169,16 @@ export function isFact(type: string, data: unknown): boolean {
 		case "session.state":
 			return typeof data.state === "string";
 		case "stream.bound":
-			return Array.isArray(data.messages);
+			// The number matters: a stream that is not pi's number cannot be matched to a transcript.
+			return (
+				Array.isArray(data.messages) &&
+				data.messages.every(
+					(message) =>
+						isObject(message) &&
+						typeof message.stream === "number" &&
+						typeof message.entry === "string",
+				)
+			);
 		case "leaf.changed":
 			return data.leaf === null || typeof data.leaf === "string";
 		case "prompt.received":

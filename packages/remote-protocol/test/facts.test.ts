@@ -9,6 +9,12 @@ describe("a fact the daemon has to carry", () => {
 		expect(isFact("stream.bound", { messages: [{ stream: 3, entry: "e1" }] })).toBe(true);
 	});
 
+	test("a stream that is not a number is refused, not read as one", () => {
+		expect(isFact("stream.bound", { messages: [{ stream: "3", entry: "e1" }] })).toBe(false);
+		expect(isFact("stream.bound", { messages: [{ entry: "e1" }] })).toBe(false);
+		expect(isFact("stream.bound", { messages: [{ stream: 3 }] })).toBe(false);
+	});
+
 	test("a leaf back at the root is a leaf change, not a broken fact", () => {
 		expect(isFact("leaf.changed", { leaf: null })).toBe(true);
 		expect(isFact("leaf.changed", { leaf: "e1" })).toBe(true);
