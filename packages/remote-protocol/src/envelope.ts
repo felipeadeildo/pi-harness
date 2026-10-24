@@ -17,7 +17,7 @@ export interface Envelope {
 	session?: string;
 	/** The life of the pi process that sent it. */
 	epoch?: string;
-	/** Per epoch, increasing, assigned by the bridge. */
+	/** Per epoch, increasing, assigned by the bridge. A delta has none: it only matters live. */
 	seq?: number;
 	/** Pairs a command with its reply, and makes a resent command a repeat. */
 	id?: string;

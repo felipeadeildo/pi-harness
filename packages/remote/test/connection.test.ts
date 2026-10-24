@@ -213,11 +213,11 @@ describe("a daemon that stops reading", () => {
 		socket.emit("drain");
 		socket.emit("drain");
 		expect(heard.resyncs).toBe(1);
-		// The dropped delta took no number, so the daemon sees no gap.
+		// A delta takes no number, sent or dropped, so the daemon's replay of numbered events has no gap.
 		expect(socket.written.map((one) => [one.type, one.seq])).toEqual([
 			["bridge", undefined],
-			["pi.message_update", 0],
-			["tasks.changed", 1],
+			["pi.message_update", undefined],
+			["tasks.changed", 0],
 		]);
 	});
 
