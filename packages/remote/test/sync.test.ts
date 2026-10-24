@@ -56,10 +56,12 @@ async function startDaemon(): Promise<Daemon> {
 function clientOf(
 	session: string,
 	port: () => number,
-): { client: Client; drop(): void; opens(): number; snapshots(): number } {
+	dropAt?: string,
+): { client: Client; drop(): void; opens(): number; snapshots(): number; dropped(): boolean } {
 	let open: WebSocket | undefined;
 	let opens = 0;
 	let snapshots = 0;
+	let dropped = false;
 	const transport = (onMessage: (envelope: unknown) => void, onClose: () => void): Transport => {
 		const at = port();
 		const ws = new WebSocket(`ws://127.0.0.1:${at}/ws`, {
@@ -75,6 +77,11 @@ function clientOf(
 			const message = JSON.parse(String(event.data)) as { type?: string };
 			if (message.type === "snapshot") snapshots += 1;
 			onMessage(message);
+			// The network goes on the first event of the kind named, so the drop lands inside the run.
+			if (message.type === dropAt && !dropped) {
+				dropped = true;
+				ws.close();
+			}
 		};
 		ws.onclose = () => onClose();
 		return {
@@ -97,6 +104,7 @@ function clientOf(
 		drop: () => open?.close(),
 		opens: () => opens,
 		snapshots: () => snapshots,
+		dropped: () => dropped,
 	};
 }
 
@@ -111,6 +119,9 @@ async function openRig(): Promise<Rig> {
 	return opened;
 }
 
+/** How long a real pi, a reconnect and a restart may take on a loaded runner. */
+const SLOW = 10_000;
+
 /** The ids of pi's branch, which is what the client must end with. */
 function branchIds(opened: Rig): string[] {
 	return opened.session.sessionManager.getBranch().map((entry) => entry.id);
@@ -124,20 +135,21 @@ test("a client that loses its connection mid-run ends with the branch, every ent
 	const daemon = await startDaemon();
 	rig = await openRig();
 	const session = rig.session.sessionId;
-	await until(() => daemon.sessions.get(session)?.snapshot !== undefined, 5_000);
+	await until(() => daemon.sessions.get(session)?.snapshot !== undefined, SLOW);
 
-	const opened = clientOf(session, () => daemon.clientPort ?? 0);
+	// The connection goes as the answer starts streaming, so the client misses part of a run.
+	const opened = clientOf(session, () => daemon.clientPort ?? 0, "pi.message_start");
 	client = opened.client;
 	await client.load();
-	await until(() => client?.session().snapshot !== undefined, 5_000);
+	await until(() => client?.session().snapshot !== undefined, SLOW);
 
-	const running = rig.prompt("first");
-	opened.drop();
-	await running;
+	await rig.prompt("first");
 	await rig.prompt("second");
 	const want = branchIds(rig);
-	await until(() => heldIds(opened.client).length === want.length, 5_000);
+	// The wait asks what the assertion asks: the whole branch, not a list of the same length.
+	await until(() => heldIds(opened.client).join(" ") === want.join(" "), SLOW);
 	expect(heldIds(opened.client)).toEqual(want);
+	expect(opened.dropped()).toBe(true);
 	expect(opened.opens()).toBeGreaterThan(1);
 	// It came back from its cursor: the replay filled the gap, and no second snapshot was needed.
 	expect(opened.snapshots()).toBe(1);
@@ -147,12 +159,12 @@ test("a daemon that restarts mid-run hands the client the branch through a new s
 	let daemon = await startDaemon();
 	rig = await openRig();
 	const session = rig.session.sessionId;
-	await until(() => daemon.sessions.get(session)?.snapshot !== undefined, 5_000);
+	await until(() => daemon.sessions.get(session)?.snapshot !== undefined, SLOW);
 
 	const opened = clientOf(session, () => daemon.clientPort ?? 0);
 	client = opened.client;
 	await client.load();
-	await until(() => client?.session().snapshot !== undefined, 5_000);
+	await until(() => client?.session().snapshot !== undefined, SLOW);
 
 	const running = rig.prompt("first");
 	daemon.stop();
@@ -160,7 +172,7 @@ test("a daemon that restarts mid-run hands the client the branch through a new s
 	await running;
 	await rig.prompt("second");
 	const want = branchIds(rig);
-	await until(() => heldIds(opened.client).length === want.length, 10_000);
+	await until(() => heldIds(opened.client).join(" ") === want.join(" "), SLOW);
 	expect(heldIds(opened.client)).toEqual(want);
 	expect(opened.opens()).toBeGreaterThan(1);
 	// A new daemon holds no replay of what came before it, so the client had to take a snapshot: the
