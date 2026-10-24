@@ -54,6 +54,8 @@ export interface FakePi {
 	/** What the extension sent as if you typed it. */
 	userMessages: unknown[];
 	sessionName: string | undefined;
+	thinkingLevel: "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | undefined;
+	model: { provider: string; id: string } | undefined;
 	/** Runs every handler registered for `name`, in order, and returns what each returned. */
 	fire(name: string, event: unknown, ctx: ExtensionContext): Promise<unknown[]>;
 	count(name: string): number;
@@ -78,6 +80,8 @@ export function fakePi(bus: EventBus = createEventBus()): FakePi {
 		messages: [],
 		userMessages: [],
 		sessionName: undefined,
+		thinkingLevel: undefined,
+		model: undefined,
 		async fire(name, event, ctx) {
 			const results: unknown[] = [];
 			for (const handler of handlers.get(name) ?? []) {
@@ -120,6 +124,12 @@ export function fakePi(bus: EventBus = createEventBus()): FakePi {
 		sendUserMessage: (content: unknown) => void fake.userMessages.push(content),
 		setSessionName: (name: string) => void (fake.sessionName = name),
 		getSessionName: () => fake.sessionName,
+		setThinkingLevel: (level: string) =>
+			void (fake.thinkingLevel = level as typeof fake.thinkingLevel),
+		setModel: (model: { provider: string; id: string }) => {
+			fake.model = { provider: model.provider, id: model.id };
+			return Promise.resolve(true);
+		},
 	} as unknown as ExtensionAPI;
 
 	return fake;

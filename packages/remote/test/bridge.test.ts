@@ -202,6 +202,28 @@ describe("the bridge", () => {
 		delete process.env.PI_HARNESS_EVENTS;
 	});
 
+	test("a thinking level from a client reaches pi, and one pi does not know is refused", async () => {
+		const daemon = await listening();
+		const fake = mounted();
+		await start(fake);
+		await until(() => types(daemon).includes("snapshot"));
+		const by = { kind: "client", name: "phone", machine: HOST } as const;
+		const at = { machine: HOST, session: "s1", epoch: "e1", by };
+		const send = (id: string, level: string) =>
+			daemon.sockets[0]?.write(line(envelope("command", "thinking.set", { level }, { ...at, id })));
+		send("c1", "max");
+		await until(() => daemon.received.some((one) => one.kind === "reply"));
+		expect(fake.thinkingLevel).toBe("max");
+		send("c2", "turbo");
+		await until(() => daemon.received.some((one) => one.kind === "error"));
+		expect(daemon.received.find((one) => one.kind === "error")).toMatchObject({
+			type: "thinking.set",
+			id: "c2",
+			data: { reason: "turbo is not a thinking level: minimal, low, medium, high, xhigh, max" },
+		});
+		await stop(fake, "quit");
+	});
+
 	test("a forced stop is refused with a reason, and the log says which command and why", async () => {
 		const daemon = await listening();
 		process.env.PI_HARNESS_EVENTS = join(root, "events");
@@ -601,7 +623,11 @@ describe("one bridge", () => {
 			scope: { events: fakePi().pi.events, warn: () => {} },
 			version: VERSION,
 			kind: "terminal",
-			rename: () => {},
+			api: {
+				rename: () => {},
+				setModel: () => Promise.resolve(),
+				setThinking: () => {},
+			},
 			startDaemon: () => {},
 			warn: () => {},
 			seams: { dial, backoff: [5] },

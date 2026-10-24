@@ -20,6 +20,7 @@ import { Bridge, type SessionKind } from "./bridge/bridge.ts";
 import type { GoneReason } from "./bridge/connection.ts";
 import { openInBrowser } from "./browser.ts";
 import { linkOf } from "./cli/open.ts";
+import { commandApi } from "./commands-api.ts";
 import { startDaemon, writeLauncher } from "./launcher.ts";
 import { CLIENT_PORT, daemonDir, daemonPaths } from "./places.ts";
 import { VERSION } from "./version.ts";
@@ -91,7 +92,7 @@ export const remote = defineFeature({
 				scope,
 				version: VERSION,
 				kind,
-				rename: (name) => scope.setSessionName(name),
+				api: commandApi(scope, ctx),
 				startDaemon: () => startDaemon(dir),
 				warn: (message) => scope.warn(message),
 			});

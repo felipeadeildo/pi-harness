@@ -30,13 +30,24 @@ export const SNAPSHOT_ENTRIES = 50;
 
 export type SessionKind = SessionSnapshot["kind"];
 
+/**
+ * The extension API's side of the commands. The bridge has the session's context, which aborts,
+ * compacts and stops, but renaming and the settings go through the API pi gave the extension.
+ */
+export interface SessionApi {
+	rename(name: string): void;
+	/** Switches the model, and answers only once it did, or refuses with a reason. */
+	setModel(provider: string, id: string): Promise<void>;
+	setThinking(level: string): void;
+}
+
 export interface BridgeOptions {
 	/** The socket the daemon listens on. */
 	path: string;
 	/** Where the bridge reads the harness's contracts: the tasks, the mode and the status. */
 	scope: EventScope;
-	/** Renames the session, as a client's `session.rename` does: pi owns the name. */
-	rename(name: string): void;
+	/** What the commands need from pi's extension API, which the bridge itself does not hold. */
+	api: SessionApi;
 	version: string;
 	kind: SessionKind;
 	startDaemon(): void;
@@ -91,7 +102,9 @@ export class Bridge {
 					ctx.compact(
 						instructions === undefined ? undefined : { customInstructions: instructions },
 					),
-				rename: (name) => options.rename(name),
+				rename: (name) => options.api.rename(name),
+				setModel: (provider, id) => options.api.setModel(provider, id),
+				setThinking: (level) => options.api.setThinking(level),
 				// The questions open at this point are closed as a no once the ask slice lands here.
 				stop: (force) => {
 					// A terminal session stops by its own pi: it takes the answer to the run and exits.
@@ -178,7 +191,7 @@ export class Bridge {
 	#heard(message: Envelope): void {
 		if (message.kind !== "command") return;
 		if (message.type === "snapshot.get") return this.#snapshot();
-		this.#commands.run(message);
+		void this.#commands.run(message);
 	}
 
 	/**
