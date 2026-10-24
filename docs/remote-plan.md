@@ -56,12 +56,12 @@ Every slice reaches `main` through a pull request that an agent from another tra
 ```bash
 # once per track
 git -C ~/Projects/pi-harness worktree add --detach ~/Projects/pi-harness.worktrees/<track> origin/main
-cd ~/Projects/pi-harness.worktrees/<track> && bun install
+cd ~/Projects/pi-harness.worktrees/<track> && bun install --ignore-scripts   # the hooks stay the main checkout's
 
 # for each slice, in the track's worktree
 git fetch origin && git switch -c feat/<area>-<what> origin/main   # feat/kit-presence
 git fetch origin && git rebase origin/main                         # before opening the pull request
-bun install                                                        # when the rebase changed bun.lock
+bun install --ignore-scripts                                        # when the rebase changed bun.lock
 bun run verify
 git push -u origin HEAD
 gh pr create --base main --title "<conventional subject>" --body-file <body.md>
@@ -80,21 +80,22 @@ git -C ~/Projects/pi-harness pull --ff-only                         # the folder
 - The type says what the change is, and most slices are not a `feat`. A `feat` lets someone who uses the package do something new, and a `fix` makes something wrong work. A `refactor` changes the code and keeps the behavior, and `test` covers tests, fixtures such as the rig's recording, and test tools such as the rig. `perf`, `docs`, `build`, `ci` and `chore` cover the rest. The reviewer checks the type along with the title.
 - The diff ticks the slice's line in [Status](#status). The body says what was missing or wrong, what the change does and how to see it working, names the slice, says `Closes #N` for each issue it closes, so the squash closes it, and ends with the operator's footer, `<p align="right"><sub><model> (<effort> effort) [<name>] @ adeildo's pi</sub></p>`, with the model as the session names it, the session's own effort, and the agent's name in brackets, as in `claude opus 5.5 (max effort) [lynx] @ adeildo's pi`. Each agent picks its name, an animal by custom, and says it in the room before using it.
 - A pull request holds one logical change and the test that fails without it. A slice too large to review in one sitting goes in several pull requests, each green on its own.
-- A dependency is added with its package manager, never by writing `package.json`: `bun add <package>` takes the latest version, `bun add -d` for a dev dependency, and the Expo app's set goes through `expo install` (see [W1](#w1-the-expo-app-and-the-csp)). A package only needs a dependency for what its users run; tools, tests and builds are dev dependencies. A tool the whole repository runs, such as `typescript`, `oxlint` and `oxfmt`, lives at the root only, so every package checks with the same version. Moving one to a new major, such as TypeScript 7, is its own pull request.
+- A dependency is added with its package manager, never by writing `package.json`: `bun add <package>` takes the latest version, `bun add -d` for a dev dependency (in a worktree, with `--ignore-scripts`, as `CONTRIBUTING.md` says), and the Expo app's set goes through `expo install` (see [W1](#w1-the-expo-app-and-the-csp)). A package only needs a dependency for what its users run; tools, tests and builds are dev dependencies. A tool the whole repository runs, such as `typescript`, `oxlint` and `oxfmt`, lives at the root only, so every package checks with the same version. Moving one to a new major, such as TypeScript 7, is its own pull request.
 - The author asks in the room for a review. The reviewer runs the verify on the pull request's head in a worktree of their own, never in the author's, which may be in the middle of an edit. They read the code with the `simplify`, `unslop` and `codebase-design` skills, and answer with `gh pr review --comment`, ending with the same footer. Every agent uses the operator's GitHub account, which cannot approve its own pull requests, so the reviewer writes the approval in the review and says it in the room.
 
   ```bash
-  git fetch origin refs/pull/<n>/head:pr-<n> && git worktree add --detach /tmp/pr-<n> pr-<n>
-  cd /tmp/pr-<n> && bun install --frozen-lockfile && bun run verify
-  git worktree remove --force /tmp/pr-<n> && git branch -D pr-<n>
+  # `+` takes a head the author rebased; the name in the folder keeps two reviewers apart
+  git fetch origin +refs/pull/<n>/head:pr-<n>-<name> && git worktree add --detach /tmp/pr-<n>-<name> pr-<n>-<name>
+  cd /tmp/pr-<n>-<name> && bun install --frozen-lockfile --ignore-scripts && bun run verify
+  git worktree remove --force /tmp/pr-<n>-<name> && git branch -D pr-<n>-<name>
   ```
 
 - The author merges once a review approves, CI is green and nothing conflicts.
-- When `main` moves under an open pull request, the author rebases, runs `bun install` when `bun.lock` changed, runs the verify again and pushes with `--force-with-lease`.
+- When `main` moves under an open pull request, the author rebases, runs `bun install --ignore-scripts` when `bun.lock` changed, runs the verify again and pushes with `--force-with-lease`.
 - When the pull in `~/Projects/pi-harness` fails, someone has uncommitted work there. The author says so in the room and leaves that work alone.
 - A slice that changes how the kit, peers, tasks or the ask features behave also runs once in a real pi before it is merged, with two sessions open in one folder.
 - Nobody runs `git checkout`, `git restore` or `git stash` on a file they did not edit.
-- Several tracks change `packages/kit/src/index.ts`, `packages/kit/src/contracts/events.ts`, the root `package.json` and `bun.lock`. Whoever merges later resolves the conflict while rebasing, and regenerates `bun.lock` with `bun install` instead of merging it by hand.
+- Several tracks change `packages/kit/src/index.ts`, `packages/kit/src/contracts/events.ts`, the root `package.json` and `bun.lock`. Whoever merges later resolves the conflict while rebasing, and regenerates `bun.lock` with `bun install --ignore-scripts` instead of merging it by hand.
 
 ### Release
 
@@ -350,12 +351,12 @@ Owner: client. Needs: nothing.
 `apps/remote` is an Expo app with Expo Router and React Native for Web, in the bun workspace, where `apps/*` joins `workspaces`. `expo export -p web` produces the static build, and a check serves it with the design's CSP and loads it in a headless browser.
 
 - The Expo skills are installed for this track, and Expo's documentation is served as Markdown for agents: [`docs.expo.dev/llms.txt`](https://docs.expo.dev/llms.txt) lists every page, and `.md` after any page's URL gives that page. Read the page instead of guessing.
-- The Expo and React Native set is added with `bunx expo install <packages> -- -d`, so each takes the version the installed SDK accepts, after `bun add -d expo@latest`. `bunx expo install --check` fails the check when one drifts from the SDK.
+- The Expo and React Native set is added with `bunx expo install <packages> -- -d --ignore-scripts` (in a worktree), so each takes the version the installed SDK accepts, after `bun add -d expo@latest` (`--ignore-scripts` in a worktree). `bunx expo install --check` fails the check when one drifts from the SDK.
 - Build tools are dev dependencies. A later release builds the Android app, and only what a user runs at runtime is a dependency.
 - When the export needs an inline script that the CSP forbids, the daemon adds the script's hash to `script-src` when it reads the build, and W1 records that here.
 - The app's type check and lint join `bun run verify`. The export and the CSP check need a browser, so they run in a CI job of their own and never in `verify`. When the app makes `bun install` in CI more than a minute slower, the rest of the app moves to that job too.
 
-The workspace keeps Bun's isolated linker. On SDK 54 the export needed a transitive package hoisted into the app's `node_modules`; on SDK 58, with `@expo/metro-runtime` declared, the export passes on the isolated store, so no `bunfig.toml` is needed. Hoisting the whole repository was measured and rejected: it hides an import nobody declared, which is how the kit's missing `pi-ai` was found in P1. The `bun.lock` moves with the app, so a branch open when W1 lands runs `bun install` again.
+The workspace keeps Bun's isolated linker. On SDK 54 the export needed a transitive package hoisted into the app's `node_modules`; on SDK 58, with `@expo/metro-runtime` declared, the export passes on the isolated store, so no `bunfig.toml` is needed. Hoisting the whole repository was measured and rejected: it hides an import nobody declared, which is how the kit's missing `pi-ai` was found in P1. The `bun.lock` moves with the app, so a branch open when W1 lands runs `bun install --ignore-scripts` again.
 
 What the export forced, and what the daemon must do with it: the page carries one inline script, so `script-src 'self'` is served with that script's `sha256` rather than `unsafe-inline`. React Native Web writes its styles at runtime, so `style-src` keeps `'unsafe-inline'`; narrowing that is a W2 decision, not a W1 one.
 
