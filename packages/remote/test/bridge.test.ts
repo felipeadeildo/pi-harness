@@ -374,12 +374,20 @@ describe("the bridge", () => {
 		const command = daemon.received.find((one) => one.kind === "command");
 		expect(command?.type).toBe("token.issue");
 		daemon.sockets[0]?.write(
-			line(envelope("reply", "token.issue", { token: "abc", expiresAt: 1 }, { id: command?.id })),
+			line(
+				envelope(
+					"reply",
+					"token.issue",
+					{ url: "http://127.0.0.1:9123/#token=abc", expiresAt: 1 },
+					{ id: command?.id },
+				),
+			),
 		);
 		await asked;
 		await until(() => existsSync(opened));
 		delete process.env.BROWSER;
-		expect(readFileSync(opened, "utf8")).toBe(`http://127.0.0.1:${CLIENT_PORT}/#token=abc`);
+		// The link is the daemon's, port and all: pi does not guess where the daemon listens.
+		expect(readFileSync(opened, "utf8")).toBe("http://127.0.0.1:9123/#token=abc");
 		expect(notes.at(-1)).toContain("works once, for a minute");
 	});
 
