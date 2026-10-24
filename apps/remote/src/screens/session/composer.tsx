@@ -229,10 +229,10 @@ export function stateOf(command: Outgoing): string {
 
 /** Sends a held command now: it keeps its id, so the far side still reads it as the same one. */
 export function sendNow(client: Client, id: string): void {
-	client.outbox().release(id);
+	client.release(id);
 }
 
 /** Gives up on a held command: it leaves the queue and nothing goes out. */
 export function dropNow(client: Client, id: string): void {
-	client.outbox().drop(id);
+	client.drop(id);
 }
