@@ -355,6 +355,7 @@ Owner: client. Needs: W1.
 One renderer draws markdown, code and diffs. It is written in React DOM, so that the native app can use it as a DOM component in F6. It renders no raw HTML, shows a link as `http` or `https` with its domain, and turns a remote image into a line with its domain.
 
 - Tests: neither a `<script>` tag, a `javascript:` link nor an image URL carrying a query runs or loads; terminal escape sequences are stripped.
+- The renderer builds DOM elements, so it is web-only for now: the Android app wraps it in a DOM component in F6, which is the slice that proves it draws there.
 
 ### W3. The Sessions and Session screens
 
