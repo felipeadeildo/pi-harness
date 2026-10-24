@@ -116,9 +116,11 @@ export interface FactMap {
 		cwd?: string;
 		name?: string;
 		kind: "terminal" | "background";
+		/** pi's session file, which the daemon pages older entries from. Absent until pi writes it. */
+		file?: string;
 	};
 	"session.gone": { reason: "exit" | "crash" | "unanswered" | "replaced" };
-	/** pi numbers its streams per message start, so the same number the transcript carries. */
+	/** The bridge numbers each message it streams, from 1 in each epoch; `pi.message_start` carries the same number. */
 	"stream.bound": { messages: { stream: number; entry: string }[] };
 	/** The entry the branch ends at, or null when a `/tree` move goes back to the root. */
 	"leaf.changed": { leaf: string | null };

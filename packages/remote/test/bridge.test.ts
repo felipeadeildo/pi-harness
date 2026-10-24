@@ -89,6 +89,7 @@ function session(kept: Entry[] = entries(2), mode = "tui", branch: Entry[] = kep
 		sessionManager: {
 			getSessionId: () => "s1",
 			getSessionName: () => "Fix the release",
+			getSessionFile: () => "/sessions/s1.jsonl",
 			getEntries: () => kept,
 			getBranch: () => branch,
 			getLeafId: () => kept.at(-1)?.id ?? null,
@@ -121,7 +122,13 @@ describe("the bridge", () => {
 		expect(live).toMatchObject({
 			type: "session.live",
 			seq: 0,
-			data: { pid: process.pid, cwd: "/work", name: "Fix the release", kind: "terminal" },
+			data: {
+				pid: process.pid,
+				cwd: "/work",
+				name: "Fix the release",
+				kind: "terminal",
+				file: "/sessions/s1.jsonl",
+			},
 		});
 		expect(snapshot).toMatchObject({
 			type: "snapshot",
