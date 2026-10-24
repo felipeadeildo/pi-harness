@@ -11,12 +11,12 @@ import {
 	type Envelope,
 	type Entry,
 	type Presence,
-	type SessionFacts,
+	type HarnessState,
 	type SessionSnapshot,
 	type Transcript,
 	type FactType,
-	reduceFact,
-	emptySessionFacts,
+	applyLogged,
+	emptyHarnessState,
 	transcriptOf,
 } from "@adeildo/pi-remote-protocol";
 
@@ -79,9 +79,9 @@ export function transcriptOfSession(session: ClientSession): Transcript {
 }
 
 /** The tasks, rulings, questions, mode and rename of the session, from its log. */
-export function factsOf(session: ClientSession): SessionFacts {
-	let state = emptySessionFacts();
-	for (const fact of session.facts) state = reduceFact(state, fact.type, fact.data);
+export function factsOf(session: ClientSession): HarnessState {
+	let state = emptyHarnessState();
+	for (const fact of session.facts) state = applyLogged(state, fact.type, fact.data);
 	return state;
 }
 

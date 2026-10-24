@@ -9,7 +9,7 @@ import {
 	type ChatMessage,
 	type OpenAsk,
 	openAsks,
-	type SessionFacts,
+	type HarnessState,
 	type SessionTasks,
 	type Task,
 	type TranscriptItem,
@@ -45,7 +45,7 @@ export function SessionScreen({ session }: SessionScreenProps): ReactNode {
 }
 
 interface View {
-	facts: SessionFacts;
+	facts: HarnessState;
 	items: TranscriptItem[];
 }
 

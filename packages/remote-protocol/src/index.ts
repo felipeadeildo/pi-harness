@@ -34,12 +34,13 @@ export {
 export {
 	type Ask,
 	type ClosedAsk,
-	emptySessionFacts,
+	emptyHarnessState,
+	KEPT_CLOSED,
 	type OpenAsk,
 	openAsks,
-	reduceFact,
-	reduceFacts,
-	type SessionFacts,
+	applyLogged,
+	applyAll,
+	type HarnessState,
 } from "./reduce/state.ts";
 export { COMMAND_TYPES, type CommandMap, type CommandType, isCommand } from "./commands.ts";
 export {

@@ -248,10 +248,11 @@ export class Clients {
 
 	/** A snapshot with who has the session open, which the daemon knows and the bridge does not. */
 	#withPresence(message: Envelope): Envelope {
-		const withFacts = this.#options.sessions.withFacts(message);
-		if (!isObject(withFacts.data) || !isObject(withFacts.data.snapshot)) return withFacts;
-		const snapshot = { ...withFacts.data.snapshot, ...this.#presenceOf(message.session ?? "") };
-		return { ...withFacts, data: { ...withFacts.data, snapshot } };
+		// The snapshot is already folded by the bridge; a client adds who is watching, which is the
+		// daemon's to know and never travels in the session's own state.
+		if (!isObject(message.data) || !isObject(message.data.snapshot)) return message;
+		const snapshot = { ...message.data.snapshot, ...this.#presenceOf(message.session ?? "") };
+		return { ...message, data: { ...message.data, snapshot } };
 	}
 
 	/**

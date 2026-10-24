@@ -31,8 +31,12 @@ export interface ClosedAsk {
 
 export type Ask = OpenAsk | ClosedAsk;
 
-/** Everything the log can change about a session, kept the way a reader asks for it. */
-export interface SessionFacts {
+/**
+ * What a session carries besides its conversation: the tasks beside it, the questions it asked and
+ * who answered them, the ruling of each call, the permission mode, and the handle it is known by.
+ * Written by the harness, and read the same way by every reader: one shape, one reducer.
+ */
+export interface HarnessState {
 	tasks?: SessionTasks;
 	/** The ruling of each call, by its tool call id. */
 	rulings: Record<string, { ruling: CallRuling; by?: By }>;
@@ -44,12 +48,12 @@ export interface SessionFacts {
 	renamed?: { from: string; to: string; by?: By };
 }
 
-export function emptySessionFacts(): SessionFacts {
+export function emptyHarnessState(): HarnessState {
 	return { rulings: {}, asks: {} };
 }
 
 /** The questions still waiting for an answer, in the order they were asked. */
-export function openAsks(facts: SessionFacts): OpenAsk[] {
+export function openAsks(facts: HarnessState): OpenAsk[] {
 	return Object.values(facts.asks).filter((ask): ask is OpenAsk => ask.closed !== true);
 }
 
@@ -57,23 +61,27 @@ export function openAsks(facts: SessionFacts): OpenAsk[] {
  * Adds one fact to the state. A fact the shape check refuses is skipped, not thrown: a log written by
  * a newer harness must not stop a client from drawing the rest.
  */
-export function reduceFact(facts: SessionFacts, type: string, data: unknown): SessionFacts {
+export function applyLogged(facts: HarnessState, type: string, data: unknown): HarnessState {
 	if (!isFact(type, data)) return facts;
 	switch (type) {
 		case "tasks.changed":
 			return { ...facts, tasks: (data as { state: SessionTasks }).state };
 		case "call.ruled": {
 			const ruled = data as { toolCallId: string; ruling: CallRuling; by?: By };
-			return {
+			return bound({
 				...facts,
 				rulings: {
-					...facts.rulings,
+					// A call ruled again moves to the end, so "the newest" is the last one the state keeps,
+					// which is also the order the bound drops from. Object order is insertion order.
+					...Object.fromEntries(
+						Object.entries(facts.rulings).filter(([id]) => id !== ruled.toolCallId),
+					),
 					[ruled.toolCallId]: {
 						ruling: ruled.ruling,
 						...(ruled.by === undefined ? {} : { by: ruled.by }),
 					},
 				},
-			};
+			});
 		}
 		case "ask.opened": {
 			const opened = data as OpenAsk;
@@ -81,7 +89,7 @@ export function reduceFact(facts: SessionFacts, type: string, data: unknown): Se
 		}
 		case "ask.closed": {
 			const closed = data as { id: string; by?: By; result: AskResult };
-			return {
+			return bound({
 				...facts,
 				asks: {
 					...facts.asks,
@@ -92,7 +100,7 @@ export function reduceFact(facts: SessionFacts, type: string, data: unknown): Se
 						...(closed.by === undefined ? {} : { by: closed.by }),
 					},
 				},
-			};
+			});
 		}
 		case "mode.changed":
 			return { ...facts, mode: (data as { mode: PermissionMode }).mode };
@@ -105,9 +113,28 @@ export function reduceFact(facts: SessionFacts, type: string, data: unknown): Se
 	}
 }
 
-/** The state after every fact, in the order the log wrote them. */
-export function reduceFacts(facts: readonly { type: string; data: unknown }[]): SessionFacts {
-	let state = emptySessionFacts();
-	for (const fact of facts) state = reduceFact(state, fact.type, fact.data);
+/**
+ * How many closed questions and rulings a state keeps. It bounds the memory of a long session: a state
+ * lives in a daemon for the whole life of a session and travels in every snapshot, so what is already
+ * answered must not accumulate — a day of tool calls would carry every ruling it ever made. Open
+ * questions are never dropped, because they are what a client still has to answer. The number is a
+ * choice, not a measurement: it is what a client can draw without paging for older ones.
+ */
+export const KEPT_CLOSED = 100;
+
+/** The state with the oldest closed questions and rulings dropped, leaving the open ones alone. */
+function bound(facts: HarnessState): HarnessState {
+	const closed = Object.values(facts.asks).filter((ask) => ask.closed === true);
+	const open = Object.values(facts.asks).filter((ask) => ask.closed !== true);
+	const kept = closed.slice(-KEPT_CLOSED);
+	const asks = Object.fromEntries([...open, ...kept].map((ask) => [ask.id, ask]));
+	const rulings = Object.entries(facts.rulings).slice(-KEPT_CLOSED);
+	return { ...facts, asks, rulings: Object.fromEntries(rulings) };
+}
+
+/** The state after every logged event, in the order the log wrote them. */
+export function applyAll(facts: readonly { type: string; data: unknown }[]): HarnessState {
+	let state = emptyHarnessState();
+	for (const fact of facts) state = applyLogged(state, fact.type, fact.data);
 	return state;
 }
