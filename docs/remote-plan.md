@@ -193,7 +193,7 @@ Owner: ask. Needs: A1.
 ask-permission asks through `harness:ask` only when `ctx.mode` is `tui`, and through `ctx.ui.select` otherwise (`pi/events.ts` and `ui/selector.ts`). A3 asks through the bus in every mode whenever `canAsk` finds a provider, and keeps the selector for when none exists.
 
 - `harness:mode` becomes a state contract with its change, logged as `mode.changed`.
-- Every ruling is logged as `call.ruled { call, ruling, by }`.
+- Every ruling is logged as `call.ruled { toolCallId, ruling, by? }`, with `by` only when a person answered.
 - Tests: the cases in `events.test.ts` and `questions.test.ts` follow; a ruling logs `call.ruled` with `by`.
 
 ### A4. The protected list

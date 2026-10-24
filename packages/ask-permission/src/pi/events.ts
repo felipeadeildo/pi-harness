@@ -99,6 +99,8 @@ export function registerEvents(scope: FeatureScope, state: SessionState): void {
 		const outcome = await gate(scope, state, ctx, call, event);
 		const ruling = settle(outcome, state.rulings.get(event.toolCallId));
 		keepRuling(scope, state, event.toolCallId, ruling);
+		// The whole ruling is one short line: its `detail` is the judge's signal, stats and model, or
+		// why you were asked, so a log line per call stays small.
 		if (ruling !== undefined) {
 			const by = outcome.answeredBy === undefined ? {} : { by: outcome.answeredBy };
 			logFrom(ctx, scope.events, "call.ruled", { toolCallId: event.toolCallId, ruling, ...by });
