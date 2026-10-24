@@ -115,8 +115,10 @@ export interface FactMap {
 		kind: "terminal" | "background";
 	};
 	"session.gone": { reason: "exit" | "crash" | "unanswered" | "replaced" };
-	"stream.bound": { messages: { stream: string; entry: string }[] };
-	"leaf.changed": { leaf: string };
+	/** pi numbers its streams per message start, so the same number the transcript carries. */
+	"stream.bound": { messages: { stream: number; entry: string }[] };
+	/** The entry the branch ends at, or null when a `/tree` move goes back to the root. */
+	"leaf.changed": { leaf: string | null };
 	"prompt.received": { by?: By };
 }
 
@@ -169,7 +171,7 @@ export function isFact(type: string, data: unknown): boolean {
 		case "stream.bound":
 			return Array.isArray(data.messages);
 		case "leaf.changed":
-			return typeof data.leaf === "string";
+			return data.leaf === null || typeof data.leaf === "string";
 		case "prompt.received":
 		case "session.renamed":
 			return data.by === undefined || isBy(data.by);
