@@ -227,6 +227,55 @@ describe("the bridge", () => {
 		await stop(fake, "quit");
 	});
 
+	test("a client's answer reaches the bus with its own by, and a closed question is refused", async () => {
+		const daemon = await listening();
+		const fake = mounted();
+		const answered: { id: string; by?: unknown; result: unknown }[] = [];
+		fake.pi.events.on(ANSWER, (data: unknown) => answered.push(data as never));
+		await start(fake);
+		await until(() => types(daemon).includes("snapshot"));
+
+		const by = { kind: "client", name: "my phone", machine: "phone" } as const;
+		const at = { machine: HOST, session: "s1", epoch: "e1", by };
+		const answer = (id: string, ask: string, result: unknown) =>
+			daemon.sockets[0]?.write(
+				line(envelope("command", "ask.answer", { ask, result }, { ...at, id })),
+			);
+		const errors = () => daemon.received.filter((one) => one.kind === "error");
+
+		fake.pi.events.emit(ASK, { id: "q1", questions: [] });
+		answer("c1", "q1", { answers: [], cancelled: false });
+		await until(() => answered.length === 1);
+		// The client's own name travels to the bus; the bridge does not invent one.
+		expect(answered[0]).toEqual({ id: "q1", by, result: { answers: [], cancelled: false } });
+
+		// The question is closed now, so a second answer is refused with its id, not counted.
+		answer("c2", "q1", { answers: [], cancelled: false });
+		await until(() => errors().length === 1);
+		expect(errors()[0]?.data).toEqual({ reason: "the question q1 was answered somewhere else" });
+
+		// A result that does not read is refused too: it would reach an extension as a decision.
+		fake.pi.events.emit(ASK, { id: "q2", questions: [] });
+		answer("c3", "q2", { answers: "none", cancelled: false });
+		await until(() => errors().length === 2);
+		expect(errors()[1]?.data).toEqual({ reason: "an answer needs `answers` and `cancelled`" });
+
+		// An answer that does not say who gave it is refused, not logged under a name nobody has.
+		fake.pi.events.emit(ASK, { id: "q3", questions: [] });
+		daemon.sockets[0]?.write(
+			line(
+				envelope(
+					"command",
+					"ask.answer",
+					{ ask: "q3", result: { answers: [], cancelled: false } },
+					{ machine: HOST, session: "s1", epoch: "e1", id: "c4" },
+				),
+			),
+		);
+		await until(() => errors().length === 3);
+		expect(errors()[2]?.data).toEqual({ reason: "an answer names who gave it" });
+	});
+
 	test("a stop cancels the questions still open, before it aborts the run", async () => {
 		const daemon = await listening();
 		const order: string[] = [];

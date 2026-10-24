@@ -20,6 +20,8 @@ export interface CommandEffects {
 	setModel(provider: string, id: string): Promise<void>;
 	setThinking(level: string): void;
 	setMode(mode: string, by: By | undefined): void;
+	/** Answers a question a client is looking at, and refuses one that is no longer open. */
+	answerAsk(fields: Record<string, unknown>, by: By | undefined): void;
 }
 
 export interface CommandOptions {
@@ -130,9 +132,11 @@ export class Commands {
 				return effects.setThinking(String(fields.level));
 			case "mode.set":
 				return effects.setMode(String(fields.mode), by);
+			case "ask.answer":
+				return effects.answerAsk(fields, by);
 			default:
-				// `prompt.send`, `queue.clear`, `ask.answer` and `mode.set` come with their own slices:
-				// a client hears "not yet" instead of a command that seems to work and does nothing.
+				// `prompt.send` and `queue.clear` come with the inbox slice: a client hears "not yet"
+				// instead of a command that seems to work and does nothing.
 				throw new Refused(`${type} is not served by this session yet`);
 		}
 	}
