@@ -51,6 +51,14 @@ export interface Client {
 	send(type: CommandType, data: unknown): Outgoing;
 	/** The commands that have not been answered yet, in the order they were typed. */
 	outbox(): Outbox;
+	/**
+	 * Sends a command that waited past the window, because the person said so. Only the connection can
+	 * put it on the wire: marking it ready in the queue and trusting the connection to notice is how
+	 * "Send now" did nothing.
+	 */
+	release(id: string): boolean;
+	/** Drops a command that never went out, so it leaves the queue and nothing is sent. */
+	drop(id: string): boolean;
 	/** Ends the connection and stops reconnecting. */
 	stop(): void;
 }
@@ -171,6 +179,19 @@ export function connect(options: ConnectionOptions): Client {
 			return command;
 		},
 		outbox: () => outbox,
+		release: (id) => {
+			const released = outbox.release(id);
+			if (released) {
+				flush();
+				tell();
+			}
+			return released;
+		},
+		drop: (id) => {
+			const dropped = outbox.drop(id);
+			if (dropped) tell();
+			return dropped;
+		},
 		on: (handle) => {
 			listeners.add(handle);
 			return () => listeners.delete(handle);

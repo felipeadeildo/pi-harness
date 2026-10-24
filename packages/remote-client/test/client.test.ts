@@ -8,6 +8,7 @@ import type { Entry, Envelope } from "@adeildo/pi-remote-protocol";
 
 import { memoryCache } from "../src/cache.ts";
 import { connect } from "../src/connection.ts";
+import { Outbox } from "../src/outbox.ts";
 import { factsOf, transcriptOfSession } from "../src/session.ts";
 
 const FIXTURE = join(
@@ -80,6 +81,31 @@ function cursorOf(envelope: Envelope): { epoch?: string; seq?: number } {
 }
 
 describe("a client of a session", () => {
+	test("a command that waited past the window goes out when the person sends it now", async () => {
+		let clock = 0;
+		const outbox = new Outbox({ now: () => clock });
+		const sent: Envelope[] = [];
+		const client = connect({
+			key,
+			cache: memoryCache(),
+			outbox,
+			open: () => ({ send: (envelope) => sent.push(envelope), close: () => {} }),
+		});
+		// Typed while the daemon was away, three minutes before it answered again.
+		const command = outbox.add("prompt.send", { text: "push it" });
+		clock = 3 * 60_000;
+		await client.load();
+		// Past the window it waits for the person, and asking for it is what puts it on the wire: the
+		// queue alone cannot, which is the reason "Send now" did nothing.
+		expect(sent.filter((envelope) => envelope.kind === "command")).toEqual([]);
+		expect(client.release(command.id)).toBe(true);
+		expect(sent.filter((envelope) => envelope.kind === "command").map((one) => one.id)).toEqual([
+			command.id,
+		]);
+		expect(outbox.all()[0]?.state).toBe("sent");
+		client.stop();
+	});
+
 	test("the hello carries the cursor, and what follows is read from it", async () => {
 		let hello: Envelope | undefined;
 		const client = connect({

@@ -20,12 +20,9 @@ function clientOf(
 			sent.push([type, data]);
 			return { id: "c1", type, data, at: 0, state: "waiting" as const };
 		},
-		outbox: () => ({
-			all: () => queue,
-			held: () => held,
-			release: (id: string) => void calls.push(`release ${id}`),
-			drop: (id: string) => void calls.push(`drop ${id}`),
-		}),
+		outbox: () => ({ all: () => queue, held: () => held }),
+		release: (id: string) => void calls.push(`release ${id}`),
+		drop: (id: string) => void calls.push(`drop ${id}`),
 	} as unknown as Client;
 	return { client, sent, calls };
 }
