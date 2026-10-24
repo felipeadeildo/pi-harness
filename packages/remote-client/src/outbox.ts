@@ -52,6 +52,19 @@ export class Outbox {
 		return command;
 	}
 
+	/**
+	 * What a previous visit left, put back in the order it was typed. A command already in the queue
+	 * wins, because this queue is the one the person is typing into now.
+	 */
+	restore(commands: readonly Outgoing[] | undefined): void {
+		if (commands === undefined) return;
+		const known = new Set(this.#commands.map((command) => command.id));
+		for (const command of commands) {
+			if (!known.has(command.id)) this.#commands.push({ ...command });
+		}
+		this.#commands.sort((one, other) => one.at - other.at);
+	}
+
 	/** Every command still held, in the order they were typed. */
 	all(): Outgoing[] {
 		return [...this.#commands];
@@ -89,6 +102,9 @@ export class Outbox {
 	/**
 	 * The person chose to send a command that had waited past the window. It keeps its id, so it is
 	 * still the same command and still a repeat if it already went out once.
+	 *
+	 * No screen calls this: marking the command ready is not sending it, and a screen that does it,
+	 * does nothing. `client.release` is the act — it changes the queue and puts the command on the wire.
 	 */
 	release(id: string): boolean {
 		const command = this.#find(id);
@@ -113,7 +129,10 @@ export class Outbox {
 		command.why = why;
 	}
 
-	/** The person dropped it, or sent it although it had waited too long. */
+	/**
+	 * The person dropped it. No screen calls this either: it leaves the queue, but only `client.drop`
+	 * tells the screen, which is what makes the line disappear.
+	 */
 	drop(id: string): boolean {
 		const at = this.#commands.findIndex((command) => command.id === id);
 		if (at === -1) return false;

@@ -22,6 +22,7 @@ import {
 
 import type { CachedSession, SessionKey } from "./cache.ts";
 import { advance, decide, type Cursor } from "./cursor.ts";
+import type { Outbox } from "./outbox.ts";
 
 /** The envelope a bridge sends for an entry pi appended, and for the snapshot it is asked for. */
 export const ENTRY = "entry";
@@ -88,8 +89,8 @@ export function harnessOf(session: ClientSession): HarnessState {
 	return session.harness;
 }
 
-/** What to keep so the next visit draws at once. */
-export function cachedOf(session: ClientSession): CachedSession {
+/** What to keep so the next visit draws at once, with the commands nobody answered yet. */
+export function cachedOf(session: ClientSession, outbox: Outbox): CachedSession {
 	return {
 		key: session.key,
 		cursor: session.cursor,
@@ -97,6 +98,7 @@ export function cachedOf(session: ClientSession): CachedSession {
 		harness: session.harness,
 		leaf: session.leaf,
 		presence: session.presence,
+		...(outbox === undefined || outbox.all().length === 0 ? {} : { outbox: outbox.all() }),
 	};
 }
 

@@ -86,6 +86,32 @@ function cursorOf(envelope: Envelope): { epoch?: string; seq?: number } {
 }
 
 describe("a client of a session", () => {
+	test("a command typed before the tab died comes back with the cache", async () => {
+		const cache = memoryCache();
+		const first = connect({ key, cache, open: () => ({ send: () => {}, close: () => {} }) });
+		first.send("prompt.send", { text: "typed on the train" });
+		// A tab that dies is gone without a goodbye, so nothing else gets a chance to save.
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		first.stop();
+
+		const sent: Envelope[] = [];
+		const second = connect({
+			key,
+			cache,
+			open: () => ({ send: (envelope) => sent.push(envelope), close: () => {} }),
+		});
+		await second.load();
+		expect(
+			second
+				.outbox()
+				.all()
+				.map((command) => command.data),
+		).toEqual([{ text: "typed on the train" }]);
+		// It goes out through the same queue: a restored command is not a special case.
+		expect(sent.filter((envelope) => envelope.kind === "command")).toHaveLength(1);
+		second.stop();
+	});
+
 	test("a command that waited past the window goes out when the person sends it now", async () => {
 		let clock = 0;
 		const outbox = new Outbox({ now: () => clock });
