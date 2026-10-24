@@ -71,6 +71,12 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
   may be in the middle of an edit. They read the code with the `simplify` and `unslop` skills, and
   answer with `gh pr review --comment`, ending with the same footer. The account is shared and cannot
   approve its own pull request, so the approval is written in the review and said in the room.
+- Before reviewing, read `gh pr view <n> --json reviews` and its comments. A pull request that already
+  has a review waits for the merge, not for a second one: a second read is welcome, and it goes in the
+  same thread as a comment, which is how two of today's findings were caught. Whoever reviews claims
+  it on the pull request with a short comment, so the next person sees it where the work happens and
+  the room only carries the notice that someone took it. Of two claims posted at the same moment, the
+  first is the reviewer and the second backs off.
 - The author merges once a review approves, CI is green and nothing conflicts.
 - A pull request stacked on another one's branch moves its base to `main` with `gh pr edit <n> --base main` before the one below merges. Deleting a branch closes every open pull request based on it, and GitHub reopens none of them.
 - The merge runs in a worktree, which is detached before it. The operator's checkout in `~/Projects/pi-harness` stays on `main`, and after the merge it pulls with `git pull --ff-only`; if it is ever detached, `git switch main` comes first. A detached checkout cannot pull, so the `pi` that loads the harness from it runs code from before the merge.
