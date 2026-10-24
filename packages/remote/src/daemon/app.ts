@@ -1,8 +1,8 @@
 // The web app the daemon serves: the files the build exported, and nothing else. The build writes
 // `files.json` next to them, and a request is answered only from that list, so a path a client makes
 // up never reaches the filesystem, and the login check (C6) asks the same list what is public.
-import { existsSync, readFileSync } from "node:fs";
-import { extname, join } from "node:path";
+import { cpSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { extname, join, relative, sep } from "node:path";
 
 import { POLICY, policyFor } from "./web.ts";
 
@@ -124,4 +124,26 @@ function patternOf(page: string): RegExp {
 
 function count(text: string, of: string): number {
 	return text.split(of).length - 1;
+}
+
+/**
+ * Puts the app's web export in `outdir/web`, with `files.json` listing every file as a path from
+ * `/`. The daemon answers only from that list, and the login check reads the same list to know what
+ * a browser may fetch before it logs in.
+ */
+export function packageWeb(exported: string, outdir: string): string[] {
+	const web = join(outdir, "web");
+	rmSync(web, { recursive: true, force: true });
+	cpSync(exported, web, { recursive: true });
+	const files = listed(web);
+	writeFileSync(join(web, FILES), `${JSON.stringify(files, null, "\t")}\n`);
+	return files;
+}
+
+/** Every file under `dir`, as a path from `/`, in a stable order. */
+function listed(dir: string): string[] {
+	return readdirSync(dir, { recursive: true, withFileTypes: true })
+		.filter((entry) => entry.isFile())
+		.map((entry) => `/${relative(dir, join(entry.parentPath, entry.name)).split(sep).join("/")}`)
+		.toSorted();
 }

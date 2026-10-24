@@ -1,0 +1,38 @@
+// The daemon's own HTTP server, serving a web export and nothing else, for the app's browser check.
+// The check then loads the app through the same routes, list and policy as a real daemon, instead of
+// a copy of them that could drift.
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { loadWebApp, packageWeb } from "./app.ts";
+import { Clients } from "./clients.ts";
+import { Sessions } from "./sessions.ts";
+
+export interface Preview {
+	url: string;
+	stop(): void;
+}
+
+/** Serves the export in `exported` on a free loopback port, with no session and no socket. */
+export async function serveExport(exported: string): Promise<Preview> {
+	const out = mkdtempSync(join(tmpdir(), "pi-remote-preview-"));
+	packageWeb(exported, out);
+	const web = loadWebApp(join(out, "web"));
+	if (web === undefined) throw new Error(`nothing to serve in ${exported}`);
+	const clients = new Clients({
+		sessions: new Sessions(),
+		version: "preview",
+		askSnapshot: () => false,
+		web,
+	});
+	const port = await clients.listen(0);
+	if (port === undefined) throw new Error("the preview found no port to listen on");
+	return {
+		url: `http://127.0.0.1:${port}/`,
+		stop: () => {
+			clients.close();
+			rmSync(out, { recursive: true, force: true });
+		},
+	};
+}
