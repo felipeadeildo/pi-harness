@@ -9,6 +9,7 @@ import { envelope, type Envelope, isObject, PROTOCOL } from "@adeildo/pi-remote-
 
 import { envelopeOf } from "../wire/lines.ts";
 import { accept, type WebSocket } from "../wire/websocket.ts";
+import { serveApp, type WebApp } from "./app.ts";
 import { type Asking, checkPlace, loopbackHosts } from "./auth.ts";
 import { History, PAGE } from "./history.ts";
 import type { Sessions } from "./sessions.ts";
@@ -23,6 +24,8 @@ export interface ClientsOptions {
 	version: string;
 	/** Asks a session's bridge for a snapshot. False when no bridge of the session is connected. */
 	askSnapshot: (session: string) => boolean;
+	/** The web app, answered for every path the data routes leave. None in a daemon built without it. */
+	web?: WebApp;
 	warn?: (message: string) => void;
 	now?: () => number;
 }
@@ -179,7 +182,12 @@ export class Clients {
 			if (opening === undefined) return reply(response, 404, { error: "no snapshot" });
 			return reply(response, 200, opening[0]);
 		}
-		reply(response, 404, { error: "not found" });
+		// The app comes after every data route, so a file named like a route can never answer for it.
+		const web = this.#options.web;
+		if (web === undefined) return reply(response, 404, { error: "not found" });
+		const served = serveApp(web, path);
+		response.writeHead(served.status, { "content-type": served.type, ...served.headers });
+		response.end(served.body);
 	}
 
 	/** A page of the session's entries, read from its file: before an entry, since one, or the tail. */

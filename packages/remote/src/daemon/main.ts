@@ -1,8 +1,27 @@
 // The entry the build turns into dist/daemon.js, one daemon per machine. A bridge starts it with
 // `detached: true` when nothing answers on the socket. It runs outside pi, so it finds the remote's
 // folder the way pi finds its own, without importing pi.
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { VERSION } from "../version.ts";
+import { FILES } from "./app.ts";
 import { CLIENT_PORT, Daemon, daemonDir, daemonPaths } from "./server.ts";
+
+/**
+ * The web app's export: next to the built daemon (`dist/web`), or, for a daemon run from `src/`, the
+ * last build's. `PI_REMOTE_WEB` points elsewhere.
+ */
+function webDir(): string | undefined {
+	const here = dirname(fileURLToPath(import.meta.url));
+	const candidates = [
+		process.env.PI_REMOTE_WEB,
+		join(here, "web"),
+		join(here, "..", "..", "dist", "web"),
+	];
+	return candidates.find((dir) => dir !== undefined && existsSync(join(dir, FILES)));
+}
 
 // Only as the entry: a module that imported this file would start a daemon in the operator's real
 // folder and port. The bundle keeps the check, as `require.main` for Node.
@@ -23,6 +42,7 @@ if (import.meta.main) {
 			version: VERSION,
 			clientPort: port,
 			stayUp: args.includes("--serve"),
+			webDir: webDir(),
 			exited: () => process.exit(0),
 			warn: (message) => console.error(`pi-remote daemon: ${message}`),
 		});

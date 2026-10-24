@@ -1,7 +1,8 @@
 // Builds the daemon and the command into one JavaScript file each. Node runs them outside pi, where
 // nothing compiles TypeScript, so every dependency goes inside and only Node's own modules stay out.
 import { spawnSync } from "node:child_process";
-import { join } from "node:path";
+import { cpSync, existsSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { join, relative, sep } from "node:path";
 
 const ENTRIES = {
 	"daemon.js": join(import.meta.dir, "src/daemon/main.ts"),
@@ -59,6 +60,41 @@ export function foreign(outside: readonly string[], builtins: ReadonlySet<string
 	return outside.filter((path) => !builtins.has(path.startsWith("node:") ? path.slice(5) : path));
 }
 
+/** The Expo app, whose web export the daemon serves. */
+const APP = join(import.meta.dir, "..", "..", "apps", "remote");
+
+/**
+ * Puts the app's web export in `outdir/web`, with `files.json` listing every file as a path from
+ * `/`. The daemon answers only from that list, and the login check reads the same list to know what
+ * a browser may fetch before it logs in.
+ */
+export function packageWeb(exported: string, outdir: string): string[] {
+	const web = join(outdir, "web");
+	rmSync(web, { recursive: true, force: true });
+	cpSync(exported, web, { recursive: true });
+	const files = listed(web);
+	writeFileSync(join(web, "files.json"), `${JSON.stringify(files, null, "\t")}\n`);
+	return files;
+}
+
+/** Every file under `dir`, as a path from `/`, in a stable order. */
+function listed(dir: string): string[] {
+	return readdirSync(dir, { recursive: true, withFileTypes: true })
+		.filter((entry) => entry.isFile())
+		.map((entry) => `/${relative(dir, join(entry.parentPath, entry.name)).split(sep).join("/")}`)
+		.toSorted();
+}
+
+/** Runs the app's web export, then packages it next to the daemon. */
+export function buildWeb(outdir: string): string[] {
+	const result = spawnSync("bun", ["run", "--cwd", APP, "export"], { stdio: "inherit" });
+	if (result.status !== 0) throw new Error("the app's web export failed");
+	const exported = join(APP, "dist");
+	if (!existsSync(join(exported, "index.html")))
+		throw new Error(`the export left no ${exported}/index.html`);
+	return packageWeb(exported, outdir);
+}
+
 if (import.meta.main) {
 	const built = await buildRemote(join(import.meta.dir, "dist"));
 	const wrong = foreign(built.outside, nodeBuiltins());
@@ -67,4 +103,5 @@ if (import.meta.main) {
 		process.exit(1);
 	}
 	for (const file of Object.values(built.files)) console.log(file);
+	console.log(`${buildWeb(join(import.meta.dir, "dist")).length} files of the web app`);
 }
