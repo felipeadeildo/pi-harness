@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { audit, distance, problemWith, sourceOf, wordsIn } from "./check.ts";
+import { audit, distance, problemWith } from "../../packages/kit/src/names/rules.ts";
+import { sourceOf, wordsIn } from "./check.ts";
 
 describe("a candidate list is held to the word list's rules", () => {
 	test("counts the edits between two words", () => {
