@@ -49,7 +49,9 @@ export async function listSessions(
 	if (!Array.isArray(body)) throw new DaemonAnswer(200, "a body that is not a list");
 	const kept = body.filter(isListed);
 	// A list with rows and none of them readable is a shape this client does not know, and an empty
-	// screen would say "no session is open", which is the opposite of what happened.
+	// screen would say "no session is open", which is the opposite of what happened. One readable row
+	// among unreadable ones is delivered alone: a newer daemon may add fields, and a list with one
+	// session is better than none.
 	if (kept.length === 0 && body.length > 0) {
 		throw new DaemonAnswer(200, "a list this client cannot read");
 	}

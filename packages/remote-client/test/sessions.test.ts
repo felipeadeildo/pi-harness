@@ -55,15 +55,16 @@ describe("the daemon's session list", () => {
 		);
 	});
 
-	test("the request can be given up on", async () => {
-		const told: (AbortSignal | undefined)[] = [];
-		const speaks = (async (_url: URL, init?: RequestInit) => {
-			told.push(init?.signal ?? undefined);
-			return new Response("[]", { status: 200 });
-		}) as unknown as typeof fetch;
+	test("the request can be given up on while it hangs", async () => {
+		// A daemon that accepts the connection and never answers: only the signal ends the wait.
+		const speaks = ((_url: URL, init?: RequestInit) =>
+			new Promise((_resolve, reject) => {
+				init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+			})) as unknown as typeof fetch;
 		const abort = new AbortController();
-		await listSessions("http://127.0.0.1:7878", speaks, { signal: abort.signal });
-		expect(told[0]).toBe(abort.signal);
+		const pending = listSessions("http://127.0.0.1:7878", speaks, { signal: abort.signal });
+		abort.abort();
+		await expect(pending).rejects.toThrow("aborted");
 	});
 
 	test("a daemon that refuses is an error that carries the code", async () => {
