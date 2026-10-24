@@ -32,9 +32,11 @@ export interface LogEventMap {
 	"session.started": { pid: number; host: string; model?: string; cwd?: string; start?: string };
 	"session.ended": Record<string, never>;
 	/**
-	 * The short name others mention it by, and the title it took it from. The names feature logs the
-	 * handle and the tasks feature logs the title, so a reader merges the two instead of letting the
-	 * last event erase the other field.
+	 * The short name others mention it by, and the title it took it from. Two writers and a reader
+	 * that merges them field by field, so an absent field means "unchanged" and not "erased": the
+	 * names feature logs the handle, and the tasks logs the title always, plus the handle it was
+	 * given once, because a session from before the list carries a handle that no event has ever
+	 * carried. That one write is a backfill, not a leftover.
 	 */
 	"session.named": { handle?: string; title?: string };
 	"session.state": { state: SessionState };
