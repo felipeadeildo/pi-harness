@@ -94,7 +94,7 @@ export class Sessions {
 
 	/** How many sessions have a connected bridge. */
 	connected(): number {
-		return this.list().filter((state) => state.connected && state.gone === undefined).length;
+		return this.list().filter((state) => state.connected).length;
 	}
 
 	/**
@@ -126,21 +126,27 @@ export class Sessions {
 		return state;
 	}
 
-	/** An event of a registered session: reduced into its facts, and kept for replay unless ephemeral. */
-	event(envelope: Envelope): void {
+	/**
+	 * An event of a registered session: reduced into its facts, and kept for replay unless ephemeral.
+	 * Returns why it was dropped, for the daemon's log.
+	 */
+	event(envelope: Envelope): string | undefined {
 		const entry = this.#entries.get(envelope.session ?? "");
-		if (entry === undefined || entry.state.epoch !== envelope.epoch) return;
+		if (entry === undefined) return "an event for a session no bridge registered";
+		if (entry.state.epoch !== envelope.epoch) return "an event from another life of the session";
 		if (envelope.type === "snapshot") {
-			if (isSnapshotEvent(envelope.data)) this.#rebase(entry, envelope.data, envelope.seq);
-			return;
+			if (!isSnapshotEvent(envelope.data)) return "a snapshot that does not read";
+			this.#rebase(entry, envelope.data, envelope.seq);
+			return undefined;
 		}
 		entry.state.facts = reduceFact(entry.state.facts, envelope.type, envelope.data);
-		if (EPHEMERAL.has(envelope.type) || envelope.seq === undefined) return;
+		if (EPHEMERAL.has(envelope.type) || envelope.seq === undefined) return undefined;
 		const bytes = JSON.stringify(envelope).length;
 		entry.replay.push({ envelope, bytes });
 		entry.bytes += bytes;
 		this.#bytes += bytes;
 		this.#evict();
+		return undefined;
 	}
 
 	/** Its bridge's socket closed without saying the session ended. */

@@ -1,8 +1,16 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	rmSync,
+	statSync,
+	utimesSync,
+	writeFileSync,
+} from "node:fs";
 import { connect, createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { envelope, type Envelope, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
@@ -11,7 +19,7 @@ import { daemonDir } from "../src/daemon/main.ts";
 import { Daemon, type ExitReason, newer } from "../src/daemon/server.ts";
 import { Sessions } from "../src/daemon/sessions.ts";
 import { envelopeOf, line, Lines } from "../src/wire/lines.ts";
-import { until } from "./fake-daemon.ts";
+import { until } from "./fakes.ts";
 
 let dir: string;
 let socket: string;
@@ -42,6 +50,18 @@ async function openDaemon(
 	});
 	if (started !== undefined) running.push(started);
 	return { daemon: started, exits };
+}
+
+/** Whether something answers on the socket. */
+function reachable(): Promise<boolean> {
+	return new Promise((resolve) => {
+		const client = connect(socket);
+		client.once("connect", () => {
+			client.destroy();
+			resolve(true);
+		});
+		client.once("error", () => resolve(false));
+	});
 }
 
 /** A real bridge, as pi runs it, that registers its session once the daemon answers. */
@@ -203,6 +223,38 @@ describe("the daemon on its socket", () => {
 		expect(third.daemon).toBeDefined();
 	});
 
+	test("two daemons that start together on a dead socket leave one listening", async () => {
+		mkdirSync(dirname(socket), { recursive: true });
+		writeFileSync(socket, "");
+		const both = await Promise.all([openDaemon(), openDaemon(), openDaemon()]);
+		expect(both.filter((one) => one.daemon !== undefined)).toHaveLength(1);
+		expect(await reachable()).toBe(true);
+	});
+
+	test("a dead socket is taken by the one daemon that holds the takeover lock", async () => {
+		mkdirSync(dirname(socket), { recursive: true });
+		writeFileSync(socket, "");
+		// Another daemon is taking it over right now: this one leaves the file alone.
+		writeFileSync(`${socket}.lock`, "");
+		expect((await openDaemon()).daemon).toBeUndefined();
+		expect(statSync(socket).size).toBe(0);
+		// A lock that old was left by a daemon that died while taking over.
+		const old = new Date(Date.now() - 60_000);
+		utimesSync(`${socket}.lock`, old, old);
+		expect((await openDaemon()).daemon).toBeDefined();
+		expect(existsSync(`${socket}.lock`)).toBe(false);
+	});
+
+	test("a daemon that stops leaves alone a socket another daemon bound since", async () => {
+		const first = await openDaemon();
+		rmSync(socket);
+		const second = await openDaemon();
+		expect(second.daemon).toBeDefined();
+		first.daemon?.stop();
+		await until(() => first.exits.length === 1);
+		expect(await reachable()).toBe(true);
+	});
+
 	test("with no session connected it exits, and a session going live stops the clock", async () => {
 		const quiet = await openDaemon({ idleExitMs: 50 });
 		await until(() => quiet.exits.length === 1);
@@ -271,6 +323,24 @@ describe("the replay buffer", () => {
 		sessions.live(event(0, "e2"), live);
 		expect(sessions.after("s1", { epoch: "e1", seq: 3 })).toBeUndefined();
 		expect(sessions.after("s1", { epoch: "e2", seq: -1 })).toEqual([]);
+	});
+});
+
+describe("a session's events", () => {
+	const live = { pid: 1, startedAt: 1, cwd: "/", kind: "terminal" as const };
+
+	test("count only for the epoch that registered, and each drop says why", () => {
+		const sessions = new Sessions();
+		const mode = (value: string, epoch: string) =>
+			envelope("event", "mode.changed", { mode: value }, { ...ORIGIN, epoch, seq: 1 });
+		expect(sessions.event(mode("full", "e1"))).toBe("an event for a session no bridge registered");
+		sessions.live(envelope("event", "session.live", live, ORIGIN), live);
+		expect(sessions.event(mode("full", "e0"))).toBe("an event from another life of the session");
+		expect(sessions.get("s1")?.facts.mode).toBeUndefined();
+		expect(sessions.event(mode("judge", "e1"))).toBeUndefined();
+		expect(sessions.get("s1")?.facts.mode).toBe("judge");
+		const unread = envelope("event", "snapshot", { entries: [] }, { ...ORIGIN, seq: 2 });
+		expect(sessions.event(unread)).toBe("a snapshot that does not read");
 	});
 });
 
