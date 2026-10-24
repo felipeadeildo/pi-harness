@@ -73,7 +73,10 @@ function isListed(value: unknown): value is ListedSession {
 		typeof live.startedAt === "number" &&
 		typeof live.cwd === "string" &&
 		(live.kind === "terminal" || live.kind === "background") &&
+		// The facts are typed with both collections, so a row that omits one is not this shape.
 		isObject(value.facts) &&
+		isObject(value.facts.asks) &&
+		isObject(value.facts.rulings) &&
 		// The snapshot is the shape the rest of the package draws from, so it is the protocol's call.
 		(value.snapshot === undefined || isSnapshot(value.snapshot))
 	);
@@ -92,11 +95,7 @@ export function stateOf(session: ListedSession): string {
  */
 export function wantsYou(session: ListedSession): boolean {
 	const state = stateOf(session);
-	if (state === "blocked" || state === "error") return true;
-	// A daemon that lists a session before it reduced a log sends no `asks`; that is "nobody asked",
-	// not a reason to throw inside a render.
-	const asks = (session.facts as Partial<SessionFacts>).asks;
-	return isObject(asks) && openAsks({ rulings: {}, asks: session.facts.asks }).length > 0;
+	return state === "blocked" || state === "error" || openAsks(session.facts).length > 0;
 }
 
 /** The ones that need you, then the running ones, then what ended. Ties broken by identity. */

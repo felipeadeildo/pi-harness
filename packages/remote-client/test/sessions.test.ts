@@ -75,6 +75,8 @@ describe("the daemon's session list", () => {
 			row({ live: { ...live, cwd: 1 } }),
 			row({ live: { ...live, kind: "remote" } }),
 			row({ facts: "none" }),
+			row({ facts: {} }),
+			row({ facts: { asks: {} } }),
 			row({ snapshot: { session: "s1" } }),
 		];
 		const sessions = await listSessions("http://127.0.0.1:7878", answering([...broken, row()]));
