@@ -177,6 +177,52 @@ describe("being here", () => {
 	});
 });
 
+describe("who is open, asked on every drawing", () => {
+	test("checks the processes once, until the folder changes or a second goes by", () => {
+		let checked = 0;
+		const { here } = session("a", undefined, true, () => {
+			checked++;
+			return true;
+		});
+		const b = session("b");
+		here.sync();
+		// A new second, so the first of the hundred asks works it out and the rest reuse it.
+		now += 1_000;
+		checked = 0;
+		for (let i = 0; i < 100; i++) {
+			here.live();
+			here.names();
+		}
+		expect(checked).toBe(2);
+		expect(here.names()).toBe(here.names());
+
+		name(b.here, "migration");
+		here.sync();
+		checked = 0;
+		expect(here.names().get("b")?.handle).toBe("migration");
+		expect(checked).toBeLessThanOrEqual(2);
+		const after = checked;
+
+		now += 999 - (now % 1_000);
+		here.live();
+		expect(checked).toBe(after);
+		now += 1;
+		here.live();
+		expect(checked).toBe(after + 2);
+	});
+
+	test("a session that died without a word is gone within a second", () => {
+		let open = true;
+		const { here } = session("a", undefined, true, (pid) => pid === process.pid && open);
+		session("b");
+		here.sync();
+		expect(here.live()).toHaveLength(2);
+		open = false;
+		now += 1_000;
+		expect(here.live()).toHaveLength(0);
+	});
+});
+
 describe("a message", () => {
 	test("from an agent wakes an idle one, and attaches to a busy one between its calls", () => {
 		const a = session("a");
