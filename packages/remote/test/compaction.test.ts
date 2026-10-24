@@ -2,6 +2,12 @@
 // summary, and the message has to reach pi after the compaction, not sit in the bridge's queue until
 // the next run. The two timestamps are pi's own, from its branch: the compaction entry, and the user
 // message that carried the follow-up.
+//
+// What this does not separate: a send that escaped the compaction entirely would reach pi while it is
+// idle and still land after the summary, so `t2 > t1` alone cannot tell the queue from a race won. The
+// model writing at ten tokens a second covers it in practice; the assertion that proves it waits —
+// the letter in the bridge's queue while `compacting` is pending — arrives with the queue in the
+// session state.
 import { afterEach, beforeEach, expect, setDefaultTimeout, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -19,7 +25,9 @@ import { clientOf, until } from "./fakes.ts";
 import { logIn } from "./login.ts";
 
 // A real pi, a summary streaming in and a round trip over the socket: seconds, not milliseconds.
-setDefaultTimeout(20_000);
+// The typical pass is 2.5 s; the failure the mutant produces waits out `SLOW`, which is why the
+// ceiling is twice `SLOW` rather than the 5 s the suite uses by default.
+setDefaultTimeout(30_000);
 
 let root = "";
 let rig: Rig | undefined;
@@ -71,8 +79,8 @@ async function openRig(): Promise<Rig> {
 	return opened;
 }
 
-/** How long a real pi, a summary and a round trip may take on a loaded runner. */
-const SLOW = 10_000;
+/** How long a real pi, a summary and a round trip may take on a loaded runner: six times the pass. */
+const SLOW = 15_000;
 
 interface BranchEntry {
 	type: string;
