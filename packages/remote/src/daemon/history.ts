@@ -4,8 +4,8 @@
 //
 // The daemon keeps an index of each file a client paged: where each entry's line is and its parent,
 // never the entries. The first page of a file builds it, a later one reads only what the file gained,
-// and a page then reads its own lines. All of it is asynchronous and yields while it parses, so a
-// long session never holds up the bridges and the other clients.
+// and a page then reads its own lines. It reads in chunks of 256 KB and yields after each, so a long
+// session neither holds up the bridges and the other clients nor costs memory the size of its file.
 import { type FileHandle, open } from "node:fs/promises";
 
 /** A page is at most this many entries, and a client asks for fewer when it needs fewer. */
@@ -14,8 +14,8 @@ export const PAGE = 200;
 /** The files indexed at once. Past it, the one paged longest ago is dropped and built again if asked. */
 export const FILES = 16;
 
-/** Lines parsed between two yields to the event loop while an index is built. */
-const LINES_PER_TURN = 2_000;
+/** Bytes read and parsed between two yields to the event loop while an index is built. */
+const CHUNK = 256 * 1024;
 
 /** An entry of a session file: everything pi wrote, with the two fields a page walks. */
 export interface FileEntry {
@@ -130,22 +130,36 @@ async function stillHolds(file: FileHandle, index: Index): Promise<boolean> {
 
 /** Reads the lines the file gained since the index was last brought up to date. */
 async function extend(file: FileHandle, index: Index, size: number): Promise<void> {
-	if (size <= index.size) return;
-	const buffer = Buffer.alloc(size - index.size);
-	await file.read(buffer, 0, buffer.length, index.size);
-	const last = buffer.lastIndexOf(0x0a);
-	// A line still being written waits for the next page.
-	if (last === -1) return;
-	let from = 0;
-	let parsed = 0;
-	while (from <= last) {
-		const end = buffer.indexOf(0x0a, from);
-		const text = buffer.subarray(from, end).toString("utf8");
-		addLine(index, text, index.size + from, end - from);
-		from = end + 1;
-		if (++parsed % LINES_PER_TURN === 0) await new Promise((resolve) => setImmediate(resolve));
+	// In chunks, so neither the memory nor a stall of the loop grows with the file.
+	let carry = Buffer.alloc(0);
+	let at = index.size;
+	while (at < size) {
+		const chunk = Buffer.alloc(Math.min(CHUNK, size - at));
+		// oxlint-disable-next-line no-await-in-loop -- one chunk after the other, in file order
+		const { bytesRead } = await file.read(chunk, 0, chunk.length, at);
+		if (bytesRead === 0) break;
+		at += bytesRead;
+		const buffer =
+			carry.length === 0
+				? chunk.subarray(0, bytesRead)
+				: Buffer.concat([carry, chunk.subarray(0, bytesRead)]);
+		const last = buffer.lastIndexOf(0x0a);
+		if (last === -1) {
+			carry = buffer;
+			continue;
+		}
+		let from = 0;
+		while (from <= last) {
+			const end = buffer.indexOf(0x0a, from);
+			addLine(index, buffer.subarray(from, end).toString("utf8"), index.size + from, end - from);
+			from = end + 1;
+		}
+		index.size += last + 1;
+		carry = Buffer.from(buffer.subarray(last + 1));
+		// oxlint-disable-next-line no-await-in-loop -- the yield is the point
+		await new Promise((resolve) => setImmediate(resolve));
 	}
-	index.size += last + 1;
+	// What is left after the last line break is a line still being written, read on the next page.
 }
 
 function addLine(index: Index, text: string, start: number, length: number): void {
