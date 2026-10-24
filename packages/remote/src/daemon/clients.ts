@@ -5,7 +5,14 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import { envelope, type Envelope, isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
+import {
+	type By,
+	envelope,
+	type Envelope,
+	isBy,
+	isObject,
+	PROTOCOL,
+} from "@adeildo/pi-remote-protocol";
 
 import { envelopeOf } from "../wire/lines.ts";
 import { accept, type WebSocket } from "../wire/websocket.ts";
@@ -47,6 +54,15 @@ export class Clients {
 	readonly #started: number;
 	/** Each session's clients, which every event of the session goes to. */
 	readonly #watchers = new Map<string, Set<WebSocket>>();
+	/**
+	 * Who each socket is, by session: the name and machine its hello gave, and who had the latest input.
+	 * A socket with no name is watching but cannot be told from another person, so it is not a viewer.
+	 */
+	readonly #presence = new Map<WebSocket, By>();
+	/** The socket whose input came last, per session: the one a tap or a key on it would come from. */
+	readonly #latest = new Map<string, WebSocket>();
+	/** What each session last told its clients, so an unchanged presence is not said twice. */
+	readonly #announced = new Map<string, string>();
 	readonly #sockets = new Set<WebSocket>();
 	readonly #history = new History();
 	/** Who asked for each command in flight, by session and id, so the answer goes back to it alone. */
@@ -104,7 +120,7 @@ export class Clients {
 	forward(message: Envelope): void {
 		const watchers = this.#watchers.get(message.session ?? "");
 		if (watchers === undefined) return;
-		const out = message.type === "snapshot" ? this.#options.sessions.withFacts(message) : message;
+		const out = message.type === "snapshot" ? this.#withPresence(message) : message;
 		for (const ws of watchers) this.#send(ws, out);
 	}
 
@@ -119,9 +135,14 @@ export class Clients {
 			closed: () => {
 				this.#sockets.delete(ws);
 				for (const [session, watchers] of this.#watchers) {
-					watchers.delete(ws);
+					const was = watchers.delete(ws);
 					// A session nobody watches leaves no entry, whether it ended or never came.
 					if (watchers.size === 0) this.#watchers.delete(session);
+					if (was) this.#announcePresence(session);
+				}
+				this.#presence.delete(ws);
+				for (const [session, latest] of this.#latest) {
+					if (latest === ws) this.#latest.delete(session);
 				}
 				// Its commands will never be answered, so nothing keeps a place for them.
 				for (const [wasAsked, asker] of this.#asked) {
@@ -145,6 +166,8 @@ export class Clients {
 		let watchers = this.#watchers.get(session);
 		if (watchers === undefined) this.#watchers.set(session, (watchers = new Set()));
 		watchers.add(ws);
+		const by = byOf(message.data);
+		if (by !== undefined) this.#presence.set(ws, by);
 		if (sessions.get(session) === undefined) {
 			// Not an end: the client keeps watching, and the bridge's first snapshot reaches it.
 			this.#send(ws, envelope("error", "hello", { reason: "waiting for the session", session }));
@@ -156,10 +179,13 @@ export class Clients {
 		const catchUp = missed ?? sessions.opening(session);
 		if (catchUp !== undefined) {
 			for (const event of catchUp) this.#send(ws, event);
+			// After the catch-up, so a client reads its state first and the people watching second.
+			this.#announcePresence(session);
 			return;
 		}
 		if (!this.#options.askSnapshot(session))
 			this.#send(ws, envelope("error", "hello", { reason: "no snapshot yet", session }));
+		this.#announcePresence(session);
 	}
 
 	/**
@@ -175,6 +201,13 @@ export class Clients {
 				envelope("error", message.type, { reason: "a command needs an id" }, { session }),
 			);
 			return;
+		}
+		// A command is input, so the client that sent it is the one the session answers now.
+		const by = message.by;
+		if (by !== undefined && this.#watchers.get(session)?.has(ws) === true) {
+			this.#presence.set(ws, by);
+			this.#latest.set(session, ws);
+			this.#announce(session);
 		}
 		const wasAsked = `${session}\n${id}`;
 		// An id already in flight is refused here, so the client that asked first keeps its answer:
@@ -203,6 +236,48 @@ export class Clients {
 				{ session, id },
 			),
 		);
+	}
+
+	/** A snapshot with who has the session open, which the daemon knows and the bridge does not. */
+	#withPresence(message: Envelope): Envelope {
+		const withFacts = this.#options.sessions.withFacts(message);
+		if (!isObject(withFacts.data) || !isObject(withFacts.data.snapshot)) return withFacts;
+		const snapshot = { ...withFacts.data.snapshot, ...this.#presenceOf(message.session ?? "") };
+		return { ...withFacts, data: { ...withFacts.data, snapshot } };
+	}
+
+	/** Tells everyone watching a session who has it open, and who had the latest input. */
+	#announcePresence(session: string): void {
+		this.#announce(session);
+	}
+
+	#announce(session: string): void {
+		const presence = this.#presenceOf(session);
+		// Nobody to name is nothing to say, and a watcher that named nobody changed nothing.
+		if (presence.viewers.length === 0) {
+			this.#announced.delete(session);
+			return;
+		}
+		const said = JSON.stringify(presence);
+		if (this.#announced.get(session) === said) return;
+		this.#announced.set(session, said);
+		for (const ws of this.#watchers.get(session) ?? []) {
+			this.#send(ws, envelope("event", "presence.changed", presence, { session }));
+		}
+	}
+
+	/** The viewers of a session, and the one whose input came last, both read from the sockets. */
+	#presenceOf(session: string): { viewers: { name: string; machine: string }[]; active?: By } {
+		const viewers: { name: string; machine: string }[] = [];
+		let active: By | undefined;
+		for (const ws of this.#watchers.get(session) ?? []) {
+			const by = this.#presence.get(ws);
+			if (by === undefined) continue;
+			if (!viewers.some((one) => one.name === by.name && one.machine === by.machine))
+				viewers.push({ name: by.name, machine: by.machine });
+			if (this.#latest.get(session) === ws) active = by;
+		}
+		return active === undefined ? { viewers } : { viewers, active };
 	}
 
 	/** A bridge's answer to a command, to the client that asked, and to nobody else. */
@@ -410,6 +485,12 @@ function decoded(part: string): string | undefined {
 function reply(response: ServerResponse, status: number, body: unknown): void {
 	response.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" });
 	response.end(JSON.stringify(body));
+}
+
+/** Who a client says it is, from the hello that opens its stream. */
+function byOf(data: unknown): By | undefined {
+	const by = isObject(data) ? data.by : undefined;
+	return isBy(by) ? by : undefined;
 }
 
 /** The live part of a client's cursor, when it has one. */
