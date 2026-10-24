@@ -14,9 +14,20 @@ export function tokenOf(hash: string): string | undefined {
 	return token === null || token === "" ? undefined : token;
 }
 
+/**
+ * A URL without its fragment, and with its query kept: our own routes carry `?since=` and `?limit=`,
+ * which a report may need, while the login rides in the fragment by design. Anything that serializes
+ * a URL for the outside world passes it through here, including the navigation timing entry, whose
+ * `name` keeps the whole URL from the start of the load and is not cleaned by `replaceState`.
+ */
+export function withoutFragment(url: string): string {
+	const at = url.indexOf("#");
+	return at === -1 ? url : url.slice(0, at);
+}
+
 /** The address without the token: the fragment goes, and so does the login it carried. */
 export function withoutToken(location: { pathname: string; search: string; hash: string }): string {
-	return `${location.pathname}${location.search}`;
+	return withoutFragment(`${location.pathname}${location.search}${location.hash}`);
 }
 
 export interface LoggedIn {

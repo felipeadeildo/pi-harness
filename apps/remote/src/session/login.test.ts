@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 
 import { memoryCache } from "@adeildo/pi-remote-client";
 
-import { type Exchange, logIn, tokenOf, withoutToken } from "./login.ts";
+import { type Exchange, logIn, tokenOf, withoutFragment, withoutToken } from "./login.ts";
 
 function exchange(answer: { ok: boolean; status: number }): Exchange & { asked: string[] } {
 	const asked: string[] = [];
@@ -38,6 +38,12 @@ describe("the token in a link", () => {
 
 	test("leaves the address without touching the path or the query", () => {
 		expect(withoutToken(at("#token=abc"))).toBe("/session/box/s1?x=1");
+	});
+
+	test("a URL for the outside world loses the fragment and keeps the query", () => {
+		expect(withoutFragment("https://h/a?x=1#token=t")).toBe("https://h/a?x=1");
+		expect(withoutFragment("https://h/a?since=7&limit=2")).toBe("https://h/a?since=7&limit=2");
+		expect(withoutFragment("https://h/a")).toBe("https://h/a");
 	});
 });
 
