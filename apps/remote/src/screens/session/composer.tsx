@@ -1,19 +1,23 @@
 import type { Client, Outgoing } from "@adeildo/pi-remote-client";
-import type { CommandType, PermissionMode } from "@adeildo/pi-remote-protocol";
+import {
+	type CommandType,
+	type PermissionMode,
+	THINKING_LEVELS,
+} from "@adeildo/pi-remote-protocol";
 // The controls under the transcript: send a prompt, steer or follow up, abort, pick the model and the
 // thinking, compact, rename, stop. It reads the session and the outbox from the client it is given,
 // so the screen says what the queue says and never guesses.
 //
-// Two halves are held back on purpose: sending and draining the queue need the inbox slice to be
-// served (until then the daemon refuses them), so they render disabled with the reason beside them
-// instead of failing on the first click.
+// The pickers show where the session stands rather than a guess: what the snapshot says is the
+// selected mode, thinking level and model, so the screen never draws the first item of a list as if
+// the session were on it.
 import { type ReactNode, createElement as h, useEffect, useState } from "react";
 
 export interface ComposerProps {
 	/** The connection this session is drawn from, which is also where commands go. */
 	client: Client;
-	/** Whether the daemon serves prompts and the queue yet. */
-	canPrompt: boolean;
+	/** The permission mode the session is on now, as the snapshot says. */
+	mode?: PermissionMode;
 	/** The model and thinking the session is on, as the snapshot says. */
 	model?: { provider: string; id: string };
 	thinking?: string;
@@ -24,10 +28,7 @@ export interface ComposerProps {
 /** The three modes a client may set: `full` runs everything unasked, so only a terminal may choose it. */
 export const CLIENT_MODES: readonly PermissionMode[] = ["manual", "edits", "judge"];
 
-/** pi's seven levels, in its own order: a session on `max` has to find itself in the list. */
-const THINKING = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
-
-export function Composer({ client, canPrompt, model, thinking, ask }: ComposerProps): ReactNode {
+export function Composer({ client, mode, model, thinking, ask }: ComposerProps): ReactNode {
 	// The queue changes without the session changing, so the composer hears the client itself.
 	// Reading `outbox()` once per render makes "drawn by state" true at the mount and a lie after.
 	const [, redraw] = useState(0);
@@ -51,17 +52,15 @@ export function Composer({ client, canPrompt, model, thinking, ask }: ComposerPr
 	return h(
 		"section",
 		{ className: "remote-composer" },
-		promptRow(client, canPrompt, send, draft, write),
+		promptRow(send, draft, write),
 		controls(send),
-		pickers(send, model, thinking),
+		pickers(send, mode, model, thinking),
 		ask === undefined ? null : naming(send, ask),
 		queueNode(queue, client, held),
 	);
 }
 
 function promptRow(
-	client: Client,
-	canPrompt: boolean,
 	send: (type: CommandType, data: unknown) => void,
 	draft: string,
 	write: (text: string) => void,
@@ -72,7 +71,7 @@ function promptRow(
 		send("prompt.send", { text, deliverAs });
 		write("");
 	};
-	const empty = !canPrompt || draft.trim() === "";
+	const empty = draft.trim() === "";
 	return h(
 		"div",
 		{ className: "remote-composer-row" },
@@ -80,16 +79,12 @@ function promptRow(
 			type: "text",
 			name: "prompt",
 			value: draft,
-			placeholder: canPrompt ? "Write to the session" : "Prompts need the inbox slice",
-			disabled: !canPrompt,
+			placeholder: "Write to the session",
 			"aria-label": "Prompt",
 			onChange: (event: { target: { value: string } }) => write(event.target.value),
 		}),
 		h("button", { type: "button", disabled: empty, onClick: () => take("followUp") }, "Send"),
 		h("button", { type: "button", disabled: empty, onClick: () => take("steer") }, "Steer now"),
-		canPrompt
-			? null
-			: h("span", { className: "remote-composer-why" }, "waiting for the inbox slice"),
 	);
 }
 
@@ -107,6 +102,7 @@ function controls(send: (type: CommandType, data: unknown) => void): ReactNode {
 
 function pickers(
 	send: (type: CommandType, data: unknown) => void,
+	mode: PermissionMode | undefined,
 	model: { provider: string; id: string } | undefined,
 	thinking: string | undefined,
 ): ReactNode {
@@ -118,6 +114,9 @@ function pickers(
 			{
 				name: "mode",
 				"aria-label": "Permission mode",
+				// Without a value React draws the first option, which would say "manual" for a session
+				// that is in `judge`: the snapshot's mode is what the select starts on.
+				value: mode ?? "manual",
 				onChange: (event: { target: { value: string } }) => {
 					const mode = CLIENT_MODES.find((one) => one === event.target.value);
 					if (mode !== undefined) send("mode.set", { mode });
@@ -139,7 +138,7 @@ function pickers(
 				onChange: (event: { target: { value: string } }) =>
 					send("thinking.set", { level: event.target.value }),
 			},
-			...THINKING.map((level) =>
+			...THINKING_LEVELS.map((level) =>
 				h("option", { key: level, value: level, selected: level === thinking }, level),
 			),
 		),

@@ -29,6 +29,8 @@ export {
 	type SessionTasks,
 	type Task,
 	type TaskStatus,
+	THINKING_LEVELS,
+	type ThinkingLevel,
 	type WaitingOn,
 } from "./facts.ts";
 export {

@@ -31,44 +31,40 @@ const draw = (props: Parameters<typeof Composer>[0]): string =>
 	renderToStaticMarkup(createElement(Composer, props));
 
 describe("the composer", () => {
-	test("the prompt is disabled with the reason, when the daemon does not serve it", () => {
+	test("the prompt is writable, and the buttons wait for a draft", () => {
 		const { client } = clientOf();
-		const html = draw({ client, canPrompt: false });
-		expect(html).toContain("Prompts need the inbox slice");
-		expect(html).toContain("waiting for the inbox slice");
-		expect(html).toContain("disabled");
-	});
-
-	test("with the inbox slice served, the buttons wait for a draft instead of a flag", () => {
-		const { client } = clientOf();
-		const html = draw({ client, canPrompt: true });
-		expect(html).not.toContain("waiting for the inbox slice");
-		// Nothing typed yet, so nothing to send: the button is off for a reason the person controls.
-		expect(html).toContain("disabled");
+		const html = draw({ client });
+		// No plan text: the slice is served, so the composer is the thing itself.
+		expect(html).not.toContain("inbox slice");
+		// The input is writable, and only the buttons wait, and they wait for a draft.
+		expect(html).toContain('aria-label="Prompt"');
+		expect(html).not.toContain(
+			'<input type="text" placeholder="Write to the session" aria-label="Prompt" name="prompt" value="" disabled',
+		);
 	});
 
 	test("the thinking picker carries every level pi offers, so a session on max is not blank", () => {
 		const { client } = clientOf();
-		const html = draw({ client, canPrompt: true, thinking: "max" });
+		const html = draw({ client, thinking: "max" });
 		for (const level of ["off", "minimal", "low", "medium", "high", "xhigh", "max"])
 			expect(html).toContain(`>${level}</option>`);
 	});
 
 	test("the controls that the daemon serves are there", () => {
 		const { client } = clientOf();
-		const html = draw({ client, canPrompt: true, ask: () => undefined });
+		const html = draw({ client, ask: () => undefined });
 		for (const label of ["Abort", "Compact", "Stop", "Rename"]) expect(html).toContain(label);
 	});
 
 	test("rename is only there when the screen can ask for a name", () => {
 		const { client } = clientOf();
-		expect(draw({ client, canPrompt: true })).not.toContain("Rename");
-		expect(draw({ client, canPrompt: true, ask: () => "the rig" })).toContain("Rename");
+		expect(draw({ client })).not.toContain("Rename");
+		expect(draw({ client, ask: () => "the rig" })).toContain("Rename");
 	});
 
 	test("the mode picker never offers the full mode, which only a terminal may set", () => {
 		const { client } = clientOf();
-		const html = draw({ client, canPrompt: true });
+		const html = draw({ client });
 		expect(CLIENT_MODES).toEqual(["manual", "edits", "judge"]);
 		expect(html).not.toContain(">full<");
 	});
@@ -85,7 +81,7 @@ describe("the composer", () => {
 				why: "a client cannot ask for the full mode",
 			},
 		]);
-		const html = draw({ client, canPrompt: true });
+		const html = draw({ client });
 		expect(html).toContain("sent, no answer yet");
 		expect(html).toContain("refused: a client cannot ask for the full mode");
 	});
@@ -94,7 +90,7 @@ describe("the composer", () => {
 		const late: Outgoing = { id: "c1", type: "prompt.send", data: {}, at: 0, state: "waiting" };
 		const recent: Outgoing = { id: "c2", type: "run.abort", data: {}, at: 0, state: "waiting" };
 		const { client } = clientOf([late, recent], [late]);
-		const html = draw({ client, canPrompt: true });
+		const html = draw({ client });
 		// Both states are `waiting`-free: one is waiting (so it can go or be dropped), the other is
 		// already out (so there is nothing to decide).
 		expect(html).toContain("Send now");

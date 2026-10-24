@@ -24,7 +24,13 @@ export default function SessionRoute() {
 				All sessions
 			</Link>
 			<SessionScreen session={session} />
-			<Composer client={client} canPrompt />
+			{/* What the session is on now, so the pickers start where the session stands. */}
+			<Composer
+				client={client}
+				mode={session.snapshot?.mode}
+				model={session.snapshot?.model}
+				thinking={session.snapshot?.thinkingLevel}
+			/>
 		</View>
 	);
 }
