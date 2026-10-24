@@ -224,6 +224,37 @@ describe("a client of a session", () => {
 		client.stop();
 	});
 
+	test("a delta with no number between two numbered events asks for nothing and moves no cursor", async () => {
+		const cache = memoryCache();
+		await cache.write({ key, cursor: { epoch: "e1", seq: 1 }, entries: [], facts: [] });
+		const hellos: Envelope[] = [];
+		const { seq: _seq, ...unnumbered } = snapshot;
+
+		const client = connect({
+			key,
+			cache,
+			open: (onMessage) => ({
+				send: (hello) => {
+					hellos.push(hello);
+					if (hellos.length > 1) return;
+					// The bridge numbers what a replay can give back, and a delta only matters live.
+					onMessage({ ...snapshot, seq: 2, type: "mode.changed", data: { mode: "edits" } });
+					onMessage({ ...unnumbered, type: "pi.message_update", data: { delta: "Hel" } });
+					onMessage({ ...snapshot, seq: 3, type: "mode.changed", data: { mode: "manual" } });
+				},
+				close: () => {},
+			}),
+			wait: () => () => {},
+		});
+
+		await client.load();
+
+		expect(hellos).toHaveLength(1);
+		expect(client.session().cursor).toMatchObject({ epoch: "e1", seq: 3 });
+		expect(factsOf(client.session()).mode).toBe("manual");
+		client.stop();
+	});
+
 	test("a hole in the numbering asks for a snapshot instead of drawing what comes next", async () => {
 		const cache = memoryCache();
 		await cache.write({ key, cursor: { epoch: "e1", seq: 1 }, entries: [], facts: [] });
