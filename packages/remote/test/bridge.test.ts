@@ -269,6 +269,78 @@ describe("the bridge", () => {
 		running = false;
 	});
 
+	test("a follow-up held through a compaction goes in when the compaction ends, not before", async () => {
+		// pi is compacting: it is not idle, no run settles, and a send during it throws.
+		running = true;
+		const daemon = await listening();
+		const fake = mounted();
+		const ctx = session();
+		await start(fake, ctx);
+		await until(() => types(daemon).includes("snapshot"));
+		daemon.sockets[0]?.write(
+			line(
+				envelope(
+					"command",
+					"prompt.send",
+					{ text: "typing while it compacts" },
+					{
+						machine: HOST,
+						session: "s1",
+						epoch: "e1",
+						id: "p3",
+						by: { kind: "client", name: "phone", machine: HOST },
+					},
+				),
+			),
+		);
+		await until(() => daemon.received.some((one) => one.kind === "reply" && one.id === "p3"));
+		expect(fake.userMessages).toEqual([]);
+		// pi emits the event and only then clears the flag, on the same turn of the loop: a drain inside
+		// the handler would still see it compacting, so the queue waits for the next turn.
+		setTimeout(() => {
+			running = false;
+		}, 0);
+		await fake.fire("session_compact", { type: "session_compact", aborted: false }, ctx);
+		await until(() => fake.userMessages.length === 1);
+		expect(fake.userMessages).toEqual(["typing while it compacts"]);
+	});
+
+	test("a compaction that failed drains the queue too, as a run that ends would", async () => {
+		running = true;
+		const daemon = await listening();
+		const fake = mounted();
+		const ctx = session();
+		await start(fake, ctx);
+		await until(() => types(daemon).includes("snapshot"));
+		daemon.sockets[0]?.write(
+			line(
+				envelope(
+					"command",
+					"prompt.send",
+					{ text: "after the failed compaction" },
+					{
+						machine: HOST,
+						session: "s1",
+						epoch: "e1",
+						id: "p4",
+						by: { kind: "client", name: "phone", machine: HOST },
+					},
+				),
+			),
+		);
+		await until(() => daemon.received.some((one) => one.kind === "reply" && one.id === "p4"));
+		setTimeout(() => {
+			running = false;
+		}, 0);
+		await fake.fire(
+			"session_compact_failed",
+			{ type: "session_compact_failed", aborted: true },
+			ctx,
+		);
+		await until(() => fake.userMessages.length === 1);
+		expect(fake.userMessages).toEqual(["after the failed compaction"]);
+	});
+
 	test("a prompt into an idle session goes in at once, since nothing can settle", async () => {
 		const daemon = await listening();
 		const fake = mounted();
