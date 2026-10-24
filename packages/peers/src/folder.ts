@@ -6,6 +6,7 @@ import {
 	type Lives,
 	type LoggedEvent,
 	type RoomActivity,
+	type RoomMode,
 	type SessionTasks,
 	tasksWith,
 } from "@adeildo/pi-kit";
@@ -72,6 +73,18 @@ export function reaches(message: Posted, session: string): boolean {
 }
 
 /**
+ * Whether a session standing in `mode` takes this message. Taking part takes what `reaches` says;
+ * listening takes only what names the session, and nothing addressed to the room, because
+ * `@everyone` and `@anyone` are addresses of the ones taking part; out takes nothing.
+ */
+export function receivesFor(mode: RoomMode, message: Posted, session: string): boolean {
+	if (mode === "out") return false;
+	if (mode === "listening")
+		return message.to !== "all" && message.to !== "any" && message.to.includes(session);
+	return reaches(message, session);
+}
+
+/**
  * The sessions a message went to. One to everyone went to every session it reaches: those that got
  * it, and those open now.
  */
@@ -97,8 +110,16 @@ export class Folder {
 	readonly peers = new Map<string, Peer>();
 	readonly messages = new Map<string, Posted>();
 	readonly room: RoomItem[] = [];
-	/** Who a shared room counts. The folder's own room has no `room.*` events and leaves it empty. */
+	/** Who counts in this room, folded from its `room.*` events. */
 	readonly membership = new Membership();
+
+	/**
+	 * A room of one folder. The folder is its first member, so a session opened there is in before
+	 * any `room.added` says so, and the rule for how a session stands lives in one place.
+	 */
+	constructor(folder?: string) {
+		if (folder !== undefined) this.membership.folders.set(folder, 0);
+	}
 
 	/** Counts the reads that brought events, so what is worked out from the folder knows it is stale. */
 	version = 0;

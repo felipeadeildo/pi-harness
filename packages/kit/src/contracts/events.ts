@@ -28,6 +28,12 @@ export type Activity =
  */
 export type Member = { folder: string } | { session: string; cwd: string };
 
+/**
+ * How a member stands in a room: `in` takes part, `listening` hears only what names it, and `out` is
+ * not in it. The addresses `@everyone` and `@anyone` belong to the ones taking part.
+ */
+export type RoomMode = "in" | "listening" | "out";
+
 export interface LogEventMap {
 	/**
 	 * A session opened in the folder, or joined a shared room. It is live while its process is. `cwd`
@@ -92,7 +98,28 @@ export interface LogEventMap {
 	 * Someone joins the room: you, or an agent whose call the permission gate let through. `why` is
 	 * what the agent said it needs, and `allowedBy` what let the call through.
 	 */
-	"room.added": { member: Member; by: "you" | "agent"; why?: string; allowedBy?: string };
+	"room.added":
+		| {
+				member: { folder: string };
+				by: "you" | "agent";
+				why?: string;
+				allowedBy?: string;
+				/** A folder has no mode: it brings its sessions in taking part. */
+				mode?: never;
+		  }
+		| {
+				member: { session: string; cwd: string };
+				by: "you" | "agent";
+				why?: string;
+				allowedBy?: string;
+				/** How the member joins: `in` takes part, `listening` hears only what names it. */
+				mode?: RoomMode;
+		  };
+	/**
+	 * A member changed how it stands in the room, without leaving it: `in` takes part, `listening`
+	 * hears only what names it. Leaving is `room.removed`, which is the third mode folded.
+	 */
+	"room.mode": { member: Member; mode: Exclude<RoomMode, "out"> };
 	/** A removed session stays out even while its folder is in, until it is added by name again. */
 	"room.removed": { member: Member };
 	/** Nobody joins any more, and every member leaves. */

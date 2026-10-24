@@ -528,6 +528,25 @@ describe("a session the operator just opened", () => {
 		expect(b.sent.at(-1)?.options).toEqual({ triggerTurn: true, deliverAs: "followUp" });
 	});
 
+	test("a session that listens does not bid on a request to anyone, because bidding is taking part", async () => {
+		const a = session("a");
+		const b = session("b");
+		// The mode is logged in the folder's room, which is where a session says how it stands here.
+		b.here.log("room.mode", {
+			member: { session: "b", cwd: "/repo" },
+			mode: "listening",
+		});
+		b.here.sync();
+		const request = () => [...b.here.folder.messages.values()][0];
+		a.here.post("any", "add tests for the callback", "you");
+		await settle(a, b);
+		expect(request()?.bids.has("b")).toBe(false);
+		// What names it still arrives, so listening is not being out.
+		a.here.post(["b"], "your call", "you");
+		await settle(a, b);
+		expect(b.sent.at(-1)?.text).toBe("your call");
+	});
+
 	test("does not bid on a request until the operator writes in it, then bids on what is open", async () => {
 		const a = session("a");
 		const b = session("b", undefined, false);

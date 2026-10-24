@@ -712,13 +712,18 @@ export class Rooms implements RoomsView {
 	}
 
 	#addMembers(room: string, members: readonly Member[], by: AddedBy): void {
-		for (const member of members)
+		for (const member of members) {
+			const normalized = normal(member);
+			// A folder joins taking part and has no mode; a session may say how it joins.
 			this.#write(room, "room.added", {
-				member: normal(member),
+				...("folder" in normalized
+					? { member: { folder: normalized.folder } }
+					: { member: { session: normalized.session, cwd: normalized.cwd } }),
 				by: by.by,
 				...(by.why === undefined ? {} : { why: by.why }),
 				...(by.allowedBy === undefined ? {} : { allowedBy: by.allowedBy }),
 			});
+		}
 	}
 
 	/** A `room.*` line, in this session's own file in that room, whether or not it is a member. */

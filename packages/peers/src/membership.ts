@@ -1,6 +1,6 @@
 // Who a shared room counts, folded from its `room.*` events. Every session folds the same lines in
 // the same order, so every session agrees on who is in, the way they agree on who won a request.
-import type { LoggedEvent, Member } from "@adeildo/pi-kit";
+import type { LoggedEvent, Member, RoomMode } from "@adeildo/pi-kit";
 
 /** Who added a member, and why, as the room's first lines say it. */
 export interface Addition {
@@ -23,6 +23,8 @@ export class Membership {
 	readonly sessions = new Map<string, string>();
 	/** Sessions removed by name, kept out even while their folder is in. */
 	readonly out = new Set<string>();
+	/** How each session that is in stands here, when it is not taking part like everyone else. */
+	readonly listening = new Set<string>();
 	/** Every addition, oldest first, for the line that says how the room came to be. */
 	readonly additions: Addition[] = [];
 
@@ -37,12 +39,17 @@ export class Membership {
 			}
 			case "room.added": {
 				const data = event.data as LoggedEvent<"room.added">["data"];
-				this.#add(data.member, event.at);
+				// Only a session says how it joins: a folder brings its sessions in taking part.
+				this.#add(data.member, event.at, "mode" in data ? data.mode : undefined);
 				this.additions.push({ ...data, session: event.session, at: event.at });
 				return;
 			}
 			case "room.removed":
 				return this.#remove((event.data as LoggedEvent<"room.removed">["data"]).member);
+			case "room.mode": {
+				const data = event.data as LoggedEvent<"room.mode">["data"];
+				return this.#setMode(data.member, data.mode);
+			}
 			case "room.closed":
 				this.closed = true;
 				return;
@@ -53,17 +60,36 @@ export class Membership {
 
 	/** Whether a session opened in `cwd` is in the room. */
 	includes(session: string, cwd: string): boolean {
-		if (this.closed || this.out.has(session)) return false;
-		return this.sessions.has(session) || this.folders.has(cwd);
+		return this.modeOf(session, cwd) !== "out";
 	}
 
-	#add(member: Member, at: number): void {
+	/**
+	 * How a session stands here: out when the room is closed or the session was taken out, listening
+	 * when it asked to hear only what names it, and taking part otherwise. A folder member brings
+	 * every session opened in it in as taking part.
+	 */
+	modeOf(session: string, cwd: string): RoomMode {
+		if (this.closed || this.out.has(session)) return "out";
+		if (!this.sessions.has(session) && !this.folders.has(cwd)) return "out";
+		return this.listening.has(session) ? "listening" : "in";
+	}
+
+	#add(member: Member, at: number, mode: RoomMode = "in"): void {
 		if ("folder" in member) {
 			if (!this.folders.has(member.folder)) this.folders.set(member.folder, at);
 			return;
 		}
 		this.out.delete(member.session);
 		this.sessions.set(member.session, member.cwd);
+		if (mode === "listening") this.listening.add(member.session);
+		else this.listening.delete(member.session);
+	}
+
+	#setMode(member: Member, mode: Exclude<RoomMode, "out">): void {
+		const session = "session" in member ? member.session : undefined;
+		if (session === undefined) return;
+		if (mode === "listening") this.listening.add(session);
+		else this.listening.delete(session);
 	}
 
 	#remove(member: Member): void {
@@ -72,6 +98,7 @@ export class Membership {
 			return;
 		}
 		this.sessions.delete(member.session);
+		this.listening.delete(member.session);
 		this.out.add(member.session);
 	}
 }
