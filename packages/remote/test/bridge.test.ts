@@ -163,7 +163,7 @@ describe("the bridge", () => {
 		}
 	});
 
-	test("a move in the tree names the new leaf, and a tree left with no leaf sends a snapshot", async () => {
+	test("a move in the tree names the new leaf, the root included", async () => {
 		const daemon = await listening();
 		const fake = mounted();
 		const ctx = session();
@@ -179,11 +179,10 @@ describe("the bridge", () => {
 			{ type: "session_tree", newLeafId: null, oldLeafId: "e1" },
 			ctx,
 		);
-		await until(() => types(daemon).filter((type) => type === "snapshot").length === 2);
-		expect(types(daemon).slice(-2)).toEqual(["leaf.changed", "snapshot"]);
-		expect(daemon.received.find((one) => one.type === "leaf.changed")?.data).toEqual({
-			leaf: "e1",
-		});
+		await until(() => types(daemon).filter((type) => type === "leaf.changed").length === 2);
+		expect(
+			daemon.received.filter((one) => one.type === "leaf.changed").map((one) => one.data),
+		).toEqual([{ leaf: "e1" }, { leaf: null }]);
 	});
 
 	test("after a reconnect, each entry pi appends still goes out once", async () => {
@@ -360,17 +359,6 @@ describe("one bridge", () => {
 		]);
 		await bridge.stop(undefined);
 	});
-
-	test("a tree with no leaf left sends a snapshot, and a leaf is named", async () => {
-		const { bridge, socket } = bridged();
-		bridge.treeMoved(null);
-		bridge.treeMoved("e1");
-		expect(socket.written.slice(3).map((one) => [one.type, one.data])).toEqual([
-			["snapshot", expect.anything()],
-			["leaf.changed", { leaf: "e1" }],
-		]);
-		await bridge.stop(undefined);
-	});
 });
 
 describe("a real pi session", () => {
@@ -391,7 +379,7 @@ describe("a real pi session", () => {
 		await rig.prompt("say hello");
 		await until(() => types(daemon).includes("stream.bound"));
 		const bound = daemon.received.find((one) => one.type === "stream.bound")?.data as
-			| { messages: { stream: string; entry: string }[] }
+			| { messages: { stream: number; entry: string }[] }
 			| undefined;
 		const pair = bound?.messages[0];
 		if (pair === undefined) throw new Error("no message was bound to an entry");
