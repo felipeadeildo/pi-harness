@@ -10,7 +10,7 @@ import { envelope, type Envelope, isObject, PROTOCOL } from "@adeildo/pi-remote-
 import { envelopeOf } from "../wire/lines.ts";
 import { accept, type WebSocket } from "../wire/websocket.ts";
 import { serveApp, type WebApp } from "./app.ts";
-import { type Asking, checkPlace, loopbackHosts } from "./auth.ts";
+import { type Asking, authorize, type Logins, loginCookie, loopbackHosts } from "./auth.ts";
 import { History, PAGE } from "./history.ts";
 import type { Sessions } from "./sessions.ts";
 
@@ -18,9 +18,17 @@ const STATUS = { 401: "Unauthorized", 403: "Forbidden", 421: "Misdirected Reques
 
 /** A client with this much unsent is too slow to keep up, and is closed to reconnect from its cursor. */
 export const CLIENT_BACKLOG = 8 * 1024 * 1024;
+/** The most a login request may carry: one token in a small JSON object. */
+const LOGIN_BYTES = 4_096;
 
 export interface ClientsOptions {
 	sessions: Sessions;
+	logins: Logins;
+	/**
+	 * The paths of the files the web build exported, which a browser loads before it holds a login.
+	 * Empty until the daemon serves the build.
+	 */
+	appFiles?: ReadonlySet<string>;
 	version: string;
 	/** Asks a session's bridge for a snapshot. False when no bridge of the session is connected. */
 	askSnapshot: (session: string) => boolean;
@@ -46,12 +54,13 @@ export class Clients {
 		this.#started = (options.now ?? Date.now)();
 		this.#server = createServer((request, response) => this.#route(request, response));
 		this.#server.on("upgrade", (request: IncomingMessage, socket, head: Buffer) => {
-			// Any page can open a WebSocket to 127.0.0.1, so one from another Origin is refused here.
-			const placed = checkPlace(asking(request, true), this.#hosts);
-			if (!placed.ok) {
+			// Any page can open a WebSocket to 127.0.0.1, so one from another Origin is refused here,
+			// and one with no login too.
+			const verdict = authorize(asking(request, true), this.#place());
+			if (!verdict.ok) {
 				// A fixed reason phrase: the request's own Origin or Host never goes into the head.
 				socket.end(
-					`HTTP/1.1 ${placed.status} ${STATUS[placed.status]}\r\nConnection: close\r\n\r\n`,
+					`HTTP/1.1 ${verdict.status} ${STATUS[verdict.status]}\r\nConnection: close\r\n\r\n`,
 				);
 				return;
 			}
@@ -152,13 +161,28 @@ export class Clients {
 		ws.send(JSON.stringify(message));
 	}
 
+	/** What `authorize` checks a request against. */
+	#place(): { hosts: ReadonlySet<string>; logins: Logins; isAppFile(path: string): boolean } {
+		const files = this.#options.appFiles ?? new Set<string>();
+		return {
+			hosts: this.#hosts,
+			logins: this.#options.logins,
+			// A route is answered as a route even when the build happens to hold a file of that name.
+			isAppFile: (path) => !isRoute(path) && files.has(path),
+		};
+	}
+
 	#route(request: IncomingMessage, response: ServerResponse): void {
 		// A page that resolved its own name to 127.0.0.1 is same-origin with the daemon, so the Host
-		// is checked before anything is read.
-		const placed = checkPlace(asking(request, false), this.#hosts);
-		if (!placed.ok) return reply(response, placed.status, { error: placed.reason });
+		// is checked before anything is read, and then the login.
+		const verdict = authorize(asking(request, false), this.#place());
+		if (!verdict.ok) return reply(response, verdict.status, { error: verdict.reason });
 		const url = new URL(request.url ?? "/", "http://daemon");
 		const path = url.pathname;
+		if (request.method === "POST" && path === "/login") {
+			this.#login(request, response);
+			return;
+		}
 		if (request.method !== "GET") return reply(response, 405, { error: "GET only" });
 		if (path === "/health") {
 			const uptime = (this.#options.now ?? Date.now)() - this.#started;
@@ -213,6 +237,34 @@ export class Clients {
 		reply(response, 200, page);
 	}
 
+	/**
+	 * Trades the token in the body for a login cookie. The token never travels in the query, which
+	 * access logs keep, and a used, unknown or late one gets nothing.
+	 */
+	#login(request: IncomingMessage, response: ServerResponse): void {
+		let body = "";
+		let tooLong = false;
+		request.setEncoding("utf8");
+		request.on("data", (chunk: string) => {
+			body += chunk;
+			if (body.length > LOGIN_BYTES) tooLong = true;
+		});
+		request.on("end", () => {
+			const token = tooLong ? undefined : tokenOf(body);
+			const cookie = token === undefined ? undefined : this.#options.logins.exchange(token);
+			if (cookie === undefined) {
+				return reply(response, 401, {
+					error: "this link was used, is unknown or is late: ask pi for a new one with /remote",
+				});
+			}
+			response.writeHead(204, {
+				"set-cookie": loginCookie(cookie, false),
+				"cache-control": "no-store",
+			});
+			response.end();
+		});
+	}
+
 	/** The session list: who each session is and how it is doing, without its entries. */
 	#list(): unknown[] {
 		return this.#options.sessions.list().map((one) => ({
@@ -228,7 +280,30 @@ export class Clients {
 	}
 }
 
-/** What `checkPlace` reads of a request. */
+/** The daemon's own routes, which no file of the web build can stand in for. */
+function isRoute(path: string): boolean {
+	return (
+		path === "/ws" ||
+		path === "/health" ||
+		path === "/login" ||
+		path === "/logout" ||
+		path === "/sessions" ||
+		path.startsWith("/sessions/") ||
+		path.startsWith("/.well-known/")
+	);
+}
+
+/** The token in a login request's JSON body. */
+function tokenOf(body: string): string | undefined {
+	try {
+		const value: unknown = JSON.parse(body);
+		return isObject(value) && typeof value.token === "string" ? value.token : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+/** What `authorize` reads of a request. */
 function asking(request: IncomingMessage, upgrade: boolean): Asking {
 	const header = (name: string) => {
 		const value = request.headers[name];
@@ -239,7 +314,7 @@ function asking(request: IncomingMessage, upgrade: boolean): Asking {
 		path: new URL(request.url ?? "/", "http://daemon").pathname,
 		host: header("host"),
 		origin: header("origin"),
-		cookie: undefined,
+		cookie: header("cookie"),
 		upgrade,
 	};
 }

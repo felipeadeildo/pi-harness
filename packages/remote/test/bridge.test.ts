@@ -28,13 +28,8 @@ import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import type { MessageStartEvent, MessageUpdateEvent } from "@earendil-works/pi-coding-agent";
 
 import { Bridge, SNAPSHOT_ENTRIES } from "../src/bridge/bridge.ts";
-import piRemote, {
-	DAEMON_PORT,
-	daemonSocket,
-	goneReason,
-	remote,
-	sessionKind,
-} from "../src/index.ts";
+import piRemote, { goneReason, remote, sessionKind } from "../src/index.ts";
+import { CLIENT_PORT, daemonPaths } from "../src/places.ts";
 import { VERSION } from "../src/version.ts";
 import { line } from "../src/wire/lines.ts";
 import { type FakeDaemon, fakeDaemon, held, until } from "./fakes.ts";
@@ -57,7 +52,7 @@ afterEach(async () => {
 });
 
 async function listening(): Promise<FakeDaemon> {
-	open = await fakeDaemon(daemonSocket(root));
+	open = await fakeDaemon(daemonPaths(root).socket);
 	return open;
 }
 
@@ -344,7 +339,7 @@ describe("the bridge", () => {
 		const fake = mounted();
 		expect(protectedList(fake.pi.events)).toEqual({
 			paths: [root],
-			sockets: [daemonSocket(root), `127.0.0.1:${DAEMON_PORT}`, `localhost:${DAEMON_PORT}`],
+			sockets: [daemonPaths(root).socket, `127.0.0.1:${CLIENT_PORT}`, `localhost:${CLIENT_PORT}`],
 			commands: ["pi-remote"],
 		});
 	});
@@ -384,7 +379,7 @@ describe("the bridge", () => {
 		await asked;
 		await until(() => existsSync(opened));
 		delete process.env.BROWSER;
-		expect(readFileSync(opened, "utf8")).toBe(`http://127.0.0.1:${DAEMON_PORT}/#token=abc`);
+		expect(readFileSync(opened, "utf8")).toBe(`http://127.0.0.1:${CLIENT_PORT}/#token=abc`);
 		expect(notes.at(-1)).toContain("works once, for a minute");
 	});
 

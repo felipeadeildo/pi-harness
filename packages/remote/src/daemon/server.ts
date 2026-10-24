@@ -16,25 +16,17 @@ import {
 	watchFile,
 } from "node:fs";
 import { connect, createServer, type Server, type Socket } from "node:net";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { envelope, type Envelope, isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
 import { envelopeOf, line, Lines } from "../wire/lines.ts";
 import { loadWebApp } from "./app.ts";
+import { Logins } from "./auth.ts";
 import { Clients } from "./clients.ts";
 import { type GoneReason, type SessionLive, Sessions } from "./sessions.ts";
 
-/** The remote's folder: `PI_REMOTE_DIR`, or `harness/remote` under pi's agent folder. */
-export function daemonDir(env: NodeJS.ProcessEnv = process.env): string {
-	if (env.PI_REMOTE_DIR !== undefined && env.PI_REMOTE_DIR !== "") return env.PI_REMOTE_DIR;
-	const agent = env.PI_CODING_AGENT_DIR?.replace(/^~(?=\/|$)/, homedir());
-	return join(agent || join(homedir(), ".pi", "agent"), "harness", "remote");
-}
-
-/** Where clients reach the daemon, on loopback until login exists. A setting from C6 on. */
-export const CLIENT_PORT = 7878;
+export { CLIENT_PORT, daemonDir, daemonPaths } from "../places.ts";
 
 /** With no session connected for this long, a daemon a pi started exits. */
 export const IDLE_EXIT_MS = 5 * 60_000;
@@ -51,6 +43,8 @@ export interface DaemonOptions {
 	version: string;
 	/** The launcher's `current.json`, watched for a newer version. Unwatched when absent. */
 	current?: string;
+	/** Where the logins are kept, `logins.json` beside the socket unless a test says otherwise. */
+	logins?: string;
 	idleExitMs?: number;
 	/** Never exits for being idle: `pi-remote serve` keeps the daemon up until it is stopped. */
 	stayUp?: boolean;
@@ -68,6 +62,7 @@ export interface DaemonOptions {
 
 export class Daemon {
 	readonly sessions = new Sessions();
+	readonly logins: Logins;
 	readonly #server: Server;
 	readonly #sockets = new Set<Socket>();
 	readonly #options: DaemonOptions;
@@ -84,6 +79,9 @@ export class Daemon {
 	private constructor(server: Server, options: DaemonOptions) {
 		this.#server = server;
 		this.#options = options;
+		this.logins = new Logins(options.logins ?? join(dirname(options.socket), "logins.json"), {
+			warn: (message) => this.#warn(message),
+		});
 	}
 
 	/**
@@ -141,6 +139,8 @@ export class Daemon {
 		this.#sockets.add(socket);
 		socket.setEncoding("utf8");
 		let bridge: { session: string; epoch: string } | undefined;
+		/** The `pi-remote` command, which asks for tokens and registers no session. */
+		let cli = false;
 		const lines = new Lines(() => this.#warn("a bridge sent a line too long to read"));
 		socket.on("data", (chunk: string) => {
 			for (const text of lines.push(chunk)) {
@@ -149,10 +149,16 @@ export class Daemon {
 					this.#warn("a bridge sent a line that is not an envelope");
 					continue;
 				}
-				if (bridge !== undefined) this.#bridgeSaid(bridge, message);
-				else {
-					bridge = this.#hello(socket, message);
-					if (bridge !== undefined) this.#bridges.set(bridge.session, socket);
+				if ((bridge !== undefined || cli) && message.kind === "command") {
+					this.#command(socket, message);
+				} else if (bridge !== undefined) this.#bridgeSaid(bridge, message);
+				else if (!cli) {
+					const greeted = this.#hello(socket, message);
+					if (greeted === "cli") cli = true;
+					else if (greeted !== undefined) {
+						bridge = greeted;
+						this.#bridges.set(bridge.session, socket);
+					}
 				}
 				if (socket.destroyed) return;
 			}
@@ -168,16 +174,29 @@ export class Daemon {
 		});
 	}
 
-	/** The first message must be a bridge's hello in this protocol. Anything else is refused. */
-	#hello(socket: Socket, message: Envelope): { session: string; epoch: string } | undefined {
+	/**
+	 * The first message must be a hello in this protocol, from a bridge or from the `pi-remote`
+	 * command. Anything else is refused. Only a process of this user reaches the socket, mode 0600.
+	 */
+	#hello(
+		socket: Socket,
+		message: Envelope,
+	): { session: string; epoch: string } | "cli" | undefined {
 		const { session, epoch, machine } = message;
 		const data = isObject(message.data) ? message.data : {};
 		const refuse = (why: string) => {
 			socket.end(line(envelope("error", "hello", { reason: why })));
 			return undefined;
 		};
-		if (message.kind !== "hello" || message.type !== "bridge") return refuse("hello first");
+		if (message.kind !== "hello") return refuse("hello first");
 		if (data.protocol !== PROTOCOL) return refuse(`protocol ${String(data.protocol)}`);
+		if (message.type === "cli") {
+			socket.write(
+				line(envelope("hello", "daemon", { protocol: PROTOCOL, version: this.#options.version })),
+			);
+			return "cli";
+		}
+		if (message.type !== "bridge") return refuse("hello first");
 		if (session === undefined || epoch === undefined || machine === undefined)
 			return refuse("a bridge names its machine, session and epoch");
 		// A newer bridge means a newer daemon is installed: this one makes way, and the bridge
@@ -191,6 +210,17 @@ export class Daemon {
 			line(envelope("hello", "daemon", { protocol: PROTOCOL, version: this.#options.version })),
 		);
 		return { session, epoch };
+	}
+
+	/** A command from a bridge or the `pi-remote` command, answered on the same id. */
+	#command(socket: Socket, message: Envelope): void {
+		if (message.type !== "token.issue") {
+			socket.write(
+				line(envelope("error", message.type, { reason: "unknown command" }, { id: message.id })),
+			);
+			return;
+		}
+		socket.write(line(envelope("reply", "token.issue", this.logins.issue(), { id: message.id })));
 	}
 
 	#bridgeSaid(bridge: { session: string; epoch: string }, message: Envelope): void {
@@ -223,6 +253,7 @@ export class Daemon {
 			this.#warn(`no web app in ${dir}: serving data only`);
 		const clients = new Clients({
 			sessions: this.sessions,
+			logins: this.logins,
 			version: this.#options.version,
 			askSnapshot: (session) => this.#askSnapshot(session),
 			...(web === undefined ? {} : { web }),
@@ -274,10 +305,6 @@ export class Daemon {
 }
 
 /** Where the daemon keeps its socket and reads the launcher's `current.json`. */
-export function daemonPaths(dir: string): { socket: string; current: string } {
-	return { socket: join(dir, "daemon.sock"), current: join(dir, "current.json") };
-}
-
 /** Whether version `a` is newer than `b`, comparing dotted numbers; anything after a `-` is ignored. */
 export function newer(a: string, b: string): boolean {
 	const [left, right] = [numbersOf(a), numbersOf(b)];
