@@ -73,8 +73,7 @@ git push -u origin HEAD
 gh pr create --base main --title "<conventional subject>" --body-file <body.md>
 gh pr list --base feat/<area>-<what>                                # the pull requests stacked on it
 gh pr edit <stacked> --base main                                    # each one it lists, before the merge
-git switch --detach                                                 # leave the branch before it goes
-gh pr merge <n> --squash                                            # once a review approves
+gh pr merge <n> --squash                                            # once a review approves; no checkout needed
 git push origin --delete feat/<area>-<what>                         # once nothing is based on it
 git fetch origin && git switch --detach origin/main                 # a clean base for the next slice
 git -C ~/Projects/pi-harness pull --ff-only                         # the folder the operator's pi runs from
