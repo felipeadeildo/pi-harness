@@ -63,6 +63,10 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
   answer with `gh pr review --comment`, ending with the same footer. The account is shared and cannot
   approve its own pull request, so the approval is written in the review and said in the room.
 - The author merges once a review approves, CI is green and nothing conflicts.
+  After `gh pr merge`, put the main folder back on `main` with `git switch main` before the
+  `git pull --ff-only`. A `git switch --detach` left over from merging leaves the operator's pi
+  loading the harness two commits behind, and the next pull fails with "You are not currently on a
+  branch", which reads like a lock and is not.
 - A review worktree under `/tmp` installs with `bun install --frozen-lockfile --ignore-scripts`, and
   that same install is what lets a commit or a push there run the hooks: without `node_modules` the
   `pre-push` exits 127 and git reports `failed to push some refs`, which reads like a conflict.
