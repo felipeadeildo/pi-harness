@@ -102,6 +102,9 @@ export class Outbox {
 	/**
 	 * The person chose to send a command that had waited past the window. It keeps its id, so it is
 	 * still the same command and still a repeat if it already went out once.
+	 *
+	 * No screen calls this: marking the command ready is not sending it, and a screen that does it,
+	 * does nothing. `client.release` is the act — it changes the queue and puts the command on the wire.
 	 */
 	release(id: string): boolean {
 		const command = this.#find(id);
@@ -126,7 +129,10 @@ export class Outbox {
 		command.why = why;
 	}
 
-	/** The person dropped it, or sent it although it had waited too long. */
+	/**
+	 * The person dropped it. No screen calls this either: it leaves the queue, but only `client.drop`
+	 * tells the screen, which is what makes the line disappear.
+	 */
 	drop(id: string): boolean {
 		const at = this.#commands.findIndex((command) => command.id === id);
 		if (at === -1) return false;

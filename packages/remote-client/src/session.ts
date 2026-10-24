@@ -87,7 +87,7 @@ export function factsOf(session: ClientSession): HarnessState {
 }
 
 /** What to keep so the next visit draws at once, with the commands nobody answered yet. */
-export function cachedOf(session: ClientSession, outbox?: Outbox): CachedSession {
+export function cachedOf(session: ClientSession, outbox: Outbox): CachedSession {
 	return {
 		key: session.key,
 		cursor: session.cursor,

@@ -5,6 +5,7 @@ import { describe, expect, test } from "bun:test";
 import { applyLogged, emptyHarnessState, FACT_TYPES } from "@adeildo/pi-remote-protocol";
 
 import { memoryCache } from "../src/cache.ts";
+import { Outbox } from "../src/outbox.ts";
 import { cachedOf, readEnvelope, sessionOf } from "../src/session.ts";
 
 const key = { machine: "here", session: "s" };
@@ -99,7 +100,7 @@ describe("who has the session open", () => {
 			envelope("presence.changed", { viewers: [{ name: "phone", machine: "here" }] }, 2),
 		);
 		const cache = memoryCache();
-		await cache.write(cachedOf(session));
+		await cache.write(cachedOf(session, new Outbox()));
 		const warm = sessionOf(key, await cache.read(key));
 		expect(warm.presence?.viewers[0]?.name).toBe("phone");
 	});
@@ -121,7 +122,7 @@ describe("who has the session open", () => {
 		);
 		expect(session.presence?.active?.name).toBe("phone");
 		const cache = memoryCache();
-		await cache.write(cachedOf(session));
+		await cache.write(cachedOf(session, new Outbox()));
 		const warm = sessionOf(key, await cache.read(key));
 		expect(warm.presence).toEqual({ viewers: [{ name: "phone", machine: "here" }] });
 	});

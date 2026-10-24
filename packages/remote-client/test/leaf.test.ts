@@ -4,6 +4,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { memoryCache } from "../src/cache.ts";
+import { Outbox } from "../src/outbox.ts";
 import { readEnvelope, sessionOf, cachedOf, transcriptOfSession } from "../src/session.ts";
 
 const key = { machine: "here", session: "s" };
@@ -96,7 +97,7 @@ describe("the leaf the bridge names", () => {
 		readEnvelope(session, envelope("leaf.changed", { leaf: "a" }, 4));
 
 		const cache = memoryCache();
-		await cache.write(cachedOf(session));
+		await cache.write(cachedOf(session, new Outbox()));
 		const warm = sessionOf(key, await cache.read(key));
 		expect(transcriptOfSession(warm).items).toHaveLength(1);
 	});
