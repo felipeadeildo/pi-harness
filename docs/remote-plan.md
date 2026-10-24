@@ -31,7 +31,7 @@ A slice is ticked in the commit that lands it. A slice whose parts are on `main`
 - [x] W2. Text from elsewhere (client, F1)
 - [x] W3. The Sessions and Session screens (client, F1)
 - [ ] I1. The inbox (names, before F2) — nearly: peers delivering through the inbox waits on N4
-- [ ] C8. Commands through the bridge (core, F2) — nearly: prompt.send and queue.clear wait on I1
+- [x] C8. Commands through the bridge (core, F2)
 - [ ] A5. Clients in the race for the harness's dialogs (ask, F2)
 - [ ] A6. pi's own dialogs in the race (ask, F2)
 - [x] P4. Commands and the outbox in the client library (protocol, F2)
@@ -407,6 +407,7 @@ Owner: names. Needs: N4, because both change how peers delivers.
 The kit's inbox is the one way to put a message into a session. It decides between starting a run, steering and following up, and puts the operator's messages ahead of agents'. It holds a follow-up until `agent_settled`, so a client sees the follow-up and can take it back. Peers delivers through it, starting from `d74a9c6`, which already keeps a delivered message until the agent reads it and holds it again when Esc empties the queue. The logic of the inbox imports nothing from pi, so the protocol's reducers can mirror it.
 
 - Done when: a held follow-up shows in the session's queue and can be taken back, and peers' delivery modes keep their behavior.
+- Where it stands: the kit's inbox is on `main`, and the bridge puts a client's prompt through it, holds a follow-up until the agent settles and takes back what waits. What is left is peers delivering through the same inbox, which waits for N4.
 
 ## F2. Control
 
