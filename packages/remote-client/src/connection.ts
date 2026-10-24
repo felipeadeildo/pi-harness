@@ -1,9 +1,10 @@
 // The connection: a warm cache drawn before the network answers, a hello that carries the cursors,
 // and a reconnect that resumes where the client stopped instead of asking for everything again.
 
-import type { Envelope } from "@adeildo/pi-remote-protocol";
+import { isObject, type CommandType, type Envelope } from "@adeildo/pi-remote-protocol";
 
 import type { Cache, SessionKey } from "./cache.ts";
+import { Outbox, type Outgoing } from "./outbox.ts";
 import { cachedOf, hello, readEnvelope, sessionOf, type ClientSession } from "./session.ts";
 
 /** One attempt at talking to the daemon. A reconnect asks for a new one. */
@@ -26,6 +27,8 @@ export interface ConnectionOptions {
 	backoff?: { first: number; max: number };
 	/** Runs a callback after a delay, and cancels it. Injected so a test does not wait. */
 	wait?: (ms: number, run: () => void) => () => void;
+	/** The queue of commands typed while the daemon was away, so a test can read it. */
+	outbox?: Outbox;
 }
 
 export interface Client {
@@ -35,6 +38,13 @@ export interface Client {
 	on(handle: (session: ClientSession) => void): () => void;
 	/** Draws the cache, then connects and catches up. */
 	load(): Promise<void>;
+	/**
+	 * Sends a command. It keeps the time it was typed, waits in the outbox while the daemon is out of
+	 * reach, and its reply moves it from sent to applied or refused.
+	 */
+	send(type: CommandType, data: unknown): Outgoing;
+	/** The commands that have not been answered yet, in the order they were typed. */
+	outbox(): Outbox;
 	/** Ends the connection and stops reconnecting. */
 	stop(): void;
 }
@@ -55,6 +65,7 @@ export function connect(options: ConnectionOptions): Client {
 	let session = sessionOf(options.key);
 	let transport: Transport | undefined;
 	let cancelWait: (() => void) | undefined;
+	const outbox = options.outbox ?? new Outbox();
 	let waiting = backoff.first;
 	let stopped = false;
 	/** Already waiting for the snapshot it asked for, so a chatty daemon cannot make it ask twice. */
@@ -64,10 +75,54 @@ export function connect(options: ConnectionOptions): Client {
 		for (const handle of listeners) handle(session);
 	};
 
+	/** A reply ends a command's wait: applied, or refused with the reason the daemon gave. */
+	const reply = (envelope: unknown): boolean => {
+		// A reply is not an event of the session, with or without an id: it never reaches the reader,
+		// because a malformed reply must not move the cursor.
+		if (!isObject(envelope) || (envelope.kind !== "reply" && envelope.kind !== "error"))
+			return false;
+		if (typeof envelope.id !== "string") {
+			// The daemon answered without saying what: with one command in flight, that answer is its
+			// own, and leaving it waiting is what makes a command look sent forever.
+			const flight = outbox.all().filter((command) => command.state === "sent");
+			if (flight.length === 1 && flight[0] !== undefined) {
+				outbox.refused(flight[0].id, "the daemon answered without an id");
+				tell();
+			}
+			return true;
+		}
+		if (envelope.kind === "reply") {
+			outbox.applied(envelope.id);
+			tell();
+			return true;
+		}
+		if (envelope.kind === "error") {
+			const reason =
+				isObject(envelope.data) && typeof envelope.data.reason === "string"
+					? envelope.data.reason
+					: "the daemon refused it";
+			outbox.refused(envelope.id, reason);
+			tell();
+			return true;
+		}
+		return false;
+	};
+
+	/** Sends what may go now, in the order it was typed. Without a transport nothing is sent, and a
+	 * command marked sent that never left would sit in a state the queue cannot draw. */
+	const flush = (): void => {
+		if (transport === undefined) return;
+		for (const command of outbox.ready()) {
+			transport.send(commandOf(session, command));
+			outbox.sent(command.id);
+		}
+	};
+
 	const open = (): void => {
 		if (stopped) return;
 		transport = options.open(
 			(envelope) => {
+				if (reply(envelope)) return;
 				const answer = readEnvelope(session, envelope);
 				if (answer.read === "now") asking = false;
 				if (answer.read === "snapshot" && !asking) {
@@ -96,10 +151,20 @@ export function connect(options: ConnectionOptions): Client {
 			},
 		);
 		transport.send(hello(session));
+		// A new attempt is the moment to resend what was never answered, and then what waited.
+		outbox.resume();
+		flush();
 	};
 
 	return {
 		session: () => session,
+		send: (type, data) => {
+			const command = outbox.add(type, data);
+			flush();
+			tell();
+			return command;
+		},
+		outbox: () => outbox,
 		on: (handle) => {
 			listeners.add(handle);
 			return () => listeners.delete(handle);
@@ -121,5 +186,20 @@ export function connect(options: ConnectionOptions): Client {
 			transport = undefined;
 			listeners.clear();
 		},
+	};
+}
+
+/** A command as it crosses: the envelope's `id` is what its reply comes back on. */
+function commandOf(session: ClientSession, command: Outgoing): Envelope {
+	return {
+		v: 1,
+		kind: "command",
+		id: command.id,
+		machine: session.key.machine,
+		session: session.key.session,
+		...(session.cursor.epoch === undefined ? {} : { epoch: session.cursor.epoch }),
+		type: command.type,
+		data: command.data,
+		at: command.at,
 	};
 }
