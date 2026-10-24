@@ -4,11 +4,13 @@
 // required one to the kit, and `bun test` still passes while `bun run check` fails. Run the check.
 import { describe, expect, test } from "bun:test";
 
+import { isLetter } from "@adeildo/pi-kit";
 import type {
 	AskQuestion as KitAskQuestion,
 	AskResult as KitAskResult,
 	By as KitBy,
 	CallRuling as KitRuling,
+	Letter as KitLetter,
 	LogEventMap,
 	SessionTasks as KitTasks,
 } from "@adeildo/pi-kit";
@@ -23,6 +25,7 @@ import {
 	type FactType,
 	type SessionTasks,
 } from "../src/facts.ts";
+import { type QueuedLetter, isQueued } from "../src/snapshot.ts";
 
 /** A value of the kit's shape must always be readable as our copy, never the other way round. */
 const copyOfBy = (by: KitBy): By => by;
@@ -80,6 +83,33 @@ describe("the protocol's copies match the kit", () => {
 	test("every fact it names is one it can tell apart, and the kit's are a subset", () => {
 		expect(new Set(FACT_TYPES).size).toBe(FACT_TYPES.length);
 		for (const type of IN_THE_KIT) expect(FACT_TYPES).toContain(type as FactType);
+	});
+
+	test("the reasons a letter waits are the ones the kit's own validator accepts", () => {
+		// The list is a copy, because the protocol cannot import the kit. The kit's validator is the
+		// source of truth, so every reason here has to be one it accepts, and an invented one has to
+		// be refused by both sides.
+		const by = { kind: "client" as const, name: "phone", machine: "here" };
+		const letter = { id: "l1", by, text: "hold on", want: "followUp" as const, at: 3 };
+		for (const why of ["asleep", "quiet", "full", "stopped"] as const) {
+			expect(isLetter({ ...letter, why })).toBe(true);
+			expect(isQueued({ ...letter, when: 3, why })).toBe(true);
+		}
+		expect(isLetter({ ...letter, why: "waiting" })).toBe(false);
+		expect(isQueued({ ...letter, when: 3, why: "waiting" } as never)).toBe(false);
+	});
+
+	test("a letter becomes a queued letter by renaming its time, and nothing else", () => {
+		const by = { kind: "client" as const, name: "phone", machine: "here" };
+		const queued = (letter: KitLetter): QueuedLetter => ({
+			id: letter.id,
+			by: letter.by,
+			text: letter.text,
+			want: letter.want,
+			when: letter.at ?? 0,
+			...(letter.why === undefined ? {} : { why: letter.why }),
+		});
+		expect(queued({ id: "l1", by, text: "hold on", want: "followUp", at: 3 }).when).toBe(3);
 	});
 
 	test("the kit's values read as the copies", () => {
