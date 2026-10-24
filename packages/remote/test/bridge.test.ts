@@ -31,7 +31,7 @@ import { envelope } from "@adeildo/pi-remote-protocol";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import type { MessageStartEvent, MessageUpdateEvent } from "@earendil-works/pi-coding-agent";
 
-import { Bridge, SNAPSHOT_ENTRIES } from "../src/bridge/bridge.ts";
+import { Bridge, SNAPSHOT_ENTRIES, TYPED_EVERY_MS } from "../src/bridge/bridge.ts";
 import piRemote, { goneReason, remote, sessionKind } from "../src/index.ts";
 import { CLIENT_PORT, daemonPaths } from "../src/places.ts";
 import { VERSION } from "../src/version.ts";
@@ -224,6 +224,10 @@ describe("the bridge", () => {
 		press("b");
 		await Bun.sleep(20);
 		expect(daemon.received.filter((one) => one.type === "presence.here")).toHaveLength(1);
+		// Past the window it speaks again, so the mark does not stay with a person who left.
+		await Bun.sleep(TYPED_EVERY_MS + 20);
+		press("c");
+		await until(() => daemon.received.filter((one) => one.type === "presence.here").length === 2);
 		await stop(fake, "quit");
 	});
 
