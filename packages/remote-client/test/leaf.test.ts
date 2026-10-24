@@ -3,7 +3,7 @@
 // the next visit instead of recomputing it from the last entry it happens to hold.
 import { describe, expect, test } from "bun:test";
 
-import { emptyHarnessState } from "@adeildo/pi-remote-protocol";
+import { emptySessionState } from "@adeildo/pi-remote-protocol";
 
 import { memoryCache } from "../src/cache.ts";
 import { Outbox } from "../src/outbox.ts";
@@ -37,7 +37,7 @@ function started() {
 		key,
 		cursor: { epoch: "e1", seq: 1 },
 		entries: [],
-		harness: emptyHarnessState(),
+		state: emptySessionState(),
 	});
 }
 
@@ -79,7 +79,7 @@ describe("the leaf the bridge names", () => {
 			key,
 			cursor: { epoch: "e1", seq: 1 },
 			entries: [],
-			harness: emptyHarnessState(),
+			state: emptySessionState(),
 		});
 		readEnvelope(
 			session,
@@ -88,7 +88,7 @@ describe("the leaf the bridge names", () => {
 				{
 					snapshot: { session: "s", machine: "here", cwd: "/work", kind: "terminal", leaf: "a" },
 					entries: [entry("a", null, "first"), entry("b", "a", "second")],
-					harness: emptyHarnessState(),
+					state: emptySessionState(),
 				},
 				2,
 			),

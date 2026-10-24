@@ -2,7 +2,7 @@
 // client that reconnects would otherwise draw who was watching ten minutes ago.
 import { describe, expect, test } from "bun:test";
 
-import { applyLogged, emptyHarnessState, FACT_TYPES } from "@adeildo/pi-remote-protocol";
+import { applyEvent, emptySessionState, FACT_TYPES } from "@adeildo/pi-remote-protocol";
 
 import { memoryCache } from "../src/cache.ts";
 import { Outbox } from "../src/outbox.ts";
@@ -27,7 +27,7 @@ const started = () =>
 		key,
 		cursor: { epoch: "e1", seq: 1 },
 		entries: [],
-		harness: emptyHarnessState(),
+		state: emptySessionState(),
 	});
 
 describe("who has the session open", () => {
@@ -63,8 +63,8 @@ describe("who has the session open", () => {
 		// replayed, and a replay would say who was watching an hour ago.
 		const presence = { viewers: [{ name: "phone", machine: "here" }] };
 		expect(FACT_TYPES).not.toContain("presence.changed" as never);
-		expect(applyLogged(emptyHarnessState(), "presence.changed", presence)).toEqual(
-			emptyHarnessState(),
+		expect(applyEvent(emptySessionState(), "presence.changed", presence)).toEqual(
+			emptySessionState(),
 		);
 	});
 
@@ -73,7 +73,7 @@ describe("who has the session open", () => {
 			key,
 			cursor: { epoch: "e1", seq: 1 },
 			entries: [],
-			harness: emptyHarnessState(),
+			state: emptySessionState(),
 		});
 		readEnvelope(session, {
 			v: 1,
@@ -139,7 +139,7 @@ describe("who has the session open", () => {
 			key,
 			cursor: {},
 			entries: [],
-			harness: emptyHarnessState(),
+			state: emptySessionState(),
 			presence: {
 				viewers: [{ name: "phone", machine: "here" }],
 				active: { kind: "client", name: "phone", machine: "here" },

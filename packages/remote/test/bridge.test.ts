@@ -752,17 +752,20 @@ describe("the bridge", () => {
 			| undefined;
 		expect(snapshot?.snapshot).toMatchObject({
 			handle: "otter",
-			state: "idle",
+			status: "idle",
 			tasks,
-			mode: "edits",
 			openAsks: ["q2"],
 		});
-		const harness = (snapshot?.snapshot as { harness?: Record<string, unknown> } | undefined)
-			?.harness;
-		expect(harness?.mode).toBe("edits");
+		const state = (snapshot?.snapshot as { state?: Record<string, unknown> } | undefined)?.state as
+			| {
+					permissions: { mode?: string; rulings: Record<string, unknown> };
+					questions: Record<string, unknown>;
+			  }
+			| undefined;
+		expect(state?.permissions.mode).toBe("edits");
 		// The state keeps both, and says which one is still waiting: a reader needs no replay to know.
-		expect(harness?.asks).toMatchObject({ q1: { id: "q1", closed: true }, q2: { id: "q2" } });
-		expect(harness?.rulings).toMatchObject({ c1: { ruling: { head: "allowed" } } });
+		expect(state?.questions).toMatchObject({ q1: { id: "q1", closed: true }, q2: { id: "q2" } });
+		expect(state?.permissions.rulings).toMatchObject({ c1: { ruling: { head: "allowed" } } });
 	});
 
 	test("the remote's files, its socket, its port and its command are protected, whatever the mode", () => {

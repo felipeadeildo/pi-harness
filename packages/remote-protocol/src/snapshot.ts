@@ -3,7 +3,7 @@
 
 import { isBy, isObject, type By } from "./by.ts";
 import type { PermissionMode, SessionTasks } from "./facts.ts";
-import type { HarnessState } from "./reduce/state.ts";
+import type { SessionState } from "./reduce/state.ts";
 
 export interface SessionSnapshot {
 	/** pi's session id. */
@@ -20,7 +20,8 @@ export interface SessionSnapshot {
 	thinkingLevel?: string;
 	context?: { tokens: number; window?: number };
 	kind: "terminal" | "background";
-	state?: "working" | "blocked" | "done" | "error" | "idle";
+	/** What the session is doing right now: the word the footer and the list show. */
+	status?: "working" | "blocked" | "done" | "error" | "idle";
 	tasks?: SessionTasks;
 	mode?: PermissionMode;
 	/** What waits to be sent, as the inbox holds it. */
@@ -39,7 +40,7 @@ export interface SessionSnapshot {
 	 * What the harness knows about this session, already folded: the tasks beside it, the questions it
 	 * asked, the ruling of each call, the mode and the handle. A reader needs no replay to draw it.
 	 */
-	harness?: HarnessState;
+	state?: SessionState;
 }
 
 /** One client watching a session: enough to tell two people apart, and nothing else. */

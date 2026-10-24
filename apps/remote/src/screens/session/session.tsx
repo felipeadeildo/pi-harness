@@ -8,8 +8,8 @@ import { type ClientSession, harnessOf, transcriptOfSession } from "@adeildo/pi-
 import {
 	type ChatMessage,
 	type OpenAsk,
-	openAsks,
-	type HarnessState,
+	openQuestions,
+	type SessionState,
 	type SessionTasks,
 	type Task,
 	type TranscriptItem,
@@ -40,12 +40,12 @@ export function SessionScreen({ session }: SessionScreenProps): ReactNode {
 		header(session, facts.tasks),
 		h("ol", { className: "remote-transcript" }, ...items.flatMap((item) => itemNodes(item))),
 		tasksNode(facts.tasks),
-		...openAsks(facts).map(askNode),
+		...openQuestions(facts).map(askNode),
 	);
 }
 
 interface View {
-	facts: HarnessState;
+	facts: SessionState;
 	items: TranscriptItem[];
 }
 
@@ -64,8 +64,9 @@ export function viewOf(session: ClientSession): View {
 		session.entries,
 		session.entries.length,
 		session.leaf,
-		session.harness,
-		Object.keys(session.harness.asks).length + Object.keys(session.harness.rulings).length,
+		session.state,
+		Object.keys(session.state.questions).length +
+			Object.keys(session.state.permissions.rulings).length,
 	];
 	const held = views.get(session);
 	if (held !== undefined && held.key.every((part, at) => part === key[at])) return held.view;

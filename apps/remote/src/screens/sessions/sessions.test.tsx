@@ -15,7 +15,7 @@ const row = (over: Partial<ListedSession> = {}): ListedSession =>
 		epoch: "e1",
 		connected: true,
 		live,
-		facts: { rulings: {}, asks: {} },
+		facts: { questions: {}, permissions: { rulings: {} } },
 		...over,
 	}) as ListedSession;
 
@@ -51,8 +51,8 @@ describe("the list of sessions", () => {
 
 	test("a row that waits is marked, and the ones that wait come first", () => {
 		const rows = draw([
-			row({ session: "quiet", snapshot: { state: "idle" } as never }),
-			row({ session: "asking", snapshot: { state: "blocked" } as never }),
+			row({ session: "quiet", snapshot: { status: "idle" } as never }),
+			row({ session: "asking", snapshot: { status: "blocked" } as never }),
 		]);
 		expect(rows[0]?.session).toBe("asking");
 		expect(rows[0]?.waits).toBe(true);

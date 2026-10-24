@@ -1,5 +1,5 @@
 import { harnessOf } from "@adeildo/pi-remote-client";
-import { openAsks } from "@adeildo/pi-remote-protocol";
+import { openQuestions } from "@adeildo/pi-remote-protocol";
 // The route of one session: it reads which one from the address and hands the screen what the client
 // holds. Everything else lives under `src/session` and `src/screens/session`.
 import { Link, useLocalSearchParams } from "expo-router";
@@ -23,7 +23,7 @@ export default function SessionRoute() {
 	// One question at a time, and it sits above the composer: it is the thing the agent is waiting on.
 	// The oldest comes first: whoever asked first has been waiting longest, and a question nobody can
 	// answer is worse than one answered in an order the person did not choose.
-	const waiting = session === undefined ? [] : openAsks(harnessOf(session));
+	const waiting = session === undefined ? [] : openQuestions(harnessOf(session));
 	const asked = waiting[0];
 	return session === undefined || client === undefined ? null : (
 		<View style={{ flex: 1 }}>

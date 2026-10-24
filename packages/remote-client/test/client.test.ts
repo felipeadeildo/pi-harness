@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { Entry, Envelope } from "@adeildo/pi-remote-protocol";
-import { applyLogged, emptyHarnessState } from "@adeildo/pi-remote-protocol";
+import { applyEvent, emptySessionState } from "@adeildo/pi-remote-protocol";
 
 import { memoryCache } from "../src/cache.ts";
 import { connect } from "../src/connection.ts";
@@ -37,7 +37,7 @@ const facts = lines("harness.jsonl") as { type: string; data: unknown }[];
 
 /** The recording's facts folded once, which is what a cache holds now. */
 const folded = (list: { type: string; data: unknown }[]) =>
-	list.reduce((state, fact) => applyLogged(state, fact.type, fact.data), emptyHarnessState());
+	list.reduce((state, fact) => applyEvent(state, fact.type, fact.data), emptySessionState());
 
 /** The envelopes the bridge sends after a snapshot: the log's facts, then the entries, numbered. */
 function stream(first: number): Envelope[] {
@@ -75,7 +75,7 @@ const snapshot: Envelope = {
 	data: {
 		snapshot: { session: key.session, machine: key.machine, cwd: "/work", kind: "terminal" },
 		entries: [],
-		harness: emptyHarnessState(),
+		state: emptySessionState(),
 	},
 	at: 0,
 };
@@ -160,7 +160,7 @@ describe("a client of a session", () => {
 		expect(client.session().entries.map((entry) => entry.id)).toEqual(
 			entries.map((entry) => entry.id),
 		);
-		expect(client.session().harness.tasks?.handle).toBe("rig");
+		expect(client.session().state.tasks?.handle).toBe("rig");
 		expect(transcriptOfSession(client.session()).items.length).toBeGreaterThan(0);
 		client.stop();
 	});
@@ -180,17 +180,16 @@ describe("a client of a session", () => {
 						...snapshot,
 						data: {
 							...(snapshot.data as Record<string, unknown>),
-							harness: {
+							state: {
 								tasks: { version: 1, handle: "rig", tasks: [], decisions: [] },
-								mode: "judge",
-								asks: {
+								questions: {
 									q1: {
 										id: "q1",
 										source: "permission",
 										questions: [{ header: "Deploy", question: "Ship it", options: [] }],
 									},
 								},
-								rulings: {},
+								permissions: { mode: "judge", rulings: {} },
 							},
 						},
 					});
@@ -202,9 +201,9 @@ describe("a client of a session", () => {
 		await client.load();
 
 		expect(hello).toBeDefined();
-		expect(client.session().harness.tasks?.handle).toBe("rig");
-		expect(client.session().harness.mode).toBe("judge");
-		expect(Object.keys(client.session().harness.asks)).toEqual(["q1"]);
+		expect(client.session().state.tasks?.handle).toBe("rig");
+		expect(client.session().state.permissions.mode).toBe("judge");
+		expect(Object.keys(client.session().state.questions)).toEqual(["q1"]);
 		client.stop();
 	});
 
@@ -214,7 +213,7 @@ describe("a client of a session", () => {
 			key,
 			cursor: { epoch: "e1", seq: 1, entry: entries.at(-1)?.id },
 			entries,
-			harness: folded(facts),
+			state: folded(facts),
 		});
 		const order: string[] = [];
 		let drawn: number[] = [];
@@ -295,7 +294,7 @@ describe("a client of a session", () => {
 			key,
 			cursor: { epoch: "e1", seq: 1 },
 			entries: [],
-			harness: emptyHarnessState(),
+			state: emptySessionState(),
 		});
 
 		const client = connect({
@@ -325,8 +324,8 @@ describe("a client of a session", () => {
 		// Read once each: the harness holds exactly what folding those two gives, and the duplicate
 		// left no second copy behind.
 		const read = stream(1).filter((envelope) => envelope.seq === 2 || envelope.seq === 3);
-		expect(client.session().harness).toEqual(
-			read.reduce((state, one) => applyLogged(state, one.type, one.data), emptyHarnessState()),
+		expect(client.session().state).toEqual(
+			read.reduce((state, one) => applyEvent(state, one.type, one.data), emptySessionState()),
 		);
 		client.stop();
 	});
@@ -337,7 +336,7 @@ describe("a client of a session", () => {
 			key,
 			cursor: { epoch: "e1", seq: 1 },
 			entries: [],
-			harness: emptyHarnessState(),
+			state: emptySessionState(),
 		});
 		const hellos: Envelope[] = [];
 		const { seq: _seq, ...unnumbered } = snapshot;
@@ -363,7 +362,7 @@ describe("a client of a session", () => {
 
 		expect(hellos).toHaveLength(1);
 		expect(client.session().cursor).toMatchObject({ epoch: "e1", seq: 3 });
-		expect(harnessOf(client.session()).mode).toBe("manual");
+		expect(harnessOf(client.session()).permissions.mode).toBe("manual");
 		client.stop();
 	});
 
@@ -373,7 +372,7 @@ describe("a client of a session", () => {
 			key,
 			cursor: { epoch: "e1", seq: 1 },
 			entries: [],
-			harness: emptyHarnessState(),
+			state: emptySessionState(),
 		});
 		const hellos: Envelope[] = [];
 
@@ -398,7 +397,7 @@ describe("a client of a session", () => {
 		expect(hellos.length).toBeGreaterThan(1);
 		expect(cursorOf(hellos.at(-1) as Envelope).seq).toBeUndefined();
 		// What it read before the hole stands; what came after it was not drawn.
-		expect(harnessOf(client.session()).mode).toBe("edits");
+		expect(harnessOf(client.session()).permissions.mode).toBe("edits");
 		client.stop();
 	});
 });

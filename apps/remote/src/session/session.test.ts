@@ -3,7 +3,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { connect, memoryCache, type CachedSession } from "@adeildo/pi-remote-client";
-import { emptyHarnessState } from "@adeildo/pi-remote-protocol";
+import { emptySessionState } from "@adeildo/pi-remote-protocol";
 
 import { KEPT, pageCache, storageCache, type StorageLike } from "./cache.ts";
 import { openSocket, type SocketLike, socketUrl } from "./transport.ts";
@@ -204,7 +204,7 @@ describe("the store", () => {
 		key,
 		cursor: { epoch: "e1", seq: 3 },
 		entries: [],
-		harness: emptyHarnessState(),
+		state: emptySessionState(),
 		leaf: "a",
 	};
 

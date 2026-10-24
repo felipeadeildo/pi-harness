@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-	applyLogged,
-	emptyHarnessState,
+	applyEvent,
+	emptySessionState,
 	envelope,
-	type HarnessState,
+	type SessionState,
 } from "@adeildo/pi-remote-protocol";
 
 import { Sessions } from "../src/daemon/sessions.ts";
@@ -28,39 +28,39 @@ function restarted(): Sessions {
 }
 
 /** The state a session has, as the daemon would hand it to a client that opens it now. */
-function opening(sessions: Sessions): HarnessState | undefined {
+function opening(sessions: Sessions): SessionState | undefined {
 	const first = sessions.opening("s")?.[0];
 	if (first === undefined) return undefined;
-	const data = first.data as { snapshot: { harness?: HarnessState } };
-	return data.snapshot.harness;
+	const data = first.data as { snapshot: { state?: SessionState } };
+	return data.snapshot.state;
 }
 
 describe("a daemon that restarts", () => {
 	test("seeds itself with the state the bridge's snapshot carries", () => {
 		const sessions = restarted();
-		const harness: HarnessState = {
-			...emptyHarnessState(),
-			mode: "edits",
+		const folded: SessionState = {
+			...emptySessionState(),
 			tasks,
-			asks: { q1: { id: "q1", source: "agent", questions: [] } },
+			questions: { q1: { id: "q1", source: "agent", questions: [] } },
+			permissions: { mode: "edits", rulings: {} },
 		};
 		sessions.event(
 			envelope(
 				"event",
 				"snapshot",
 				{
-					snapshot: { session: "s", machine: "m", cwd: "/x", kind: "terminal", harness },
+					snapshot: { session: "s", machine: "m", cwd: "/x", kind: "terminal", state: folded },
 					entries: [],
 				},
 				around(1),
 			),
 		);
 		// Nothing was replayed and the log was not read: one event carried the whole session.
-		expect(sessions.get("s")?.facts).toEqual(harness);
+		expect(sessions.get("s")?.facts).toEqual(folded);
 		const state = opening(sessions);
-		expect(state?.mode).toBe("edits");
+		expect(state?.permissions.mode).toBe("edits");
 		expect(state?.tasks).toEqual(tasks);
-		expect(Object.keys(state?.asks ?? {})).toEqual(["q1"]);
+		expect(Object.keys(state?.questions ?? {})).toEqual(["q1"]);
 	});
 
 	test("folds what comes after the snapshot on top of it", () => {
@@ -75,7 +75,7 @@ describe("a daemon that restarts", () => {
 						machine: "m",
 						cwd: "/x",
 						kind: "terminal",
-						harness: { ...emptyHarnessState(), mode: "edits" },
+						state: { ...emptySessionState(), permissions: { mode: "edits", rulings: {} } },
 					},
 					entries: [],
 				},
@@ -84,17 +84,17 @@ describe("a daemon that restarts", () => {
 		);
 		sessions.event(envelope("event", "mode.changed", { mode: "judge" }, around(2)));
 		const state = sessions.get("s")?.facts;
-		expect(state?.mode).toBe("judge");
+		expect(state?.permissions.mode).toBe("judge");
 	});
 
 	test("an event with a shape this version cannot read leaves the state as it was", () => {
 		const sessions = restarted();
 		sessions.event(envelope("event", "mode.changed", { mode: "edits" }, around(1)));
 		sessions.event(envelope("event", "mode.changed", { mode: "not a mode" }, around(2)));
-		expect(sessions.get("s")?.facts.mode).toBe("edits");
+		expect(sessions.get("s")?.facts.permissions.mode).toBe("edits");
 		expect(
-			applyLogged(sessions.get("s")?.facts ?? emptyHarnessState(), "mode.changed", { mode: "full" })
-				.mode,
+			applyEvent(sessions.get("s")?.facts ?? emptySessionState(), "mode.changed", { mode: "full" })
+				.permissions.mode,
 		).toBe("full");
 	});
 });

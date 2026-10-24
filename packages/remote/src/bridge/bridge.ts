@@ -302,12 +302,12 @@ export class Bridge {
 			snapshot: {
 				...snapshotOf(this.ctx, kind),
 				handle: tasks?.handle,
-				state: SESSION_STATUS.current(scope),
+				status: SESSION_STATUS.current(scope),
 				tasks,
 				mode,
-				openAsks: this.#facts.openAsks,
-				// Already folded, so a reader draws the session's harness state without a replay.
-				harness: this.#facts.snapshot(tasks, mode),
+				openAsks: this.#facts.openQuestions,
+				// Already folded, so a reader draws the session's state without a replay.
+				state: this.#facts.snapshot(tasks, mode),
 			},
 			entries: this.ctx.sessionManager.getBranch().slice(-SNAPSHOT_ENTRIES),
 			streaming: this.stream.streaming,

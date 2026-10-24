@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { ANSWER, ASK, type AnswerEvent, AVAILABLE, CANCEL, type By } from "@adeildo/pi-kit";
-import { emptyHarnessState, isFact, applyLogged } from "@adeildo/pi-remote-protocol";
+import { emptySessionState, isFact, applyEvent } from "@adeildo/pi-remote-protocol";
 import { createEventBus } from "@earendil-works/pi-coding-agent";
 
 import { ClientAsks, OpenAsks } from "../src/bridge/asks.ts";
@@ -90,12 +90,12 @@ describe("the questions of a session with no terminal", () => {
 		// q2 was still open when the session went: no answer, no abort, no log line. The bridge is the
 		// only one that can say it closed, and a fact without a `result` never reads.
 		expect(sent).toEqual([{ type: "ask.closed", data: { id: "q2", result: CANCELLED } }]);
-		let facts = emptyHarnessState();
+		let facts = emptySessionState();
 		for (const event of sent) {
 			expect(isFact(event.type, event.data)).toBe(true);
-			facts = applyLogged(facts, event.type, event.data);
+			facts = applyEvent(facts, event.type, event.data);
 		}
-		expect(Object.values(facts.asks).filter((one) => one.closed === undefined)).toEqual([]);
+		expect(Object.values(facts.questions).filter((one) => one.closed === undefined)).toEqual([]);
 	});
 
 	test("a stop closes the questions a session has open, and not the ones already answered", () => {

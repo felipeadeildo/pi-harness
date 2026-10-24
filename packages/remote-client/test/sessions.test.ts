@@ -12,7 +12,7 @@ import {
 } from "../src/sessions.ts";
 
 const live = { pid: 42, startedAt: 1, cwd: "/work", name: "the rig", kind: "terminal" };
-const facts = { tasks: undefined, rulings: {}, asks: {}, renamed: undefined };
+const facts = { tasks: undefined, questions: {}, permissions: { rulings: {} }, renamed: undefined };
 
 const row = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
 	machine: "here",
@@ -95,7 +95,8 @@ describe("the daemon's session list", () => {
 			row({ live: { ...live, kind: "remote" } }),
 			row({ facts: "none" }),
 			row({ facts: {} }),
-			row({ facts: { asks: {} } }),
+			row({ facts: { permissions: { rulings: {} } } }),
+			row({ facts: { questions: {} } }),
 			row({ snapshot: { session: "s1" } }),
 		];
 		const sessions = await listSessions("http://127.0.0.1:7878", answering([...broken, row()]));
@@ -117,7 +118,7 @@ describe("how a listed session reads", () => {
 			epoch: "e1",
 			connected: true,
 			live,
-			facts: { rulings: {}, asks: {} },
+			facts: { questions: {}, permissions: { rulings: {} } },
 			...over,
 		}) as unknown as ListedSession;
 
@@ -130,22 +131,22 @@ describe("how a listed session reads", () => {
 
 	test("a question nobody answered is what makes a session wait on you", () => {
 		const asking = {
-			rulings: {},
-			asks: { a: { id: "a", source: "ask-questions", questions: [] } },
+			questions: { a: { id: "a", source: "ask-questions", questions: [] } },
+			permissions: { rulings: {} },
 		};
 		expect(wantsYou(listed({ facts: asking }))).toBe(true);
 	});
 
 	test("the permission mode is how a session behaves, not that it is stuck", () => {
 		// `manual` says what happens when the agent edits; a session in it is not waiting on anybody.
-		expect(wantsYou(listed({ snapshot: { mode: "manual" } }))).toBe(false);
-		expect(wantsYou(listed({ snapshot: { state: "blocked" } }))).toBe(true);
+		expect(wantsYou(listed({ snapshot: { status: "working" } }))).toBe(false);
+		expect(wantsYou(listed({ snapshot: { status: "blocked" } }))).toBe(true);
 	});
 
 	test("the ones that need you come first, then the running ones, then what ended", () => {
 		const asking = {
-			rulings: {},
-			asks: { a: { id: "a", source: "ask-questions", questions: [] } },
+			questions: { a: { id: "a", source: "ask-questions", questions: [] } },
+			permissions: { rulings: {} },
 		};
 		const order = inOrder([
 			listed({ session: "ended", gone: "exit" }),

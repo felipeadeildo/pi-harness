@@ -14,7 +14,7 @@ describe("the facts a snapshot carries", () => {
 		facts.saw("ask.opened", { id: "q1", source: "agent", questions: [] });
 		facts.saw("ask.opened", { id: "q2", source: "agent", questions: [] });
 		facts.saw("ask.closed", { id: "q1", result: {} });
-		expect(facts.openAsks).toEqual(["q2"]);
+		expect(facts.openQuestions).toEqual(["q2"]);
 	});
 
 	test("rebuild the tasks, the mode, the open questions and each call's latest ruling, in that order", () => {
@@ -32,9 +32,11 @@ describe("the facts a snapshot carries", () => {
 		};
 		const state = facts.snapshot(tasks, "edits");
 		expect(state.tasks?.version).toBe(1);
-		expect(state.mode).toBe("edits");
-		expect(Object.keys(state.asks)).toEqual(["q1"]);
-		expect(state.rulings["c1"]).toEqual({ ruling: { head: "allowed", tone: "success" } });
+		expect(state.permissions.mode).toBe("edits");
+		expect(Object.keys(state.questions)).toEqual(["q1"]);
+		expect(state.permissions.rulings["c1"]).toEqual({
+			ruling: { head: "allowed", tone: "success" },
+		});
 	});
 
 	test("keep only the latest rulings, and a call ruled again counts as the newest", () => {
@@ -42,7 +44,7 @@ describe("the facts a snapshot carries", () => {
 		for (let at = 0; at <= KEPT_CLOSED; at += 1) facts.saw("call.ruled", ruled(`c${at}`));
 		facts.saw("call.ruled", ruled("c1", "again"));
 		facts.saw("call.ruled", ruled("late"));
-		const calls = Object.keys(facts.snapshot(undefined, undefined).rulings);
+		const calls = Object.keys(facts.snapshot(undefined, undefined).permissions.rulings);
 		expect(calls).toHaveLength(KEPT_CLOSED);
 		expect(calls).not.toContain("c0");
 		// One over the bound went in, and the call ruled again moved to the end, so the bound dropped
@@ -56,6 +58,9 @@ describe("the facts a snapshot carries", () => {
 		facts.saw("ask.opened", "q1");
 		facts.saw("ask.opened", { questions: [] });
 		facts.saw("call.ruled", { ruling: {} });
-		expect(facts.snapshot(undefined, undefined)).toEqual({ rulings: {}, asks: {} });
+		expect(facts.snapshot(undefined, undefined)).toEqual({
+			questions: {},
+			permissions: { rulings: {} },
+		});
 	});
 });

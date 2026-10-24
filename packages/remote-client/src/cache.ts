@@ -1,7 +1,7 @@
 // What a client keeps of a session between visits, keyed by machine, session and cursor. The screen
 // draws the cache before the network answers, which is what makes opening a session feel instant.
 
-import type { HarnessState, Presence } from "@adeildo/pi-remote-protocol";
+import type { SessionState, Presence } from "@adeildo/pi-remote-protocol";
 
 import type { Cursor } from "./cursor.ts";
 import type { Outgoing } from "./outbox.ts";
@@ -18,7 +18,7 @@ export interface CachedSession {
 	/** pi's entries of the branch the client held, oldest first. */
 	entries: unknown[];
 	/** What the harness knew of the session, folded, so a warm open draws tasks and questions. */
-	harness: HarnessState;
+	state: SessionState;
 	/** Where the branch ended, as the bridge last said; see `ClientSession.leaf`. */
 	leaf?: string | null;
 	/** Who was watching when the page closed, so a warm open does not draw nobody. */
