@@ -372,6 +372,8 @@ Owner: client. Needs: W2, P3 and C7.
 
 The Sessions screen lists every session with its title, machine, state, cost and last line, the ones that need you first. The Session screen shows the transcript with thinking folded into a line, the tasks, and an open question, read only.
 
+The two screens have different dependencies, so they land apart. The Session screen draws what a `ClientSession` already holds, through `transcriptOfSession` and `factsOf`, so it needs W2 and P3 and no route at all. The Sessions screen is a list of sessions the client does not hold yet, so it waits for C7 to say what a client asks for.
+
 - Done when: the checks of F1 below pass in a browser.
 
 ### F1 is done when
