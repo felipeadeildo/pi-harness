@@ -10,7 +10,7 @@ import {
 	string,
 } from "@adeildo/pi-kit";
 
-import { BUSY_DELIVERIES, type BusyDelivery } from "./rules.ts";
+import { BUSY_DELIVERIES, type BusyDelivery, CHAIN_LIMIT } from "./rules.ts";
 
 export const SETTINGS_SECTION = "Requests to everyone";
 
@@ -44,6 +44,28 @@ export const delivery = setting<BusyDelivery>({
 				{ value: "next-turn", label: "with your next prompt" },
 			],
 		},
+	},
+});
+
+/** A whole number, zero or more. */
+const replies: Decoder<number> = {
+	control: { type: "number", min: 0, step: 1 },
+	decode(input, path) {
+		if (typeof input !== "number" || !Number.isInteger(input) || input < 0)
+			return fail(problem(path, "expected a whole number, zero or more"));
+		return pass(input);
+	},
+};
+
+export const chainLimit = setting<number>({
+	id: "peers.chainLimit",
+	default: CHAIN_LIMIT,
+	decoder: replies,
+	ui: {
+		section: SETTINGS_SECTION,
+		label: "Replies before a loop stops",
+		description:
+			"Agents that answer each other keep waking each other without asking you. After this many replies in a row with no prompt from you, it reads as a loop: the next message waits for your prompt, and your chat says why. 0 never stops them.",
 	},
 });
 
@@ -94,4 +116,4 @@ export const roomGrace = setting<number>({
 	},
 });
 
-export const PEERS_SETTINGS = [delivery, model, link, roomGrace];
+export const PEERS_SETTINGS = [delivery, chainLimit, model, link, roomGrace];

@@ -5,7 +5,7 @@ import type { Delivery } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import type { Posted } from "./folder.ts";
-import { type BusyDelivery, deliveryFor, QUIET_AFTER, STEERS_PER_RUN } from "./rules.ts";
+import { type BusyDelivery, CHAIN_LIMIT, deliveryFor, STEERS_PER_RUN } from "./rules.ts";
 
 export const PEER_MESSAGE = "pi-peers:message";
 /** Colleagues' messages that wait for the next prompt, drawn when they arrive and kept out of the context. */
@@ -32,6 +32,8 @@ export interface PeerMessageDetails {
 /** One arrival: everything that was waiting for this session when it looked. */
 export interface PeerDelivery {
 	items: PeerMessageDetails[];
+	/** For a chain that stopped waking the agent: how many replies that took. */
+	chain?: number;
 }
 
 /** Why a colleague's message waits for the next prompt instead of reaching the agent now. */
@@ -49,6 +51,13 @@ export interface InboxHooks {
 	sendUserMessage: ExtensionAPI["sendUserMessage"];
 	/** What the delivery setting says for a colleague's message that arrives while the agent runs. */
 	busyDelivery?: () => BusyDelivery;
+	/** Agent replies in a chain before it stops waking anyone. 0 never stops it. */
+	chainLimit?: () => number;
+	/**
+	 * What waited for the next prompt went in with a run that did not start from one: `by` is the
+	 * colleague whose message started it, when one did.
+	 */
+	wentIn?(ids: readonly string[], by: string | undefined): void;
 	idle(): boolean;
 }
 
@@ -83,6 +92,15 @@ export class Inbox {
 	#queued = new Map<string, Queued>();
 	/** The operator has written to this session: before that, a colleague's message waits for it. */
 	#awake = false;
+	/**
+	 * Held deliveries in pi's next-turn list. Pi gives that list to whatever run starts next, which is
+	 * not always yours, so the inbox keeps them until a run takes them and says which.
+	 */
+	#held: Arrival[][] = [];
+	/** The run about to start is one you started, with a prompt here or from another session. */
+	#yours = false;
+	/** The colleague whose message is starting the next run. */
+	#wokenBy: string | undefined;
 
 	constructor(hooks: InboxHooks) {
 		this.#hooks = hooks;
@@ -101,6 +119,28 @@ export class Inbox {
 		this.#depth = 0;
 		this.#steers = 0;
 		this.#awake = true;
+		this.#yours = true;
+	}
+
+	/**
+	 * A run started, and took what waited for the next prompt. Your run is the one those were held
+	 * for. Any other run took them too, so the room's receipts, the chain and the screen say so.
+	 */
+	started(): void {
+		const held = this.#held.flat();
+		const yours = this.#yours;
+		const by = this.#wokenBy;
+		this.#held = [];
+		this.#yours = false;
+		this.#wokenBy = undefined;
+		if (held.length === 0 || yours) return;
+		const messages = held.flatMap((arrival) => arrival.messages);
+		this.#depth = Math.max(this.#depth, ...messages.map(runDepth));
+		for (const { from, messages: theirs } of held) from.handed(theirs, "woke");
+		this.#hooks.wentIn?.(
+			messages.map((message) => message.id),
+			by,
+		);
 	}
 
 	/** A session reopened after the operator had already written in it. */
@@ -115,6 +155,9 @@ export class Inbox {
 		this.#awake = false;
 		this.#waiting = [];
 		this.#queued.clear();
+		this.#held = [];
+		this.#yours = false;
+		this.#wokenBy = undefined;
 	}
 
 	/** Colleagues' messages the agent has and has not read yet, oldest first. */
@@ -157,6 +200,7 @@ export class Inbox {
 		for (const { from, message } of queued)
 			bySender.set(from, [...(bySender.get(from) ?? []), message]);
 		for (const [from, messages] of bySender) from.handed(messages, "next-turn");
+		this.#held.push([...bySender].map(([from, messages]) => ({ from, messages })));
 	}
 
 	/** Runs `work`, and hands over everything that arrived during it together. */
@@ -197,7 +241,7 @@ export class Inbox {
 
 	/** Colleagues' messages, wrapped so the agent knows who wrote and that they cannot approve. */
 	#handPeer(arrivals: readonly Arrival[]): void {
-		const { mode, held } = this.#modeFor(arrivals, true);
+		const { mode, held, chain } = this.#modeFor(arrivals, true);
 		const ordered = inOrder(arrivals).map(({ from, message }) => ({
 			from,
 			message,
@@ -205,7 +249,11 @@ export class Inbox {
 		}));
 		const items = ordered.map(({ details }) => details);
 		// A held message is shown now, and goes in with the next prompt without being drawn a second time.
-		if (held !== undefined) this.#hooks.held?.({ items }, held);
+		if (held !== undefined) {
+			this.#hooks.held?.({ items, ...(chain === undefined ? {} : { chain }) }, held);
+			this.#held.push([...arrivals]);
+		}
+		if (mode === "woke") this.#wokenBy ??= items[0]?.from;
 		this.#send(items, mode, held === undefined || this.#hooks.held === undefined);
 		// Pi does not list what an extension queues, so the inbox keeps it until the model reads it.
 		if (mode === "steered" || mode === "after-run")
@@ -225,6 +273,7 @@ export class Inbox {
 	#handYou(arrivals: readonly Arrival[]): void {
 		// Your words are never held back: only colleagues fill a run.
 		const { mode } = this.#modeFor(arrivals, false);
+		if (mode !== "next-turn" && this.#hooks.idle()) this.#yours = true;
 		const texts = inOrder(arrivals).map(({ message }) => message.text);
 		// Its deliverAs only matters while the agent runs, so pass it whether or not it looks idle: a
 		// run starting between the two would otherwise make the call fail.
@@ -249,17 +298,22 @@ export class Inbox {
 	}
 
 	/** Until the operator writes here, it waits for that first prompt; then it follows the rule. */
-	#modeFor(arrivals: readonly Arrival[], colleagues: boolean): { mode: Delivery; held?: Held } {
+	#modeFor(
+		arrivals: readonly Arrival[],
+		colleagues: boolean,
+	): { mode: Delivery; held?: Held; chain?: number } {
 		if (!this.#awake) return { mode: "next-turn", held: "asleep" };
 		const messages = arrivals.flatMap((arrival) => arrival.messages);
 		const urgent = messages.some((message) => message.urgent === true);
+		const limit = this.#hooks.chainLimit?.() ?? CHAIN_LIMIT;
+		const quiet = limit > 0 && messages.every((message) => message.depth >= limit);
 		const mode = deliveryFor({
 			busy: !this.#hooks.idle(),
 			urgent,
-			quiet: messages.every((message) => message.depth >= QUIET_AFTER),
+			quiet,
 			busyMode: this.#hooks.busyDelivery?.() ?? "steered",
 		});
-		if (mode === "next-turn") return { mode, held: "quiet" };
+		if (quiet && mode === "next-turn") return { mode, held: "quiet", chain: limit };
 		if (colleagues && mode === "steered" && !urgent && this.#steers >= STEERS_PER_RUN)
 			return { mode: "next-turn", held: "full" };
 		return { mode };
@@ -275,7 +329,7 @@ function inOrder(arrivals: readonly Arrival[]): { from: Sender; message: Posted 
 
 /**
  * How deep a run this message starts is. Your own words start a chain; a colleague's message adds
- * one, and `QUIET_AFTER` of those is where agents that only answer each other stop waking.
+ * one, and the chain limit of those is where agents that only answer each other stop waking.
  */
 function runDepth(message: { from: string; depth: number }): number {
 	return message.from === "you" ? 0 : message.depth + 1;

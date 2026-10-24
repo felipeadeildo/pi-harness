@@ -98,6 +98,8 @@ interface SessionSource {
 export class Here implements Sender {
 	readonly #hooks: Hooks;
 	readonly #inbox: Inbox;
+	/** A room alone owns its inbox and tells it when a run starts; the session's rooms tell theirs once. */
+	readonly #ownInbox: boolean;
 	#target: LogTarget | undefined;
 	#cwd = "";
 	#room: RoomRef | undefined;
@@ -123,6 +125,7 @@ export class Here implements Sender {
 	constructor(hooks: Hooks) {
 		this.#hooks = hooks;
 		this.#inbox = hooks.inbox ?? new Inbox(hooks);
+		this.#ownInbox = hooks.inbox === undefined;
 	}
 
 	get session(): string | undefined {
@@ -345,6 +348,7 @@ export class Here implements Sender {
 	}
 
 	started(): void {
+		if (this.#ownInbox) this.#inbox.started();
 		this.#busy = true;
 		this.log("session.state", { state: "running" });
 	}

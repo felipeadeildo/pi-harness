@@ -8,8 +8,11 @@ import type { Peer, Posted } from "./folder.ts";
 export const BID_WINDOW_MS = 6_000;
 /** How long the winner has to take it before the next one in line does. */
 export const TAKE_MS = 8_000;
-/** Agent replies in a chain, each one waking the agent that writes the next, before the chain stops waking anyone. */
-export const QUIET_AFTER = 4;
+/**
+ * Agent replies in a chain, each one waking the agent that writes the next, before the chain stops
+ * waking anyone. That many without you is a loop, not a conversation. `peers.chainLimit` changes it.
+ */
+export const CHAIN_LIMIT = 20;
 /** Colleagues' messages one run takes while it works; past that, they wait for the next prompt. */
 export const STEERS_PER_RUN = 8;
 
@@ -74,8 +77,7 @@ export type BusyDelivery = (typeof BUSY_DELIVERIES)[number];
 /**
  * An idle agent wakes for anything that is not a chain too deep. A busy one takes it the way the
  * setting says, and `urgent` always attaches between calls, without ending the run. Agents that only
- * answer each other stop waking after `QUIET_AFTER` replies, until someone at a keyboard starts a run
- * again.
+ * answer each other stop waking after the chain limit, until someone at a keyboard starts a run again.
  */
 export function deliveryFor(options: {
 	busy: boolean;

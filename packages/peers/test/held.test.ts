@@ -21,15 +21,32 @@ const item = {
 	at: 0,
 };
 
+function drawn(...args: Parameters<typeof heldBlock>): string {
+	return heldBlock(...args)
+		.render(200)
+		.map((line) => stripTerminalSequences(line))
+		.join("\n");
+}
+
 test("a held message is drawn with the reason it waits under it", () => {
-	const lines = heldBlock({ items: [item], why: "quiet" }, plain)
-		.render(80)
-		.map((line) => stripTerminalSequences(line));
+	const lines = drawn({ items: [item], why: "quiet", chain: 12 }, plain).split("\n");
 	expect(lines.join("\n")).toContain("/v1/fleet now has a capacity field.");
-	expect(lines.at(-2)?.trim()).toBe(
-		"It waits for your next prompt: the agents answered each other 4 times in a",
+	expect(lines.at(-1)?.trim()).toBe(
+		"It waits for your next prompt: the agents answered each other 12 times without you, which looks like a loop.",
 	);
-	expect(lines.at(-1)?.trim()).toBe("row, so this did not wake the agent.");
+});
+
+test("once a run that was not yours takes it, the line says which", () => {
+	const block = { items: [item], why: "quiet" as const };
+	const taken = new Map<string, { by?: string }>();
+	expect(drawn(block, plain, (id) => taken.get(id))).toContain("It waits for your next prompt");
+	taken.set("m1", { by: "otter" });
+	expect(drawn(block, plain, (id) => taken.get(id))).toContain(
+		"It went in with the next run, which @otter's message started.",
+	);
+	expect(drawn(block, plain, () => ({}))).toContain(
+		"It went in with the next run, which you did not start.",
+	);
 });
 
 test("a message you stopped the run before it was read says so", () => {

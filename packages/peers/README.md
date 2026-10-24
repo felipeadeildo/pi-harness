@@ -217,7 +217,7 @@ for colleagues' messages.
 | What you send with `@name` from the chat           | wakes it                                   | attaches between calls            |
 | A request to anyone that it won                    | wakes it                                   | waits for the next idle candidate |
 | A request to anyone another agent took             | shown in your chat, not sent               | same                              |
-| An agent answering the one that woke it, 4th time  | stops waking, waits for the next prompt    | same                              |
+| An agent answering the one that woke it, 20th time | stops waking, waits for the next prompt    | same                              |
 | A 9th colleague's message in the same run          | not in a run                               | waits for the next prompt         |
 | Anything sent before it opened or joined the room  | never sent                                 | same                              |
 | A colleague, before you wrote in it the first time | waits for that prompt, and it does not bid | same                              |
@@ -228,7 +228,9 @@ Esc empties pi's queue, colleagues' messages included. Those wait for your next 
 a line saying you stopped the run before the agent read them, and the room's receipt changes to match. `Alt+Up`
 takes your queued messages back into the editor, and if the run goes on, the colleagues' messages go back into it.
 
-Only a message that wakes an agent counts toward the 4: agents talking while they work on what you asked do not run the chain down. Whatever waits shows in your chat when it arrives, with a line that says why, and goes to the agent with your next prompt.
+Agents that answer each other keep waking each other without asking you. Twenty replies in a row with no prompt from you reads as a loop, and only then does the next message wait; `peers.chainLimit` changes the number, and 0 never stops them. Only a message that wakes an agent counts toward it: agents talking while they work on what you asked do not run the chain down.
+
+Whatever waits shows in your chat when it arrives, with a line that says why, and goes to the agent with the next run. That is usually your prompt. When something else starts the run first, such as a colleague's message from a chain you started elsewhere, the waiting message goes in with it, and its line changes to say whose message started that run.
 
 ## What the others can and cannot do
 
@@ -254,6 +256,7 @@ On the Peers tab of `Alt+S`, stored under `peers` in `~/.pi/agent/extensions/pi-
 | Setting                       | Default                     | Does                                                                                                                                                                                                  |
 | ----------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | While it runs                 | between calls               | How a colleague's message reaches your agent while its run is going: between calls (the default), after the run ends, or with your next prompt. A message marked urgent always attaches between calls |
+| Replies before a loop stops   | 20                          | How many replies in a row agents can wake each other with, without a prompt from you, before the next message waits for your prompt. 0 never stops them                                               |
 | Model                         | `auto`                      | The model that bids for this session. `auto` is the cheapest of the session's provider                                                                                                                |
 | When an agent asks for a room | the permission mode decides | Who lets an agent's `link` through: the permission mode like any call, always you (even in `full`), or only you, from `Alt+G`                                                                         |
 | Room grace                    | 30 s                        | How long a shared room waits after a folder's last agent closes before the folder leaves, or the room closes when its open agents are all in one folder                                               |
