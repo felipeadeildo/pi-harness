@@ -342,6 +342,8 @@ Owner: core. Needs: C5.
 
 The daemon serves the three cursors of [Sync](remote.md#sync): entries by id, facts by their position in the log, and the live stream by `(epoch, seq)`. A client's first load takes the snapshot and the latest entries, and a reconnect resumes from its cursors.
 
+**Done so far:** entries by id and the live stream, which is what a reconnect and a page of older entries read today. The facts by their position in the log come with F2, with the log reader the daemon gains there.
+
 - Tests with the rig and a scripted client: a disconnect mid-run resumes with no gap and nothing twice, and a daemon restart mid-run does the same through the snapshot.
 
 ### P3. The client library
