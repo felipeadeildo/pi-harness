@@ -24,7 +24,7 @@ A slice is ticked in the commit that lands it.
 - [x] C3. The remote package and its build (core, F1)
 - [x] C4. The bridge (core, F1)
 - [ ] C5. The daemon (core, F1)
-- [ ] C6. Login and the Host check (core, F1)
+- [x] C6. Login and the Host check (core, F1)
 - [ ] C7. Sync by cursors (core, F1)
 - [x] P3. The client library (protocol, F1)
 - [x] W1. The Expo app and the CSP (client, F1)
@@ -324,7 +324,7 @@ Owner: core. Needs: C5.
 
 - The checks live in `packages/remote/src/daemon/auth.ts`. `checkPlace` (the `Host` and the `Origin`) needs no login, so the daemon calls it from its first route on. `authorize` adds the cookie.
 - The token comes in the body of `POST /login`, never in the query, which access logs keep. The app drops the fragment once it has traded the token.
-- `auth.ts` holds the checks. The routes in the next part call them, answer the API and socket paths before they look at the files, and pass `isAppFile` the list of files the web build exported. That part also brings the test that `/sessions` and `/ws` never pass it.
+- `auth.ts` holds the checks, and the routes call them. A route is answered as a route even when the web build holds a file of that name, and a test shows `/sessions` and `/ws` never pass as files. Until the daemon serves the build, its list of files is empty.
 - When the port becomes a setting, the protected list and the daemon read it from the same place, or the list protects a port nobody listens on.
 - Tests: a request with another `Host` gets 421; a request without the cookie gets 401; a token fails when used twice or after 60 seconds; a WebSocket from another origin is refused.
 
