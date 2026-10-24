@@ -345,6 +345,20 @@ describe("a session's events", () => {
 	});
 });
 
+test("importing the daemon's entry starts nothing", async () => {
+	const remote = join(dir, "remote");
+	const before = process.env.PI_REMOTE_DIR;
+	process.env.PI_REMOTE_DIR = remote;
+	try {
+		await import("../src/daemon/main.ts");
+		await Bun.sleep(50);
+		expect(existsSync(join(remote, "daemon.sock"))).toBe(false);
+	} finally {
+		if (before === undefined) delete process.env.PI_REMOTE_DIR;
+		else process.env.PI_REMOTE_DIR = before;
+	}
+});
+
 test("versions compare by their numbers", () => {
 	expect(newer("1.10.0", "1.9.9")).toBe(true);
 	expect(newer("1.2.0", "1.2.0")).toBe(false);

@@ -94,8 +94,9 @@ export class Clients {
 	}
 
 	/**
-	 * A client opens a session. A cursor this life of the session can resume from gets the events
-	 * after it. Anything else, no cursor, another epoch or a gap, gets the snapshot and what came
+	 * A client opens a session. Only the live part of its cursor, `(epoch, seq)`, is read here: the
+	 * `entry` and the facts it also keeps are for the session file and the log. A cursor this life of
+	 * the session can resume from gets the events after it. Anything else, no cursor, another epoch or a gap, gets the snapshot and what came
 	 * after it, and when the daemon has none to give, the bridge is asked and its answer follows.
 	 */
 	#hello(ws: WebSocket, message: Envelope): void {
