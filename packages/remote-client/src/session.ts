@@ -90,7 +90,10 @@ export function cachedOf(session: ClientSession): CachedSession {
 		entries: session.entries,
 		facts: session.facts,
 		leaf: session.leaf,
-		presence: session.presence,
+		// Who was watching, without the one whose input came last: `viewers` only says people were
+		// there, while `active` says someone is typing now, and a cache can be days old. It comes
+		// back from the snapshot or the next `presence.changed`, never from a file.
+		presence: session.presence === undefined ? undefined : { viewers: session.presence.viewers },
 	};
 }
 
