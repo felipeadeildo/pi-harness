@@ -82,11 +82,14 @@ export function openSession(
 	changed: (session: ClientSession) => void,
 ): { client: Client; stop: () => void } {
 	// The identity is the client's, not the session's: a phone looking at a desktop session is still
-	// the phone, and the log says so through every command it sends.
+	// The machine is the one the address names, which is the pi's: a page cannot know its own host,
+	// and the device's real name arrives with the marks C9 draws. What the log needs today is that a
+	// command has an author at all, and the name is the part this side can carry.
 	const client = connect({
 		key,
 		cache: source.cache,
 		open: source.open,
+		by: { kind: "client", name: source.clientName ?? "browser", machine: key.machine },
 	});
 	let open = true;
 	const stop = client.on(changed);
