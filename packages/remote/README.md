@@ -1,37 +1,80 @@
-# @adeildo/pi-remote
+<h1 align="center">@adeildo/pi-remote</h1>
 
-Your pi sessions from a phone, a browser or a pi on another machine. This package is being built and is not published yet. [`docs/remote.md`](../../docs/remote.md) has the design, and [`docs/remote-plan.md`](../../docs/remote-plan.md) has the work left.
+<p align="center">
+  <a href="https://pi.dev"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffelipeadeildo%2Fpi-harness%2Fmain%2Fpackage.json&query=%24.devDependencies%5B%22%40earendil-works%2Fpi-coding-agent%22%5D&label=pi%20SDK&color=6E56CF" alt="pi SDK"></a>
+</p>
 
-It holds three programs:
+<p align="center">
+  <strong>Your pi sessions from a phone, a browser or a pi on another machine.</strong><br>
+  Every session on this machine, live, with nothing to open first.
+</p>
 
-- the bridge, an extension every pi loads (`src/index.ts`);
-- the daemon, one per machine (`src/daemon/main.ts`, built into `dist/daemon.js`);
-- the `pi-remote` command (`src/cli/main.ts`, built into `dist/cli.js`).
+<p align="center"><code>bun run --cwd packages/remote build</code> and then <code>/remote</code> in pi</p>
 
-pi compiles an extension's TypeScript when it loads it, but nothing compiles the daemon or the command, and Node does not strip types from files under `node_modules`. So both are built into single JavaScript files that import nothing but Node's own modules:
+The package holds three programs. The **bridge** is the extension every pi loads: it publishes this session to the daemon and carries the stream to whoever watches. The **daemon** is one per machine, and everything else talks to it. The **`pi-remote`** command is for a shell: it asks for a link and opens it.
 
-```bash
-bun run --cwd packages/remote build
-```
+pi compiles an extension's TypeScript when it loads it, and nothing compiles the other two, so both are built into single files that import only Node's own modules.
 
-Every pi start writes `~/.pi/agent/harness/remote/current.json`, which names the Node binary and the built files of the version that started, and the same values as shell assignments in `current.sh`. `~/.pi/agent/harness/remote/bin/pi-remote` is a launcher that sources `current.sh` and runs that command. The launcher never changes, so a service or a link in `~/.local/bin` keeps working across updates.
+## Starting it
 
-The bridge in a terminal session connects to the daemon on `~/.pi/agent/harness/remote/daemon.sock`, one JSON envelope per line. When nothing answers, it starts the daemon `current.json` names, detached, and keeps trying with a short backoff; it starts the daemon again at most every 10 seconds. A send never waits: while the daemon is away, nothing is sent, and on the next connection the bridge tells the daemon again what it must know. When more than 1 MB waits on the socket, the bridge drops streamed deltas until the socket drains, and past 8 MB it reconnects. A `pi -p` never connects.
+In pi, `/remote` prints a link, opens it and says it is good once, for a minute. In a shell, `pi-remote open` does the same. Either way the browser gets an app with every session on this machine, the live answer as it is written, and the login that keeps it open.
 
-On every connect the bridge says the session is live, with the path of pi's session file, so the daemon can page older entries from it, and sends a snapshot. The path comes from the start, while pi writes the file only with the first message. The snapshot holds what pi knows of the session, the last 50 entries of the branch and the message being written. It sends one again when the daemon asks with `snapshot.get`. After the snapshot it sends each entry pi appends, read through the kit's `piSource`, and the message being written in the shapes of pi's JSON mode. Deltas of one block are joined over 33 ms, and a running tool sends the last 4 KB of its output at most every 100 ms. A delta and a running tool's output carry no `seq`: they only matter live, and the message's end replaces them, so the numbered events a daemon replays have no hole. Each message carries a `stream` number, and at the end of its turn `stream.bound` names the entry it became, so a client swaps the streamed copy for the entry. Moving in the tree sends `leaf.changed`. User messages and tool results are not streamed: they arrive as entries.
+| Command                 | What it does                                                                                   |
+| ----------------------- | ---------------------------------------------------------------------------------------------- |
+| `pi-remote open`        | Prints the link and opens it with `$BROWSER` or the platform's opener                          |
+| `pi-remote serve`       | Runs the daemon in the foreground, and never exits for being idle                              |
+| `pi-remote serve --dev` | Runs it from the checkout under `bun --watch`, so a save restarts it; needs a checkout and Bun |
+| `pi-remote --version`   | The version the launcher points at                                                             |
 
-The bridge also sends the session's status in pi's program status words as `session.state`, and each fact the kit logs for the session: `tasks.changed`, `ask.opened`, `ask.closed`, `call.ruled`, `mode.changed`, `prompt.received` and `session.renamed`. The log's own `session.state` is peers' running or idle, so it stays behind. The snapshot carries the handle, the status, the tasks, the mode and the open questions. It also carries, as `facts`, the facts that rebuild that state, with the latest ruling of up to 100 calls, because a client reduces facts.
+Both `serve` forms take `--port` for the clients' port, 7878 by default, and the link is built with the port the daemon opened, so `--port` moves it too.
 
-A session in RPC mode shows only when whoever started it set `PI_REMOTE_SHARE=1`, as the runner will. It shows as a background session.
+The daemon starts by itself: a bridge that finds nothing on the socket starts it detached, from the build the version it names wrote, and the launcher in `~/.pi/agent/harness/remote/bin/pi-remote` always points at the pi that started last. Nothing to enable, and nothing to keep running after the last session goes: with no session connected for five minutes the daemon exits and removes its socket.
 
-The daemon listens on that socket with mode 0600. It binds a path of its own and links `daemon.sock` to it, and the link is the lock: a second daemon finds the first one answering and exits. A socket file left by a daemon that died is removed and linked again by the one daemon that holds `daemon.sock.lock`, so two daemons starting together never remove each other's socket. When a daemon stops, it removes `daemon.sock` only if it is still its own. A bridge's first message must be a `bridge` hello in the daemon's protocol, and the daemon answers with its own. After that it reads only that bridge's session and epoch. It keeps every session a bridge registered, with the facts reduced from its events, its last snapshot, and a replay buffer of 8 MB across all sessions. The snapshot is kept whole, one per session, outside those 8 MB: a client that cannot replay takes it, so it cannot be dropped, and the line it comes on is bounded by the wire's 32 MB. A client that missed some events gets them from its cursor, and one whose cursor is older than the last snapshot, than what the budget dropped, or than the epoch takes the snapshot instead. Streamed deltas are never kept. A bridge whose socket closes leaves its session listed as reconnecting, and `session.gone` marks it ended. With no session connected for 5 minutes, the daemon exits and removes its socket. It also exits for an upgrade, when a newer bridge says hello or `current.json` names a newer version, and the next bridge that finds nothing starts the new one.
+## What it writes
 
-Clients reach the daemon on `127.0.0.1:7878`. `GET /health` says its version, protocol and uptime, `GET /sessions` lists every session a bridge registered with its state and facts, and `GET /sessions/:machine/:id/snapshot` returns the session's last snapshot with its facts. `GET /ws` is the live stream. A client says hello for each session it opens, with the cursor it stopped at, and the daemon answers with the events after that cursor when this life of the session still holds them. Otherwise it sends the last snapshot and the events after it, or, when it has no snapshot to give, asks the bridge with `snapshot.get` and the answer follows. Then every event of the session goes to the client as the bridge sends it. A snapshot carries the facts up to it, without a closed question or a replaced mode, and the facts after it come in the replay. A client with more than 8 MB unsent is closed, and it reconnects from its cursor. The WebSocket is written against Node's own modules: text frames, ping, pong and close, no extensions, and a message over 1 MB closes the connection. The port only listens on loopback, and every request passes `authorize` first. A `Host` other than the daemon's own loopback names gets 421, so a page whose DNS name turns into 127.0.0.1 reads nothing. A WebSocket or a request that changes something needs the daemon's own `Origin`, or it gets 403, since any page can open one. Every request after that needs the login cookie, except `GET /health`, `GET /.well-known/pi-remote`, `POST /login` and the files of the web build, or it gets 401.
+Everything lives in `~/.pi/agent/harness/remote`, or wherever `PI_REMOTE_DIR` says.
 
-`GET /sessions/:machine/:id/entries` returns older entries, read from the session file the bridge named in `session.live`. `?before=<id>` walks the branch back from that entry's parent, `?since=<id>` gives what pi appended after it, and no cursor gives the tail of the branch. A page holds at most 200 entries and says whether there are more. An entry the file does not hold answers 410, and the client drops what it holds of the session. Pi names the file when the session opens and writes it at the first message, so until then a page is empty. The daemon keeps an index of each file a client paged, for at most 16 files: where each entry's line is and its parent, never the entries. The first page of a file builds it, a later one reads only what the file gained, and a rewrite starts it over. It is built asynchronously, reading 256 KB at a time with a yield after each, so a 32 MB session holds the event loop for at most about 20 ms, and a page after the first takes a few milliseconds. The daemon serves only a file whose header names the session.
+| File            | What it is                                                                                                              |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `daemon.sock`   | The socket bridges and `pi-remote` speak on: one JSON envelope per line, mode 0600                                      |
+| `current.json`  | The Node binary and the built files of the version that started last, and the same as shell assignments in `current.sh` |
+| `bin/pi-remote` | The launcher that sources `current.sh`, so a link or a service survives an update                                       |
+| `logins.json`   | The SHA-256 of every live login cookie, mode 0600, so a login survives a restart                                        |
 
-A login starts in pi with `/remote`, or in a shell with `pi-remote open`. Either asks the daemon over the socket for a link with a token good once and for 60 seconds, and opens it with `$BROWSER` or the platform's opener. The daemon builds the link with the port it listens on, `http://127.0.0.1:7878/#token=…` unless `serve --port` moved it; the link is also printed, for a machine reached over SSH. The token rides in the URL's fragment, which no request carries. The web app posts it in the body of `POST /login`, never in the query, and gets an HttpOnly, `SameSite=Strict` cookie that lasts a year from its last use. The daemon keeps only the SHA-256 of tokens and cookies, the cookies in `~/.pi/agent/harness/remote/logins.json` with mode 0600, so a login survives a restart. On a machine other people log into, they can read the link in the opener's command line while it runs, since any user can read a process's arguments. The first to trade a link gets the login, so on such a machine trade it at once, and a 401 means someone else did.
+A second daemon that finds the first answering exits, and a socket left by one that died is replaced by the daemon holding `daemon.sock.lock`, so two starting together never remove each other's file. The daemon also steps aside for an upgrade: a newer bridge saying hello, or `current.json` naming a newer version, ends it and the next bridge starts the new one.
 
-`pi-remote serve` runs the daemon in the foreground, and it never exits for being idle. `pi-remote serve --dev` runs it from `src/` under `bun --watch`, which restarts it on every save, so it needs a checkout of the repository and Bun on `PATH`. Both take `--port` for the clients' port, 7878 by default.
+## What a client sees
 
-The daemon also serves the web app on the same port. `bun run --cwd packages/remote build` runs the app's web export and copies it to `dist/web`, with `files.json` listing every file as a path from `/`. The daemon answers only from that list, after every data route, so a path a client makes up never reaches the filesystem and a file named like a route never answers for it. A path is its file, its page (`/x` is `/x.html` or `/x/index.html`), or the page of a route with parameters (`/session/[machine]/[id].html` answers `/session/laptop/01a1`). Those paths are the ones a browser loads with no login. Anything else needs the login, and then gets the export's not-found page with 404. Each page carries the policy from `src/daemon/web.ts` with the hashes of its own inline scripts, and every other file carries the base policy. The daemon looks for the export next to itself, then in the package's `dist/web` when it runs from `src/`, and `PI_REMOTE_WEB` points elsewhere. Without an export, it serves the data routes alone.
+Clients reach the daemon on `127.0.0.1:7878`.
+
+| Route                                 | Answer                                                                         |
+| ------------------------------------- | ------------------------------------------------------------------------------ |
+| `GET /health`                         | Version, protocol and uptime, with no login                                    |
+| `GET /sessions`                       | Every session a bridge registered, with its state and facts                    |
+| `GET /sessions/:machine/:id/snapshot` | The session's last snapshot, with the facts that rebuild its state             |
+| `GET /sessions/:machine/:id/entries`  | Older entries, read from pi's session file (`?before=`, `?since=`, 200 a page) |
+| `GET /ws`                             | The live stream: one hello per session, and then its events                    |
+| `POST /login`                         | Trades a link's token for the login cookie                                     |
+
+A client that opens the stream says the cursor it stopped at. The daemon sends what it still holds after that cursor, or the last snapshot and what follows it, or asks the bridge for a fresh one; a delta the daemon never kept is never a hole, because a delta carries no sequence number. A session also takes commands, which run in its own process: abort, compact, rename, stop, and the model, the thinking level and the permission mode. Each is answered on its id, and an id that already ran is answered as a repeat, so a resend after a reconnect is not a second effect. `full` is refused from a client: that mode runs every call without asking, and it is set at the terminal.
+
+## The app
+
+The daemon serves the web app on the same port, from the export the build copies to `dist/web` with a `files.json` listing every path. It answers only from that list, after every data route, so a made-up path never reaches the filesystem and a file named like a route never answers for it. The export's own files open with no login, because a browser loads them before it has one; everything else needs the cookie. Each page carries a policy with the hashes of its own inline scripts.
+
+`PI_REMOTE_WEB` points at another export, and without one the daemon serves the data routes alone. `@adeildo/pi-remote/preview` serves an export through the same code, which is how the app's policy check sees what the daemon would send. A daemon that serves a session through a tunnel wants a TLS terminator in front of it: this one speaks plain HTTP on loopback.
+
+## Security
+
+The port listens on loopback only, and every request passes the same gate. A `Host` that is not the daemon's own loopback name gets 421, so a page whose DNS name resolves to 127.0.0.1 reads nothing. A WebSocket, or a request that changes something, needs the daemon's own `Origin`, or it gets 403: any page can open a socket, and an `Origin` is what it cannot forge. Everything after that needs the login cookie, except `GET /health`, `GET /.well-known/pi-remote`, `POST /login` and the app's own files.
+
+The token arrives in the URL's fragment, which no request carries to a server or a log, and travels once, in the body of `POST /login`. The cookie is `HttpOnly` and `SameSite=Strict`, and the daemon keeps only its SHA-256. On a machine other people log into they can read the link in the opener's command line while it runs, since any user can read a process's arguments: the first to trade a link gets the login, so trade it at once, and a 401 means someone else did.
+
+The agent runs with your permissions, so the permission feature asks before any call that reaches this package: it answers its own session's questions and reads its folder.
+
+Part of [pi-harness](https://github.com/felipeadeildo/pi-harness), which brings every piece in one install.
+
+<p align="center">
+  <a href="https://adeildo.dev"><img src="https://adeildo.dev/assets/images/cat.svg" width="42" height="42" alt="adeildo.dev"></a><br>
+  Brought to you by <a href="https://adeildo.dev">adeildo.dev</a>
+</p>
