@@ -321,6 +321,10 @@ Owner: core. Needs: C5.
 
 `/remote` and `pi-remote open` hand out a one-time token in the URL's fragment, good once and for 60 seconds, which the web app exchanges for an HttpOnly cookie. Every request needs the cookie, on loopback too. A `Host` that is not one of the daemon's names gets 421, and a WebSocket or a request that changes something needs a matching `Origin`.
 
+- The checks live in `packages/remote/src/daemon/auth.ts`. `checkPlace` (the `Host` and the `Origin`) needs no login, so the daemon calls it from its first route on. `authorize` adds the cookie.
+- The token comes in the body of `POST /login`, never in the query, which access logs keep. The app drops the fragment once it has traded the token.
+- `auth.ts` holds the checks. The routes in the next part call them, answer the API and socket paths before they look at the files, and pass `isAppFile` the list of files the web build exported. That part also brings the test that `/sessions` and `/ws` never pass it.
+- When the port becomes a setting, the protected list and the daemon read it from the same place, or the list protects a port nobody listens on.
 - Tests: a request with another `Host` gets 421; a request without the cookie gets 401; a token fails when used twice or after 60 seconds; a WebSocket from another origin is refused.
 
 ### C7. Sync by cursors
@@ -371,6 +375,8 @@ One renderer draws markdown, code and diffs. It is written in React DOM, so that
 Owner: client. Needs: W2, P3 and C7.
 
 The Sessions screen lists every session with its title, machine, state, cost and last line, the ones that need you first. The Session screen shows the transcript with thinking folded into a line, the tasks, and an open question, read only.
+
+- The Session screen draws a `ClientSession`, so it is built and tested on the rig's recording before C7. The Sessions screen reads the daemon's list, so it waits for C7, and so do the routes and `connect` of both screens.
 
 - Done when: the checks of F1 below pass in a browser.
 
