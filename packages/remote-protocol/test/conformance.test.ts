@@ -1,5 +1,7 @@
 // The copies are only safe while they match. This file imports the kit's types and proves, at compile
 // time, that everything the protocol reads out of the log is a shape the kit actually writes.
+// The proof here is a type proof, and the judge is `tsc`: revert a field of a copy or add a
+// required one to the kit, and `bun test` still passes while `bun run check` fails. Run the check.
 import { describe, expect, test } from "bun:test";
 
 import type {
@@ -38,7 +40,13 @@ const copyOfRuling = (ruling: KitRuling): CallRuling => ruling;
  * title becomes the handle), so the copy here is not the kit's shape and the bridge's decoder is
  * what holds the pair together.
  */
-const IN_THE_KIT = ["tasks.changed", "ask.opened", "ask.closed"] as const;
+const IN_THE_KIT = [
+	"tasks.changed",
+	"ask.opened",
+	"ask.closed",
+	"call.ruled",
+	"mode.changed",
+] as const;
 
 type InTheKit = (typeof IN_THE_KIT)[number];
 
@@ -48,6 +56,11 @@ const fromTheKit: Pick<LogEventMap, InTheKit> = {
 	},
 	"ask.opened": { id: "ask", source: "ask-questions", questions: [] },
 	"ask.closed": { id: "ask", result: { answers: [], cancelled: false } },
+	"call.ruled": {
+		toolCallId: "tool:1",
+		ruling: { tone: "success", head: "the rule allows it", detail: "bash" },
+	},
+	"mode.changed": { mode: "edits" },
 };
 
 // Each line is the proof: the kit's fact is assigned to the copy, so a field missing here is a
