@@ -62,6 +62,15 @@ export class History {
 	readonly #files = new Map<string, Index>();
 
 	/**
+	 * Drops what was indexed for a session file. The index is keyed by path, not by session, so a
+	 * session that ends hands the file it was read from: a relaunch with the same id pages a file that
+	 * may not be the same one, and a stale index would answer from the old bytes.
+	 */
+	forget(path: string): void {
+		this.#files.delete(path);
+	}
+
+	/**
 	 * A page of the session file at `path`. Without a cursor, the tail of the branch at the last
 	 * entry. The path comes from the session's bridge, so the file must be that session's: its header
 	 * names it. Pi names the file when the session opens and writes it at the first message, so a file

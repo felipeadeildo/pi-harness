@@ -12,7 +12,6 @@ import {
 	isBy,
 	isObject,
 	PROTOCOL,
-	type Viewer,
 } from "@adeildo/pi-remote-protocol";
 
 import { envelopeOf } from "../wire/lines.ts";
@@ -20,6 +19,7 @@ import { accept, type WebSocket } from "../wire/websocket.ts";
 import { isAppFile, serveApp, type WebApp } from "./app.ts";
 import { type Asking, authorize, type Logins, loginCookie, loopbackHosts } from "./auth.ts";
 import { History, PAGE } from "./history.ts";
+import { type Connection, Presence, type PresenceOf } from "./presence.ts";
 import type { Sessions } from "./sessions.ts";
 
 const STATUS = { 401: "Unauthorized", 403: "Forbidden", 421: "Misdirected Request" } as const;
@@ -56,31 +56,21 @@ export class Clients {
 	readonly #options: ClientsOptions;
 	readonly #server: Server;
 	readonly #started: number;
-	/** Each session's clients, which every event of the session goes to. */
-	readonly #watchers = new Map<string, Set<WebSocket>>();
-	/**
-	 * Who each socket is, by session: the name and machine its hello gave, and who had the latest input.
-	 * A socket with no name is watching but cannot be told from another person, so it is not a viewer.
-	 */
-	readonly #presence = new Map<WebSocket, By>();
-	/**
-	 * Whose input came last, per session: a socket, or the terminal that runs the session. The terminal
-	 * becomes active when someone types there; until then, nobody is.
-	 */
-	readonly #latest = new Map<string, WebSocket | "terminal">();
-	/** Who a session's terminal is, by the bridge that said so when someone typed there. */
-	readonly #terminal = new Map<string, By>();
-	/** What each session last told its clients, so an unchanged presence is not said twice. */
-	readonly #announced = new Map<string, string>();
-	readonly #sockets = new Set<WebSocket>();
+	/** Who has each session open, and whose input came last. It holds no socket of its own. */
+	readonly #presence = new Presence();
+	/** The sockets of this daemon, by the connection id the presence knows them by. */
+	readonly #sockets = new Map<Connection, WebSocket>();
+	/** How many connections have been opened, which is the id each one gets. */
+	#opened = 0;
 	readonly #history = new History();
 	/** Who asked for each command in flight, by session and id, so the answer goes back to it alone. */
-	readonly #asked = new Map<string, WebSocket>();
+	readonly #asked = new Map<string, Connection>();
 	/** The names this daemon answers to, once it knows its port. Nothing answers before. */
 	#hosts: ReadonlySet<string> = new Set();
 
 	constructor(options: ClientsOptions) {
 		this.#options = options;
+		this.#presence.onChange((session, presence) => this.#announce(session, presence));
 		this.#started = (options.now ?? Date.now)();
 		this.#server = createServer((request, response) => this.#route(request, response));
 		this.#server.on("upgrade", (request: IncomingMessage, socket, head: Buffer) => {
@@ -118,48 +108,40 @@ export class Clients {
 	}
 
 	close(): void {
-		for (const ws of this.#sockets) ws.close(1001);
+		for (const ws of this.#sockets.values()) ws.close(1001);
 		this.#server.close();
 	}
 
 	/** The sessions some client watches, each with how many. */
 	watched(): Map<string, number> {
-		return new Map([...this.#watchers].map(([session, watchers]) => [session, watchers.size]));
+		return this.#presence.counts();
 	}
 
 	/** Sends an event of a session to every client watching it. */
 	forward(message: Envelope): void {
-		const watchers = this.#watchers.get(message.session ?? "");
-		if (watchers === undefined) return;
+		const watchers = this.#watchers(message.session ?? "");
+		if (watchers.length === 0) return;
 		const out = message.type === "snapshot" ? this.#withPresence(message) : message;
 		for (const ws of watchers) this.#send(ws, out);
 	}
 
 	#open(ws: WebSocket): { message: (text: string) => void; closed: () => void } {
-		this.#sockets.add(ws);
+		this.#opened += 1;
+		const connection = `c${this.#opened}`;
+		this.#sockets.set(connection, ws);
 		return {
 			message: (text) => {
 				const message = envelopeOf(text);
-				if (message?.kind === "hello") this.#hello(ws, message);
-				else if (message?.kind === "command") this.#command(ws, message);
+				if (message?.kind === "hello") this.#hello(connection, ws, message);
+				else if (message?.kind === "command") this.#command(connection, ws, message);
 			},
 			closed: () => {
-				this.#sockets.delete(ws);
-				for (const [session, watchers] of this.#watchers) {
-					const was = watchers.delete(ws);
-					// A session nobody watches leaves no entry, whether it ended or never came.
-					if (watchers.size === 0) this.#watchers.delete(session);
-					if (was) this.#announce(session);
-				}
-				this.#presence.delete(ws);
-				// Not what clears the mark: `#presenceOf` only marks a socket still in `#watchers`, and
-				// this one just left it. This is so the map does not keep a socket nobody can see.
-				for (const [session, latest] of this.#latest) {
-					if (latest === ws) this.#latest.delete(session);
-				}
+				this.#sockets.delete(connection);
+				// What it claimed does not outlive it: the marks it held go with the connection.
+				this.#presence.drop(connection);
 				// Its commands will never be answered, so nothing keeps a place for them.
 				for (const [wasAsked, asker] of this.#asked) {
-					if (asker === ws) this.#asked.delete(wasAsked);
+					if (asker === connection) this.#asked.delete(wasAsked);
 				}
 			},
 		};
@@ -171,16 +153,14 @@ export class Clients {
 	 * the session can resume from gets the events after it. Anything else, no cursor, another epoch or a gap, gets the snapshot and what came
 	 * after it, and when the daemon has none to give, the bridge is asked and its answer follows.
 	 */
-	#hello(ws: WebSocket, message: Envelope): void {
+	#hello(connection: Connection, ws: WebSocket, message: Envelope): void {
 		const session = message.session ?? "";
 		const sessions = this.#options.sessions;
 		// The client watches the session even before a bridge registers it: after a daemon restarts,
 		// a client can come back before the bridge does, and the bridge's first snapshot is its answer.
-		let watchers = this.#watchers.get(session);
-		if (watchers === undefined) this.#watchers.set(session, (watchers = new Set()));
-		watchers.add(ws);
+		this.#presence.watch(session, connection);
 		const by = byOf(message.data);
-		if (by !== undefined) this.#presence.set(ws, by);
+		if (by !== undefined) this.#presence.name(session, connection, by);
 		if (sessions.get(session) === undefined) {
 			// Not an end: the client keeps watching, and the bridge's first snapshot reaches it.
 			this.#send(ws, envelope("error", "hello", { reason: "waiting for the session", session }));
@@ -192,20 +172,17 @@ export class Clients {
 		const catchUp = missed ?? sessions.opening(session);
 		if (catchUp !== undefined) {
 			for (const event of catchUp) this.#send(ws, event);
-			// After the catch-up, so a client reads its state first and the people watching second.
-			this.#announce(session);
 			return;
 		}
 		if (!this.#options.askSnapshot(session))
 			this.#send(ws, envelope("error", "hello", { reason: "no snapshot yet", session }));
-		this.#announce(session);
 	}
 
 	/**
 	 * A client's command goes to the session's own process, and its answer comes back to this client
 	 * only: another window watching the same session sees the effect, not the answer.
 	 */
-	#command(ws: WebSocket, message: Envelope): void {
+	#command(connection: Connection, ws: WebSocket, message: Envelope): void {
 		const session = message.session ?? "";
 		const id = message.id;
 		if (id === undefined) {
@@ -217,11 +194,8 @@ export class Clients {
 		}
 		// A command is input, so the client that sent it is the one the session answers now.
 		const by = message.by;
-		if (by !== undefined && this.#watchers.get(session)?.has(ws) === true) {
-			this.#presence.set(ws, by);
-			this.#latest.set(session, ws);
-			this.#announce(session);
-		}
+		// A command is an act: whoever sent it is watching with that name, and has the latest input.
+		if (by !== undefined) this.#presence.input(session, connection, by);
 		const wasAsked = `${session}\n${id}`;
 		// An id already in flight is refused here, so the client that asked first keeps its answer:
 		// taking its place would leave that one waiting for a reply delivered to another window.
@@ -237,7 +211,7 @@ export class Clients {
 			);
 			return;
 		}
-		this.#asked.set(wasAsked, ws);
+		this.#asked.set(wasAsked, connection);
 		if (this.#options.command(session, message)) return;
 		this.#asked.delete(wasAsked);
 		this.#send(
@@ -256,7 +230,7 @@ export class Clients {
 		// The snapshot is already folded by the bridge; a client adds who is watching, which is the
 		// daemon's to know and never travels in the session's own state.
 		if (!isObject(message.data) || !isObject(message.data.snapshot)) return message;
-		const snapshot = { ...message.data.snapshot, ...this.#presenceOf(message.session ?? "") };
+		const snapshot = { ...message.data.snapshot, ...this.#presence.of(message.session ?? "") };
 		return { ...message, data: { ...message.data, snapshot } };
 	}
 
@@ -265,51 +239,28 @@ export class Clients {
 	 * otherwise start with the terminal of the session before it, and a name a rename has moved on.
 	 */
 	forget(session: string): void {
-		this.#terminal.delete(session);
-		this.#latest.delete(session);
-		this.#announced.delete(session);
+		this.#presence.forget(session);
+		// The paged file belongs to the session that just ended: its index goes with it.
+		const file = this.#options.sessions.get(session)?.live.file;
+		if (file !== undefined) this.#history.forget(file);
+		// A command in flight for a session that ended will never be answered either.
+		for (const [wasAsked] of this.#asked) {
+			if (wasAsked.startsWith(`${session}\n`)) this.#asked.delete(wasAsked);
+		}
 	}
 
-	/** Tells everyone watching a session who has it open, and who had the latest input. */
-	#announce(session: string): void {
-		const presence = this.#presenceOf(session);
-		// Nobody to name is nothing to say, and a watcher that named nobody changed nothing.
-		if (presence.viewers.length === 0) {
-			this.#announced.delete(session);
-			return;
-		}
-		const said = JSON.stringify(presence);
-		if (this.#announced.get(session) === said) return;
-		this.#announced.set(session, said);
-		for (const ws of this.#watchers.get(session) ?? []) {
+	/** The sockets watching a session, which is who an event of it goes to. */
+	#watchers(session: string): WebSocket[] {
+		return this.#presence
+			.connections(session)
+			.flatMap((connection) => this.#sockets.get(connection) ?? []);
+	}
+
+	/** Sends a changed presence to everyone watching that session, including whoever caused it. */
+	#announce(session: string, presence: PresenceOf): void {
+		for (const ws of this.#watchers(session)) {
 			this.#send(ws, envelope("event", "presence.changed", presence, { session }));
 		}
-	}
-
-	/**
-	 * The viewers of a session and the one whose input came last. A session's terminal counts as a
-	 * viewer once someone has typed there: it is where the session runs, and the person at it is
-	 * watching by being there. A client that sends a command takes the mark, and a key takes it back.
-	 */
-	#presenceOf(session: string): { viewers: Viewer[]; active?: By } {
-		const viewers: Viewer[] = [];
-		let active: By | undefined;
-		const terminal = this.#terminalOf(session);
-		if (terminal !== undefined) viewers.push({ name: terminal.name, machine: terminal.machine });
-		for (const ws of this.#watchers.get(session) ?? []) {
-			const by = this.#presence.get(ws);
-			if (by === undefined) continue;
-			if (!viewers.some((one) => one.name === by.name && one.machine === by.machine))
-				viewers.push({ name: by.name, machine: by.machine });
-			if (this.#latest.get(session) === ws) active = by;
-		}
-		if (this.#latest.get(session) === "terminal" && terminal !== undefined) active = terminal;
-		return active === undefined ? { viewers } : { viewers, active };
-	}
-
-	/** The `by` of a session's terminal, as its bridge named it the last time someone typed. */
-	#terminalOf(session: string): By | undefined {
-		return this.#terminal.get(session);
 	}
 
 	/**
@@ -317,19 +268,14 @@ export class Clients {
 	 * input. The bridge says who it is; the daemon does not guess a handle it cannot see.
 	 */
 	typed(session: string, by: By): void {
-		this.#terminal.set(session, by);
-		if (this.#latest.get(session) === "terminal") {
-			this.#announce(session);
-			return;
-		}
-		this.#latest.set(session, "terminal");
-		this.#announce(session);
+		this.#presence.typed(session, by);
 	}
 
 	/** A bridge's answer to a command, to the client that asked, and to nobody else. */
 	answer(message: Envelope): void {
 		const wasAsked = `${message.session ?? ""}\n${message.id ?? ""}`;
-		const ws = this.#asked.get(wasAsked);
+		const asked = this.#asked.get(wasAsked);
+		const ws = asked === undefined ? undefined : this.#sockets.get(asked);
 		if (ws === undefined) return;
 		this.#asked.delete(wasAsked);
 		this.#send(ws, message);
