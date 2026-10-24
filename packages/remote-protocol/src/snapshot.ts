@@ -64,8 +64,9 @@ export type WaitingWhy = "asleep" | "quiet" | "full" | "stopped";
 export type WaitingWant = "steer" | "followUp";
 
 /**
- * A letter waiting in the inbox, as the snapshot shows it. `when` is the writer's clock, and it is
- * what the queue orders by and ages by; `by` is what puts the operator's words ahead of an agent's.
+ * A letter waiting in the inbox, as the snapshot shows it. `when` is the writer's clock, taken from
+ * the letter's `at`, and it is required here because the queue orders and ages by it: a letter the
+ * kit allows without `at` gets one from the inbox before it reaches a client.
  */
 export interface QueuedLetter {
 	id: string;
