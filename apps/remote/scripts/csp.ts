@@ -1,10 +1,10 @@
-// Serves the exported app with the CSP the design asks for and loads it in a headless browser. A
-// policy that the app violates is the failure the type check and the lint cannot see: they run
-// before the bundle exists.
-import { existsSync, readFileSync, statSync } from "node:fs";
-import { extname, join, normalize, sep } from "node:path";
+// Serves the exported app through the daemon's own HTTP server and loads it in a headless browser, so
+// the check sees the routes, the file list and the policy a real daemon uses. A policy that the app
+// violates is the failure the type check and the lint cannot see: they run before the bundle exists.
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
-import { POLICY, policyFor } from "@adeildo/pi-remote/web";
+import { serveExport } from "@adeildo/pi-remote/preview";
 import { type Browser, chromium } from "playwright-core";
 
 const DIST = join(import.meta.dir, "..", "dist");
@@ -20,65 +20,6 @@ const BROWSERS = [
 export function browserPath(): string | undefined {
 	if (process.env.CHROME_PATH !== undefined) return process.env.CHROME_PATH;
 	return BROWSERS.find((path) => existsSync(path));
-}
-
-const TYPES: Record<string, string> = {
-	".html": "text/html; charset=utf-8",
-	".js": "text/javascript; charset=utf-8",
-	".css": "text/css; charset=utf-8",
-	".json": "application/json",
-	".png": "image/png",
-	".svg": "image/svg+xml",
-	".ttf": "font/ttf",
-	".woff2": "font/woff2",
-	".ico": "image/x-icon",
-};
-
-export interface Served {
-	url: string;
-	stop(): void;
-}
-
-/** The exported folder behind the policy, so the browser sees what the daemon will serve. */
-export function serve(): Served {
-	if (!existsSync(join(DIST, "index.html"))) {
-		throw new Error(`nothing exported in ${DIST}: run the app's export first`);
-	}
-	const server = Bun.serve({
-		// Loopback only: this serves a test page, and nothing else on the network should reach it.
-		hostname: "127.0.0.1",
-		port: 0,
-		fetch(request) {
-			const path = normalize(new URL(request.url).pathname);
-			const file = safeFile(path) ?? safeFile(join(path, "index.html"));
-			if (file === undefined) {
-				console.error("missing", path);
-				return new Response("not found", { status: 404 });
-			}
-			if (extname(file) !== ".html") {
-				return new Response(Bun.file(file), {
-					headers: { "content-security-policy": POLICY, "content-type": typeOf(file) },
-				});
-			}
-			// One read: the body and the hashes come from the same text, so they cannot disagree.
-			const page = readFileSync(file, "utf8");
-			return new Response(page, {
-				headers: { "content-security-policy": policyFor(page), "content-type": typeOf(file) },
-			});
-		},
-	});
-	return { url: `http://127.0.0.1:${server.port}/`, stop: () => void server.stop(true) };
-}
-
-function typeOf(file: string): string {
-	return TYPES[extname(file)] ?? "application/octet-stream";
-}
-
-function safeFile(path: string): string | undefined {
-	const full = join(DIST, path);
-	if (!full.startsWith(DIST + sep)) return undefined;
-	if (!existsSync(full) || !statSync(full).isFile()) return undefined;
-	return full;
 }
 
 /** What the browser said was blocked, or an error it logged. */
@@ -127,7 +68,11 @@ if (import.meta.main) {
 		console.error(`the browser at ${browser} is not there: set CHROME_PATH, or unset it`);
 		process.exit(1);
 	}
-	const served = serve();
+	if (!existsSync(join(DIST, "index.html"))) {
+		console.error(`nothing exported in ${DIST}: run the app's export first`);
+		process.exit(1);
+	}
+	const served = await serveExport(DIST);
 	try {
 		const found = await violations(served.url);
 		if (found.length > 0) {
