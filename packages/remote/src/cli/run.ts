@@ -5,10 +5,12 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { CLIENT_PORT, Daemon, daemonDir, daemonPaths } from "../daemon/server.ts";
+import { Daemon } from "../daemon/server.ts";
+import { CLIENT_PORT, daemonDir, daemonPaths } from "../places.ts";
 import { VERSION } from "../version.ts";
+import { open } from "./open.ts";
 
-const USAGE = "usage: pi-remote --version | serve [--dev] [--port <n>]";
+const USAGE = "usage: pi-remote --version | open | serve [--dev] [--port <n>]";
 
 /** Runs one command line and returns the exit code, once the command is done. */
 export function run(
@@ -23,6 +25,7 @@ export function run(
 		return 0;
 	}
 	if (first === "serve") return serve(rest, out, err, options);
+	if (first === "open") return open(daemonPaths(daemonDir()).socket, out, err);
 	err(first === undefined ? USAGE : `pi-remote: unknown command "${first}"\n${USAGE}`);
 	return 2;
 }

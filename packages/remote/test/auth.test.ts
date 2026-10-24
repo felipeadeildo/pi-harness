@@ -107,6 +107,11 @@ describe("a login", () => {
 	});
 });
 
+/** A Cookie header that carries a fresh login. */
+function loggedIn(keeper: Logins): string {
+	return `${COOKIE}=${keeper.exchange(keeper.issue().token) ?? ""}`;
+}
+
 describe("a request", () => {
 	const hosts = loopbackHosts(7878);
 
@@ -123,10 +128,6 @@ describe("a request", () => {
 			},
 			{ hosts, logins: keeper, isAppFile: (path) => path === "/" || path === "/app.js" },
 		);
-	}
-
-	function loggedIn(keeper: Logins): string {
-		return `${COOKIE}=${keeper.exchange(keeper.issue().token) ?? ""}`;
 	}
 
 	test("to a Host the daemon does not answer to gets 421, before anything else", () => {

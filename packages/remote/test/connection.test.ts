@@ -167,6 +167,39 @@ describe("a bridge and its daemon", () => {
 		]);
 	});
 
+	test("a request gets the reply that carries its id, and other messages still reach the bridge", async () => {
+		const listening = await fakeDaemon(origin().path);
+		daemon = listening;
+		const { made, heard } = connection();
+		made.start();
+		await until(() => heard.connected === 1);
+		const asked = made.request("token.issue", {});
+		await until(() => listening.received.some((one) => one.kind === "command"));
+		const command = listening.received.find((one) => one.kind === "command");
+		expect(command).toMatchObject({ type: "token.issue", session: "s1", epoch: "e1" });
+		const socket = listening.sockets[0];
+		socket?.write(line(envelope("command", "snapshot.get", {}, { id: "other" })));
+		socket?.write(line(envelope("reply", "token.issue", { token: "t" }, { id: command?.id })));
+		expect((await asked)?.data).toEqual({ token: "t" });
+		await until(() => heard.messages.length === 1);
+		expect(heard.messages.map((one) => one.type)).toEqual(["snapshot.get"]);
+	});
+
+	test("a request with no daemon, no reply or a lost socket comes back with nothing", async () => {
+		const unanswered = connection();
+		expect(await unanswered.made.request("token.issue", {})).toBeUndefined();
+		const listening = await fakeDaemon(origin().path);
+		daemon = listening;
+		const { made, heard } = connection();
+		made.start();
+		await until(() => heard.connected === 1);
+		expect(await made.request("token.issue", {}, 20)).toBeUndefined();
+		const lost = made.request("token.issue", {});
+		await until(() => listening.received.filter((one) => one.kind === "command").length === 2);
+		listening.sockets[0]?.destroy();
+		expect(await lost).toBeUndefined();
+	});
+
 	test("closing tells the daemon the session is gone, and nothing connects again", async () => {
 		const listening = await fakeDaemon(origin().path);
 		daemon = listening;
