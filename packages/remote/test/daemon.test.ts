@@ -313,6 +313,32 @@ describe("the replay buffer", () => {
 		expect(sessions.get("s1")?.snapshot).toEqual(snapshot);
 	});
 
+	test("a snapshot's own facts survive a daemon that has none, so a client after a restart draws them", () => {
+		const sessions = new Sessions();
+		sessions.live(event(0), live);
+		// A bridge that registered with a daemon that just started, and sent the facts that rebuild it.
+		sessions.event(
+			envelope(
+				"event",
+				"snapshot",
+				{
+					snapshot: { session: "s1", machine: "laptop", cwd: "/", kind: "terminal" as const },
+					entries: [],
+					facts: [
+						{ type: "mode.changed", data: { mode: "edits" } },
+						{ type: "tasks.changed", data: { tasks: { items: [{ id: "t1" }] } } },
+					],
+				},
+				{ ...ORIGIN, seq: 1 },
+			),
+		);
+		const opening = sessions.opening("s1");
+		const facts = (opening?.[0]?.data as { facts?: unknown[] } | undefined)?.facts;
+		expect(facts).toHaveLength(2);
+		// The session the list draws comes from the same facts, not only from the events after them.
+		expect(sessions.get("s1")?.facts.mode).toBe("edits");
+	});
+
 	test("another epoch, or a gap the budget dropped, asks for a snapshot", () => {
 		const sessions = new Sessions(JSON.stringify(event(10)).length * 2);
 		sessions.live(event(0), live);

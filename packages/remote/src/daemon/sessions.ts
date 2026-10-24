@@ -57,6 +57,8 @@ export interface SnapshotEvent {
 	entries: unknown[];
 	/** The message being written, when one is. */
 	streaming?: unknown;
+	/** The facts that rebuild the session at this seq, as the bridge had them. */
+	facts?: Fact[];
 }
 
 /** Where a client stopped reading a session's live stream. */
@@ -248,6 +250,16 @@ export class Sessions {
 	#rebase(entry: Entry, envelope: Envelope, snapshot: SnapshotEvent): void {
 		entry.state.snapshot = snapshot;
 		entry.snapshot = envelope;
+		// The bridge's snapshot lists the facts that rebuild the session at its seq. A daemon that just
+		// started has none of its own, and keeping its empty list is what a client arriving after a
+		// restart reads: the transcript would draw with no tasks, mode or open questions.
+		if (Array.isArray(snapshot.facts)) {
+			entry.facts = snapshot.facts;
+			entry.state.facts = snapshot.facts.reduce(
+				(state, fact) => reduceFact(state, fact.type, fact.data),
+				emptySessionFacts(),
+			);
+		}
 		entry.snapshotFacts = entry.facts;
 		this.#drop(entry);
 		entry.evicted = Math.max(entry.evicted, envelope.seq ?? -1);
