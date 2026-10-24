@@ -2,6 +2,8 @@
 // client that reconnects would otherwise draw who was watching ten minutes ago.
 import { describe, expect, test } from "bun:test";
 
+import { reduceFact, emptySessionFacts, FACT_TYPES } from "@adeildo/pi-remote-protocol";
+
 import { memoryCache } from "../src/cache.ts";
 import { cachedOf, readEnvelope, sessionOf } from "../src/session.ts";
 
@@ -48,6 +50,16 @@ describe("who has the session open", () => {
 			"skip",
 		);
 		expect(session.presence).toBeUndefined();
+	});
+
+	test("presence never becomes a fact, because the log has no shelf life", () => {
+		// The difference between "the client applies it" and "the log remembers it": a fact is
+		// replayed, and a replay would say who was watching an hour ago.
+		const presence = { viewers: [{ name: "phone", machine: "here" }] };
+		expect(FACT_TYPES).not.toContain("presence.changed" as never);
+		expect(reduceFact(emptySessionFacts(), "presence.changed", presence)).toEqual(
+			emptySessionFacts(),
+		);
 	});
 
 	test("the last presence travels with the cache, so a warm open draws who was there", async () => {
