@@ -80,6 +80,43 @@ describe("a command on its way out", () => {
 		session.stop();
 	});
 
+	test("sent with the socket gone, it stays waiting instead of pretending it left", async () => {
+		const wire = socket();
+		// No reconnect scheduled: this is the client with the daemon out of reach.
+		const session = connect({
+			key,
+			cache: memoryCache(),
+			open: wire.open,
+			wait: () => () => {},
+		});
+		await session.load();
+		wire.drop();
+
+		const command = session.send("run.abort", {});
+		// Nothing went out, so nothing is marked sent: it is still in the queue the screen draws.
+		expect(session.outbox().all()[0]?.state).toBe("waiting");
+		expect(
+			session
+				.outbox()
+				.ready()
+				.map((one) => one.id),
+		).toEqual([command.id]);
+		session.stop();
+	});
+
+	test("a reply without an id never reaches the session, so it moves no cursor", async () => {
+		const wire = socket();
+		const session = client(wire);
+		await session.load();
+		const before = { ...session.session().cursor };
+
+		wire.arrive({ v: 1, kind: "reply", type: "reply", data: {}, at: 0 });
+		wire.arrive({ v: 1, kind: "error", type: "error", data: { reason: "no id" }, at: 0 });
+
+		expect(session.session().cursor).toEqual(before);
+		session.stop();
+	});
+
 	test("typed offline, it waits and goes out on the next connection", async () => {
 		const wire = socket();
 		const outbox = new Outbox({ now: () => 0 });

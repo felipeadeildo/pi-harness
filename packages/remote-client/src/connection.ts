@@ -77,7 +77,11 @@ export function connect(options: ConnectionOptions): Client {
 
 	/** A reply ends a command's wait: applied, or refused with the reason the daemon gave. */
 	const reply = (envelope: unknown): boolean => {
-		if (!isObject(envelope) || typeof envelope.id !== "string") return false;
+		// A reply is not an event of the session, with or without an id: it never reaches the reader,
+		// because a malformed reply must not move the cursor.
+		if (!isObject(envelope) || (envelope.kind !== "reply" && envelope.kind !== "error"))
+			return false;
+		if (typeof envelope.id !== "string") return true;
 		if (envelope.kind === "reply") {
 			outbox.applied(envelope.id);
 			tell();
@@ -95,10 +99,12 @@ export function connect(options: ConnectionOptions): Client {
 		return false;
 	};
 
-	/** Sends what may go now, in the order it was typed. */
+	/** Sends what may go now, in the order it was typed. Without a transport nothing is sent, and a
+	 * command marked sent that never left would sit in a state the queue cannot draw. */
 	const flush = (): void => {
+		if (transport === undefined) return;
 		for (const command of outbox.ready()) {
-			transport?.send(commandOf(session, command));
+			transport.send(commandOf(session, command));
 			outbox.sent(command.id);
 		}
 	};
