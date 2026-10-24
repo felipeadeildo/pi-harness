@@ -80,8 +80,9 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      # One retry, like `CI`: Bun has flaked in the runner spawning the shell in the bash timer
-      # tests (EINVAL from epoll_ctl). A second failure is real, and the release stops.
+      # One retry, unlike `CI`: this job does not pin Bun, so the probe that cleared the retry in
+      # `CI` says nothing about the version running here. Pinning it, and dropping this with the
+      # probe's answer, is its own change. A second failure is real, and the release stops.
       - run: |
           if bun run verify; then exit 0; fi
           echo "::warning::verify failed, retrying once"
