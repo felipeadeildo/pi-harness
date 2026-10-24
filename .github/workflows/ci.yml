@@ -47,3 +47,21 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run app:export
       - run: bun run csp:check
+
+  # The gate: the app in a real browser, with a real daemon and a real pi session behind it. The
+  # CSP check cannot be this guard — it serves the export with no daemon and no login, so the list
+  # screen takes its error path and draws text instead of breaking. Only this job has a session, and
+  # only this job sees the page throw.
+  gate:
+    runs-on: ubuntu-latest
+    # A job that goes green while the screen is blank is the failure this exists to catch, so it is
+    # allowed to be red: the steps that hold it are the ones already passing (see MANDATORY in
+    # packages/remote/test/e2e/flow.ts).
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bun run gate

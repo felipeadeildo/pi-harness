@@ -26,7 +26,8 @@
 		"./preview": "./src/daemon/preview.ts"
 	},
 	"scripts": {
-		"build": "bun build.ts"
+		"build": "bun build.ts",
+		"gate": "bun run test/e2e/flow.ts"
 	},
 	"dependencies": {
 		"@adeildo/pi-kit": "workspace:*",
