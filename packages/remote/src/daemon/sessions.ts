@@ -45,7 +45,7 @@ export interface LiveSession {
 	connected: boolean;
 	/** Why it ended, once its bridge said so. */
 	gone?: GoneReason;
-	facts: SessionState;
+	state: SessionState;
 	/** The last snapshot its bridge sent: what a client draws before the replay. */
 	snapshot?: SnapshotEvent;
 }
@@ -109,7 +109,7 @@ export class Sessions {
 
 	/**
 	 * A bridge registered its session. A new epoch starts a new numbering, so the replay buffer of the
-	 * old one goes, and the facts stay: they describe the session, not one life of its process.
+	 * old one goes, and the state stays: it describes the session, not one life of its process.
 	 */
 	live(envelope: Envelope, live: SessionLive): LiveSession {
 		const { machine = "", session = "", epoch = "" } = envelope;
@@ -121,7 +121,7 @@ export class Sessions {
 			epoch,
 			live,
 			connected: true,
-			facts: known?.state.facts ?? emptySessionState(),
+			state: known?.state.state ?? emptySessionState(),
 			...(same(known, epoch) && known?.state.snapshot !== undefined
 				? { snapshot: known.state.snapshot }
 				: {}),
@@ -138,7 +138,7 @@ export class Sessions {
 	}
 
 	/**
-	 * An event of a registered session: reduced into its facts, and kept for replay unless ephemeral.
+	 * An event of a registered session: folded into its state, and kept for replay unless ephemeral.
 	 * Returns why it was dropped, for the daemon's log.
 	 */
 	event(envelope: Envelope): string | undefined {
@@ -150,7 +150,7 @@ export class Sessions {
 			this.#rebase(entry, envelope, envelope.data);
 			return undefined;
 		}
-		entry.state.facts = applyEvent(entry.state.facts, envelope.type, envelope.data);
+		entry.state.state = applyEvent(entry.state.state, envelope.type, envelope.data);
 		if (EPHEMERAL.has(envelope.type) || envelope.seq === undefined) return undefined;
 		const bytes = JSON.stringify(envelope).length;
 		entry.replay.push({ envelope, bytes });
@@ -211,7 +211,7 @@ export class Sessions {
 		// with it instead of rebuilding, and a daemon that just started learns the session in one event.
 		// A snapshot without a state comes from a bridge that does not know it, so the folded state
 		// stays: absence means "unchanged", as it does everywhere else in this protocol.
-		entry.state.facts = snapshot.snapshot.state ?? entry.state.facts;
+		entry.state.state = snapshot.snapshot.state ?? entry.state.state;
 		entry.snapshot = envelope;
 		this.#drop(entry);
 		entry.evicted = Math.max(entry.evicted, envelope.seq ?? -1);

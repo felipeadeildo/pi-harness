@@ -123,7 +123,7 @@ function heldByDaemon(events: Logged[]): SessionState | undefined {
 			data: one.data,
 		} as never);
 	});
-	return sessions.get("s")?.facts;
+	return sessions.get("s")?.state;
 }
 
 /** The client is a replica: it reads each envelope and folds it into the state it draws. */

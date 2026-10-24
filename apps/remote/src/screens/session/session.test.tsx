@@ -245,7 +245,7 @@ describe("drawing again on every envelope", () => {
 		expect(moved.items).toHaveLength(1);
 
 		session.state = applyEvent(session.state, "mode.changed", { mode: "judge" });
-		expect(viewOf(session).facts.permissions.mode).toBe("judge");
+		expect(viewOf(session).state.permissions.mode).toBe("judge");
 
 		// A snapshot swaps the list for one of the same length.
 		session.entries = [message("c", null, "user", [{ type: "text", text: "new" }])] as never;

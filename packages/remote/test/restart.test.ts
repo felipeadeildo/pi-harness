@@ -56,7 +56,7 @@ describe("a daemon that restarts", () => {
 			),
 		);
 		// Nothing was replayed and the log was not read: one event carried the whole session.
-		expect(sessions.get("s")?.facts).toEqual(folded);
+		expect(sessions.get("s")?.state).toEqual(folded);
 		const state = opening(sessions);
 		expect(state?.permissions.mode).toBe("edits");
 		expect(state?.tasks).toEqual(tasks);
@@ -83,7 +83,7 @@ describe("a daemon that restarts", () => {
 			),
 		);
 		sessions.event(envelope("event", "mode.changed", { mode: "judge" }, around(2)));
-		const state = sessions.get("s")?.facts;
+		const state = sessions.get("s")?.state;
 		expect(state?.permissions.mode).toBe("judge");
 	});
 
@@ -91,9 +91,9 @@ describe("a daemon that restarts", () => {
 		const sessions = restarted();
 		sessions.event(envelope("event", "mode.changed", { mode: "edits" }, around(1)));
 		sessions.event(envelope("event", "mode.changed", { mode: "not a mode" }, around(2)));
-		expect(sessions.get("s")?.facts.permissions.mode).toBe("edits");
+		expect(sessions.get("s")?.state.permissions.mode).toBe("edits");
 		expect(
-			applyEvent(sessions.get("s")?.facts ?? emptySessionState(), "mode.changed", { mode: "full" })
+			applyEvent(sessions.get("s")?.state ?? emptySessionState(), "mode.changed", { mode: "full" })
 				.permissions.mode,
 		).toBe("full");
 	});

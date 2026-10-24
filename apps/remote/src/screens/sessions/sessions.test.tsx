@@ -15,7 +15,7 @@ const row = (over: Partial<ListedSession> = {}): ListedSession =>
 		epoch: "e1",
 		connected: true,
 		live,
-		facts: { questions: {}, permissions: { rulings: {} } },
+		state: { questions: {}, permissions: { rulings: {} } },
 		...over,
 	}) as ListedSession;
 

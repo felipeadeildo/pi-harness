@@ -130,7 +130,7 @@ describe("a client of the daemon", () => {
 		bridge.snapshot([entry("a", null)]);
 		bridge.send("entry", entry("b", "a"));
 		bridge.send("mode.changed", { mode: "judge" });
-		await until(() => daemon.sessions.get("s1")?.facts.permissions.mode === "judge");
+		await until(() => daemon.sessions.get("s1")?.state.permissions.mode === "judge");
 
 		const client = connect({
 			key: { machine: "laptop", session: "s1" },
@@ -239,7 +239,7 @@ describe("a client of the daemon", () => {
 		};
 		// A numbered event, so it is kept for the replay: a client that missed it reads it on resume.
 		bridge.send("queue.changed", { queue: [queued] });
-		await until(() => daemon.sessions.get("s1")?.facts.queue.length === 1);
+		await until(() => daemon.sessions.get("s1")?.state.queue.length === 1);
 
 		// The daemon applied it with the same function the client uses, so a client that resumes from a
 		// cursor before it reads the queue out of the replay instead of asking for a new snapshot.
@@ -257,7 +257,7 @@ describe("a client of the daemon", () => {
 		bridge.send("ask.closed", { id: "q1", result: { answers: [], cancelled: true } });
 		bridge.send("mode.changed", { mode: "full" });
 		bridge.snapshot([]);
-		await until(() => daemon.sessions.get("s1")?.facts.permissions.mode === "full");
+		await until(() => daemon.sessions.get("s1")?.state.permissions.mode === "full");
 
 		const response = await fetch(`http://127.0.0.1:${port}/sessions/laptop/s1/snapshot`, {
 			headers: { Cookie: cookie },

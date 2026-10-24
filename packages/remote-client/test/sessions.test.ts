@@ -12,7 +12,12 @@ import {
 } from "../src/sessions.ts";
 
 const live = { pid: 42, startedAt: 1, cwd: "/work", name: "the rig", kind: "terminal" };
-const facts = { tasks: undefined, questions: {}, permissions: { rulings: {} }, renamed: undefined };
+const folded = {
+	tasks: undefined,
+	questions: {},
+	permissions: { rulings: {} },
+	renamed: undefined,
+};
 
 const row = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
 	machine: "here",
@@ -20,7 +25,7 @@ const row = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
 	epoch: "e1",
 	connected: true,
 	live,
-	facts,
+	state: folded,
 	...over,
 });
 
@@ -93,10 +98,10 @@ describe("the daemon's session list", () => {
 			row({ live: { ...live, startedAt: "1" } }),
 			row({ live: { ...live, cwd: 1 } }),
 			row({ live: { ...live, kind: "remote" } }),
-			row({ facts: "none" }),
-			row({ facts: {} }),
-			row({ facts: { permissions: { rulings: {} } } }),
-			row({ facts: { questions: {} } }),
+			row({ state: "none" }),
+			row({ state: {} }),
+			row({ state: { permissions: { rulings: {} } } }),
+			row({ state: { questions: {} } }),
 			row({ snapshot: { session: "s1" } }),
 		];
 		const sessions = await listSessions("http://127.0.0.1:7878", answering([...broken, row()]));
@@ -118,7 +123,7 @@ describe("how a listed session reads", () => {
 			epoch: "e1",
 			connected: true,
 			live,
-			facts: { questions: {}, permissions: { rulings: {} } },
+			state: { questions: {}, permissions: { rulings: {} } },
 			...over,
 		}) as unknown as ListedSession;
 
@@ -134,7 +139,7 @@ describe("how a listed session reads", () => {
 			questions: { a: { id: "a", source: "ask-questions", questions: [] } },
 			permissions: { rulings: {} },
 		};
-		expect(wantsYou(listed({ facts: asking }))).toBe(true);
+		expect(wantsYou(listed({ state: asking }))).toBe(true);
 	});
 
 	test("the permission mode is how a session behaves, not that it is stuck", () => {
@@ -151,7 +156,7 @@ describe("how a listed session reads", () => {
 		const order = inOrder([
 			listed({ session: "ended", gone: "exit" }),
 			listed({ session: "running" }),
-			listed({ session: "waiting", facts: asking }),
+			listed({ session: "waiting", state: asking }),
 		]);
 		expect(order.map((one) => one.session)).toEqual(["waiting", "running", "ended"]);
 	});

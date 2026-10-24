@@ -149,7 +149,7 @@ export class Clients {
 
 	/**
 	 * A client opens a session. Only the live part of its cursor, `(epoch, seq)`, is read here: the
-	 * `entry` and the facts it also keeps are for the session file and the log. A cursor this life of
+	 * `entry` and the state it also keeps are for the session file and the log. A cursor this life of
 	 * the session can resume from gets the events after it. Anything else, no cursor, another epoch or a gap, gets the snapshot and what came
 	 * after it, and when the daemon has none to give, the bridge is asked and its answer follows.
 	 */
@@ -421,7 +421,7 @@ export class Clients {
 			...(one.gone === undefined ? {} : { gone: one.gone }),
 			live: one.live,
 			...(one.snapshot === undefined ? {} : { snapshot: one.snapshot.snapshot }),
-			facts: one.facts,
+			state: one.state,
 		}));
 	}
 }
