@@ -3,8 +3,15 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { packageWeb } from "../build.ts";
-import { fileFor, isAppFile, loadWebApp, serveApp, type WebApp } from "../src/daemon/app.ts";
+import {
+	fileFor,
+	isAppFile,
+	loadWebApp,
+	packageWeb,
+	serveApp,
+	type WebApp,
+} from "../src/daemon/app.ts";
+import { serveExport } from "../src/daemon/preview.ts";
 import { Daemon } from "../src/daemon/server.ts";
 import { inlineHashes, POLICY } from "../src/daemon/web.ts";
 
@@ -89,6 +96,20 @@ describe("the web app's export", () => {
 		expect(missing.status).toBe(404);
 		expect(String(missing.body)).toContain("no such page");
 	});
+});
+
+test("the preview serves an export through the daemon's own routes, with no session", async () => {
+	const preview = await serveExport(exported());
+	try {
+		const page = await fetch(preview.url);
+		expect(page.status).toBe(200);
+		expect(page.headers.get("content-security-policy")).toContain(
+			inlineHashes(PAGE)[0] ?? "no hash",
+		);
+		expect(await (await fetch(`${preview.url}sessions`)).json()).toEqual([]);
+	} finally {
+		preview.stop();
+	}
 });
 
 describe("the daemon serving the app", () => {

@@ -22,7 +22,8 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
-		"./web": "./src/daemon/web.ts"
+		"./web": "./src/daemon/web.ts",
+		"./preview": "./src/daemon/preview.ts"
 	},
 	"scripts": {
 		"build": "bun build.ts"
