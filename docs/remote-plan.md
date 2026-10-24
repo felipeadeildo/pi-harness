@@ -31,7 +31,7 @@ A slice is ticked in the commit that lands it. A slice whose parts are on `main`
 - [x] W2. Text from elsewhere (client, F1)
 - [x] W3. The Sessions and Session screens (client, F1)
 - [ ] I1. The inbox (names, before F2) — nearly: wired to pi; the peers' modes wait on N4
-- [x] C8. Commands through the bridge (core, F2) — the `prompt.received` fact and the terminal's `From <client>:` line come with C9
+- [x] C8. Commands through the bridge (core, F2)
 - [ ] A5. Clients in the race for the harness's dialogs (ask, F2)
 - [ ] A6. pi's own dialogs in the race (ask, F2)
 - [x] P4. Commands and the outbox in the client library (protocol, F2)
@@ -420,7 +420,7 @@ The daemon passes a client's command, a `command` envelope with an `id`, to the 
 
 - `mode.set` refuses `full` from a client.
 - The bridge keeps the last 1,000 command ids of the session and answers a resent one as a repeat. It logs every command with its id and `by`, and reads the ids back from the log when it starts, so a resend after a restart is still a repeat.
-- A prompt from a client logs `prompt.received { by }`, and the terminal shows it as `From <client>: …`. Neither is emitted yet: the fact is declared in the protocol and nothing writes it, so the producer and the terminal line come with C9, together with the test that proves the producer.
+- A prompt from a client logs `prompt.received { by }`, and the terminal shows it as `From <client>: …`. Both are in: the fact is written where the letter enters the inbox, and the terminal gets a one-line note naming who sent it.
 - Tests with the rig: each command's effect, a resent id answered as a repeat across a bridge restart, and `full` refused.
 
 ### A5. Clients in the race for the harness's dialogs
