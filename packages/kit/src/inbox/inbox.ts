@@ -18,7 +18,7 @@ export class Inbox {
 
 	/** Steers handed to pi whose effect has not come back yet. */
 	sent(): readonly Letter[] {
-		return this.#sent;
+		return [...this.#sent];
 	}
 
 	/** Whether this letter was already taken, which makes a resend a repeat instead of a second one. */
@@ -26,10 +26,17 @@ export class Inbox {
 		return this.#done.has(id);
 	}
 
+	/**
+	 * Adds a letter. An id the inbox already had, or one a run carried, is a repeat and changes
+	 * nothing: a client that retries a steer must not steer twice.
+	 */
 	put(letter: Letter): void {
 		if (this.#done.has(letter.id) || this.#held.some((one) => one.id === letter.id)) return;
-		if (letter.want === "steer") this.#sent.push(letter);
-		else this.#held.push(letter);
+		if (this.#sent.some((one) => one.id === letter.id)) return;
+		if (letter.want === "steer") {
+			this.#sent.push(letter);
+			this.#done.add(letter.id);
+		} else this.#held.push(letter);
 	}
 
 	/**
@@ -75,6 +82,8 @@ export class Inbox {
 	cleared(letters: readonly Letter[], running: boolean): { resend: Letter[]; held: Letter[] } {
 		const gone = letters.filter((one) => one.want === "steer");
 		this.#sent.length = 0;
+		// What comes back is not a repeat any more: whoever sends it again may put it again too.
+		for (const letter of gone) this.#done.delete(letter.id);
 		if (running) return { resend: gone, held: [] };
 		const held = gone.map((one) => ({ ...one, why: "stopped" as const }));
 		for (const letter of held) this.holdFor(letter, "stopped");

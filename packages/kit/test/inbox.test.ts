@@ -76,6 +76,22 @@ describe("the inbox", () => {
 		expect(inbox.sent()).toEqual([]);
 	});
 
+	test("a steer put twice is one steer, and the one the Esc sends back can go again", () => {
+		const inbox = new Inbox();
+		const steer = letter("steer", OPERATOR, "steer");
+		inbox.put(steer);
+		inbox.put(steer);
+		expect(inbox.sent().map((one) => one.id)).toEqual([steer.id]);
+		expect(inbox.seen(steer.id)).toBe(true);
+
+		// The Esc gives it back: it is not a repeat any more, so putting it again works.
+		const { resend } = inbox.cleared([steer], true);
+		expect(resend.map((one) => one.id)).toEqual([steer.id]);
+		expect(inbox.seen(steer.id)).toBe(false);
+		inbox.put(steer);
+		expect(inbox.sent().map((one) => one.id)).toEqual([steer.id]);
+	});
+
 	test("the Esc puts a steer back in the run, and keeps it for the next one when the run stopped", () => {
 		const inbox = new Inbox();
 		const steer = letter("steer", OPERATOR, "steer");
