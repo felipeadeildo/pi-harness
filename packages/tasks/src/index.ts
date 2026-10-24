@@ -76,8 +76,9 @@ export const tasks = defineFeature({
 			const named = `${handle ?? ""} ${title}`;
 			if (named === loggedName) return;
 			loggedName = named;
-			// The names feature writes the handle from now on; the title is this feature's half, and an
-			// older log still brings the handle that used to come with it.
+			// The title is this feature's half, always. The handle goes with it once, as a backfill: a
+			// session from before the names list has a handle no `session.named` has ever carried, and
+			// this is the only writer that sees it. Do not drop it as a leftover.
 			logFrom(session, scope.events, "session.named", {
 				...(handle === undefined ? {} : { handle }),
 				title,
