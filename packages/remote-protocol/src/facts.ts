@@ -37,6 +37,15 @@ export interface Decision {
 	tasks?: string[];
 }
 
+/**
+ * How hard pi is asked to think, in pi's own order and words. One list, because the screen that offers
+ * the choice and the bridge that validates it must not drift apart.
+ */
+export const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
+
+/** One of the levels above. */
+export type ThinkingLevel = (typeof THINKING_LEVELS)[number];
+
 /** The session's tasks, as `tasks.changed` carries them. */
 export interface SessionTasks {
 	version: 1;

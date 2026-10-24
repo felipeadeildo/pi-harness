@@ -8,13 +8,14 @@ import {
 	type PermissionMode,
 	type FeatureScope,
 } from "@adeildo/pi-kit";
+/** pi's levels live in the protocol, so the screen that offers them and this check cannot disagree. */
+import { THINKING_LEVELS } from "@adeildo/pi-remote-protocol";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import type { SessionApi } from "./bridge/bridge.ts";
 import { Refused } from "./bridge/commands.ts";
 
-/** pi's own thinking levels, as the `/thinking` command offers them, `off` included. */
-export const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
+export { THINKING_LEVELS };
 
 export type ThinkingLevel = (typeof THINKING_LEVELS)[number];
 
