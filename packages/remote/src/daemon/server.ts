@@ -16,6 +16,7 @@ import {
 	watchFile,
 } from "node:fs";
 import { connect, createServer, type Server, type Socket } from "node:net";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { envelope, type Envelope, isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
@@ -23,6 +24,13 @@ import { envelope, type Envelope, isObject, PROTOCOL } from "@adeildo/pi-remote-
 import { envelopeOf, line, Lines } from "../wire/lines.ts";
 import { Clients } from "./clients.ts";
 import { type GoneReason, type SessionLive, Sessions } from "./sessions.ts";
+
+/** The remote's folder: `PI_REMOTE_DIR`, or `harness/remote` under pi's agent folder. */
+export function daemonDir(env: NodeJS.ProcessEnv = process.env): string {
+	if (env.PI_REMOTE_DIR !== undefined && env.PI_REMOTE_DIR !== "") return env.PI_REMOTE_DIR;
+	const agent = env.PI_CODING_AGENT_DIR?.replace(/^~(?=\/|$)/, homedir());
+	return join(agent || join(homedir(), ".pi", "agent"), "harness", "remote");
+}
 
 /** Where clients reach the daemon, on loopback until login exists. A setting from C6 on. */
 export const CLIENT_PORT = 7878;
