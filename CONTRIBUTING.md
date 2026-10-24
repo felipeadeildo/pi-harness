@@ -15,6 +15,8 @@ bun run docs       # redraw the pictures in the docs from the code
 
 Lefthook formats and lints staged files on commit, type-checks the repository, and runs the full verify before a push. The perf check (see [Tests](#tests)) runs on a commit too, and only then.
 
+In a git worktree, run `bun install --frozen-lockfile --ignore-scripts`. The hooks live in `.git/hooks`, which every worktree of the repository shares, and `lefthook` is a trusted dependency whose postinstall runs `lefthook install`, which writes the installing folder's absolute path into them. Once that worktree is removed, the hook points at nothing and every commit and push loses its checks. The hooks belong to the main checkout. Its own `bun install` sets them, and so does `bunx lefthook install` run from there, which also repairs a hook a worktree broke. A commit in a worktree still runs them, with that worktree's files.
+
 ## The shape
 
 ```text

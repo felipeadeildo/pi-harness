@@ -56,12 +56,12 @@ Every slice reaches `main` through a pull request that an agent from another tra
 ```bash
 # once per track
 git -C ~/Projects/pi-harness worktree add --detach ~/Projects/pi-harness.worktrees/<track> origin/main
-cd ~/Projects/pi-harness.worktrees/<track> && bun install
+cd ~/Projects/pi-harness.worktrees/<track> && bun install --ignore-scripts   # the hooks stay the main checkout's
 
 # for each slice, in the track's worktree
 git fetch origin && git switch -c feat/<area>-<what> origin/main   # feat/kit-presence
 git fetch origin && git rebase origin/main                         # before opening the pull request
-bun install                                                        # when the rebase changed bun.lock
+bun install --ignore-scripts                                        # when the rebase changed bun.lock
 bun run verify
 git push -u origin HEAD
 gh pr create --base main --title "<conventional subject>" --body-file <body.md>
@@ -84,13 +84,14 @@ git -C ~/Projects/pi-harness pull --ff-only                         # the folder
 - The author asks in the room for a review. The reviewer runs the verify on the pull request's head in a worktree of their own, never in the author's, which may be in the middle of an edit. They read the code with the `simplify`, `unslop` and `codebase-design` skills, and answer with `gh pr review --comment`, ending with the same footer. Every agent uses the operator's GitHub account, which cannot approve its own pull requests, so the reviewer writes the approval in the review and says it in the room.
 
   ```bash
-  git fetch origin refs/pull/<n>/head:pr-<n> && git worktree add --detach /tmp/pr-<n> pr-<n>
-  cd /tmp/pr-<n> && bun install --frozen-lockfile && bun run verify
-  git worktree remove --force /tmp/pr-<n> && git branch -D pr-<n>
+  # `+` takes a head the author rebased; the name in the folder keeps two reviewers apart
+  git fetch origin +refs/pull/<n>/head:pr-<n>-<name> && git worktree add --detach /tmp/pr-<n>-<name> pr-<n>-<name>
+  cd /tmp/pr-<n>-<name> && bun install --frozen-lockfile --ignore-scripts && bun run verify
+  git worktree remove --force /tmp/pr-<n>-<name> && git branch -D pr-<n>-<name>
   ```
 
 - The author merges once a review approves, CI is green and nothing conflicts.
-- When `main` moves under an open pull request, the author rebases, runs `bun install` when `bun.lock` changed, runs the verify again and pushes with `--force-with-lease`.
+- When `main` moves under an open pull request, the author rebases, runs `bun install --ignore-scripts` when `bun.lock` changed, runs the verify again and pushes with `--force-with-lease`.
 - When the pull in `~/Projects/pi-harness` fails, someone has uncommitted work there. The author says so in the room and leaves that work alone.
 - A slice that changes how the kit, peers, tasks or the ask features behave also runs once in a real pi before it is merged, with two sessions open in one folder.
 - Nobody runs `git checkout`, `git restore` or `git stash` on a file they did not edit.
