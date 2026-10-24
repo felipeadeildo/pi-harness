@@ -7,18 +7,27 @@ import type { CommandType } from "@adeildo/pi-remote-protocol";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { CLIENT_MODES, Composer, stateOf } from "./composer.tsx";
+import { CLIENT_MODES, Composer, dropNow, sendNow, stateOf } from "./composer.tsx";
 
-function clientOf(queue: Outgoing[] = []): { client: Client; sent: [CommandType, unknown][] } {
+function clientOf(
+	queue: Outgoing[] = [],
+	held: Outgoing[] = [],
+): { client: Client; sent: [CommandType, unknown][]; calls: string[] } {
 	const sent: [CommandType, unknown][] = [];
+	const calls: string[] = [];
 	const client = {
 		send: (type: CommandType, data: unknown) => {
 			sent.push([type, data]);
 			return { id: "c1", type, data, at: 0, state: "waiting" as const };
 		},
-		outbox: () => ({ all: () => queue }),
+		outbox: () => ({
+			all: () => queue,
+			held: () => held,
+			release: (id: string) => void calls.push(`release ${id}`),
+			drop: (id: string) => void calls.push(`drop ${id}`),
+		}),
 	} as unknown as Client;
-	return { client, sent };
+	return { client, sent, calls };
 }
 
 const draw = (props: Parameters<typeof Composer>[0]): string =>
@@ -82,6 +91,27 @@ describe("the composer", () => {
 		const html = draw({ client, canPrompt: true });
 		expect(html).toContain("sent, no answer yet");
 		expect(html).toContain("refused: a client cannot ask for the full mode");
+	});
+
+	test("a command that waited past the window can be sent now, or dropped", () => {
+		const late: Outgoing = { id: "c1", type: "prompt.send", data: {}, at: 0, state: "waiting" };
+		const recent: Outgoing = { id: "c2", type: "run.abort", data: {}, at: 0, state: "waiting" };
+		const { client } = clientOf([late, recent], [late]);
+		const html = draw({ client, canPrompt: true });
+		// Both states are `waiting`-free: one is waiting (so it can go or be dropped), the other is
+		// already out (so there is nothing to decide).
+		expect(html).toContain("Send now");
+		expect(html).toContain("Drop");
+		// One control per state, and the command inside the window says it goes out on its own.
+		expect(html.match(/Send now/g)).toHaveLength(1);
+		expect(html).toContain("goes out when the daemon answers");
+	});
+
+	test("each button does its own thing, which the label cannot prove", () => {
+		const { client, calls } = clientOf();
+		sendNow(client, "c1");
+		dropNow(client, "c2");
+		expect(calls).toEqual(["release c1", "drop c2"]);
 	});
 
 	test("a state reads as what the person does about it", () => {
