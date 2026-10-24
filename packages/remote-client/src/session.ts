@@ -166,6 +166,8 @@ export function readEnvelope(
 				return { read: "snapshot", why: "gap" };
 			}
 		}
+		// The cursor is what keeps this from replaying: a fact already folded into the state a snapshot
+		// carried has a seq at or behind the cursor, so it never reaches here twice.
 		session.harness = applyLogged(session.harness, value.type, value.data);
 		session.cursor = advance(session.cursor, value);
 		if (value.type === "leaf.changed") {

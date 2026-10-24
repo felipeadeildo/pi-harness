@@ -139,6 +139,49 @@ describe("a client of a session", () => {
 		client.stop();
 	});
 
+	test("a snapshot alone is enough: the state arrives folded, not as facts to fold", async () => {
+		// The restart case, and the reason the wire changed: the client opens and the daemon answers
+		// with one message carrying the state the bridge held. Nothing follows it — if the client only
+		// read a list of facts, this session would draw with no tasks, no mode and no question.
+		let hello: Envelope | undefined;
+		const client = connect({
+			key,
+			cache: memoryCache(),
+			open: (onMessage) => ({
+				send: (sent) => {
+					hello = sent;
+					onMessage({
+						...snapshot,
+						data: {
+							...(snapshot.data as Record<string, unknown>),
+							harness: {
+								tasks: { version: 1, handle: "rig", tasks: [], decisions: [] },
+								mode: "judge",
+								asks: {
+									q1: {
+										id: "q1",
+										source: "permission",
+										questions: [{ header: "Deploy", question: "Ship it", options: [] }],
+									},
+								},
+								rulings: {},
+							},
+						},
+					});
+				},
+				close: () => {},
+			}),
+		});
+
+		await client.load();
+
+		expect(hello).toBeDefined();
+		expect(client.session().harness.tasks?.handle).toBe("rig");
+		expect(client.session().harness.mode).toBe("judge");
+		expect(Object.keys(client.session().harness.asks)).toEqual(["q1"]);
+		client.stop();
+	});
+
 	test("a warm cache draws before a single byte goes out, and hello resumes from it", async () => {
 		const cache = memoryCache();
 		await cache.write({
