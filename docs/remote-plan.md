@@ -21,7 +21,7 @@ A slice is ticked in the commit that lands it.
 - [x] V1. The sources seam (view, F1)
 - [ ] V2. The view (view, F1)
 - [ ] V3. The panel opens a view (view, F1)
-- [ ] C3. The remote package and its build (core, F1)
+- [x] C3. The remote package and its build (core, F1)
 - [ ] C4. The bridge (core, F1)
 - [ ] C5. The daemon (core, F1)
 - [ ] C6. Login and the Host check (core, F1)
@@ -104,7 +104,8 @@ flowchart LR
   C1["C1 By"] --> C2["C2 presence"] --> C4["C4 bridge"] --> C5["C5 daemon"]
   C1 --> A1
   C1 --> P2
-  P1["P1 rig"] --> P2["P2 protocol"] --> C3["C3 package, build"] --> C4
+  P1["P1 rig"] --> P2["P2 protocol"] --> C4
+  C3["C3 package, build"] --> C4
   C5 --> C6["C6 login"]
   C5 --> C7["C7 sync"]
   A1["A1 ask client"] --> A2["A2 ask-questions"]
@@ -279,16 +280,15 @@ Owner: view. Needs: V2 and C2.
 
 ### C3. The remote package and its build
 
-Owner: core. Needs: P2.
+Owner: core. Needs: nothing.
 
-`packages/remote` holds the bridge in `src/bridge/`, the daemon in `src/daemon/` and the CLI in `src/cli/`. `bun build --target node` bundles the daemon into `dist/daemon.js` and the CLI into `dist/cli.js`, with `ws` inside the daemon. At every start, the bridge writes `remote/bin/pi-remote` and `remote/current.json`.
+`packages/remote` holds the bridge in `src/index.ts`, the daemon in `src/daemon/` and the CLI in `src/cli/`. `bun run --cwd packages/remote build` bundles the daemon into `dist/daemon.js` and the CLI into `dist/cli.js`, each one file with its dependencies inside. Whether a built file imports only Node's own modules is checked against the list of the Node that runs it, because Bun counts a few packages, `ws` among them, as its own. At every start of a pi in a terminal, the bridge writes `remote/current.json`, the same values as quoted shell assignments in `remote/current.sh`, and, when its text changed, the launcher `remote/bin/pi-remote`. The launcher carries the path of `current.sh` so a link to it works from anywhere, and it sources that file, because a path may hold any character and shell cannot parse JSON.
 
-- `bun run verify` builds the bundles before the tests that read them.
-- Tests: the bundles import nothing but `node:*`; the launcher runs `pi-remote --version` through `current.json`.
+- Tests: the bundles import nothing but Node's own modules and run under Node; the launcher runs `pi-remote --version` directly, through a link, and from paths that hold quotes, spaces and a dollar; a session in `pi -p` writes nothing.
 
 ### C4. The bridge
 
-Owner: core. Needs: C2, C3, A4, and P1 for its tests.
+Owner: core. Needs: C2, C3, P2, A4, and P1 for its tests.
 
 The bridge registers only in a pi in tui mode. It connects to `remote/daemon.sock`, and spawns the daemon when nothing answers. Its hello carries the protocol and package versions and the epoch, which changes with every extension runtime.
 

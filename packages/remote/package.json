@@ -1,0 +1,42 @@
+{
+	"name": "@adeildo/pi-remote",
+	"version": "5.15.0",
+	"private": true,
+	"description": "Your pi sessions from a phone, a browser or a pi on another machine: a bridge in every pi, a daemon per machine, and the pi-remote command.",
+	"license": "MIT",
+	"author": {
+		"name": "adeildo",
+		"email": "contato@felipeadeildo.com",
+		"url": "https://github.com/felipeadeildo"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/felipeadeildo/pi-harness.git",
+		"directory": "packages/remote"
+	},
+	"files": [
+		"src",
+		"dist",
+		"README.md"
+	],
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"build": "bun build.ts"
+	},
+	"dependencies": {
+		"@adeildo/pi-kit": "workspace:*"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-ai": "*",
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	},
+	"pi": {
+		"extensions": [
+			"./src/index.ts"
+		]
+	}
+}
