@@ -19,7 +19,7 @@ then opens the connection; `on` is called with the session after the cache and a
 A reconnect sends the cursor it stopped at. A new epoch, or a hole in the numbering, makes it ask for
 a snapshot instead, because nothing else can put back what it missed.
 
-`send` queues a command and returns it, and `outbox` shows the commands that have not been answered
+`send` queues a command and returns it, and `outbox()` shows the commands that have not been answered
 yet. A command typed while the daemon is out of reach waits and goes out on the next connection, and
 a reply ends it as applied or refused.
 
