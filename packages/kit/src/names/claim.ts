@@ -1,9 +1,8 @@
 // One file per word: the claim is the file, and `wx` is the lock. A session that crashes leaves its
 // claim behind; the draw judges it against presence, so the word comes back instead of staying lost.
 import {
-	closeSync,
+	linkSync,
 	mkdirSync,
-	openSync,
 	readFileSync,
 	readdirSync,
 	renameSync,
@@ -18,6 +17,9 @@ import { isObject } from "../decode.ts";
 export const RESERVED_MS = 7 * 24 * 60 * 60 * 1000;
 /** The suffixes the draw tries when every word is held, before it gives up. */
 const CROWD = 99;
+/** How long a reclaim lock lives before another process may break it; a reclaim takes milliseconds. */
+const LOCK_MS = 10_000;
+let temporaries = 0;
 
 /** A word one session holds, or held until it let it go. */
 export interface Claim {
@@ -89,10 +91,11 @@ export function wordOf(dir: string, session: string, now = Date.now()): string |
 }
 
 /**
- * Takes `word` for `session`, or says it is taken. New words go through `openSync(..., "wx")`, which
- * fails when the file exists; a claim of a session that no longer runs, a claim reserved long enough
- * ago, and a file that cannot be read are the only ones replaced, so a live session never loses its
- * word. The whole path is synchronous: two draws in one process take turns, never both create.
+ * Takes `word` for `session`, or says it is taken. A new claim is written to a temporary file and
+ * hard linked into place, so the file appears with its content and `link` fails when the word is
+ * already there. Only three claims are replaced: one whose session no longer runs, one reserved long
+ * enough ago, and one whose file cannot be read. A live session never loses its word. The whole path
+ * is synchronous, so two draws in one process take turns and never both create.
  */
 export function claimWord(
 	claiming: Claiming,
@@ -101,31 +104,80 @@ export function claimWord(
 	machine: string,
 ): boolean {
 	if (!/^[a-z][a-z0-9-]*$/.test(word)) throw new Error(`not a word a handle may hold: ${word}`);
+	try {
+		return attemptClaim(claiming, word, session, machine);
+	} catch (error) {
+		// A handle is not worth a session: a read-only folder or a full disk leaves the draw empty,
+		// and the feature falls back to `new-<id4>`.
+		if (isObject(error) && typeof error.code === "string") return false;
+		throw error;
+	}
+}
+
+function attemptClaim(claiming: Claiming, word: string, session: string, machine: string): boolean {
 	const { dir } = claiming;
 	const now = claiming.now ?? Date.now();
 	mkdirSync(dir, { recursive: true });
-	if (takeFile(pathOf(dir, word), { word, session, machine, at: now }) !== "exists") return true;
+	const path = pathOf(dir, word);
+	if (createFile(path, { word, session, machine, at: now }) !== "exists") return true;
 
 	const held = readClaim(dir, word);
-	const ours = held?.session === session;
-	if (ours) {
+	if (held?.session === session) {
 		// A resumed session keeps the claim, with the machine and the time it came back; a word it
 		// had let go is taken back.
-		writeAtomically(pathOf(dir, word), { ...held, machine, at: now, released: undefined });
+		writeAtomically(path, { ...held, machine, at: now, released: undefined });
 		return true;
 	}
-	const expired = held?.released !== undefined && now - held.released >= RESERVED_MS;
-	const crashed =
-		held !== undefined &&
-		held.machine === machine &&
-		held.released === undefined &&
-		!(claiming.lives ?? (() => true))(held.session);
-	const broken = held === undefined;
-	if (!expired && !crashed && !broken) return false;
-	// The stale file goes before `wx` is tried again. Two reclaimers can race here; the file keeps
-	// the claim of whoever creates it last, and the other session draws another word.
-	rmSync(pathOf(dir, word), { force: true });
-	return takeFile(pathOf(dir, word), { word, session, machine, at: now }) !== "exists";
+	const stale = () => {
+		const claim = readClaim(dir, word);
+		if (claim === undefined) return true;
+		if (claim.session === session) return false;
+		const expired = claim.released !== undefined && now - claim.released >= RESERVED_MS;
+		const crashed =
+			claim.machine === machine &&
+			claim.released === undefined &&
+			!(claiming.lives ?? (() => true))(claim.session);
+		return expired || crashed;
+	};
+	if (!stale()) return false;
+
+	// Only one reclaimer holds the lock, and the stale claim is judged again with the lock in hand:
+	// without it, two processes both saw the old file and the second removed the claim the first had
+	// just written.
+	const lock = lockWord(dir, word, now);
+	if (lock === undefined) return false;
+	try {
+		if (!stale()) return false;
+		rmSync(path, { force: true });
+		return createFile(path, { word, session, machine, at: now }) !== "exists";
+	} finally {
+		rmSync(lock, { force: true });
+	}
+}
+
+/** Creates a lock file for a reclaim, or says another process is already reclaiming the word. */
+function lockWord(dir: string, word: string, now: number): string | undefined {
+	const lock = `${pathOf(dir, word)}.lock`;
+	for (let attempt = 0; attempt < 2; attempt++) {
+		if (createFile(lock, { at: now }) !== "exists") return lock;
+		let at: number;
+		try {
+			const value: unknown = JSON.parse(readFileSync(lock, "utf8"));
+			at = isObject(value) && typeof value.at === "number" ? value.at : 0;
+		} catch {
+			at = 0;
+		}
+		if (now - at < LOCK_MS) return undefined;
+		// A lock left by a process that died is broken by renaming it away, which only one does.
+		const grave = `${lock}.${process.pid}.stale`;
+		try {
+			renameSync(lock, grave);
+		} catch {
+			return undefined;
+		}
+		rmSync(grave, { force: true });
+	}
+	return undefined;
 }
 
 /** Lets the word go, keeping the claim for the reservation window. A session cannot release another's. */
@@ -181,19 +233,21 @@ function pathOf(dir: string, word: string): string {
 	return join(dir, `${word}.json`);
 }
 
-/** Creates the file with its claim, or says that someone else got there first. */
-function takeFile(path: string, claim: Claim): "taken" | "exists" {
-	let fd: number;
+/**
+ * Creates the file with its claim, or says that someone else got there first. The claim is written to
+ * a temporary file and hard linked into place, so a reader never sees an empty file and mistakes a
+ * live claim for a broken one; `link` fails with EEXIST, as `wx` does.
+ */
+function createFile(path: string, value: unknown): "taken" | "exists" {
+	const temporary = `${path}.${process.pid}.${temporaries++}.tmp`;
+	writeFileSync(temporary, `${JSON.stringify(value)}\n`, { mode: 0o600 });
 	try {
-		fd = openSync(path, "wx", 0o600);
+		linkSync(temporary, path);
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code === "EEXIST") return "exists";
 		throw error;
-	}
-	try {
-		writeFileSync(fd, `${JSON.stringify(claim)}\n`);
 	} finally {
-		closeSync(fd);
+		rmSync(temporary, { force: true });
 	}
 	return "taken";
 }

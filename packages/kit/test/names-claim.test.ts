@@ -89,6 +89,13 @@ describe("the claim of a word", () => {
 		expect(readClaim(dir, "otter")?.released).toBeUndefined();
 	});
 
+	test("a folder that cannot take a claim leaves the draw empty instead of throwing", () => {
+		const blocked = join(dir, "blocked");
+		writeFileSync(blocked, "not a folder");
+
+		expect(drawWord({ dir: join(blocked, "names") }, ["otter"], "s1", "host")).toBeUndefined();
+	});
+
 	test("two processes drawing at the same time take different words", async () => {
 		const module = join(import.meta.dir, "..", "src", "names", "claim.ts");
 		const script = `import { drawWord } from ${JSON.stringify(module)};
@@ -101,6 +108,32 @@ console.log(drawWord({ dir: process.env.DIR, random: () => 0 }, ["otter", "quokk
 		const words = (await Promise.all([draw("a"), draw("b")])).map((text) => text.trim());
 
 		expect(words.toSorted()).toEqual(["otter", "quokka"]);
+	});
+
+	test("many processes reclaiming the same stale claims never share a word", async () => {
+		const count = 50;
+		for (let index = 0; index < count; index++) {
+			writeFileSync(
+				join(dir, `w${index}.json`),
+				`${JSON.stringify({ word: `w${index}`, session: "dead", machine: "m", at: 1 })}\n`,
+			);
+		}
+		const worker = join(import.meta.dir, "names-claim-worker.ts");
+		const startAt = Date.now() + 500;
+		const draw = (session: string) =>
+			Bun.spawn(["bun", worker, dir, session, String(count), String(startAt)], {
+				stdout: "pipe",
+				stderr: "inherit",
+			}).stdout.text();
+		const lists = (await Promise.all(["p1", "p2", "p3", "p4"].map(draw))).map(
+			(text) => JSON.parse(text) as string[],
+		);
+		const owners = new Map<string, number>();
+		for (const list of lists)
+			for (const word of list) owners.set(word, (owners.get(word) ?? 0) + 1);
+
+		expect([...owners.values()].filter((owners) => owners > 1)).toEqual([]);
+		expect(owners.size).toBe(count);
 	});
 
 	test("wordOf finds what the session holds or may still reclaim", () => {
