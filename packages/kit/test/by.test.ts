@@ -36,7 +36,7 @@ describe("who caused a fact", () => {
 
 describe("a session as the cause", () => {
 	test("is named by the handle the room knows it by, never by its title", () => {
-		expect(bySession("terminal", tasksScope("release"), SESSION, "laptop")).toEqual({
+		expect(bySession("terminal", tasksScope("release"), SESSION, { machine: "laptop" })).toEqual({
 			kind: "terminal",
 			name: "release",
 			machine: "laptop",
@@ -44,7 +44,11 @@ describe("a session as the cause", () => {
 	});
 
 	test("is new- and the end of its id while it has no handle", () => {
-		expect(bySession("agent", tasksScope(undefined), SESSION).name).toBe("new-d3d6");
+		expect(bySession("agent", tasksScope(undefined), SESSION)).toEqual({
+			kind: "agent",
+			name: "new-d3d6",
+			machine: HOST,
+		});
 		expect(bySession("agent", fakeScope(), SESSION).name).toBe("new-d3d6");
 	});
 

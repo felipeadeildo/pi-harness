@@ -15,9 +15,9 @@ export function bySession(
 	kind: By["kind"],
 	scope: EventScope,
 	session: { getSessionId(): string },
-	machine: string = HOST,
+	options: { machine?: string } = {},
 ): By {
 	const handle = TASKS.current(scope)?.state.handle;
 	const name = handle ?? `new-${session.getSessionId().slice(-4)}`;
-	return { kind, name, machine };
+	return { kind, name, machine: options.machine ?? HOST };
 }
