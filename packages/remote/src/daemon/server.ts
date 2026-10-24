@@ -51,6 +51,8 @@ export interface DaemonOptions {
 	/** The launcher's `current.json`, watched for a newer version. Unwatched when absent. */
 	current?: string;
 	idleExitMs?: number;
+	/** Never exits for being idle: `pi-remote serve` keeps the daemon up until it is stopped. */
+	stayUp?: boolean;
 	/**
 	 * Where clients reach the daemon over HTTP and WebSocket. Always on loopback until login exists.
 	 * Port 0 takes any free port, which `clientPort` then says.
@@ -239,7 +241,7 @@ export class Daemon {
 
 	/** With no session connected, the idle clock runs; a session going live stops it. */
 	#settle(): void {
-		if (this.#stopping) return;
+		if (this.#stopping || this.#options.stayUp === true) return;
 		if (this.sessions.connected() > 0) {
 			clearTimeout(this.#idle);
 			this.#idle = undefined;
@@ -371,7 +373,8 @@ function isLive(value: unknown): value is SessionLive {
 		typeof value.startedAt === "number" &&
 		typeof value.cwd === "string" &&
 		(value.kind === "terminal" || value.kind === "background") &&
-		(value.name === undefined || typeof value.name === "string")
+		(value.name === undefined || typeof value.name === "string") &&
+		(value.file === undefined || typeof value.file === "string")
 	);
 }
 

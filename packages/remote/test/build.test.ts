@@ -70,9 +70,9 @@ describe("the command", () => {
 	});
 
 	test("names a command it does not know, and shows the usage", () => {
-		const result = command(["serve"]);
+		const result = command(["attach"]);
 		expect(result.code).toBe(2);
-		expect(result.err.join("\n")).toContain('unknown command "serve"');
+		expect(result.err.join("\n")).toContain('unknown command "attach"');
 		expect(command([]).code).toBe(2);
 	});
 });

@@ -10,6 +10,7 @@ import { envelope, type Envelope, isObject, PROTOCOL } from "@adeildo/pi-remote-
 import { envelopeOf } from "../wire/lines.ts";
 import { accept, type WebSocket } from "../wire/websocket.ts";
 import { type Asking, checkPlace, loopbackHosts } from "./auth.ts";
+import { History, PAGE } from "./history.ts";
 import type { Sessions } from "./sessions.ts";
 
 const STATUS = { 401: "Unauthorized", 403: "Forbidden", 421: "Misdirected Request" } as const;
@@ -33,6 +34,7 @@ export class Clients {
 	/** Each session's clients, which every event of the session goes to. */
 	readonly #watchers = new Map<string, Set<WebSocket>>();
 	readonly #sockets = new Set<WebSocket>();
+	readonly #history = new History();
 	/** The names this daemon answers to, once it knows its port. Nothing answers before. */
 	#hosts: ReadonlySet<string> = new Set();
 
@@ -152,25 +154,55 @@ export class Clients {
 		// is checked before anything is read.
 		const placed = checkPlace(asking(request, false), this.#hosts);
 		if (!placed.ok) return reply(response, placed.status, { error: placed.reason });
-		const path = new URL(request.url ?? "/", "http://daemon").pathname;
+		const url = new URL(request.url ?? "/", "http://daemon");
+		const path = url.pathname;
 		if (request.method !== "GET") return reply(response, 405, { error: "GET only" });
 		if (path === "/health") {
 			const uptime = (this.#options.now ?? Date.now)() - this.#started;
 			return reply(response, 200, { version: this.#options.version, protocol: PROTOCOL, uptime });
 		}
 		if (path === "/sessions") return reply(response, 200, this.#list());
-		const snapshot = /^\/sessions\/([^/]+)\/([^/]+)\/snapshot$/.exec(path);
-		if (snapshot !== null) {
-			const [machine, session] = snapshot.slice(1).map(decoded);
+		const route = /^\/sessions\/([^/]+)\/([^/]+)\/(snapshot|entries)$/.exec(path);
+		if (route !== null) {
+			const [machine, session] = route.slice(1, 3).map(decoded);
 			if (machine === undefined || session === undefined)
 				return reply(response, 400, { error: "a machine and a session, percent-encoded" });
 			const known = this.#options.sessions.get(session);
-			const opening =
-				known?.machine === machine ? this.#options.sessions.opening(session) : undefined;
+			if (known?.machine !== machine) return reply(response, 404, { error: "no such session" });
+			if (route[3] === "entries") {
+				void this.#entries(response, known.live.file, session, url).catch(() =>
+					reply(response, 500, { error: "the session file could not be read" }),
+				);
+				return;
+			}
+			const opening = this.#options.sessions.opening(session);
 			if (opening === undefined) return reply(response, 404, { error: "no snapshot" });
 			return reply(response, 200, opening[0]);
 		}
 		reply(response, 404, { error: "not found" });
+	}
+
+	/** A page of the session's entries, read from its file: before an entry, since one, or the tail. */
+	async #entries(
+		response: ServerResponse,
+		file: string | undefined,
+		session: string,
+		url: URL,
+	): Promise<void> {
+		// Only a `pi --no-session` has no file at all, and it holds no older entries either.
+		if (file === undefined) return reply(response, 200, { entries: [], more: false });
+		const query = url.searchParams;
+		const limit = Number(query.get("limit") ?? PAGE);
+		const page = await this.#history.page(file, session, {
+			...(query.has("before") ? { before: query.get("before") ?? "" } : {}),
+			...(query.has("since") ? { since: query.get("since") ?? "" } : {}),
+			limit: Number.isFinite(limit) ? limit : PAGE,
+		});
+		if ("foreign" in page) return reply(response, 404, { error: "not this session's file" });
+		// 410: the client's cursor is gone from the file, so it drops what it holds and starts over.
+		if ("unknown" in page)
+			return reply(response, 410, { error: "unknown entry", entry: page.unknown });
+		reply(response, 200, page);
 	}
 
 	/** The session list: who each session is and how it is doing, without its entries. */
