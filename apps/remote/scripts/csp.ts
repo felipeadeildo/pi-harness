@@ -1,10 +1,10 @@
 // Serves the exported app with the CSP the design asks for and loads it in a headless browser. A
 // policy that the app violates is the failure the type check and the lint cannot see: they run
 // before the bundle exists.
-import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { extname, join, normalize, sep } from "node:path";
 
+import { POLICY, policyFor } from "@adeildo/pi-remote/web";
 import { type Browser, chromium } from "playwright-core";
 
 const DIST = join(import.meta.dir, "..", "dist");
@@ -22,24 +22,6 @@ export function browserPath(): string | undefined {
 	return BROWSERS.find((path) => existsSync(path));
 }
 
-/**
- * Every request the app makes to its own origin, plus the daemon's socket once it is wired. The
- * export writes one inline script, so the page is served with that script's hash rather than with
- * `unsafe-inline`: the same rule the daemon follows when it reads the build.
- */
-export const POLICY = [
-	"default-src 'self'",
-	"script-src 'self'",
-	"style-src 'self' 'unsafe-inline'",
-	"img-src 'self' data:",
-	"font-src 'self' data:",
-	"connect-src 'self' ws://127.0.0.1:* ws://localhost:*",
-	"base-uri 'none'",
-	"form-action 'none'",
-	"frame-ancestors 'none'",
-	"object-src 'none'",
-].join("; ");
-
 const TYPES: Record<string, string> = {
 	".html": "text/html; charset=utf-8",
 	".js": "text/javascript; charset=utf-8",
@@ -51,21 +33,6 @@ const TYPES: Record<string, string> = {
 	".woff2": "font/woff2",
 	".ico": "image/x-icon",
 };
-
-/** The hash of every inline script the page carries, as the policy spells them. */
-export function inlineHashes(html: string): string[] {
-	// `data-src` is not a source: a script tag with one is inline, and the browser hashes its text.
-	return [...html.matchAll(/<script(?![^>]*(?<![-\w])src=)[^>]*>([\s\S]*?)<\/script>/g)].map(
-		([, body = ""]) => `'sha256-${createHash("sha256").update(body).digest("base64")}'`,
-	);
-}
-
-/** The policy for one page: the base rules, plus the hashes of what it inlines. */
-export function policyFor(html: string): string {
-	const hashes = inlineHashes(html);
-	if (hashes.length === 0) return POLICY;
-	return POLICY.replace("script-src 'self'", `script-src 'self' ${hashes.join(" ")}`);
-}
 
 export interface Served {
 	url: string;

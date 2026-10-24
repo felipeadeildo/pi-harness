@@ -3,7 +3,7 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 
-import { inlineHashes, policyFor, POLICY } from "./csp.ts";
+import { inlineHashes, policyFor, POLICY } from "@adeildo/pi-remote/web";
 
 const hashOf = (body: string): string =>
 	`'sha256-${createHash("sha256").update(body).digest("base64")}'`;
