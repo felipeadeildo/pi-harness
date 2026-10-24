@@ -15,7 +15,12 @@ export interface Transport {
 export interface ConnectionOptions {
 	key: SessionKey;
 	cache: Cache;
-	/** Opens one attempt, calling back for what arrives and for a close that is not the client's. */
+	/**
+	 * Opens one attempt, calling back for what arrives and for a close that is not the client's. The
+	 * caller owns the transport, which is where the daemon's `Origin` check is satisfied: a browser
+	 * sends it by itself, and a client that is not a browser has to send its own, or the daemon
+	 * refuses the socket.
+	 */
 	open(onMessage: (envelope: unknown) => void, onClose: () => void): Transport;
 	/** How long to wait before the next attempt, growing to a cap. */
 	backoff?: { first: number; max: number };
