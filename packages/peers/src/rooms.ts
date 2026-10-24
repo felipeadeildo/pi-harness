@@ -152,6 +152,10 @@ export class Rooms implements RoomsView {
 			new FolderFeed(roomsDir()).watch(() => this.#soon()),
 			this.#hooks.events.on(LOGGED_EVENT, (event) => this.#mirror(event as LoggedEvent)),
 		];
+		// How this session opens is its own setting, so the line is written here and not by whoever
+		// adds it to a room. A mode already written stands: a reload does not reset it.
+		if (this.#opening() !== "in" && this.#home.mode() === "in")
+			this.setMode(undefined, this.#opening());
 		this.#writeLive();
 		this.sync();
 	}
@@ -646,6 +650,13 @@ export class Rooms implements RoomsView {
 	#join(room: Shared): void {
 		const me = this.#session;
 		if (me === undefined) return;
+		// A session that only listens says so itself when it becomes a member, whether a folder
+		// brought it or someone added it by name. Written once: what is already there stands.
+		const opening = this.#opening();
+		if (opening !== "in" && room.folder.membership.modeOf(me, this.#cwd) === "in") {
+			this.#write(room.id, "room.mode", { member: { session: me, cwd: this.#cwd }, mode: opening });
+			room.folder.apply(room.feed.read());
+		}
 		const here = new Here(this.#hooksFor(room));
 		room.here = here;
 		here.join({
@@ -726,17 +737,13 @@ export class Rooms implements RoomsView {
 	}
 
 	#addMembers(room: string, members: readonly Member[], by: AddedBy): void {
-		const opening = this.#hooks.opening?.() ?? "in";
 		for (const member of members) {
 			const normalized = normal(member);
 			// A folder joins taking part and has no mode; a session may say how it joins.
 			this.#write(room, "room.added", {
 				...("folder" in normalized
 					? { member: { folder: normalized.folder } }
-					: {
-							member: { session: normalized.session, cwd: normalized.cwd },
-							...(opening === "in" ? {} : { mode: opening }),
-						}),
+					: { member: { session: normalized.session, cwd: normalized.cwd } }),
 				by: by.by,
 				...(by.why === undefined ? {} : { why: by.why }),
 				...(by.allowedBy === undefined ? {} : { allowedBy: by.allowedBy }),
@@ -759,6 +766,11 @@ export class Rooms implements RoomsView {
 			undefined,
 			this.#now(),
 		);
+	}
+
+	/** How this session stands when it opens or joins a room. */
+	#opening(): Exclude<RoomMode, "out"> {
+		return this.#hooks.opening?.() ?? "in";
 	}
 
 	/** The addition that brought this session in last. */

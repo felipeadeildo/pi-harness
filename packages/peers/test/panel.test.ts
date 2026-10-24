@@ -354,14 +354,21 @@ describe("changing the rooms", () => {
 		expect(rooms.calls.at(-1)).toBe("mode r1 listening");
 	});
 
-	test("a room that only listens says so before its name", () => {
+	test("the mark before a room's name never moves the name", () => {
 		const rooms = new Rooms(session("me", "/repo"));
 		shared(rooms);
 		const row = (drawn: string): string | undefined =>
 			drawn.split("\n").find((line) => line.includes("❯") && line.includes("pi-harness"));
-		expect(row(press(panelOf(rooms), TAB)) ?? "").toContain("❯ pi-harness");
+		// The mark's column is always there: taking part draws `●`, so the name never shifts.
+		expect(row(press(panelOf(rooms), TAB)) ?? "").toContain("❯ ● pi-harness");
 		rooms.shown[0] = withMode(rooms.shown[0], "listening") as Room;
 		expect(row(press(panelOf(rooms), TAB)) ?? "").toContain("❯ ◐ pi-harness");
+		// Same column for the name in both: the mark swaps, the layout does not.
+		const at = (line: string): number => line.indexOf("pi-harness");
+		rooms.shown[0] = withMode(rooms.shown[0], "in") as Room;
+		expect(at(row(press(panelOf(rooms), TAB)) ?? "")).toBe(
+			at(row(press(panelOf(rooms), TAB)) ?? ""),
+		);
 	});
 
 	test("the folder's room cannot be left or closed", () => {

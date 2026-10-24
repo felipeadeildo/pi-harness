@@ -115,10 +115,12 @@ with how many agents are open in each.
 
 The folder's room has no `a`, `r`, `l` or `x`.
 
-A room that this session only listens to wears `◐` before its name. Listening is hearing what names it, nothing
-else: the room's other messages wait until you take part. `@anyone` and `@everyone` are addresses of the agents
-taking part, so listening is not taking part and a request to anyone never picks one that listens. How a session
-joins a room it is added to is the "When a room takes you in" setting: taking part, or only listening.
+Every room wears a mark before its name, so the name never moves when the mode changes: `●` takes part, `◐` only
+listens. Listening is hearing what names it, nothing else: the room's other messages wait until you take part.
+`@anyone` and `@everyone` are addresses of the agents taking part, so listening is not taking part and a request to
+anyone never picks a session that listens. How a session opens is its own "When a room takes you in" setting, and it
+writes that for itself, in the folder's room and in each shared room it joins. A setting never decides another
+session's mode.
 
 ### How rooms work
 

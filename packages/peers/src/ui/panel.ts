@@ -239,7 +239,8 @@ export class PeersPanel implements Component, Focusable {
 			const name = isOpen
 				? theme.fg("accent", theme.bold(room.name))
 				: theme.fg("muted", room.name);
-			const mark = room.mode === "in" ? "" : `${this.#mark(room.mode)} `;
+			// The column is always there: a room that changes how it stands keeps its name in place.
+			const mark = `${this.#mark(room.mode)} `;
 			lines.push(
 				spread(
 					`${pointer(theme, this.#cursor === key, focused)}${mark}${name}`,

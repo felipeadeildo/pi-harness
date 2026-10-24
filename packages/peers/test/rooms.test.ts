@@ -110,6 +110,7 @@ function session(id: string, folder: string, extra: Partial<Hooks> = {}) {
 	}
 	return {
 		rooms,
+		dir: targetOf(source).dir,
 		sent,
 		run,
 		wentIn,
@@ -498,10 +499,9 @@ describe("how a session stands in a room", () => {
 		expect(rawLines(id, "api").map((event) => event.type)).toContain("room.mode");
 	});
 
-	test("a session added while the folders only listen joins listening", () => {
-		// The session that adds the member is the one whose setting says how it joins.
-		const api = session("api", "backend", { opening: () => "listening" });
-		const quiet = session("quiet", "frontend");
+	test("a session that only listens says so itself, whoever added it", () => {
+		const api = session("api", "backend");
+		const quiet = session("quiet", "frontend", { opening: () => "listening" });
 		const id = api.rooms.create("pair", [
 			{ folder: api.cwd },
 			{ session: "quiet", cwd: quiet.cwd },
@@ -509,10 +509,39 @@ describe("how a session stands in a room", () => {
 		sync(api, quiet);
 		sync(api, quiet);
 		expect(quiet.rooms.rooms().find((room) => room.id === id)?.mode).toBe("listening");
-		// The folder member keeps taking part: the setting is about the sessions you add by name.
+		// The one that added it keeps taking part: a setting never decides another session's mode.
 		expect(api.rooms.rooms().find((room) => room.id === id)?.mode).toBe("in");
+		expect(rawLines(id, "quiet").filter((event) => event.type === "room.mode")).toHaveLength(1);
+	});
+
+	test("the other way round too: the adder listens, the member takes part", () => {
+		const api = session("api", "backend", { opening: () => "listening" });
+		const loud = session("loud", "frontend");
+		const id = api.rooms.create("pair", [{ folder: api.cwd }, { session: "loud", cwd: loud.cwd }]);
+		sync(api, loud);
+		sync(api, loud);
+		expect(api.rooms.rooms().find((room) => room.id === id)?.mode).toBe("listening");
+		expect(loud.rooms.rooms().find((room) => room.id === id)?.mode).toBe("in");
+	});
+
+	test("the folder's room opens the way this session says, and the line stands", () => {
+		const quiet = session("quiet", "backend", { opening: () => "listening" });
+		expect(quiet.rooms.rooms()[0]?.mode).toBe("listening");
+		quiet.rooms.sync();
+		expect(quiet.rooms.rooms()[0]?.mode).toBe("listening");
+		expect(writtenIn(quiet.dir, "quiet", "room.mode")).toHaveLength(1);
+		// The line is this session's, so it stands across a reload and is written once: a fold that
+		// already says listening is not written again.
+		const again = session("quiet", "backend");
+		expect(again.rooms.rooms()[0]?.mode).toBe("listening");
+		expect(writtenIn(again.dir, "quiet", "room.mode")).toHaveLength(1);
 	});
 });
+
+/** How many lines of a type a session wrote in a folder's own log. */
+function writtenIn(dir: string, writer: string, type: LoggedEvent["type"]): LoggedEvent[] {
+	return readFrom(join(dir, `${writer}.jsonl`), 0).events.filter((event) => event.type === type);
+}
 
 /** What a session wrote in a shared room, line by line. */
 function rawLines(room: string, writer: string): LoggedEvent[] {
