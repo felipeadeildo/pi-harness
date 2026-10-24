@@ -427,7 +427,7 @@ The daemon passes a client's command, a `command` envelope with an `id`, to the 
 
 Owner: ask. Needs: C8.
 
-A client answers an open question with `ask.answer { ask, result }`. The bridge emits the kit's answer with `by: { kind: "client" }`, and the asker's client closes the question for everyone, so the terminal's dialog closes through `harness:ask.cancel`. In a session with no terminal, the bridge answers the kit's `AVAILABLE`, and clients draw the whole dialog. An answer to a question someone else already answered comes back as an error saying where it was answered and is dropped, so two phones never both think they decided.
+A client answers an open question with `ask.answer { ask, result }`. The bridge emits the kit's answer with `by: { kind: "client" }`, and the asker's client closes the question for everyone, so the terminal's dialog closes through `harness:ask.cancel`. In a session with no terminal, the bridge answers the kit's `AVAILABLE`, and clients draw the whole dialog. An answer to a question someone else already answered comes back as an error saying where it was answered and is dropped, so two phones never both think they decided. The marks of that exchange are drawn here: the terminal's dialog says "answered on <where>" when a client answered, and a ruling says "approved on phone".
 
 - "Always yes" from a client lasts until the session ends; a rule for the project or for everywhere needs the terminal.
 - Tests with the rig: a permission question answered by a client closes the terminal's dialog and logs `call.ruled` with the client's `by`, and of two answers only the first counts.
@@ -454,7 +454,7 @@ The client side is in on its own: the queue, the id, and the reply that ends a c
 
 Owner: core. Needs: C8.
 
-The daemon sends `presence.changed` to every client: who watches each session, and the active client, the one with the latest input. A terminal counts through `ctx.ui.onTerminalInput`, which the bridge reports. Clients mark where something came from, such as "from phone" on a prompt and "answered on laptop" on a closed question, and the terminal marks a ruling "approved on phone".
+The daemon sends `presence.changed` to every client: who watches each session, and the active client, the one with the latest input. A terminal counts through `ctx.ui.onTerminalInput`, which the bridge reports. What a screen writes with that, such as "from phone", belongs to the slice that draws it: the composer for a prompt, the ask slices for a question.
 
 - Tests: two clients and a terminal, where the latest key moves the active mark.
 - Where it stands: all of it is on `main`. The daemon sends `presence.changed` with who watches a session and whose input came last, the snapshot carries it for a reconnect, the client keeps it with the cache and never reduces it from a replay, and the terminal reports a keypress through `ctx.ui.onTerminalInput`, which makes it the active one.
@@ -463,7 +463,7 @@ The daemon sends `presence.changed` to every client: who watches each session, a
 
 Owner: client. Needs: P4 and A5.
 
-The Session screen gets the composer, with steer and follow-up, the open question as the whole dialog, abort, the model and thinking pickers, compact, rename and stop. Commands still in the outbox stay on the screen until they go or the operator drops them.
+The Session screen gets the composer, with steer and follow-up, the open question as the whole dialog, abort, the model and thinking pickers, compact, rename and stop. Commands still in the outbox stay on the screen until they go or the operator drops them. A prompt that came from elsewhere says where, which is the mark the presence slice makes possible; the terminal already shows the same prompt as `From <name>: …`.
 
 - Done when: the F2 check above passes in a browser.
 
