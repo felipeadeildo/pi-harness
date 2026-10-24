@@ -31,8 +31,11 @@ export interface CommandOptions {
 	outcome(id: string, command: string, by: By | undefined, outcome: "refused" | "failed"): void;
 }
 
-/** A command the session does not run, with the reason a client shows. */
-class Refused extends Error {}
+/**
+ * A command the session does not run, with the reason a client shows. An effect throws it to refuse
+ * something the command's shape allows, such as a forced stop that needs a runner.
+ */
+export class Refused extends Error {}
 
 export class Commands {
 	readonly #options: CommandOptions;

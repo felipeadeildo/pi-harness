@@ -20,7 +20,7 @@ import {
 import type { Envelope, SessionSnapshot } from "@adeildo/pi-remote-protocol";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { Commands } from "./commands.ts";
+import { Commands, Refused } from "./commands.ts";
 import { BridgeConnection, type ConnectionSeams, type GoneReason } from "./connection.ts";
 import { HarnessFacts, LOGGED_FACTS } from "./facts.ts";
 import { LiveStream } from "./stream.ts";
@@ -93,7 +93,12 @@ export class Bridge {
 					),
 				rename: (name) => options.rename(name),
 				// The questions open at this point are closed as a no once the ask slice lands here.
-				stop: () => {
+				stop: (force) => {
+					// A terminal session stops by its own pi: it takes the answer to the run and exits.
+					// The kill a forced stop asks for belongs to a background session's runner, which
+					// F4 brings, so until there is one the answer says why it cannot be forced.
+					if (force)
+						throw new Refused("a forced stop needs a background session, which has a runner");
 					ctx.abort();
 					ctx.shutdown();
 				},
@@ -106,7 +111,7 @@ export class Bridge {
 				logFrom(ctx, options.scope.events, "command.received", { id, command, by });
 			},
 			outcome: (id, command, by, outcome) => {
-				logFrom(ctx, options.scope.events, "command.received", { id, command, by, outcome });
+				logFrom(ctx, options.scope.events, "command.outcome", { id, command, by, outcome });
 			},
 		});
 	}

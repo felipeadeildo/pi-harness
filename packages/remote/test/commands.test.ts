@@ -5,7 +5,7 @@ import { describe, expect, test } from "bun:test";
 import type { By } from "@adeildo/pi-kit";
 import { envelope, type Envelope } from "@adeildo/pi-remote-protocol";
 
-import { Commands, KEPT_COMMANDS } from "../src/bridge/commands.ts";
+import { Commands, KEPT_COMMANDS, Refused } from "../src/bridge/commands.ts";
 
 const PHONE: By = { kind: "client", name: "phone", machine: "laptop" };
 
@@ -72,12 +72,30 @@ describe("a command from a client", () => {
 		expect(done).toEqual(["compact:keep the decisions", "compact"]);
 	});
 
-	test("renames the session, and stops it as asked", () => {
+	test("renames the session, and hands the stop's flag to the session, which decides it", () => {
 		const { instance, done } = commands();
 		instance.run(command("session.rename", { name: "release check" }, "c1"));
 		instance.run(command("session.stop", {}, "c2"));
 		instance.run(command("session.stop", { force: true }, "c3"));
 		expect(done).toEqual(["rename:release check", "stop", "stop:force"]);
+	});
+
+	test("an effect that refuses the command answers with its reason, and the log says refused", () => {
+		const { instance, answers, log } = commands({
+			effects: {
+				stop: () => {
+					throw new Refused("a forced stop needs a background session, which has a runner");
+				},
+			},
+		});
+		instance.run(command("session.stop", { force: true }, "c1"));
+		expect(answers[0]).toEqual({
+			kind: "error",
+			type: "session.stop",
+			data: { reason: "a forced stop needs a background session, which has a runner" },
+			id: "c1",
+		});
+		expect(log).toEqual(["received c1 session.stop", "refused c1 session.stop"]);
 	});
 
 	test("logs the id before it runs, and the outcome only when it did not run", () => {
