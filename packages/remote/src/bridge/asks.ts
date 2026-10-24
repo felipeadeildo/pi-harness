@@ -82,11 +82,11 @@ export class ClientAsks {
 	}
 
 	/**
-	 * Everything a closed question owes. The fact is what a client's state reduces, and it only reads
-	 * with a `result`. The bus's `CANCEL` is what the session's status watches: without it the session
-	 * stays blocked on a question nobody is waiting on any more.
+	 * What a closed question owes everyone else: the bus's `CANCEL`, which the session's status watches
+	 * to leave `blocked`. The fact is the log's, written once by the ask client; the one exception is
+	 * a session that shuts down, and `#closedOnStop` writes that one.
 	 */
-	#close(id: string, result: AskResult, by?: By): void {
+	#close(id: string, _result: AskResult, by?: By): void {
 		// The `CANCEL` stays: it is what the session's status watches to leave `blocked`. The fact is
 		// the log's, written by the ask client with the same answer and the same author.
 		this.#options.events.emit(CANCEL, { id, ...(by === undefined ? {} : { by }) });
