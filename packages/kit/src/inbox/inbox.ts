@@ -36,16 +36,20 @@ export class Inbox {
 	 * Adds a letter. An id the inbox already had, or one a run carried, is a repeat and changes
 	 * nothing: a client that retries a steer must not steer twice.
 	 */
-	put(letter: Letter): void {
-		if (this.#done.has(letter.id) || this.#held.some((one) => one.id === letter.id)) return;
-		if (this.#sent.some((one) => one.id === letter.id)) return;
-		// The inbox is what tells when a letter arrived: a writer need not carry a clock, and a client
-		// that does is on another machine's clock anyway.
+	/**
+	 * Takes a letter in and answers whether it did: one already carried or held is not taken twice. The
+	 * inbox is what tells when a letter arrived, since a writer need not carry a clock, and a client
+	 * that does is on another machine's clock anyway.
+	 */
+	put(letter: Letter): boolean {
+		if (this.#done.has(letter.id) || this.#held.some((one) => one.id === letter.id)) return false;
+		if (this.#sent.some((one) => one.id === letter.id)) return false;
 		const stamped = letter.at === undefined ? { ...letter, at: this.#now() } : letter;
 		if (stamped.want === "steer") {
 			this.#sent.push(stamped);
 			this.#done.add(stamped.id);
 		} else this.#held.push(stamped);
+		return true;
 	}
 
 	/**

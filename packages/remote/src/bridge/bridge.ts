@@ -28,6 +28,7 @@ import { OpenAsks } from "./asks.ts";
 import { Commands, Refused } from "./commands.ts";
 import { BridgeConnection, type ConnectionSeams, type GoneReason } from "./connection.ts";
 import { HarnessFacts, LOGGED_FACTS } from "./facts.ts";
+import { letterOf, SessionInbox } from "./inbox.ts";
 import { LiveStream } from "./stream.ts";
 
 /** How many entries of the branch a snapshot carries. A client pages through older ones over HTTP. */
@@ -46,6 +47,8 @@ export interface SessionApi {
 	setThinking(level: string): void;
 	/** Applies the permission mode, or refuses with the reason a client shows. */
 	setMode(mode: string, by: By | undefined): void;
+	/** Hands text to pi: a steer goes in at once, and a follow-up waits until the agent settles. */
+	send(text: string, deliverAs: "steer" | "followUp" | undefined): void;
 }
 
 export interface BridgeOptions {
@@ -74,6 +77,7 @@ export class Bridge {
 	readonly #facts = new HarnessFacts();
 	readonly #connection: BridgeConnection;
 	readonly #commands: Commands;
+	readonly #inbox: SessionInbox;
 	readonly #startedAt = Date.now();
 	#unfollow: (() => void) | undefined;
 
@@ -102,6 +106,10 @@ export class Bridge {
 		);
 		this.stream = new LiveStream((type, data, send) => this.#connection.event(type, data, send));
 		this.#asks.watch(options.scope.events);
+		this.#inbox = new SessionInbox(options.scope, {
+			send: (text, deliverAs) => options.api.send(text, deliverAs),
+		});
+		this.#inbox.start();
 		this.#commands = new Commands({
 			session: ctx.sessionManager.getSessionId(),
 			effects: {
@@ -114,6 +122,8 @@ export class Bridge {
 				setModel: (provider, id) => options.api.setModel(provider, id),
 				setThinking: (level) => options.api.setThinking(level),
 				setMode: (mode, by) => options.api.setMode(mode, by),
+				prompt: (id, by, text, deliverAs) => this.#inbox.put(letterOf(id, by, text, deliverAs)),
+				clearQueue: () => this.#inbox.take(),
 				// A client's answer to a question it is looking at. Without an open question with that
 				// id, the answer is refused: the question was answered elsewhere or already closed.
 				// The answer goes on the bus, where whoever is holding the question is listening: the

@@ -42,6 +42,9 @@ export function commandApi(scope: FeatureScope, ctx: ExtensionContext): SessionA
 				throw new Refused(`${level} is not a thinking level: ${THINKING_LEVELS.join(", ")}`);
 			scope.setThinkingLevel(level);
 		},
+		send: (text, deliverAs) => {
+			scope.sendUserMessage(text, deliverAs === undefined ? {} : { deliverAs });
+		},
 		setMode: (mode, by) => {
 			// `full` runs every call without asking, and a rule or a stolen phone must not reach it: it
 			// is set at the terminal, where the person is looking at the session it applies to.

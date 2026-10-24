@@ -2,7 +2,7 @@
 // the envelope's id, and an id that already ran is answered as a repeat instead of running twice: the
 // ids are kept in memory and read back from the log when the bridge starts, so a resend across a
 // restart is a repeat too.
-import type { By } from "@adeildo/pi-kit";
+import type { By, Letter } from "@adeildo/pi-kit";
 import type { Envelope } from "@adeildo/pi-remote-protocol";
 import { isCommand } from "@adeildo/pi-remote-protocol";
 
@@ -22,6 +22,10 @@ export interface CommandEffects {
 	setMode(mode: string, by: By | undefined): void;
 	/** Answers a question a client is looking at, and refuses one that is no longer open. */
 	answerAsk(fields: Record<string, unknown>, by: By | undefined): void;
+	/** Puts a prompt in the session's inbox: a steer goes in at once, a follow-up waits for the settle. */
+	prompt(id: string, by: By | undefined, text: string, deliverAs: Letter["want"]): void;
+	/** Takes back what the inbox holds, which is what pi's Esc does with its queue. */
+	clearQueue(): Letter[];
 }
 
 export interface CommandOptions {
@@ -91,8 +95,8 @@ export class Commands {
 		const { id, type, by } = message;
 		if (id === undefined) return;
 		try {
-			await this.#effect(type, message.data, by);
-			this.#options.answer("reply", type, {}, id);
+			const data = await this.#effect(type, message.data, by, id);
+			this.#options.answer("reply", type, data, id);
 		} catch (error) {
 			const reason = error instanceof Error ? error.message : "the command did not run";
 			this.#options.outcome(id, type, by, error instanceof Refused ? "refused" : "failed");
@@ -112,30 +116,53 @@ export class Commands {
 		if (this.#ran.length > KEPT_COMMANDS) this.#ran.splice(0, this.#ran.length - KEPT_COMMANDS);
 	}
 
-	async #effect(type: string, data: unknown, by: By | undefined): Promise<void> {
+	/** Runs the effect and returns what a client reads in the reply, which is `{}` for most. */
+	async #effect(
+		type: string,
+		data: unknown,
+		by: By | undefined,
+		id: string,
+	): Promise<Record<string, unknown>> {
 		const fields = data as Record<string, unknown>;
 		const { effects } = this.#options;
 		switch (type) {
 			case "run.abort":
-				return effects.abort();
+				effects.abort();
+				return {};
 			case "session.compact":
-				return effects.compact(
-					typeof fields.instructions === "string" ? fields.instructions : undefined,
-				);
+				effects.compact(typeof fields.instructions === "string" ? fields.instructions : undefined);
+				return {};
 			case "session.rename":
-				return effects.rename(String(fields.name));
+				effects.rename(String(fields.name));
+				return {};
 			case "session.stop":
-				return effects.stop(fields.force === true);
+				effects.stop(fields.force === true);
+				return {};
 			case "model.set":
-				return effects.setModel(String(fields.provider), String(fields.id));
+				await effects.setModel(String(fields.provider), String(fields.id));
+				return {};
 			case "thinking.set":
-				return effects.setThinking(String(fields.level));
+				effects.setThinking(String(fields.level));
+				return {};
 			case "mode.set":
-				return effects.setMode(String(fields.mode), by);
+				effects.setMode(String(fields.mode), by);
+				return {};
 			case "ask.answer":
-				return effects.answerAsk(fields, by);
+				effects.answerAsk(fields, by);
+				return {};
+			case "prompt.send": {
+				const deliverAs =
+					fields.deliverAs === "steer" || fields.deliverAs === "followUp"
+						? fields.deliverAs
+						: "followUp";
+				effects.prompt(id, by, String(fields.text), deliverAs);
+				return {};
+			}
+			case "queue.clear":
+				// What was taken back is the answer, so a client draws the queue it now holds.
+				return { taken: effects.clearQueue() };
 			default:
-				// `prompt.send` and `queue.clear` come with the inbox slice: a client hears "not yet"
+				// A command of a type this session does not serve yet: the client hears "not yet"
 				// instead of a command that seems to work and does nothing.
 				throw new Refused(`${type} is not served by this session yet`);
 		}

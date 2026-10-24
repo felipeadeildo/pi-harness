@@ -2,7 +2,7 @@
 // even after a restart, because the ids come back from the session's log.
 import { describe, expect, test } from "bun:test";
 
-import type { By } from "@adeildo/pi-kit";
+import type { By, Letter } from "@adeildo/pi-kit";
 import { envelope, type Envelope } from "@adeildo/pi-remote-protocol";
 
 import { type CommandEffects, Commands, KEPT_COMMANDS, Refused } from "../src/bridge/commands.ts";
@@ -34,6 +34,9 @@ function commands(options: { history?: string[]; effects?: Partial<CommandEffect
 		setMode: (mode: string, by: By | undefined) => done.push(`mode:${mode}:${by?.name ?? ""}`),
 		answerAsk: (fields: Record<string, unknown>, _by: By | undefined) =>
 			done.push(`ask:${String(fields.ask)}`),
+		prompt: (id: string, _by: By | undefined, text: string, deliverAs: string) =>
+			done.push(`prompt:${id}:${deliverAs}:${text}`),
+		clearQueue: () => [] as Letter[],
 		...options.effects,
 	};
 	const instance = new Commands({
@@ -47,6 +50,8 @@ function commands(options: { history?: string[]; effects?: Partial<CommandEffect
 			setThinking: (level) => effects.setThinking(level),
 			answerAsk: (fields, by) => effects.answerAsk(fields, by),
 			setMode: (mode, by) => effects.setMode(mode, by),
+			prompt: (id, by, text, deliverAs) => effects.prompt(id, by, text, deliverAs),
+			clearQueue: () => effects.clearQueue(),
 		},
 		history: options.history,
 		answer: (kind, type, data, id) => answers.push({ kind, type, data, id }),
@@ -164,6 +169,8 @@ describe("a command from a client", () => {
 				setModel: () => Promise.resolve(),
 				setThinking: () => {},
 				setMode: () => {},
+				prompt: () => {},
+				clearQueue: () => [],
 				answerAsk: () => {},
 			},
 			answer: (_kind, type, _data, id) => {
@@ -201,11 +208,11 @@ describe("a command from a client", () => {
 	test("logs the id before it runs, and the outcome only when it did not run", async () => {
 		const { instance, log } = commands();
 		await instance.run(command("run.abort", {}, "c1"));
-		await instance.run(command("prompt.send", { text: "hello" }, "c2"));
+		await instance.run(command("session.fork", { entryId: "e1" }, "c2"));
 		expect(log).toEqual([
 			"received c1 run.abort",
-			"received c2 prompt.send",
-			"refused c2 prompt.send",
+			"received c2 session.fork",
+			"refused c2 session.fork",
 		]);
 	});
 
@@ -231,12 +238,12 @@ describe("a command from a client", () => {
 
 	test("a command this slice does not serve yet is refused with a reason, not run quietly", async () => {
 		const { instance, answers, done } = commands();
-		await instance.run(command("queue.clear", {}, "c1"));
+		await instance.run(command("session.fork", { entryId: "e1" }, "c1"));
 		expect(done).toEqual([]);
 		expect(answers[0]).toEqual({
 			kind: "error",
-			type: "queue.clear",
-			data: { reason: "queue.clear is not served by this session yet" },
+			type: "session.fork",
+			data: { reason: "session.fork is not served by this session yet" },
 			id: "c1",
 		});
 	});
@@ -303,6 +310,8 @@ describe("a client's answer to a question", () => {
 				setModel: () => Promise.resolve(),
 				setThinking: () => {},
 				setMode: () => {},
+				prompt: () => {},
+				clearQueue: () => [],
 				answerAsk: (fields, by) =>
 					answers.push({ id: String(fields.ask), by, result: fields.result }),
 			},
@@ -335,6 +344,8 @@ describe("a client's answer to a question", () => {
 				setModel: () => Promise.resolve(),
 				setThinking: () => {},
 				setMode: () => {},
+				prompt: () => {},
+				clearQueue: () => [],
 				answerAsk: () => done.push("ask"),
 			},
 			answer: (_kind, _type, data) => done.push(`error:${String(data.reason)}`),
