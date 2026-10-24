@@ -23,13 +23,13 @@ A slice is ticked in the commit that lands it.
 - [x] V3. The panel opens a view (view, F1)
 - [x] C3. The remote package and its build (core, F1)
 - [x] C4. The bridge (core, F1)
-- [ ] C5. The daemon (core, F1)
+- [x] C5. The daemon (core, F1)
 - [x] C6. Login and the Host check (core, F1)
 - [ ] C7. Sync by cursors (core, F1)
 - [x] P3. The client library (protocol, F1)
 - [x] W1. The Expo app and the CSP (client, F1)
 - [x] W2. Text from elsewhere (client, F1)
-- [ ] W3. The Sessions and Session screens (client, F1)
+- [x] W3. The Sessions and Session screens (client, F1)
 - [ ] I1. The inbox (names, before F2)
 - [ ] C8. Commands through the bridge (core, F2)
 - [ ] A5. Clients in the race for the harness's dialogs (ask, F2)
@@ -316,7 +316,9 @@ The bridge registers only in a pi in tui mode. It connects to `remote/daemon.soc
 
 Owner: core. Needs: C4 and V1.
 
-The daemon listens on the unix socket for bridges, and on `127.0.0.1:7878` for clients over HTTP and WebSocket. It keeps each session's snapshot and a replay buffer, and reads history from the session files through the follower from V1 and from the harness logs through `readFrom`. It serves the web build with the CSP from [Text from elsewhere](remote.md#text-from-elsewhere).
+The daemon listens on the unix socket for bridges, and on `127.0.0.1:7878` for clients over HTTP and WebSocket. It keeps each session's snapshot and a replay buffer, and reads history from the session files through the follower from V1. It serves the web build with the CSP from [Text from elsewhere](remote.md#text-from-elsewhere).
+
+**Done so far:** the socket, the clients' port, the snapshot and replay, the session files, the web build and its policy, `serve` and `--dev`. The harness log reader (`readFrom`) comes with F2, with the facts cursor of C7.
 
 - Lifecycle: binding the socket is the lock. A `with pi` daemon exits after `idleExitMinutes` with no session, and a newer version in `current.json` makes it finish its requests and exit. `pi-remote serve` keeps it up, and `serve --dev` runs it from `src/` and restarts it on every save.
 - Routes: the part of [The protocol](remote.md#the-protocol) that F1 reads, which is the session list, a session's snapshot, its entries and facts after a cursor, and the live stream.
@@ -339,6 +341,8 @@ Owner: core. Needs: C5.
 Owner: core. Needs: C5.
 
 The daemon serves the three cursors of [Sync](remote.md#sync): entries by id, facts by their position in the log, and the live stream by `(epoch, seq)`. A client's first load takes the snapshot and the latest entries, and a reconnect resumes from its cursors.
+
+**Done so far:** entries by id and the live stream, which is what a reconnect and a page of older entries read today. The facts by their position in the log come with F2, with the log reader the daemon gains there.
 
 - Tests with the rig and a scripted client: a disconnect mid-run resumes with no gap and nothing twice, and a daemon restart mid-run does the same through the snapshot.
 
@@ -386,6 +390,8 @@ The Sessions screen lists every session with its title, machine, state, cost and
 - The Session screen draws a `ClientSession`, so it is built and tested on the rig's recording before C7. The Sessions screen reads the daemon's list, so it waits for C7, and so do the routes and `connect` of both screens.
 
 - Done when: the checks of F1 below pass in a browser.
+
+- Done: both screens and the route read the client's live cursor and the snapshot's facts, and the checks of F1 pass in a browser, with the login in front of them. The facts that come from a position in the log arrive with F2, which is why C7 stays open.
 
 ### F1 is done when
 
