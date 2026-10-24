@@ -295,6 +295,61 @@ describe("what waits for your next prompt", () => {
 		expect(next?.depth).toBe(3);
 	});
 
+	test("your words in a busy run do not make the next run yours", () => {
+		const a = session("a");
+		const b = session("b");
+		b.state.idle = false;
+		b.here.started();
+		for (let i = 0; i <= STEERS_PER_RUN; i++) {
+			a.here.post(["b"], `note ${i}`, "agent");
+			b.here.sync();
+		}
+		expect(b.held.at(-1)?.why).toBe("full");
+		// You steer the busy run, which starts no run of its own.
+		b.here.prompted();
+		b.state.idle = true;
+		b.here.settled();
+		const c = session("c");
+		name(c.here, "otter");
+		c.here.post(["b"], "fresh", "agent");
+		c.here.sync();
+		b.here.sync();
+		b.here.started();
+		expect(b.wentIn.map((went) => went.by)).toEqual(["otter"]);
+	});
+
+	test("your words from another session start a run that is yours", () => {
+		const a = session("a");
+		const b = session("b", undefined, false);
+		a.here.post(["b"], "while you were away", "agent");
+		b.here.sync();
+		expect(b.held.at(-1)?.why).toBe("asleep");
+		a.here.post(["b"], "the operator, from a", "you");
+		b.here.sync();
+		expect(b.sent.at(-1)?.kind).toBe("user");
+		b.here.started();
+		expect(b.wentIn).toEqual([]);
+	});
+
+	test("a message to the whole room is never held as a loop, but one to this agent is", () => {
+		const a = session("a");
+		const b = session("b");
+		b.limit.chain = 1;
+		// a writes from a run one reply deep, at b's limit.
+		b.here.post(["a"], "start", "agent");
+		a.here.sync();
+		a.here.started();
+		a.here.post("all", "to everyone", "agent");
+		b.here.sync();
+		expect(b.held).toEqual([]);
+		expect(b.sent.at(-1)?.options).toEqual({ triggerTurn: true, deliverAs: "followUp" });
+		b.here.started();
+		b.here.settled();
+		a.here.post(["b"], "to you", "agent");
+		b.here.sync();
+		expect(b.held.at(-1)?.why).toBe("quiet");
+	});
+
 	test("goes in with your prompt without a word more", () => {
 		const a = session("a");
 		const b = session("b", undefined, false);

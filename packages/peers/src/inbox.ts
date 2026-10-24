@@ -119,7 +119,8 @@ export class Inbox {
 		this.#depth = 0;
 		this.#steers = 0;
 		this.#awake = true;
-		this.#yours = true;
+		// Words typed into a busy run steer it: the next run is not yours.
+		if (this.#hooks.idle()) this.#yours = true;
 	}
 
 	/**
@@ -248,11 +249,12 @@ export class Inbox {
 			details: from.details(message),
 		}));
 		const items = ordered.map(({ details }) => details);
-		// A held message is shown now, and goes in with the next prompt without being drawn a second time.
+		// A held message is shown now, and goes in with the next run without being drawn a second time.
 		if (held !== undefined) {
 			this.#hooks.held?.({ items, ...(chain === undefined ? {} : { chain }) }, held);
 			this.#held.push([...arrivals]);
 		}
+		// The first colleague to wake the agent is the one the held line names.
 		if (mode === "woke") this.#wokenBy ??= items[0]?.from;
 		this.#send(items, mode, held === undefined || this.#hooks.held === undefined);
 		// Pi does not list what an extension queues, so the inbox keeps it until the model reads it.
@@ -306,7 +308,10 @@ export class Inbox {
 		const messages = arrivals.flatMap((arrival) => arrival.messages);
 		const urgent = messages.some((message) => message.urgent === true);
 		const limit = this.#hooks.chainLimit?.() ?? CHAIN_LIMIT;
-		const quiet = limit > 0 && messages.every((message) => message.depth >= limit);
+		// A message to the whole room is no reply to anyone, so it is never held as a loop. It still
+		// counts, so the run it wakes writes at its depth.
+		const quiet =
+			limit > 0 && messages.every((message) => Array.isArray(message.to) && message.depth >= limit);
 		const mode = deliveryFor({
 			busy: !this.#hooks.idle(),
 			urgent,

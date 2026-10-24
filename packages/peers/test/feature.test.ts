@@ -37,7 +37,12 @@ async function mounted(id: string, cwd = "/repo") {
 	let editor = "";
 	const ctx = fakeContext([], true, {
 		cwd,
-		sessionManager: { getBranch: () => [], getCwd: () => cwd, getSessionId: () => id },
+		sessionManager: {
+			getBranch: () => [],
+			getEntries: () => [],
+			getCwd: () => cwd,
+			getSessionId: () => id,
+		},
 		ui: {
 			notify: (message: string) => notes.push(message),
 			setEditorText: (text: string) => (editor = text),

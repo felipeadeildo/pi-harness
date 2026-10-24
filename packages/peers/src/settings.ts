@@ -2,6 +2,7 @@ import {
 	AUTO_MODEL,
 	type Decoder,
 	fail,
+	integer,
 	literal,
 	modelChoice,
 	pass,
@@ -47,20 +48,10 @@ export const delivery = setting<BusyDelivery>({
 	},
 });
 
-/** A whole number, zero or more. */
-const replies: Decoder<number> = {
-	control: { type: "number", min: 0, step: 1 },
-	decode(input, path) {
-		if (typeof input !== "number" || !Number.isInteger(input) || input < 0)
-			return fail(problem(path, "expected a whole number, zero or more"));
-		return pass(input);
-	},
-};
-
 export const chainLimit = setting<number>({
 	id: "peers.chainLimit",
 	default: CHAIN_LIMIT,
-	decoder: replies,
+	decoder: integer(0, 1000),
 	ui: {
 		section: SETTINGS_SECTION,
 		label: "Replies before a loop stops",

@@ -65,6 +65,8 @@ function bus() {
 function session(id: string, folder: string) {
 	const sent: Sent[] = [];
 	const changes: MembershipChange[] = [];
+	const run = { idle: true };
+	const wentIn: { ids: string[]; by: string | undefined }[] = [];
 	const events = bus();
 	const hooks: Hooks = {
 		events: events as unknown as Hooks["events"],
@@ -80,7 +82,8 @@ function session(id: string, folder: string) {
 		}) as Hooks["sendMessage"],
 		sendUserMessage: ((text: string) =>
 			sent.push({ kind: "user", text })) as Hooks["sendUserMessage"],
-		idle: () => true,
+		idle: () => run.idle,
+		wentIn: (ids, by) => wentIn.push({ ids: [...ids], by }),
 		fit: async () => ({ fit: 0.5, reason: "" }),
 		changed: () => {},
 		now: () => now,
@@ -107,6 +110,8 @@ function session(id: string, folder: string) {
 	return {
 		rooms,
 		sent,
+		run,
+		wentIn,
 		changes,
 		cwd,
 		tasks,
@@ -251,6 +256,33 @@ describe("a shared room", () => {
 			"in the folder",
 			"in the shared room",
 		]);
+	});
+
+	test("a message held when you stop a run goes in with the run a colleague's message starts", () => {
+		const api = session("api", "backend");
+		const web = session("web", "backend");
+		const client = session("client", "backend");
+		web.name("web");
+		client.name("client");
+		sync(api, web, client);
+		api.rooms.prompted();
+		api.rooms.started();
+		api.run.idle = false;
+		web.rooms.here(undefined)?.post(["api"], "while you run", "agent");
+		api.rooms.sync();
+		// Esc: the run stops before the agent reads it, so it waits.
+		api.run.idle = true;
+		api.rooms.cleared(false);
+		api.rooms.settled();
+		expect(api.wentIn).toEqual([]);
+
+		client.rooms.here(undefined)?.post(["api"], "wake up", "agent");
+		api.rooms.sync();
+		api.rooms.started();
+		const held = [...(api.rooms.here(undefined)?.folder.messages.values() ?? [])].find(
+			(message) => message.text === "while you run",
+		);
+		expect(api.wentIn).toEqual([{ ids: [held?.id ?? ""], by: "client" }]);
 	});
 
 	test("a session removed by name leaves, and hears why", () => {

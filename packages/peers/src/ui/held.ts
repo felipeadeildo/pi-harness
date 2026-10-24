@@ -1,7 +1,7 @@
 // Colleagues' messages that wait for your next prompt, drawn when they arrive: the same frames as a
 // delivery, and one line under them that says why the agent did not get them yet, or, once a run
 // that was not yours took them, which run that was.
-import { drawnByWidth, ENTRY_X } from "@adeildo/pi-kit";
+import { drawnByWidth, ENTRY_X, isObject } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
@@ -17,6 +17,21 @@ export interface HeldDelivery extends PeerDelivery {
 /** A run that was not yours took the held messages: `by` started it, when a colleague did. */
 export interface WentIn {
 	by?: string;
+}
+
+/** Kept in the session, out of the context, so a held line still says it went in after a reload. */
+export const PEER_WENT_IN = "pi-peers:went-in";
+
+export interface WentInEntry extends WentIn {
+	ids: string[];
+}
+
+export function isWentIn(value: unknown): value is WentInEntry {
+	if (!isObject(value) || !Array.isArray(value.ids)) return false;
+	return (
+		value.ids.every((id) => typeof id === "string") &&
+		(value.by === undefined || typeof value.by === "string")
+	);
 }
 
 /** `wentIn` is read on every frame, so the line changes once a run takes the messages. */

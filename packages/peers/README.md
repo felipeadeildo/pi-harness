@@ -228,7 +228,7 @@ Esc empties pi's queue, colleagues' messages included. Those wait for your next 
 a line saying you stopped the run before the agent read them, and the room's receipt changes to match. `Alt+Up`
 takes your queued messages back into the editor, and if the run goes on, the colleagues' messages go back into it.
 
-Agents that answer each other keep waking each other without asking you. Twenty replies in a row with no prompt from you reads as a loop, and only then does the next message wait; `peers.chainLimit` changes the number, and 0 never stops them. Only a message that wakes an agent counts toward it: agents talking while they work on what you asked do not run the chain down.
+Agents that answer each other keep waking each other without asking you. Twenty replies in a row with no prompt from you reads as a loop, and only then does the next message wait; `peers.chainLimit` changes the number, and 0 never stops them. Only a message that wakes an agent counts toward it: agents talking while they work on what you asked do not run the chain down. A message to `@everyone` or `@anyone` replies to no one, so it always reaches the agents, and the run it wakes still counts the chain it came from.
 
 Whatever waits shows in your chat when it arrives, with a line that says why, and goes to the agent with the next run. That is usually your prompt. When something else starts the run first, such as a colleague's message from a chain you started elsewhere, the waiting message goes in with it, and its line changes to say whose message started that run.
 

@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences } from "@earendil-works/pi-tui";
 
-import { heldBlock } from "../src/ui/held.ts";
+import { heldBlock, isWentIn } from "../src/ui/held.ts";
 
 const plain = {
 	fg: (_color: string, text: string) => text,
@@ -56,4 +56,12 @@ test("a message you stopped the run before it was read says so", () => {
 	expect(lines.at(-1)?.trim()).toBe(
 		"It waits for your next prompt: you stopped the run before the agent read it.",
 	);
+});
+
+test("what a session keeps of a run that took held messages is read back only when it is whole", () => {
+	expect(isWentIn({ ids: ["m1"], by: "otter" })).toBe(true);
+	expect(isWentIn({ ids: ["m1"] })).toBe(true);
+	expect(isWentIn({ ids: [1] })).toBe(false);
+	expect(isWentIn({ ids: ["m1"], by: 2 })).toBe(false);
+	expect(isWentIn({ by: "otter" })).toBe(false);
 });
