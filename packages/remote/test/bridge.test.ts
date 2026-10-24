@@ -65,7 +65,7 @@ function entries(count: number): Entry[] {
  * A session pi titled, with the entries given and the branch through them, in a terminal unless
  * `mode` says otherwise.
  */
-function session(held: Entry[] = entries(2), mode = "tui", branch: Entry[] = held) {
+function session(kept: Entry[] = entries(2), mode = "tui", branch: Entry[] = kept) {
 	const ctx = fakeContext([], mode === "tui", {
 		mode,
 		cwd: "/work",
@@ -75,9 +75,9 @@ function session(held: Entry[] = entries(2), mode = "tui", branch: Entry[] = hel
 		sessionManager: {
 			getSessionId: () => "s1",
 			getSessionName: () => "Fix the release",
-			getEntries: () => held,
+			getEntries: () => kept,
 			getBranch: () => branch,
-			getLeafId: () => held.at(-1)?.id ?? null,
+			getLeafId: () => kept.at(-1)?.id ?? null,
 		},
 	});
 	return ctx;
@@ -134,12 +134,12 @@ describe("the bridge", () => {
 
 	test("after the snapshot, each entry pi appends goes out once", async () => {
 		const daemon = await listening();
-		const held = entries(2);
+		const kept = entries(2);
 		const fake = mounted();
-		const ctx = session(held);
+		const ctx = session(kept);
 		await start(fake, ctx);
 		await until(() => types(daemon).includes("snapshot"));
-		held.push({ type: "message", id: "e3", parentId: "e2" });
+		kept.push({ type: "message", id: "e3", parentId: "e2" });
 		await fake.fire("turn_end", { type: "turn_end", messageEntryId: "e3" }, ctx);
 		await until(() => types(daemon).includes("entry"));
 		await fake.fire("turn_end", { type: "turn_end", messageEntryId: "e3" }, ctx);
@@ -187,14 +187,14 @@ describe("the bridge", () => {
 
 	test("after a reconnect, each entry pi appends still goes out once", async () => {
 		const daemon = await listening();
-		const held = entries(2);
+		const kept = entries(2);
 		const fake = mounted();
-		const ctx = session(held);
+		const ctx = session(kept);
 		await start(fake, ctx);
 		await until(() => types(daemon).includes("snapshot"));
 		daemon.sockets[0]?.destroy();
 		await until(() => types(daemon).filter((type) => type === "snapshot").length === 2, 3_000);
-		held.push({ type: "message", id: "e3", parentId: "e2" });
+		kept.push({ type: "message", id: "e3", parentId: "e2" });
 		await fake.fire("turn_end", { type: "turn_end", messageEntryId: "e3" }, ctx);
 		await until(() => types(daemon).includes("entry"));
 		await Bun.sleep(30);
