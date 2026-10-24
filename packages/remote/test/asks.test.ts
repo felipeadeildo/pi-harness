@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { ANSWER, ASK, type AnswerEvent, AVAILABLE, CANCEL, type By } from "@adeildo/pi-kit";
-import { emptySessionFacts, isFact, reduceFact } from "@adeildo/pi-remote-protocol";
+import { emptyHarnessState, isFact, applyLogged } from "@adeildo/pi-remote-protocol";
 import { createEventBus } from "@earendil-works/pi-coding-agent";
 
 import { ClientAsks, OpenAsks } from "../src/bridge/asks.ts";
@@ -108,11 +108,11 @@ describe("the questions of a session with no terminal", () => {
 
 		// The fact only reads with a `result`, so a close without one leaves the question open in the
 		// client's state, with a dialog nobody can answer any more.
-		let facts = emptySessionFacts();
+		let facts = emptyHarnessState();
 		for (const event of sent) {
 			if (event.type !== "ask.opened" && event.type !== "ask.closed") continue;
 			expect(isFact(event.type, event.data)).toBe(true);
-			facts = reduceFact(facts, event.type, event.data);
+			facts = applyLogged(facts, event.type, event.data);
 		}
 		expect(Object.values(facts.asks).filter((one) => one.closed === undefined)).toEqual([]);
 	});

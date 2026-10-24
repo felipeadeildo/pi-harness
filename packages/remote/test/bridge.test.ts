@@ -645,7 +645,7 @@ describe("the bridge", () => {
 		daemon.sockets[0]?.write(line(envelope("command", "snapshot.get", {})));
 		await until(() => types(daemon).filter((type) => type === "snapshot").length === 2);
 		const snapshot = daemon.received.findLast((one) => one.type === "snapshot")?.data as
-			| { snapshot: Record<string, unknown>; facts: { type: string; data: unknown }[] }
+			| { snapshot: Record<string, unknown> }
 			| undefined;
 		expect(snapshot?.snapshot).toMatchObject({
 			handle: "otter",
@@ -654,12 +654,12 @@ describe("the bridge", () => {
 			mode: "edits",
 			openAsks: ["q2"],
 		});
-		expect(snapshot?.facts.map((fact) => fact.type)).toEqual([
-			"tasks.changed",
-			"mode.changed",
-			"ask.opened",
-			"call.ruled",
-		]);
+		const harness = (snapshot?.snapshot as { harness?: Record<string, unknown> } | undefined)
+			?.harness;
+		expect(harness?.mode).toBe("edits");
+		// The state keeps both, and says which one is still waiting: a reader needs no replay to know.
+		expect(harness?.asks).toMatchObject({ q1: { id: "q1", closed: true }, q2: { id: "q2" } });
+		expect(harness?.rulings).toMatchObject({ c1: { ruling: { head: "allowed" } } });
 	});
 
 	test("the remote's files, its socket, its port and its command are protected, whatever the mode", () => {

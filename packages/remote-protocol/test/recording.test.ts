@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { reduceFacts } from "../src/reduce/state.ts";
+import { applyAll } from "../src/reduce/state.ts";
 import {
 	branchOf,
 	transcriptOf,
@@ -119,7 +119,7 @@ describe("the recording, read back", () => {
 	});
 
 	test("the tasks come out of the log with the handle the session was given", () => {
-		const state = reduceFacts(facts);
+		const state = applyAll(facts);
 
 		expect(state.tasks?.handle).toBe("rig");
 		expect(state.tasks?.title).toBe("Read the rig log");
@@ -127,7 +127,7 @@ describe("the recording, read back", () => {
 	});
 
 	test("a log with no rulings and no questions leaves both empty, until A2 and A3 record them", () => {
-		const state = reduceFacts(facts);
+		const state = applyAll(facts);
 
 		expect(state.rulings).toEqual({});
 		expect(state.asks).toEqual({});

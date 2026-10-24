@@ -306,11 +306,11 @@ export class Bridge {
 				tasks,
 				mode,
 				openAsks: this.#facts.openAsks,
+				// Already folded, so a reader draws the session's harness state without a replay.
+				harness: this.#facts.snapshot(tasks, mode),
 			},
 			entries: this.ctx.sessionManager.getBranch().slice(-SNAPSHOT_ENTRIES),
 			streaming: this.stream.streaming,
-			// A client reduces facts into its state, so the snapshot hands it facts that rebuild it.
-			facts: this.#facts.snapshot(tasks, mode),
 		});
 	}
 }

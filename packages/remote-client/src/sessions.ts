@@ -4,7 +4,7 @@ import {
 	isObject,
 	isSnapshot,
 	openAsks,
-	type SessionFacts,
+	type HarnessState,
 	type SessionSnapshot,
 } from "@adeildo/pi-remote-protocol";
 
@@ -29,7 +29,7 @@ export interface ListedSession {
 	live: LiveSession;
 	/** What a client draws before the replay, when the daemon holds one. */
 	snapshot?: SessionSnapshot;
-	facts: SessionFacts;
+	facts: HarnessState;
 }
 
 /**

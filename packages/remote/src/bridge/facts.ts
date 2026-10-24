@@ -1,6 +1,11 @@
 // The harness's facts as the bridge forwards them: what the kit logs for this session, sent as it is
 // written, and the facts a snapshot carries to rebuild the same state in a client that just arrived.
-import { isObject } from "@adeildo/pi-remote-protocol";
+import {
+	applyLogged,
+	emptyHarnessState,
+	type HarnessState,
+	openAsks,
+} from "@adeildo/pi-remote-protocol";
 
 /**
  * The log's facts a client reduces. The bridge sends the session's own facts itself, and the log's
@@ -16,46 +21,33 @@ export const LOGGED_FACTS: ReadonlySet<string> = new Set([
 	"session.renamed",
 ]);
 
-/** How many rulings a snapshot carries, the latest ones. A client reads older ones from the log. */
-export const SNAPSHOT_RULINGS = 100;
-
 export interface Fact {
 	type: string;
 	data: unknown;
 }
 
 export class HarnessFacts {
-	/** The questions still open, by id, as they were asked. */
-	readonly #asks = new Map<string, unknown>();
-	/** The latest ruling of each call, the newest last. */
-	readonly #rulings = new Map<string, unknown>();
+	/**
+	 * The state as the log has written it so far. It is the same shape a client reduces and the same
+	 * shape the daemon seeds itself with, so there is one reducer and one bound, here and everywhere.
+	 */
+	#state: HarnessState = emptyHarnessState();
 
-	/** Keeps what a snapshot needs of a fact the session logged. */
+	/** Folds one event the session logged into the state a snapshot carries. */
 	saw(type: string, data: unknown): void {
-		if (!isObject(data)) return;
-		if (type === "ask.opened" && typeof data.id === "string") this.#asks.set(data.id, data);
-		else if (type === "ask.closed" && typeof data.id === "string") this.#asks.delete(data.id);
-		else if (type === "call.ruled" && typeof data.toolCallId === "string") {
-			this.#rulings.delete(data.toolCallId);
-			this.#rulings.set(data.toolCallId, data);
-			const oldest = this.#rulings.keys().next();
-			if (this.#rulings.size > SNAPSHOT_RULINGS && oldest.done !== true) {
-				this.#rulings.delete(oldest.value);
-			}
-		}
+		this.#state = applyLogged(this.#state, type, data);
 	}
 
 	get openAsks(): string[] {
-		return [...this.#asks.keys()];
+		return openAsks(this.#state).map((ask) => ask.id);
 	}
 
-	/** The facts that rebuild the state as it stands: tasks, mode, open questions and latest rulings. */
-	snapshot(tasks: unknown, mode: unknown): Fact[] {
-		const facts: Fact[] = [];
-		if (tasks !== undefined) facts.push({ type: "tasks.changed", data: { state: tasks } });
-		if (mode !== undefined) facts.push({ type: "mode.changed", data: { mode } });
-		for (const data of this.#asks.values()) facts.push({ type: "ask.opened", data });
-		for (const data of this.#rulings.values()) facts.push({ type: "call.ruled", data });
-		return facts;
+	/** The state as it stands, with the two things pi knows and the log does not. */
+	snapshot(tasks: unknown, mode: unknown): HarnessState {
+		return {
+			...this.#state,
+			...(tasks === undefined ? {} : { tasks: tasks as HarnessState["tasks"] }),
+			...(mode === undefined ? {} : { mode: mode as HarnessState["mode"] }),
+		};
 	}
 }
