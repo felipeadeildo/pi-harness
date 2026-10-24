@@ -146,6 +146,7 @@
       "version": "5.15.0",
       "dependencies": {
         "@adeildo/pi-kit": "workspace:*",
+        "@adeildo/pi-remote-protocol": "workspace:*",
       },
       "peerDependencies": {
         "@earendil-works/pi-ai": "*",
