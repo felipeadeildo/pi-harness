@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -27,8 +27,11 @@ afterEach(() => {
 	rmSync(dir, { recursive: true, force: true });
 });
 
-function logins(): Logins {
-	return new Logins(join(dir, "logins.json"), () => now);
+function logins(warnings: string[] = []): Logins {
+	return new Logins(join(dir, "logins.json"), {
+		now: () => now,
+		warn: (message) => warnings.push(message),
+	});
 }
 
 describe("a token", () => {
@@ -79,6 +82,20 @@ describe("a login", () => {
 		const cookie = keeper.exchange(keeper.issue().token) ?? "";
 		now += 366 * 24 * 60 * 60_000;
 		expect(keeper.has(cookie)).toBe(false);
+	});
+
+	test("made while the disk refuses to write still works, and says it lasts until a restart", () => {
+		const warnings: string[] = [];
+		const keeper = logins(warnings);
+		chmodSync(dir, 0o500);
+		try {
+			const cookie = keeper.exchange(keeper.issue().token);
+			expect(keeper.has(cookie)).toBe(true);
+			expect(warnings).toHaveLength(1);
+			expect(warnings[0]).toContain("they last until a restart");
+		} finally {
+			chmodSync(dir, 0o700);
+		}
 	});
 
 	test("an empty or unknown cookie is no login, and a broken file starts with none", () => {

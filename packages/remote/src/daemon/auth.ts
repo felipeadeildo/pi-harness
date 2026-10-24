@@ -3,7 +3,7 @@
 // carries. The app trades it for an HttpOnly cookie, and every request after that needs the cookie,
 // on loopback too, because any process of this machine can reach 127.0.0.1. The daemon bundles this
 // file, so it imports only Node.
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 
 /** How long a token stays good, unused. */
@@ -26,17 +26,22 @@ export class Logins {
 	readonly #tokens = new Map<string, number>();
 	readonly #logins: Login[];
 
+	readonly #now: () => number;
+	readonly #warn: (message: string) => void;
+
 	constructor(
 		private readonly file: string,
-		private readonly now: () => number = Date.now,
+		options: { now?: () => number; warn?: (message: string) => void } = {},
 	) {
+		this.#now = options.now ?? Date.now;
+		this.#warn = options.warn ?? (() => {});
 		this.#logins = readLogins(file);
 	}
 
 	/** A token good once, until `expiresAt`. */
 	issue(): { token: string; expiresAt: number } {
 		const token = randomBytes(32).toString("base64url");
-		const expiresAt = this.now() + TOKEN_MS;
+		const expiresAt = this.#now() + TOKEN_MS;
 		this.#tokens.set(sha256(token), expiresAt);
 		return { token, expiresAt };
 	}
@@ -47,7 +52,7 @@ export class Logins {
 		const expiresAt = this.#tokens.get(key);
 		// Good once, whatever happens next.
 		this.#tokens.delete(key);
-		const now = this.now();
+		const now = this.#now();
 		for (const [other, until] of this.#tokens) if (until < now) this.#tokens.delete(other);
 		if (expiresAt === undefined || now > expiresAt) return undefined;
 		const cookie = randomBytes(32).toString("base64url");
@@ -60,9 +65,9 @@ export class Logins {
 	has(cookie: string | undefined): boolean {
 		if (cookie === undefined || cookie === "") return false;
 		const key = sha256(cookie);
-		const login = this.#logins.find((one) => one.hash === key);
+		const login = this.#logins.find((one) => sameHash(one.hash, key));
 		if (login === undefined) return false;
-		const now = this.now();
+		const now = this.#now();
 		if (now - login.seenAt > LOGIN_MS) return false;
 		// Written at most once a day, so a busy client does not rewrite the file on every request.
 		if (now - login.seenAt > 24 * 60 * 60_000) {
@@ -72,13 +77,23 @@ export class Logins {
 		return true;
 	}
 
+	/**
+	 * Writes the logins down. A disk that refuses keeps the login in memory until the daemon restarts,
+	 * which beats failing the request that made it.
+	 */
 	#save(): void {
-		const now = this.now();
+		const now = this.#now();
 		const kept = this.#logins.filter((login) => now - login.seenAt <= LOGIN_MS);
 		this.#logins.splice(0, this.#logins.length, ...kept);
 		const temporary = `${this.file}.${process.pid}.tmp`;
-		writeFileSync(temporary, `${JSON.stringify(this.#logins, null, "\t")}\n`, { mode: 0o600 });
-		renameSync(temporary, this.file);
+		try {
+			writeFileSync(temporary, `${JSON.stringify(this.#logins, null, "\t")}\n`, { mode: 0o600 });
+			renameSync(temporary, this.file);
+		} catch (error) {
+			this.#warn(
+				`could not write the logins to ${this.file}, so they last until a restart: ${String(error)}`,
+			);
+		}
 	}
 }
 
@@ -102,6 +117,13 @@ function readLogins(file: string): Login[] {
 
 function sha256(text: string): string {
 	return createHash("sha256").update(text).digest("hex");
+}
+
+/** Compares two hex digests in constant time. */
+function sameHash(left: string, right: string): boolean {
+	const a = Buffer.from(left, "hex");
+	const b = Buffer.from(right, "hex");
+	return a.length === b.length && timingSafeEqual(a, b);
 }
 
 /** What `authorize` reads of a request, so it never needs Node's types. */
@@ -128,7 +150,9 @@ const OPEN_ROUTES: ReadonlySet<string> = new Set([
 /**
  * Whether a request reaches this daemon on purpose. A `Host` the daemon does not answer to is a page
  * that resolved its own name to 127.0.0.1, so it gets 421. A WebSocket, or a request that changes
- * something, needs an `Origin` of the daemon's own, since any page can open one or post a form.
+ * something, needs an `Origin` of the daemon's own, since any page can open one or post a form. A
+ * client that is not a browser, such as the client library in a test or a native app, sends that
+ * `Origin` too, or reads 403 on its first WebSocket.
  */
 export function checkPlace(request: Asking, hosts: ReadonlySet<string>): Verdict {
 	const host = request.host?.toLowerCase();
@@ -148,7 +172,9 @@ export function checkPlace(request: Asking, hosts: ReadonlySet<string>): Verdict
 
 /**
  * Decides one request: the checks of `checkPlace` first, then a login cookie for everything but the
- * app's files and the open routes.
+ * app's files and the open routes. `isAppFile` is the only thing between a data route and a request
+ * with no cookie, so it answers from the list of files the web build exported, never from the shape of
+ * a path.
  */
 export function authorize(
 	request: Asking,
