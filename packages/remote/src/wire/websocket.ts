@@ -86,11 +86,8 @@ export function accept(
 	let alive = true;
 	let waiting: ReturnType<typeof setTimeout> | undefined;
 	const beat = setInterval(() => {
-		if (!alive) {
-			// The ping went out and nothing came back within the wait: the peer is not there.
-			ws.close(1001);
-			return;
-		}
+		// The wait is always shorter than the beat (`PONG_WAIT_MS < PING_EVERY_MS`), so a peer that
+		// never answers is closed by the wait below, never here: this branch only asks again.
 		alive = false;
 		socket.write(frame(PING, Buffer.alloc(0)));
 		waiting = setTimeout(() => {
