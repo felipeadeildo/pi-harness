@@ -264,6 +264,8 @@ export class Clients {
 				});
 			}
 			response.writeHead(204, {
+				// Loopback is plain HTTP, where a Secure cookie would never come back. When F3 reaches
+				// the daemon through TLS, this follows the scheme the request came in on.
 				"set-cookie": loginCookie(cookie, false),
 				"cache-control": "no-store",
 			});
