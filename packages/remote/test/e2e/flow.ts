@@ -62,6 +62,12 @@ async function main(): Promise<number> {
 		if ("url" in link) {
 			browser = await chromium.launch({ executablePath: browserPath(), headless: true });
 			page = await browser.newPage();
+			// What the page says when it fails is the difference between "the app did not load" and
+			// "the app loaded and drew nothing", and only the console tells them apart.
+			page.on("console", (line) => {
+				if (line.type() === "error") console.error(`page: ${line.text().slice(0, 160)}`);
+			});
+			page.on("pageerror", (error) => console.error(`page threw: ${String(error).slice(0, 160)}`));
 			// The gate moves time: the outbox window is two minutes, and a test does not wait them.
 			await page.clock.install();
 			await page.goto(link.url);
