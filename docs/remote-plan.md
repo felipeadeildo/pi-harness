@@ -31,7 +31,7 @@ A slice is ticked in the commit that lands it. A slice whose parts are on `main`
 - [x] W2. Text from elsewhere (client, F1)
 - [x] W3. The Sessions and Session screens (client, F1)
 - [ ] I1. The inbox (names, before F2) — nearly: peers delivering through the inbox waits on N4
-- [x] C8. Commands through the bridge (core, F2)
+- [x] C8. Commands through the bridge (core, F2) — the `prompt.received` fact and the terminal's `From <client>:` line come with C9
 - [ ] A5. Clients in the race for the harness's dialogs (ask, F2)
 - [ ] A6. pi's own dialogs in the race (ask, F2)
 - [x] P4. Commands and the outbox in the client library (protocol, F2)
