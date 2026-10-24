@@ -30,10 +30,18 @@ interface Args {
 	folder?: string;
 }
 
+/** What pi hands a renderer each time it draws the row. */
 interface Row {
+	toolCallId: string;
 	argsComplete: boolean;
 	invalidate(): void;
-	state: { watching?: boolean; tick?: ReturnType<typeof setTimeout> };
+	state: RowState;
+	/** What this renderer returned last time for the same half of the row. */
+	lastComponent?: Component;
+}
+
+interface RowState {
+	tick?: ReturnType<typeof setTimeout>;
 }
 
 /** What the receipts read from this session: the same the room reads. */
@@ -76,39 +84,19 @@ export function audienceOf(to: string | undefined): "all" | "any" | string[] {
 	return wanted;
 }
 
-/** Rows to redraw when the folder changes, so a tick turns into two while you watch. */
-export function toolRenderers(places: Places, rows: Set<() => void>) {
-	const watch = (row: Row) => {
-		if (row.state.watching) return;
-		row.state.watching = true;
-		rows.add(row.invalidate);
-	};
-	// The folder only says when something arrives; a countdown or a bid window closing needs the clock.
-	const tick = (row: Row) => {
-		if (row.state.tick !== undefined) return;
-		row.state.tick = setTimeout(() => {
-			row.state.tick = undefined;
-			row.invalidate();
-		}, TICK_MS);
-	};
+/**
+ * Rows to redraw when the folder changes, by call, so a tick turns into two while you watch.
+ *
+ * Pi hands each drawing a new `row`, and that row holds the component drawn before it. A component
+ * that kept the row would keep every component the row ever drew, so the components here keep only
+ * the row's state and its redraw, and the one drawn last is updated instead of replaced.
+ */
+export function toolRenderers(places: Places, rows: Map<string, () => void>) {
 	return {
 		renderCall: (args: Args, theme: Theme, row: Row): Component => {
-			// Drawn again only when the width changes or the arguments finish arriving.
-			let drawn: { key: string; lines: string[] } | undefined;
-			return {
-				render(width) {
-					const key = `${width}\u0000${row.argsComplete}`;
-					if (drawn?.key !== key)
-						drawn = {
-							key,
-							lines: callLines(placeOf(places, args.room), args, theme, width, !row.argsComplete),
-						};
-					return drawn.lines;
-				},
-				invalidate() {
-					drawn = undefined;
-				},
-			};
+			const last = row.lastComponent;
+			if (last instanceof CallRow) return last.update(args, theme, row.argsComplete);
+			return new CallRow(places).update(args, theme, row.argsComplete);
 		},
 		renderResult: (
 			result: AgentToolResult<SentDetails | undefined>,
@@ -116,20 +104,89 @@ export function toolRenderers(places: Places, rows: Set<() => void>) {
 			theme: Theme,
 			row: Row,
 		): Component => {
-			if (result.details !== undefined) watch(row);
-			return {
-				render: (width) => {
-					const now = Date.now();
-					const here = places.here(result.details?.room);
-					const message =
-						result.details === undefined ? undefined : here?.folder.messages.get(result.details.id);
-					if (here !== undefined && message !== undefined && moving(here, message, now)) tick(row);
-					return resultLines(here, result, options.expanded, theme, width, now);
-				},
-				invalidate() {},
-			};
+			// One redraw per call: pi builds the row again when it draws the chat again, and the new
+			// row's redraw takes the place of the old one's.
+			if (result.details !== undefined) rows.set(row.toolCallId, row.invalidate);
+			const last = row.lastComponent;
+			const drawn =
+				last instanceof ResultRow ? last : new ResultRow(places, row.state, row.invalidate);
+			return drawn.update(result, options.expanded, theme);
 		},
 	};
+}
+
+/** The call as the model writes it, drawn again only when the width changes or it is updated. */
+class CallRow implements Component {
+	#args: Args = {};
+	#theme: Theme | undefined;
+	#complete = false;
+	#drawn: { width: number; lines: string[] } | undefined;
+
+	constructor(private readonly places: Places) {}
+
+	update(args: Args, theme: Theme, complete: boolean): this {
+		this.#args = args;
+		this.#theme = theme;
+		this.#complete = complete;
+		this.#drawn = undefined;
+		return this;
+	}
+
+	render(width: number): string[] {
+		if (this.#theme === undefined) return [];
+		if (this.#drawn?.width !== width) {
+			const shown = placeOf(this.places, this.#args.room);
+			const lines = callLines(shown, this.#args, this.#theme, width, !this.#complete);
+			this.#drawn = { width, lines };
+		}
+		return this.#drawn.lines;
+	}
+
+	invalidate(): void {
+		this.#drawn = undefined;
+	}
+}
+
+/** What became of the message, read from the room on every drawing. */
+class ResultRow implements Component {
+	#result: AgentToolResult<SentDetails | undefined> | undefined;
+	#expanded = false;
+	#theme: Theme | undefined;
+
+	constructor(
+		private readonly places: Places,
+		private readonly state: RowState,
+		private readonly redraw: () => void,
+	) {}
+
+	update(result: AgentToolResult<SentDetails | undefined>, expanded: boolean, theme: Theme): this {
+		this.#result = result;
+		this.#expanded = expanded;
+		this.#theme = theme;
+		return this;
+	}
+
+	render(width: number): string[] {
+		const result = this.#result;
+		if (result === undefined || this.#theme === undefined) return [];
+		const now = Date.now();
+		const here = this.places.here(result.details?.room);
+		const message =
+			result.details === undefined ? undefined : here?.folder.messages.get(result.details.id);
+		if (here !== undefined && message !== undefined && moving(here, message, now)) this.#tick();
+		return resultLines(here, result, this.#expanded, this.#theme, width, now);
+	}
+
+	invalidate(): void {}
+
+	// The folder only says when something arrives; a countdown or a bid window closing needs the clock.
+	#tick(): void {
+		if (this.state.tick !== undefined) return;
+		this.state.tick = setTimeout(() => {
+			this.state.tick = undefined;
+			this.redraw();
+		}, TICK_MS);
+	}
 }
 
 /** Where a call writes: the shared room it names, or the folder's. */

@@ -134,7 +134,7 @@ export const peers = defineFeature({
 			for (const id of ids) wentIn.set(id, by === undefined ? {} : { by });
 		}
 		// Tool rows that show receipts, redrawn when a room changes.
-		const rows = new Set<() => void>();
+		const rows = new Map<string, () => void>();
 		const rooms = new Rooms({
 			events: scope.events,
 			sendMessage: (message, options) => scope.sendMessage(message, options),
@@ -147,7 +147,7 @@ export const peers = defineFeature({
 				return fitFor(ctx.modelRegistry, models, request, me, signal);
 			},
 			changed: () => {
-				for (const redraw of rows) redraw();
+				for (const redraw of rows.values()) redraw();
 				showStatus();
 				showTyping();
 			},

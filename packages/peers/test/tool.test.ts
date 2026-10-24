@@ -1,6 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 
 import type { AgentToolResult, Theme } from "@earendil-works/pi-coding-agent";
+import type { Component } from "@earendil-works/pi-tui";
 
 import type { Peer, Posted } from "../src/folder.ts";
 import type { SentDetails } from "../src/index.ts";
@@ -173,11 +174,135 @@ describe("where the receipt looks", () => {
 				{ id: "r1", name: "backend+frontend" },
 			],
 		};
-		const row = { argsComplete: true, state: {}, invalidate: () => {} };
+		const row = { toolCallId: "c1", argsComplete: true, state: {}, invalidate: () => {} };
 		const result = { ...sent, details: { ...sent.details, room: "r1" } };
-		const [summary] = toolRenderers(places, new Set())
+		const [summary] = toolRenderers(places, new Map())
 			.renderResult(result, { expanded: false }, plain, row)
 			.render(80);
 		expect(summary).toBe("✓✓ read it");
+	});
+});
+
+function nothing(): void {}
+
+describe("a row drawn again and again", () => {
+	const places: Places = {
+		here: () => source(posted("all", { read: new Set(["a"]) }), ["me", "a"]),
+		rooms: () => [{ id: undefined, name: "pi-harness" }],
+	};
+
+	/** Draws both halves of one row as pi does on each redraw, handing back what each returned. */
+	function redraw(times: number, keep: (first: object) => void) {
+		const rows = new Map<string, () => void>();
+		const renderers = toolRenderers(places, rows);
+		const firsts: Component[] = [];
+		const state = {};
+		let call: Component | undefined;
+		let result: Component | undefined;
+		for (let i = 0; i < times; i++) {
+			const row = {
+				toolCallId: "c1",
+				argsComplete: true,
+				state,
+				invalidate: nothing,
+				lastComponent: call,
+			};
+			call = renderers.renderCall({ to: "@everyone", text: "hi" }, plain, row);
+			const resultRow = {
+				toolCallId: "c1",
+				argsComplete: true,
+				state,
+				invalidate: nothing,
+				lastComponent: result,
+			};
+			result = renderers.renderResult(sent, { expanded: false }, plain, resultRow);
+			call.render(80);
+			result.render(80);
+			if (i === 0) {
+				keep(row);
+				keep(resultRow);
+				firsts.push(call, result);
+			}
+		}
+		return { call, result, rows, firsts };
+	}
+
+	test("keeps the component it drew, updated, instead of a new one each time", () => {
+		const renderers = toolRenderers(places, new Map());
+		const row = { toolCallId: "c1", argsComplete: false, state: {}, invalidate: () => {} };
+		const first = renderers.renderCall({ action: "send", to: "everyone" }, plain, row);
+		expect(first.render(80).join("\n")).toContain("@everyone");
+		const again = renderers.renderCall({ action: "send", to: "anyone" }, plain, {
+			...row,
+			argsComplete: true,
+			lastComponent: first,
+		});
+		expect(again).toBe(first);
+		expect(again.render(80).join("\n")).toContain("@anyone");
+
+		const result = renderers.renderResult(sent, { expanded: false }, plain, row);
+		const expanded = renderers.renderResult(sent, { expanded: true }, plain, {
+			...row,
+			lastComponent: result,
+		});
+		expect(expanded).toBe(result);
+	});
+
+	test("a receipt on its way asks the clock once for its next redraw, not once per drawing", () => {
+		const nowAt = Date.now();
+		const moving: Places = {
+			here: () => source(posted(["a"], { at: nowAt }), ["me", "a"]),
+			rooms: () => [],
+		};
+		const timers = spyOn(globalThis, "setTimeout");
+		try {
+			const row = { toolCallId: "c1", argsComplete: true, state: {}, invalidate: nothing };
+			const drawn = toolRenderers(moving, new Map()).renderResult(
+				sent,
+				{ expanded: false },
+				plain,
+				row,
+			);
+			for (let i = 0; i < 10; i++) drawn.render(80);
+			expect(timers).toHaveBeenCalledTimes(1);
+		} finally {
+			timers.mockRestore();
+		}
+	});
+
+	test("keeps one redraw per call, the one of the row pi drew last", () => {
+		const rows = new Map<string, () => void>();
+		const renderers = toolRenderers(places, rows);
+		const drawnBy: string[] = [];
+		for (const [call, by] of [
+			["c1", "first"],
+			["c1", "again"],
+			["c2", "other"],
+		] as const) {
+			const row = {
+				toolCallId: call,
+				argsComplete: true,
+				state: {},
+				invalidate: () => drawnBy.push(by),
+			};
+			renderers.renderResult(sent, { expanded: false }, plain, row);
+		}
+		for (const again of rows.values()) again();
+		expect(drawnBy).toEqual(["again", "other"]);
+	});
+
+	test("lets go of what pi handed the first drawing", () => {
+		const first: WeakRef<object>[] = [];
+		const { call, result, rows, firsts } = redraw(1_000, (row) => first.push(new WeakRef(row)));
+		Bun.gc(true);
+		expect(first.map((ref) => ref.deref())).toEqual([undefined, undefined]);
+		// The same two components all along, and one redraw for the one call.
+		expect([call, result]).toEqual(firsts);
+		expect(call).toBe(firsts[0]);
+		expect(result).toBe(firsts[1]);
+		expect(rows.size).toBe(1);
+		// The last components are still in use; they only must not hold the rows before them.
+		expect(call?.render(80).length).toBeGreaterThan(0);
+		expect(result?.render(80).length).toBeGreaterThan(0);
 	});
 });
