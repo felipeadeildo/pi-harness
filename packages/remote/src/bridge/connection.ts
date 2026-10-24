@@ -87,9 +87,11 @@ export class BridgeConnection {
 	}
 
 	/**
-	 * Sends an event of this session, numbered in its epoch. A droppable one, a delta, is dropped while
-	 * the socket is backed up, and the bridge is asked for a resync once it drains. Past the larger
-	 * bound the socket is opened again. Returns whether the event went out, and never throws.
+	 * Sends an event of this session, numbered in its epoch. A droppable one, a delta, takes no number,
+	 * since it only matters live and the message's end replaces it, so a replay never has a hole where
+	 * a delta was. A delta is also what is dropped while the socket is backed up, and the bridge is
+	 * asked for a resync once it drains. Past the larger bound the socket is opened again. Returns
+	 * whether the event went out, and never throws.
 	 */
 	event(type: string, data: unknown, options: { droppable?: boolean } = {}): boolean {
 		const socket = this.#socket;
@@ -105,7 +107,8 @@ export class BridgeConnection {
 			this.#owesResync = true;
 			return false;
 		}
-		socket.write(line(envelope("event", type, data, this.#stamp())));
+		const stamp = options.droppable === true ? this.#place() : this.#stamp();
+		socket.write(line(envelope("event", type, data, stamp)));
 		return true;
 	}
 
@@ -129,6 +132,12 @@ export class BridgeConnection {
 				socket.end(line(envelope("event", "session.gone", { reason }, this.#stamp())));
 			} else socket.destroy();
 		});
+	}
+
+	/** Where an event comes from, with no number, as a delta goes. */
+	#place(): Omit<Envelope, "v" | "kind" | "type" | "data" | "at"> {
+		const { machine, session, epoch } = this.origin;
+		return { machine, session, epoch };
 	}
 
 	#stamp(): Omit<Envelope, "v" | "kind" | "type" | "data" | "at"> {

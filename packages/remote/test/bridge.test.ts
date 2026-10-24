@@ -502,8 +502,12 @@ describe("a real pi session", () => {
 			type: "pi.message_end",
 			data: { stream: pair?.stream },
 		});
-		// Every event of the run keeps its place in the epoch.
-		const seqs = daemon.received.filter((one) => one.kind === "event").map((one) => one.seq);
+		// Every event but a delta keeps its place in the epoch, so a replay never has a hole.
+		const events = daemon.received.filter((one) => one.kind === "event");
+		const deltas = events.filter((one) => one.type === "pi.message_update");
+		expect(deltas.length).toBeGreaterThan(0);
+		expect(deltas.every((one) => one.seq === undefined)).toBe(true);
+		const seqs = events.filter((one) => one.type !== "pi.message_update").map((one) => one.seq);
 		expect(seqs).toEqual(seqs.map((_, at) => at));
 		expect(daemon.received[1]?.data).toMatchObject({ kind: "background" });
 	});
