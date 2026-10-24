@@ -67,6 +67,7 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
   slice, says `Closes #N` for each issue it closes, and ends with the footer
   `<p align="right"><sub><model> (<effort> effort) [<name>] @ adeildo's pi</sub></p>`, with the agent's
   own name in brackets. Each agent picks that name and says it in the room.
+- A review is claimed on the pull request itself, with a short comment, before it starts. Two reviewers who begin at the same time are the one case an announcement in the room cannot settle, and `gh pr view <n> --json reviews` says whether the work left is the merge and not the review.
 - The reviewer runs `bun run verify` on the head in a worktree of their own, never the author's, which
   may be in the middle of an edit. They read the code with the `simplify` and `unslop` skills, and
   answer with `gh pr review --comment`, ending with the same footer. The account is shared and cannot
