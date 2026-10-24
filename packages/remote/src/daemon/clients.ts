@@ -49,6 +49,9 @@ export interface ClientsOptions {
 	now?: () => number;
 }
 
+/** What a listen attempt came to: the port it took, or the code of the error that stopped it. */
+export type ListenResult = { port: number } | { why: string | undefined };
+
 export class Clients {
 	readonly #options: ClientsOptions;
 	readonly #server: Server;
@@ -101,13 +104,15 @@ export class Clients {
 	}
 
 	/** Listens on `host:port`, and resolves the port it got, which tells a test where `0` landed. */
-	listen(port: number, host = "127.0.0.1"): Promise<number | undefined> {
+	listen(port: number, host = "127.0.0.1"): Promise<ListenResult> {
 		return new Promise((resolve) => {
-			this.#server.once("error", () => resolve(undefined));
+			// The reason travels: "the port is taken" and "the port needs privilege" are the same
+			// silence to the caller and very different to whoever has to fix it.
+			this.#server.once("error", (error: NodeJS.ErrnoException) => resolve({ why: error.code }));
 			this.#server.listen(port, host, () => {
 				const bound = (this.#server.address() as AddressInfo).port;
 				this.#hosts = loopbackHosts(bound);
-				resolve(bound);
+				resolve({ port: bound });
 			});
 		});
 	}

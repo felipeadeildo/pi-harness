@@ -82,11 +82,16 @@ export function readCurrent(dir: string): Current | undefined {
  * Starts the daemon of the version the last pi wrote down, detached from this pi, so it outlives
  * the session that started it and an older pi still starts the newest daemon.
  */
-export function startDaemon(dir: string): void {
+export function startDaemon(dir: string, port: number): void {
 	const current = readCurrent(dir);
 	if (current === undefined)
 		throw new Error(`${join(dir, "current.json")} names no daemon to start`);
-	const child = spawn(current.node, [current.daemon], { detached: true, stdio: "ignore" });
+	// The port comes from the settings the running pi read, so a machine where the default is taken
+	// can be fixed without a shell and the link keeps pointing at the same address.
+	const child = spawn(current.node, [current.daemon, "--port", String(port)], {
+		detached: true,
+		stdio: "ignore",
+	});
 	// A Node binary that moved since must not take pi down with it.
 	child.on("error", () => {});
 	child.unref();

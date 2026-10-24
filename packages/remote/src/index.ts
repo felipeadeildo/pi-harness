@@ -24,6 +24,7 @@ import { linkOf } from "./cli/open.ts";
 import { commandApi } from "./commands-api.ts";
 import { startDaemon, writeLauncher } from "./launcher.ts";
 import { CLIENT_PORT, daemonDir, daemonPaths } from "./places.ts";
+import { port } from "./settings.ts";
 import { VERSION } from "./version.ts";
 
 /** The built daemon and command, next to this package's sources. */
@@ -58,6 +59,7 @@ export function goneReason(
 export const remote = defineFeature({
 	id: "remote",
 	description: "Reach your sessions from a phone, a browser or another machine",
+	settings: [port],
 	setup(scope) {
 		// The source registers its own handlers, so it is made while the extension loads.
 		const source = piSource(scope);
@@ -95,7 +97,7 @@ export const remote = defineFeature({
 				version: VERSION,
 				kind,
 				api: commandApi(scope, ctx),
-				startDaemon: () => startDaemon(dir),
+				startDaemon: () => startDaemon(dir, port.get(scope)),
 				warn: (message) => scope.warn(message),
 			});
 			bridge.start();

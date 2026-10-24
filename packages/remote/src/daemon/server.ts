@@ -75,6 +75,8 @@ export class Daemon {
 	#clients: Clients | undefined;
 	/** The port clients reach the daemon on, once it listens for them. */
 	clientPort: number | undefined;
+	/** Why no port is listening, worded for whoever has to fix it, once a listen failed. */
+	#noPort: string | undefined;
 
 	private constructor(server: Server, options: DaemonOptions) {
 		this.#server = server;
@@ -219,7 +221,11 @@ export class Daemon {
 		};
 		if (message.type !== "token.issue") return answer("error", { reason: "unknown command" });
 		if (this.clientPort === undefined)
-			return answer("error", { reason: "the daemon listens on no port for clients" });
+			return answer("error", {
+				reason: `no client can reach this daemon: ${
+					this.#noPort ?? "the port is set in Alt+S › Remote"
+				}`,
+			});
 		const { token, expiresAt } = this.logins.issue();
 		// The daemon names the port, since `serve --port` may have moved it. The token rides in the
 		// fragment, which no request carries to a server or a log.
@@ -283,10 +289,14 @@ export class Daemon {
 			...(web === undefined ? {} : { web }),
 			warn: (message) => this.#warn(message),
 		});
-		this.clientPort = await clients.listen(port);
-		if (this.clientPort === undefined)
-			this.#warn(`nothing listens for clients: port ${port} is taken`);
-		else this.#clients = clients;
+		const listened = await clients.listen(port);
+		if ("why" in listened) {
+			this.#noPort = portRefused(port, listened.why);
+			this.#warn(`nothing listens for clients: ${this.#noPort}`);
+		} else {
+			this.clientPort = listened.port;
+			this.#clients = clients;
+		}
 	}
 
 	/** The sessions some client watches, each with how many. */
@@ -458,6 +468,21 @@ function isLive(value: unknown): value is SessionLive {
 		(value.name === undefined || typeof value.name === "string") &&
 		(value.file === undefined || typeof value.file === "string")
 	);
+}
+
+/**
+ * What a refused port means, worded for whoever has to fix it. The cause is the error `listen` gave,
+ * because "taken by another program" and "needs privilege" are the same silence to the caller and
+ * very different to the operator; both end where the port is changed.
+ */
+export function portRefused(port: number, why: string | undefined): string {
+	const cause =
+		why === "EADDRINUSE"
+			? `port ${port} is already in use by another program`
+			: why === "EACCES"
+				? `port ${port} needs privilege to be opened`
+				: `port ${port} could not be opened (${why ?? "no reason given"})`;
+	return `${cause}; the port is set in Alt+S › Remote`;
 }
 
 function goneReason(value: unknown): GoneReason {

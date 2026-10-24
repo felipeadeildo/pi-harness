@@ -1,13 +1,13 @@
 // `pi-remote`, the command the launcher runs. It grows a subcommand with each slice of the remote,
 // and until a subcommand exists it says so instead of guessing.
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { findWebDir } from "../daemon/app.ts";
 import { Daemon } from "../daemon/server.ts";
-import { CLIENT_PORT, daemonDir, daemonPaths } from "../places.ts";
+import { CLIENT_PORT, daemonDir, daemonPaths, settingsPath } from "../places.ts";
 import { VERSION } from "../version.ts";
 import { open } from "./open.ts";
 
@@ -51,8 +51,9 @@ async function serve(
 	err: (line: string) => void,
 	options: ServeOptions,
 ): Promise<number> {
+	// One owner for the port: the setting `pi` writes, unless the operator typed `--port` by hand.
 	const at = flags.indexOf("--port");
-	const port = at === -1 ? CLIENT_PORT : Number(flags[at + 1]);
+	const port = at === -1 ? portFromSettings() : Number(flags[at + 1]);
 	if (!Number.isInteger(port) || port < 0 || port > 65_535) {
 		err(`pi-remote: --port takes a port number\n${USAGE}`);
 		return 2;
@@ -81,6 +82,25 @@ async function serve(
 	void (options.stopped ?? signalled()).then(() => daemon.stop());
 	await done;
 	return 0;
+}
+
+/**
+ * The port the settings file names, or the default when it names none this command can use. The file
+ * is read here rather than through the kit because the built command may import only Node's modules,
+ * and the kit reaches the pi runtime. The key and the range are the setting's, spelled the same.
+ */
+export function portFromSettings(): number {
+	let data: unknown;
+	try {
+		data = JSON.parse(readFileSync(settingsPath(), "utf8"));
+	} catch {
+		return CLIENT_PORT;
+	}
+	if (typeof data !== "object" || data === null) return CLIENT_PORT;
+	const value = (data as Record<string, unknown>)["remote.port"];
+	if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 65_535)
+		return CLIENT_PORT;
+	return value;
 }
 
 /** The daemon from `src/`, restarted by Bun on every save. Only a checkout of the repository has it. */
