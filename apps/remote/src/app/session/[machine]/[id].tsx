@@ -1,9 +1,12 @@
+import { factsOf } from "@adeildo/pi-remote-client";
+import { openAsks } from "@adeildo/pi-remote-protocol";
 // The route of one session: it reads which one from the address and hands the screen what the client
 // holds. Everything else lives under `src/session` and `src/screens/session`.
 import { Link, useLocalSearchParams } from "expo-router";
 import { Text, View } from "react-native";
 
 import { Composer } from "../../../screens/session/composer.tsx";
+import { QuestionDialog } from "../../../screens/session/questions.tsx";
 import { SessionScreen } from "../../../screens/session/session.tsx";
 import { browserSource } from "../../../session/browser.ts";
 import { useSession } from "../../../session/use-session.ts";
@@ -17,6 +20,9 @@ export default function SessionRoute() {
 				<Text>{why}</Text>
 			</View>
 		);
+	// One question at a time, and it sits above the composer: it is the thing the agent is waiting on.
+	const waiting = session === undefined ? [] : openAsks(factsOf(session));
+	const asked = waiting[0];
 	return session === undefined || client === undefined ? null : (
 		<View style={{ flex: 1 }}>
 			{/* The way back, because a phone opened this page from a list and has no browser chrome. */}
@@ -31,6 +37,7 @@ export default function SessionRoute() {
 				model={session.snapshot?.model}
 				thinking={session.snapshot?.thinkingLevel}
 			/>
+			{asked === undefined ? null : <QuestionDialog ask={asked} client={client} />}
 		</View>
 	);
 }
