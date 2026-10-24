@@ -29,7 +29,7 @@ import { OpenAsks } from "./asks.ts";
 import { Commands, Refused } from "./commands.ts";
 import { BridgeConnection, type ConnectionSeams, type GoneReason } from "./connection.ts";
 import { Harness, LOGGED_FACTS } from "./harness.ts";
-import { letterOf, SessionInbox } from "./inbox.ts";
+import { letterOf, queuedOf, SessionInbox } from "./inbox.ts";
 import { LiveStream } from "./stream.ts";
 
 /** How many entries of the branch a snapshot carries. A client pages through older ones over HTTP. */
@@ -125,6 +125,9 @@ export class Bridge {
 			send: (text, deliverAs) => options.api.send(text, deliverAs),
 			busy: () => options.api.busy(),
 			arrived: (text, by) => options.api.arrived(text, by),
+			// A queue that waits in the session is one list for every client, so it travels numbered:
+			// a client that missed an event recovers it from the replay, and a hole asks for the state.
+			queued: (queue) => this.#connection.event("queue.changed", { queue }),
 		});
 		this.#inbox.start();
 		// A key at the terminal is input, and it makes the terminal the session's active client. The
@@ -306,6 +309,7 @@ export class Bridge {
 				tasks,
 				mode,
 				openAsks: this.#facts.openQuestions,
+				queue: this.#inbox.queue().map(queuedOf),
 				// Already folded, so a reader draws the session's state without a replay.
 				state: this.#facts.snapshot(tasks, mode),
 			},

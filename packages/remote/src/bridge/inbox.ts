@@ -2,6 +2,7 @@
 // the question this module answers is when it goes in: a steer at once, between the agent's calls, and
 // a follow-up only when the agent settles, which is what lets a client show it and take it back.
 import { type By, Inbox, INBOX, INBOX_PORT, type Letter, type EventScope } from "@adeildo/pi-kit";
+import type { QueuedMessage } from "@adeildo/pi-remote-protocol";
 
 /** What a session's inbox needs from the pi that runs it. */
 export interface InboxSession {
@@ -15,6 +16,8 @@ export interface InboxSession {
 	busy(): boolean;
 	/** Says in the terminal that the text came from elsewhere, and who sent it. */
 	arrived(text: string, by: By): void;
+	/** Hands the whole queue to whoever draws it, whenever it changes. */
+	queued(queue: QueuedMessage[]): void;
 }
 
 /**
@@ -93,8 +96,22 @@ export class SessionInbox {
 	}
 
 	#publish(): void {
-		INBOX.changed(this.#scope, { queue: this.#inbox.queue(), sent: [...this.#inbox.sent()] });
+		const queue = this.#inbox.queue();
+		INBOX.changed(this.#scope, { queue, sent: [...this.#inbox.sent()] });
+		this.#session.queued(queue.map(queuedOf));
 	}
+}
+
+/** A letter as the wire shows it: the same queue, in the shape every client draws. */
+export function queuedOf(letter: Letter): QueuedMessage {
+	return {
+		id: letter.id,
+		by: letter.by,
+		text: letter.text,
+		want: letter.want,
+		when: letter.at ?? 0,
+		...(letter.why === undefined ? {} : { why: letter.why }),
+	};
 }
 
 /** A letter from whoever asked, with a fallback name for a client that sent none. */

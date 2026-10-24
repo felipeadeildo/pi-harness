@@ -61,6 +61,7 @@ describe("the facts a snapshot carries", () => {
 		expect(facts.snapshot(undefined, undefined)).toEqual({
 			questions: {},
 			permissions: { rulings: {} },
+			queue: [],
 		});
 	});
 });

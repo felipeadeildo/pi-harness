@@ -2,6 +2,7 @@
 // kit. A copy is only safe while a test proves it matches, which `test/conformance.test.ts` does.
 
 import { isBy, isObject, type By } from "./by.ts";
+import { isQueuedMessage, type QueuedMessage } from "./snapshot.ts";
 
 export type TaskStatus = "doing" | "queued" | "waiting" | "deferred" | "done" | "dropped";
 export type Origin = "you" | "agent";
@@ -139,6 +140,8 @@ export interface FactMap {
 	"leaf.changed": { leaf: string | null };
 	/** Always written with who sent it, since that is the whole fact; read leniently, see `isFact`. */
 	"prompt.received": { by: By };
+	/** The whole queue as it stands: it waits in the session, so every client sees the same list. */
+	"queue.changed": { queue: QueuedMessage[] };
 }
 
 export type FactType = keyof FactMap;
@@ -156,6 +159,7 @@ export const FACT_TYPES: readonly FactType[] = [
 	"stream.bound",
 	"leaf.changed",
 	"prompt.received",
+	"queue.changed",
 ];
 
 /**
@@ -202,6 +206,8 @@ export function isFact(type: string, data: unknown): boolean {
 			);
 		case "leaf.changed":
 			return data.leaf === null || typeof data.leaf === "string";
+		case "queue.changed":
+			return Array.isArray(data.queue) && data.queue.every(isQueuedMessage);
 		case "prompt.received":
 			// A prompt that reached the log names who sent it; anything else is not this fact.
 			return isBy(data.by);

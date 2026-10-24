@@ -25,7 +25,7 @@ import {
 	type FactType,
 	type SessionTasks,
 } from "../src/facts.ts";
-import { type QueuedLetter, isQueued } from "../src/snapshot.ts";
+import { type QueuedMessage, isQueuedMessage } from "../src/snapshot.ts";
 
 /** A value of the kit's shape must always be readable as our copy, never the other way round. */
 const copyOfBy = (by: KitBy): By => by;
@@ -93,15 +93,15 @@ describe("the protocol's copies match the kit", () => {
 		const letter = { id: "l1", by, text: "hold on", want: "followUp" as const, at: 3 };
 		for (const why of ["asleep", "quiet", "full", "stopped"] as const) {
 			expect(isLetter({ ...letter, why })).toBe(true);
-			expect(isQueued({ ...letter, when: 3, why })).toBe(true);
+			expect(isQueuedMessage({ ...letter, when: 3, why })).toBe(true);
 		}
 		expect(isLetter({ ...letter, why: "waiting" })).toBe(false);
-		expect(isQueued({ ...letter, when: 3, why: "waiting" } as never)).toBe(false);
+		expect(isQueuedMessage({ ...letter, when: 3, why: "waiting" } as never)).toBe(false);
 	});
 
 	test("a letter becomes a queued letter by renaming its time, and nothing else", () => {
 		const by = { kind: "client" as const, name: "phone", machine: "here" };
-		const queued = (letter: KitLetter): QueuedLetter => ({
+		const queued = (letter: KitLetter): QueuedMessage => ({
 			id: letter.id,
 			by: letter.by,
 			text: letter.text,

@@ -49,10 +49,12 @@ export {
 	type CommandBy,
 	isCommandBy,
 	isPresence,
+	isQueuedMessage,
 	isSnapshot,
 	PRESENCE,
 	PRESENCE_HERE,
 	type Presence,
+	type QueuedMessage,
 	type SessionSnapshot,
 	type Viewer,
 } from "./snapshot.ts";

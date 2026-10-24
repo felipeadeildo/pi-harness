@@ -25,7 +25,7 @@ export interface SessionSnapshot {
 	tasks?: SessionTasks;
 	mode?: PermissionMode;
 	/** What waits to be sent, as the inbox holds it. */
-	queue?: QueuedLetter[];
+	queue?: QueuedMessage[];
 	/** The questions nobody answered yet, by id. */
 	openAsks?: string[];
 	cost?: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
@@ -88,7 +88,8 @@ export function isSnapshot(value: unknown): value is SessionSnapshot {
 		(value.name === undefined || typeof value.name === "string") &&
 		(value.leaf === undefined || typeof value.leaf === "string") &&
 		(value.tasks === undefined || isObject(value.tasks)) &&
-		(value.queue === undefined || (Array.isArray(value.queue) && value.queue.every(isQueued))) &&
+		(value.queue === undefined ||
+			(Array.isArray(value.queue) && value.queue.every(isQueuedMessage))) &&
 		(value.active === undefined || isBy(value.active)) &&
 		(value.viewers === undefined || isPresence({ viewers: value.viewers }))
 	);
@@ -111,11 +112,11 @@ export type WaitingWhy = "asleep" | "quiet" | "full" | "stopped";
 export type WaitingWant = "steer" | "followUp";
 
 /**
- * A letter waiting in the inbox, as the snapshot shows it. `when` is the writer's clock, taken from
+ * A message waiting in a session's queue, as the snapshot shows it. `when` is the writer's clock, taken from
  * the letter's `at`, and it is required here because the queue orders and ages by it: a letter the
  * kit allows without `at` gets one from the inbox before it reaches a client.
  */
-export interface QueuedLetter {
+export interface QueuedMessage {
 	id: string;
 	by: By;
 	text: string;
@@ -126,7 +127,7 @@ export interface QueuedLetter {
 
 const WHY: readonly WaitingWhy[] = ["asleep", "quiet", "full", "stopped"];
 
-export function isQueued(value: unknown): value is QueuedLetter {
+export function isQueuedMessage(value: unknown): value is QueuedMessage {
 	if (!isObject(value)) return false;
 	return (
 		typeof value.id === "string" &&

@@ -11,6 +11,7 @@ import {
 	type PermissionMode,
 	type SessionTasks,
 } from "../facts.ts";
+import { type QueuedMessage } from "../snapshot.ts";
 
 export interface OpenAsk {
 	id: string;
@@ -49,10 +50,12 @@ export interface SessionState {
 	};
 	/** The last rename, for a mention of the older handle. */
 	renamed?: { from: string; to: string; by?: By };
+	/** What waits to be delivered, in the order it will go in. Empty when nothing waits. */
+	queue: QueuedMessage[];
 }
 
 export function emptySessionState(): SessionState {
-	return { questions: {}, permissions: { rulings: {} } };
+	return { questions: {}, permissions: { rulings: {} }, queue: [] };
 }
 
 /** The questions still waiting for an answer, in the order they were asked. */
@@ -113,6 +116,10 @@ export function applyEvent(state: SessionState, type: string, data: unknown): Se
 					},
 				},
 			});
+		}
+		case "queue.changed": {
+			const { queue } = data as { queue: QueuedMessage[] };
+			return { ...state, queue };
 		}
 		case "mode.changed":
 			return {
