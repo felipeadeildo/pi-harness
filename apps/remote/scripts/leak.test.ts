@@ -16,10 +16,16 @@ function files(at: string): string[] {
 }
 
 describe("the web bundle", () => {
-	test("never imports the policy module, which is the daemon's", () => {
-		const importing = files(SRC).filter((file) =>
-			readFileSync(file, "utf8").includes("pi-remote/web"),
-		);
-		expect(importing).toEqual([]);
+	test("never reaches a Node module, by the subpath or through the package's source", () => {
+		// A co-located test reads a fixture with `node:fs` and is never bundled, so it is out of scope.
+		const reaching = files(SRC)
+			.filter((file) => !/\.test\.tsx?$/.test(file))
+			.filter((file) => {
+				const text = readFileSync(file, "utf8");
+				// Any spelling counts: single quotes, `import()`, `require()` and a plain mention, so a
+				// new way of writing the same import cannot slip past the guard.
+				return /node:|pi-remote\/web|packages\/remote\//.test(text);
+			});
+		expect(reaching).toEqual([]);
 	});
 });
