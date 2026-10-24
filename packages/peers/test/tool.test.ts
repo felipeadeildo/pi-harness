@@ -379,6 +379,28 @@ describe("a row drawn again and again", () => {
 		}
 	});
 
+	test("a transcript of many calls lets go of every context but the last", () => {
+		// pi hands a new context per drawing, and each one holds the component drawn before it. A
+		// row drawn once and never again must not keep its context: a day-long transcript would.
+		const renderers = toolRenderers(places, new Map());
+		const contexts: WeakRef<object>[] = [];
+		let last: Component | undefined;
+		for (let i = 0; i < 500; i++) {
+			const row = { toolCallId: `c${i}`, argsComplete: true, state: {}, invalidate: nothing };
+			contexts.push(new WeakRef(row));
+			last = renderers.renderResult(sent, { expanded: false }, plain, {
+				...row,
+				lastComponent: undefined,
+			});
+			last.render(80);
+		}
+		Bun.gc(true);
+		const kept = contexts.filter((ref) => ref.deref() !== undefined);
+		// The one still in hand, and nothing else.
+		expect(kept.length).toBeLessThanOrEqual(1);
+		expect(last?.render(80).length).toBeGreaterThan(0);
+	});
+
 	test("lets go of what pi handed the first drawing", () => {
 		const first: WeakRef<object>[] = [];
 		const { call, result, rows, firsts } = redraw(1_000, (row) => first.push(new WeakRef(row)));
