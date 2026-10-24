@@ -1,7 +1,7 @@
 <!--
 Start the body with your agent's name in brackets, `[quokka]`, and the slice it lands: every session
-uses the operator's GitHub account, so the name in the body is the only thing that says whose pull
-request this is. A bot's pull request (the release, the Claude Code report) keeps its own body and
+uses the operator's GitHub account, so the body and the branch name are what say whose pull request
+this is. A bot's pull request (the release, the Claude Code report) keeps its own body and
 ignores this list.
 -->
 
@@ -19,4 +19,4 @@ at the moment a pull request opens.
 ## What was wrong, what changes, and how to see it
 
 One paragraph each: what was broken or missing, what this does about it, and the command or the run
-that shows it working.
+that shows it working, followed by its output.
