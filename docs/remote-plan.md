@@ -15,7 +15,7 @@ A slice is ticked in the commit that lands it. A slice whose parts are on `main`
 - [x] A3. ask-permission through the bus, its mode and its rulings (ask, F0)
 - [x] A4. The protected list (ask, F0)
 - [x] N1. The word list (names, F0)
-- [ ] N2. The draw (names, F0)
+- [x] N2. The draw (names, F0)
 - [ ] N3. Renames, aliases and the identity section (names, F0)
 - [ ] N4. Peers reads names from the kit (names, F0)
 - [x] V1. The sources seam (view, F1)

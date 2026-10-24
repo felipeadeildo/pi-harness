@@ -20,6 +20,8 @@ export * from "./contracts/peers.ts";
 export * from "./contracts/mode.ts";
 export * from "./contracts/protected.ts";
 export * from "./contracts/tasks.ts";
+export * from "./contracts/names.ts";
+export { names, type NamesOptions } from "./names/feature.ts";
 export * from "./events/log.ts";
 export { Inbox } from "./inbox/inbox.ts";
 export { type Letter, type Want, isLetter } from "./inbox/letter.ts";

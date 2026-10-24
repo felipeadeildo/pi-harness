@@ -72,10 +72,16 @@ export const tasks = defineFeature({
 			if (next !== undefined && nameSession.get(scope)) scope.setSessionName(next);
 			titled = title;
 			const { handle } = keeper.state();
-			if (session === undefined || handle === undefined || title === undefined) return;
-			if (`${handle} ${title}` === loggedName) return;
-			loggedName = `${handle} ${title}`;
-			logFrom(session, scope.events, "session.named", { handle, title });
+			if (session === undefined || title === undefined) return;
+			const named = `${handle ?? ""} ${title}`;
+			if (named === loggedName) return;
+			loggedName = named;
+			// The names feature writes the handle from now on; the title is this feature's half, and an
+			// older log still brings the handle that used to come with it.
+			logFrom(session, scope.events, "session.named", {
+				...(handle === undefined ? {} : { handle }),
+				title,
+			});
 		}
 
 		function restore(ctx: ExtensionContext): void {

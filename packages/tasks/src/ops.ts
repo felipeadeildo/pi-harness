@@ -1,4 +1,4 @@
-import { isHandle, isObject, type SessionTasks, type Task, type TaskOp } from "@adeildo/pi-kit";
+import { isObject, type SessionTasks, type Task, type TaskOp } from "@adeildo/pi-kit";
 
 import type { MessageRequest } from "./prompts.ts";
 import type { Line } from "./transcript.ts";
@@ -72,7 +72,7 @@ function fromMessage(
 		case "title":
 			// Set once here; the tidy pass moves it when the session moves.
 			return words
-				? [titled(words, raw.handle), state.title === undefined && words.length <= MAX_TITLE]
+				? [titled(words), state.title === undefined && words.length <= MAX_TITLE]
 				: undefined;
 		default:
 			return undefined;
@@ -160,8 +160,7 @@ export function tidyOps(answer: unknown, state: SessionTasks): Checked {
 	for (const raw of objects(isObject(answer) ? answer.ops : undefined)) {
 		const words = clean(raw.text);
 		const task = typeof raw.id === "string" ? find(state, raw.id) : undefined;
-		if (raw.op === "title" && words)
-			keep(checked, titled(words, raw.handle), words.length <= MAX_TITLE);
+		if (raw.op === "title" && words) keep(checked, titled(words), words.length <= MAX_TITLE);
 		if (raw.op === "rename" && task && words)
 			keep(checked, { op: "rename", id: task.id, text: words });
 		if (raw.op === "merge" && task && typeof raw.into === "string") {
@@ -233,7 +232,9 @@ export function clean(value: unknown): string | undefined {
 	return `${(space > MAX_TEXT / 2 ? cut.slice(0, space) : cut).replace(/[,;:.\s]+$/, "")}...`;
 }
 
-function titled(text: string, handle: unknown): TaskOp {
-	const name = typeof handle === "string" ? handle.trim().toLowerCase() : "";
-	return isHandle(name) ? { op: "title", text, handle: name } : { op: "title", text };
+// The names feature gives the session its handle now. The log still carries ops written before it,
+// and `applyTaskOps` keeps reading `handle` from them, so an older session keeps its name.
+
+function titled(text: string): TaskOp {
+	return { op: "title", text };
 }

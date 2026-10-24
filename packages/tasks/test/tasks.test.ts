@@ -244,7 +244,10 @@ describe("your messages", () => {
 		expect(named.fake.sessionName).toBe("OAuth no MCP");
 
 		const logged = new FolderFeed(eventsDir("/repo")).read();
-		expect(logged.filter((event) => event.type === "session.named")).toEqual([]);
+		// The tasks write the title half of the name; the handle is the names feature's.
+		expect(
+			logged.filter((event) => event.type === "session.named").map((event) => event.data),
+		).toEqual([{ title: "OAuth no MCP" }]);
 		expect(logged.at(-1)).toMatchObject({ type: "tasks.changed", session: "s1" });
 
 		const renamed = await mounted([answer]);
@@ -458,24 +461,32 @@ describe("a session that comes back", () => {
 		expect(statuses.get(TASKS_STATUS)).toBe("\u25b8 resume me");
 	});
 
-	test("the title brings the short name others mention the session by, set once", async () => {
+	test("the title names the session, and the handle no longer comes from it", async () => {
 		const answers = [
 			{ haiku: { language: "English", ...titled("OAuth for the MCP", "oauth") } },
 			{ haiku: { language: "English", ...titled("x", "x") } },
 		];
 		const { say, state } = await mounted(answers);
 		await say("m1", "research how to expose oauth in the mcp");
-		expect(state().handle).toBe("oauth");
+		expect(state().title).toBe("OAuth for the MCP");
+		expect(state().handle).toBeUndefined();
 		const named = new FolderFeed(eventsDir("/repo"))
 			.read()
 			.filter((event) => event.type === "session.named");
-		expect(named.map((event) => event.data)).toEqual([
-			{ handle: "oauth", title: "OAuth for the MCP" },
-		]);
+		expect(named.map((event) => event.data)).toEqual([{ title: "OAuth for the MCP" }]);
 		const untitled = { message: "x", state: emptyTasks() };
 		expect(messageOps(titled("A", "Not A Handle"), untitled).ops).toEqual([
 			{ op: "title", text: "A" },
 		]);
+	});
+
+	test("a title written before the names feature keeps its handle", () => {
+		const saved = applyTaskOps(
+			emptyTasks(),
+			[{ op: "title", text: "OAuth for the MCP", handle: "oauth" }],
+			{ at: 1, origin: "you" },
+		);
+		expect(saved.handle).toBe("oauth");
 	});
 
 	test("one titled before it could be named gets its name when it opens", async () => {
