@@ -232,7 +232,12 @@ export class Daemon {
 		if (!own) return;
 		// An answer to a client's command goes back to the client that asked, not to every watcher.
 		if (message.kind === "reply" || message.kind === "error") {
-			if (message.id !== undefined) this.#clients?.answer(message);
+			if (message.id === undefined) {
+				// Nothing can route it, and the client it was for waits until its outbox window ends.
+				this.#warn(`a ${message.kind} of ${message.type} came with no id and reached nobody`);
+				return;
+			}
+			this.#clients?.answer(message);
 			return;
 		}
 		if (message.kind !== "event") return;

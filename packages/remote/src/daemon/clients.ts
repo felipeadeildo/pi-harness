@@ -177,6 +177,20 @@ export class Clients {
 			return;
 		}
 		const wasAsked = `${session}\n${id}`;
+		// An id already in flight is refused here, so the client that asked first keeps its answer:
+		// taking its place would leave that one waiting for a reply delivered to another window.
+		if (this.#asked.has(wasAsked)) {
+			this.#send(
+				ws,
+				envelope(
+					"error",
+					message.type,
+					{ reason: "a command with that id is already in flight" },
+					{ session, id },
+				),
+			);
+			return;
+		}
 		this.#asked.set(wasAsked, ws);
 		if (this.#options.command(session, message)) return;
 		this.#asked.delete(wasAsked);

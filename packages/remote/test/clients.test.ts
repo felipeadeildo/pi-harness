@@ -358,6 +358,59 @@ describe("logging in", () => {
 		bridge.close();
 	});
 
+	test("a second client asking with an id in flight is refused, and the first keeps its answer", async () => {
+		const { daemon, port, cookie } = await openDaemon();
+		const bridge = await bridgeOf("s1");
+		bridge.snapshot([]);
+		await until(() => daemon.sessions.get("s1") !== undefined);
+		const origin = `http://127.0.0.1:${port}`;
+		const open = async (): Promise<{ ws: WebSocket; heard: Envelope[] }> => {
+			const heard: Envelope[] = [];
+			const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+				headers: { Origin: origin, Cookie: cookie },
+			});
+			ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)) as Envelope);
+			await new Promise<void>((resolve) => (ws.onopen = () => resolve()));
+			ws.send(JSON.stringify(envelope("hello", "s1", {}, { machine: "laptop", session: "s1" })));
+			await until(() => heard.length > 0);
+			return { ws, heard };
+		};
+		const first = await open();
+		const second = await open();
+		const ask = (ws: WebSocket) =>
+			ws.send(
+				JSON.stringify(
+					envelope(
+						"command",
+						"run.abort",
+						{},
+						{
+							session: "s1",
+							id: "c1",
+							by: { kind: "client", name: "phone", machine: "laptop" },
+						},
+					),
+				),
+			);
+		ask(first.ws);
+		await until(() => bridge.asked.some((one) => one.type === "run.abort"));
+		ask(second.ws);
+		await until(() => second.heard.some((one) => one.kind === "error" && one.id === "c1"));
+		expect(second.heard.find((one) => one.kind === "error" && one.id === "c1")?.data).toMatchObject(
+			{
+				reason: "a command with that id is already in flight",
+			},
+		);
+		// The bridge saw it once, and its answer goes to the window that asked first.
+		expect(bridge.asked.filter((one) => one.type === "run.abort")).toHaveLength(1);
+		bridge.reply("c1", "run.abort", {});
+		await until(() => first.heard.some((one) => one.kind === "reply" && one.id === "c1"));
+		expect(second.heard.some((one) => one.kind === "reply")).toBe(false);
+		first.ws.close();
+		second.ws.close();
+		bridge.close();
+	});
+
 	test("a command for a session with no bridge answers on its id, so the client is not left waiting", async () => {
 		const { port, cookie } = await openDaemon();
 		const origin = `http://127.0.0.1:${port}`;
