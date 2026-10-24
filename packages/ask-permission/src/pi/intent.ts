@@ -1,24 +1,15 @@
-// The judge's intent: the session and what it is doing in your words, and your last message.
-import { type EventScope, intentOf, TASKS, tasksSettled } from "@adeildo/pi-kit";
+// The judge's intent: what the operator asked for, in their words and under the name they gave the
+// session. Nothing the agent wrote reaches it, and there is nothing to wait for: the words are
+// already in the branch when the judge reads it.
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { isRecord } from "#util/primitives.ts";
 
-/** How long the judge waits for the tasks to take in your last message. */
-const TASKS_WAIT_MS = 3000;
-
-export async function intentFor(
-	ctx: Pick<ExtensionContext, "sessionManager">,
-	scope: EventScope,
-): Promise<string | undefined> {
-	const last = currentIntent(ctx);
-	if (TASKS.current(scope) === undefined) return last;
-	await tasksSettled(scope, TASKS_WAIT_MS);
-
-	const tasks = TASKS.current(scope)?.state;
+export function intentFor(ctx: Pick<ExtensionContext, "sessionManager">): string | undefined {
 	const parts: string[] = [];
-	const ours = tasks === undefined ? undefined : intentOf(tasks);
-	if (ours !== undefined) parts.push(ours);
+	const name = ctx.sessionManager.getSessionName?.()?.trim();
+	if (name !== undefined && name !== "") parts.push(`Session: ${name}`);
+	const last = currentIntent(ctx);
 	if (last !== undefined) parts.push(`Last message: ${last}`);
 	return parts.length === 0 ? undefined : parts.join("\n");
 }
