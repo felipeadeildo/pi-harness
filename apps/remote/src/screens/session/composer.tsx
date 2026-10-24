@@ -196,12 +196,12 @@ function queueNode(
 					? [
 							h(
 								"button",
-								{ key: "now", type: "button", onClick: () => client.outbox().release(command.id) },
+								{ key: "now", type: "button", onClick: () => sendNow(client, command.id) },
 								"Send now",
 							),
 							h(
 								"button",
-								{ key: "drop", type: "button", onClick: () => client.outbox().drop(command.id) },
+								{ key: "drop", type: "button", onClick: () => dropNow(client, command.id) },
 								"Drop",
 							),
 						]
@@ -223,4 +223,14 @@ export function stateOf(command: Outgoing): string {
 		case "refused":
 			return `refused: ${command.why ?? "the daemon said no"}`;
 	}
+}
+
+/** Sends a held command now: it keeps its id, so the far side still reads it as the same one. */
+export function sendNow(client: Client, id: string): void {
+	client.outbox().release(id);
+}
+
+/** Gives up on a held command: it leaves the queue and nothing goes out. */
+export function dropNow(client: Client, id: string): void {
+	client.outbox().drop(id);
 }
