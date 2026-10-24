@@ -60,7 +60,8 @@ export interface PanelOptions {
 	rows: () => number;
 	/**
 	 * Shows a session over the screen, the panel staying under it. False when nothing can show it,
-	 * and then `enter` writes to the agent instead.
+	 * and then `enter` writes to the agent instead. The hint says `enter view` whenever this is
+	 * given, so an agent that closed between two redraws gets written to under that hint.
 	 */
 	show?: (session: string) => boolean;
 	/** Injected so the docs pictures do not depend on when or where they are drawn. */

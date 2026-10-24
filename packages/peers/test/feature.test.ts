@@ -1,16 +1,30 @@
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createApp, eventsDir, FolderFeed } from "@adeildo/pi-kit";
+import {
+	createApp,
+	eventsDir,
+	FolderFeed,
+	HOST,
+	provideViews,
+	type SourceAddress,
+} from "@adeildo/pi-kit";
 import { fakeContext, fakePi } from "@adeildo/pi-kit/testing";
+import type { Component, TUI } from "@earendil-works/pi-tui";
 
 import { PEER_HELD } from "../src/inbox.ts";
 import { committed, peers } from "../src/index.ts";
 import { PEER_WENT_IN } from "../src/ui/held.ts";
 
 let dir: string;
+
+type CustomFactory = (tui: TUI, theme: unknown, keys: unknown, done: () => void) => Component;
+const TUI_STUB = {
+	terminal: { rows: 30, columns: 100 },
+	requestRender: () => {},
+} as unknown as TUI;
 
 beforeEach(() => {
 	dir = mkdtempSync(join(tmpdir(), "peers-feature-"));
@@ -44,6 +58,7 @@ async function mounted(id: string, cwd = "/repo", entries: unknown[] = []) {
 			getEntries: () => entries,
 			getCwd: () => cwd,
 			getSessionId: () => id,
+			getSessionFile: () => `/sessions/${id}.jsonl`,
 		},
 		ui: {
 			notify: (message: string) => notes.push(message),
@@ -246,6 +261,64 @@ test("the tool reads the board and refuses names nobody has", async () => {
 test("Alt+G opens the rooms", async () => {
 	const { fake } = await mounted("a");
 	expect(fake.shortcuts).toContain("alt+g");
+});
+
+async function until(done: () => boolean, tries = 100): Promise<void> {
+	if (done() || tries === 0) return;
+	await Bun.sleep(10);
+	return until(done, tries - 1);
+}
+
+describe("enter on an agent in Alt+G", () => {
+	/** Opens a's panel and moves to b's line, the only line whose hints mention writing to an agent. */
+	async function onB(provide?: (address: SourceAddress) => boolean) {
+		const a = await mounted("a");
+		await mounted("b");
+		if (provide !== undefined) provideViews(a.fake.pi.events, provide);
+		let panel: Component | undefined;
+		const ctx = Object.assign(Object.create(a.ctx), {
+			mode: "tui",
+			ui: {
+				...a.ctx.ui,
+				custom: (factory: CustomFactory) =>
+					new Promise<void>((done) => {
+						panel = factory(TUI_STUB, a.ctx.ui.theme, {}, done);
+					}),
+			},
+		});
+		void a.fake.shortcutHandlers.get("alt+g")?.(ctx);
+		const press = (...keys: string[]) => {
+			for (const key of keys) panel?.handleInput?.(key);
+			return panel?.render(100).join("\n") ?? "";
+		};
+		// b's start reaches a's folder log through the watcher, a moment later.
+		await until(() => press().includes("new-b"));
+		press("\t");
+		for (let i = 0; i < 6 && !/@ write to|enter write to/.test(press()); i++) press("\u001b[B");
+		return { press, close: () => press("\u001b") };
+	}
+
+	test("shows its session, read from the file its presence entry names", async () => {
+		const opened: SourceAddress[] = [];
+		const { press, close } = await onB((address) => opened.push(address) > 0);
+		expect(press()).toContain("enter view");
+		press("\r");
+		expect(opened).toEqual([{ session: "b", machine: HOST, file: "/sessions/b.jsonl" }]);
+		close();
+	});
+
+	test("writes to the agent when the one that can show sessions does not open it", async () => {
+		const { press, close } = await onB(() => false);
+		expect(press("\r")).toContain("@new-b");
+		close();
+	});
+
+	test("writes to the agent when nothing can show a session", async () => {
+		const { press, close } = await onB();
+		expect(press()).toContain("enter write to");
+		expect(press("\r")).toContain("@new-b");
+		close();
+	});
 });
 
 test("a subagent stays out of the room, so its prompt and a woke note cannot collide", async () => {

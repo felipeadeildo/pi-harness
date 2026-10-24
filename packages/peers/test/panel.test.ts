@@ -303,6 +303,16 @@ describe("an agent's line", () => {
 		expect(press(panel, TAB, DOWN, DOWN, DOWN, DOWN, ENTER)).toContain("message everyone");
 		expect(shown).toEqual([]);
 	});
+
+	test("@ on this session's own line types an @, and does not write to yourself", () => {
+		const rooms = new Rooms(session("me", "/repo"));
+		const here = shared(rooms);
+		session("api", "/home/x/backend").log("session.named", { handle: "api", title: "API" });
+		here.sync();
+		const drawn = press(panelOf(rooms), TAB, DOWN, DOWN, DOWN, DOWN, "@");
+		expect(drawn).not.toContain("@me");
+		expect(drawn).not.toContain("@new-");
+	});
 });
 
 describe("changing the rooms", () => {
