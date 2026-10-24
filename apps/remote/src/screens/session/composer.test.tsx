@@ -116,7 +116,7 @@ describe("the composer", () => {
 
 	test("a state reads as what the person does about it", () => {
 		expect(stateOf({ id: "a", type: "run.abort", data: {}, at: 0, state: "waiting" })).toBe(
-			"waiting to go",
+			"waiting for you",
 		);
 		expect(stateOf({ id: "a", type: "run.abort", data: {}, at: 0, state: "applied" })).toBe("done");
 	});

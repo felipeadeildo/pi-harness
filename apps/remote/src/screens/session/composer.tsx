@@ -215,7 +215,9 @@ function queueNode(
 export function stateOf(command: Outgoing): string {
 	switch (command.state) {
 		case "waiting":
-			return "waiting to go";
+			// A waiting command reaches this function only when it waited past the window: one inside
+			// it is said as "goes out when the daemon answers" by the caller.
+			return "waiting for you";
 		case "sent":
 			return "sent, no answer yet";
 		case "applied":
