@@ -1,12 +1,14 @@
 import { isAbsolute, relative, resolve } from "node:path";
 
 import {
+	canOpenView,
 	createApp,
 	defineFeature,
 	eventsRoot,
 	isObject,
 	modelRef,
 	modelsFor,
+	openView,
 	PEERS,
 } from "@adeildo/pi-kit";
 import { Type } from "@earendil-works/pi-ai";
@@ -41,7 +43,7 @@ import {
 	type WentInEntry,
 } from "./ui/held.ts";
 import { deliveryBlock, membershipNotice, messageBlock } from "./ui/message.ts";
-import { openPanel } from "./ui/panel.ts";
+import { addressOf, openPanel } from "./ui/panel.ts";
 import { PEERS_STATUS, statusLine } from "./ui/status.ts";
 import { toolRenderers } from "./ui/tool.ts";
 import { PEERS_TYPING, TypingWidget } from "./ui/typing.ts";
@@ -503,9 +505,17 @@ export const peers = defineFeature({
 			return reply(result.text);
 		}
 
+		function showSession(id: string): boolean {
+			const address = addressOf(rooms.live(), id);
+			return address !== undefined && openView(scope.events, address);
+		}
+
 		scope.registerShortcut(Key.alt("g"), {
 			description: "The agents in your rooms, their tasks, and the rooms to talk in",
-			handler: (ctx) => (ctx.mode === "tui" ? openPanel(ctx, rooms) : undefined),
+			handler: (ctx) =>
+				ctx.mode === "tui"
+					? openPanel(ctx, rooms, canOpenView(scope.events) ? showSession : undefined)
+					: undefined,
 		});
 
 		scope.registerMessageRenderer<PeerDelivery>(PEER_MESSAGE, (message, _options, theme) =>

@@ -40,6 +40,8 @@ export interface FakePi {
 	handlers: Map<string, FakeHandler[]>;
 	commands: Map<string, CommandOptions>;
 	shortcuts: string[];
+	/** What each shortcut runs, by its key. */
+	shortcutHandlers: Map<string, (ctx: ExtensionContext) => unknown>;
 	tools: ToolDefinition[];
 	/** Every registered tool, as `getAllTools` reports it. */
 	allTools: ToolInfo[];
@@ -65,6 +67,7 @@ export function fakePi(bus: EventBus = createEventBus()): FakePi {
 		handlers,
 		commands,
 		shortcuts: [],
+		shortcutHandlers: new Map(),
 		tools: [],
 		allTools: [],
 		providers: [],
@@ -93,7 +96,13 @@ export function fakePi(bus: EventBus = createEventBus()): FakePi {
 		},
 		events: bus,
 		registerCommand: (name: string, options: CommandOptions) => void commands.set(name, options),
-		registerShortcut: (shortcut: unknown) => void fake.shortcuts.push(String(shortcut)),
+		registerShortcut: (
+			shortcut: unknown,
+			options: { handler: (ctx: ExtensionContext) => unknown },
+		) => {
+			fake.shortcuts.push(String(shortcut));
+			fake.shortcutHandlers.set(String(shortcut), options.handler);
+		},
 		registerTool: (tool: ToolDefinition) => void fake.tools.push(tool),
 		getAllTools: () => fake.allTools,
 		getCommands: () => [],

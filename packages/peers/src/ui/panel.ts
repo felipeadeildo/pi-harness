@@ -14,6 +14,7 @@ import {
 	type KeyHint,
 	LINE,
 	pointer,
+	type SourceAddress,
 	spread,
 } from "@adeildo/pi-kit";
 import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
@@ -28,7 +29,7 @@ import {
 
 import type { Peer } from "../folder.ts";
 import type { Here } from "../here.ts";
-import type { Room, RoomsView } from "../model.ts";
+import type { LiveSession, Room, RoomsView } from "../model.ts";
 import { agentLines, inOrder, MARKS, stateOf } from "./agents.ts";
 import { FRAME_MS } from "./motion.ts";
 import { Picker, scrolled, sessionRow } from "./picker.ts";
@@ -57,6 +58,12 @@ export interface PanelOptions {
 	close: () => void;
 	requestRender: () => void;
 	rows: () => number;
+	/**
+	 * Shows a session over the screen, the panel staying under it. False when nothing can show it,
+	 * and then `enter` writes to the agent instead. The hint says `enter view` whenever this is
+	 * given, so an agent that closed between two redraws gets written to under that hint.
+	 */
+	show?: (session: string) => boolean;
 	/** Injected so the docs pictures do not depend on when or where they are drawn. */
 	now?: () => number;
 	clock?: (at: number) => string;
@@ -129,6 +136,7 @@ export class PeersPanel implements Component, Focusable {
 		if (matchesKey(data, Key.down)) return this.#move(entries, at + 1);
 		if (matchesKey(data, Key.enter)) return this.#enter(entry);
 		if (matchesKey(data, Key.ctrl("f")) && entry?.kind === "agent") return this.#narrow(entry);
+		if (data === "@" && this.#other(entry)) return this.#writeTo(entry);
 		if (data === "n") return this.#pick(undefined);
 		if (shared !== undefined && room !== undefined && this.#manage(data, shared, room, entry))
 			return;
@@ -311,8 +319,10 @@ export class PeersPanel implements Component, Focusable {
 		const entry = this.#entries().find((one) => keyOfEntry(one) === this.#cursor);
 		const shared = entry?.room.id !== undefined;
 		const keys: KeyHint[] = [[`${GLYPH.up}${GLYPH.down}`, "move"]];
-		if (entry?.kind === "agent" && entry.peer.session !== this.#me()) {
-			keys.push(["enter", "write to"], ["ctrl+f", "only"]);
+		if (this.#other(entry)) {
+			if (this.#options.show !== undefined) keys.push(["enter", "view"], ["@", "write to"]);
+			else keys.push(["enter", "write to"]);
+			keys.push(["ctrl+f", "only"]);
 			if (shared) keys.push(["r", "remove"]);
 		} else keys.push(["enter", "write"]);
 		if (entry?.kind === "folder") keys.push(["r", "remove folder"]);
@@ -384,13 +394,20 @@ export class PeersPanel implements Component, Focusable {
 	}
 
 	#enter(entry: Entry | undefined): void {
-		if (entry?.kind === "agent" && entry.peer.session !== this.#me()) {
-			const handle = this.#options.view
-				.here(entry.room.id)
-				?.names()
-				.get(entry.peer.session)?.handle;
-			if (handle !== undefined) this.#roomView(entry.room)?.mention(handle);
-		}
+		if (!this.#other(entry)) return this.#focus("write");
+		if (this.#options.show?.(entry.peer.session) === true) return;
+		this.#writeTo(entry);
+	}
+
+	/** Another agent's line, which `enter` and `@` act on. */
+	#other(entry: Entry | undefined): entry is Entry & { kind: "agent" } {
+		return entry?.kind === "agent" && entry.peer.session !== this.#me();
+	}
+
+	/** The agent's handle at the start of the line you write in, and the cursor there. */
+	#writeTo(entry: Entry & { kind: "agent" }): void {
+		const handle = this.#options.view.here(entry.room.id)?.names().get(entry.peer.session)?.handle;
+		if (handle !== undefined) this.#roomView(entry.room)?.mention(handle);
 		this.#focus("write");
 	}
 
@@ -479,8 +496,23 @@ function plural(count: number, word: string): string {
 	return `${count} ${word}${count === 1 ? "" : "s"}`;
 }
 
-/** Opens the panel over the whole screen, on the folder's room. */
-export async function openPanel(ctx: ExtensionContext, view: RoomsView): Promise<void> {
+/** Where a session open on this machine is read from: its presence entry names its machine and file. */
+export function addressOf(
+	open: readonly LiveSession[],
+	session: string,
+): SourceAddress | undefined {
+	const entry = open.find((one) => one.session === session);
+	if (entry === undefined) return undefined;
+	const { host: machine, file } = entry;
+	return { session, machine, ...(file === undefined ? {} : { file }) };
+}
+
+/** Opens the panel over the whole screen, on the folder's room. `show` opens a session's view. */
+export async function openPanel(
+	ctx: ExtensionContext,
+	view: RoomsView,
+	show?: (session: string) => boolean,
+): Promise<void> {
 	if (ctx.mode !== "tui") return;
 	await ctx.ui.custom<void>(
 		(tui, theme, _keybindings, done) => {
@@ -499,6 +531,7 @@ export async function openPanel(ctx: ExtensionContext, view: RoomsView): Promise
 				view,
 				rows: () => tui.terminal.rows,
 				requestRender: () => tui.requestRender(),
+				...(show === undefined ? {} : { show }),
 				close: () => {
 					clearInterval(ticks);
 					stop();

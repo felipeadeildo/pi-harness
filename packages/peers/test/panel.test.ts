@@ -10,7 +10,7 @@ import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { Here, type Hooks } from "../src/here.ts";
 import type { LiveSession, Room, RoomsView } from "../src/model.ts";
 import { membershipNotice } from "../src/ui/message.ts";
-import { PeersPanel } from "../src/ui/panel.ts";
+import { addressOf, PeersPanel } from "../src/ui/panel.ts";
 
 let root: string;
 const opened: Here[] = [];
@@ -137,8 +137,9 @@ function shared(rooms: Rooms, cwd = "/home/x/backend"): Here {
 	return here;
 }
 
-function panelOf(rooms: Rooms): PeersPanel {
+function panelOf(rooms: Rooms, show?: (session: string) => boolean): PeersPanel {
 	const panel = new PeersPanel({
+		...(show === undefined ? {} : { show }),
 		theme: plain,
 		view: rooms,
 		close: () => rooms.calls.push("closed panel"),
@@ -225,6 +226,92 @@ describe("the panel's layout", () => {
 		const list = stripTerminalSequences(panel.render(60).join("\n"));
 		expect(list).toContain("backend+frontend");
 		expect(list).not.toContain("message everyone");
+	});
+});
+
+describe("an agent's line", () => {
+	/** A shared room with the agent `api` in it, and the panel's cursor on its line. */
+	function onApi(show?: (session: string) => boolean): { rooms: Rooms; panel: PeersPanel } {
+		const rooms = new Rooms(session("me", "/repo"));
+		const here = shared(rooms);
+		const api = session("api", "/home/x/backend");
+		api.log("session.named", { handle: "api", title: "API" });
+		here.sync();
+		const panel = panelOf(rooms, show);
+		press(panel, TAB, DOWN, DOWN, DOWN);
+		return { rooms, panel };
+	}
+
+	test("enter shows the agent's session, and the panel stays where it was under it", () => {
+		const shown: string[] = [];
+		const { panel } = onApi((id) => shown.push(id) > 0);
+		const before = press(panel);
+		expect(before).toContain("enter view");
+		expect(before).toContain("@ write to");
+		const after = press(panel, ENTER);
+		expect(shown).toHaveLength(1);
+		expect(shown[0]).toEndWith("api");
+		// Still on the list, on the same line, so closing the view comes back to it.
+		expect(after).toBe(before);
+	});
+
+	test("@ writes to the agent, whether or not its session can be shown", () => {
+		const shown: string[] = [];
+		const { panel } = onApi((id) => shown.push(id) > 0);
+		expect(press(panel, "@")).toContain("@api");
+		expect(shown).toEqual([]);
+	});
+
+	test("enter writes to the agent when nothing can show its session", () => {
+		const unshown = onApi(() => false);
+		expect(press(unshown.panel, ENTER)).toContain("@api");
+		const without = onApi();
+		expect(press(without.panel)).toContain("enter write to");
+		expect(press(without.panel, ENTER)).toContain("@api");
+	});
+
+	test("a session is read from the machine and file its presence entry names", () => {
+		const entry: LiveSession = {
+			session: "s1",
+			pid: 2,
+			host: "box",
+			cwd: "/repo",
+			file: "/sessions/s1.jsonl",
+			state: "running",
+			at: 0,
+			startedAt: 0,
+		};
+		const { file: _file, ...noFile } = entry;
+		expect(addressOf([entry], "s1")).toEqual({
+			session: "s1",
+			machine: "box",
+			file: "/sessions/s1.jsonl",
+		});
+		expect(addressOf([noFile], "s1")).toEqual({ session: "s1", machine: "box" });
+		expect(addressOf([entry], "gone")).toBeUndefined();
+	});
+
+	test("enter on this session's own line goes to the line you write in", () => {
+		const shown: string[] = [];
+		const rooms = new Rooms(session("me", "/repo"));
+		const here = shared(rooms);
+		const api = session("api", "/home/x/backend");
+		api.log("session.named", { handle: "api", title: "API" });
+		here.sync();
+		const panel = panelOf(rooms, (id) => shown.push(id) > 0);
+		// The room, api, then this session last.
+		expect(press(panel, TAB, DOWN, DOWN, DOWN, DOWN, ENTER)).toContain("message everyone");
+		expect(shown).toEqual([]);
+	});
+
+	test("@ on this session's own line types an @, and does not write to yourself", () => {
+		const rooms = new Rooms(session("me", "/repo"));
+		const here = shared(rooms);
+		session("api", "/home/x/backend").log("session.named", { handle: "api", title: "API" });
+		here.sync();
+		const drawn = press(panelOf(rooms), TAB, DOWN, DOWN, DOWN, DOWN, "@");
+		expect(drawn).not.toContain("@me");
+		expect(drawn).not.toContain("@new-");
 	});
 });
 
