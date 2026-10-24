@@ -119,7 +119,7 @@ describe("the socket", () => {
 
 	test("a screen that goes closes its socket, and hears nothing after", async () => {
 		const told: number[] = [];
-		const end = openSession(
+		const opened = openSession(
 			{ machine: "box", session: "s1" },
 			{ cache: memoryCache(), open: openSocket("ws://x/ws", make) },
 			(session) => told.push(session.entries.length),
@@ -128,7 +128,7 @@ describe("the socket", () => {
 		const socket = FakeSocket.made.at(-1);
 		socket?.open();
 		const before = told.length;
-		end();
+		opened.stop();
 		expect(socket?.closed).toBe(true);
 		socket?.say(
 			JSON.stringify({

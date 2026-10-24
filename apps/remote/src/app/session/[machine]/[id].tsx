@@ -3,18 +3,24 @@
 import { useLocalSearchParams } from "expo-router";
 import { Text, View } from "react-native";
 
+import { Composer } from "../../../screens/session/composer.tsx";
 import { SessionScreen } from "../../../screens/session/session.tsx";
 import { browserSource } from "../../../session/browser.ts";
 import { useSession } from "../../../session/use-session.ts";
 
 export default function SessionRoute() {
 	const { machine, id } = useLocalSearchParams<{ machine: string; id: string }>();
-	const { session, why } = useSession({ machine, session: id }, browserSource);
+	const { session, client, why } = useSession({ machine, session: id }, browserSource);
 	if (why !== undefined)
 		return (
 			<View style={{ flex: 1, justifyContent: "center", padding: 24 }}>
 				<Text>{why}</Text>
 			</View>
 		);
-	return session === undefined ? null : <SessionScreen session={session} />;
+	return session === undefined || client === undefined ? null : (
+		<View style={{ flex: 1 }}>
+			<SessionScreen session={session} />
+			<Composer client={client} canPrompt />
+		</View>
+	);
 }

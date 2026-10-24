@@ -20,6 +20,8 @@ export function browserSource(): Promise<SessionSource> {
 		{ exchange: fetchLogin, cache: pageCache(() => globalThis.localStorage) },
 	).then((logged) => ({
 		cache: logged.cache,
+		// The page knows it is a browser; which device it is arrives with the marks C9 draws.
+		clientName: "browser",
 		open: openSocket(socketUrl(globalThis.location), (url) => new WebSocket(url)),
 		...(logged.why === undefined ? {} : { why: logged.why }),
 	}));

@@ -92,7 +92,8 @@ describe("the recording", () => {
 		const pi = html.indexOf("remote-pi");
 		expect(you).toBeGreaterThan(-1);
 		expect(pi).toBeGreaterThan(you);
-		expect(html).toContain("Read only.");
+		// The composer under this screen is what makes a session writable, so the line is gone.
+		expect(html).not.toContain("Read only.");
 	});
 
 	test("folds the model's thinking into one line", () => {
