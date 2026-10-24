@@ -211,7 +211,7 @@ The kit holds a `harness:protected` contract with paths, sockets and commands. a
 
 Owner: names. Needs: nothing.
 
-`scripts/names/check.ts` checks a candidate list against the rules in [The word list](remote.md#the-word-list), and prints how many words survive each rule. The counts decided how the distance rule bends: 1,058 candidates leave 666 words with their own first three letters, 484 three edits apart, and 606 two, so the list keeps two edits. The list lives in `packages/kit/src/names/words.ts`, and a kit test holds it to the rules the script settled.
+`scripts/names/check.ts` checks a candidate list against the rules in [The word list](remote.md#the-word-list), and prints how many words survive each rule. The counts decided how the distance rule bends: 1,057 candidates leave 665 words with their own first three letters, 484 three edits apart, and 607 two, so the list keeps two edits. The list lives in `packages/kit/src/names/words.ts`, and a kit test holds it to the rules the script settled.
 
 - Done when: the operator approves the list, and the test passes.
 

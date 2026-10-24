@@ -179,7 +179,7 @@ otter   quokka  wombat  axolotl  narwhal  puffin   gecko    lemur  walrus  orca
 badger  toucan  marmot  pelican  meerkat  kestrel  heron    wren   bison   koala
 ```
 
-A test holds the list to these rules. Before the list was fixed, a script checked a candidate list against them: 1,058 candidates left 666 words with their own first three letters, 484 three edits apart, and 606 two. The list needs 600, so it keeps two edits, and a typo may land one edit from a second word.
+A test holds the list to these rules. Before the list was fixed, a script checked a candidate list against them: 1,057 candidates left 665 words with their own first three letters, 484 three edits apart, and 607 two. The list needs 600, so it keeps two edits, and a typo may land one edit from a second word.
 
 - At least 600 words, so 7 days of reserved handles still leave most of the list free. The operator's sessions run at about 70 a week.
 - Lowercase ASCII, 3 to 8 letters, one word.
