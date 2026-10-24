@@ -10,6 +10,14 @@ const GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 /** A message larger than this closes the connection: a client sends commands, never files. */
 export const MAX_MESSAGE = 1024 * 1024;
 
+/**
+ * How long a connection may be quiet before the server asks whether the other end is there, and how
+ * long it waits for any answer. A socket whose peer died holds what it was watching until TCP notices,
+ * which can be never on a phone that lost signal: the ping is what turns that into a close.
+ */
+export const PING_EVERY_MS = 30_000;
+export const PONG_WAIT_MS = 10_000;
+
 const TEXT = 0x1;
 const CLOSE = 0x8;
 const PING = 0x9;
@@ -36,6 +44,7 @@ export function accept(
 	request: IncomingMessage,
 	socket: Duplex,
 	open: (ws: WebSocket) => WebSocketHandlers,
+	liveness: { pingEvery?: number; pongWait?: number } = {},
 ): WebSocket | undefined {
 	const key = request.headers["sec-websocket-key"];
 	const upgrade = request.headers.upgrade?.toLowerCase();
@@ -70,12 +79,38 @@ export function accept(
 		else if (opcode === PING) socket.write(frame(PONG, payload));
 		else if (opcode === CLOSE) ws.close();
 	});
+	// The peer answered something, so it is alive: every frame counts, because a pong is only one of
+	// the ways a live client speaks.
+	let alive = true;
+	let waiting: ReturnType<typeof setTimeout> | undefined;
+	const beat = setInterval(() => {
+		if (!alive) {
+			// The ping went out and nothing came back within the wait: the peer is not there.
+			ws.close(1001);
+			return;
+		}
+		alive = false;
+		socket.write(frame(PING, Buffer.alloc(0)));
+		waiting = setTimeout(() => {
+			if (!alive) ws.close(1001);
+		}, liveness.pongWait ?? PONG_WAIT_MS);
+		waiting.unref?.();
+	}, liveness.pingEvery ?? PING_EVERY_MS);
+	// A timer that keeps the process alive would keep a daemon that nobody watches from exiting.
+	beat.unref?.();
 	socket.on("data", (chunk: Buffer) => {
+		alive = true;
+		if (waiting !== undefined) {
+			clearTimeout(waiting);
+			waiting = undefined;
+		}
 		const refused = reader.push(chunk);
 		if (refused !== undefined) ws.close(refused);
 	});
 	socket.on("error", () => socket.destroy());
 	socket.on("close", () => {
+		clearInterval(beat);
+		if (waiting !== undefined) clearTimeout(waiting);
 		closed = true;
 		handlers.closed();
 	});
