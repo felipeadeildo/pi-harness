@@ -13,10 +13,10 @@ to the daemon on the page's own origin.
 
 ## Screens
 
-| Route                     | What it draws                                                                               |
-| ------------------------- | ------------------------------------------------------------------------------------------- |
-| `/`                       | The sessions this machine knows, from `GET /sessions`.                                      |
-| `/session/<machine>/<id>` | One session: its transcript, the tasks still open, and the question it waits on. Read only. |
+| Route                     | What it draws                                                                                                              |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `/`                       | The sessions this machine knows, from `GET /sessions`.                                                                     |
+| `/session/<machine>/<id>` | One session: its transcript, the tasks still open, and the question it waits on. Read only until the composer lands in W4. |
 
 `src/app/` holds routes and nothing else. Everything else lives under `src/screens`, `src/session` and
 `src/render`, and a route file stays thin enough to read in one look.
@@ -28,7 +28,8 @@ A link from `/remote` or `pi-remote open` carries `#token=…`. The app trades i
 socket. It happens once per page, from `src/app/_layout.tsx`, because the link points at the root.
 
 `withoutFragment` is the one function for a URL that leaves the page: it drops the fragment and keeps
-the query. Every report that serializes a URL goes through it, including
+the query. Every report that serializes a URL goes through it, because a report that skips it sends the
+token to whoever collects telemetry. That includes
 `performance.getEntriesByType("navigation")[0].name`, which keeps the URL from the start of the load and
 is not cleaned by `replaceState`.
 
