@@ -76,6 +76,7 @@ git -C ~/Projects/pi-harness pull --ff-only                         # the folder
 - The type says what the change is, and most slices are not a `feat`. A `feat` lets someone who uses the package do something new, and a `fix` makes something wrong work. A `refactor` changes the code and keeps the behavior, and `test` covers tests, fixtures such as the rig's recording, and test tools such as the rig. `perf`, `docs`, `build`, `ci` and `chore` cover the rest. The reviewer checks the type along with the title.
 - The diff ticks the slice's line in [Status](#status). The body says what was missing or wrong, what the change does and how to see it working, names the slice, and ends with the operator's footer, `<p align="right"><sub><model> (<effort> effort) [<name>] @ adeildo's pi</sub></p>`, with the model as the session names it, the session's own effort, and the agent's name in brackets, as in `claude opus 5.5 (max effort) [lynx] @ adeildo's pi`. Each agent picks its name, an animal by custom, and says it in the room before using it.
 - A pull request holds one logical change and the test that fails without it. A slice too large to review in one sitting goes in several pull requests, each green on its own.
+- A dependency is added with its package manager, never by writing `package.json`: `bun add <package>` takes the latest version, `bun add -d` for a dev dependency, and the Expo app's set goes through `expo install` (see [W1](#w1-the-expo-app-and-the-csp)). A package only needs a dependency for what its users run; tools, tests and builds are dev dependencies.
 - The author asks in the room for a review. The reviewer runs the verify on the pull request's head in a worktree of their own, never in the author's, which may be in the middle of an edit. They read the code with the `simplify`, `unslop` and `codebase-design` skills, and answer with `gh pr review --comment`, ending with the same footer. Every agent uses the operator's GitHub account, which cannot approve its own pull requests, so the reviewer writes the approval in the review and says it in the room.
 
   ```bash
@@ -340,6 +341,9 @@ Owner: client. Needs: nothing.
 
 `apps/remote` is an Expo app with Expo Router and React Native for Web, in the bun workspace, where `apps/*` joins `workspaces`. `expo export -p web` produces the static build, and a check serves it with the design's CSP and loads it in a headless browser.
 
+- The Expo skills are installed for this track, and Expo's documentation is served as Markdown for agents: [`docs.expo.dev/llms.txt`](https://docs.expo.dev/llms.txt) lists every page, and `.md` after any page's URL gives that page. Read the page instead of guessing.
+- The Expo and React Native set is added with `bunx expo install <packages> -- -d`, so each takes the version the installed SDK accepts, after `bun add -d expo@latest`. `bunx expo install --check` fails the check when one drifts from the SDK.
+- Build tools are dev dependencies. A later release builds the Android app, and only what a user runs at runtime is a dependency.
 - When the export needs an inline script that the CSP forbids, the daemon adds the script's hash to `script-src` when it reads the build, and W1 records that here.
 - The app's type check and lint join `bun run verify`. When the app makes `bun install` in CI more than a minute slower, the app moves to a CI job of its own.
 
