@@ -20,7 +20,7 @@ import {
 	TASKS,
 	targetOf,
 } from "@adeildo/pi-kit";
-import type { AnswerEvent, AskResult } from "@adeildo/pi-kit";
+import { type AnswerEvent, isAskResult } from "@adeildo/pi-kit";
 import type { Envelope, SessionSnapshot } from "@adeildo/pi-remote-protocol";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
@@ -121,13 +121,18 @@ export class Bridge {
 				// longer open is refused, so a late answer cannot count twice.
 				answerAsk: (fields, by) => {
 					const ask = typeof fields.ask === "string" ? fields.ask : "";
+					// Who answered comes from the envelope, which carries it by contract: a client that
+					// did not say is refused, rather than logged under a name nobody has.
+					if (by === undefined) throw new Refused("an answer names who gave it");
+					// A question already answered or cancelled cannot take a second answer: a phone
+					// that was slow must hear where it was answered, not count as one.
 					if (!this.#asks.open.includes(ask))
-						throw new Refused(`the question ${ask} is not open any more`);
-					const answer: AnswerEvent = {
-						id: ask,
-						result: fields.result as AskResult,
-						by: by ?? { kind: "client", name: "a client", machine: HOST },
-					};
+						throw new Refused(`the question ${ask} was answered somewhere else`);
+					// The result comes from the network: it reaches the bus as a decision, so its shape
+					// is checked here like any fact's, instead of being trusted with a cast.
+					if (!isAskResult(fields.result))
+						throw new Refused("an answer needs `answers` and `cancelled`");
+					const answer: AnswerEvent = { id: ask, result: fields.result, by };
 					options.scope.events.emit(ANSWER, answer);
 				},
 				// A question open here is closed as a no before the session goes, so the extension that
