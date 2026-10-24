@@ -41,9 +41,8 @@ jobs:
       CI: "true"
     steps:
       - uses: actions/checkout@v4
-      # Pinned, and not to latest on purpose: a new Bun changes how the CI behaves without a
-      # commit, and the retry below exists because of one Bun's behaviour. Bumping this is a pull
-      # request, so the change has a diff and a run.
+      # Pinned, not latest: the export and the browser check must run on the Bun the rest of the CI
+      # runs, and a new Bun changes how they behave without a commit. Bumping this is a pull request.
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
