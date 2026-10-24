@@ -1,6 +1,6 @@
 import { hostname } from "node:os";
 
-import type { AccountState, PeerMark, SessionTasks } from "@adeildo/pi-kit";
+import type { AccountState, PeerMark, SessionTasks, WritingMark } from "@adeildo/pi-kit";
 import { VERSION, type ExtensionContext, type SessionEntry } from "@earendil-works/pi-coding-agent";
 
 import type { GitState } from "./git.ts";
@@ -55,6 +55,8 @@ export interface Snapshot {
 	peers: PeerMark[];
 	/** Messages a peer sent this session that its agent has not read yet. */
 	peersUnread: number;
+	/** Who is writing to whom right now, drawn beside the peers. */
+	peersWriting: WritingMark[];
 }
 
 export function emptySnapshot(): Snapshot {
@@ -83,6 +85,7 @@ export function emptySnapshot(): Snapshot {
 		tasks: undefined,
 		peers: [],
 		peersUnread: 0,
+		peersWriting: [],
 	};
 }
 
@@ -97,6 +100,7 @@ export interface LiveInputs {
 	tasks?: SessionTasks | undefined;
 	peers?: PeerMark[] | undefined;
 	peersUnread?: number | undefined;
+	peersWriting?: WritingMark[] | undefined;
 }
 
 interface Derived {
@@ -149,6 +153,7 @@ export class SnapshotReader {
 			tasks: live.tasks,
 			peers: live.peers ?? [],
 			peersUnread: live.peersUnread ?? 0,
+			peersWriting: live.peersWriting ?? [],
 		};
 	}
 

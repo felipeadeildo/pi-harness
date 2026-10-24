@@ -54,7 +54,7 @@ import { deliveryBlock, membershipNotice, messageBlock } from "./ui/message.ts";
 import { addressOf, openPanel } from "./ui/panel.ts";
 import { PEERS_STATUS, statusLine } from "./ui/status.ts";
 import { toolRenderers } from "./ui/tool.ts";
-import { PEERS_TYPING, TypingWidget } from "./ui/typing.ts";
+import { PEERS_TYPING, TypingWidget, writingMarks } from "./ui/typing.ts";
 
 export { Here, PEER_MESSAGE } from "./here.ts";
 export { Rooms } from "./rooms.ts";
@@ -193,8 +193,10 @@ export const peers = defineFeature({
 		function showTyping(): void {
 			const ctx = session;
 			if (ctx === undefined || ctx.mode !== "tui") return;
-			// A message sent here stays over the editor until the model reads it, as your queued ones do.
-			const writing = rooms.othersTyping().length + rooms.queued().length > 0;
+			// Only what waits for this session takes a frame over the editor. Another agent's draft is
+			// not addressed here, so it goes to the footer: a frame that comes and goes moves whatever
+			// you were typing.
+			const writing = rooms.queued().length > 0;
 			if (writing === typingShown) return;
 			typingShown = writing;
 			if (!writing) {
@@ -216,7 +218,12 @@ export const peers = defineFeature({
 		let announced: string | undefined;
 		function showStatus(): void {
 			const summary = rooms.summary();
-			const state = { peers: summary.others, unread: summary.unread };
+			const writing = writingMarks(rooms.othersTyping(), rooms);
+			const state = {
+				peers: summary.others,
+				unread: summary.unread,
+				...(writing.length === 0 ? {} : { writing }),
+			};
 			const text = JSON.stringify(state);
 			if (text !== announced) {
 				announced = text;

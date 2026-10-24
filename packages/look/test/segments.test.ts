@@ -86,6 +86,19 @@ describe("segments", () => {
 		expect(text(["peers"], snapshot())).toEqual([]);
 	});
 
+	test("a draft is one line beside the peers, and it never takes a frame of its own", () => {
+		const peers = [{ handle: "api", color: "syntaxString", state: "idle" as const }];
+		const [piece] = render(
+			["peers"],
+			snapshot({
+				peers,
+				peersUnread: 1,
+				peersWriting: [{ handle: "oauth", color: "syntaxFunction", to: "you" }],
+			}),
+		);
+		expect(plainText(piece?.text ?? "")).toBe("@ api  oauth \u2192 you @1");
+	});
+
 	test("the agents of a shared room come after the folder's, past a rule", () => {
 		const peers = [
 			{ handle: "oauth", color: "syntaxFunction", state: "idle" as const },
