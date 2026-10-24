@@ -99,14 +99,21 @@ export interface LogEventMap {
 	 * what the agent said it needs, and `allowedBy` what let the call through.
 	 */
 	"room.added":
-		| { member: { folder: string }; by: "you" | "agent"; why?: string; allowedBy?: string }
+		| {
+				member: { folder: string };
+				by: "you" | "agent";
+				why?: string;
+				allowedBy?: string;
+				/** A folder has no mode: it brings its sessions in taking part. */
+				mode?: never;
+		  }
 		| {
 				member: { session: string; cwd: string };
 				by: "you" | "agent";
 				why?: string;
 				allowedBy?: string;
 				/** How the member joins: `in` takes part, `listening` hears only what names it. */
-				mode?: Exclude<RoomMode, "out">;
+				mode?: RoomMode;
 		  };
 	/**
 	 * A member changed how it stands in the room, without leaving it: `in` takes part, `listening`

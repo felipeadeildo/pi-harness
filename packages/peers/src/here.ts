@@ -229,7 +229,7 @@ export class Here implements Sender {
 		this.#cwd = place.cwd;
 		this.#room = place.room;
 		this.#feed = place.feed ?? new FolderFeed(place.target.dir);
-		this.#folder = place.folder ?? new Folder(true);
+		this.#folder = place.folder ?? new Folder(place.cwd);
 		if (place.folder === undefined) this.#folder.apply(this.#feed.read());
 		// Set before logging: the log reads the room, and what it finds is judged against this.
 		// A reload opens the session again, and what arrived while it reloaded is still for this run.

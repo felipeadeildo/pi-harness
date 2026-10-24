@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { LoggedEvent, LogEventMap, Member } from "@adeildo/pi-kit";
 
-import { type Posted, receivesFor } from "../src/folder.ts";
+import { Folder, type Posted, receivesFor } from "../src/folder.ts";
 import { Membership } from "../src/membership.ts";
 
 let clock = 1_000;
@@ -128,3 +128,40 @@ describe("what a session standing in each mode takes", () => {
 		expect(receivesFor("out", message("any"), "s1")).toBe(false);
 	});
 });
+
+describe("the folder's own room", () => {
+	test("has the folder as its first member, so a session opened there takes part at once", () => {
+		const room = new Folder("/repo");
+		expect(room.membership.modeOf("fresh", "/repo")).toBe("in");
+		// A session opened elsewhere is not in it.
+		expect(room.membership.modeOf("elsewhere", "/other")).toBe("out");
+	});
+
+	test("carries the mode a session asked for, without a `room.added` to say who is in", () => {
+		const room = new Folder("/repo");
+		room.apply([
+			{
+				type: "room.mode",
+				at: 1,
+				session: "quiet",
+				data: { member: { session: "quiet", cwd: "/repo" }, mode: "listening" },
+			} as LoggedEvent,
+		]);
+		expect(room.membership.modeOf("quiet", "/repo")).toBe("listening");
+		room.apply([
+			{
+				type: "room.mode",
+				at: 2,
+				session: "quiet",
+				data: { member: { session: "quiet", cwd: "/repo" }, mode: "in" },
+			} as LoggedEvent,
+		]);
+		expect(room.membership.modeOf("quiet", "/repo")).toBe("in");
+	});
+});
+
+// The contract, not the runtime: a folder joins taking part, and only a session says how it stands.
+type FolderAddition = Extract<LogEventMap["room.added"], { member: { folder: string } }>;
+// @ts-expect-error a folder has no mode to give
+const folderMode: FolderAddition["mode"] = "listening";
+void folderMode;
