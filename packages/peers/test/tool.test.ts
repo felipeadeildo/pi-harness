@@ -386,12 +386,16 @@ describe("a row drawn again and again", () => {
 		const contexts: WeakRef<object>[] = [];
 		let last: Component | undefined;
 		for (let i = 0; i < 500; i++) {
-			const row = { toolCallId: `c${i}`, argsComplete: true, state: {}, invalidate: nothing };
+			// The very context pi keeps referenced, not a copy: the WeakRef has to watch what the
+			// renderer was given, or a leak of 500 contexts leaves this test green.
+			const row: Record<string, unknown> = {
+				toolCallId: `c${i}`,
+				argsComplete: true,
+				state: {},
+				invalidate: nothing,
+			};
 			contexts.push(new WeakRef(row));
-			last = renderers.renderResult(sent, { expanded: false }, plain, {
-				...row,
-				lastComponent: undefined,
-			});
+			last = renderers.renderResult(sent, { expanded: false }, plain, row as never);
 			last.render(80);
 		}
 		Bun.gc(true);
