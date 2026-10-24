@@ -19,7 +19,7 @@ export const FEWEST = 600;
 /**
  * Words that read as code, as an instruction or as a command of pi or of the harness. A few are
  * animals too, `bat`, `dog` and `pig`, and they stay out because a handle that reads as a command
- * would be taken for one in a message; the list carries `batfish`, `dogfish` and `pigfish` instead.
+ * would be taken for one in a message; their prefixes go to `bateleur`, `dogfish` and `pigeon`.
  */
 const DENIED = new Set([
 	"add",
