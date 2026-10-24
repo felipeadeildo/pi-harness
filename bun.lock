@@ -131,6 +131,13 @@
         "@earendil-works/pi-tui": "*",
       },
     },
+    "packages/remote-client": {
+      "name": "@adeildo/pi-remote-client",
+      "version": "0.0.0",
+      "dependencies": {
+        "@adeildo/pi-remote-protocol": "workspace:*",
+      },
+    },
     "packages/remote-protocol": {
       "name": "@adeildo/pi-remote-protocol",
       "version": "0.0.0",
@@ -184,6 +191,8 @@
     "@adeildo/pi-providers": ["@adeildo/pi-providers@workspace:packages/providers"],
 
     "@adeildo/pi-remote": ["@adeildo/pi-remote@workspace:packages/remote"],
+
+    "@adeildo/pi-remote-client": ["@adeildo/pi-remote-client@workspace:packages/remote-client"],
 
     "@adeildo/pi-remote-protocol": ["@adeildo/pi-remote-protocol@workspace:packages/remote-protocol"],
 
