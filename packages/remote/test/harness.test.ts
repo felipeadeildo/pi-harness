@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { KEPT_CLOSED } from "@adeildo/pi-remote-protocol";
 
-import { HarnessFacts } from "../src/bridge/facts.ts";
+import { Harness } from "../src/bridge/harness.ts";
 
 function ruled(toolCallId: string, head = "ok") {
 	return { toolCallId, ruling: { head, tone: "success" } };
@@ -10,7 +10,7 @@ function ruled(toolCallId: string, head = "ok") {
 
 describe("the facts a snapshot carries", () => {
 	test("a question stays open until it closes", () => {
-		const facts = new HarnessFacts();
+		const facts = new Harness();
 		facts.saw("ask.opened", { id: "q1", source: "agent", questions: [] });
 		facts.saw("ask.opened", { id: "q2", source: "agent", questions: [] });
 		facts.saw("ask.closed", { id: "q1", result: {} });
@@ -18,7 +18,7 @@ describe("the facts a snapshot carries", () => {
 	});
 
 	test("rebuild the tasks, the mode, the open questions and each call's latest ruling, in that order", () => {
-		const facts = new HarnessFacts();
+		const facts = new Harness();
 		facts.saw("call.ruled", ruled("c1", "asked"));
 		facts.saw("ask.opened", { id: "q1", source: "agent", questions: [] });
 		facts.saw("call.ruled", ruled("c1", "allowed"));
@@ -38,7 +38,7 @@ describe("the facts a snapshot carries", () => {
 	});
 
 	test("keep only the latest rulings, and a call ruled again counts as the newest", () => {
-		const facts = new HarnessFacts();
+		const facts = new Harness();
 		for (let at = 0; at <= KEPT_CLOSED; at += 1) facts.saw("call.ruled", ruled(`c${at}`));
 		facts.saw("call.ruled", ruled("c1", "again"));
 		facts.saw("call.ruled", ruled("late"));
@@ -52,7 +52,7 @@ describe("the facts a snapshot carries", () => {
 	});
 
 	test("a fact that is not an object, or that names nothing, changes nothing", () => {
-		const facts = new HarnessFacts();
+		const facts = new Harness();
 		facts.saw("ask.opened", "q1");
 		facts.saw("ask.opened", { questions: [] });
 		facts.saw("call.ruled", { ruling: {} });

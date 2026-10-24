@@ -209,7 +209,9 @@ export class Sessions {
 		entry.state.snapshot = snapshot;
 		// The bridge folds the state it sends, so this is the truth from here: the daemon seeds itself
 		// with it instead of rebuilding, and a daemon that just started learns the session in one event.
-		entry.state.facts = snapshot.snapshot.harness ?? emptyHarnessState();
+		// A snapshot without a state comes from a bridge that does not know it, so the folded state
+		// stays: absence means "unchanged", as it does everywhere else in this protocol.
+		entry.state.facts = snapshot.snapshot.harness ?? entry.state.facts;
 		entry.snapshot = envelope;
 		this.#drop(entry);
 		entry.evicted = Math.max(entry.evicted, envelope.seq ?? -1);

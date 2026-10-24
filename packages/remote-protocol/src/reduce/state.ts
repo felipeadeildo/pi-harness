@@ -114,10 +114,11 @@ export function applyLogged(facts: HarnessState, type: string, data: unknown): H
 }
 
 /**
- * How many closed questions and rulings a state keeps. A state travels in a snapshot and lives in a
- * daemon for the whole session, so what is already answered must not accumulate: a long session would
- * carry every ruling it ever made. Open questions are never dropped, because they are what a client
- * still has to answer.
+ * How many closed questions and rulings a state keeps. It bounds the memory of a long session: a state
+ * lives in a daemon for the whole life of a session and travels in every snapshot, so what is already
+ * answered must not accumulate — a day of tool calls would carry every ruling it ever made. Open
+ * questions are never dropped, because they are what a client still has to answer. The number is a
+ * choice, not a measurement: it is what a client can draw without paging for older ones.
  */
 export const KEPT_CLOSED = 100;
 

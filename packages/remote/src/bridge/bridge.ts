@@ -28,7 +28,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { OpenAsks } from "./asks.ts";
 import { Commands, Refused } from "./commands.ts";
 import { BridgeConnection, type ConnectionSeams, type GoneReason } from "./connection.ts";
-import { HarnessFacts, LOGGED_FACTS } from "./facts.ts";
+import { Harness, LOGGED_FACTS } from "./harness.ts";
 import { letterOf, SessionInbox } from "./inbox.ts";
 import { LiveStream } from "./stream.ts";
 
@@ -87,7 +87,7 @@ export interface Logged {
 
 export class Bridge {
 	readonly stream: LiveStream;
-	readonly #facts = new HarnessFacts();
+	readonly #facts = new Harness();
 	readonly #connection: BridgeConnection;
 	readonly #commands: Commands;
 	readonly #inbox: SessionInbox;

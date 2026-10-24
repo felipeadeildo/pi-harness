@@ -1,5 +1,5 @@
-// The harness's facts as the bridge forwards them: what the kit logs for this session, sent as it is
-// written, and the facts a snapshot carries to rebuild the same state in a client that just arrived.
+// The session's harness state as this bridge knows it: what the kit logs for this session, folded the
+// same way every reader folds it, so the snapshot it sends needs no replay behind it.
 import {
 	applyLogged,
 	emptyHarnessState,
@@ -26,7 +26,7 @@ export interface Fact {
 	data: unknown;
 }
 
-export class HarnessFacts {
+export class Harness {
 	/**
 	 * The state as the log has written it so far. It is the same shape a client reduces and the same
 	 * shape the daemon seeds itself with, so there is one reducer and one bound, here and everywhere.
