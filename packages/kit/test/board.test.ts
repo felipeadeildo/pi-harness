@@ -94,6 +94,26 @@ describe("what it refuses", () => {
 		expect(applyBoard(board, added("Dezesseis"), "operator").ok).toBe(true);
 	});
 
+	test("a fourth card in progress through a move is refused too", () => {
+		const board = applied([
+			added("Um", { column: "doing" }),
+			added("Dois", { column: "doing" }),
+			added("Três", { column: "doing" }),
+			added("Quatro"),
+		]);
+		expect(applyBoard(board, { op: "move", id: "c4", column: "doing", at }).ok).toBe(false);
+		expect(applyBoard(board, { op: "move", id: "c4", column: "doing", at }, "operator").ok).toBe(
+			true,
+		);
+	});
+
+	test("a move that adds a sixteenth open card is refused", () => {
+		const ops: BoardOp[] = Array.from({ length: 15 }, (_, index) => added(`Card ${index + 1}`));
+		ops.push(added("Backlog", { column: "backlog" }));
+		const board = applied(ops, "operator");
+		expect(applyBoard(board, { op: "move", id: "c16", column: "todo", at }).ok).toBe(false);
+	});
+
 	test("a drop without a reason", () => {
 		const board = applied([added("Um")]);
 		expect(applyBoard(board, { op: "drop", id: "c1", why: " ", at }).ok).toBe(false);

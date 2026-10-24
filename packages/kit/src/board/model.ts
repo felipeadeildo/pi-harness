@@ -84,7 +84,7 @@ export function applyBoard(board: Board, op: BoardOp, writer: BoardWriter = "age
 		case "add":
 			return add(board, op, writer);
 		case "move":
-			return move(board, op);
+			return move(board, op, writer);
 		case "edit":
 			return edit(board, op);
 		case "drop":
@@ -114,22 +114,6 @@ function add(board: Board, op: Extract<BoardOp, { op: "add" }>, writer: BoardWri
 		return { ok: false, why: `a card for #${op.pr} already exists` };
 	}
 	const column = op.column ?? "todo";
-	if (writer === "agent") {
-		const open = board.cards.filter((card) => OPEN_COLUMNS.has(card.column));
-		if (open.length >= OPEN) {
-			return {
-				ok: false,
-				why: `the board already has ${open.length} open cards; finish, drop or move to the backlog: ${open.map((card) => card.id).join(", ")}`,
-			};
-		}
-		const doing = open.filter((card) => card.column === "doing");
-		if (column === "doing" && doing.length >= IN_PROGRESS) {
-			return {
-				ok: false,
-				why: `there are already ${doing.length} cards in progress; finish one first: ${doing.map((card) => card.id).join(", ")}`,
-			};
-		}
-	}
 	const id = `c${board.next}`;
 	const card: BoardCard = {
 		id,
@@ -139,13 +123,17 @@ function add(board: Board, op: Extract<BoardOp, { op: "add" }>, writer: BoardWri
 		...(op.pr === undefined ? {} : { pr: op.pr }),
 		...(op.blocked === undefined ? {} : { blocked: op.blocked }),
 	};
-	return {
-		ok: true,
-		board: { next: board.next + 1, cards: [...board.cards, card], decisions: board.decisions },
-	};
+	return guarded(
+		{ next: board.next + 1, cards: [...board.cards, card], decisions: board.decisions },
+		writer,
+	);
 }
 
-function move(board: Board, op: Extract<BoardOp, { op: "move" }>): BoardResult {
+function move(
+	board: Board,
+	op: Extract<BoardOp, { op: "move" }>,
+	writer: BoardWriter,
+): BoardResult {
 	const card = board.cards.find((one) => one.id === op.id);
 	if (card === undefined) return { ok: false, why: `no card ${op.id}` };
 	if (op.column === "review" && op.reviewer === undefined)
@@ -161,10 +149,10 @@ function move(board: Board, op: Extract<BoardOp, { op: "move" }>): BoardResult {
 	else delete next.reviewer;
 	if (op.column === "done") next.result = op.result ?? card.result;
 	else delete next.result;
-	return {
-		ok: true,
-		board: { ...board, cards: board.cards.map((one) => (one.id === card.id ? next : one)) },
-	};
+	return guarded(
+		{ ...board, cards: board.cards.map((one) => (one.id === card.id ? next : one)) },
+		writer,
+	);
 }
 
 function edit(board: Board, op: Extract<BoardOp, { op: "edit" }>): BoardResult {
@@ -205,6 +193,26 @@ function drop(board: Board, op: Extract<BoardOp, { op: "drop" }>): BoardResult {
 		ok: true,
 		board: { ...board, cards: board.cards.map((one) => (one.id === card.id ? next : one)) },
 	};
+}
+
+/** A write that would take the board past its limits is refused, whichever operation made it. */
+function guarded(next: Board, writer: BoardWriter): BoardResult {
+	if (writer === "operator") return { ok: true, board: next };
+	const open = next.cards.filter((card) => OPEN_COLUMNS.has(card.column));
+	const doing = open.filter((card) => card.column === "doing");
+	if (open.length > OPEN) {
+		return {
+			ok: false,
+			why: `the board already has ${open.length} open cards; finish, drop or move one to the backlog: ${open.map((card) => card.id).join(", ")}`,
+		};
+	}
+	if (doing.length > IN_PROGRESS) {
+		return {
+			ok: false,
+			why: `there are already ${IN_PROGRESS} cards in progress; finish one first: ${doing.map((card) => card.id).join(", ")}`,
+		};
+	}
+	return { ok: true, board: next };
 }
 
 function badTitle(title: string): string | undefined {
