@@ -40,6 +40,12 @@ export class ClientAsks {
 				if (isObject(data)) data.available = true;
 			}),
 			events.on(ASK, (data: unknown) => this.#asked(data)),
+			// An answer closes the question without a word from here: the ask client logs the close
+			// and hands the answer over, so this side only stops counting it as open.
+			events.on(ANSWER, (data: unknown) => {
+				const id = isObject(data) && typeof data.id === "string" ? data.id : undefined;
+				if (id !== undefined) this.#open.delete(id);
+			}),
 			// Someone else answered or gave up: the clients' dialog closes, and no answer goes back.
 			events.on(CANCEL, (data: unknown) => {
 				const id = isObject(data) && typeof data.id === "string" ? data.id : undefined;
@@ -51,11 +57,18 @@ export class ClientAsks {
 
 	stop(): void {
 		for (const stop of this.#stops.splice(0)) stop();
-		// A question still waiting would stay open in every client's state with nobody to answer it:
-		// the bridge is leaving the bus, so it closes each one as it goes. `#close` sends, and does
-		// not touch the set, so iterating it here is safe.
-		for (const id of this.#open) this.#close(id, CANCELLED);
+		// A question still waiting would stay open in every client's state with nobody to answer it,
+		// and this is the one close the log cannot tell: a session that shuts down writes no answer
+		// and no abort, so there is no `ask.closed` for the bridge to forward. The bridge therefore
+		// writes this one itself, and only this one.
+		for (const id of this.#open) this.#closedOnStop(id);
 		this.#open.clear();
+	}
+
+	/** Closes a question the session abandons, with the fact the log will never carry. */
+	#closedOnStop(id: string): void {
+		this.#options.send({ type: "ask.closed", data: { id, result: CANCELLED } });
+		this.#close(id, CANCELLED);
 	}
 
 	#asked(data: unknown): void {

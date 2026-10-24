@@ -7,6 +7,7 @@ import { createEventBus } from "@earendil-works/pi-coding-agent";
 import { ClientAsks, OpenAsks } from "../src/bridge/asks.ts";
 
 const CLIENT: By = { kind: "client", name: "my phone", machine: "phone" };
+const CANCELLED = { answers: [], cancelled: true };
 const QUESTION = { id: "q1", questions: [{ question: "Which one?", header: "One", options: [] }] };
 
 /** The bridge's side of the questions, on a bus of its own. */
@@ -77,18 +78,22 @@ describe("the questions of a session with no terminal", () => {
 		expect(cancelled).toEqual([{ id: "q1" }, { id: "q2" }]);
 	});
 
-	test("what it sends closes the question in a client's state, answered or cancelled", () => {
-		const { events } = mounted();
-		events.emit(ASK, QUESTION);
-		// The bridge sends no fact: the ask client writes both halves of the log, and the fact only
-		// reads with a `result`, so a close without one would leave the question open for ever.
+	test("a stop writes the one close the log cannot, so no client keeps a dead dialog", () => {
+		const { events, sent, asks } = mounted();
+		events.emit(ASK, { ...QUESTION, id: "q1" });
+		events.emit(ASK, { ...QUESTION, id: "q2" });
+		// q1 is answered, so the ask client logged its close and the bridge has nothing to add.
+		events.emit(ANSWER, { id: "q1", by: CLIENT, result: { answers: [], cancelled: false } });
+		expect(sent).toEqual([]);
+
+		asks.stop();
+		// q2 was still open when the session went: no answer, no abort, no log line. The bridge is the
+		// only one that can say it closed, and a fact without a `result` never reads.
+		expect(sent).toEqual([{ type: "ask.closed", data: { id: "q2", result: CANCELLED } }]);
 		let facts = emptyHarnessState();
-		for (const [type, data] of [
-			["ask.opened", { id: "q1", source: "agent", questions: [] }],
-			["ask.closed", { id: "q1", by: CLIENT, result: { answers: [], cancelled: false } }],
-		] as const) {
-			expect(isFact(type, data)).toBe(true);
-			facts = applyLogged(facts, type, data);
+		for (const event of sent) {
+			expect(isFact(event.type, event.data)).toBe(true);
+			facts = applyLogged(facts, event.type, event.data);
 		}
 		expect(Object.values(facts.asks).filter((one) => one.closed === undefined)).toEqual([]);
 	});
