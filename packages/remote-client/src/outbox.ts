@@ -36,11 +36,12 @@ export class Outbox {
 	readonly #newId: () => string;
 	readonly #window: number;
 	readonly #commands: Outgoing[] = [];
-	#made = 0;
 
 	constructor(options: OutboxOptions = {}) {
 		this.#now = options.now ?? Date.now;
-		this.#newId = options.id ?? (() => `cmd:${++this.#made}:${this.#now()}`);
+		// Unique across clients, not just inside this queue: two tabs share a millisecond, and a
+		// repeated id is a repeat on the far side, which would swallow the second command.
+		this.#newId = options.id ?? (() => crypto.randomUUID());
 		this.#window = options.window ?? GOES_ALONE;
 	}
 
@@ -73,6 +74,27 @@ export class Outbox {
 	/** The connection took it. A reply is what moves it further. */
 	sent(id: string): void {
 		this.#move(id, "sent");
+	}
+
+	/**
+	 * A new connection opened: whatever was sent and never answered goes out again. The id makes the
+	 * resend a repeat on the far side, so nothing is applied twice.
+	 */
+	resume(): void {
+		for (const command of this.#commands) {
+			if (command.state === "sent") command.state = "waiting";
+		}
+	}
+
+	/**
+	 * The person chose to send a command that had waited past the window. It keeps its id, so it is
+	 * still the same command and still a repeat if it already went out once.
+	 */
+	release(id: string): boolean {
+		const command = this.#find(id);
+		if (command === undefined) return false;
+		command.at = this.#now();
+		return true;
 	}
 
 	/** The session applied it, which is the end of the road. */

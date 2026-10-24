@@ -60,6 +60,34 @@ describe("the outbox", () => {
 		expect(outbox.ready()).toEqual([]);
 	});
 
+	test("a command sent and never answered goes out again on a new connection", () => {
+		const outbox = new Outbox({ now: () => 0 });
+		const command = outbox.add("prompt.send", text);
+		outbox.sent(command.id);
+		expect(outbox.ready()).toEqual([]);
+
+		outbox.resume();
+		expect(outbox.ready().map((one) => one.id)).toEqual([command.id]);
+	});
+
+	test("the person can release a held command, and it keeps its id", () => {
+		const time = clock();
+		const outbox = new Outbox({ now: time.now, id: () => "c1" });
+		const command = outbox.add("prompt.send", text);
+		time.at(GOES_ALONE + 1);
+		expect(outbox.held().map((one) => one.id)).toEqual(["c1"]);
+
+		expect(outbox.release(command.id)).toBe(true);
+		expect(outbox.ready().map((one) => one.id)).toEqual(["c1"]);
+		expect(outbox.release("nobody")).toBe(false);
+	});
+
+	test("two clients never make the same id", () => {
+		const one = new Outbox().add("prompt.send", text);
+		const other = new Outbox().add("prompt.send", text);
+		expect(one.id).not.toBe(other.id);
+	});
+
 	test("a reply for an id nobody holds changes nothing", () => {
 		const outbox = new Outbox({ now: () => 0 });
 		outbox.sent("nobody");
