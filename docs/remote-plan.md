@@ -31,6 +31,12 @@ A slice is ticked in the commit that lands it.
 - [x] W2. Text from elsewhere (client, F1)
 - [ ] W3. The Sessions and Session screens (client, F1)
 - [ ] I1. The inbox (names, before F2)
+- [ ] C8. Commands through the bridge (core, F2)
+- [ ] A5. Clients in the race for the harness's dialogs (ask, F2)
+- [ ] A6. pi's own dialogs in the race (ask, F2)
+- [ ] P4. Commands and the outbox in the client library (protocol, F2)
+- [ ] C9. Presence and its marks (core, F2)
+- [ ] W4. The composer and the controls (client, F2)
 
 ## How the work runs
 
@@ -396,31 +402,87 @@ The kit's inbox is the one way to put a message into a session. It decides betwe
 
 - Done when: a held follow-up shows in the session's queue and can be taken back, and peers' delivery modes keep their behavior.
 
+## F2. Control
+
+The slices of F2, written before F1 closes so that a track that finishes its F1 work has the next one ready. F2 is done when a permission question answered in the browser closes the terminal's dialog, and a prompt typed offline asks before going out after 2 minutes.
+
+### C8. Commands through the bridge
+
+Owner: core. Needs: C6, and I1 for `prompt.send` and `queue.clear`.
+
+The daemon passes a client's command, a `command` envelope with an `id`, to the session's bridge, and the bridge's `reply` or `error` back on the same id. The bridge runs [the commands](remote.md#commands) a terminal session can: `run.abort`, `model.set`, `thinking.set`, `mode.set`, `session.compact`, `session.rename` and `session.stop`, which closes open questions as a no before it aborts and shuts down. `prompt.send` and `queue.clear` go through the inbox from I1.
+
+- `mode.set` refuses `full` from a client.
+- The bridge keeps the last 1,000 command ids of the session and answers a resent one as a repeat. It logs every command with its id and `by`, and reads the ids back from the log when it starts, so a resend after a restart is still a repeat.
+- A prompt from a client logs `prompt.received { by }`, and the terminal shows it as `From <client>: …`.
+- Tests with the rig: each command's effect, a resent id answered as a repeat across a bridge restart, and `full` refused.
+
+### A5. Clients in the race for the harness's dialogs
+
+Owner: ask. Needs: C8.
+
+A client answers an open question with `ask.answer { ask, result }`. The bridge emits the kit's answer with `by: { kind: "client" }`, and the asker's client closes the question for everyone, so the terminal's dialog closes through `harness:ask.cancel`. In a session with no terminal, the bridge answers the kit's `AVAILABLE`, and clients draw the whole dialog.
+
+- "Always yes" from a client lasts until the session ends; a rule for the project or for everywhere needs the terminal.
+- Tests with the rig: a permission question answered by a client closes the terminal's dialog and logs `call.ruled` with the client's `by`, and of two answers only the first counts.
+
+### A6. pi's own dialogs in the race
+
+Owner: ask. Needs: A5.
+
+In a terminal session, the bridge wraps `select`, `confirm`, `input` and `editor` on the shared `ctx.ui`, and races the terminal against the clients with an `AbortSignal` that closes the terminal's dialog when a client answers. A new `forwardOtherDialogs` setting, from [the design's settings](remote.md#settings) and on by default, turns the wrapping off. A6 declares it with the kit's `setting()`, as `packages/peers/src/settings.ts` declares the peers' settings. A `custom()` component shows on clients as "waiting in the terminal: <title>", from `ui_prompt_start`.
+
+- Tests: an extension's `confirm` answered by a client returns that answer to the extension and closes the terminal's dialog; with the setting off, nothing is wrapped.
+
+### P4. Commands and the outbox in the client library
+
+Owner: protocol. Needs: C8.
+
+`send(command)` gives each command an id and reports its progress from the replies: sent, accepted and applied. What a client sends while the daemon is out of reach waits in [the outbox](remote.md#the-outbox) with the time it was typed. After a reconnect, items from the last 2 minutes go out in order, and older ones wait for the operator to send, edit or drop them. An answer to a question someone else answered comes back as "answered on <where>" and is dropped.
+
+- Tests with a scripted daemon: an item typed offline goes out after a reconnect within 2 minutes, an older one waits, and a resent command is answered as a repeat.
+
+### C9. Presence and its marks
+
+Owner: core. Needs: C8.
+
+The daemon sends `presence.changed` to every client: who watches each session, and the active client, the one with the latest input. A terminal counts through `ctx.ui.onTerminalInput`, which the bridge reports. Clients mark where something came from, such as "from phone" on a prompt and "answered on laptop" on a closed question, and the terminal marks a ruling "approved on phone".
+
+- Tests: two clients and a terminal, where the latest key moves the active mark.
+
+### W4. The composer and the controls
+
+Owner: client. Needs: P4 and A5.
+
+The Session screen gets the composer, with steer and follow-up, the open question as the whole dialog, abort, the model and thinking pickers, compact, rename and stop. Commands still in the outbox stay on the screen until they go or the operator drops them.
+
+- Done when: the F2 check above passes in a browser.
+
 ## F2 to F6
 
-| Phase                                  | What gets split into slices                                                                                                                                                                                                                   | Tracks                                            |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| F2. Control                            | Commands through the inbox, never `full` from outside. The bridge as the clients' `harness:ask` provider, and the race for every dialog. `select`, `confirm`, `input` and `editor` wrapped with an `AbortSignal`. The outbox and the composer | core, ask, protocol, client                       |
-| F3. Reach, login and push, one machine | Devices and pairing, the password, API keys, Tailscale through `tailscale serve` and direct with `whois`, a bound interface, Cloudflare Access and proxies, sealed payloads, Web Push through the home                                        | core, protocol, client                            |
-| F4. Background sessions                | The runner and its RPC reader, transient units, the shell's environment and direnv, trust through `project_trust`, `pi-remote new`, `run`, `attach` and `stop`, the tmux runner, the service, the policy, `keepAwake`                         | core, view for `attach`                           |
-| F5. Machines                           | Machine keys and ids, discovery, links and their grants, one hop, room replication with the hybrid clock and the add-wins member list, pushes through the home, the panel's machine grouping                                                  | core, names for machine names, view for the panel |
-| F6. Native apps                        | iOS and Android builds, QR pairing, native push with an opaque id                                                                                                                                                                             | client                                            |
+| Phase                                  | What gets split into slices                                                                                                                                                                                           | Tracks                                            |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| F2. Control                            | In slices above, in [F2. Control](#f2-control)                                                                                                                                                                        | core, ask, protocol, client                       |
+| F3. Reach, login and push, one machine | Devices and pairing, the password, API keys, Tailscale through `tailscale serve` and direct with `whois`, a bound interface, Cloudflare Access and proxies, sealed payloads, Web Push through the home                | core, protocol, client                            |
+| F4. Background sessions                | The runner and its RPC reader, transient units, the shell's environment and direnv, trust through `project_trust`, `pi-remote new`, `run`, `attach` and `stop`, the tmux runner, the service, the policy, `keepAwake` | core, view for `attach`                           |
+| F5. Machines                           | Machine keys and ids, discovery, links and their grants, one hop, room replication with the hybrid clock and the add-wins member list, pushes through the home, the panel's machine grouping                          | core, names for machine names, view for the panel |
+| F6. Native apps                        | iOS and Android builds, QR pairing, native push with an opaque id                                                                                                                                                     | client                                            |
 
 The peers redesign in the design is a track of its own, not scheduled here. It changes the same peers files as N4 and I1, so it starts after I1.
 
 ## Choices this plan makes
 
-| Choice                               | Decision                                                                                                                                                                  | Why                                                                                           |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| A real pi in tests                   | `createAgentSession` in the test's process with the faux provider (P1). The runner's tests in F4 spawn `pi --mode rpc` with an extension that registers the same provider | Real events and real session files, with no tokens spent and no network                       |
-| Fixtures                             | Recordings from the rig and hand-written cases, never a session from anyone's history                                                                                     | The repository is public, and a scripted model gives pi's real order of events                |
-| Shapes that cross a process          | The protocol declares copies of the kit's logged shapes, and a test holds them to the kit's types (P2)                                                                    | The kit is published and cannot depend on a private package; the app and daemon need no kit   |
-| What the daemon bundles from the kit | Only modules whose imports are all `node:*`: the file follower, the log reader and presence                                                                               | The bundle test in C3 fails on anything else                                                  |
-| The WebSocket server                 | `ws`, bundled into `dist/daemon.js`                                                                                                                                       | Node has no WebSocket server                                                                  |
-| The app in the workspace             | `apps/*` joins the root workspace, and the app's checks join `verify`                                                                                                     | One lockfile, and the app imports `remote-client` and `remote-protocol` as workspace packages |
-| The web cache                        | IndexedDB behind the client library's cache interface                                                                                                                     | The native app swaps the adapter in F6 and keeps the interface                                |
-| The process start time               | Field 22 of `/proc/<pid>/stat` after the last `)`, and `ps -o lstart=` on macOS                                                                                           | The command name inside `stat` may hold spaces and parentheses                                |
-| Claiming a word                      | `openSync(path, "wx")` in `names/`                                                                                                                                        | Creating a file that must not exist is atomic on a local filesystem                           |
+| Choice                               | Decision                                                                                                                                                                  | Why                                                                                                         |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| A real pi in tests                   | `createAgentSession` in the test's process with the faux provider (P1). The runner's tests in F4 spawn `pi --mode rpc` with an extension that registers the same provider | Real events and real session files, with no tokens spent and no network                                     |
+| Fixtures                             | Recordings from the rig and hand-written cases, never a session from anyone's history                                                                                     | The repository is public, and a scripted model gives pi's real order of events                              |
+| Shapes that cross a process          | The protocol declares copies of the kit's logged shapes, and a test holds them to the kit's types (P2)                                                                    | The kit is published and cannot depend on a private package; the app and daemon need no kit                 |
+| What the daemon bundles from the kit | Only modules whose imports are all `node:*`: the file follower, the log reader and presence                                                                               | The bundle test in C3 fails on anything else                                                                |
+| The WebSocket server                 | Written on Node's own modules in `packages/remote/src/wire/websocket.ts` (#103)                                                                                           | The daemon's bundle imports nothing but Node, and the protocol needs text frames, ping, pong and close only |
+| The app in the workspace             | `apps/*` joins the root workspace. The app's type check joins `verify`, and its export and CSP check run in CI's `app` job                                                | One lockfile, and the app imports `remote-client` and `remote-protocol` as workspace packages               |
+| The web cache                        | IndexedDB behind the client library's cache interface                                                                                                                     | The native app swaps the adapter in F6 and keeps the interface                                              |
+| The process start time               | Field 22 of `/proc/<pid>/stat` after the last `)`, and `ps -o lstart=` on macOS                                                                                           | The command name inside `stat` may hold spaces and parentheses                                              |
+| Claiming a word                      | `openSync(path, "wx")` in `names/`                                                                                                                                        | Creating a file that must not exist is atomic on a local filesystem                                         |
 
 ## Risks retired first
 
