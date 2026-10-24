@@ -1,4 +1,4 @@
-import { canAsk, type FeatureScope, TYPING_STATUS, tildify } from "@adeildo/pi-kit";
+import { canAsk, type FeatureScope, logFrom, MODE, TYPING_STATUS, tildify } from "@adeildo/pi-kit";
 import type { ToolCall } from "@earendil-works/pi-ai";
 import {
 	type ExtensionAPI,
@@ -52,6 +52,7 @@ export function registerEvents(scope: FeatureScope, state: SessionState): void {
 		loadSessionConfig(scope, state, ctx);
 		openAlwaysYes(state, ctx);
 		restoreSession(state, ctx);
+		MODE.changed(scope, state.mode);
 		restoreRulings(state, ctx);
 		notifyJudgePolicyWarning(state, ctx);
 		renderStatus(ctx, state);
@@ -60,6 +61,7 @@ export function registerEvents(scope: FeatureScope, state: SessionState): void {
 
 	scope.on("session_tree", (_event, ctx) => {
 		restoreSession(state, ctx);
+		MODE.changed(scope, state.mode);
 		restoreRulings(state, ctx);
 		renderStatus(ctx, state);
 	});
@@ -97,6 +99,12 @@ export function registerEvents(scope: FeatureScope, state: SessionState): void {
 		const outcome = await gate(scope, state, ctx, call, event);
 		const ruling = settle(outcome, state.rulings.get(event.toolCallId));
 		keepRuling(scope, state, event.toolCallId, ruling);
+		// The whole ruling is one short line: its `detail` is the judge's signal, stats and model, or
+		// why you were asked, so a log line per call stays small.
+		if (ruling !== undefined) {
+			const by = outcome.answeredBy === undefined ? {} : { by: outcome.answeredBy };
+			logFrom(ctx, scope.events, "call.ruled", { toolCallId: event.toolCallId, ruling, ...by });
+		}
 
 		announce(scope, {
 			toolCallId: event.toolCallId,
@@ -126,7 +134,7 @@ export function registerEvents(scope: FeatureScope, state: SessionState): void {
 	});
 }
 
-type Outcome = Pick<Decided, "action" | "by" | "reason" | "note">;
+type Outcome = Pick<Decided, "action" | "by" | "reason" | "note" | "answeredBy">;
 
 /** What pi reports about a tool beside its name: the server it belongs to, and its own hints. */
 function toolFacts(pi: ExtensionAPI): ToolFacts {
@@ -200,7 +208,13 @@ async function askInTurn(
 	}).finally(() => state.typing.resume());
 
 	if (answer.decision === "deny") {
-		return { action: "block", by: "you", reason: denyReason(answer.note), note: answer.note };
+		return {
+			action: "block",
+			by: "you",
+			reason: denyReason(answer.note),
+			note: answer.note,
+			answeredBy: answer.by,
+		};
 	}
 
 	if (answer.remember) {
@@ -223,7 +237,7 @@ async function askInTurn(
 
 	if (change)
 		state.pendingWrites.set(change.path, { toolCallId: event.toolCallId, after: change.after });
-	return { action: "allow", by: "you", note: answer.note };
+	return { action: "allow", by: "you", note: answer.note, answeredBy: answer.by };
 }
 
 function outcomeOf(decision: Decision): Outcome | undefined {
@@ -348,10 +362,10 @@ async function ask(
 	extras: AskExtras,
 ): Promise<DialogAnswer> {
 	const { toolName, target } = call;
-	// The questions feature draws the dialog. Without it, and in RPC hosts that cannot draw a
-	// terminal component, the host's own selector asks.
-	if (ctx.mode === "tui" && canAsk(pi.events)) {
-		const answer = await askThroughQuestions(pi.events, call, extras);
+	// Whoever provides questions draws the dialog: the questions feature in a terminal, or the
+	// remote bridge in any mode. With no provider, the host's own selector asks.
+	if (canAsk(pi.events)) {
+		const answer = await askThroughQuestions(pi.events, call, extras, ctx);
 		if (answer !== undefined) return answer;
 	}
 

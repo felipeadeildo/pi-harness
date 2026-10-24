@@ -60,6 +60,11 @@ export interface AskResult {
 	error?: string;
 }
 
+/** What the asker gets: the answer, and who gave it or who gave up, when that is known. */
+export interface AskReply extends AskResult {
+	by?: By;
+}
+
 export interface AnswerEvent {
 	id: string;
 	/** Who answered. An answer without it is logged as from nobody known, never as the terminal. */

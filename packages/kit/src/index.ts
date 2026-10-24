@@ -1,4 +1,4 @@
-export { askQuestions, canAsk } from "./ask/client.ts";
+export { type AskOptions, askQuestions, canAsk } from "./ask/client.ts";
 export * from "./app/builder.ts";
 export * from "./betas.ts";
 export * from "./app/feature.ts";
@@ -14,6 +14,7 @@ export * from "./contracts/views.ts";
 export * from "./card.ts";
 export * from "./contracts/events.ts";
 export * from "./contracts/peers.ts";
+export * from "./contracts/mode.ts";
 export * from "./contracts/tasks.ts";
 export * from "./events/log.ts";
 export { fileSource, type FileSourceOptions, sourceFor } from "./sources/file.ts";

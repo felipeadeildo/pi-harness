@@ -1,4 +1,4 @@
-import type { FeatureScope } from "@adeildo/pi-kit";
+import type { By, FeatureScope } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { isBuiltInTool, type ToolAdapter } from "#core/tools.ts";
@@ -16,6 +16,8 @@ export interface Decided {
 	action: "allow" | "block";
 	/** The layer that decided, `you` for the dialog, or `no UI`. */
 	by: string;
+	/** Who answered the dialog, when the provider that drew it says. */
+	answeredBy?: By;
 	reason?: string;
 	note?: string;
 }

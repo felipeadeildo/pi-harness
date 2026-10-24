@@ -134,7 +134,7 @@ describe("closing a question", () => {
 		const asking = askQuestions(bus, [QUESTION]);
 		answer(PHONE);
 		answer(TERMINAL, { answers: [], cancelled: true });
-		expect(await asking).toEqual(PICKED);
+		expect(await asking).toEqual({ ...PICKED, by: PHONE });
 		expect(cancels).toEqual([{ id: asks[0]!.id, reason: "answered" }]);
 	});
 
@@ -148,7 +148,7 @@ describe("closing a question", () => {
 		});
 		answer(PHONE);
 		abort.abort();
-		expect(await asking).toEqual(PICKED);
+		expect(await asking).toEqual({ ...PICKED, by: PHONE });
 		expect(cancels.map((cancel) => cancel.reason)).toEqual(["answered"]);
 		expect(logged.filter((event) => event.type === "ask.closed")).toHaveLength(1);
 	});
@@ -195,6 +195,22 @@ describe("closing a question", () => {
 		answer(undefined);
 		await asking;
 		expect(logged.at(-1)?.data).not.toHaveProperty("by");
+	});
+
+	test("the reply says who answered, and an abort says who gave up only when told", async () => {
+		const { bus, answer } = rig();
+		const answered = askQuestions(bus, [QUESTION]);
+		answer(PHONE);
+		expect((await answered).by).toEqual(PHONE);
+
+		const unnamed = askQuestions(bus, [QUESTION]);
+		answer(undefined);
+		expect(await unnamed).not.toHaveProperty("by");
+
+		const abort = new AbortController();
+		const aborted = askQuestions(bus, [QUESTION], { signal: abort.signal });
+		abort.abort();
+		expect(await aborted).not.toHaveProperty("by");
 	});
 
 	test("an abort is logged with whoever the caller says gave up", async () => {

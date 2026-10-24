@@ -4,6 +4,8 @@
 import type { SessionTasks } from "../tasks/state.ts";
 import type { AskQuestion, AskResult } from "./ask.ts";
 import type { By } from "./by.ts";
+import type { CallRuling } from "./calls.ts";
+import type { PermissionMode } from "./mode.ts";
 
 export type SessionState = "running" | "idle";
 
@@ -82,4 +84,7 @@ export interface LogEventMap {
 	"ask.opened": { id: string; source: string; questions: AskQuestion[]; expiresAt?: number };
 	/** It closed, with who answered, or who gave up on it. Without `by`, nobody known did. */
 	"ask.closed": { id: string; by?: By; result: AskResult };
+	/** What decided a tool call. `by` is the person who answered, when one did. */
+	"call.ruled": { toolCallId: string; ruling: CallRuling; by?: By };
+	"mode.changed": { mode: PermissionMode };
 }

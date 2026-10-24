@@ -177,7 +177,10 @@ test("the answer from the dialog is the result's details", async () => {
 	const ctx = context([], true, { ui: { custom: async () => answer } });
 	const { tool } = await mounted(ctx);
 	const result = await run(tool, PARAMS, ctx);
-	expect(result.details).toEqual(answer);
+	expect(result.details).toEqual({
+		...answer,
+		by: { kind: "terminal", name: "new-cdef", machine: expect.any(String) },
+	});
 	expect(result.content).toEqual([
 		{
 			type: "text",
@@ -447,7 +450,10 @@ test("the dialog opens while the model writes, and the tool waits on the same an
 		answers: [{ question: "Which?", header: "Pick", picked: ["A"], notes: [] }],
 	};
 	live.answer(answer);
-	expect((await running).details).toEqual(answer);
+	expect((await running).details).toEqual({
+		...answer,
+		by: { kind: "terminal", name: "new-cdef", machine: expect.any(String) },
+	});
 	expect(live.opened()).toBe(1);
 });
 
@@ -557,7 +563,10 @@ test("the dialog that opened early is the one the call's question uses, logged o
 	);
 	live.answer(PICKED_A);
 
-	expect((await running).details).toEqual(PICKED_A);
+	expect((await running).details).toEqual({
+		...PICKED_A,
+		by: { kind: "terminal", name: "new-cdef", machine: expect.any(String) },
+	});
 	expect(live.opened()).toBe(1);
 	expect(logged().filter((event) => event.type === "ask.opened")).toHaveLength(1);
 });
@@ -582,7 +591,7 @@ test("when someone else answers first, the dialog here closes and the call takes
 	const phone = { kind: "client", name: "phone", machine: "laptop" };
 	bus.emit(ANSWER, { id: "call", by: phone, result: PICKED_A });
 
-	expect((await running).details).toEqual(PICKED_A);
+	expect((await running).details).toEqual({ ...PICKED_A, by: phone });
 	await tick();
 	// The dialog closed as cancelled, and this terminal never answered over the phone.
 	expect(live.results).toEqual([{ answers: [], cancelled: true }]);

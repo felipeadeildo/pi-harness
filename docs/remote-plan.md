@@ -12,7 +12,7 @@ A slice is ticked in the commit that lands it.
 - [ ] P2. The protocol package and its reducers (protocol, F0)
 - [x] A1. The kit's ask client in every mode (ask, F0)
 - [x] A2. ask-questions asks through the bus (ask, F0)
-- [ ] A3. ask-permission through the bus, its mode and its rulings (ask, F0)
+- [x] A3. ask-permission through the bus, its mode and its rulings (ask, F0)
 - [ ] A4. The protected list (ask, F0)
 - [ ] N1. The word list (names, F0)
 - [ ] N2. The draw (names, F0)
@@ -193,7 +193,7 @@ Owner: ask. Needs: A1.
 ask-permission asks through `harness:ask` only when `ctx.mode` is `tui`, and through `ctx.ui.select` otherwise (`pi/events.ts` and `ui/selector.ts`). A3 asks through the bus in every mode whenever `canAsk` finds a provider, and keeps the selector for when none exists.
 
 - `harness:mode` becomes a state contract with its change, logged as `mode.changed`.
-- Every ruling is logged as `call.ruled { call, ruling, by }`.
+- Every ruling is logged as `call.ruled { toolCallId, ruling, by? }`, with `by` only when a person answered.
 - Tests: the cases in `events.test.ts` and `questions.test.ts` follow; a ruling logs `call.ruled` with `by`.
 
 ### A4. The protected list

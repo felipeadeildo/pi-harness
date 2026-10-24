@@ -1,4 +1,4 @@
-import { GLYPH } from "@adeildo/pi-kit";
+import { type FeatureScope, GLYPH, logFrom, MODE } from "@adeildo/pi-kit";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import type { OutsideScope } from "#core/config/schema.ts";
@@ -25,13 +25,17 @@ const OUTSIDE_TAG: Record<OutsideScope, string | undefined> = {
 };
 
 export function setSessionMode(
-	pi: ExtensionAPI,
+	scope: FeatureScope,
 	state: SessionState,
 	mode: PermissionMode,
 	ctx: ExtensionContext,
 	announce = true,
 ): void {
-	if (mode !== state.mode) record(pi, { kind: "mode", mode });
+	if (mode !== state.mode) {
+		record(scope, { kind: "mode", mode });
+		logFrom(ctx, scope.events, "mode.changed", { mode });
+		MODE.changed(scope, mode);
+	}
 	state.mode = mode;
 	renderStatus(ctx, state);
 

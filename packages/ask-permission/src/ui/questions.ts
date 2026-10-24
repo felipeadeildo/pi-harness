@@ -1,6 +1,13 @@
 // The permission ask, drawn by the questions feature so both dialogs are the same one. The call
 // becomes a question, and the answer becomes the decision the gate already knows how to apply.
-import { type AskAnswer, type AskOption, type AskQuestion, askQuestions } from "@adeildo/pi-kit";
+import {
+	type AskAnswer,
+	type AskOption,
+	type AskOptions,
+	type AskQuestion,
+	type AskReply,
+	askQuestions,
+} from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { SCOPE_LABEL, SCOPES, type Scope } from "#core/always-yes.ts";
@@ -24,9 +31,23 @@ export async function askThroughQuestions(
 	events: ExtensionAPI["events"],
 	call: Call,
 	extras: AskExtras,
+	ctx?: AskOptions["ctx"],
 ): Promise<DialogAnswer | undefined> {
-	const first = await askQuestions(events, [firstQuestion(call, extras)]);
+	const options = { ctx, source: "ask-permission" };
+	const first = await askQuestions(events, [firstQuestion(call, extras)], options);
 	if (first.error !== undefined) return undefined;
+	const answer = await answerFrom(events, call, extras, first, options);
+	// Whoever answered the first question decided the call; the follow-ups only refine it.
+	return first.by === undefined ? answer : { ...answer, by: first.by };
+}
+
+async function answerFrom(
+	events: ExtensionAPI["events"],
+	call: Call,
+	extras: AskExtras,
+	first: AskReply,
+	options: AskOptions,
+): Promise<DialogAnswer> {
 	if (first.cancelled) return { decision: "deny" };
 
 	const answer = first.answers[0];
@@ -36,11 +57,11 @@ export async function askThroughQuestions(
 
 	const picked = answer.picked[0] ?? "";
 	if (picked === DENY) return { decision: "deny", note };
-	if (picked === ALWAYS) return remember(events, call, note);
+	if (picked === ALWAYS) return remember(events, call, note, options);
 
 	const folder = folderOf(extras.offer, picked);
 	if (folder === undefined) return { decision: "allow", note };
-	const scope = await askScope(events, "Open the folder for how long?");
+	const scope = await askScope(events, "Open the folder for how long?", options);
 	return { decision: "allow", note, open: { path: folder, access: extras.offer!.access, scope } };
 }
 
@@ -126,49 +147,62 @@ async function remember(
 	events: ExtensionAPI["events"],
 	call: Call,
 	note: string | undefined,
-): Promise<DialogAnswer | undefined> {
+	options: AskOptions,
+): Promise<DialogAnswer> {
 	const levels = levelsOf(call);
 	if (levels.length === 0) return { decision: "allow", note };
 
-	const picked = await askQuestions(events, [
-		{
-			header: "remember",
-			typed: false,
-			question: `Always say yes to which calls, from ${call.toolName}?`,
-			options: levels.map((level, index) => ({
-				label: level,
-				description:
-					index === 0
-						? "Only this exact call."
-						: "This call, and anything else that starts with it.",
-			})),
-		},
-	]);
+	const picked = await askQuestions(
+		events,
+		[
+			{
+				header: "remember",
+				typed: false,
+				question: `Always say yes to which calls, from ${call.toolName}?`,
+				options: levels.map((level, index) => ({
+					label: level,
+					description:
+						index === 0
+							? "Only this exact call."
+							: "This call, and anything else that starts with it.",
+				})),
+			},
+		],
+		options,
+	);
 	if (picked.error !== undefined || picked.cancelled) return { decision: "allow", note };
 
 	const level = picked.answers[0]?.picked[0];
 	if (level === undefined || level === "") return { decision: "allow", note };
-	const scope = await askScope(events, "Remember it for how long?");
+	const scope = await askScope(events, "Remember it for how long?", options);
 	return { decision: "allow", note, remember: level, scope };
 }
 
-async function askScope(events: ExtensionAPI["events"], question: string): Promise<Scope> {
-	const result = await askQuestions(events, [
-		{
-			header: "where",
-			typed: false,
-			question,
-			options: SCOPES.map((scope) => ({
-				label: SCOPE_LABEL[scope],
-				description:
-					scope === "session"
-						? "Gone when this session ends."
-						: scope === "project"
-							? "Saved for this project, in its own file."
-							: "Saved for every project.",
-			})),
-		},
-	]);
+async function askScope(
+	events: ExtensionAPI["events"],
+	question: string,
+	options: AskOptions,
+): Promise<Scope> {
+	const result = await askQuestions(
+		events,
+		[
+			{
+				header: "where",
+				typed: false,
+				question,
+				options: SCOPES.map((scope) => ({
+					label: SCOPE_LABEL[scope],
+					description:
+						scope === "session"
+							? "Gone when this session ends."
+							: scope === "project"
+								? "Saved for this project, in its own file."
+								: "Saved for every project.",
+				})),
+			},
+		],
+		options,
+	);
 	const picked = result.answers[0]?.picked[0];
 	const scope = SCOPES.find((candidate) => SCOPE_LABEL[candidate] === picked);
 	return scope ?? "session";
