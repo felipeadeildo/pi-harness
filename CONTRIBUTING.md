@@ -79,7 +79,12 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
   first is the reviewer and the second backs off.
 - The author merges once a review approves, CI is green and nothing conflicts.
 - A pull request stacked on another one's branch moves its base to `main` with `gh pr edit <n> --base main` before the one below merges. Deleting a branch closes every open pull request based on it, and GitHub reopens none of them.
-- The merge runs in a worktree, which is detached before it. The operator's checkout in `~/Projects/pi-harness` stays on `main`, and after the merge it pulls with `git pull --ff-only`; if it is ever detached, `git switch main` comes first. A detached checkout cannot pull, so the `pi` that loads the harness from it runs code from before the merge.
+- The merge needs no checkout: `gh pr merge` runs on GitHub, and it touches the local repository
+  only to delete the branch it names, which is why a worktree holding that branch is detached
+  first. The flow deletes the remote branch afterwards with `git push origin --delete`, which needs
+  not even that. The checkout in `~/Projects/pi-harness` stays on `main` and only pulls with
+  `git pull --ff-only`, because a detached checkout cannot pull, which leaves the `pi` that loads
+  the harness from it running code from before the merge.
 - Work happens in a worktree, never in `~/Projects/pi-harness`: that is the checkout the operator's
   `pi` loads the harness from, and it stays on `main` and clean. The rule starts at `git switch`,
   which is the first step of the mistake, and it holds for `git switch <branch>` as much as for `git
