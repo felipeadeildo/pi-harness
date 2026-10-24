@@ -3,6 +3,7 @@
 import {
 	type Activity,
 	type Delivery,
+	type Lives,
 	type LoggedEvent,
 	type SessionState,
 	type SessionTasks,
@@ -16,6 +17,8 @@ const KEEP_RUNS = 5;
 export interface Peer {
 	session: string;
 	pid?: number;
+	/** When its process started, which tells it from a later process with the same pid. */
+	start?: string;
 	host?: string;
 	model?: string;
 	/** Where it works. Its edited paths are relative to this. Absent in logs older than rooms. */
@@ -108,7 +111,13 @@ export class Folder {
 		switch (event.type) {
 			case "session.started": {
 				const data = event.data as LoggedEvent<"session.started">["data"];
-				Object.assign(peer, { pid: data.pid, host: data.host, model: data.model, cwd: data.cwd });
+				Object.assign(peer, {
+					pid: data.pid,
+					start: data.start,
+					host: data.host,
+					model: data.model,
+					cwd: data.cwd,
+				});
 				peer.endedAt = undefined;
 				this.#happen({ kind: "joined", session: peer.session, at: event.at });
 				return;
@@ -260,19 +269,9 @@ export class Folder {
 }
 
 /** Open sessions in the folder, oldest first. A session on this machine is open while its process runs. */
-export function livePeers(folder: Folder, alive: (pid: number) => boolean, host: string): Peer[] {
+export function livePeers(folder: Folder, lives: Lives, host: string): Peer[] {
 	return [...folder.peers.values()]
 		.filter((peer) => peer.endedAt === undefined && peer.pid !== undefined)
-		.filter((peer) => peer.host !== host || alive(peer.pid ?? -1))
+		.filter((peer) => peer.host !== host || lives(peer.pid ?? -1, peer.start))
 		.toSorted((a, b) => a.startedAt - b.startedAt || a.session.localeCompare(b.session));
-}
-
-export function isAlive(pid: number): boolean {
-	try {
-		process.kill(pid, 0);
-		return true;
-	} catch (error) {
-		// Another user's process is alive too, just not ours to signal.
-		return (error as NodeJS.ErrnoException).code === "EPERM";
-	}
 }

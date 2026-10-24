@@ -16,6 +16,9 @@ import {
 	type LoggedEvent,
 	type Member,
 	type PeerMark,
+	ownStart,
+	readPresence,
+	removePresence,
 	roomDir,
 	roomsDir,
 	type SessionState,
@@ -23,12 +26,12 @@ import {
 	targetOf,
 	tasksWith,
 	tildify,
+	writePresence,
 } from "@adeildo/pi-kit";
 
-import { Folder, isAlive } from "./folder.ts";
+import { Folder } from "./folder.ts";
 import { Here, type Hooks, PEER_NOTE } from "./here.ts";
 import { Inbox, type Waiting } from "./inbox.ts";
-import { readLive, removeLive, writeLive } from "./live.ts";
 import type { Addition, Membership } from "./membership.ts";
 import { ANYONE_MENTION, groupIn, recipientsOf } from "./mention.ts";
 import type {
@@ -51,6 +54,7 @@ export const ROOM_GRACE_MS = 30_000;
 interface SessionSource {
 	getCwd(): string;
 	getSessionId(): string;
+	getSessionFile?(): string | undefined;
 }
 
 /** A shared room's logs, read whether or not this session is in it: that is how it learns it was added. */
@@ -87,6 +91,7 @@ export class Rooms implements RoomsView {
 	readonly #shared = new Map<string, Shared>();
 	#session: string | undefined;
 	#cwd = "";
+	#file: string | undefined;
 	#model: string | undefined;
 	#startedAt = 0;
 	#state: SessionState = "idle";
@@ -127,6 +132,7 @@ export class Rooms implements RoomsView {
 		this.end();
 		this.#inbox.reset();
 		this.#session = session.getSessionId();
+		this.#file = session.getSessionFile?.();
 		this.#cwd = real(session.getCwd());
 		this.#model = model;
 		this.#startedAt = this.#now();
@@ -166,7 +172,7 @@ export class Rooms implements RoomsView {
 		this.#shared.clear();
 		this.#home?.close();
 		this.#home = undefined;
-		removeLive(this.#session);
+		removePresence(this.#session);
 		this.#session = undefined;
 		this.#board = "";
 	}
@@ -294,7 +300,7 @@ export class Rooms implements RoomsView {
 	}
 
 	live(): LiveSession[] {
-		return readLive(this.#hooks.alive ?? isAlive, HOST);
+		return readPresence(this.#hooks.alive === undefined ? {} : { lives: this.#hooks.alive });
 	}
 
 	/** The folder's marks first, so the footer can set the other rooms apart after them. */
@@ -828,11 +834,14 @@ export class Rooms implements RoomsView {
 	#writeLive(): void {
 		if (this.#session === undefined) return;
 		const me = this.#home?.folder.peers.get(this.#session);
-		writeLive({
+		const start = ownStart();
+		writePresence({
 			session: this.#session,
 			pid: process.pid,
+			...(start === undefined ? {} : { start }),
 			host: HOST,
 			cwd: this.#cwd,
+			...(this.#file === undefined ? {} : { file: this.#file }),
 			...(me?.handle === undefined ? {} : { handle: me.handle }),
 			...(me?.title === undefined ? {} : { title: me.title }),
 			state: this.#state,
