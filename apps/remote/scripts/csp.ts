@@ -147,6 +147,12 @@ if (import.meta.main) {
 	// has one, and says so when it is missing.
 	const browser = browserPath();
 	if (browser === undefined) {
+		// A contributor without Chrome is not blocked. The CI job has one, and a job that prints
+		// "skipped" and stays green is a check nobody is running.
+		if (process.env.CI !== undefined) {
+			console.error("no browser on this machine, and the check is required here: set CHROME_PATH");
+			process.exit(1);
+		}
 		console.log("skipped: no browser on this machine");
 		process.exit(0);
 	}

@@ -23,6 +23,11 @@ describe("the policy the app is served with", () => {
 		expect(policyFor(page)).toContain("script-src 'self'");
 	});
 
+	test("a script with data-src is inline, and the browser hashes its text", () => {
+		const page = '<script data-src="/deferred.js">go()</script>';
+		expect(inlineHashes(page)).toEqual([hashOf("go()")]);
+	});
+
 	test("the hash is of the script's text, exactly, since that is what the browser checks", () => {
 		const page = "<script>\n  start()\n</script>";
 		expect(inlineHashes(page)).toEqual([hashOf("\n  start()\n")]);

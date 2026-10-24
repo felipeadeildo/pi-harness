@@ -30,6 +30,9 @@ jobs:
   # runner's own Chrome is used, so nothing is downloaded.
   app:
     runs-on: ubuntu-latest
+    env:
+      # The check refuses to skip here: a job that prints "skipped" and stays green runs nothing.
+      CI: "true"
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
