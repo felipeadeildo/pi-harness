@@ -150,6 +150,9 @@
         "@adeildo/pi-kit": "workspace:*",
         "@adeildo/pi-remote-protocol": "workspace:*",
       },
+      "devDependencies": {
+        "@adeildo/pi-remote-client": "workspace:*",
+      },
       "peerDependencies": {
         "@earendil-works/pi-ai": "*",
         "@earendil-works/pi-coding-agent": "*",

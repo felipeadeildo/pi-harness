@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { VERSION } from "../version.ts";
-import { Daemon, daemonPaths } from "./server.ts";
+import { CLIENT_PORT, Daemon, daemonPaths } from "./server.ts";
 
 /** The remote's folder: `PI_REMOTE_DIR`, or `harness/remote` under pi's agent folder. */
 export function daemonDir(env: NodeJS.ProcessEnv = process.env): string {
@@ -20,6 +20,7 @@ else {
 	await Daemon.start({
 		...daemonPaths(daemonDir()),
 		version: VERSION,
+		clientPort: CLIENT_PORT,
 		exited: () => process.exit(0),
 		warn: (message) => console.error(`pi-remote daemon: ${message}`),
 	});

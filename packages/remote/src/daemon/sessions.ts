@@ -68,8 +68,42 @@ interface Buffered {
 	bytes: number;
 }
 
+/** A fact as a client's snapshot carries it, for the client to reduce. */
+export interface Fact {
+	type: string;
+	data: unknown;
+}
+
+/** The facts a snapshot carries: what the harness logged about the session, not the stream's. */
+const KEPT: ReadonlySet<string> = new Set([
+	"tasks.changed",
+	"call.ruled",
+	"mode.changed",
+	"ask.opened",
+	"ask.closed",
+	"session.renamed",
+	"leaf.changed",
+]);
+
+/** Facts where only the latest one matters to a client that starts from a snapshot. */
+const LATEST: ReadonlySet<string> = new Set([
+	"tasks.changed",
+	"mode.changed",
+	"session.renamed",
+	"leaf.changed",
+]);
+
 interface Entry {
 	state: LiveSession;
+	/** The facts a client needs to rebuild the session's facts, without the ones a later one replaced. */
+	facts: Fact[];
+	/** The snapshot as its bridge sent it, so a client gets its epoch and seq too. */
+	snapshot?: Envelope;
+	/**
+	 * The facts as they stood when the snapshot came. A client reads the facts after it from the
+	 * replay, so carrying the later ones too would give it each of them twice.
+	 */
+	snapshotFacts?: Fact[];
 	replay: Buffered[];
 	/** What `replay` holds, in bytes of JSON. */
 	bytes: number;
@@ -119,6 +153,10 @@ export class Sessions {
 		const kept = same(known, epoch) ? known : undefined;
 		this.#entries.set(session, {
 			state,
+			facts: known?.facts ?? [],
+			...(kept?.snapshot === undefined
+				? {}
+				: { snapshot: kept.snapshot, snapshotFacts: kept.snapshotFacts ?? [] }),
 			replay: kept?.replay ?? [],
 			bytes: kept?.bytes ?? 0,
 			evicted: kept?.evicted ?? -1,
@@ -136,10 +174,14 @@ export class Sessions {
 		if (entry.state.epoch !== envelope.epoch) return "an event from another life of the session";
 		if (envelope.type === "snapshot") {
 			if (!isSnapshotEvent(envelope.data)) return "a snapshot that does not read";
-			this.#rebase(entry, envelope.data, envelope.seq);
+			this.#rebase(entry, envelope, envelope.data);
 			return undefined;
 		}
-		entry.state.facts = reduceFact(entry.state.facts, envelope.type, envelope.data);
+		const facts = reduceFact(entry.state.facts, envelope.type, envelope.data);
+		if (facts !== entry.state.facts && KEPT.has(envelope.type)) {
+			entry.facts = keep(entry.facts, { type: envelope.type, data: envelope.data });
+		}
+		entry.state.facts = facts;
 		if (EPHEMERAL.has(envelope.type) || envelope.seq === undefined) return undefined;
 		const bytes = JSON.stringify(envelope).length;
 		entry.replay.push({ envelope, bytes });
@@ -177,13 +219,36 @@ export class Sessions {
 	}
 
 	/**
+	 * What a client with no usable cursor reads first: the last snapshot, with the session's facts,
+	 * then the events after it. `undefined` when there is no snapshot, or the events after it were
+	 * dropped, and then the bridge is asked for a new one.
+	 */
+	opening(session: string): Envelope[] | undefined {
+		const entry = this.#entries.get(session);
+		const snapshot = entry?.snapshot;
+		if (entry === undefined || snapshot === undefined) return undefined;
+		const after = this.after(session, { epoch: snapshot.epoch ?? "", seq: snapshot.seq ?? -1 });
+		if (after === undefined) return undefined;
+		return [this.withFacts(snapshot), ...after];
+	}
+
+	/** A snapshot as a client reads it: the bridge's, with the session's facts up to it. */
+	withFacts(snapshot: Envelope): Envelope {
+		const entry = this.#entries.get(snapshot.session ?? "");
+		const data = isObject(snapshot.data) ? snapshot.data : {};
+		return { ...snapshot, data: { ...data, facts: entry?.snapshotFacts ?? [] } };
+	}
+
+	/**
 	 * A snapshot is the new base: the client that reads it starts from its seq, and a cursor older
 	 * than it takes the snapshot instead of a replay.
 	 */
-	#rebase(entry: Entry, snapshot: SnapshotEvent, seq: number | undefined): void {
+	#rebase(entry: Entry, envelope: Envelope, snapshot: SnapshotEvent): void {
 		entry.state.snapshot = snapshot;
+		entry.snapshot = envelope;
+		entry.snapshotFacts = entry.facts;
 		this.#drop(entry);
-		entry.evicted = Math.max(entry.evicted, seq ?? -1);
+		entry.evicted = Math.max(entry.evicted, envelope.seq ?? -1);
 	}
 
 	#drop(entry: Entry | undefined): void {
@@ -206,6 +271,19 @@ export class Sessions {
 			largest.evicted = Math.max(largest.evicted, oldest.envelope.seq ?? -1);
 		}
 	}
+}
+
+/** The fact list with one more fact, dropping what it makes stale. */
+function keep(facts: Fact[], fact: Fact): Fact[] {
+	if (LATEST.has(fact.type)) return [...facts.filter((one) => one.type !== fact.type), fact];
+	if (fact.type === "ask.closed") {
+		// A closed question no longer needs either half: the client would only reduce them away.
+		const id = isObject(fact.data) ? fact.data.id : undefined;
+		return facts.filter(
+			(one) => !(one.type === "ask.opened" && isObject(one.data) && one.data.id === id),
+		);
+	}
+	return [...facts, fact];
 }
 
 function same(entry: Entry | undefined, epoch: string): entry is Entry {

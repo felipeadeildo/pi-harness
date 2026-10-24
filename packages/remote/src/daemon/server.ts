@@ -21,7 +21,11 @@ import { dirname, join } from "node:path";
 import { envelope, type Envelope, isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
 import { envelopeOf, line, Lines } from "../wire/lines.ts";
+import { Clients } from "./clients.ts";
 import { type GoneReason, type SessionLive, Sessions } from "./sessions.ts";
+
+/** Where clients reach the daemon, on loopback until login exists. A setting from C6 on. */
+export const CLIENT_PORT = 7878;
 
 /** With no session connected for this long, a daemon a pi started exits. */
 export const IDLE_EXIT_MS = 5 * 60_000;
@@ -39,6 +43,11 @@ export interface DaemonOptions {
 	/** The launcher's `current.json`, watched for a newer version. Unwatched when absent. */
 	current?: string;
 	idleExitMs?: number;
+	/**
+	 * Where clients reach the daemon over HTTP and WebSocket. Always on loopback until login exists.
+	 * Port 0 takes any free port, which `clientPort` then says.
+	 */
+	clientPort?: number;
 	/** Called once, after the daemon stopped listening and removed its socket. */
 	exited?(reason: ExitReason): void;
 	warn?(message: string): void;
@@ -53,6 +62,11 @@ export class Daemon {
 	#stopping = false;
 	/** The inode of the socket this daemon put in place, so it never removes another daemon's. */
 	#inode: number | undefined;
+	/** Each session's bridge, which a client's request for a snapshot goes to. */
+	readonly #bridges = new Map<string, Socket>();
+	#clients: Clients | undefined;
+	/** The port clients reach the daemon on, once it listens for them. */
+	clientPort: number | undefined;
 
 	private constructor(server: Server, options: DaemonOptions) {
 		this.#server = server;
@@ -82,6 +96,7 @@ export class Daemon {
 			return undefined;
 		}
 		daemon.#inode = statOf(options.socket)?.ino;
+		if (options.clientPort !== undefined) await daemon.#listenForClients(options.clientPort);
 		daemon.#watchCurrent();
 		daemon.#settle();
 		return daemon;
@@ -94,6 +109,7 @@ export class Daemon {
 		clearTimeout(this.#idle);
 		if (this.#options.current !== undefined) unwatchFile(this.#options.current);
 		for (const socket of this.#sockets) socket.destroy();
+		this.#clients?.close();
 		this.#server.close(async () => {
 			// Another daemon may have put its socket there since. A freed inode can come back at once,
 			// so the file is removed only when it is this daemon's and nothing answers on it.
@@ -121,14 +137,20 @@ export class Daemon {
 					continue;
 				}
 				if (bridge !== undefined) this.#bridgeSaid(bridge, message);
-				else bridge = this.#hello(socket, message);
+				else {
+					bridge = this.#hello(socket, message);
+					if (bridge !== undefined) this.#bridges.set(bridge.session, socket);
+				}
 				if (socket.destroyed) return;
 			}
 		});
 		socket.on("error", () => {});
 		socket.on("close", () => {
 			this.#sockets.delete(socket);
-			if (bridge !== undefined) this.sessions.lost(bridge.session, bridge.epoch);
+			if (bridge !== undefined) {
+				this.sessions.lost(bridge.session, bridge.epoch);
+				if (this.#bridges.get(bridge.session) === socket) this.#bridges.delete(bridge.session);
+			}
 			this.#settle();
 		});
 	}
@@ -177,7 +199,29 @@ export class Daemon {
 				if (dropped !== undefined) this.#warn(dropped);
 			}
 		}
+		this.#clients?.forward(message);
 		this.#settle();
+	}
+
+	async #listenForClients(port: number): Promise<void> {
+		const clients = new Clients({
+			sessions: this.sessions,
+			version: this.#options.version,
+			askSnapshot: (session) => this.#askSnapshot(session),
+			warn: (message) => this.#warn(message),
+		});
+		this.clientPort = await clients.listen(port);
+		if (this.clientPort === undefined)
+			this.#warn(`nothing listens for clients: port ${port} is taken`);
+		else this.#clients = clients;
+	}
+
+	/** Asks a session's bridge for a snapshot, which comes back as an event like any other. */
+	#askSnapshot(session: string): boolean {
+		const socket = this.#bridges.get(session);
+		if (socket === undefined || socket.destroyed) return false;
+		socket.write(line(envelope("command", "snapshot.get", {}, { session })));
+		return true;
 	}
 
 	/** With no session connected, the idle clock runs; a session going live stops it. */
