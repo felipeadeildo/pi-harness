@@ -389,6 +389,8 @@ The Sessions screen lists every session with its title, machine, state, cost and
 
 - Done when: the checks of F1 below pass in a browser.
 
+- Done: both screens and the route read the client's live cursor, and the checks of F1 pass in a browser, with the login in front of them. The facts cursor arrives with F2, which is why C7 stays open.
+
 ### F1 is done when
 
 - Two terminal sessions show live in a browser, a reload draws from the cache at once, closing the first terminal keeps the second, and a request with another `Host` gets 421.
