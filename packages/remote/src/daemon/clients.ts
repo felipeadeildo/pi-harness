@@ -102,13 +102,15 @@ export class Clients {
 	#hello(ws: WebSocket, message: Envelope): void {
 		const session = message.session ?? "";
 		const sessions = this.#options.sessions;
+		// The client watches the session even before a bridge registers it: after a daemon restarts,
+		// a client can come back before the bridge does, and the bridge's first snapshot is its answer.
+		let watchers = this.#watchers.get(session);
+		if (watchers === undefined) this.#watchers.set(session, (watchers = new Set()));
+		watchers.add(ws);
 		if (sessions.get(session) === undefined) {
 			this.#send(ws, envelope("error", "hello", { reason: "unknown session", session }));
 			return;
 		}
-		let watchers = this.#watchers.get(session);
-		if (watchers === undefined) this.#watchers.set(session, (watchers = new Set()));
-		watchers.add(ws);
 
 		const cursor = cursorOf(message.data);
 		const missed = cursor === undefined ? undefined : sessions.after(session, cursor);
