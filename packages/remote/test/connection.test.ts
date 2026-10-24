@@ -201,6 +201,10 @@ describe("a bridge and its daemon", () => {
 		expect(heard.messages.map((message) => [message.type, message.id])).toEqual([
 			["snapshot.get", "c1"],
 		]);
+		// Two lines it cannot read, and one warning with the start of the first.
+		expect(heard.warnings).toEqual([
+			"the pi-remote daemon sent a line this bridge cannot read: not json",
+		]);
 	});
 
 	test("closing tells the daemon the session is gone, and nothing connects again", async () => {
@@ -273,6 +277,19 @@ describe("a daemon that stops reading", () => {
 		expect(sockets[1]?.written[0]?.kind).toBe("hello");
 		// The daemon answered before, so this is no reason to start another one.
 		expect(heard.daemonStarts).toBe(0);
+	});
+
+	test("a socket destroyed before its close arrives takes no event, and says so", () => {
+		const { sockets, dial } = held();
+		const { made } = connection({}, { dial });
+		made.start();
+		const [socket] = sockets;
+		if (socket === undefined) throw new Error("no socket");
+		socket.emit("connect");
+		socket.destroyed = true;
+		expect(made.event("tasks.changed", {})).toBe(false);
+		expect(socket.written.map((one) => one.type)).toEqual(["bridge"]);
+		socket.emit("close");
 	});
 
 	test("a hook that throws becomes a warning, and the connection goes on", () => {

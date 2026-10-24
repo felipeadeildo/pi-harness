@@ -94,6 +94,8 @@ export class BridgeConnection {
 	event(type: string, data: unknown, options: { droppable?: boolean } = {}): boolean {
 		const socket = this.#socket;
 		if (!this.#up || socket === undefined) return false;
+		// A socket destroyed since the last check drops the write in silence, so it counts as gone.
+		if (socket.destroyed) return false;
 		const waiting = socket.writableLength;
 		if (waiting > RECONNECT_AT) {
 			socket.destroy();
@@ -123,7 +125,7 @@ export class BridgeConnection {
 				clearTimeout(giveUp);
 				resolve();
 			});
-			if (this.#up && reason !== undefined) {
+			if (this.#up && !socket.destroyed && reason !== undefined) {
 				socket.end(line(envelope("event", "session.gone", { reason }, this.#stamp())));
 			} else socket.destroy();
 		});
@@ -144,6 +146,8 @@ export class BridgeConnection {
 		const lines = new Lines(() =>
 			this.hooks.warn("the pi-remote daemon sent a line too long to read"),
 		);
+		// One warning per connection: a daemon that speaks another protocol sends nothing else.
+		let warnedUnreadable = false;
 		socket.on("connect", () => {
 			this.#attempts = 0;
 			this.#up = true;
@@ -158,6 +162,14 @@ export class BridgeConnection {
 			for (const text of lines.push(chunk)) {
 				const message = envelopeOf(text);
 				if (message !== undefined) this.#call(() => this.hooks.message?.(message));
+				else if (!warnedUnreadable) {
+					warnedUnreadable = true;
+					this.#call(() =>
+						this.hooks.warn(
+							`the pi-remote daemon sent a line this bridge cannot read: ${text.slice(0, 80)}`,
+						),
+					);
+				}
 			}
 		});
 		socket.on("drain", () => {
