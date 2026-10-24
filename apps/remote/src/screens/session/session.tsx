@@ -4,7 +4,7 @@
 //
 // A model's thinking folds into one line, a `<details>` the reader opens, so a long chain of thought
 // does not push the answer off the screen. A tool's output shows its first lines and folds the rest.
-import { type ClientSession, factsOf, transcriptOfSession } from "@adeildo/pi-remote-client";
+import { type ClientSession, harnessOf, transcriptOfSession } from "@adeildo/pi-remote-client";
 import {
 	type ChatMessage,
 	type OpenAsk,
@@ -64,12 +64,12 @@ export function viewOf(session: ClientSession): View {
 		session.entries,
 		session.entries.length,
 		session.leaf,
-		session.facts,
-		session.facts.length,
+		session.harness,
+		Object.keys(session.harness.asks).length + Object.keys(session.harness.rulings).length,
 	];
 	const held = views.get(session);
 	if (held !== undefined && held.key.every((part, at) => part === key[at])) return held.view;
-	const view = { facts: factsOf(session), items: transcriptOfSession(session).items };
+	const view = { facts: harnessOf(session), items: transcriptOfSession(session).items };
 	views.set(session, { key, view });
 	return view;
 }

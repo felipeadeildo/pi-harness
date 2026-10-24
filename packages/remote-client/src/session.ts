@@ -1,8 +1,11 @@
-// A session as the client holds it: the entries of the branch, the facts of the log, and the cursor
-// the reconnect sends. Reading an envelope is the only way it changes, which is what keeps a gap and
-// a duplicate impossible.
+// A session as the client holds it: the entries of the branch, the harness state beside it, and the
+// cursor the reconnect sends. Reading an envelope is the only way it changes, which is what keeps a
+// gap and a duplicate impossible.
 
 import {
+	applyLogged,
+	emptyHarnessState,
+	type HarnessState,
 	FACT_TYPES,
 	PRESENCE,
 	isEnvelope,
@@ -11,12 +14,9 @@ import {
 	type Envelope,
 	type Entry,
 	type Presence,
-	type HarnessState,
 	type SessionSnapshot,
 	type Transcript,
 	type FactType,
-	applyLogged,
-	emptyHarnessState,
 	transcriptOf,
 } from "@adeildo/pi-remote-protocol";
 
@@ -31,15 +31,20 @@ export interface SnapshotData {
 	snapshot: SessionSnapshot;
 	/** The tail of the branch, oldest first, which is what a screen draws first. */
 	entries: Entry[];
-	/** The log's facts up to the snapshot, so the tasks are there before the next one arrives. */
-	facts?: { type: string; data: unknown }[];
+	/** What the harness knew when the snapshot was taken, already folded, so a reader needs no replay. */
+	harness?: HarnessState;
 }
 
 export interface ClientSession {
 	key: SessionKey;
 	cursor: Cursor;
 	entries: Entry[];
-	facts: { type: string; data: unknown }[];
+	/**
+	 * What the harness knows about this session, folded the way the daemon folds it: the tasks beside
+	 * it, the questions and who answered them, the rulings, the mode and the rename. One reader of the
+	 * log, so the state a client draws is the state the daemon holds.
+	 */
+	harness: HarnessState;
 	snapshot?: SessionSnapshot;
 	/** Who has the session open and who typed last, as the daemon last said. */
 	presence?: Presence;
@@ -61,7 +66,7 @@ export function sessionOf(key: SessionKey, cached?: CachedSession): ClientSessio
 		key,
 		cursor: cached?.cursor ?? {},
 		entries: (cached?.entries ?? []) as Entry[],
-		facts: cached?.facts ?? [],
+		harness: cached?.harness ?? emptyHarnessState(),
 		leaf: cached?.leaf,
 		// `viewers` only says people were there, while `active` says someone is typing now, and a cache
 		// can be days old. The cut happens here, on the way in, so it also covers a file written before
@@ -78,11 +83,9 @@ export function transcriptOfSession(session: ClientSession): Transcript {
 	return transcriptOf(session.entries, session.leaf ?? session.cursor.entry);
 }
 
-/** The tasks, rulings, questions, mode and rename of the session, from its log. */
-export function factsOf(session: ClientSession): HarnessState {
-	let state = emptyHarnessState();
-	for (const fact of session.facts) state = applyLogged(state, fact.type, fact.data);
-	return state;
+/** The tasks, rulings, questions, mode and rename of the session, as the client holds them. */
+export function harnessOf(session: ClientSession): HarnessState {
+	return session.harness;
 }
 
 /** What to keep so the next visit draws at once. */
@@ -91,7 +94,7 @@ export function cachedOf(session: ClientSession): CachedSession {
 		key: session.key,
 		cursor: session.cursor,
 		entries: session.entries,
-		facts: session.facts,
+		harness: session.harness,
 		leaf: session.leaf,
 		presence: session.presence,
 	};
@@ -127,7 +130,7 @@ export function readEnvelope(
 				...(data.snapshot?.active === undefined ? {} : { active: data.snapshot.active }),
 			};
 		session.entries = data.entries;
-		session.facts = data.facts ?? session.facts;
+		session.harness = data.harness ?? session.harness;
 		const last = data.entries.at(-1);
 		// A snapshot with no entries leaves no leaf to point at, and the old one named an entry the
 		// client no longer holds.
@@ -163,7 +166,9 @@ export function readEnvelope(
 				return { read: "snapshot", why: "gap" };
 			}
 		}
-		session.facts.push({ type: value.type, data: value.data });
+		// The cursor is what keeps this from replaying: a fact already folded into the state a snapshot
+		// carried has a seq at or behind the cursor, so it never reaches here twice.
+		session.harness = applyLogged(session.harness, value.type, value.data);
 		session.cursor = advance(session.cursor, value);
 		if (value.type === "leaf.changed") {
 			// A `/tree` move, including the one back to the root: the branch the screen draws ends

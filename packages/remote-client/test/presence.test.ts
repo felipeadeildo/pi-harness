@@ -22,7 +22,12 @@ const envelope = (type: string, data: unknown, seq: number): unknown => ({
 });
 
 const started = () =>
-	sessionOf(key, { key, cursor: { epoch: "e1", seq: 1 }, entries: [], facts: [] });
+	sessionOf(key, {
+		key,
+		cursor: { epoch: "e1", seq: 1 },
+		entries: [],
+		harness: emptyHarnessState(),
+	});
 
 describe("who has the session open", () => {
 	test("the event is applied, and the cursor moves with it", () => {
@@ -67,7 +72,7 @@ describe("who has the session open", () => {
 			key,
 			cursor: { epoch: "e1", seq: 1 },
 			entries: [],
-			facts: [],
+			harness: emptyHarnessState(),
 		});
 		readEnvelope(session, {
 			v: 1,
@@ -133,7 +138,7 @@ describe("who has the session open", () => {
 			key,
 			cursor: {},
 			entries: [],
-			facts: [],
+			harness: emptyHarnessState(),
 			presence: {
 				viewers: [{ name: "phone", machine: "here" }],
 				active: { kind: "client", name: "phone", machine: "here" },

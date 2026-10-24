@@ -3,6 +3,8 @@
 // the next visit instead of recomputing it from the last entry it happens to hold.
 import { describe, expect, test } from "bun:test";
 
+import { emptyHarnessState } from "@adeildo/pi-remote-protocol";
+
 import { memoryCache } from "../src/cache.ts";
 import { readEnvelope, sessionOf, cachedOf, transcriptOfSession } from "../src/session.ts";
 
@@ -30,7 +32,12 @@ const envelope = (type: string, data: unknown, at: number): unknown => ({
 
 /** A client that already read the first envelope of an epoch, so the next one is in order. */
 function started() {
-	return sessionOf(key, { key, cursor: { epoch: "e1", seq: 1 }, entries: [], facts: [] });
+	return sessionOf(key, {
+		key,
+		cursor: { epoch: "e1", seq: 1 },
+		entries: [],
+		harness: emptyHarnessState(),
+	});
 }
 
 describe("the leaf the bridge names", () => {
@@ -71,7 +78,7 @@ describe("the leaf the bridge names", () => {
 			key,
 			cursor: { epoch: "e1", seq: 1 },
 			entries: [],
-			facts: [],
+			harness: emptyHarnessState(),
 		});
 		readEnvelope(
 			session,
@@ -80,7 +87,7 @@ describe("the leaf the bridge names", () => {
 				{
 					snapshot: { session: "s", machine: "here", cwd: "/work", kind: "terminal", leaf: "a" },
 					entries: [entry("a", null, "first"), entry("b", "a", "second")],
-					facts: [],
+					harness: emptyHarnessState(),
 				},
 				2,
 			),

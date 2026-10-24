@@ -139,7 +139,7 @@ describe("a client of the daemon", () => {
 		});
 		await client.load();
 		await until(() => client.session().entries.length === 2);
-		expect(client.session().facts).toEqual([{ type: "mode.changed", data: { mode: "judge" } }]);
+		expect(client.session().harness.mode).toBe("judge");
 
 		bridge.send("entry", entry("c", "b"));
 		await until(() => client.session().entries.length === 3);

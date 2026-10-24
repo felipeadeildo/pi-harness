@@ -17,7 +17,7 @@ export {
 	cachedOf,
 	type ClientSession,
 	ENTRY,
-	factsOf,
+	harnessOf,
 	hello,
 	readEnvelope,
 	SNAPSHOT,

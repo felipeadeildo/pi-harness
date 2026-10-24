@@ -42,7 +42,9 @@ export function storageCache(storage: StorageLike, kept = KEPT): Cache {
 			if (text === null) return undefined;
 			try {
 				const value = JSON.parse(text) as CachedSession;
-				return Array.isArray(value.entries) && Array.isArray(value.facts) ? value : undefined;
+				return Array.isArray(value.entries) && typeof value.harness === "object"
+					? value
+					: undefined;
 			} catch {
 				return undefined;
 			}
