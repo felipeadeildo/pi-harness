@@ -235,6 +235,9 @@ export class Clients {
 	 */
 	forget(session: string): void {
 		this.#presence.forget(session);
+		// The paged file belongs to the session that just ended: its index goes with it.
+		const file = this.#options.sessions.get(session)?.live.file;
+		if (file !== undefined) this.#history.forget(file);
 		// A command in flight for a session that ended will never be answered either.
 		for (const [wasAsked] of this.#asked) {
 			if (wasAsked.startsWith(`${session}\n`)) this.#asked.delete(wasAsked);
