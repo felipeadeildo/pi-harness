@@ -84,6 +84,19 @@ describe("the composer", () => {
 		expect(html).toContain("refused: a client cannot ask for the full mode");
 	});
 
+	test("a command that waited past the window can be sent now, or dropped", () => {
+		const { client } = clientOf([
+			{ id: "c1", type: "prompt.send", data: {}, at: 0, state: "waiting" },
+			{ id: "c2", type: "run.abort", data: {}, at: 0, state: "sent" },
+		]);
+		const html = draw({ client, canPrompt: true });
+		// Both states are `waiting`-free: one is waiting (so it can go or be dropped), the other is
+		// already out (so there is nothing to decide).
+		expect(html).toContain("Send now");
+		expect(html).toContain("Drop");
+		expect(html.match(/Send now/g)).toHaveLength(1);
+	});
+
 	test("a state reads as what the person does about it", () => {
 		expect(stateOf({ id: "a", type: "run.abort", data: {}, at: 0, state: "waiting" })).toBe(
 			"waiting to go",

@@ -47,7 +47,7 @@ export function Composer({ client, canPrompt, model, thinking, ask }: ComposerPr
 		controls(send),
 		pickers(send, model, thinking),
 		ask === undefined ? null : naming(send, ask),
-		queueNode(queue),
+		queueNode(queue, client),
 	);
 }
 
@@ -161,8 +161,9 @@ function naming(
 	);
 }
 
-/** What the queue holds, with the reason it is still here. */
-function queueNode(queue: readonly Outgoing[]): ReactNode {
+/** What the queue holds, with the reason it is still here, and a way out of the two states a
+ * person can act on: a command that waited past the window goes out when they say so, or is dropped. */
+function queueNode(queue: readonly Outgoing[], client: Client): ReactNode {
 	if (queue.length === 0) return null;
 	return h(
 		"ul",
@@ -173,6 +174,20 @@ function queueNode(queue: readonly Outgoing[]): ReactNode {
 				{ key: command.id, className: `remote-composer-${command.state}` },
 				h("span", { className: "remote-composer-command" }, command.type),
 				h("span", { className: "remote-composer-state" }, stateOf(command)),
+				...(command.state === "waiting"
+					? [
+							h(
+								"button",
+								{ key: "now", type: "button", onClick: () => client.outbox().release(command.id) },
+								"Send now",
+							),
+							h(
+								"button",
+								{ key: "drop", type: "button", onClick: () => client.outbox().drop(command.id) },
+								"Drop",
+							),
+						]
+					: []),
 			),
 		),
 	);
