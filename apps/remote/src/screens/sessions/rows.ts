@@ -48,3 +48,20 @@ function costOf(session: ListedSession): string {
 	const cost = session.snapshot?.cost?.total;
 	return cost === undefined ? "" : `$${cost.toFixed(2)}`;
 }
+
+/**
+ * The row's own style, as one object and never an array. A row that sits inside `Link asChild` reaches
+ * the document through a Slot that spreads props, and an array spread there becomes `{0: …}` which the
+ * browser refuses to apply — the page threw before drawing a single row because of exactly that.
+ */
+export function rowStyle(marked: boolean): Record<string, number | string> {
+	return marked
+		? {
+				paddingVertical: 12,
+				paddingHorizontal: 8,
+				borderRadius: 8,
+				borderLeftWidth: 3,
+				borderLeftColor: "#d97706",
+			}
+		: { paddingVertical: 12, paddingHorizontal: 8, borderRadius: 8 };
+}
