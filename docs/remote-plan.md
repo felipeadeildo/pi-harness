@@ -34,7 +34,7 @@ A slice is ticked in the commit that lands it.
 - [ ] C8. Commands through the bridge (core, F2)
 - [ ] A5. Clients in the race for the harness's dialogs (ask, F2)
 - [ ] A6. pi's own dialogs in the race (ask, F2)
-- [ ] P4. Commands and the outbox in the client library (protocol, F2)
+- [x] P4. Commands and the outbox in the client library (protocol, F2)
 - [ ] C9. Presence and its marks (core, F2)
 - [ ] W4. The composer and the controls (client, F2)
 
@@ -444,9 +444,11 @@ In a terminal session, the bridge wraps `select`, `confirm`, `input` and `editor
 
 Owner: protocol. Needs: C8.
 
-`send(command)` gives each command an id and reports its progress from the replies: sent, accepted and applied. What a client sends while the daemon is out of reach waits in [the outbox](remote.md#the-outbox) with the time it was typed. After a reconnect, items from the last 2 minutes go out in order, and older ones wait for the operator to send, edit or drop them. An answer to a question someone else answered comes back as "answered on <where>" and is dropped.
+`send(command)` gives each command an id and reports its progress from the reply: sent when it leaves, and then applied, or refused with the reason the daemon gave. There is no separate `accepted`: the bridge answers once per command, on the same id. What a client sends while the daemon is out of reach waits in [the outbox](remote.md#the-outbox) with the time it was typed. After a reconnect, items from the last 2 minutes go out in order, and older ones wait for the operator to send, edit or drop them. An answer to a question someone else answered comes back as "answered on <where>" and is dropped.
 
 - Tests with a scripted daemon: an item typed offline goes out after a reconnect within 2 minutes, an older one waits, and a resent command is answered as a repeat.
+
+The client side is in on its own: the queue, the id, and the reply that ends a command. What it cannot yet do is send a prompt that lands, because that half of C8 goes through the inbox, and the inbox slice is I1.
 
 ### C9. Presence and its marks
 
