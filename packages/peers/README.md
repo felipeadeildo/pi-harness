@@ -67,18 +67,20 @@ The panel fills the screen. The rooms are on the left, the folder's first, and t
 under its name: what each waits on or does, a flag for one that waits on you. The open room's conversation is on
 the right, with the line you write in under it. Neither side moves or changes width as you switch rooms.
 
-| Key           | Writing                                                           | On the list                                |
-| ------------- | ----------------------------------------------------------------- | ------------------------------------------ |
-| `↑` `↓`       | Scroll the room; it stops following new lines until the end       | Move; on a room, open it                   |
-| `PgUp` `PgDn` | Scroll a page                                                     |                                            |
-| `Enter`       | Send to everyone, or to whom you `@` mention                      | Write in the room, or to the agent         |
-| `@`           | List the agents as you type a name; `Tab` or `Enter` completes it |                                            |
-| `Tab`         | Go to the list                                                    | Back to writing                            |
-| `Ctrl+F`      |                                                                   | Show only what the agent wrote or was sent |
-| `Esc`         | Close the list of names, then the panel                           | Close the panel                            |
-| `Alt+G`       | Close the panel, back to the chat                                 | Same                                       |
+| Key           | Writing                                                           | On the list                                 |
+| ------------- | ----------------------------------------------------------------- | ------------------------------------------- |
+| `↑` `↓`       | Scroll the room; it stops following new lines until the end       | Move; on a room, open it                    |
+| `PgUp` `PgDn` | Scroll a page                                                     |                                             |
+| `Enter`       | Send to everyone, or to whom you `@` mention                      | Write in the room; on an agent, its session |
+| `@`           | List the agents as you type a name; `Tab` or `Enter` completes it | On an agent, write to it                    |
+| `Tab`         | Go to the list                                                    | Back to writing                             |
+| `Ctrl+F`      |                                                                   | Show only what the agent wrote or was sent  |
+| `Esc`         | Close the list of names, then the panel                           | Close the panel                             |
+| `Alt+G`       | Close the panel, back to the chat                                 | Same                                        |
 
 Typing while the list has the keys writes in the room, so you never have to go back first.
+
+`Enter` on another agent shows its session over the panel, read from its file as it grows: what it was asked, what it answered and the calls it made, with the look's frames. `Alt+G` or `Esc` there goes back to the panel, on the same line. With nothing installed that can show a session, `Enter` writes to the agent, as `@` does.
 
 ## Rooms across folders
 

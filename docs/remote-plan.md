@@ -20,7 +20,7 @@ A slice is ticked in the commit that lands it.
 - [ ] N4. Peers reads names from the kit (names, F0)
 - [x] V1. The sources seam (view, F1)
 - [x] V2. The view (view, F1)
-- [ ] V3. The panel opens a view (view, F1)
+- [x] V3. The panel opens a view (view, F1)
 - [x] C3. The remote package and its build (core, F1)
 - [ ] C4. The bridge (core, F1)
 - [ ] C5. The daemon (core, F1)
