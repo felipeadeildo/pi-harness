@@ -124,15 +124,18 @@ export class Frames {
 			const next = this.#next();
 			if (next === "wait") return undefined;
 			if (next === "too large") return 1009;
-			if (next === "unmasked") return 1002;
+			if (next === "unmasked" || next === "rsv" || next === "control") return 1002;
 		}
 	}
 
-	#next(): "read" | "wait" | "too large" | "unmasked" {
+	#next(): "read" | "wait" | "too large" | "unmasked" | "rsv" | "control" {
 		const buffer = this.#buffer;
 		if (buffer.length < 2) return "wait";
 		const final = (buffer[0]! & 0x80) !== 0;
 		const opcode = buffer[0]! & 0x0f;
+		// Nothing this server negotiates sets an extension bit, so a frame that sets one is a client
+		// talking a protocol we did not agree to. RFC 6455 says to fail the connection, not to guess.
+		if ((buffer[0]! & 0x70) !== 0) return "rsv";
 		if ((buffer[1]! & 0x80) === 0) return "unmasked";
 		let length = buffer[1]! & 0x7f;
 		let offset = 2;
@@ -148,6 +151,9 @@ export class Frames {
 			offset = 10;
 		}
 		if (length > MAX_MESSAGE || this.#size + length > MAX_MESSAGE) return "too large";
+		// A control frame carries at most 125 bytes and is never fragmented: the rule exists so a close
+		// or a ping is read without buffering, and a big one is an attack on exactly that.
+		if (opcode >= CLOSE && (length > 125 || !final)) return "control";
 		const mask = offset;
 		offset += 4;
 		if (buffer.length < offset + length) return "wait";

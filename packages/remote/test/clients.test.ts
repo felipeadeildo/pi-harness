@@ -955,3 +955,37 @@ describe("a port that will not open", () => {
 		expect(portRefused(7878, undefined)).toContain("no reason given");
 	});
 });
+describe("WebSocket frames a server must not read", () => {
+	/** A masked frame, as a browser sends one, with the bits a test needs to get wrong. */
+	function masked(opcode: number, payload: Buffer, bits: { rsv?: number; final?: boolean } = {}) {
+		const head = Buffer.alloc(6);
+		head[0] = (bits.final === false ? 0 : 0x80) | ((bits.rsv ?? 0) << 4) | opcode;
+		head[1] = 0x80 | payload.length;
+		const mask = Buffer.from([1, 2, 3, 4]);
+		mask.copy(head, 2);
+		const body = Buffer.from(payload);
+		for (let i = 0; i < body.length; i += 1) body[i]! ^= mask[i % 4]!;
+		return Buffer.concat([head, body]);
+	}
+
+	test("an extension bit it never negotiated closes with 1002", () => {
+		const frames = new Frames(() => {});
+		expect(frames.push(masked(0x1, Buffer.from("hi"), { rsv: 0x4 }))).toBe(1002);
+	});
+
+	test("a control frame past 125 bytes closes with 1002, and a ping of 125 goes through", () => {
+		// A refused frame ends the connection, so the second case gets its own reader: the first one
+		// still holds the bytes it refused, which is what "do not read it" means.
+		expect(new Frames(() => {}).push(masked(0x9, Buffer.alloc(126)))).toBe(1002);
+
+		const read: number[] = [];
+		const frames = new Frames((opcode) => read.push(opcode));
+		expect(frames.push(masked(0x9, Buffer.alloc(125)))).toBeUndefined();
+		expect(read).toEqual([0x9]);
+	});
+
+	test("a fragmented control frame closes with 1002", () => {
+		const frames = new Frames(() => {});
+		expect(frames.push(masked(0x9, Buffer.from("a"), { final: false }))).toBe(1002);
+	});
+});
