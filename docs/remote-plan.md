@@ -421,7 +421,7 @@ The daemon passes a client's command, a `command` envelope with an `id`, to the 
 
 - `mode.set` refuses `full` from a client.
 - The bridge keeps the last 1,000 command ids of the session and answers a resent one as a repeat. It logs every command with its id and `by`, and reads the ids back from the log when it starts, so a resend after a restart is still a repeat.
-- A prompt from a client logs `prompt.received { by }`, and the terminal shows it as `From <client>: …`.
+- A prompt from a client logs `prompt.received { by }`, and the terminal shows it as `From <client>: …`. The protocol declares the fact and the daemon would keep it, but nothing emits it yet: the producer and the terminal's line come with C9, which has the hook that draws them, the test coming with the producer.
 - Tests with the rig: each command's effect, a resent id answered as a repeat across a bridge restart, and `full` refused.
 
 ### A5. Clients in the race for the harness's dialogs
