@@ -123,6 +123,10 @@ export class Clients {
 					// A session nobody watches leaves no entry, whether it ended or never came.
 					if (watchers.size === 0) this.#watchers.delete(session);
 				}
+				// Its commands will never be answered, so nothing keeps a place for them.
+				for (const [wasAsked, asker] of this.#asked) {
+					if (asker === ws) this.#asked.delete(wasAsked);
+				}
 			},
 		};
 	}
