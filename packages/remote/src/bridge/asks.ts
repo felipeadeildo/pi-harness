@@ -96,7 +96,8 @@ export class ClientAsks {
 			return;
 		}
 		this.#open.add(data.id);
-		this.#options.send({ type: "ask.opened", data });
+		// No fact is sent from here: the ask client logs `ask.opened` and `ask.closed`, and the bridge
+		// forwards the log. Two producers meant two copies, and the second one erased the author.
 	}
 
 	/**
@@ -105,10 +106,8 @@ export class ClientAsks {
 	 * stays blocked on a question nobody is waiting on any more.
 	 */
 	#close(id: string, result: AskResult, by?: By): void {
-		this.#options.send({
-			type: "ask.closed",
-			data: { id, result, ...(by === undefined ? {} : { by }) },
-		});
+		// The `CANCEL` stays: it is what the session's status watches to leave `blocked`. The fact is
+		// the log's, written by the ask client with the same answer and the same author.
 		this.#options.events.emit(CANCEL, { id, ...(by === undefined ? {} : { by }) });
 	}
 }

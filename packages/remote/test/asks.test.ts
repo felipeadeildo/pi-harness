@@ -36,17 +36,16 @@ describe("the questions of a session with no terminal", () => {
 	test("a question goes to the clients, and a client's answer goes back on the bus with its name", () => {
 		const { events, sent, asks, answered } = mounted();
 		events.emit(ASK, QUESTION);
-		expect(sent).toEqual([{ type: "ask.opened", data: QUESTION }]);
+		// Nothing goes on the wire from here: the ask client logs the fact, and the bridge forwards
+		// the log. A second producer meant a second copy that could erase the author.
+		expect(sent).toEqual([]);
 		expect(asks.waiting).toEqual(["q1"]);
 
 		expect(asks.answer({ ask: "q1", by: CLIENT, result: { answers: [], cancelled: false } })).toBe(
 			true,
 		);
 		expect(answered).toEqual([{ id: "q1", by: CLIENT, result: { answers: [], cancelled: false } }]);
-		expect(sent.at(-1)).toMatchObject({
-			type: "ask.closed",
-			data: { id: "q1", by: CLIENT, result: { answers: [], cancelled: false } },
-		});
+		expect(sent).toEqual([]);
 		expect(asks.waiting).toEqual([]);
 	});
 
@@ -67,10 +66,7 @@ describe("the questions of a session with no terminal", () => {
 		events.emit(CANCEL, { id: "q1", by: { kind: "terminal", name: "other", machine: "box" } });
 		expect(asks.waiting).toEqual([]);
 		expect(answered).toEqual([]);
-		expect(sent.at(-1)).toMatchObject({
-			type: "ask.closed",
-			data: { id: "q1", result: { answers: [], cancelled: true } },
-		});
+		expect(sent).toEqual([]);
 	});
 
 	test("a question with no id is refused with a warning instead of a dialog nobody can answer", () => {
