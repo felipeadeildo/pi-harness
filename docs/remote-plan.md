@@ -23,9 +23,9 @@ A slice is ticked in the commit that lands it.
 - [x] V3. The panel opens a view (view, F1)
 - [x] C3. The remote package and its build (core, F1)
 - [x] C4. The bridge (core, F1)
-- [ ] C5. The daemon (core, F1)
+- [x] C5. The daemon (core, F1)
 - [ ] C6. Login and the Host check (core, F1)
-- [ ] C7. Sync by cursors (core, F1)
+- [x] C7. Sync by cursors (core, F1)
 - [x] P3. The client library (protocol, F1)
 - [x] W1. The Expo app and the CSP (client, F1)
 - [x] W2. Text from elsewhere (client, F1)
@@ -335,6 +335,7 @@ Owner: core. Needs: C5.
 The daemon serves the three cursors of [Sync](remote.md#sync): entries by id, facts by their position in the log, and the live stream by `(epoch, seq)`. A client's first load takes the snapshot and the latest entries, and a reconnect resumes from its cursors.
 
 - Tests with the rig and a scripted client: a disconnect mid-run resumes with no gap and nothing twice, and a daemon restart mid-run does the same through the snapshot.
+- Facts by their position in the log wait for F2. The snapshot carries the facts (#98) and the replay carries those after it, so a client reads no log while the daemon knows the session, and a restarted daemon gets a new snapshot from the live bridge. The log is needed only to show a session that ended before a daemon restart, which is history.
 
 ### P3. The client library
 
