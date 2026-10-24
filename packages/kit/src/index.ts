@@ -9,6 +9,7 @@ export * from "./contracts/by.ts";
 export { bySession } from "./by-session.ts";
 export * from "./contracts/calls.ts";
 export * from "./contracts/entries.ts";
+export * from "./contracts/inbox.ts";
 export * from "./contracts/screen.ts";
 export * from "./contracts/skills.ts";
 export * from "./contracts/sources.ts";
@@ -20,6 +21,8 @@ export * from "./contracts/mode.ts";
 export * from "./contracts/protected.ts";
 export * from "./contracts/tasks.ts";
 export * from "./events/log.ts";
+export { Inbox } from "./inbox/inbox.ts";
+export { type Letter, type Want, isLetter } from "./inbox/letter.ts";
 export { fileSource, type FileSourceOptions, sourceFor } from "./sources/file.ts";
 export {
 	FileTail,
