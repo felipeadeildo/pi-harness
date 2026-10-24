@@ -110,8 +110,15 @@ export class Folder {
 	readonly peers = new Map<string, Peer>();
 	readonly messages = new Map<string, Posted>();
 	readonly room: RoomItem[] = [];
-	/** Who a shared room counts. The folder's own room has no `room.*` events and leaves it empty. */
-	readonly membership = new Membership();
+	/**
+	 * Who counts in this room. A shared room lists its members; the folder's own room lists none, so
+	 * `everyone` says being in it is what makes a session a member.
+	 */
+	readonly membership: Membership;
+
+	constructor(everyone = false) {
+		this.membership = new Membership(everyone);
+	}
 
 	/** Counts the reads that brought events, so what is worked out from the folder knows it is stale. */
 	version = 0;

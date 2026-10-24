@@ -98,14 +98,16 @@ export interface LogEventMap {
 	 * Someone joins the room: you, or an agent whose call the permission gate let through. `why` is
 	 * what the agent said it needs, and `allowedBy` what let the call through.
 	 */
-	"room.added": {
-		member: Member;
-		by: "you" | "agent";
-		why?: string;
-		allowedBy?: string;
-		/** How the member joins: `in` takes part, `listening` hears only what names it. */
-		mode?: RoomMode;
-	};
+	"room.added":
+		| { member: { folder: string }; by: "you" | "agent"; why?: string; allowedBy?: string }
+		| {
+				member: { session: string; cwd: string };
+				by: "you" | "agent";
+				why?: string;
+				allowedBy?: string;
+				/** How the member joins: `in` takes part, `listening` hears only what names it. */
+				mode?: Exclude<RoomMode, "out">;
+		  };
 	/**
 	 * A member changed how it stands in the room, without leaving it: `in` takes part, `listening`
 	 * hears only what names it. Leaving is `room.removed`, which is the third mode folded.

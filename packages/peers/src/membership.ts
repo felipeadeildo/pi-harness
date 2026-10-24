@@ -25,6 +25,15 @@ export class Membership {
 	readonly out = new Set<string>();
 	/** How each session that is in stands here, when it is not taking part like everyone else. */
 	readonly listening = new Set<string>();
+	/**
+	 * A room every session in the folder is in without being added: the folder's own. Its member
+	 * list stays empty, so being here is what makes a session part of it.
+	 */
+	readonly #everyone: boolean;
+
+	constructor(everyone = false) {
+		this.#everyone = everyone;
+	}
 	/** Every addition, oldest first, for the line that says how the room came to be. */
 	readonly additions: Addition[] = [];
 
@@ -39,7 +48,8 @@ export class Membership {
 			}
 			case "room.added": {
 				const data = event.data as LoggedEvent<"room.added">["data"];
-				this.#add(data.member, event.at, data.mode);
+				// Only a session says how it joins: a folder brings its sessions in taking part.
+				this.#add(data.member, event.at, "mode" in data ? data.mode : undefined);
 				this.additions.push({ ...data, session: event.session, at: event.at });
 				return;
 			}
@@ -69,7 +79,7 @@ export class Membership {
 	 */
 	modeOf(session: string, cwd: string): RoomMode {
 		if (this.closed || this.out.has(session)) return "out";
-		if (!this.sessions.has(session) && !this.folders.has(cwd)) return "out";
+		if (!this.#everyone && !this.sessions.has(session) && !this.folders.has(cwd)) return "out";
 		return this.listening.has(session) ? "listening" : "in";
 	}
 

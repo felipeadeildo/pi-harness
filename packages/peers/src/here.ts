@@ -229,7 +229,7 @@ export class Here implements Sender {
 		this.#cwd = place.cwd;
 		this.#room = place.room;
 		this.#feed = place.feed ?? new FolderFeed(place.target.dir);
-		this.#folder = place.folder ?? new Folder();
+		this.#folder = place.folder ?? new Folder(true);
 		if (place.folder === undefined) this.#folder.apply(this.#feed.read());
 		// Set before logging: the log reads the room, and what it finds is judged against this.
 		// A reload opens the session again, and what arrived while it reloaded is still for this run.
@@ -396,14 +396,7 @@ export class Here implements Sender {
 	/** How this session stands in this room, which decides what it takes and whether it bids. */
 	#mode(): RoomMode {
 		if (this.session === undefined) return "in";
-		const membership = this.#folder.membership;
-		// The folder's room has no member list: being in it is taking part, and only a session that
-		// asked otherwise stands differently. A shared room asks its own membership.
-		if (this.#room === undefined) {
-			if (membership.closed || membership.out.has(this.session)) return "out";
-			return membership.listening.has(this.session) ? "listening" : "in";
-		}
-		return membership.modeOf(this.session, this.#cwd);
+		return this.#folder.membership.modeOf(this.session, this.#cwd);
 	}
 
 	/** The agent's model read one of the messages it got. Another room's message is not this one's. */
@@ -551,8 +544,6 @@ export class Here implements Sender {
 	}
 
 	#openRequests(): Posted[] {
-		// A session that listens does not bid: `@anyone` is an address of the ones taking part.
-		if (this.#mode() !== "in") return [];
 		const now = this.#now();
 		return [...this.#folder.messages.values()].filter(
 			(message) =>
