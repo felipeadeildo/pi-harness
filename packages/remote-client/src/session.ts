@@ -5,6 +5,7 @@
 import {
 	FACT_TYPES,
 	isEnvelope,
+	isObject,
 	type Envelope,
 	type Entry,
 	type SessionFacts,
@@ -89,19 +90,21 @@ export function readEnvelope(
 	// The snapshot is the answer to every way of being lost, so it is read before the cursor is
 	// consulted: a client that asked for one has nothing to compare its epoch against.
 	if (value.type === SNAPSHOT) {
-		const data = value.data as SnapshotData;
+		// The snapshot replaces the whole state at once, so its shape is checked before the swap:
+		// an envelope that decodes is not the same as a snapshot that does.
+		if (!isObject(value.data) || !Array.isArray(value.data.entries)) return { read: "skip" };
+		const data = value.data as unknown as SnapshotData;
 		session.snapshot = data.snapshot;
 		session.entries = data.entries;
 		session.facts = data.facts ?? session.facts;
 		const last = data.entries.at(-1);
-		session.cursor = {
-			...advance(session.cursor, value),
-			...(last === undefined ? {} : { entry: last.id }),
-		};
+		// A snapshot with no entries leaves no leaf to point at, and the old one named an entry the
+		// client no longer holds.
+		session.cursor = { ...advance(session.cursor, value), entry: last?.id };
 		return { read: "now" };
 	}
 	const next = decide(session.cursor, value);
-	if (next.read === "snapshot") return next;
+	if (next.read !== "now") return next;
 	if (value.type === ENTRY) {
 		const entry = value.data as Entry;
 		// A message pi wrote after the client read it through the stream replaces the copy it bound.

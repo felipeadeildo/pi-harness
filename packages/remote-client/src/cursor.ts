@@ -16,6 +16,8 @@ export interface Cursor {
 export type Next =
 	/** Read it: it comes after the cursor. */
 	| { read: "now" }
+	/** Already read, so nothing changes: a daemon is free to send an envelope twice. */
+	| { read: "skip" }
 	/** Read the snapshot first: the stream restarted, or the client is new. */
 	| { read: "snapshot"; why: "new" | "epoch" | "gap" };
 
@@ -29,8 +31,11 @@ export function decide(cursor: Cursor, envelope: Envelope): Next {
 	if (envelope.epoch !== undefined && envelope.epoch !== cursor.epoch) {
 		return { read: "snapshot", why: "epoch" };
 	}
-	if (envelope.seq !== undefined && cursor.seq !== undefined && envelope.seq !== cursor.seq + 1) {
-		return { read: "snapshot", why: "gap" };
+	if (envelope.seq !== undefined && cursor.seq !== undefined) {
+		// At or behind the cursor is a repeat, which changes nothing; past the next number is a hole,
+		// which nothing but the snapshot can put back.
+		if (envelope.seq <= cursor.seq) return { read: "skip" };
+		if (envelope.seq > cursor.seq + 1) return { read: "snapshot", why: "gap" };
 	}
 	return { read: "now" };
 }

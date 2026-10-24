@@ -100,7 +100,9 @@ export function connect(options: ConnectionOptions): Client {
 			return () => listeners.delete(handle);
 		},
 		load: async () => {
-			const cached = await options.cache.read(options.key);
+			// A cache that fails is a cold open, never a client that goes quiet: the network still
+			// has to be asked.
+			const cached = await options.cache.read(options.key).catch(() => undefined);
 			if (cached !== undefined) {
 				session = sessionOf(options.key, cached);
 				tell();

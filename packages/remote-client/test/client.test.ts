@@ -187,6 +187,43 @@ describe("a client of a session", () => {
 		client.stop();
 	});
 
+	test("a duplicate is skipped, so a daemon may send an envelope twice", async () => {
+		const envelopes = [snapshot, ...stream(1)];
+		let asked = 0;
+
+		const cache = memoryCache();
+		await cache.write({ key, cursor: { epoch: "e1", seq: 1 }, entries: [], facts: [] });
+
+		const client = connect({
+			key,
+			cache,
+			open: (onMessage) => ({
+				send: (hello) => {
+					if (cursorOf(hello).seq === undefined) asked += 1;
+					queueMicrotask(() => {
+						// The same envelope twice, and then the next one: only the next one is read,
+						// and nothing asks for a snapshot.
+						const first = envelopes.find((envelope) => envelope.seq === 2) as Envelope;
+						onMessage(first);
+						onMessage(first);
+						onMessage(envelopes.find((envelope) => envelope.seq === 3) as Envelope);
+					});
+				},
+				close: () => {},
+			}),
+		});
+
+		await client.load();
+		await new Promise((resolve) => setTimeout(resolve, 20));
+
+		expect(asked).toBe(0);
+		expect(client.session().cursor.seq).toBe(3);
+		expect(client.session().facts).toHaveLength(
+			stream(1).filter((envelope) => envelope.seq === 2 || envelope.seq === 3).length,
+		);
+		client.stop();
+	});
+
 	test("a hole in the numbering asks for a snapshot instead of drawing what comes next", async () => {
 		const cache = memoryCache();
 		await cache.write({ key, cursor: { epoch: "e1", seq: 1 }, entries: [], facts: [] });
