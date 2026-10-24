@@ -59,6 +59,25 @@ describe("a command on its way out", () => {
 		session.stop();
 	});
 
+	test("the command says who sent it, so the answer can name where it came from", async () => {
+		const wire = socket();
+		const session = connect({
+			key,
+			cache: memoryCache(),
+			open: wire.open,
+			by: { kind: "client", name: "phone", machine: "here" },
+			wait: (_ms, run) => {
+				queueMicrotask(run);
+				return () => {};
+			},
+		});
+		await session.load();
+		session.send("run.abort", {});
+		const sent = wire.sent.find((one) => one.kind === "command");
+		expect(sent?.by).toEqual({ kind: "client", name: "phone", machine: "here" });
+		session.stop();
+	});
+
 	test("a reply ends it, and an error keeps it with the reason", async () => {
 		const wire = socket();
 		const session = client(wire);
