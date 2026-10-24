@@ -23,7 +23,7 @@ A slice is ticked in the commit that lands it.
 - [x] V3. The panel opens a view (view, F1)
 - [x] C3. The remote package and its build (core, F1)
 - [x] C4. The bridge (core, F1)
-- [ ] C5. The daemon (core, F1)
+- [x] C5. The daemon (core, F1)
 - [x] C6. Login and the Host check (core, F1)
 - [ ] C7. Sync by cursors (core, F1)
 - [x] P3. The client library (protocol, F1)
@@ -316,7 +316,9 @@ The bridge registers only in a pi in tui mode. It connects to `remote/daemon.soc
 
 Owner: core. Needs: C4 and V1.
 
-The daemon listens on the unix socket for bridges, and on `127.0.0.1:7878` for clients over HTTP and WebSocket. It keeps each session's snapshot and a replay buffer, and reads history from the session files through the follower from V1 and from the harness logs through `readFrom`. It serves the web build with the CSP from [Text from elsewhere](remote.md#text-from-elsewhere).
+The daemon listens on the unix socket for bridges, and on `127.0.0.1:7878` for clients over HTTP and WebSocket. It keeps each session's snapshot and a replay buffer, and reads history from the session files through the follower from V1. It serves the web build with the CSP from [Text from elsewhere](remote.md#text-from-elsewhere).
+
+**Done so far:** the socket, the clients' port, the snapshot and replay, the session files, the web build and its policy, `serve` and `--dev`. The harness log reader (`readFrom`) comes with F2, with the facts cursor of C7.
 
 - Lifecycle: binding the socket is the lock. A `with pi` daemon exits after `idleExitMinutes` with no session, and a newer version in `current.json` makes it finish its requests and exit. `pi-remote serve` keeps it up, and `serve --dev` runs it from `src/` and restarts it on every save.
 - Routes: the part of [The protocol](remote.md#the-protocol) that F1 reads, which is the session list, a session's snapshot, its entries and facts after a cursor, and the live stream.
