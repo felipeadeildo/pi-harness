@@ -9,6 +9,7 @@ import {
 	type ChatMessage,
 	type OpenAsk,
 	openAsks,
+	type SessionFacts,
 	type SessionTasks,
 	type Task,
 	type TranscriptItem,
@@ -32,8 +33,7 @@ export interface SessionScreenProps {
 }
 
 export function SessionScreen({ session }: SessionScreenProps): ReactNode {
-	const facts = factsOf(session);
-	const items = transcriptOfSession(session).items;
+	const { facts, items } = viewOf(session);
 	return h(
 		"main",
 		{ className: "remote-session" },
@@ -43,6 +43,36 @@ export function SessionScreen({ session }: SessionScreenProps): ReactNode {
 		...openAsks(facts).map(askNode),
 		h("p", { className: "remote-read-only" }, "Read only."),
 	);
+}
+
+interface View {
+	facts: SessionFacts;
+	items: TranscriptItem[];
+}
+
+const views = new WeakMap<ClientSession, { key: readonly unknown[]; view: View }>();
+
+/**
+ * The transcript and the facts, worked out again only when what they come from changed. A client
+ * changes its session in place: an entry or a fact is pushed onto its list, a snapshot swaps the
+ * list, and a `/tree` move changes the leaf. So the lists, their lengths and the leaf say whether
+ * anything moved, and a screen that draws on every envelope does not fold the whole log each time.
+ * An entry changed where it stands would go unseen: the client never does that today, and one that
+ * starts to has to swap the list or bump what this compares.
+ */
+export function viewOf(session: ClientSession): View {
+	const key = [
+		session.entries,
+		session.entries.length,
+		session.leaf,
+		session.facts,
+		session.facts.length,
+	];
+	const held = views.get(session);
+	if (held !== undefined && held.key.every((part, at) => part === key[at])) return held.view;
+	const view = { facts: factsOf(session), items: transcriptOfSession(session).items };
+	views.set(session, { key, view });
+	return view;
 }
 
 /** What the session is called: the title pi or the tasks gave it, else the handle a room uses. */
