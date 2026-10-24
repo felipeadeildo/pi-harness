@@ -1,7 +1,7 @@
 // What the screen reads of the rooms this session is in, and what it can change. The rooms
 // themselves are directories of logs, folded the same way by every session; this is the view one
 // session has of them.
-import type { Member, PeerMark, PresenceEntry, RoomActivity } from "@adeildo/pi-kit";
+import type { Member, PeerMark, PresenceEntry, RoomActivity, RoomMode } from "@adeildo/pi-kit";
 
 import type { Here, Typing } from "./here.ts";
 
@@ -9,6 +9,8 @@ import type { Here, Typing } from "./here.ts";
 export interface Room {
 	/** Undefined for the folder's room, which cannot be left or closed. */
 	id: string | undefined;
+	/** How this session stands here: taking part, listening, or out. */
+	mode: RoomMode;
 	name: string;
 	/** The folders in it, and how many sessions are open in each now. */
 	folders: { path: string; open: number }[];
@@ -63,6 +65,8 @@ export interface RoomsView {
 	remove(room: string, member: Member): void;
 	/** Takes this session out of a shared room. */
 	leave(room: string): void;
+	/** How this session stands in a room: taking part, or listening without taking part. */
+	setMode(room: string | undefined, mode: Exclude<RoomMode, "out">): void;
 	close(room: string): void;
 	/** Called once for any change to the above. Returns what stops it. */
 	onChange(listener: () => void): () => void;

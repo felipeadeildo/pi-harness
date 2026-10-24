@@ -21,8 +21,8 @@ const source = {
 	queued: () => [],
 	here: (room: string | undefined) => (room === undefined || room === "r1" ? folder : undefined),
 	rooms: () => [
-		{ id: undefined, name: "repo", folders: [], sessions: [] },
-		{ id: "r1", name: "backend+frontend", folders: [], sessions: [] },
+		{ id: undefined, mode: "in" as const, name: "repo", folders: [], sessions: [] },
+		{ id: "r1", mode: "in" as const, name: "backend+frontend", folders: [], sessions: [] },
 	],
 };
 

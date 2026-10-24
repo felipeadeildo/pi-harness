@@ -111,8 +111,14 @@ with how many agents are open in each.
 | `r` | Take the agent or the folder under the cursor out of the open room |
 | `l` | Take this session out of the open room                             |
 | `x` | Close the open room, after asking                                  |
+| `m` | Listen to the room without taking part, and `m` again to come back |
 
 The folder's room has no `a`, `r`, `l` or `x`.
+
+A room that this session only listens to wears `◐` before its name. Listening is hearing what names it, nothing
+else: the room's other messages wait until you take part. `@anyone` and `@everyone` are addresses of the agents
+taking part, so listening is not taking part and a request to anyone never picks one that listens. How a session
+joins a room it is added to is the "When a room takes you in" setting: taking part, or only listening.
 
 ### How rooms work
 

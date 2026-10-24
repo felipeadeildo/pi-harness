@@ -22,6 +22,7 @@ import {
 	roomDir,
 	roomsDir,
 	type RoomActivity,
+	type RoomMode,
 	type SessionTasks,
 	targetOf,
 	tasksWith,
@@ -289,6 +290,7 @@ export class Rooms implements RoomsView {
 		if (home === undefined) return [];
 		const folderRoom: Room = {
 			id: undefined,
+			mode: home.mode(),
 			name: basename(this.#cwd) || this.#cwd,
 			folders: [{ path: this.#cwd, open: home.live().length }],
 			sessions: [],
@@ -351,6 +353,18 @@ export class Rooms implements RoomsView {
 
 	remove(room: string, member: Member): void {
 		this.#write(room, "room.removed", { member: normal(member) });
+		this.sync();
+	}
+
+	/**
+	 * How this session stands in a room. `listening` hears only what names it and never takes a
+	 * request to everyone; `in` takes part. The folder's room takes the same line as the others.
+	 */
+	setMode(room: string | undefined, mode: Exclude<RoomMode, "out">): void {
+		if (this.#session === undefined) return;
+		const member = { session: this.#session, cwd: this.#cwd };
+		if (room === undefined) this.#home?.log("room.mode", { member, mode });
+		else this.#write(room, "room.mode", { member, mode });
 		this.sync();
 	}
 
@@ -712,13 +726,17 @@ export class Rooms implements RoomsView {
 	}
 
 	#addMembers(room: string, members: readonly Member[], by: AddedBy): void {
+		const opening = this.#hooks.opening?.() ?? "in";
 		for (const member of members) {
 			const normalized = normal(member);
 			// A folder joins taking part and has no mode; a session may say how it joins.
 			this.#write(room, "room.added", {
 				...("folder" in normalized
 					? { member: { folder: normalized.folder } }
-					: { member: { session: normalized.session, cwd: normalized.cwd } }),
+					: {
+							member: { session: normalized.session, cwd: normalized.cwd },
+							...(opening === "in" ? {} : { mode: opening }),
+						}),
 				by: by.by,
 				...(by.why === undefined ? {} : { why: by.why }),
 				...(by.allowedBy === undefined ? {} : { allowedBy: by.allowedBy }),
@@ -727,7 +745,7 @@ export class Rooms implements RoomsView {
 	}
 
 	/** A `room.*` line, in this session's own file in that room, whether or not it is a member. */
-	#write<K extends "room.created" | "room.added" | "room.removed" | "room.closed">(
+	#write<K extends "room.created" | "room.added" | "room.removed" | "room.closed" | "room.mode">(
 		room: string,
 		type: K,
 		data: LogEventMap[K],
@@ -768,6 +786,7 @@ export class Rooms implements RoomsView {
 		const origin = originOf(membership.additions, (session) => this.#handleIn(room, session));
 		return {
 			id: room.id,
+			mode: room.here?.mode() ?? membership.modeOf(this.#session ?? "", this.#cwd),
 			name: membership.name ?? room.id,
 			folders: [...membership.folders.keys()].map((path) => ({
 				path,

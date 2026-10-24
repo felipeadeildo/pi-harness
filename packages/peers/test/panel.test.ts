@@ -71,7 +71,13 @@ class Rooms implements RoomsView {
 	constructor(folder: Here) {
 		this.heres.set("", folder);
 		this.shown = [
-			{ id: undefined, name: "pi-harness", folders: [{ path: "/repo", open: 1 }], sessions: [] },
+			{
+				id: undefined,
+				mode: "in",
+				name: "pi-harness",
+				folders: [{ path: "/repo", open: 1 }],
+				sessions: [],
+			},
 		];
 	}
 
@@ -109,12 +115,20 @@ class Rooms implements RoomsView {
 	close(room: string): void {
 		this.calls.push(`close ${room}`);
 	}
+	setMode(room: string | undefined, mode: "in" | "listening"): void {
+		this.calls.push(`mode ${room ?? "here"} ${mode}`);
+	}
 	onChange(): () => void {
 		return () => {};
 	}
 	onMembership(): () => void {
 		return () => {};
 	}
+}
+
+/** The same room, standing the way the test wants it. */
+function withMode(room: Room | undefined, mode: Room["mode"]): Room | undefined {
+	return room === undefined ? undefined : { ...room, mode };
 }
 
 function memberText(member: Member): string {
@@ -126,6 +140,7 @@ function shared(rooms: Rooms, cwd = "/home/x/backend"): Here {
 	rooms.heres.set("r1", here);
 	rooms.shown.push({
 		id: "r1",
+		mode: "in",
 		name: "backend+frontend",
 		folders: [
 			{ path: "/home/x/backend", open: 2 },
@@ -325,6 +340,30 @@ describe("changing the rooms", () => {
 		expect(drawn).toMatch(/l leave/);
 	});
 
+	test("m on a room makes it listen, and the keys say how to come back", () => {
+		const rooms = new Rooms(session("me", "/repo"));
+		shared(rooms);
+		const drawn = press(panelOf(rooms), TAB, "m");
+		expect(rooms.calls).toEqual(["mode here listening"]);
+		expect(drawn).toMatch(/m listen/);
+		// Drawn from the room as the line left it: the key now offers the way back.
+		rooms.shown[0] = withMode(rooms.shown[0], "listening") as Room;
+		expect(press(panelOf(rooms), TAB)).toMatch(/m take part/);
+		// A shared room toggles too, and the row keeps its place and its one line.
+		press(panelOf(rooms), TAB, DOWN, DOWN, "m");
+		expect(rooms.calls.at(-1)).toBe("mode r1 listening");
+	});
+
+	test("a room that only listens says so before its name", () => {
+		const rooms = new Rooms(session("me", "/repo"));
+		shared(rooms);
+		const row = (drawn: string): string | undefined =>
+			drawn.split("\n").find((line) => line.includes("❯") && line.includes("pi-harness"));
+		expect(row(press(panelOf(rooms), TAB)) ?? "").toContain("❯ pi-harness");
+		rooms.shown[0] = withMode(rooms.shown[0], "listening") as Room;
+		expect(row(press(panelOf(rooms), TAB)) ?? "").toContain("❯ ◐ pi-harness");
+	});
+
 	test("the folder's room cannot be left or closed", () => {
 		const rooms = new Rooms(session("me", "/repo"));
 		const drawn = press(panelOf(rooms), TAB, "l", "x");
@@ -430,6 +469,7 @@ describe("changing the rooms", () => {
 describe("the notice when this session joins or leaves", () => {
 	const room: Room = {
 		id: "r1",
+		mode: "in",
 		name: "backend+frontend",
 		folders: [{ path: "/home/x/backend", open: 2 }],
 		sessions: [

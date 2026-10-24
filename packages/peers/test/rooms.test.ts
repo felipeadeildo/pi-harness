@@ -62,7 +62,7 @@ function bus() {
 	};
 }
 
-function session(id: string, folder: string) {
+function session(id: string, folder: string, extra: Partial<Hooks> = {}) {
 	const sent: Sent[] = [];
 	const changes: MembershipChange[] = [];
 	const run = { idle: true };
@@ -88,6 +88,7 @@ function session(id: string, folder: string) {
 		changed: () => {},
 		now: () => now,
 		alive: () => true,
+		...extra,
 	};
 	const rooms = new Rooms(hooks);
 	opened.push(rooms);
@@ -475,6 +476,41 @@ describe("the board's part of the tasks", () => {
 			{ at: 2, origin: "agent" },
 		);
 		expect(boardOf(state).tasks.map((task) => task.text)).toEqual(["b", "c", "d", "e"]);
+	});
+});
+
+describe("how a session stands in a room", () => {
+	test("m writes the mode, the room's view and the one that listens hear the difference", () => {
+		const api = session("api", "backend");
+		const client = session("client", "frontend");
+		const id = api.rooms.create("pair", [
+			{ session: "api", cwd: api.cwd },
+			{ session: "client", cwd: client.cwd },
+		]);
+		sync(api, client);
+		api.rooms.setMode(id, "listening");
+		sync(api, client);
+		expect(api.rooms.rooms().find((room) => room.id === id)?.mode).toBe("listening");
+		expect(client.rooms.rooms().find((room) => room.id === id)?.mode).toBe("in");
+		// The folder's room takes the same line, and its view says so too.
+		client.rooms.setMode(undefined, "listening");
+		expect(client.rooms.rooms()[0]?.mode).toBe("listening");
+		expect(rawLines(id, "api").map((event) => event.type)).toContain("room.mode");
+	});
+
+	test("a session added while the folders only listen joins listening", () => {
+		// The session that adds the member is the one whose setting says how it joins.
+		const api = session("api", "backend", { opening: () => "listening" });
+		const quiet = session("quiet", "frontend");
+		const id = api.rooms.create("pair", [
+			{ folder: api.cwd },
+			{ session: "quiet", cwd: quiet.cwd },
+		]);
+		sync(api, quiet);
+		sync(api, quiet);
+		expect(quiet.rooms.rooms().find((room) => room.id === id)?.mode).toBe("listening");
+		// The folder member keeps taking part: the setting is about the sessions you add by name.
+		expect(api.rooms.rooms().find((room) => room.id === id)?.mode).toBe("in");
 	});
 });
 

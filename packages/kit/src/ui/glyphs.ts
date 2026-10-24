@@ -40,6 +40,8 @@ export const GLYPH = {
 	dot: "\u25cf",
 	/** ○ off, not answered. */
 	ring: "\u25cb",
+	/** ◐ half: hearing a room without taking part in it. */
+	half: "\u25d0",
 	/** ◌ hidden, as tool output pruned from the context. */
 	ringDotted: "\u25cc",
 	/** ✎ words you typed. */
