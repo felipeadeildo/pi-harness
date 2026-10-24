@@ -4,7 +4,7 @@ This plan splits [the remote design](remote.md) into slices that land on `main` 
 
 ## Status
 
-A slice is ticked in the commit that lands it.
+A slice is ticked in the commit that lands it. `[~]` is the one exception: a slice whose parts are on `main` and whose last part is an open pull request, so a reader sees the difference between done and nearly done.
 
 - [x] C1. The `By` type in the kit (core, F0)
 - [x] C2. Presence in the kit (core, F0)
@@ -30,8 +30,8 @@ A slice is ticked in the commit that lands it.
 - [x] W1. The Expo app and the CSP (client, F1)
 - [x] W2. Text from elsewhere (client, F1)
 - [x] W3. The Sessions and Session screens (client, F1)
-- [ ] I1. The inbox (names, before F2)
-- [ ] C8. Commands through the bridge (core, F2)
+- [~] I1. The inbox (names, before F2)
+- [~] C8. Commands through the bridge (core, F2)
 - [ ] A5. Clients in the race for the harness's dialogs (ask, F2)
 - [ ] A6. pi's own dialogs in the race (ask, F2)
 - [x] P4. Commands and the outbox in the client library (protocol, F2)
