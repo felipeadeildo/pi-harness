@@ -129,7 +129,6 @@ export const remote = defineFeature({
 			clearTimeout(drain);
 			drain = undefined;
 		};
-		scope.onShutdown(cancelDrain);
 		/**
 		 * A compaction is the other moment a follow-up is held for, and it ends no run: pi emits this
 		 * before it clears the flag that makes a send throw, so the queue is drained on the next turn

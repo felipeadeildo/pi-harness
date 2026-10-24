@@ -26,6 +26,31 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 	let turn: ReturnType<typeof setTimeout> | undefined;
 	const followers = new Set<Follower>();
 
+	/** Ends the session the followers were reading, once, from wherever it is learnt. */
+	function finish(): void {
+		clearTimeout(turn);
+		turn = undefined;
+		pending = false;
+		ctx = undefined;
+		ended = true;
+		for (const follower of followers) follower.on({ kind: "ended" });
+		followers.clear();
+	}
+
+	/**
+	 * Reads the session, and treats pi's refusal as what it is: the context belongs to a session that
+	 * is not this one any more, because it was replaced, reloaded or is going away. Some hosts do not
+	 * emit `session_shutdown` before that, so the refusal is the only notice there is.
+	 */
+	function read(follower: Follower, current: ExtensionContext): void {
+		try {
+			catchUp(follower, current);
+		} catch (error) {
+			if (!(error instanceof Error) || !error.message.includes("stale")) throw error;
+			finish();
+		}
+	}
+
 	function catchUp(follower: Follower, current: ExtensionContext): void {
 		const entries = current.sessionManager.getEntries();
 		if (follower.seen === undefined) {
@@ -55,7 +80,7 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 			pending = false;
 			turn = undefined;
 			if (ctx === undefined) return;
-			for (const follower of followers) catchUp(follower, ctx);
+			for (const follower of followers) read(follower, ctx);
 		}, 0);
 	}
 
@@ -71,15 +96,7 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 	pi.on("thinking_level_select", (_event, next) => changed(next));
 	pi.on("message_end", (_event, next) => changed(next));
 	pi.on("turn_end", (_event, next) => changed(next));
-	pi.on("session_shutdown", () => {
-		clearTimeout(turn);
-		turn = undefined;
-		pending = false;
-		ctx = undefined;
-		ended = true;
-		for (const follower of followers) follower.on({ kind: "ended" });
-		followers.clear();
-	});
+	pi.on("session_shutdown", finish);
 
 	return {
 		snapshot() {
@@ -96,7 +113,7 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 			if (after !== undefined && after.entry === undefined) on({ kind: "reset" });
 			const follower: Follower = { on, after: after?.entry, seen: undefined, sent: undefined };
 			followers.add(follower);
-			if (ctx !== undefined) catchUp(follower, ctx);
+			if (ctx !== undefined) read(follower, ctx);
 			return () => followers.delete(follower);
 		},
 	};
