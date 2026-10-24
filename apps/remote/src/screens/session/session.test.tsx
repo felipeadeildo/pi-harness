@@ -9,7 +9,7 @@ import { type ClientSession, sessionOf } from "@adeildo/pi-remote-client";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { LINE_CHARS, OUTPUT_LINES, SessionScreen, titleOf } from "./session.tsx";
+import { LINE_CHARS, OUTPUT_LINES, SessionScreen, titleOf, viewOf } from "./session.tsx";
 
 const RECORDING = join(
 	import.meta.dir,
@@ -220,5 +220,31 @@ describe("what the recording does not hold", () => {
 		);
 		expect(html).not.toContain("<script");
 		expect(html).not.toContain("<img");
+	});
+});
+
+describe("drawing again on every envelope", () => {
+	test("works the transcript and the facts out again only when the session moved", () => {
+		const session = handmade([message("a", null, "user", [{ type: "text", text: "hi" }])]);
+		const first = viewOf(session);
+		expect(viewOf(session)).toBe(first);
+
+		session.entries.push(message("b", "a", "assistant", [{ type: "text", text: "yes" }]) as never);
+		const pushed = viewOf(session);
+		expect(pushed).not.toBe(first);
+		expect(pushed.items).toHaveLength(2);
+
+		session.leaf = "a";
+		const moved = viewOf(session);
+		expect(moved).not.toBe(pushed);
+		expect(moved.items).toHaveLength(1);
+
+		session.facts.push({ type: "mode.changed", data: { mode: "judge" } });
+		expect(viewOf(session).facts.mode).toBe("judge");
+
+		// A snapshot swaps the list for one of the same length.
+		session.entries = [message("c", null, "user", [{ type: "text", text: "new" }])] as never;
+		session.leaf = undefined;
+		expect(viewOf(session).items[0]).toMatchObject({ entry: "c" });
 	});
 });
