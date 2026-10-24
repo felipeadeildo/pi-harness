@@ -131,15 +131,15 @@ describe("what a session standing in each mode takes", () => {
 
 describe("the folder's own room", () => {
 	test("has the folder as its first member, so a session opened there takes part at once", () => {
-		const room = new Folder("/repo");
-		expect(room.membership.modeOf("fresh", "/repo")).toBe("in");
+		const own = new Folder("/repo");
+		expect(own.membership.modeOf("fresh", "/repo")).toBe("in");
 		// A session opened elsewhere is not in it.
-		expect(room.membership.modeOf("elsewhere", "/other")).toBe("out");
+		expect(own.membership.modeOf("elsewhere", "/other")).toBe("out");
 	});
 
 	test("carries the mode a session asked for, without a `room.added` to say who is in", () => {
-		const room = new Folder("/repo");
-		room.apply([
+		const own = new Folder("/repo");
+		own.apply([
 			{
 				type: "room.mode",
 				at: 1,
@@ -147,8 +147,8 @@ describe("the folder's own room", () => {
 				data: { member: { session: "quiet", cwd: "/repo" }, mode: "listening" },
 			} as LoggedEvent,
 		]);
-		expect(room.membership.modeOf("quiet", "/repo")).toBe("listening");
-		room.apply([
+		expect(own.membership.modeOf("quiet", "/repo")).toBe("listening");
+		own.apply([
 			{
 				type: "room.mode",
 				at: 2,
@@ -156,7 +156,7 @@ describe("the folder's own room", () => {
 				data: { member: { session: "quiet", cwd: "/repo" }, mode: "in" },
 			} as LoggedEvent,
 		]);
-		expect(room.membership.modeOf("quiet", "/repo")).toBe("in");
+		expect(own.membership.modeOf("quiet", "/repo")).toBe("in");
 	});
 });
 
