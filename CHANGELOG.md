@@ -2,6 +2,42 @@
 
 Every `@adeildo/` package in this repository shares one version, one tag and this changelog. The entries below 4.0.0 are from before, when `pi-ask-permission` was the only package.
 
+## [5.16.0](https://github.com/felipeadeildo/pi-harness/compare/v5.15.0...v5.16.0) (2026-10-24)
+
+
+### Features
+
+* **ask-questions:** ask the model's questions through the kit's bus ([#66](https://github.com/felipeadeildo/pi-harness/issues/66)) ([d42e502](https://github.com/felipeadeildo/pi-harness/commit/d42e5023bb868f00149efe65a78ec879c0ac3434))
+* **kit:** a By type that says who caused a fact ([91bed4f](https://github.com/felipeadeildo/pi-harness/commit/91bed4fd0c78ad08e1164d53bc863164fd43d96e))
+* **kit:** a question can be called off, tells the other side when it closes, and logs who answered ([94df242](https://github.com/felipeadeildo/pi-harness/commit/94df2427f556e7d9def82447afa709030fe5e7b7))
+* **kit:** a rig runs a real pi session with a scripted model ([#65](https://github.com/felipeadeildo/pi-harness/issues/65)) ([9669943](https://github.com/felipeadeildo/pi-harness/commit/9669943e96efd0e7ea5304ed1b7a860bd92ef10d))
+* **kit:** a session source, read from this pi or from its file as it grows ([#64](https://github.com/felipeadeildo/pi-harness/issues/64)) ([1712761](https://github.com/felipeadeildo/pi-harness/commit/171276180226018ab25d2252798f04f9fc97e830))
+* **peers:** enter on an agent in Alt+G shows its session, and @ writes to it ([#90](https://github.com/felipeadeildo/pi-harness/issues/90)) ([9728857](https://github.com/felipeadeildo/pi-harness/commit/97288574ab58c45c92af2cafbd09e5f8e6434939))
+* **remote-app:** draw text from elsewhere without interpreting it ([#99](https://github.com/felipeadeildo/pi-harness/issues/99)) ([ffffe5d](https://github.com/felipeadeildo/pi-harness/commit/ffffe5d51e9fac4e42fb6d69fb7d89d3acbf0bb1))
+* **remote-app:** the exported app loads under the policy the daemon will serve ([#82](https://github.com/felipeadeildo/pi-harness/issues/82)) ([04be927](https://github.com/felipeadeildo/pi-harness/commit/04be927109bbb1c08773940406b8b3a6d08daa09))
+* **remote-app:** the list of sessions, the ones that need you first ([#125](https://github.com/felipeadeildo/pi-harness/issues/125)) ([0e63968](https://github.com/felipeadeildo/pi-harness/commit/0e6396818f7f823dfc750341f41a091768af3d1b))
+* **remote-client:** read the daemon's session list ([#120](https://github.com/felipeadeildo/pi-harness/issues/120)) ([85e3458](https://github.com/felipeadeildo/pi-harness/commit/85e345828298e87ea54476c1b7f37d5f54a32890))
+* **remote-protocol:** rebuild a session from the envelopes and facts it crossed a process in ([#68](https://github.com/felipeadeildo/pi-harness/issues/68)) ([17b3b83](https://github.com/felipeadeildo/pi-harness/commit/17b3b835b07e79a00bf7ea8971af119ddef76d3c))
+* **remote:** the daemon serves the web app from the build's own list ([#128](https://github.com/felipeadeildo/pi-harness/issues/128)) ([738fe14](https://github.com/felipeadeildo/pi-harness/commit/738fe140418b8d5380080067186290142c9ef15d))
+
+
+### Bug Fixes
+
+* **peers:** drop a session whose pid another process got ([#67](https://github.com/felipeadeildo/pi-harness/issues/67)) ([9341901](https://github.com/felipeadeildo/pi-harness/commit/934190180a926aea947925a50fc5d3420c0d432f))
+* **peers:** keep the handle and the title when a session is named in two events ([#86](https://github.com/felipeadeildo/pi-harness/issues/86)) ([e3c89c8](https://github.com/felipeadeildo/pi-harness/commit/e3c89c8687c61949779e33cdb795037952a9cff9))
+* **peers:** let agents answer each other up to a chain limit you set, and say when a held message went in with a run you did not start ([#81](https://github.com/felipeadeildo/pi-harness/issues/81)) ([97d0aa4](https://github.com/felipeadeildo/pi-harness/commit/97d0aa409809a29c28e2057cac94d3bb13d607e2))
+* **peers:** reuse a tool row's component instead of chaining every one it drew ([#96](https://github.com/felipeadeildo/pi-harness/issues/96)) ([2afe144](https://github.com/felipeadeildo/pi-harness/commit/2afe1440e2f3dabd122b07c237266211dca3d517))
+* **remote-client:** a list nothing decodes is an error, and the request can be given up on ([#123](https://github.com/felipeadeildo/pi-harness/issues/123)) ([26ca199](https://github.com/felipeadeildo/pi-harness/commit/26ca199794ee31a32ef96e66b0e515e2672d0674))
+* **remote-client:** draw the branch the bridge names, including the root ([#102](https://github.com/felipeadeildo/pi-harness/issues/102)) ([fe76d88](https://github.com/felipeadeildo/pi-harness/commit/fe76d88bd3e548793b056e7040fc48a3e684e6a1))
+* **remote-protocol:** a stream is a number, and a leaf can be the root ([#94](https://github.com/felipeadeildo/pi-harness/issues/94)) ([fa17cdc](https://github.com/felipeadeildo/pi-harness/commit/fa17cdc9478f73cb5a48f7305cad1cff229debe0))
+* **remote:** streamed deltas take no number, so a replay has no gap ([#124](https://github.com/felipeadeildo/pi-harness/issues/124)) ([f202876](https://github.com/felipeadeildo/pi-harness/commit/f202876a7705e8463b4d9803c697f605a4d3f01e))
+* **tooling:** keep the installed skills out of lint and format ([#95](https://github.com/felipeadeildo/pi-harness/issues/95)) ([414e4d6](https://github.com/felipeadeildo/pi-harness/commit/414e4d60efd75962717687f194a4af882a162daf))
+
+
+### Performance Improvements
+
+* **peers:** work out who is open once per folder change or second, and keep a receipt's lines until they change ([#97](https://github.com/felipeadeildo/pi-harness/issues/97)) ([c9d2d0a](https://github.com/felipeadeildo/pi-harness/commit/c9d2d0a9cf4e75e74407d9ebab485a8a41597517))
+
 ## [5.15.0](https://github.com/felipeadeildo/pi-harness/compare/v5.14.0...v5.15.0) (2026-10-23)
 
 
