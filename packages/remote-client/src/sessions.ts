@@ -38,14 +38,22 @@ export interface ListedSession {
 export async function listSessions(
 	base: string,
 	speaks: typeof fetch = fetch,
+	options: { signal?: AbortSignal } = {},
 ): Promise<ListedSession[]> {
 	const answer = await speaks(new URL("/sessions", base), {
 		headers: { accept: "application/json" },
+		...(options.signal === undefined ? {} : { signal: options.signal }),
 	});
 	if (!answer.ok) throw new DaemonAnswer(answer.status, "the session list");
 	const body: unknown = await answer.json();
 	if (!Array.isArray(body)) throw new DaemonAnswer(200, "a body that is not a list");
-	return body.filter(isListed);
+	const kept = body.filter(isListed);
+	// A list with rows and none of them readable is a shape this client does not know, and an empty
+	// screen would say "no session is open", which is the opposite of what happened.
+	if (kept.length === 0 && body.length > 0) {
+		throw new DaemonAnswer(200, "a list this client cannot read");
+	}
+	return kept;
 }
 
 /** A refusal that keeps the code, so a screen can say "not logged in" without matching text. */
