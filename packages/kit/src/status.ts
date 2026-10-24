@@ -1,6 +1,7 @@
 // What a session is doing, in the words of pi's program status protocol: working, blocked, done,
-// error and idle. pi reports them to the terminal but not to extensions, so the kit follows the same
-// events and answers the same words, for the bridge to publish and for a client to push on.
+// error and idle. pi reports them to the terminal (its `ProgramStatusReporter`) but not to
+// extensions, so the kit follows the same events with the same rules, for the bridge to publish and
+// for a client to push on.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { defineContract, type EventScope } from "./contract.ts";
@@ -9,6 +10,9 @@ import { guarded, isObject } from "./decode.ts";
 
 /** pi's program status words. `blocked` is a dialog waiting for the operator. */
 export type SessionStatus = "working" | "blocked" | "done" | "error" | "idle";
+
+/** How a run or a compaction left the session. */
+type Ending = "done" | "error" | "idle";
 
 const WORDS: ReadonlySet<string> = new Set<SessionStatus>([
 	"working",
@@ -27,51 +31,82 @@ export const SESSION_STATUS = defineContract<SessionStatus>(
 	guarded(isStatus, "a session status"),
 );
 
-/** How a turn ended, as pi reports it at `turn_end`. */
-export type TurnOutcome = "completed" | "aborted" | "error";
+/** How a compaction ended, as pi reports it. */
+export interface CompactionEnd {
+	/** `/compact`, as against a threshold or an overflow. */
+	manual: boolean;
+	/** Cancelled or stopped. */
+	aborted: boolean;
+	/** Failed for a reason other than an abort. */
+	failed: boolean;
+}
 
-/** Folds a session's events into its status. It holds no pi, so a test drives it directly. */
+/**
+ * Folds a session's events into its status, with the rules of pi's reporter. It holds no pi, so a
+ * test drives it directly.
+ */
 export class StatusTracker {
 	#running = false;
 	#compacting = false;
+	/** How the run going on will end, as its latest response says. */
+	#outcome: Ending = "done";
+	/** The status while no run goes on. */
+	#resting: Ending = "idle";
 	/** pi's own dialogs open now: select, confirm, input, editor and custom. */
 	#prompts = 0;
 	/** The harness's questions open now, which a client may hold with no dialog on screen. */
 	readonly #asks = new Set<string>();
-	/** The last turn of the run ended in an error. */
-	#failed = false;
-	#ended: "done" | "error" | "idle" = "idle";
 
 	get status(): SessionStatus {
 		if (this.#prompts > 0 || this.#asks.size > 0) return "blocked";
 		if (this.#running || this.#compacting) return "working";
-		return this.#ended;
+		return this.#resting;
 	}
 
 	runStarted(): void {
 		this.#running = true;
-		this.#failed = false;
+		this.#outcome = "done";
 	}
 
-	turnEnded(outcome: TurnOutcome): void {
-		this.#failed = outcome === "error";
+	/** The latest response decides how the run ends, so a retried error gives way to its retry. */
+	responded(failed: boolean): void {
+		this.#outcome = failed ? "error" : "done";
 	}
 
 	/** The run is over, with no retry or queued message left. An abort leaves it idle, as pi says. */
 	settled(aborted: boolean): void {
 		this.#running = false;
-		if (aborted) this.#ended = "idle";
-		else this.#ended = this.#failed ? "error" : "done";
+		this.#resting = aborted ? "idle" : this.#outcome;
 	}
 
-	compaction(running: boolean): void {
-		this.#compacting = running;
+	compactionStarted(): void {
+		this.#compacting = true;
+	}
+
+	/**
+	 * A compaction during a run changes how the run ends only when it fails. One with no run under it
+	 * is the session's ending: a manual one shows done or error, and any one stopped shows idle.
+	 */
+	compactionEnded(end: CompactionEnd): void {
+		this.#compacting = false;
+		if (this.#running) {
+			if (end.aborted) this.#outcome = "idle";
+			else if (end.failed) this.#outcome = "error";
+		} else if (end.aborted) {
+			this.#resting = "idle";
+		} else if (end.manual) {
+			this.#resting = end.failed ? "error" : "done";
+		}
 	}
 
 	prompt(open: boolean): void {
 		this.#prompts = Math.max(0, this.#prompts + (open ? 1 : -1));
 	}
 
+	/**
+	 * A harness question opened or closed. The session stays blocked until the asker closes it, so
+	 * this relies on the kit's client, which emits `harness:ask.cancel` for every question it opened.
+	 */
 	ask(id: string, open: boolean): void {
 		if (open) this.#asks.add(id);
 		else this.#asks.delete(id);
@@ -101,16 +136,32 @@ export function followSessionStatus(
 
 	pi.on("session_start", () =>
 		after(() => {
-			// A new or resumed session starts idle, with nothing open.
+			// Another session in this process starts afresh, as pi's reporter resets on a switch.
 			tracker = new StatusTracker();
 		}),
 	);
 	pi.on("agent_start", () => after((now) => now.runStarted()));
-	pi.on("turn_end", (event) => after((now) => now.turnEnded(event.outcome)));
+	pi.on("message_end", (event) => {
+		const { message } = event;
+		if (message.role !== "assistant") return;
+		after((now) => now.responded("stopReason" in message && message.stopReason === "error"));
+	});
 	pi.on("agent_settled", (event) => after((now) => now.settled(event.aborted)));
-	pi.on("session_before_compact", () => after((now) => now.compaction(true)));
-	pi.on("session_compact", () => after((now) => now.compaction(false)));
-	pi.on("session_compact_failed", () => after((now) => now.compaction(false)));
+	pi.on("session_before_compact", () => after((now) => now.compactionStarted()));
+	pi.on("session_compact", (event) =>
+		after((now) =>
+			now.compactionEnded({ manual: event.reason === "manual", aborted: false, failed: false }),
+		),
+	);
+	pi.on("session_compact_failed", (event) =>
+		after((now) =>
+			now.compactionEnded({
+				manual: event.reason === "manual",
+				aborted: event.aborted,
+				failed: event.errorMessage !== undefined,
+			}),
+		),
+	);
 	pi.on("ui_prompt_start", () => after((now) => now.prompt(true)));
 	pi.on("ui_prompt_end", () => after((now) => now.prompt(false)));
 	pi.events.on(ASK, (data) => {
