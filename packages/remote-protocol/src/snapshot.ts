@@ -45,6 +45,9 @@ export interface Viewer {
 /** The event that carries a `Presence`. It is of the moment and never kept in the log. */
 export const PRESENCE = "presence.changed";
 
+/** The event a session's terminal sends when someone types there, with the terminal's `by`. */
+export const PRESENCE_HERE = "presence.here";
+
 /** What a client is told when someone opens a session, closes it, or takes the latest input. */
 export interface Presence {
 	viewers: Viewer[];

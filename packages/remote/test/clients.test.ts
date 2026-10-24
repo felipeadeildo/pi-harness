@@ -514,6 +514,127 @@ describe("logging in", () => {
 		bridge.close();
 	});
 
+	test("the terminal is a viewer, and typing there takes the mark from a client", async () => {
+		const { daemon, port, cookie } = await openDaemon();
+		const bridge = await bridgeOf("s1");
+		bridge.snapshot([]);
+		await until(() => daemon.sessions.get("s1") !== undefined);
+		const heard: Envelope[] = [];
+		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+			headers: { Origin: `http://127.0.0.1:${port}`, Cookie: cookie },
+		});
+		ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)) as Envelope);
+		await new Promise<void>((resolve) => (ws.onopen = () => resolve()));
+		const by = { kind: "client", name: "phone", machine: "laptop" } as const;
+		ws.send(
+			JSON.stringify(envelope("hello", "hello", { by }, { machine: "laptop", session: "s1" })),
+		);
+		await until(() => heard.some((one) => one.type === "presence.changed"));
+		// A client's command takes the mark.
+		ws.send(JSON.stringify(envelope("command", "run.abort", {}, { session: "s1", id: "c1", by })));
+		const presence = () =>
+			heard.filter((one) => one.type === "presence.changed").at(-1)?.data as
+				| { viewers: { name: string }[]; active?: { kind: string } }
+				| undefined;
+		await until(() => presence()?.active?.kind === "client");
+		// And a key at the terminal takes it back, with the terminal named as the one typing there.
+		bridge.send("presence.here", {
+			by: { kind: "terminal", name: "otter", machine: "laptop" },
+		});
+		await until(() => presence()?.active?.kind === "terminal");
+		expect(presence()).toMatchObject({
+			viewers: [
+				{ name: "otter", machine: "laptop" },
+				{ name: "phone", machine: "laptop" },
+			],
+			active: { kind: "terminal", name: "otter" },
+		});
+		ws.close();
+		bridge.close();
+	});
+
+	test("a session that ends forgets who was watching, so a relaunch starts clean", async () => {
+		const { daemon, port, cookie } = await openDaemon();
+		const bridge = await bridgeOf("s1");
+		bridge.snapshot([]);
+		await until(() => daemon.sessions.get("s1") !== undefined);
+		// The terminal of the session typed, so it is a viewer and the active one.
+		bridge.send("presence.here", { by: { kind: "terminal", name: "otter", machine: "laptop" } });
+		await Bun.sleep(20);
+		bridge.send("session.gone", { reason: "exit" });
+		await until(() => daemon.sessions.get("s1")?.gone !== undefined);
+
+		// The same session comes back under the same id, as `pi --continue` does.
+		const again = await bridgeOf("s1", "e2");
+		again.snapshot([]);
+		const heard: Envelope[] = [];
+		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+			headers: { Origin: `http://127.0.0.1:${port}`, Cookie: cookie },
+		});
+		ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)) as Envelope);
+		await new Promise<void>((resolve) => (ws.onopen = () => resolve()));
+		ws.send(
+			JSON.stringify(
+				envelope(
+					"hello",
+					"hello",
+					{ by: { kind: "client", name: "phone", machine: "laptop" } },
+					{
+						machine: "laptop",
+						session: "s1",
+					},
+				),
+			),
+		);
+		await until(() => heard.some((one) => one.type === "presence.changed"));
+		expect(heard.find((one) => one.type === "presence.changed")?.data).toEqual({
+			viewers: [{ name: "phone", machine: "laptop" }],
+		});
+		ws.close();
+		again.close();
+		bridge.close();
+	});
+
+	test("a key at the terminal reaches the others as presence, never as the keypress itself", async () => {
+		const { daemon, port, cookie } = await openDaemon();
+		const bridge = await bridgeOf("s1");
+		bridge.snapshot([]);
+		await until(() => daemon.sessions.get("s1") !== undefined);
+		const heard: Envelope[] = [];
+		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+			headers: { Origin: `http://127.0.0.1:${port}`, Cookie: cookie },
+		});
+		ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)) as Envelope);
+		await new Promise<void>((resolve) => (ws.onopen = () => resolve()));
+		ws.send(
+			JSON.stringify(
+				envelope(
+					"hello",
+					"hello",
+					{ by: { kind: "client", name: "phone", machine: "laptop" } },
+					{
+						machine: "laptop",
+						session: "s1",
+					},
+				),
+			),
+		);
+		await until(() => heard.length > 0);
+		const before = heard.length;
+		bridge.send("presence.here", { by: { kind: "terminal", name: "otter", machine: "laptop" } });
+		await until(() =>
+			heard.some(
+				(one) =>
+					one.type === "presence.changed" &&
+					(one.data as { active?: { kind: string } }).active?.kind === "terminal",
+			),
+		);
+		// What arrived is the presence, and the keypress itself was not forwarded.
+		expect(heard.slice(before).map((one) => one.type)).toEqual(["presence.changed"]);
+		ws.close();
+		bridge.close();
+	});
+
 	test("a command for a session with no bridge answers on its id, so the client is not left waiting", async () => {
 		const { port, cookie } = await openDaemon();
 		const origin = `http://127.0.0.1:${port}`;

@@ -26,12 +26,12 @@ import {
 import { ANSWER, ASK, CANCEL } from "@adeildo/pi-kit";
 import type { SessionSource, SourceItem } from "@adeildo/pi-kit";
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
-import { type FakePi, fakeContext, fakePi } from "@adeildo/pi-kit/testing";
+import { type FakePi, fakeContext, fakePi, keystrokes } from "@adeildo/pi-kit/testing";
 import { envelope } from "@adeildo/pi-remote-protocol";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import type { MessageStartEvent, MessageUpdateEvent } from "@earendil-works/pi-coding-agent";
 
-import { Bridge, SNAPSHOT_ENTRIES } from "../src/bridge/bridge.ts";
+import { Bridge, SNAPSHOT_ENTRIES, TYPED_EVERY_MS } from "../src/bridge/bridge.ts";
 import piRemote, { goneReason, remote, sessionKind } from "../src/index.ts";
 import { CLIENT_PORT, daemonPaths } from "../src/places.ts";
 import { VERSION } from "../src/version.ts";
@@ -201,6 +201,34 @@ describe("the bridge", () => {
 		expect(log).toContain('"c1"');
 		await stop(fake, "quit");
 		delete process.env.PI_HARNESS_EVENTS;
+	});
+
+	test("a key at the terminal says who is there, once per couple of seconds", async () => {
+		const daemon = await listening();
+		const fake = mounted();
+		await start(fake);
+		await until(() => types(daemon).includes("snapshot"));
+		// The handler this session registered, which is the last one pi was given.
+		const press = keystrokes.at(-1);
+		if (press === undefined) throw new Error("no key handler was registered");
+		press("a");
+		await until(() => daemon.received.some((one) => one.type === "presence.here"));
+		const said = daemon.received.find((one) => one.type === "presence.here")?.data as
+			| { by: { kind: string; name: string; machine: string } }
+			| undefined;
+		expect(said?.by.kind).toBe("terminal");
+		expect(said?.by.machine).toBe(HOST);
+		expect(typeof said?.by.name).toBe("string");
+		// A person types faster than the others need to know, so the second key inside the window is
+		// not another event.
+		press("b");
+		await Bun.sleep(20);
+		expect(daemon.received.filter((one) => one.type === "presence.here")).toHaveLength(1);
+		// Past the window it speaks again, so the mark does not stay with a person who left.
+		await Bun.sleep(TYPED_EVERY_MS + 20);
+		press("c");
+		await until(() => daemon.received.filter((one) => one.type === "presence.here").length === 2);
+		await stop(fake, "quit");
 	});
 
 	test("a follow-up waits for the agent to settle, and then pi gets it", async () => {
@@ -728,9 +756,10 @@ function source(onFollow: (on: (item: SourceItem) => void) => void = () => {}): 
 }
 
 describe("one bridge", () => {
-	function bridged(from: SessionSource = source()) {
+	function bridged(from: SessionSource = source(), typedEveryMs = 2_000) {
 		const { sockets, dial } = held();
 		const bridge = new Bridge(session(), from, {
+			typedEveryMs,
 			path: "/nowhere",
 			scope: { events: fakePi().pi.events, warn: () => {} },
 			version: VERSION,
@@ -775,6 +804,24 @@ describe("one bridge", () => {
 			"pi.message_update",
 			"snapshot",
 		]);
+		await bridge.stop(undefined);
+	});
+
+	test("the window on the terminal opens and closes: a key after it says who is there again", async () => {
+		const { bridge, socket } = bridged(source(), 10);
+		const press = keystrokes.at(-1);
+		if (press === undefined) throw new Error("no key handler was registered");
+		const said = () => socket.written.filter((one) => one.type === "presence.here").length;
+		press("a");
+		press("b");
+		expect(said()).toBe(1);
+		// It takes no number: a keypress is not an event a client would have to skip in a replay.
+		expect(socket.written.find((one) => one.type === "presence.here")?.seq).toBeUndefined();
+		await Bun.sleep(15);
+		press("c");
+		expect(said()).toBe(2);
+		// The key itself is still pi's: the handler reads it and hands it on unchanged.
+		expect(press("d")).toBeUndefined();
 		await bridge.stop(undefined);
 	});
 
