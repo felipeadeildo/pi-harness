@@ -3,7 +3,16 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { applyTaskOps, emptyTasks } from "@adeildo/pi-kit";
+import {
+	applyTaskOps,
+	emptyTasks,
+	HOST,
+	logEvent,
+	ownStart,
+	readFrom,
+	targetOf,
+	logPath,
+} from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
 import type { Fit } from "../src/bid.ts";
@@ -45,7 +54,13 @@ interface Note {
 }
 
 /** A session in the room; `prompted` says the operator already wrote in it, as most tests need. */
-function session(id: string, fit: Fit = { fit: 0.5, reason: "" }, prompted = true) {
+function session(
+	id: string,
+	fit: Fit = { fit: 0.5, reason: "" },
+	prompted = true,
+	/** `null` leaves the kit to judge processes, by their pid and their start. */
+	alive: Hooks["alive"] | null = () => true,
+) {
 	const sent: Sent[] = [];
 	const notes: Note[] = [];
 	const shown: PeerMessageDetails[] = [];
@@ -72,7 +87,7 @@ function session(id: string, fit: Fit = { fit: 0.5, reason: "" }, prompted = tru
 		show: (details) => shown.push(details),
 		held: (delivery, why) => held.push({ from: delivery.items.map((item) => item.text), why }),
 		now: () => now,
-		alive: () => true,
+		...(alive === null ? {} : { alive }),
 	};
 	const here = new Here(hooks);
 	opened.push(here);
@@ -97,6 +112,25 @@ async function settle(...sessions: { here: Here }[]): Promise<void> {
 }
 
 describe("being here", () => {
+	test("a session records its process's start, and a pid running with another start is gone", () => {
+		const { here } = session("a", undefined, true, null);
+		const repo = { getCwd: () => "/repo" };
+		const mine = readFrom(logPath(targetOf({ ...repo, getSessionId: () => "a" })), 0).events;
+		expect(mine.find((event) => event.type === "session.started")?.data).toMatchObject({
+			pid: process.pid,
+			start: ownStart(),
+		});
+		for (const [id, start] of [
+			["twin", ownStart()],
+			["ghost", "0"],
+		] as const) {
+			const target = targetOf({ ...repo, getSessionId: () => id });
+			logEvent(target, undefined, "session.started", { pid: process.pid, host: HOST, start });
+		}
+		here.sync();
+		expect(here.live().map((peer) => peer.session)).toEqual(["a", "twin"]);
+	});
+
 	test("each session sees the others, by the name its tasks gave it", () => {
 		const a = session("a");
 		const b = session("b");

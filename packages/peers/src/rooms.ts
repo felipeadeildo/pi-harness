@@ -16,7 +16,7 @@ import {
 	type LoggedEvent,
 	type Member,
 	type PeerMark,
-	processStart,
+	ownStart,
 	readPresence,
 	removePresence,
 	roomDir,
@@ -50,8 +50,6 @@ const SNAPSHOT_FILES = 8;
 const BOARD_DONE = 3;
 /** How long a room keeps a member with no open agent. */
 export const ROOM_GRACE_MS = 30_000;
-/** This process's start, read once: it never changes while the process runs. */
-const OWN_START = processStart(process.pid);
 
 interface SessionSource {
 	getCwd(): string;
@@ -836,10 +834,11 @@ export class Rooms implements RoomsView {
 	#writeLive(): void {
 		if (this.#session === undefined) return;
 		const me = this.#home?.folder.peers.get(this.#session);
+		const start = ownStart();
 		writePresence({
 			session: this.#session,
 			pid: process.pid,
-			...(OWN_START === undefined ? {} : { start: OWN_START }),
+			...(start === undefined ? {} : { start }),
 			host: HOST,
 			cwd: this.#cwd,
 			...(this.#file === undefined ? {} : { file: this.#file }),

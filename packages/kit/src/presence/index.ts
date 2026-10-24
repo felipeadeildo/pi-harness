@@ -9,7 +9,7 @@ import { isObject } from "../decode.ts";
 import { HOST, liveDir } from "../events/log.ts";
 import { processLives } from "./process.ts";
 
-export { processLives, processStart, startFromStat } from "./process.ts";
+export { ownStart, processLives, processStart, startFromStat, startsFromPs } from "./process.ts";
 
 export interface PresenceEntry {
 	session: string;
@@ -46,8 +46,10 @@ function pathOf(session: string, root?: string): string {
 }
 
 /**
- * Writes this session's entry, through a temporary file renamed into place, so a reader never meets
- * half an entry. Failing to must never stop the session.
+ * Writes this session's entry. It goes to a temporary file first and is renamed into place, and the
+ * rename is what keeps a reader from meeting half an entry; a test can see that the file was
+ * replaced, though no test can race a reader against the write. Failing to write must never stop
+ * the session.
  */
 export function writePresence(entry: PresenceEntry, root?: string): void {
 	const path = pathOf(entry.session, root);
@@ -108,7 +110,9 @@ function parsed(path: string): PresenceEntry | undefined {
 			typeof value.pid === "number" &&
 			typeof value.host === "string" &&
 			typeof value.cwd === "string" &&
+			typeof value.state === "string" &&
 			typeof value.startedAt === "number" &&
+			typeof value.at === "number" &&
 			optionalString(value.start) &&
 			optionalString(value.file);
 		return ok ? (value as unknown as PresenceEntry) : undefined;

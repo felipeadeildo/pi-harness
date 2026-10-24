@@ -11,8 +11,9 @@ import {
 	type LogEventMap,
 	logEvent,
 	type LogTarget,
+	type Lives,
+	ownStart,
 	processLives,
-	processStart,
 	targetOf,
 	tasksWith,
 	tildify,
@@ -64,7 +65,7 @@ export interface Hooks extends InboxHooks {
 	inbox?: Inbox;
 	now?(): number;
 	/** Whether a process of this machine runs, given its pid and the start it recorded. */
-	alive?(pid: number, start: string | undefined): boolean;
+	alive?: Lives;
 	/** How long, in milliseconds, a shared room keeps a member with no open agent. */
 	roomGrace?(): number;
 }
@@ -214,7 +215,7 @@ export class Here implements Sender {
 		const me = this.#folder.peers.get(this.session ?? "");
 		this.#openedAt = me?.startedAt ?? this.#now();
 		if (me?.prompted === true) this.#inbox.wake();
-		const start = processStart(process.pid);
+		const start = ownStart();
 		this.log("session.started", {
 			pid: process.pid,
 			...(start === undefined ? {} : { start }),
