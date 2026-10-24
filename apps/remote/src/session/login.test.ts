@@ -4,7 +4,14 @@ import { describe, expect, test } from "bun:test";
 
 import { memoryCache } from "@adeildo/pi-remote-client";
 
-import { type Exchange, logIn, tokenOf, withoutFragment, withoutToken } from "./login.ts";
+import {
+	type Exchange,
+	fetchLogin,
+	logIn,
+	tokenOf,
+	withoutFragment,
+	withoutToken,
+} from "./login.ts";
 
 function exchange(answer: { ok: boolean; status: number }): Exchange & { asked: string[] } {
 	const asked: string[] = [];
@@ -113,5 +120,28 @@ describe("logging in", () => {
 		});
 		expect(logged.cache).not.toBe(cache);
 		expect(await logged.cache.read({ machine: "box", session: "s1" })).toBeUndefined();
+	});
+});
+
+describe("the request itself", () => {
+	test("posts the token in the body, on the page's origin, with the cookie made explicit", async () => {
+		const seen: { url: string; init: RequestInit | undefined }[] = [];
+		const real = globalThis.fetch;
+		globalThis.fetch = (async (url: string, init: RequestInit) => {
+			seen.push({ url, init });
+			return new Response(null, { status: 204 });
+		}) as typeof fetch;
+		try {
+			const answer = await fetchLogin.login("abc");
+			expect(answer).toEqual({ ok: true, status: 204 });
+		} finally {
+			globalThis.fetch = real;
+		}
+		const [call] = seen;
+		expect(call?.url).toBe("/login");
+		expect(call?.init?.method).toBe("POST");
+		expect(call?.init?.credentials).toBe("same-origin");
+		expect(call?.init?.headers).toEqual({ "content-type": "application/json" });
+		expect(call?.init?.body).toBe(JSON.stringify({ token: "abc" }));
 	});
 });
