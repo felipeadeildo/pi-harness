@@ -5,6 +5,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { findWebDir } from "../daemon/app.ts";
 import { Daemon } from "../daemon/server.ts";
 import { CLIENT_PORT, daemonDir, daemonPaths } from "../places.ts";
 import { VERSION } from "../version.ts";
@@ -34,6 +35,8 @@ export interface ServeOptions {
 	/** Resolves when `serve` should stop, as SIGINT and SIGTERM do. Injected so a test can stop it. */
 	stopped?: Promise<void>;
 	env?: NodeJS.ProcessEnv;
+	/** The web app's export. Found next to this file by default. */
+	webDir?: string;
 	/** The idle wait a daemon a pi started would have, so a test sees `serve` outlast it. */
 	idleExitMs?: number;
 }
@@ -63,6 +66,7 @@ async function serve(
 		version: VERSION,
 		clientPort: port,
 		stayUp: true,
+		webDir: options.webDir ?? findWebDir(dirname(fileURLToPath(import.meta.url)), options.env),
 		...(options.idleExitMs === undefined ? {} : { idleExitMs: options.idleExitMs }),
 		exited: () => exited(),
 		warn: (message) => err(`pi-remote daemon: ${message}`),
