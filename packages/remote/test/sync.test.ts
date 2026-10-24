@@ -56,9 +56,10 @@ async function startDaemon(): Promise<Daemon> {
 function clientOf(
 	session: string,
 	port: () => number,
-): { client: Client; drop(): void; opens(): number } {
+): { client: Client; drop(): void; opens(): number; snapshots(): number } {
 	let open: WebSocket | undefined;
 	let opens = 0;
+	let snapshots = 0;
 	const transport = (onMessage: (envelope: unknown) => void, onClose: () => void): Transport => {
 		const at = port();
 		const ws = new WebSocket(`ws://127.0.0.1:${at}/ws`, {
@@ -70,7 +71,11 @@ function clientOf(
 		ws.onopen = () => {
 			for (const text of queued.splice(0)) ws.send(text);
 		};
-		ws.onmessage = (event) => onMessage(JSON.parse(String(event.data)));
+		ws.onmessage = (event) => {
+			const message = JSON.parse(String(event.data)) as { type?: string };
+			if (message.type === "snapshot") snapshots += 1;
+			onMessage(message);
+		};
 		ws.onclose = () => onClose();
 		return {
 			send: (message) => {
@@ -87,7 +92,12 @@ function clientOf(
 		open: transport,
 		backoff: { first: 20, max: 200 },
 	});
-	return { client: opened, drop: () => open?.close(), opens: () => opens };
+	return {
+		client: opened,
+		drop: () => open?.close(),
+		opens: () => opens,
+		snapshots: () => snapshots,
+	};
 }
 
 async function openRig(): Promise<Rig> {
@@ -129,6 +139,8 @@ test("a client that loses its connection mid-run ends with the branch, every ent
 	await until(() => heldIds(opened.client).length === want.length, 5_000);
 	expect(heldIds(opened.client)).toEqual(want);
 	expect(opened.opens()).toBeGreaterThan(1);
+	// It came back from its cursor: the replay filled the gap, and no second snapshot was needed.
+	expect(opened.snapshots()).toBe(1);
 });
 
 test("a daemon that restarts mid-run hands the client the branch through a new snapshot", async () => {
@@ -151,6 +163,11 @@ test("a daemon that restarts mid-run hands the client the branch through a new s
 	await until(() => heldIds(opened.client).length === want.length, 10_000);
 	expect(heldIds(opened.client)).toEqual(want);
 	expect(opened.opens()).toBeGreaterThan(1);
+	// A new daemon holds no replay of what came before it, so the client had to take a snapshot: the
+	// first one, the bridge's when it reconnected, and the daemon's answer to the client's hello. More
+	// than that is a client and a daemon asking each other in a loop.
+	expect(opened.snapshots()).toBeGreaterThan(1);
+	expect(opened.snapshots()).toBeLessThanOrEqual(3);
 	// The new daemon learned the session from the bridge, which reconnected on its own.
 	expect(daemon.sessions.get(session)?.connected).toBe(true);
 });

@@ -16,7 +16,7 @@ import { envelope, type Envelope, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
 import { BridgeConnection } from "../src/bridge/connection.ts";
 import { Daemon, daemonDir, type ExitReason, newer } from "../src/daemon/server.ts";
-import { Sessions } from "../src/daemon/sessions.ts";
+import { Sessions, SKIPPED } from "../src/daemon/sessions.ts";
 import { envelopeOf, line, Lines } from "../src/wire/lines.ts";
 import { until } from "./fakes.ts";
 
@@ -288,12 +288,16 @@ describe("the replay buffer", () => {
 	const event = (seq: number, epoch = "e1", type = "tasks.board") =>
 		envelope("event", type, { n: seq }, { ...ORIGIN, epoch, seq });
 
-	test("a cursor gets the events after it, and an ephemeral event is never kept", () => {
+	test("a cursor gets the events after it, and a delta keeps only its number", () => {
 		const sessions = new Sessions();
 		sessions.live(event(0), live);
 		for (const seq of [1, 2, 3]) sessions.event(event(seq));
 		sessions.event(event(4, "e1", "pi.message_update"));
-		expect(sessions.after("s1", { epoch: "e1", seq: 1 })?.map((e) => e.seq)).toEqual([2, 3]);
+		sessions.event(event(5));
+		const after = sessions.after("s1", { epoch: "e1", seq: 1 });
+		// No hole where the delta was, so a client reading the replay sees no gap.
+		expect(after?.map((e) => e.seq)).toEqual([2, 3, 4, 5]);
+		expect(after?.[2]).toMatchObject({ type: SKIPPED, data: {} });
 	});
 
 	test("a snapshot is the new base: kept for a client, and a cursor before it takes it", () => {
