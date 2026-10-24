@@ -7,6 +7,7 @@ import { createEventBus } from "@earendil-works/pi-coding-agent";
 import { ClientAsks, OpenAsks } from "../src/bridge/asks.ts";
 
 const CLIENT: By = { kind: "client", name: "my phone", machine: "phone" };
+const CANCELLED = { answers: [], cancelled: true };
 const QUESTION = { id: "q1", questions: [{ question: "Which one?", header: "One", options: [] }] };
 
 /** The bridge's side of the questions, on a bus of its own. */
@@ -33,44 +34,23 @@ describe("the questions of a session with no terminal", () => {
 		expect(probe.available).toBe(true);
 	});
 
-	test("a question goes to the clients, and a client's answer goes back on the bus with its name", () => {
-		const { events, sent, asks, answered } = mounted();
+	test("a question is heard, and an answer on the bus sends no second fact", () => {
+		const { events, sent } = mounted();
 		events.emit(ASK, QUESTION);
-		expect(sent).toEqual([{ type: "ask.opened", data: QUESTION }]);
-		expect(asks.waiting).toEqual(["q1"]);
+		// Nothing goes on the wire from here: the ask client logs both halves, and the bridge
+		// forwards the log. A second producer meant a second copy that could erase the author.
+		expect(sent).toEqual([]);
 
-		expect(asks.answer({ ask: "q1", by: CLIENT, result: { answers: [], cancelled: false } })).toBe(
-			true,
-		);
-		expect(answered).toEqual([{ id: "q1", by: CLIENT, result: { answers: [], cancelled: false } }]);
-		expect(sent.at(-1)).toMatchObject({
-			type: "ask.closed",
-			data: { id: "q1", by: CLIENT, result: { answers: [], cancelled: false } },
-		});
-		expect(asks.waiting).toEqual([]);
-	});
-
-	test("only the first answer counts, and one for a question nobody asked changes nothing", () => {
-		const { events, asks, answered } = mounted();
-		events.emit(ASK, QUESTION);
-		const first = { ask: "q1", by: CLIENT, result: { answers: [], cancelled: false } };
-		expect(asks.answer(first)).toBe(true);
-		expect(asks.answer({ ...first, by: { ...CLIENT, name: "another" } })).toBe(false);
-		expect(asks.answer({ ...first, ask: "gone" })).toBe(false);
-		expect(answered).toHaveLength(1);
-		expect(answered[0]?.by).toEqual(CLIENT);
+		events.emit(ANSWER, { id: "q1", by: CLIENT, result: { answers: [], cancelled: false } });
+		expect(sent).toEqual([]);
 	});
 
 	test("a question answered elsewhere closes the clients' dialog and sends no answer", () => {
-		const { events, sent, asks, answered } = mounted();
+		const { events, sent, answered } = mounted();
 		events.emit(ASK, QUESTION);
 		events.emit(CANCEL, { id: "q1", by: { kind: "terminal", name: "other", machine: "box" } });
-		expect(asks.waiting).toEqual([]);
 		expect(answered).toEqual([]);
-		expect(sent.at(-1)).toMatchObject({
-			type: "ask.closed",
-			data: { id: "q1", result: { answers: [], cancelled: true } },
-		});
+		expect(sent).toEqual([]);
 	});
 
 	test("a question with no id is refused with a warning instead of a dialog nobody can answer", () => {
@@ -92,25 +72,26 @@ describe("the questions of a session with no terminal", () => {
 		const cancelled: unknown[] = [];
 		events.on(CANCEL, (data: unknown) => cancelled.push(data));
 		events.emit(ASK, QUESTION);
-		asks.answer({ ask: "q1", by: CLIENT, result: { answers: [], cancelled: false } });
 		events.emit(ASK, { ...QUESTION, id: "q2" });
 		asks.stop();
 		// Without these the session stays blocked on questions nobody waits for any more.
-		expect(cancelled).toEqual([{ id: "q1", by: CLIENT }, { id: "q2" }]);
+		expect(cancelled).toEqual([{ id: "q1" }, { id: "q2" }]);
 	});
 
-	test("what it sends closes the question in a client's state, answered or cancelled", () => {
+	test("a stop writes the one close the log cannot, so no client keeps a dead dialog", () => {
 		const { events, sent, asks } = mounted();
-		events.emit(ASK, QUESTION);
-		asks.answer({ ask: "q1", by: CLIENT, result: { answers: [], cancelled: false } });
+		events.emit(ASK, { ...QUESTION, id: "q1" });
 		events.emit(ASK, { ...QUESTION, id: "q2" });
-		asks.stop();
+		// q1 is answered, so the ask client logged its close and the bridge has nothing to add.
+		events.emit(ANSWER, { id: "q1", by: CLIENT, result: { answers: [], cancelled: false } });
+		expect(sent).toEqual([]);
 
-		// The fact only reads with a `result`, so a close without one leaves the question open in the
-		// client's state, with a dialog nobody can answer any more.
+		asks.stop();
+		// q2 was still open when the session went: no answer, no abort, no log line. The bridge is the
+		// only one that can say it closed, and a fact without a `result` never reads.
+		expect(sent).toEqual([{ type: "ask.closed", data: { id: "q2", result: CANCELLED } }]);
 		let facts = emptyHarnessState();
 		for (const event of sent) {
-			if (event.type !== "ask.opened" && event.type !== "ask.closed") continue;
 			expect(isFact(event.type, event.data)).toBe(true);
 			facts = applyLogged(facts, event.type, event.data);
 		}

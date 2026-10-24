@@ -3,16 +3,7 @@
 // go through the bus instead of a dialog nobody can see. A client then answers with `ask.answer`,
 // which arrives on the socket, and the answer goes back on the bus as one from a client, so the asker
 // sees a normal answer and never learns that it happened on a phone.
-import {
-	type AnswerEvent,
-	ANSWER,
-	ASK,
-	type AskResult,
-	AVAILABLE,
-	CANCEL,
-	isObject,
-	type By,
-} from "@adeildo/pi-kit";
+import { ANSWER, ASK, type AskResult, AVAILABLE, CANCEL, isObject, type By } from "@adeildo/pi-kit";
 
 export interface AsksOptions {
 	/** The kit's bus, which every feature in this pi shares. */
@@ -27,15 +18,6 @@ export interface AsksOptions {
 
 /** The answer a question closed without a client says: nobody chose, and it did not go unanswered. */
 const CANCELLED: AskResult = { answers: [], cancelled: true };
-
-/** What a client's `ask.answer` carries: the question, the answer, and who gave it. */
-export interface ClientAnswer {
-	/** The ask's id. */
-	ask: string;
-	result: AskResult;
-	/** The client's own name and machine, which the command's envelope carries. */
-	by: By;
-}
 
 /**
  * Answers the kit's questions for the clients, and takes their answers. Only for a session with no
@@ -58,6 +40,12 @@ export class ClientAsks {
 				if (isObject(data)) data.available = true;
 			}),
 			events.on(ASK, (data: unknown) => this.#asked(data)),
+			// An answer closes the question without a word from here: the ask client logs the close
+			// and hands the answer over, so this side only stops counting it as open.
+			events.on(ANSWER, (data: unknown) => {
+				const id = isObject(data) && typeof data.id === "string" ? data.id : undefined;
+				if (id !== undefined) this.#open.delete(id);
+			}),
 			// Someone else answered or gave up: the clients' dialog closes, and no answer goes back.
 			events.on(CANCEL, (data: unknown) => {
 				const id = isObject(data) && typeof data.id === "string" ? data.id : undefined;
@@ -69,25 +57,18 @@ export class ClientAsks {
 
 	stop(): void {
 		for (const stop of this.#stops.splice(0)) stop();
-		// A question still waiting would stay open in every client's state with nobody to answer it:
-		// the bridge is leaving the bus, so it closes each one as it goes. `#close` sends, and does
-		// not touch the set, so iterating it here is safe.
-		for (const id of this.#open) this.#close(id, CANCELLED);
+		// A question still waiting would stay open in every client's state with nobody to answer it,
+		// and this is the one close the log cannot tell: a session that shuts down writes no answer
+		// and no abort, so there is no `ask.closed` for the bridge to forward. The bridge therefore
+		// writes this one itself, and only this one.
+		for (const id of this.#open) this.#closedOnStop(id);
 		this.#open.clear();
 	}
 
-	/** A client answered. False when the question is not open, or was answered before. */
-	answer(answer: ClientAnswer): boolean {
-		if (!this.#open.delete(answer.ask)) return false;
-		const event: AnswerEvent = { id: answer.ask, by: answer.by, result: answer.result };
-		this.#options.events.emit(ANSWER, event);
-		this.#close(answer.ask, answer.result, answer.by);
-		return true;
-	}
-
-	/** The ids of the questions waiting for a client, which the command handler checks against. */
-	get waiting(): readonly string[] {
-		return [...this.#open];
+	/** Closes a question the session abandons, with the fact the log will never carry. */
+	#closedOnStop(id: string): void {
+		this.#options.send({ type: "ask.closed", data: { id, result: CANCELLED } });
+		this.#close(id, CANCELLED);
 	}
 
 	#asked(data: unknown): void {
@@ -96,19 +77,18 @@ export class ClientAsks {
 			return;
 		}
 		this.#open.add(data.id);
-		this.#options.send({ type: "ask.opened", data });
+		// No fact is sent from here: the ask client logs `ask.opened` and `ask.closed`, and the bridge
+		// forwards the log. Two producers meant two copies, and the second one erased the author.
 	}
 
 	/**
-	 * Everything a closed question owes. The fact is what a client's state reduces, and it only reads
-	 * with a `result`. The bus's `CANCEL` is what the session's status watches: without it the session
-	 * stays blocked on a question nobody is waiting on any more.
+	 * What a closed question owes everyone else: the bus's `CANCEL`, which the session's status watches
+	 * to leave `blocked`. The fact is the log's, written once by the ask client; the one exception is
+	 * a session that shuts down, and `#closedOnStop` writes that one.
 	 */
-	#close(id: string, result: AskResult, by?: By): void {
-		this.#options.send({
-			type: "ask.closed",
-			data: { id, result, ...(by === undefined ? {} : { by }) },
-		});
+	#close(id: string, _result: AskResult, by?: By): void {
+		// The `CANCEL` stays: it is what the session's status watches to leave `blocked`. The fact is
+		// the log's, written by the ask client with the same answer and the same author.
 		this.#options.events.emit(CANCEL, { id, ...(by === undefined ? {} : { by }) });
 	}
 }
