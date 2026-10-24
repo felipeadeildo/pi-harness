@@ -35,16 +35,26 @@ export function useSession(key: SessionKey, source: () => Promise<SessionSource>
 	useEffect(() => {
 		let open = true;
 		let stop: (() => void) | undefined;
-		void source().then((ready) => {
-			if (!open) return;
-			if (ready.why !== undefined) {
-				setHeld({ session: undefined, changes: 0, why: ready.why });
-				return;
-			}
-			stop = openSession({ machine, session }, ready, (current) =>
-				setHeld((before) => ({ session: current, changes: before.changes + 1 })),
+		void source()
+			.then((ready) => {
+				if (!open) return;
+				if (ready.why !== undefined) {
+					setHeld({ session: undefined, changes: 0, why: ready.why });
+					return;
+				}
+				stop = openSession({ machine, session }, ready, (current) =>
+					setHeld((before) => ({ session: current, changes: before.changes + 1 })),
+				);
+			})
+			// A screen with nothing to draw and nothing to say is the blank page this PR set out to
+			// remove, so a failure to even ask is a sentence too.
+			.catch(() =>
+				setHeld({
+					session: undefined,
+					changes: 0,
+					why: "The session could not be opened. Ask for a new link with /remote.",
+				}),
 			);
-		});
 		return () => {
 			open = false;
 			stop?.();

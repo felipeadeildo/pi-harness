@@ -50,14 +50,36 @@ describe("the token in a link", () => {
 describe("logging in", () => {
 	test("spends the token once, after taking it out of the address", async () => {
 		const cache = memoryCache();
-		const asking = exchange({ ok: true, status: 204 });
+		const order: string[] = [];
+		const asking: Exchange = {
+			async login(token) {
+				order.push(`login ${token}`);
+				return { ok: true, status: 204 };
+			},
+		};
 		const location = at("#token=abc");
+		location.replaceState = (url: string) => void (order.push(`replace ${url}`), url);
 		const logged = await logIn(location, { exchange: asking, cache });
-		expect(asking.asked).toEqual(["abc"]);
-		expect(location.replaced).toEqual(["/session/box/s1?x=1"]);
+		// One list, so the order is what the test checks: the address is clean before the request.
+		expect(order).toEqual(["replace /session/box/s1?x=1", "login abc"]);
 		expect(logged.ok).toBe(true);
 		expect(logged.cache).toBe(cache);
 		expect(logged.why).toBeUndefined();
+	});
+
+	test("a request that never lands says so, after the token left the address", async () => {
+		const location = at("#token=abc");
+		const logged = await logIn(location, {
+			exchange: {
+				async login() {
+					throw new Error("fetch failed");
+				},
+			},
+			cache: memoryCache(),
+		});
+		expect(location.replaced).toEqual(["/session/box/s1?x=1"]);
+		expect(logged.ok).toBe(false);
+		expect(logged.why).toContain("could not be reached");
 	});
 
 	test("a page without a token opens straight away, and asks nothing", async () => {

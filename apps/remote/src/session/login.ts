@@ -73,7 +73,18 @@ export async function logIn(
 	if (token === undefined) return { ok: true, cache: options.cache };
 	// Gone from the address before the request goes out: a screenshot or a shared tab must not carry it.
 	location.replaceState(withoutToken(location));
-	const answer = await options.exchange.login(token);
+	let answer: { ok: boolean; status: number };
+	try {
+		answer = await options.exchange.login(token);
+	} catch {
+		// The daemon may be restarting, or the network gone. The token is spent either way, because it
+		// left the address, so this is a sentence and not a retry: asking for a new link is the way back.
+		return {
+			ok: false,
+			cache: memoryCache(),
+			why: "The daemon could not be reached. Check that pi is running, then ask for a new link with /remote.",
+		};
+	}
 	if (answer.ok) return { ok: true, cache: options.cache };
 	// The two refusals are different to the person reading them: a spent or late link, or the request
 	// itself going wrong. Telling them apart is what stops someone asking for a link that was fine.
