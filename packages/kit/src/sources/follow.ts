@@ -88,8 +88,8 @@ export class FileTail {
 
 /**
  * Calls `on` with what the file gains, as it gains it, until the returned function is called. What
- * the file already holds comes before `followFile` returns. It waits for a file that does not exist yet. `every` is the poll that backs up the directory watch,
- * which some filesystems never fire.
+ * the file already holds comes before `followFile` returns. It waits for a file that does not exist
+ * yet. `every` is the poll that backs up the directory watch, which some filesystems never fire.
  */
 export function followFile(
 	path: string,

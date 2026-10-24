@@ -16,6 +16,10 @@ export interface SessionSnapshot {
 	/** The machine the session runs on: its hostname, until machines get ids. */
 	machine: string;
 	cwd: string;
+	/**
+	 * The session's title, as pi stores it with `/name` and the tasks set it: what a screen puts at
+	 * the top. Not the handle a room mentions it by, which is the presence's.
+	 */
 	name?: string;
 	/** The entry the conversation continues from. Pi draws the branch from it back to the root. */
 	leafId?: string;

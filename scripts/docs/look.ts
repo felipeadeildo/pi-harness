@@ -95,7 +95,7 @@ function snapshot(theme: Theme): Snapshot {
 	};
 }
 
-function screen(theme: Theme): Screen {
+export function screen(theme: Theme): Screen {
 	const data = snapshot(theme);
 	let revision = 0;
 	return {

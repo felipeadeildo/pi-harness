@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, MessageRenderer } from "@earendil-works/pi-coding-agent";
 
 import type { SettingsStore } from "../settings/store.ts";
 import { attributed } from "./attribution.ts";
@@ -9,6 +9,7 @@ import type {
 	SessionHook,
 	ShutdownHook,
 } from "./feature.ts";
+import { forgetRenderers, keepMessageRenderer, keepToolRenderer } from "./renderers.ts";
 
 export interface Hook<T> {
 	/** The feature that registered it, named when it fails. */
@@ -37,6 +38,7 @@ export function createScope(state: AppState, featureId: string): FeatureScope {
 	state.screen.set(featureId, rows);
 	const groups: ScreenGroup[] = state.screenGroups.get(featureId) ?? [];
 	state.screenGroups.set(featureId, groups);
+	forgetRenderers(featureId);
 	const add = (row: ScreenEntry): void => {
 		if (rows.some((entry) => entry.id === row.id)) {
 			state.report(featureId, `the screen row "${row.id}" was added twice; keeping the first`);
@@ -61,6 +63,14 @@ export function createScope(state: AppState, featureId: string): FeatureScope {
 				...options,
 				handler: attributed(`${label}: /${name}`, options.handler),
 			});
+		},
+		registerToolRenderer(resolver) {
+			keepToolRenderer(featureId, resolver);
+			state.pi.registerToolRenderer(resolver);
+		},
+		registerMessageRenderer(customType, renderer) {
+			keepMessageRenderer(featureId, customType, renderer as MessageRenderer);
+			state.pi.registerMessageRenderer(customType, renderer);
 		},
 		onSessionStart: (run) => state.starts.push({ source: featureId, run }),
 		onShutdown: (run) => state.shutdowns.push({ source: featureId, run }),

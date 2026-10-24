@@ -2,6 +2,7 @@ export { type AskOptions, askQuestions, canAsk } from "./ask/client.ts";
 export * from "./app/builder.ts";
 export * from "./betas.ts";
 export * from "./app/feature.ts";
+export { messageRendererFor, resolveToolRenderers } from "./app/renderers.ts";
 export * from "./contracts/accounts.ts";
 export * from "./contracts/ask.ts";
 export * from "./contracts/by.ts";

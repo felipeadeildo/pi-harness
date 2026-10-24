@@ -63,6 +63,20 @@ The footer is the session, each number with its word: the cost, the tokens sent 
 
 `Alt+O` opens the session's tool output in a frame you scroll, one call at a time, newest first. The arrows up and down scroll it, left and right move to older and newer calls, and the bottom edge says which lines you are on. Pi shows a long output cut in the transcript, and `Ctrl+O` opens every call at once.
 
+## Another session
+
+When the `Alt+G` panel or remote asks to show another session, the look draws it over the whole screen in one frame: its transcript with the same boxes as yours, then an editor box whose edges carry that session's folder, machine, model and context, filled into your own slots. A session read from its file has nothing to type into, so the editor box holds a line that says to write to it through a room. The top edge says `live` while the session runs and `ended` once it closes, with the frame dashed. The arrows, `PageUp`, `PageDown`, `Home` and `End` scroll it. Scrolled back, it holds the lines you are reading while more arrive and says how many wait below. `Alt+G` or `Esc` goes back.
+
+<!-- docs:look/view -->
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/view.png" alt="A session titled Read the rig log, on the machine server, drawn over the whole screen in one frame with live on the right of its top edge. Its last question and the answer sit above an editor box whose edges carry the session's title, its folder, its machine and its model, and whose only line says the session is read only. The bottom edge says alt+g goes back." width="860">
+  <br>
+  <em>Another session over the screen, read from its file as it grows.</em>
+</p>
+
+<!-- /docs -->
+
 ## It holds still
 
 Numbers change on every frame, and the screen must not move with them.
