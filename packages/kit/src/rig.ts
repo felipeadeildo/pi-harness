@@ -37,6 +37,11 @@ export interface RigOptions {
 	 * a summary. A script that only lists replies runs out in the middle of one.
 	 */
 	answer?: FauxResponseFactory;
+	/**
+	 * How fast the scripted model writes, in tokens a second. Without it the answer arrives in one
+	 * microtask, and a test of what happens while the model writes has nothing to hold on to.
+	 */
+	tokensPerSecond?: number;
 	/** Where the session file, the log and the working folder go. A temporary folder otherwise. */
 	root?: string;
 	/** Where the session works. A folder under the root otherwise. */
@@ -242,7 +247,11 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 		);
 	}
 
-	const faux = fauxProvider({ provider: "rig", models: [{ id: "scripted", name: "Scripted" }] });
+	const faux = fauxProvider({
+		provider: "rig",
+		models: [{ id: "scripted", name: "Scripted" }],
+		...(options.tokensPerSecond === undefined ? {} : { tokensPerSecond: options.tokensPerSecond }),
+	});
 	const answer = options.answer;
 	if (answer === undefined) {
 		faux.setResponses([...(options.replies ?? [])]);
