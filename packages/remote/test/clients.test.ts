@@ -685,9 +685,10 @@ describe("logging in", () => {
 		const daemon = await Daemon.start({ socket, version: "1.2.0" });
 		if (daemon === undefined) throw new Error("the daemon did not start");
 		running.push(daemon);
-		expect(await requestLink(socket)).toEqual({
-			reason: "the daemon listens on no port for clients",
-		});
+		// The message names what to do about it: a port another program holds is the operator's fix.
+		const link = await requestLink(socket);
+		expect("reason" in link ? link.reason : "").toContain("the port is taken by another program");
+		expect("reason" in link ? link.reason : "").toContain("Alt+S › Remote");
 	});
 });
 

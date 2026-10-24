@@ -219,7 +219,9 @@ export class Daemon {
 		};
 		if (message.type !== "token.issue") return answer("error", { reason: "unknown command" });
 		if (this.clientPort === undefined)
-			return answer("error", { reason: "the daemon listens on no port for clients" });
+			return answer("error", {
+				reason: `the daemon is not listening for clients: the port is taken by another program, and it is set in Alt+S › Remote`,
+			});
 		const { token, expiresAt } = this.logins.issue();
 		// The daemon names the port, since `serve --port` may have moved it. The token rides in the
 		// fragment, which no request carries to a server or a log.

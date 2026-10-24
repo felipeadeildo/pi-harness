@@ -100,19 +100,24 @@ describe("starting the daemon", () => {
 		expect(readCurrent(join(root, "nowhere"))).toBeUndefined();
 	});
 
-	test("starts the daemon current.json names, apart from this process", async () => {
+	test("starts the daemon current.json names, apart from this process, on the port it was given", async () => {
 		const dir = join(root, "start");
 		mkdirSync(dir, { recursive: true });
 		const marker = join(dir, "started");
 		const daemon = join(dir, "daemon.js");
-		writeFileSync(daemon, `require("node:fs").writeFileSync(${JSON.stringify(marker)}, "yes");\n`);
+		// The daemon writes what it was started with, which is how the port reaches it at all.
+		writeFileSync(
+			daemon,
+			`require("node:fs").writeFileSync(${JSON.stringify(marker)}, process.argv.slice(2).join(" "));\n`,
+		);
 		writeLauncher(dir, { ...current, daemon });
-		startDaemon(dir);
+		startDaemon(dir, 8123);
 		await until(() => existsSync(marker));
+		expect(readFileSync(marker, "utf8")).toBe("--port 8123");
 	});
 
 	test("says what is missing when no pi wrote current.json", () => {
-		expect(() => startDaemon(join(root, "nowhere"))).toThrow(
+		expect(() => startDaemon(join(root, "nowhere"), 7878)).toThrow(
 			"current.json names no daemon to start",
 		);
 	});
