@@ -489,6 +489,22 @@ describe("a session that comes back", () => {
 		expect(saved.handle).toBe("oauth");
 	});
 
+	test("an older session writes the handle it was given with its title", async () => {
+		const saved = { ...emptyTasks(), handle: "oauth", title: "OAuth" };
+		const branch = [
+			{ type: "custom", customType: TASKS_ENTRY, data: { version: 1, state: saved } },
+		];
+		await mounted([], branch);
+		const named = new FolderFeed(eventsDir("/repo"))
+			.read()
+			.filter((event) => event.type === "session.named");
+		// The peers read the handle from this line, so an older session has to keep sending it.
+		expect(named.map((event) => event.data)).toContainEqual({
+			handle: "oauth",
+			title: "OAuth",
+		});
+	});
+
 	test("one titled before it could be named gets its name when it opens", async () => {
 		const saved = { ...emptyTasks(), title: "OAuth for the MCP" };
 		const entry = { type: "custom", customType: TASKS_ENTRY, data: { version: 1, state: saved } };
