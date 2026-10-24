@@ -110,6 +110,11 @@ function name(here: Here, handle: string, title = handle): void {
 	here.log("session.named", { handle, title });
 }
 
+/** The peer of a session, as the folder holds it. */
+function peerOf(here: Here, id: string) {
+	return here.live().find((one) => one.session === id);
+}
+
 /** Only the colour names matter here. */
 const plain = { fg: (_color: string, text: string) => text } as unknown as Theme;
 
@@ -139,6 +144,22 @@ describe("being here", () => {
 		}
 		here.sync();
 		expect(here.live().map((peer) => peer.session)).toEqual(["a", "twin"]);
+	});
+
+	test("a handle and a title logged apart keep both, in either order", () => {
+		const a = session("a", undefined, true, null);
+		a.here.log("session.named", { handle: "otter" });
+		a.here.sync();
+		a.here.log("session.named", { title: "Fix the release" });
+		a.here.sync();
+		expect(peerOf(a.here, "a")).toMatchObject({ handle: "otter", title: "Fix the release" });
+
+		const b = session("b", undefined, true, null);
+		b.here.log("session.named", { title: "Read the rig log" });
+		b.here.sync();
+		b.here.log("session.named", { handle: "quokka" });
+		b.here.sync();
+		expect(peerOf(b.here, "b")).toMatchObject({ handle: "quokka", title: "Read the rig log" });
 	});
 
 	test("each session sees the others, by the name its tasks gave it", () => {

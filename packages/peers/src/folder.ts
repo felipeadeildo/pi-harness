@@ -129,8 +129,10 @@ export class Folder {
 				return;
 			case "session.named": {
 				const data = event.data as LoggedEvent<"session.named">["data"];
-				peer.handle = data.handle;
-				peer.title = data.title;
+				// The handle and the title have different writers, so a field that is absent says
+				// "unchanged", not "erase it".
+				if (data.handle !== undefined) peer.handle = data.handle;
+				if (data.title !== undefined) peer.title = data.title;
 				return;
 			}
 			case "session.state": {
