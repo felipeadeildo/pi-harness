@@ -71,6 +71,11 @@ export class Clients {
 		this.#server.close();
 	}
 
+	/** The sessions some client watches, each with how many. */
+	watched(): Map<string, number> {
+		return new Map([...this.#watchers].map(([session, watchers]) => [session, watchers.size]));
+	}
+
 	/** Sends an event of a session to every client watching it. */
 	forward(message: Envelope): void {
 		const watchers = this.#watchers.get(message.session ?? "");
@@ -88,7 +93,11 @@ export class Clients {
 			},
 			closed: () => {
 				this.#sockets.delete(ws);
-				for (const watchers of this.#watchers.values()) watchers.delete(ws);
+				for (const [session, watchers] of this.#watchers) {
+					watchers.delete(ws);
+					// A session nobody watches leaves no entry, whether it ended or never came.
+					if (watchers.size === 0) this.#watchers.delete(session);
+				}
 			},
 		};
 	}
@@ -108,7 +117,8 @@ export class Clients {
 		if (watchers === undefined) this.#watchers.set(session, (watchers = new Set()));
 		watchers.add(ws);
 		if (sessions.get(session) === undefined) {
-			this.#send(ws, envelope("error", "hello", { reason: "unknown session", session }));
+			// Not an end: the client keeps watching, and the bridge's first snapshot reaches it.
+			this.#send(ws, envelope("error", "hello", { reason: "waiting for the session", session }));
 			return;
 		}
 

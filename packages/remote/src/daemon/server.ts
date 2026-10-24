@@ -224,6 +224,11 @@ export class Daemon {
 		else this.#clients = clients;
 	}
 
+	/** The sessions some client watches, each with how many. */
+	watched(): Map<string, number> {
+		return this.#clients?.watched() ?? new Map();
+	}
+
 	/** Asks a session's bridge for a snapshot, which comes back as an event like any other. */
 	#askSnapshot(session: string): boolean {
 		const socket = this.#bridges.get(session);

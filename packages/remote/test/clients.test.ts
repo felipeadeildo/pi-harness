@@ -185,18 +185,20 @@ describe("a client of the daemon", () => {
 	});
 
 	test("a client that comes before the bridge gets the session once the bridge registers it", async () => {
-		const { port } = await openDaemon();
+		const { daemon, port } = await openDaemon();
 		const client = connect({
 			key: { machine: "laptop", session: "s1" },
 			cache: memoryCache(),
 			open: transportTo(port),
 		});
 		await client.load();
-		await Bun.sleep(50);
+		await until(() => daemon.watched().get("s1") === 1);
 		const bridge = await bridgeOf("s1");
 		bridge.snapshot([entry("a", null)]);
 		await until(() => client.session().entries.length === 1);
 		client.stop();
+		// Once nobody watches, the session leaves no entry behind.
+		await until(() => daemon.watched().size === 0);
 	});
 
 	test("a snapshot carries the facts before it, without a closed question or a replaced mode", async () => {
