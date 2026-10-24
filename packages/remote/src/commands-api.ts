@@ -8,7 +8,6 @@ import {
 	type PermissionMode,
 	type FeatureScope,
 } from "@adeildo/pi-kit";
-/** pi's own thinking levels, as the `/thinking` command offers them, `off` included. */
 /** pi's levels live in the protocol, so the screen that offers them and this check cannot disagree. */
 import { THINKING_LEVELS } from "@adeildo/pi-remote-protocol";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
