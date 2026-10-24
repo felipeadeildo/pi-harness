@@ -134,7 +134,8 @@ export class SessionView implements Component, Focusable {
 /** The viewed session's title and machine, or its id until its file says more. */
 function titleOf(snapshot: SessionSnapshot | undefined): string {
 	if (snapshot === undefined) return "Opening the session";
-	const name = snapshot.name ?? `session ${snapshot.session.slice(-4)}`;
+	// With no title yet, the name a room gives a session it has no handle for.
+	const name = snapshot.name ?? `new-${snapshot.session.slice(-4)}`;
 	return `${name} @ ${snapshot.machine}`;
 }
 

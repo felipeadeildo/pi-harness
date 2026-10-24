@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import type { MessageRenderer, ToolRenderers } from "@earendil-works/pi-coding-agent";
 
+import { forgetRenderers } from "../src/app/renderers.ts";
 import {
 	createApp,
 	defineFeature,
@@ -44,13 +45,14 @@ test("a tool's renderers resolve through every feature, in the order pi resolves
 });
 
 test("a feature mounted again for the next session replaces what it registered", () => {
+	forgetRenderers("outer");
+	forgetRenderers("inner");
 	for (let session = 0; session < 2; session++) {
 		const { pi } = fakePi();
 		createApp(pi, { name: "test", settingsPath }).use(wrapping("again")).build();
 	}
 	const base = { label: "base" } as ToolRenderers;
-	expect(labelOf(resolveToolRenderers("bash", () => base))).toContain("again(base)");
-	expect(labelOf(resolveToolRenderers("bash", () => base))).not.toContain("again(again(");
+	expect(labelOf(resolveToolRenderers("bash", () => base))).toBe("again(base)");
 });
 
 const NOTE_RENDERER: MessageRenderer = () => undefined;

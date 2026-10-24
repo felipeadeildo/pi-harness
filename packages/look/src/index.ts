@@ -129,7 +129,9 @@ export const look = defineFeature({
 				const ctx = live.ctx;
 				const source = sourceFor(scope.events, address);
 				if (ctx === undefined || ctx.mode !== "tui" || source === undefined) return false;
-				void openView(ctx, screen, source);
+				openView(ctx, screen, source).catch((error: unknown) => {
+					scope.warn(`pi-look: could not show ${address.session}: ${String(error)}`);
+				});
 				return true;
 			},
 			() => live.ctx?.mode === "tui",
@@ -496,7 +498,7 @@ export default function piLook(pi: ExtensionAPI): void {
 	createApp(pi, { name: "pi-look" }).use(look).build();
 }
 
-/** Alt+O: the session's tool output, one call at a time, newest first. */
+/** Another session over the whole screen, until its reader closes it. */
 async function openView(
 	ctx: ExtensionContext,
 	screen: Screen,
@@ -517,6 +519,7 @@ async function openView(
 	view?.dispose();
 }
 
+/** Alt+O: the session's tool output, one call at a time, newest first. */
 async function openOutputs(ctx: ExtensionContext): Promise<void> {
 	if (ctx.mode !== "tui") return;
 	const outputs = outputsOf(ctx.sessionManager.getBranch());
