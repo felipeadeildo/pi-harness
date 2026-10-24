@@ -12,6 +12,8 @@ import { accept, type WebSocket } from "../wire/websocket.ts";
 import { type Asking, checkPlace, loopbackHosts } from "./auth.ts";
 import type { Sessions } from "./sessions.ts";
 
+const STATUS = { 401: "Unauthorized", 403: "Forbidden", 421: "Misdirected Request" } as const;
+
 /** A client with this much unsent is too slow to keep up, and is closed to reconnect from its cursor. */
 export const CLIENT_BACKLOG = 8 * 1024 * 1024;
 
@@ -42,7 +44,10 @@ export class Clients {
 			// Any page can open a WebSocket to 127.0.0.1, so one from another Origin is refused here.
 			const placed = checkPlace(asking(request, true), this.#hosts);
 			if (!placed.ok) {
-				socket.end(`HTTP/1.1 ${placed.status} ${placed.reason}\r\nConnection: close\r\n\r\n`);
+				// A fixed reason phrase: the request's own Origin or Host never goes into the head.
+				socket.end(
+					`HTTP/1.1 ${placed.status} ${STATUS[placed.status]}\r\nConnection: close\r\n\r\n`,
+				);
 				return;
 			}
 			if (new URL(request.url ?? "/", "http://daemon").pathname !== "/ws") {

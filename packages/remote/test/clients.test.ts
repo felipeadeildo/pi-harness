@@ -260,8 +260,8 @@ describe("who reaches the daemon", () => {
 	test("a WebSocket from another page's Origin, or with none, is refused", async () => {
 		const { port } = await openDaemon();
 		const host = `Host: 127.0.0.1:${port}\r\n`;
-		expect(await upgrade(port, `${host}Origin: https://evil.example\r\n`)).toStartWith(
-			"HTTP/1.1 403",
+		expect(await upgrade(port, `${host}Origin: https://evil.example\r\n`)).toBe(
+			"HTTP/1.1 403 Forbidden",
 		);
 		expect(await upgrade(port, `${host}Origin: null\r\n`)).toStartWith("HTTP/1.1 403");
 		expect(await upgrade(port, host)).toStartWith("HTTP/1.1 403");
