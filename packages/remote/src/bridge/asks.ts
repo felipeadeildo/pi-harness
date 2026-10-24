@@ -3,16 +3,7 @@
 // go through the bus instead of a dialog nobody can see. A client then answers with `ask.answer`,
 // which arrives on the socket, and the answer goes back on the bus as one from a client, so the asker
 // sees a normal answer and never learns that it happened on a phone.
-import {
-	type AnswerEvent,
-	ANSWER,
-	ASK,
-	type AskResult,
-	AVAILABLE,
-	CANCEL,
-	isObject,
-	type By,
-} from "@adeildo/pi-kit";
+import { ANSWER, ASK, type AskResult, AVAILABLE, CANCEL, isObject, type By } from "@adeildo/pi-kit";
 
 export interface AsksOptions {
 	/** The kit's bus, which every feature in this pi shares. */
@@ -27,15 +18,6 @@ export interface AsksOptions {
 
 /** The answer a question closed without a client says: nobody chose, and it did not go unanswered. */
 const CANCELLED: AskResult = { answers: [], cancelled: true };
-
-/** What a client's `ask.answer` carries: the question, the answer, and who gave it. */
-export interface ClientAnswer {
-	/** The ask's id. */
-	ask: string;
-	result: AskResult;
-	/** The client's own name and machine, which the command's envelope carries. */
-	by: By;
-}
 
 /**
  * Answers the kit's questions for the clients, and takes their answers. Only for a session with no
@@ -74,20 +56,6 @@ export class ClientAsks {
 		// not touch the set, so iterating it here is safe.
 		for (const id of this.#open) this.#close(id, CANCELLED);
 		this.#open.clear();
-	}
-
-	/** A client answered. False when the question is not open, or was answered before. */
-	answer(answer: ClientAnswer): boolean {
-		if (!this.#open.delete(answer.ask)) return false;
-		const event: AnswerEvent = { id: answer.ask, by: answer.by, result: answer.result };
-		this.#options.events.emit(ANSWER, event);
-		this.#close(answer.ask, answer.result, answer.by);
-		return true;
-	}
-
-	/** The ids of the questions waiting for a client, which the command handler checks against. */
-	get waiting(): readonly string[] {
-		return [...this.#open];
 	}
 
 	#asked(data: unknown): void {
