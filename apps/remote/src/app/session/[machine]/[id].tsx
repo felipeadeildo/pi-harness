@@ -21,6 +21,8 @@ export default function SessionRoute() {
 			</View>
 		);
 	// One question at a time, and it sits above the composer: it is the thing the agent is waiting on.
+	// The oldest comes first: whoever asked first has been waiting longest, and a question nobody can
+	// answer is worse than one answered in an order the person did not choose.
 	const waiting = session === undefined ? [] : openAsks(factsOf(session));
 	const asked = waiting[0];
 	return session === undefined || client === undefined ? null : (
