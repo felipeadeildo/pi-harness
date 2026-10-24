@@ -5,6 +5,7 @@ export * from "./app/feature.ts";
 export * from "./contracts/accounts.ts";
 export * from "./contracts/ask.ts";
 export * from "./contracts/by.ts";
+export { bySession } from "./by-session.ts";
 export * from "./contracts/calls.ts";
 export * from "./contracts/entries.ts";
 export * from "./contracts/screen.ts";

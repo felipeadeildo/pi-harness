@@ -132,6 +132,8 @@ Owner: core. Needs: nothing.
 
 `packages/kit/src/contracts/by.ts` holds the type every fact uses to say who caused it, as the design's envelope has it: `{ kind: "terminal" | "client" | "agent"; name: string; machine: string }`. It lands alone and first, because A1 and P2 need it and nothing else from the core track.
 
+C1 also gives the kit `bySession(kind, scope, session)`, which A2, A3 and C4 use to say which session caused a fact. Its name is the handle the tasks feature gave the session, which is what the room calls it, or `new-` and the end of its id while it has none, and never the title, which changes with the work. `HOST` moves to `packages/kit/src/host.ts`, so `bySession` and the protocol's copy of `By` never pull in the log.
+
 ### C2. Presence in the kit
 
 Owner: core. Needs: C1.
@@ -220,7 +222,7 @@ Owner: names. Needs: N1, and C2 to reclaim the word of a session that crashed.
 
 - On `session_start`, a session with no handle draws a word that nobody holds and nobody reserved in the last 7 days. A resumed session gets its handle back when nobody holds it.
 - With every word taken, the draw adds a number (`kestrel-2`) once and keeps it.
-- The names feature logs `session.named { handle }` once. From then on tasks logs only the title, and readers still accept the older `{ handle, title }`.
+- The names feature logs `session.named { handle }` once. From then on tasks logs only the title, and readers still accept the older `{ handle, title }`. `bySession` reads the drawn handle from then on.
 - Tests: two sessions opening at once, in two processes, draw different words; a handle survives when the older session with the same word closes.
 
 ### N3. Renames, aliases and the identity section
