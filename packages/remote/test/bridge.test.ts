@@ -23,6 +23,7 @@ import {
 	TASKS,
 	targetOf,
 } from "@adeildo/pi-kit";
+import { ANSWER, ASK, CANCEL } from "@adeildo/pi-kit";
 import type { SessionSource, SourceItem } from "@adeildo/pi-kit";
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
 import { type FakePi, fakeContext, fakePi } from "@adeildo/pi-kit/testing";
@@ -224,6 +225,34 @@ describe("the bridge", () => {
 			},
 		});
 		await stop(fake, "quit");
+	});
+
+	test("a stop cancels the questions still open, before it aborts the run", async () => {
+		const daemon = await listening();
+		const order: string[] = [];
+		const ctx = fakeContext([], true, {
+			...session(),
+			abort: () => order.push("abort"),
+			shutdown: () => order.push("shutdown"),
+		});
+		const fake = mounted();
+		fake.pi.events.on(CANCEL, (data: unknown) =>
+			order.push(`cancel:${String(data && (data as { id: string }).id)}`),
+		);
+		await start(fake, ctx);
+		await until(() => types(daemon).includes("snapshot"));
+
+		// One question is waiting; another was answered, so the stop has nothing to say about it.
+		fake.pi.events.emit(ASK, { id: "waiting", questions: [] });
+		fake.pi.events.emit(ASK, { id: "answered", questions: [] });
+		fake.pi.events.emit(ANSWER, { id: "answered", result: { answers: [] } });
+
+		const by = { kind: "client", name: "phone", machine: HOST } as const;
+		const at = { machine: HOST, session: "s1", epoch: "e1", by };
+		daemon.sockets[0]?.write(line(envelope("command", "session.stop", {}, { ...at, id: "c1" })));
+		await until(() => order.includes("shutdown"));
+		// The cancel goes first: an extension waiting on the question hears "no", not the shutdown.
+		expect(order).toEqual(["cancel:waiting", "abort", "shutdown"]);
 	});
 
 	test("a forced stop is refused with a reason, and the log says which command and why", async () => {
