@@ -103,4 +103,44 @@ describe("who has the session open", () => {
 		const warm = sessionOf(key, await cache.read(key));
 		expect(warm.presence?.viewers[0]?.name).toBe("phone");
 	});
+
+	test("the cache keeps who was watching and not who was typing", async () => {
+		// `active` says someone is typing now, and a cache can be days old: it comes back from the
+		// snapshot or the next event, never from a file.
+		const session = started();
+		readEnvelope(
+			session,
+			envelope(
+				"presence.changed",
+				{
+					viewers: [{ name: "phone", machine: "here" }],
+					active: { kind: "client", name: "phone", machine: "here" },
+				},
+				2,
+			),
+		);
+		expect(session.presence?.active?.name).toBe("phone");
+		const cache = memoryCache();
+		await cache.write(cachedOf(session));
+		const warm = sessionOf(key, await cache.read(key));
+		expect(warm.presence).toEqual({ viewers: [{ name: "phone", machine: "here" }] });
+	});
+
+	test("a cache written by an older client keeps the names and drops the claim about typing", () => {
+		// A file from before this rule carries `active` with whatever age the file has, so the read
+		// cuts it too; cutting only on write would leave every existing cache wrong for ever.
+		const older = {
+			key,
+			cursor: {},
+			entries: [],
+			facts: [],
+			presence: {
+				viewers: [{ name: "phone", machine: "here" }],
+				active: { kind: "client", name: "phone", machine: "here" },
+			},
+		};
+		expect(sessionOf(key, older as never).presence).toEqual({
+			viewers: [{ name: "phone", machine: "here" }],
+		});
+	});
 });
