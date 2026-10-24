@@ -595,6 +595,46 @@ describe("logging in", () => {
 		bridge.close();
 	});
 
+	test("a key at the terminal reaches the others as presence, never as the keypress itself", async () => {
+		const { daemon, port, cookie } = await openDaemon();
+		const bridge = await bridgeOf("s1");
+		bridge.snapshot([]);
+		await until(() => daemon.sessions.get("s1") !== undefined);
+		const heard: Envelope[] = [];
+		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+			headers: { Origin: `http://127.0.0.1:${port}`, Cookie: cookie },
+		});
+		ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)) as Envelope);
+		await new Promise<void>((resolve) => (ws.onopen = () => resolve()));
+		ws.send(
+			JSON.stringify(
+				envelope(
+					"hello",
+					"hello",
+					{ by: { kind: "client", name: "phone", machine: "laptop" } },
+					{
+						machine: "laptop",
+						session: "s1",
+					},
+				),
+			),
+		);
+		await until(() => heard.length > 0);
+		const before = heard.length;
+		bridge.send("presence.here", { by: { kind: "terminal", name: "otter", machine: "laptop" } });
+		await until(() =>
+			heard.some(
+				(one) =>
+					one.type === "presence.changed" &&
+					(one.data as { active?: { kind: string } }).active?.kind === "terminal",
+			),
+		);
+		// What arrived is the presence, and the keypress itself was not forwarded.
+		expect(heard.slice(before).map((one) => one.type)).toEqual(["presence.changed"]);
+		ws.close();
+		bridge.close();
+	});
+
 	test("a command for a session with no bridge answers on its id, so the client is not left waiting", async () => {
 		const { port, cookie } = await openDaemon();
 		const origin = `http://127.0.0.1:${port}`;

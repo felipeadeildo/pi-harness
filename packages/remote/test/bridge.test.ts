@@ -815,6 +815,8 @@ describe("one bridge", () => {
 		press("a");
 		press("b");
 		expect(said()).toBe(1);
+		// It takes no number: a keypress is not an event a client would have to skip in a replay.
+		expect(socket.written.find((one) => one.type === "presence.here")?.seq).toBeUndefined();
 		await Bun.sleep(15);
 		press("c");
 		expect(said()).toBe(2);

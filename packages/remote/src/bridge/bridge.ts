@@ -131,9 +131,13 @@ export class Bridge {
 			const now = Date.now();
 			if (now - this.#typedAt < (options.typedEveryMs ?? TYPED_EVERY_MS)) return undefined;
 			this.#typedAt = now;
-			this.#connection.event("presence.here", {
-				by: bySession("terminal", options.scope, ctx.sessionManager),
-			});
+			// No sequence number: it is a keypress, and the next one says the same thing, so it must
+			// not take a place in the session's stream that a client would have to skip.
+			this.#connection.event(
+				"presence.here",
+				{ by: bySession("terminal", options.scope, ctx.sessionManager) },
+				{ droppable: true },
+			);
 			return undefined;
 		});
 		this.#commands = new Commands({

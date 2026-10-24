@@ -243,10 +243,12 @@ export class Daemon {
 		if (message.kind !== "event") return;
 		switch (message.type) {
 			case "presence.here": {
-				// The terminal of this session typed: it is watching, and it has the last input.
+				// The terminal of this session typed: it is watching, and it has the last input. It is
+				// told to the clients as `presence.changed` and never forwarded as itself, which they
+				// have no shape for.
 				const typist = isObject(message.data) ? message.data.by : undefined;
 				if (isBy(typist)) this.#clients?.typed(bridge.session, typist);
-				break;
+				return;
 			}
 			case "session.live":
 				// A session.live that does not read never counts as connected, and the daemon would
