@@ -52,6 +52,9 @@
 		"oxlint": "^1.83.0",
 		"typescript": "^5.7.0"
 	},
+	"engines": {
+		"bun": "1.4.4"
+	},
 	"trustedDependencies": [
 		"lefthook"
 	]
