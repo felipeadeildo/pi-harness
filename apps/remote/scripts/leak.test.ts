@@ -22,7 +22,9 @@ describe("the web bundle", () => {
 			.filter((file) => !/\.test\.tsx?$/.test(file))
 			.filter((file) => {
 				const text = readFileSync(file, "utf8");
-				return /from "node:|require\("node:|pi-remote\/web|packages\/remote\//.test(text);
+				// Any spelling counts: single quotes, `import()`, `require()` and a plain mention, so a
+				// new way of writing the same import cannot slip past the guard.
+				return /node:|pi-remote\/web|packages\/remote\//.test(text);
 			});
 		expect(reaching).toEqual([]);
 	});
