@@ -225,6 +225,30 @@ describe("a client of the daemon", () => {
 		await until(() => daemon.watched().size === 0);
 	});
 
+	test("a queue that changed reaches a client that resumes, through the replay", async () => {
+		const { daemon } = await openDaemon();
+		const bridge = await bridgeOf("s1");
+		bridge.snapshot([]);
+		await until(() => daemon.sessions.get("s1")?.snapshot !== undefined);
+		const queued = {
+			id: "m1",
+			by: { kind: "client", name: "phone", machine: "laptop" },
+			text: "waiting",
+			want: "followUp",
+			when: 1,
+		};
+		// A numbered event, so it is kept for the replay: a client that missed it reads it on resume.
+		bridge.send("queue.changed", { queue: [queued] });
+		await until(() => daemon.sessions.get("s1")?.facts.queue.length === 1);
+
+		// The daemon applied it with the same function the client uses, so a client that resumes from a
+		// cursor before it reads the queue out of the replay instead of asking for a new snapshot.
+		const replayed = daemon.sessions.after("s1", { epoch: "e1", seq: 0 }) ?? [];
+		const queueEvent = replayed.find((one) => one.type === "queue.changed");
+		const queuedAgain = (queueEvent?.data as { queue: { id: string }[] } | undefined)?.queue ?? [];
+		expect(queuedAgain.map((one) => one.id)).toEqual(["m1"]);
+	});
+
 	test("a snapshot carries the harness state folded, and the daemon seeds its own with it", async () => {
 		const { daemon, port, cookie } = await openDaemon();
 		const bridge = await bridgeOf("s1");

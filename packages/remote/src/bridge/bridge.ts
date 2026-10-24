@@ -159,7 +159,7 @@ export class Bridge {
 				setThinking: (level) => options.api.setThinking(level),
 				setMode: (mode, by) => options.api.setMode(mode, by),
 				prompt: (id, by, text, deliverAs) => this.#inbox.put(letterOf(id, by, text, deliverAs)),
-				clearQueue: () => this.#inbox.take(),
+				clearQueue: (ids) => this.#inbox.take(ids),
 				// A client's answer to a question it is looking at. Without an open question with that
 				// id, the answer is refused: the question was answered elsewhere or already closed.
 				// The answer goes on the bus, where whoever is holding the question is listening: the
