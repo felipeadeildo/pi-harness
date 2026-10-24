@@ -40,6 +40,16 @@ export interface Served {
 }
 
 /**
+ * Where the web app's export is, for code that lives in `from`: next to a built file (`dist/web`, the
+ * folder `dist/daemon.js` and `dist/cli.js` both sit in), or, for code run from `src/<folder>/`, the
+ * package's last build. `PI_REMOTE_WEB` points elsewhere. Undefined when none holds a list.
+ */
+export function findWebDir(from: string, env: NodeJS.ProcessEnv = process.env): string | undefined {
+	const candidates = [env.PI_REMOTE_WEB, join(from, "web"), join(from, "..", "..", "dist", "web")];
+	return candidates.find((dir) => dir !== undefined && existsSync(join(dir, FILES)));
+}
+
+/**
  * The app in `dir`, or undefined when the folder holds no export the build listed, or a list that
  * does not read. A broken list costs the app and never the daemon: the data routes still answer.
  */
