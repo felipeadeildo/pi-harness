@@ -50,6 +50,15 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
 - An entry of the transcript (a message, a tool call, a record) draws inside the kit's `entryFrame()`: what it is in the top edge, what became of it in the bottom one.
 - Characters come from the kit's `GLYPH` and `LINE` by name (`GLYPH.check`, `LINE.topLeft`), never as `\u2713` in place. A character missing from the table goes into it with a comment on where it is used. Marks that need a Nerd Font live in the look's icon sets, with their Unicode and ASCII fallbacks.
 
+## Branches and commits
+
+- Everything on GitHub is in English: pull request titles and bodies, reviews, and commit subjects. Behavior, wording and scope are discussed in the room before they are decided.
+- A branch starts from `main` and is named by its type and what it changes, in kebab case: `feat/<area>-<what>`, `fix/...`, `refactor/...` or `chore/...`.
+- A pull request's title is a conventional subject under 72 characters with the area in the scope, such as `feat(kit): tell a reused pid from the process that wrote an entry`. The squash merge makes it the one commit on `main`, so the title is that commit. Commits inside the branch take the same form: one line, no body and no trailer.
+- The type says what the change is. `feat` only when someone who uses pi notices something new, `fix` when something wrong starts working, `refactor` when the code changes and the behavior does not, and `test` for tests, fixtures such as the rig's recording, and test tools. `perf`, `docs`, `build`, `ci` and `chore` cover the rest. A `fix` takes the scope where the wrong behavior was seen; a `refactor` changes nothing a user of that package notices. The reviewer checks the type with the title.
+- One pull request holds one logical change and the test that fails without it. A slice too large to review in one sitting goes in several pull requests, each green on its own.
+- A dependency is added with the package manager, never by writing `package.json`: `bun add <package>` for a runtime dependency and `bun add -d` for a dev one, with `--ignore-scripts` in a worktree. A package only depends on what its users run, so tools and builds are dev dependencies. A tool the whole repository runs, such as `typescript`, `oxlint` and `oxfmt`, lives at the root only, and moving it to a new major is its own pull request.
+
 ## A pull request
 
 - A slice is ticked in the commit that lands it. A pull request that cannot tick it says why in the
@@ -63,6 +72,8 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
   answer with `gh pr review --comment`, ending with the same footer. The account is shared and cannot
   approve its own pull request, so the approval is written in the review and said in the room.
 - The author merges once a review approves, CI is green and nothing conflicts.
+- A pull request stacked on another one's branch moves its base to `main` with `gh pr edit <n> --base main` before the one below merges. Deleting a branch closes every open pull request based on it, and GitHub reopens none of them.
+- The merge runs in a worktree, which is detached before it. The operator's checkout in `~/Projects/pi-harness` stays on `main`, and after the merge it pulls with `git pull --ff-only`; if it is ever detached, `git switch main` comes first. A detached checkout cannot pull, so the `pi` that loads the harness from it runs code from before the merge.
 - A review worktree under `/tmp` installs with `bun install --frozen-lockfile --ignore-scripts`, and
   that same install is what lets a commit or a push there run the hooks: without `node_modules` the
   `pre-push` exits 127 and git reports `failed to push some refs`, which reads like a conflict.
