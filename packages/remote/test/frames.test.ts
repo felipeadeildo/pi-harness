@@ -93,3 +93,42 @@ describe("a peer that answers", () => {
 		server.close();
 	});
 });
+
+describe("a peer already given up on", () => {
+	test("is closed by the next beat instead of being pinged again", async () => {
+		// The production intervals make the wait (10s) win before the next beat (30s), so this branch
+		// only runs when the beat comes first: the wait is long enough that it cannot be the one closing.
+		const closed: string[] = [];
+		const server = createServer((socket) => {
+			socket.once("data", () => {
+				const request = { headers: { "sec-websocket-key": "x", upgrade: "websocket" } };
+				accept(
+					request as never,
+					socket,
+					() => ({ message: () => {}, closed: () => closed.push("closed") }),
+					{
+						pingEvery: 10,
+						pongWait: 200,
+					},
+				);
+			});
+		});
+		await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+		const { port } = server.address() as { port: number };
+		const client = await Bun.connect({
+			hostname: "127.0.0.1",
+			port,
+			socket: { data: () => {}, open: () => {}, close: () => {} },
+		});
+		client.write(
+			"GET /ws HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n" +
+				"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+		);
+		// Two beats, and well inside the 200 ms wait: only the beat can have closed it.
+		const deadline = Date.now() + 120;
+		while (closed.length === 0 && Date.now() < deadline) await Bun.sleep(5);
+		expect(closed).toEqual(["closed"]);
+		client.end();
+		server.close();
+	});
+});
