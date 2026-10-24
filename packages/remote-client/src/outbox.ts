@@ -52,6 +52,19 @@ export class Outbox {
 		return command;
 	}
 
+	/**
+	 * What a previous visit left, put back in the order it was typed. A command already in the queue
+	 * wins, because this queue is the one the person is typing into now.
+	 */
+	restore(commands: readonly Outgoing[] | undefined): void {
+		if (commands === undefined) return;
+		const known = new Set(this.#commands.map((command) => command.id));
+		for (const command of commands) {
+			if (!known.has(command.id)) this.#commands.push({ ...command });
+		}
+		this.#commands.sort((one, other) => one.at - other.at);
+	}
+
 	/** Every command still held, in the order they were typed. */
 	all(): Outgoing[] {
 		return [...this.#commands];
