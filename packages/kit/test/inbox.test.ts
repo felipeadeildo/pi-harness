@@ -135,10 +135,13 @@ describe("the inbox", () => {
 		inbox.put(letter("b", OPERATOR, "steer"));
 		expect(inbox.queue()[0]?.at).toBe(1_000);
 		expect(inbox.sent()[0]?.at).toBe(1_000);
-		// A writer that carries its own clock keeps it.
+		// A writer that carries its own clock keeps it, and a zero is a time, not a missing one.
 		const early = letter("early", AGENT, "followUp", 5);
+		const zero = letter("zero", AGENT, "followUp", 0);
 		inbox.put(early);
+		inbox.put(zero);
 		expect(inbox.queue().find((one) => one.id === early.id)?.at).toBe(5);
+		expect(inbox.queue().find((one) => one.id === zero.id)?.at).toBe(0);
 	});
 
 	test("a letter held for a reason reads back with it, and one without reads as it was", () => {
