@@ -27,8 +27,8 @@ A slice is ticked in the commit that lands it.
 - [ ] C6. Login and the Host check (core, F1)
 - [ ] C7. Sync by cursors (core, F1)
 - [ ] P3. The client library (protocol, F1)
-- [ ] W1. The Expo app and the CSP (client, F1)
-- [x] W2. Text from elsewhere (client, F1)
+- [x] W1. The Expo app and the CSP (client, F1)
+- [ ] W2. Text from elsewhere (client, F1)
 - [ ] W3. The Sessions and Session screens (client, F1)
 - [ ] I1. The inbox (names, before F2)
 
@@ -342,7 +342,7 @@ Owner: client. Needs: nothing.
 - When the export needs an inline script that the CSP forbids, the daemon adds the script's hash to `script-src` when it reads the build, and W1 records that here.
 - The app's type check and lint join `bun run verify`. When the app makes `bun install` in CI more than a minute slower, the app moves to a CI job of its own.
 
-The workspace keeps Bun's isolated linker: Metro and Expo's own checks read the app's `node_modules` for a transitive package, so `bunfig.toml` hoists `*metro-runtime*` and nothing else. Hoisting the whole repository would hide an import nobody declared, which is how the kit's missing `pi-ai` was found in P1. The `bun.lock` moves with the app, so a branch open when W1 lands runs `bun install` again.
+The workspace keeps Bun's isolated linker. On SDK 54 the export needed a transitive package hoisted into the app's `node_modules`; on SDK 58, with `@expo/metro-runtime` declared, the export passes on the isolated store, so no `bunfig.toml` is needed. Hoisting the whole repository was measured and rejected: it hides an import nobody declared, which is how the kit's missing `pi-ai` was found in P1. The `bun.lock` moves with the app, so a branch open when W1 lands runs `bun install` again.
 
 What the export forced, and what the daemon must do with it: the page carries one inline script, so `script-src 'self'` is served with that script's `sha256` rather than `unsafe-inline`. React Native Web writes its styles at runtime, so `style-src` keeps `'unsafe-inline'`; narrowing that is a W2 decision, not a W1 one.
 
