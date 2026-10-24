@@ -35,7 +35,10 @@ export class SessionInbox {
 
 	/** A message with the one shape the inbox takes: a client's, or one another feature sends. */
 	put(letter: Letter): void {
-		// A repeat is not a second message: the inbox refuses it, and nothing goes to pi.
+		// A repeat is not a second message: the inbox refuses it, and nothing goes to pi. This guard is
+		// the instance's memory, for a re-delivery or a steer the terminal handed back. What survives a
+		// restart is `Commands`, which keeps the ids from the log: those are command ids, and it is a
+		// mistake to dedupe here by letter, since then the guarantee depends on the two being equal.
 		if (!this.#inbox.put(letter)) return;
 		if (letter.want === "steer") this.#session.send(letter.text, "steer");
 		this.#publish();
