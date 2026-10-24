@@ -2,7 +2,6 @@
 // and stops when the screen goes. The client changes its session in place, so the screen is told to
 // draw again by a count of the changes, not by a new object.
 import {
-	type By,
 	type Cache,
 	type Client,
 	type ClientSession,
@@ -15,8 +14,8 @@ import { useEffect, useState } from "react";
 export interface SessionSource {
 	cache: Cache;
 	open: ConnectionOptions["open"];
-	/** Who this client is, which every command it sends carries. Absent until a device has a name. */
-	by?: By;
+	/** What to call this client in the log. The machine is the session's, until a device brings its own. */
+	clientName?: string;
 	/** Set when the page cannot open the socket at all, as a refused login leaves it. */
 	why?: string;
 }
@@ -88,7 +87,6 @@ export function openSession(
 		key,
 		cache: source.cache,
 		open: source.open,
-		...(source.by === undefined ? {} : { by: source.by }),
 	});
 	let open = true;
 	const stop = client.on(changed);
