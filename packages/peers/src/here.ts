@@ -71,6 +71,8 @@ export interface Hooks extends InboxHooks {
 	alive?: Lives;
 	/** How long, in milliseconds, a shared room keeps a member with no open agent. */
 	roomGrace?(): number;
+	/** How a session the operator adds to a room stands there: taking part, or only listening. */
+	opening?(): Exclude<RoomMode, "out">;
 }
 
 /** A shared room, as this session knows it. */
@@ -394,7 +396,8 @@ export class Here implements Sender {
 	}
 
 	/** How this session stands in this room, which decides what it takes and whether it bids. */
-	#mode(): RoomMode {
+	/** How this session stands in this room: taking part, listening, or out. */
+	mode(): RoomMode {
 		if (this.session === undefined) return "in";
 		return this.#folder.membership.modeOf(this.session, this.#cwd);
 	}
@@ -509,7 +512,7 @@ export class Here implements Sender {
 
 	#consider(message: Posted): void {
 		// A session that listens does not bid: `@anyone` is an address of the ones taking part.
-		if (this.#mode() !== "in") return;
+		if (this.mode() !== "in") return;
 		if (message.to !== "any" || !this.#recent(message) || !this.#inbox.awake) return;
 		// An agent asking everyone does not bid on its own request.
 		if (message.from === "agent" && message.session === this.session) return;
@@ -618,7 +621,7 @@ export class Here implements Sender {
 	#due(message: Posted, me: string, now: number): boolean {
 		// How this session stands here decides what reaches it: listening keeps only what names it,
 		// and the agent and the screen both read this gate, so the silence is theirs too.
-		if (!receivesFor(this.#mode(), message, me)) return false;
+		if (!receivesFor(this.mode(), message, me)) return false;
 		if (message.received.has(me) || this.#delivered.has(message.id)) return false;
 		return this.#recent(message, now);
 	}

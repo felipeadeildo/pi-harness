@@ -33,7 +33,15 @@ import {
 import { ANYONE_MENTION, completeMentions, EVERYONE_MENTION } from "./mention.ts";
 import type { Named } from "./names.ts";
 import { type Post, Rooms } from "./rooms.ts";
-import { chainLimit, delivery, link, model, PEERS_SETTINGS, roomGrace } from "./settings.ts";
+import {
+	chainLimit,
+	delivery,
+	link,
+	model,
+	opening,
+	PEERS_SETTINGS,
+	roomGrace,
+} from "./settings.ts";
 import {
 	heldBlock,
 	type HeldDelivery,
@@ -175,6 +183,7 @@ export const peers = defineFeature({
 				}
 			},
 			roomGrace: () => roomGrace.get(scope) * 1000,
+			opening: () => opening.get(scope),
 		});
 		let typingShown = false;
 		/** What let each call of the tool through, from the permission gate, by call id. */

@@ -7,6 +7,7 @@ import {
 	modelChoice,
 	pass,
 	problem,
+	type RoomMode,
 	setting,
 	string,
 } from "@adeildo/pi-kit";
@@ -107,4 +108,24 @@ export const roomGrace = setting<number>({
 	},
 });
 
-export const PEERS_SETTINGS = [delivery, chainLimit, model, link, roomGrace];
+/** How a session stands in a room it is added to: taking part, or hearing only what names it. */
+export const opening = setting<Exclude<RoomMode, "out">>({
+	id: "peers.opening",
+	default: "in",
+	decoder: literal("in", "listening"),
+	ui: {
+		section: ROOMS_SECTION,
+		label: "When a room takes you in",
+		description:
+			"A session added to a room takes part: what is said there reaches it and it can take a request to everyone. A session that listens hears only what names it, and never takes a request it was not called to. Either way `m` in the rooms list switches, room by room.",
+		control: {
+			type: "choice",
+			options: [
+				{ value: "in", label: "takes part" },
+				{ value: "listening", label: "just listens" },
+			],
+		},
+	},
+});
+
+export const PEERS_SETTINGS = [delivery, chainLimit, model, link, roomGrace, opening];

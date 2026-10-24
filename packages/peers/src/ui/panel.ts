@@ -13,6 +13,7 @@ import {
 	hideImagesUnderOverlays,
 	type KeyHint,
 	LINE,
+	type RoomMode,
 	pointer,
 	type SourceAddress,
 	spread,
@@ -138,6 +139,9 @@ export class PeersPanel implements Component, Focusable {
 		if (matchesKey(data, Key.ctrl("f")) && entry?.kind === "agent") return this.#narrow(entry);
 		if (data === "@" && this.#other(entry)) return this.#writeTo(entry);
 		if (data === "n") return this.#pick(undefined);
+		// Any room, the folder's own included: `m` switches between taking part and just hearing it.
+		if (data === "m" && entry?.kind === "room")
+			return this.#act(() => this.#options.view.setMode(entry.room.id, nextMode(entry.room)));
 		if (shared !== undefined && room !== undefined && this.#manage(data, shared, room, entry))
 			return;
 		// Typing on the list writes in the room, so the line you write in is never far. The keys that
@@ -157,6 +161,9 @@ export class PeersPanel implements Component, Focusable {
 				return true;
 			case "l":
 				this.#act(() => view.leave(shared));
+				return true;
+			case "m":
+				this.#act(() => view.setMode(shared, nextMode(room)));
 				return true;
 			case "x":
 				this.#closing = shared;
@@ -230,8 +237,14 @@ export class PeersPanel implements Component, Focusable {
 			const name = isOpen
 				? theme.fg("accent", theme.bold(room.name))
 				: theme.fg("muted", room.name);
+			// The column is always there: a room that changes how it stands keeps its name in place.
+			const mark = `${this.#mark(room.mode)} `;
 			lines.push(
-				spread(`${pointer(theme, this.#cursor === key, focused)}${name}`, this.#badge(room), width),
+				spread(
+					`${pointer(theme, this.#cursor === key, focused)}${mark}${name}`,
+					this.#badge(room),
+					width,
+				),
 			);
 			if (!isOpen) continue;
 			const here = this.#options.view.here(room.id);
@@ -260,6 +273,13 @@ export class PeersPanel implements Component, Focusable {
 		if (rooms.length === 1)
 			lines.push("", `  ${theme.fg("muted", "n")}  ${theme.fg("dim", "new room")}`);
 		return { lines, cursorAt };
+	}
+
+	/** The mark before a room's name, for how this session stands in it. */
+	#mark(mode: RoomMode): string {
+		const { theme } = this.#options;
+		if (mode === "listening") return theme.fg("muted", GLYPH.half);
+		return mode === "out" ? theme.fg("dim", GLYPH.ring) : theme.fg("accent", GLYPH.dot);
 	}
 
 	/** What waits in a room: an agent waiting on you, messages your agent has not read, or a count. */
@@ -327,6 +347,7 @@ export class PeersPanel implements Component, Focusable {
 		} else keys.push(["enter", "write"]);
 		if (entry?.kind === "folder") keys.push(["r", "remove folder"]);
 		keys.push(["n", "new room"]);
+		if (entry?.kind === "room") keys.push(["m", modeKey(entry.room)]);
 		if (shared) keys.push(["a", "add"], ["l", "leave"], ["x", "close room"]);
 		keys.push(["tab", "write"], ["esc", "close"]);
 		return keys;
@@ -471,6 +492,19 @@ export class PeersPanel implements Component, Focusable {
 	#now(): number {
 		return this.#options.now?.() ?? Date.now();
 	}
+}
+
+/** What `m` does next: every room walks the same three states, and out keeps the row to come back. */
+function nextMode(room: Room): RoomMode {
+	if (room.mode === "in") return "listening";
+	return room.mode === "listening" ? "out" : "in";
+}
+
+/** What `m` says it will do, in the room's own words. */
+function modeKey(room: Room): string {
+	const next = nextMode(room);
+	if (next === "listening") return "listen";
+	return next === "out" ? "step out" : "take part";
 }
 
 function keyOf(room: Room): string {

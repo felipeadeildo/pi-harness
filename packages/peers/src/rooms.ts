@@ -22,6 +22,7 @@ import {
 	roomDir,
 	roomsDir,
 	type RoomActivity,
+	type RoomMode,
 	type SessionTasks,
 	targetOf,
 	tasksWith,
@@ -100,6 +101,8 @@ export class Rooms implements RoomsView {
 	/** When each stale member or room was first seen, by `staleIn`'s key. */
 	#stale = new Map<string, number>();
 	#wake: { at: number; timer: ReturnType<typeof setTimeout> } | undefined;
+	/** Rooms this session stepped out of with `m`, kept in the list so `m` brings it back. */
+	readonly #steppedOut = new Set<string>();
 	/** The part of the tasks last written to the shared rooms, so an unchanged board is not written again. */
 	#board = "";
 	readonly #listeners = new Set<() => void>();
@@ -151,6 +154,10 @@ export class Rooms implements RoomsView {
 			new FolderFeed(roomsDir()).watch(() => this.#soon()),
 			this.#hooks.events.on(LOGGED_EVENT, (event) => this.#mirror(event as LoggedEvent)),
 		];
+		// How this session opens is its own setting, so the line is written here and not by whoever
+		// adds it to a room. A mode already written stands: a reload does not reset it.
+		if (this.#opening() !== "in" && this.#home.mode() === "in")
+			this.setMode(undefined, this.#opening());
 		this.#writeLive();
 		this.sync();
 	}
@@ -170,6 +177,7 @@ export class Rooms implements RoomsView {
 			room.stop();
 		}
 		this.#shared.clear();
+		this.#steppedOut.clear();
 		this.#home?.close();
 		this.#home = undefined;
 		removePresence(this.#session);
@@ -289,6 +297,7 @@ export class Rooms implements RoomsView {
 		if (home === undefined) return [];
 		const folderRoom: Room = {
 			id: undefined,
+			mode: home.mode(),
 			name: basename(this.#cwd) || this.#cwd,
 			folders: [{ path: this.#cwd, open: home.live().length }],
 			sessions: [],
@@ -351,6 +360,37 @@ export class Rooms implements RoomsView {
 
 	remove(room: string, member: Member): void {
 		this.#write(room, "room.removed", { member: normal(member) });
+		this.sync();
+	}
+
+	/**
+	 * How this session stands in a room. `listening` hears only what names it and never takes a
+	 * request to everyone; `in` takes part. The folder's room takes the same line as the others.
+	 */
+	setMode(room: string | undefined, mode: RoomMode): void {
+		if (this.#session === undefined) return;
+		const member = { session: this.#session, cwd: this.#cwd };
+		// Every room is the same: out is a removal, and a session that stepped out of the folder's
+		// room works alone until it comes back. The folder's room is written by its own log.
+		if (room === undefined) {
+			if (mode === "out") this.#home?.log("room.removed", { member });
+			else if (this.#home?.mode() === "out")
+				this.#home.log("room.added", { member: { ...member }, by: "you" });
+			if (mode !== "out") this.#home?.log("room.mode", { member, mode });
+			this.sync();
+			return;
+		}
+		if (mode === "out") {
+			// Out is removal, and the room stays in the list for this session: without that row the
+			// operator has no way back in after stepping out.
+			this.#write(room, "room.removed", { member });
+			this.#steppedOut.add(room);
+			this.sync();
+			return;
+		}
+		if (this.#steppedOut.delete(room))
+			this.#write(room, "room.added", { member: { ...member }, by: "you" });
+		this.#write(room, "room.mode", { member, mode });
 		this.sync();
 	}
 
@@ -632,6 +672,13 @@ export class Rooms implements RoomsView {
 	#join(room: Shared): void {
 		const me = this.#session;
 		if (me === undefined) return;
+		// A session that only listens says so itself when it becomes a member, whether a folder
+		// brought it or someone added it by name. Written once: what is already there stands.
+		const opening = this.#opening();
+		if (opening !== "in" && room.folder.membership.modeOf(me, this.#cwd) === "in") {
+			this.#write(room.id, "room.mode", { member: { session: me, cwd: this.#cwd }, mode: opening });
+			room.folder.apply(room.feed.read());
+		}
 		const here = new Here(this.#hooksFor(room));
 		room.here = here;
 		here.join({
@@ -727,7 +774,7 @@ export class Rooms implements RoomsView {
 	}
 
 	/** A `room.*` line, in this session's own file in that room, whether or not it is a member. */
-	#write<K extends "room.created" | "room.added" | "room.removed" | "room.closed">(
+	#write<K extends "room.created" | "room.added" | "room.removed" | "room.closed" | "room.mode">(
 		room: string,
 		type: K,
 		data: LogEventMap[K],
@@ -741,6 +788,11 @@ export class Rooms implements RoomsView {
 			undefined,
 			this.#now(),
 		);
+	}
+
+	/** How this session stands when it opens or joins a room. */
+	#opening(): Exclude<RoomMode, "out"> {
+		return this.#hooks.opening?.() ?? "in";
 	}
 
 	/** The addition that brought this session in last. */
@@ -768,6 +820,7 @@ export class Rooms implements RoomsView {
 		const origin = originOf(membership.additions, (session) => this.#handleIn(room, session));
 		return {
 			id: room.id,
+			mode: room.here?.mode() ?? membership.modeOf(this.#session ?? "", this.#cwd),
 			name: membership.name ?? room.id,
 			folders: [...membership.folders.keys()].map((path) => ({
 				path,
@@ -788,8 +841,10 @@ export class Rooms implements RoomsView {
 
 	/** The shared rooms this session is in, oldest first. */
 	#joinedShared(): Shared[] {
+		// The only exception to "out is not in the list": a room this session stepped out of keeps
+		// its row, so `m` has a way back. A session removed by someone else simply is not here.
 		return [...this.#shared.values()]
-			.filter((room) => room.here !== undefined)
+			.filter((room) => room.here !== undefined || this.#steppedOut.has(room.id))
 			.toSorted(
 				(a, b) =>
 					(a.folder.membership.createdAt ?? 0) - (b.folder.membership.createdAt ?? 0) ||
