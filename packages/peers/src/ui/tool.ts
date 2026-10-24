@@ -32,6 +32,7 @@ interface Args {
 
 /** What pi hands a renderer each time it draws the row. */
 interface Row {
+	toolCallId: string;
 	argsComplete: boolean;
 	invalidate(): void;
 	state: RowState;
@@ -40,7 +41,6 @@ interface Row {
 }
 
 interface RowState {
-	watching?: boolean;
 	tick?: ReturnType<typeof setTimeout>;
 }
 
@@ -85,18 +85,13 @@ export function audienceOf(to: string | undefined): "all" | "any" | string[] {
 }
 
 /**
- * Rows to redraw when the folder changes, so a tick turns into two while you watch.
+ * Rows to redraw when the folder changes, by call, so a tick turns into two while you watch.
  *
  * Pi hands each drawing a new `row`, and that row holds the component drawn before it. A component
  * that kept the row would keep every component the row ever drew, so the components here keep only
  * the row's state and its redraw, and the one drawn last is updated instead of replaced.
  */
-export function toolRenderers(places: Places, rows: Set<() => void>) {
-	const watch = (state: RowState, redraw: () => void) => {
-		if (state.watching) return;
-		state.watching = true;
-		rows.add(redraw);
-	};
+export function toolRenderers(places: Places, rows: Map<string, () => void>) {
 	return {
 		renderCall: (args: Args, theme: Theme, row: Row): Component => {
 			const last = row.lastComponent;
@@ -109,7 +104,9 @@ export function toolRenderers(places: Places, rows: Set<() => void>) {
 			theme: Theme,
 			row: Row,
 		): Component => {
-			if (result.details !== undefined) watch(row.state, row.invalidate);
+			// One redraw per call: pi builds the row again when it draws the chat again, and the new
+			// row's redraw takes the place of the old one's.
+			if (result.details !== undefined) rows.set(row.toolCallId, row.invalidate);
 			const last = row.lastComponent;
 			const drawn =
 				last instanceof ResultRow ? last : new ResultRow(places, row.state, row.invalidate);

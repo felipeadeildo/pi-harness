@@ -174,9 +174,9 @@ describe("where the receipt looks", () => {
 				{ id: "r1", name: "backend+frontend" },
 			],
 		};
-		const row = { argsComplete: true, state: {}, invalidate: () => {} };
+		const row = { toolCallId: "c1", argsComplete: true, state: {}, invalidate: () => {} };
 		const result = { ...sent, details: { ...sent.details, room: "r1" } };
-		const [summary] = toolRenderers(places, new Set())
+		const [summary] = toolRenderers(places, new Map())
 			.renderResult(result, { expanded: false }, plain, row)
 			.render(80);
 		expect(summary).toBe("✓✓ read it");
@@ -193,14 +193,26 @@ describe("a row drawn again and again", () => {
 
 	/** Draws both halves of one row as pi does on each redraw, handing back what each returned. */
 	function redraw(times: number, keep: (first: object) => void) {
-		const renderers = toolRenderers(places, new Set());
+		const renderers = toolRenderers(places, new Map());
 		const state = {};
 		let call: Component | undefined;
 		let result: Component | undefined;
 		for (let i = 0; i < times; i++) {
-			const row = { argsComplete: true, state, invalidate: nothing, lastComponent: call };
+			const row = {
+				toolCallId: "c1",
+				argsComplete: true,
+				state,
+				invalidate: nothing,
+				lastComponent: call,
+			};
 			call = renderers.renderCall({ to: "@everyone", text: "hi" }, plain, row);
-			const resultRow = { argsComplete: true, state, invalidate: nothing, lastComponent: result };
+			const resultRow = {
+				toolCallId: "c1",
+				argsComplete: true,
+				state,
+				invalidate: nothing,
+				lastComponent: result,
+			};
 			result = renderers.renderResult(sent, { expanded: false }, plain, resultRow);
 			call.render(80);
 			result.render(80);
@@ -213,8 +225,8 @@ describe("a row drawn again and again", () => {
 	}
 
 	test("keeps the component it drew, updated, instead of a new one each time", () => {
-		const renderers = toolRenderers(places, new Set());
-		const row = { argsComplete: false, state: {}, invalidate: () => {} };
+		const renderers = toolRenderers(places, new Map());
+		const row = { toolCallId: "c1", argsComplete: false, state: {}, invalidate: () => {} };
 		const first = renderers.renderCall({ action: "send", to: "everyone" }, plain, row);
 		expect(first.render(80).join("\n")).toContain("@everyone");
 		const again = renderers.renderCall({ action: "send", to: "anyone" }, plain, {
@@ -224,6 +236,27 @@ describe("a row drawn again and again", () => {
 		});
 		expect(again).toBe(first);
 		expect(again.render(80).join("\n")).toContain("@anyone");
+	});
+
+	test("keeps one redraw per call, the one of the row pi drew last", () => {
+		const rows = new Map<string, () => void>();
+		const renderers = toolRenderers(places, rows);
+		const drawnBy: string[] = [];
+		for (const [call, by] of [
+			["c1", "first"],
+			["c1", "again"],
+			["c2", "other"],
+		] as const) {
+			const row = {
+				toolCallId: call,
+				argsComplete: true,
+				state: {},
+				invalidate: () => drawnBy.push(by),
+			};
+			renderers.renderResult(sent, { expanded: false }, plain, row);
+		}
+		for (const again of rows.values()) again();
+		expect(drawnBy).toEqual(["again", "other"]);
 	});
 
 	test("lets go of what pi handed the first drawing", () => {
