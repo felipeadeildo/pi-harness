@@ -3,6 +3,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { isFact } from "../src/facts.ts";
+import { isQueued, isSnapshot } from "../src/snapshot.ts";
 
 describe("a fact the daemon has to carry", () => {
 	test("a bound stream is the number pi numbered it with", () => {
@@ -37,5 +38,47 @@ describe("a session's status", () => {
 		expect(isFact("session.state", { state: "running" })).toBe(false);
 		expect(isFact("session.state", { state: "waiting" })).toBe(false);
 		expect(isFact("session.state", {})).toBe(false);
+	});
+});
+
+describe("a letter waiting in the inbox", () => {
+	const by = { kind: "client" as const, name: "phone", machine: "here" };
+	const letter = { id: "l1", by, text: "hold on", want: "followUp" as const, when: 1 };
+
+	test("the four reasons a letter waits are the ones the kit writes", () => {
+		for (const why of ["asleep", "quiet", "full", "stopped"] as const) {
+			expect(isQueued({ ...letter, why })).toBe(true);
+		}
+		expect(isQueued({ ...letter, why: "waiting" })).toBe(false);
+	});
+
+	test("a letter needs who wrote it, which is what puts a person's words first", () => {
+		expect(isQueued(letter)).toBe(true);
+		expect(isQueued({ ...letter, by: undefined })).toBe(false);
+		expect(isQueued({ ...letter, by: { kind: "client", name: "phone" } })).toBe(false);
+		expect(isQueued({ ...letter, want: "later" })).toBe(false);
+		expect(isQueued({ ...letter, id: "" })).toBe(false);
+		expect(isQueued({ ...letter, text: "" })).toBe(false);
+		// `NaN` is a number, and a queue ordered by it is a queue that never orders.
+		expect(isQueued({ ...letter, when: Number.NaN })).toBe(false);
+	});
+});
+
+describe("a snapshot without a queue, and one with an empty queue", () => {
+	const base = { session: "s1", machine: "here", cwd: "/work", kind: "terminal" as const };
+
+	test("both are a snapshot, and they stay different", () => {
+		// The screen draws "no queue" and "an empty queue" differently, so the protocol keeps both.
+		const without = { ...base };
+		const empty = { ...base, queue: [] };
+		expect(isSnapshot(without)).toBe(true);
+		expect(isSnapshot(empty)).toBe(true);
+		expect("queue" in without).toBe(false);
+		expect("queue" in empty).toBe(true);
+	});
+
+	test("a queue with a letter that does not decode is not a snapshot", () => {
+		const bad = { ...base, queue: [{ id: "l1", text: "hold on", when: 1 }] };
+		expect(isSnapshot(bad)).toBe(false);
 	});
 });

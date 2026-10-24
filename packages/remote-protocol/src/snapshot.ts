@@ -23,7 +23,7 @@ export interface SessionSnapshot {
 	tasks?: SessionTasks;
 	mode?: PermissionMode;
 	/** What waits to be sent, as the inbox holds it. */
-	queue?: { id: string; text: string; when: number; why?: string }[];
+	queue?: QueuedLetter[];
 	/** The questions nobody answered yet, by id. */
 	openAsks?: string[];
 	cost?: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
@@ -43,7 +43,7 @@ export function isSnapshot(value: unknown): value is SessionSnapshot {
 		(value.name === undefined || typeof value.name === "string") &&
 		(value.leaf === undefined || typeof value.leaf === "string") &&
 		(value.tasks === undefined || isObject(value.tasks)) &&
-		(value.queue === undefined || Array.isArray(value.queue))
+		(value.queue === undefined || (Array.isArray(value.queue) && value.queue.every(isQueued)))
 	);
 }
 
@@ -55,4 +55,41 @@ export interface CommandBy {
 /** Whether a command carries the cause it must. */
 export function isCommandBy(value: unknown): value is CommandBy {
 	return isObject(value) && (value.by === undefined || isBy(value.by));
+}
+
+/** Why a letter waits, when it waits for more than the run to settle. Absent is the ordinary case. */
+export type WaitingWhy = "asleep" | "quiet" | "full" | "stopped";
+
+/** What a message becomes on the way into a session: `steer` goes in between the agent's calls. */
+export type WaitingWant = "steer" | "followUp";
+
+/**
+ * A letter waiting in the inbox, as the snapshot shows it. `when` is the writer's clock, taken from
+ * the letter's `at`, and it is required here because the queue orders and ages by it: a letter the
+ * kit allows without `at` gets one from the inbox before it reaches a client.
+ */
+export interface QueuedLetter {
+	id: string;
+	by: By;
+	text: string;
+	want: WaitingWant;
+	when: number;
+	why?: WaitingWhy;
+}
+
+const WHY: readonly WaitingWhy[] = ["asleep", "quiet", "full", "stopped"];
+
+export function isQueued(value: unknown): value is QueuedLetter {
+	if (!isObject(value)) return false;
+	return (
+		typeof value.id === "string" &&
+		value.id !== "" &&
+		isBy(value.by) &&
+		typeof value.text === "string" &&
+		value.text !== "" &&
+		(value.want === "steer" || value.want === "followUp") &&
+		typeof value.when === "number" &&
+		Number.isFinite(value.when) &&
+		(value.why === undefined || WHY.some((why) => why === value.why))
+	);
 }
