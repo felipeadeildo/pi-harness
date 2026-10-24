@@ -32,6 +32,8 @@ function commands(options: { history?: string[]; effects?: Partial<CommandEffect
 		},
 		setThinking: (level: string) => done.push(`thinking:${level}`),
 		setMode: (mode: string, by: By | undefined) => done.push(`mode:${mode}:${by?.name ?? ""}`),
+		answerAsk: (fields: Record<string, unknown>, _by: By | undefined) =>
+			done.push(`ask:${String(fields.ask)}`),
 		...options.effects,
 	};
 	const instance = new Commands({
@@ -43,6 +45,7 @@ function commands(options: { history?: string[]; effects?: Partial<CommandEffect
 			stop: (force) => effects.stop(force),
 			setModel: (provider, id) => effects.setModel(provider, id),
 			setThinking: (level) => effects.setThinking(level),
+			answerAsk: (fields, by) => effects.answerAsk(fields, by),
 			setMode: (mode, by) => effects.setMode(mode, by),
 		},
 		history: options.history,
@@ -161,6 +164,7 @@ describe("a command from a client", () => {
 				setModel: () => Promise.resolve(),
 				setThinking: () => {},
 				setMode: () => {},
+				answerAsk: () => {},
 			},
 			answer: (_kind, type, _data, id) => {
 				// The reply and the error reply of the first command both miss their socket.
@@ -283,5 +287,68 @@ describe("a command from a client", () => {
 			await instance.run(command("run.abort", {}, `c${at}`));
 		expect(instance.ran("c0")).toBe(false);
 		expect(instance.ran(`c${KEPT_COMMANDS + 4}`)).toBe(true);
+	});
+});
+
+describe("a client's answer to a question", () => {
+	test("goes on the bus as the client's answer, with who gave it", async () => {
+		const answers: { id: string; by?: By; result: unknown }[] = [];
+		const instance = new Commands({
+			session: "s1",
+			effects: {
+				abort: () => {},
+				compact: () => {},
+				rename: () => {},
+				stop: () => {},
+				setModel: () => Promise.resolve(),
+				setThinking: () => {},
+				setMode: () => {},
+				answerAsk: (fields, by) =>
+					answers.push({ id: String(fields.ask), by, result: fields.result }),
+			},
+			answer: () => {},
+			received: () => {},
+			outcome: () => {},
+		});
+		const by = { kind: "client", name: "my phone", machine: "phone" } as const;
+		await instance.run({
+			v: 1,
+			kind: "command",
+			type: "ask.answer",
+			id: "a1",
+			data: { ask: "q1", result: { answers: [], cancelled: false } },
+			by,
+			at: 0,
+		});
+		expect(answers).toEqual([{ id: "q1", by, result: { answers: [], cancelled: false } }]);
+	});
+
+	test("a command without the question's id is refused before any effect runs", async () => {
+		const done: string[] = [];
+		const instance = new Commands({
+			session: "s1",
+			effects: {
+				abort: () => {},
+				compact: () => {},
+				rename: () => {},
+				stop: () => {},
+				setModel: () => Promise.resolve(),
+				setThinking: () => {},
+				setMode: () => {},
+				answerAsk: () => done.push("ask"),
+			},
+			answer: (_kind, _type, data) => done.push(`error:${String(data.reason)}`),
+			received: () => {},
+			outcome: () => {},
+		});
+		await instance.run({
+			v: 1,
+			kind: "command",
+			type: "ask.answer",
+			id: "a1",
+			data: { result: { answers: [] } },
+			at: 0,
+		});
+		expect(done).toEqual(["error:the command is not one this session knows, or it lacks a field"]);
 	});
 });

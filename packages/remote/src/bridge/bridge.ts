@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 
 import {
 	type By,
+	ANSWER,
 	CANCEL,
 	type EventScope,
 	HOST,
@@ -19,6 +20,7 @@ import {
 	TASKS,
 	targetOf,
 } from "@adeildo/pi-kit";
+import type { AnswerEvent, AskResult } from "@adeildo/pi-kit";
 import type { Envelope, SessionSnapshot } from "@adeildo/pi-remote-protocol";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
@@ -112,6 +114,22 @@ export class Bridge {
 				setModel: (provider, id) => options.api.setModel(provider, id),
 				setThinking: (level) => options.api.setThinking(level),
 				setMode: (mode, by) => options.api.setMode(mode, by),
+				// A client's answer to a question it is looking at. Without an open question with that
+				// id, the answer is refused: the question was answered elsewhere or already closed.
+				// The answer goes on the bus, where whoever is holding the question is listening: the
+				// terminal's dialog, or `ClientAsks` in a session with no terminal. A question that is no
+				// longer open is refused, so a late answer cannot count twice.
+				answerAsk: (fields, by) => {
+					const ask = typeof fields.ask === "string" ? fields.ask : "";
+					if (!this.#asks.open.includes(ask))
+						throw new Refused(`the question ${ask} is not open any more`);
+					const answer: AnswerEvent = {
+						id: ask,
+						result: fields.result as AskResult,
+						by: by ?? { kind: "client", name: "a client", machine: HOST },
+					};
+					options.scope.events.emit(ANSWER, answer);
+				},
 				// A question open here is closed as a no before the session goes, so the extension that
 				// is waiting hears "no" instead of an error, and no client keeps a dead dialog.
 				stop: (force) => {
