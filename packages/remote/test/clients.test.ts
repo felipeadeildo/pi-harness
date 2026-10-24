@@ -960,8 +960,19 @@ describe("WebSocket frames a server must not read", () => {
 	function masked(opcode: number, payload: Buffer, bits: { rsv?: number; final?: boolean } = {}) {
 		const head = Buffer.alloc(6);
 		head[0] = (bits.final === false ? 0 : 0x80) | ((bits.rsv ?? 0) << 4) | opcode;
-		head[1] = 0x80 | payload.length;
+		// Lengths past 125 use the extended forms, which is what makes a big control frame a real
+		// frame instead of a mask byte read as a length.
+		const large = payload.length > 125;
+		head[1] = 0x80 | (large ? 0x7e : payload.length);
 		const mask = Buffer.from([1, 2, 3, 4]);
+		if (large) {
+			head.writeUInt16BE(payload.length, 2);
+			mask.copy(head, 4);
+			const extended = Buffer.from(head.subarray(0, 8));
+			const body = Buffer.from(payload);
+			for (let i = 0; i < body.length; i += 1) body[i]! ^= mask[i % 4]!;
+			return Buffer.concat([extended, body]);
+		}
 		mask.copy(head, 2);
 		const body = Buffer.from(payload);
 		for (let i = 0; i < body.length; i += 1) body[i]! ^= mask[i % 4]!;
