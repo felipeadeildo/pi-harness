@@ -29,7 +29,7 @@ A slice is ticked in the commit that lands it.
 - [x] P3. The client library (protocol, F1)
 - [x] W1. The Expo app and the CSP (client, F1)
 - [x] W2. Text from elsewhere (client, F1)
-- [ ] W3. The Sessions and Session screens (client, F1)
+- [x] W3. The Sessions and Session screens (client, F1)
 - [ ] I1. The inbox (names, before F2)
 - [ ] C8. Commands through the bridge (core, F2)
 - [ ] A5. Clients in the race for the harness's dialogs (ask, F2)
