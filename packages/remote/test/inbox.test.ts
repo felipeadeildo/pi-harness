@@ -17,13 +17,16 @@ function wired() {
 	const scope = { events: fake.pi.events, warn: () => {} };
 	const sent: { text: string; deliverAs?: string }[] = [];
 	const notes: string[] = [];
+	// A run in flight: the default, because most of what the inbox does is what it does while busy.
+	const state = { running: true };
 	const inbox = new SessionInbox(scope, {
 		send: (text, deliverAs) =>
 			void sent.push(deliverAs === undefined ? { text } : { text, deliverAs }),
 		arrived: (text, by) => void notes.push(`${by.name}: ${text}`),
+		busy: () => state.running,
 	});
 	const stop = inbox.start();
-	return { inbox, sent, notes, scope, stop };
+	return { inbox, sent, notes, scope, stop, state };
 }
 
 let next = 0;
@@ -33,6 +36,15 @@ function letter(text: string, want: "steer" | "followUp" = "followUp") {
 }
 
 describe("a session's inbox", () => {
+	test("sends a follow-up at once when no run is in flight, and leaves the queue empty", () => {
+		const { inbox, sent, state } = wired();
+		state.running = false;
+		inbox.put(letter("the first one", "followUp"));
+		// Nothing to wait for: the letter starts the run, and a client's queue does not keep it.
+		expect(sent).toEqual([{ text: "the first one" }]);
+		expect(inbox.queue()).toEqual([]);
+	});
+
 	test("sends a steer at once and holds a follow-up until the agent settles", () => {
 		const { inbox, sent } = wired();
 		inbox.put(letter("now", "steer"));

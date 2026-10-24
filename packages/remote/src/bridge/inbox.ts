@@ -7,6 +7,12 @@ import { type By, Inbox, INBOX, INBOX_PORT, type Letter, type EventScope } from 
 export interface InboxSession {
 	/** Hands text to pi: a steer goes in at once, a follow-up waits for the agent to settle. */
 	send(text: string, deliverAs: "steer" | "followUp" | undefined): void;
+	/**
+	 * Whether a run is in flight. A follow-up only waits for the agent to settle when there is
+	 * something to settle: in a session that is idle, holding it would wait for an event that never
+	 * comes, and the prompt would sit in the queue until someone typed at the terminal.
+	 */
+	busy(): boolean;
 	/** Says in the terminal that the text came from elsewhere, and who sent it. */
 	arrived(text: string, by: By): void;
 }
@@ -47,6 +53,11 @@ export class SessionInbox {
 		// terminal is the one who can take it back, so they are the one who must see it.
 		if (letter.by.kind === "client") this.#session.arrived(letter.text, letter.by);
 		if (letter.want === "steer") this.#session.send(letter.text, "steer");
+		else if (!this.#session.busy()) {
+			// Nothing to wait for: this letter starts the run, so it leaves the queue the moment it goes.
+			this.#inbox.take([letter.id]);
+			this.#session.send(letter.text, undefined);
+		}
 		this.#publish();
 	}
 

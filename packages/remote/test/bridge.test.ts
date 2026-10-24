@@ -86,10 +86,14 @@ function entries(count: number): Entry[] {
  * A session pi titled, with the entries given and the branch through them, in a terminal unless
  * `mode` says otherwise.
  */
+/** Whether a run is in flight in the fake session, which is what a follow-up waits for. */
+let running = false;
+
 function session(kept: Entry[] = entries(2), mode = "tui", branch: Entry[] = kept) {
 	const ctx = fakeContext([], mode === "tui", {
 		mode,
 		cwd: "/work",
+		isIdle: () => !running,
 		model: { provider: "rig", id: "scripted" },
 		thinkingLevel: "high",
 		getContextUsage: () => ({ tokens: 1_200, contextWindow: 200_000, percent: 0.6 }),
@@ -232,6 +236,8 @@ describe("the bridge", () => {
 	});
 
 	test("a follow-up waits for the agent to settle, and then pi gets it", async () => {
+		// A run is in flight, so the letter has something to wait for.
+		running = true;
 		const daemon = await listening();
 		const fake = mounted();
 		const ctx = session();
@@ -260,6 +266,35 @@ describe("the bridge", () => {
 		await fake.fire("agent_settled", { type: "agent_settled", aborted: false }, ctx);
 		await until(() => fake.userMessages.length === 1);
 		expect(fake.userMessages).toEqual(["one more thing"]);
+		running = false;
+	});
+
+	test("a prompt into an idle session goes in at once, since nothing can settle", async () => {
+		const daemon = await listening();
+		const fake = mounted();
+		const ctx = session();
+		await start(fake, ctx);
+		await until(() => types(daemon).includes("snapshot"));
+		daemon.sockets[0]?.write(
+			line(
+				envelope(
+					"command",
+					"prompt.send",
+					{ text: "the first one from the phone" },
+					{
+						machine: HOST,
+						session: "s1",
+						epoch: "e1",
+						id: "p2",
+						by: { kind: "client", name: "phone", machine: HOST },
+					},
+				),
+			),
+		);
+		await until(() => fake.userMessages.length === 1);
+		// It never entered the queue a client draws: it went in as the run that was missing.
+		expect(fake.userMessages).toEqual(["the first one from the phone"]);
+		expect(daemon.received.some((one) => one.kind === "reply" && one.id === "p2")).toBe(true);
 		await stop(fake, "quit");
 	});
 
@@ -771,6 +806,7 @@ describe("one bridge", () => {
 				setMode: () => {},
 				send: () => {},
 				arrived: () => {},
+				busy: () => false,
 			},
 			startDaemon: () => {},
 			warn: () => {},
