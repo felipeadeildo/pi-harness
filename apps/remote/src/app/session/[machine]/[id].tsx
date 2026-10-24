@@ -20,7 +20,7 @@ export default function SessionRoute() {
 	return session === undefined || client === undefined ? null : (
 		<View style={{ flex: 1 }}>
 			<SessionScreen session={session} />
-			<Composer client={client} canPrompt={false} />
+			<Composer client={client} canPrompt />
 		</View>
 	);
 }
