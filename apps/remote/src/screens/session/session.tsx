@@ -41,7 +41,6 @@ export function SessionScreen({ session }: SessionScreenProps): ReactNode {
 		h("ol", { className: "remote-transcript" }, ...items.flatMap((item) => itemNodes(item))),
 		tasksNode(facts.tasks),
 		...openAsks(facts).map(askNode),
-		h("p", { className: "remote-read-only" }, "Read only."),
 	);
 }
 
