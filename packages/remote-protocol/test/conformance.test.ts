@@ -1,5 +1,7 @@
 // The copies are only safe while they match. This file imports the kit's types and proves, at compile
 // time, that everything the protocol reads out of the log is a shape the kit actually writes.
+// The proof here is a type proof, and the judge is `tsc`: revert a field of a copy or add a
+// required one to the kit, and `bun test` still passes while `bun run check` fails. Run the check.
 import { describe, expect, test } from "bun:test";
 
 import type {
