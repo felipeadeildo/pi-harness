@@ -256,6 +256,7 @@ export class Daemon {
 				break;
 			case "session.gone":
 				this.sessions.gone(bridge.session, bridge.epoch, goneReason(message.data));
+				this.#clients?.forget(bridge.session);
 				break;
 			default: {
 				const dropped = this.sessions.event(message);

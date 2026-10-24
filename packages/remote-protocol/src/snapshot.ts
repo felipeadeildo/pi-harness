@@ -36,6 +36,12 @@ export interface SessionSnapshot {
 	viewers?: Viewer[];
 }
 
+/** The event that carries a `Presence` to the clients watching a session. */
+export const PRESENCE = "presence.changed";
+
+/** The event a session's terminal sends when someone types there, with the terminal's `by`. */
+export const PRESENCE_HERE = "presence.here";
+
 /** One client watching a session: enough to tell two people apart, and nothing else. */
 export interface Viewer {
 	name: string;

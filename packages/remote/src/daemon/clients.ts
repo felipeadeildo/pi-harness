@@ -254,6 +254,16 @@ export class Clients {
 		return { ...withFacts, data: { ...withFacts.data, snapshot } };
 	}
 
+	/**
+	 * The session ended, so nothing of its presence is kept: a relaunch under the same id would
+	 * otherwise start with the terminal of the session before it, and a name a rename has moved on.
+	 */
+	forget(session: string): void {
+		this.#terminal.delete(session);
+		this.#latest.delete(session);
+		this.#announced.delete(session);
+	}
+
 	/** Tells everyone watching a session who has it open, and who had the latest input. */
 	#announce(session: string): void {
 		const presence = this.#presenceOf(session);

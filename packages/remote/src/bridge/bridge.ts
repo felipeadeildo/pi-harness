@@ -62,6 +62,11 @@ export interface BridgeOptions {
 	path: string;
 	/** Where the bridge reads the harness's contracts: the tasks, the mode and the status. */
 	scope: EventScope;
+	/**
+	 * How often the terminal tells the daemon that someone typed there, in milliseconds. A test sets
+	 * it short, which is the only way to pin that the window closes as well as opens.
+	 */
+	typedEveryMs?: number;
 	/** What the commands need from pi's extension API, which the bridge itself does not hold. */
 	api: SessionApi;
 	version: string;
@@ -124,7 +129,7 @@ export class Bridge {
 		// types faster than the others need to know who is typing.
 		this.#stopTyping = ctx.ui.onTerminalInput(() => {
 			const now = Date.now();
-			if (now - this.#typedAt < TYPED_EVERY_MS) return undefined;
+			if (now - this.#typedAt < (options.typedEveryMs ?? TYPED_EVERY_MS)) return undefined;
 			this.#typedAt = now;
 			this.#connection.event("presence.here", {
 				by: bySession("terminal", options.scope, ctx.sessionManager),

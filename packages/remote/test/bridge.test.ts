@@ -756,9 +756,10 @@ function source(onFollow: (on: (item: SourceItem) => void) => void = () => {}): 
 }
 
 describe("one bridge", () => {
-	function bridged(from: SessionSource = source()) {
+	function bridged(from: SessionSource = source(), typedEveryMs = 2_000) {
 		const { sockets, dial } = held();
 		const bridge = new Bridge(session(), from, {
+			typedEveryMs,
 			path: "/nowhere",
 			scope: { events: fakePi().pi.events, warn: () => {} },
 			version: VERSION,
@@ -803,6 +804,22 @@ describe("one bridge", () => {
 			"pi.message_update",
 			"snapshot",
 		]);
+		await bridge.stop(undefined);
+	});
+
+	test("the window on the terminal opens and closes: a key after it says who is there again", async () => {
+		const { bridge, socket } = bridged(source(), 10);
+		const press = keystrokes.at(-1);
+		if (press === undefined) throw new Error("no key handler was registered");
+		const said = () => socket.written.filter((one) => one.type === "presence.here").length;
+		press("a");
+		press("b");
+		expect(said()).toBe(1);
+		await Bun.sleep(15);
+		press("c");
+		expect(said()).toBe(2);
+		// The key itself is still pi's: the handler reads it and hands it on unchanged.
+		expect(press("d")).toBeUndefined();
 		await bridge.stop(undefined);
 	});
 

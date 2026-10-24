@@ -48,6 +48,7 @@ export {
 	isPresence,
 	isSnapshot,
 	PRESENCE,
+	PRESENCE_HERE,
 	type Presence,
 	type SessionSnapshot,
 	type Viewer,
