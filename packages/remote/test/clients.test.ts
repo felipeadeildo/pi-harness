@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { connect as dial, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { connect, memoryCache, type Transport } from "@adeildo/pi-remote-client";
 import { envelope, type Envelope, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
+import { pageOf } from "../src/daemon/history.ts";
 import { Daemon } from "../src/daemon/server.ts";
 import { envelopeOf, line, Lines } from "../src/wire/lines.ts";
 import { frame, Frames, MAX_MESSAGE } from "../src/wire/websocket.ts";
@@ -37,7 +38,7 @@ async function openDaemon(): Promise<{ daemon: Daemon; port: number }> {
  * A bridge as the daemon sees one: a hello, `session.live`, events with a seq, and an answer to
  * `snapshot.get`, which tells whether the daemon asked for one.
  */
-async function bridgeOf(session: string, epoch = "e1") {
+async function bridgeOf(session: string, epoch = "e1", file?: string) {
 	const at = { machine: "laptop", session, epoch };
 	const client: Socket = dial(socket);
 	await new Promise<void>((resolve) => client.once("connect", () => resolve()));
@@ -64,7 +65,13 @@ async function bridgeOf(session: string, epoch = "e1") {
 			envelope(
 				"event",
 				"session.live",
-				{ pid: 1, startedAt: 1, cwd: "/repo", kind: "terminal" },
+				{
+					pid: 1,
+					startedAt: 1,
+					cwd: "/repo",
+					kind: "terminal",
+					...(file === undefined ? {} : { file }),
+				},
 				at,
 			),
 		),
@@ -381,5 +388,60 @@ describe("WebSocket frames", () => {
 		await until(() => got.length > 0);
 		expect(Buffer.concat(got)[0]).toBe(0x88);
 		raw.destroy();
+	});
+});
+
+describe("a session's older entries", () => {
+	/** A session file as pi writes one: the header, then entries chained by `parentId`. */
+	function sessionFile(session: string, lines: unknown[]): string {
+		const path = join(dir, `${session}.jsonl`);
+		const header = { type: "session", version: 3, id: session, cwd: "/repo" };
+		writeFileSync(path, [header, ...lines].map((one) => JSON.stringify(one)).join("\n") + "\n");
+		return path;
+	}
+
+	test("come in pages before an entry, walking the branch, and since one, in file order", () => {
+		// a - b - c is the branch; x hangs off a and is not on it.
+		const path = sessionFile("s1", [
+			entry("a", null),
+			entry("b", "a"),
+			entry("x", "a"),
+			entry("c", "b"),
+		]);
+		const ids = (page: ReturnType<typeof pageOf>) =>
+			"entries" in page ? page.entries.map((one) => one.id) : page;
+		expect(ids(pageOf(path, "s1"))).toEqual(["a", "b", "c"]);
+		expect(pageOf(path, "s1", { before: "c", limit: 1 })).toMatchObject({
+			entries: [{ id: "b" }],
+			more: true,
+		});
+		expect(pageOf(path, "s1", { before: "b" })).toMatchObject({
+			entries: [{ id: "a" }],
+			more: false,
+		});
+		expect(ids(pageOf(path, "s1", { since: "b" }))).toEqual(["x", "c"]);
+		expect(pageOf(path, "s1", { since: "gone" })).toEqual({ unknown: "gone" });
+	});
+
+	test("are read only from a file whose header names the session, and skip a line being written", () => {
+		const path = sessionFile("s1", [entry("a", null)]);
+		appendFileSync(path, '{"type":"message","id":"half');
+		expect(pageOf(path, "s1")).toMatchObject({ entries: [{ id: "a" }] });
+		expect(pageOf(path, "s2")).toEqual({ missing: true });
+		expect(pageOf(join(dir, "none.jsonl"), "s1")).toEqual({ missing: true });
+	});
+
+	test("come over HTTP from the file the bridge named, and an unknown cursor is a 410", async () => {
+		const { daemon, port } = await openDaemon();
+		const file = sessionFile("s1", [entry("a", null), entry("b", "a")]);
+		const bridge = await bridgeOf("s1", "e1", file);
+		bridge.snapshot([]);
+		const get = (query: string) =>
+			fetch(`http://127.0.0.1:${port}/sessions/laptop/s1/entries${query}`);
+		await until(() => daemon.sessions.get("s1")?.live.file === file);
+		const first = await get("?before=b");
+		expect(await first.json()).toMatchObject({ entries: [{ id: "a" }], more: false });
+		expect((await get("?since=gone")).status).toBe(410);
+		expect((await fetch(`http://127.0.0.1:${port}/sessions/desktop/s1/entries`)).status).toBe(404);
 	});
 });

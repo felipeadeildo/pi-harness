@@ -371,7 +371,8 @@ function isLive(value: unknown): value is SessionLive {
 		typeof value.startedAt === "number" &&
 		typeof value.cwd === "string" &&
 		(value.kind === "terminal" || value.kind === "background") &&
-		(value.name === undefined || typeof value.name === "string")
+		(value.name === undefined || typeof value.name === "string") &&
+		(value.file === undefined || typeof value.file === "string")
 	);
 }
 

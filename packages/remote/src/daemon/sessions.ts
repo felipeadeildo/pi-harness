@@ -31,6 +31,8 @@ export interface SessionLive {
 	cwd: string;
 	name?: string;
 	kind: "terminal" | "background";
+	/** The session file, once pi wrote one. The daemon reads older entries from it. */
+	file?: string;
 }
 
 export interface LiveSession {
