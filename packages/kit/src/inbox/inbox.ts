@@ -5,6 +5,12 @@
 import type { Letter } from "./letter.ts";
 
 export class Inbox {
+	/** The clock, injected so a test can hold it. */
+	readonly #now: () => number;
+	constructor(now: () => number = Date.now) {
+		this.#now = now;
+	}
+
 	/** Every held follow-up, in the order it arrived. `queue` is the order it goes in. */
 	readonly #held: Letter[] = [];
 	readonly #sent: Letter[] = [];
@@ -33,10 +39,13 @@ export class Inbox {
 	put(letter: Letter): void {
 		if (this.#done.has(letter.id) || this.#held.some((one) => one.id === letter.id)) return;
 		if (this.#sent.some((one) => one.id === letter.id)) return;
-		if (letter.want === "steer") {
-			this.#sent.push(letter);
-			this.#done.add(letter.id);
-		} else this.#held.push(letter);
+		// The inbox is what tells when a letter arrived: a writer need not carry a clock, and a client
+		// that does is on another machine's clock anyway.
+		const stamped = letter.at === undefined ? { ...letter, at: this.#now() } : letter;
+		if (stamped.want === "steer") {
+			this.#sent.push(stamped);
+			this.#done.add(stamped.id);
+		} else this.#held.push(stamped);
 	}
 
 	/**

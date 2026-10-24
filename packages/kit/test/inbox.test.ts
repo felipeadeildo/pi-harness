@@ -15,9 +15,10 @@ function letter(
 	text: string,
 	by: Letter["by"] = OPERATOR,
 	want: Letter["want"] = "followUp",
+	at?: number,
 ): Letter {
 	next += 1;
-	return { id: `l${next}`, by, text, want };
+	return { id: `l${next}`, by, text, want, ...(at === undefined ? {} : { at }) };
 }
 
 describe("the inbox", () => {
@@ -128,6 +129,21 @@ describe("the inbox", () => {
 		expect(inbox.seen(follow.id)).toBe(false);
 	});
 
+	test("a letter without a time gets one when it comes in, from the inbox's clock", () => {
+		const inbox = new Inbox(() => 1_000);
+		inbox.put(letter("a", AGENT));
+		inbox.put(letter("b", OPERATOR, "steer"));
+		expect(inbox.queue()[0]?.at).toBe(1_000);
+		expect(inbox.sent()[0]?.at).toBe(1_000);
+		// A writer that carries its own clock keeps it, and a zero is a time, not a missing one.
+		const early = letter("early", AGENT, "followUp", 5);
+		const zero = letter("zero", AGENT, "followUp", 0);
+		inbox.put(early);
+		inbox.put(zero);
+		expect(inbox.queue().find((one) => one.id === early.id)?.at).toBe(5);
+		expect(inbox.queue().find((one) => one.id === zero.id)?.at).toBe(0);
+	});
+
 	test("a letter held for a reason reads back with it, and one without reads as it was", () => {
 		const inbox = new Inbox();
 		inbox.put(letter("asleep", AGENT));
@@ -208,7 +224,10 @@ describe("a letter over the bus", () => {
 		if (port === undefined) throw new Error("no port");
 		const one = letter("through the port");
 		port.put(one);
-		expect(INBOX_PORT.current(scope)?.take()).toEqual([one]);
+		// The inbox stamps the time, so a writer need not carry one.
+		expect(INBOX_PORT.current(scope)?.take()).toMatchObject([
+			{ id: one.id, text: one.text, want: one.want },
+		]);
 	});
 
 	test("a change of the queue reaches every listener, decoded", () => {
