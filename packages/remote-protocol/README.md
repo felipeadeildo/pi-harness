@@ -70,9 +70,9 @@ pi writes that this version keeps without inventing a shape.
 ## The copied types
 
 The kit's types are copied here instead of imported, because the kit is published and cannot depend on
-a private package. `test/conformance.test.ts` imports the kit's own types and proves at compile time
-that everything the protocol reads out of the log is a shape the kit writes. That proof is a type
-proof: its judge is `bun run check`, not `bun test`.
+a private package. A conformance test compiles the kit's own types against the copies, so a field the
+kit gains breaks this build before it breaks a reader. It is a type proof, which means the type check
+is what fails, not the test run.
 
 Part of [pi-harness](https://github.com/felipeadeildo/pi-harness), which brings every piece in one install.
 
