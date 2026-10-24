@@ -7,7 +7,7 @@
 // an array there becomes `{0: …, 1: …}` and the browser throws setting `style[0]` before drawing. The
 // browser check in `scripts/csp.ts` is what catches this family, since static markup applies no style.
 import type { ListedSession } from "@adeildo/pi-remote-client";
-import { useRouter } from "expo-router";
+import { Link } from "expo-router";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { rowStyle, rowsOf } from "./rows.ts";
@@ -21,7 +21,6 @@ export interface SessionsScreenProps {
 }
 
 export function SessionsScreen({ sessions, hrefOf }: SessionsScreenProps) {
-	const router = useRouter();
 	const rows = rowsOf(sessions);
 	if (rows.length === 0) {
 		return (
@@ -38,21 +37,19 @@ export function SessionsScreen({ sessions, hrefOf }: SessionsScreenProps) {
 			data={rows}
 			keyExtractor={(row) => `${row.machine}/${row.session}`}
 			renderItem={({ item }) => (
-				// The row navigates through the router, not through an anchor: `Link asChild` hands its
-				// own props to the child, and an array of styles arriving at the DOM element is what made
-				// the page throw before drawing anything.
-				<Pressable
-					accessibilityRole="link"
-					onPress={() => router.push(hrefOf(item.listed))}
-					style={rowStyle(item.waits)}
-				>
-					<Text style={styles.name}>{item.name}</Text>
-					<View style={styles.line}>
-						<Text style={styles.where}>{item.where}</Text>
-						<Text style={styles.doing}>{item.doing}</Text>
-						<Text style={styles.cost}>{item.cost}</Text>
-					</View>
-				</Pressable>
+				// A row is a real link: middle click, a new tab and a screen reader all depend on it. The
+				// style is one flat object because `Link asChild` spreads the child's props through a Slot,
+				// and an array spread there becomes `{0: …}` — which the browser refuses to apply.
+				<Link href={hrefOf(item.listed)} asChild>
+					<Pressable style={rowStyle(item.waits)}>
+						<Text style={styles.name}>{item.name}</Text>
+						<View style={styles.line}>
+							<Text style={styles.where}>{item.where}</Text>
+							<Text style={styles.doing}>{item.doing}</Text>
+							<Text style={styles.cost}>{item.cost}</Text>
+						</View>
+					</Pressable>
+				</Link>
 			)}
 		/>
 	);
