@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { bySession } from "../src/by-session.ts";
+import { bySession, handleOf } from "../src/by-session.ts";
 import { isBy } from "../src/contracts/by.ts";
 import { NAMES } from "../src/contracts/names.ts";
 import { TASKS } from "../src/contracts/tasks.ts";
@@ -32,6 +32,16 @@ describe("who caused a fact", () => {
 		expect(isBy({ kind: "agent", name: 7, machine: "laptop" })).toBe(false);
 		expect(isBy("terminal")).toBe(false);
 		expect(isBy(undefined)).toBe(false);
+	});
+});
+
+describe("the handle of a session", () => {
+	test("the drawn word wins over the tasks', and there is none without either", () => {
+		const both = tasksScope("release");
+		NAMES.provide(both, () => ({ handle: "kestrel" }));
+		expect(handleOf(both)).toBe("kestrel");
+		expect(handleOf(tasksScope("release"))).toBe("release");
+		expect(handleOf(fakeScope())).toBeUndefined();
 	});
 });
 
