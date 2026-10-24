@@ -167,7 +167,13 @@ describe("following the session", () => {
 		);
 		await fake.fire("session_before_compact", { type: "session_before_compact" }, ctx);
 		await fake.fire("session_compact", { type: "session_compact", reason: "manual" }, ctx);
-		expect(changes).toEqual(["working", "error", "working", "done"]);
+		await fake.fire("session_before_compact", { type: "session_before_compact" }, ctx);
+		await fake.fire(
+			"session_compact_failed",
+			{ type: "session_compact_failed", reason: "manual", aborted: true },
+			ctx,
+		);
+		expect(changes).toEqual(["working", "error", "working", "done", "working", "idle"]);
 	});
 
 	test("reads only the model's responses, and its latest one decides", async () => {
@@ -175,7 +181,8 @@ describe("following the session", () => {
 		const ctx = fakeContext();
 		await fake.fire("agent_start", { type: "agent_start" }, ctx);
 		await fake.fire("message_end", said("assistant", "error"), ctx);
-		await fake.fire("message_end", said("user", "error"), ctx);
+		// A user's message has no stop reason: read as a response, it would clear the error.
+		await fake.fire("message_end", { type: "message_end", message: { role: "user" } }, ctx);
 		await fake.fire("agent_settled", { type: "agent_settled", aborted: false }, ctx);
 		expect(changes).toEqual(["working", "error"]);
 	});
@@ -195,10 +202,13 @@ describe("following the session", () => {
 		expect(changes).toEqual(["working", "error", "blocked", "idle"]);
 	});
 
-	test("a question the harness asks blocks until its asker closes it", () => {
+	test("a question the harness asks blocks until its asker closes it, and only that one", () => {
 		const { fake, changes } = followed();
 		fake.pi.events.emit(ASK, { id: "q1", questions: [] });
+		fake.pi.events.emit(ASK, { id: "q2", questions: [] });
 		fake.pi.events.emit(CANCEL, { id: "q1", reason: "answered" });
+		expect(changes).toEqual(["blocked"]);
+		fake.pi.events.emit(CANCEL, { id: "q2", reason: "answered" });
 		expect(changes).toEqual(["blocked", "idle"]);
 	});
 
