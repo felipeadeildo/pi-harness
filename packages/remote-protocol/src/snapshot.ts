@@ -42,6 +42,9 @@ export interface Viewer {
 	machine: string;
 }
 
+/** The event that carries a `Presence`. It is of the moment and never kept in the log. */
+export const PRESENCE = "presence.changed";
+
 /** What a client is told when someone opens a session, closes it, or takes the latest input. */
 export interface Presence {
 	viewers: Viewer[];

@@ -62,6 +62,36 @@ describe("who has the session open", () => {
 		);
 	});
 
+	test("a snapshot may carry it, so the first draw is who is watching now", () => {
+		const session = sessionOf(key, {
+			key,
+			cursor: { epoch: "e1", seq: 1 },
+			entries: [],
+			facts: [],
+		});
+		readEnvelope(session, {
+			v: 1,
+			kind: "event",
+			machine: "here",
+			session: "s",
+			epoch: "e1",
+			seq: 2,
+			type: "snapshot",
+			data: {
+				snapshot: {
+					session: "s",
+					machine: "here",
+					cwd: "/w",
+					kind: "terminal",
+					viewers: [{ name: "laptop", machine: "here" }],
+				},
+				entries: [],
+			},
+			at: 0,
+		});
+		expect(session.presence?.viewers[0]?.name).toBe("laptop");
+	});
+
 	test("the last presence travels with the cache, so a warm open draws who was there", async () => {
 		const session = started();
 		readEnvelope(

@@ -47,6 +47,7 @@ export {
 	isCommandBy,
 	isPresence,
 	isSnapshot,
+	PRESENCE,
 	type Presence,
 	type SessionSnapshot,
 	type Viewer,

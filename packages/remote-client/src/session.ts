@@ -115,6 +115,14 @@ export function readEnvelope(
 		if (!isObject(value.data) || !Array.isArray(value.data.entries)) return { read: "skip" };
 		const data = value.data as unknown as SnapshotData;
 		session.snapshot = data.snapshot;
+		// A snapshot carries who is watching now, which is what makes the first draw right instead of
+		// showing whoever was there when the page closed. Absent means the fields are not known yet.
+		const watching = data.snapshot?.viewers;
+		if (watching !== undefined)
+			session.presence = {
+				viewers: watching,
+				...(data.snapshot?.active === undefined ? {} : { active: data.snapshot.active }),
+			};
 		session.entries = data.entries;
 		session.facts = data.facts ?? session.facts;
 		const last = data.entries.at(-1);
