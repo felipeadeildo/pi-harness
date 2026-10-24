@@ -31,8 +31,12 @@ export interface LogEventMap {
 	 */
 	"session.started": { pid: number; host: string; model?: string; cwd?: string; start?: string };
 	"session.ended": Record<string, never>;
-	/** The short name others mention it by, and the title it took it from. */
-	"session.named": { handle: string; title: string };
+	/**
+	 * The short name others mention it by, and the title it took it from. The names feature logs the
+	 * handle and the tasks feature logs the title, so a reader merges the two instead of letting the
+	 * last event erase the other field.
+	 */
+	"session.named": { handle?: string; title?: string };
 	"session.state": { state: SessionState };
 	/** You sent a prompt in this session. What you said stays in pi's own session file. */
 	"session.prompted": Record<string, never>;
