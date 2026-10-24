@@ -52,4 +52,14 @@ describe("the list of sessions", () => {
 		expect(nameOf(row({ live: { ...live, name: "from the bridge" } }))).toBe("from the bridge");
 		expect(nameOf(row({ session: "01a16b0a-8f6e-7249-9571-b11736957af9" }))).toBe("new-7af9");
 	});
+
+	test("a row is the way into a session, when the list says where a row goes", () => {
+		const html = renderToStaticMarkup(
+			createElement(SessionsScreen, {
+				sessions: [row({ machine: "laptop", session: "01a16b15" })],
+				hrefOf: (one) => `/session/${one.machine}/${one.session}`,
+			}),
+		);
+		expect(html).toContain('href="/session/laptop/01a16b15"');
+	});
 });
