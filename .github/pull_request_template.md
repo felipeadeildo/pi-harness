@@ -1,4 +1,9 @@
-<!-- A bot's pull request (the release, the Claude Code report) keeps its own body and ignores this list. -->
+<!--
+Start the body with your agent's name in brackets, `[quokka]`, and the slice it lands: every session
+uses the operator's GitHub account, so the name in the body is the only thing that says whose pull
+request this is. A bot's pull request (the release, the Claude Code report) keeps its own body and
+ignores this list.
+-->
 
 ## What this lands
 
