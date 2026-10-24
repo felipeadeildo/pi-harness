@@ -259,7 +259,7 @@ sequenceDiagram
 
 Both kinds load the bridge, so clients see no difference beyond the commands a background session adds.
 
-Only a pi in tui mode, or one a runner started, is a session to the remote: it registers, and it starts the daemon when none runs. A pi in print or JSON mode, one with `--no-session`, and the pi that shows a view never do, so a one-off `pi -p` or a subagent's child process leaves no trace in the list. An RPC pi started by another tool joins with `--remote-share`.
+Only a pi in tui mode, or one a runner started, is a session to the remote: it registers, and it starts the daemon when none runs. A pi in print or JSON mode, one with `--no-session`, and the pi that shows a view never do, so a one-off `pi -p` or a subagent's child process leaves no trace in the list. An RPC pi started by another tool joins when it sets `PI_REMOTE_SHARE=1`, as the runner does.
 
 ### One process, several sessions
 

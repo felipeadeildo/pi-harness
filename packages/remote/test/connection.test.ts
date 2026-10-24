@@ -292,6 +292,23 @@ describe("a daemon that stops reading", () => {
 		socket.emit("close");
 	});
 
+	test("a warning that throws too, as from a runtime pi let go of, stays inside", () => {
+		const { sockets, dial } = held();
+		const { made } = connection(
+			{
+				connected: () => {
+					throw new Error("boom");
+				},
+				warn: () => {
+					throw new Error("stale");
+				},
+			},
+			{ dial },
+		);
+		made.start();
+		expect(() => sockets[0]?.emit("connect")).not.toThrow();
+	});
+
 	test("a hook that throws becomes a warning, and the connection goes on", () => {
 		const { sockets, dial } = held();
 		const { made, heard } = connection(

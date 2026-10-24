@@ -210,7 +210,11 @@ export class BridgeConnection {
 		try {
 			run();
 		} catch (error) {
-			this.hooks.warn(`${what}: ${error instanceof Error ? error.message : String(error)}`);
+			try {
+				this.hooks.warn(`${what}: ${error instanceof Error ? error.message : String(error)}`);
+			} catch {
+				// A runtime pi already let go of throws on every use, warnings included.
+			}
 		}
 	}
 }
