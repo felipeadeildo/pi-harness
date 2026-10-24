@@ -1,6 +1,7 @@
 // A bridge's connection to its daemon. Nothing here may hold pi up: a send never waits, a daemon
 // that is gone is retried in the background, and what it missed comes back through what the bridge
 // sends on every connect. The facts reach the disk on their own, so only deltas are ever dropped.
+import { randomUUID } from "node:crypto";
 import { connect, type Socket } from "node:net";
 
 import { type Envelope, envelope, PROTOCOL } from "@adeildo/pi-remote-protocol";
@@ -17,6 +18,8 @@ export const BACKOFF_MS: readonly number[] = [100, 200, 400, 800, 1_600, 3_200, 
 export const RESTART_DAEMON_MS = 10_000;
 /** How long closing waits for the last message to leave before it drops the socket. */
 const CLOSE_WAIT_MS = 500;
+/** How long a request waits for the daemon's reply. */
+export const REQUEST_MS = 3_000;
 
 export interface Origin {
 	/** The socket the daemon listens on. */
@@ -68,6 +71,8 @@ export class BridgeConnection {
 	#owesResync = false;
 	#seq = 0;
 	readonly #seams: ConnectionSeams;
+	/** The requests waiting for a reply, by id. */
+	readonly #waiting = new Map<string, (reply: Envelope | undefined) => void>();
 
 	constructor(
 		private readonly origin: Origin,
@@ -110,6 +115,28 @@ export class BridgeConnection {
 		const stamp = options.droppable === true ? this.#place() : this.#stamp();
 		socket.write(line(envelope("event", type, data, stamp)));
 		return true;
+	}
+
+	/**
+	 * Asks the daemon something and waits for the reply that carries the same id. Resolves with
+	 * nothing after `timeoutMs`, when the socket is lost, or when no daemon answers now.
+	 */
+	request(type: string, data: unknown, timeoutMs = REQUEST_MS): Promise<Envelope | undefined> {
+		const socket = this.#socket;
+		if (!this.#up || socket === undefined || socket.destroyed) return Promise.resolve(undefined);
+		const id = randomUUID();
+		return new Promise((resolve) => {
+			const timer = setTimeout(() => settle(undefined), timeoutMs);
+			timer.unref();
+			const settle = (reply: Envelope | undefined): void => {
+				clearTimeout(timer);
+				this.#waiting.delete(id);
+				resolve(reply);
+			};
+			this.#waiting.set(id, settle);
+			const { machine, session, epoch } = this.origin;
+			socket.write(line(envelope("command", type, data, { machine, session, epoch, id })));
+		});
 	}
 
 	/**
@@ -170,7 +197,10 @@ export class BridgeConnection {
 		socket.on("data", (chunk: string) => {
 			for (const text of lines.push(chunk)) {
 				const message = envelopeOf(text);
-				if (message !== undefined) this.#call(() => this.hooks.message?.(message));
+				const waiting = message?.id === undefined ? undefined : this.#waiting.get(message.id);
+				if (message !== undefined && waiting !== undefined && message.kind !== "command") {
+					waiting(message);
+				} else if (message !== undefined) this.#call(() => this.hooks.message?.(message));
 				else if (!warnedUnreadable) {
 					warnedUnreadable = true;
 					this.#call(() =>
@@ -198,6 +228,8 @@ export class BridgeConnection {
 		const answered = this.#up;
 		this.#up = false;
 		this.#socket = undefined;
+		// A reply can only come on the socket the request went out on.
+		for (const settle of this.#waiting.values()) settle(undefined);
 		if (this.#closed) return;
 		if (!answered) this.#startDaemon();
 		const { backoff } = this.#seams;
