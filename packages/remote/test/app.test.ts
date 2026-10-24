@@ -107,7 +107,8 @@ test("the preview serves an export through the daemon's own routes, with no sess
 		expect(page.headers.get("content-security-policy")).toContain(
 			inlineHashes(PAGE)[0] ?? "no hash",
 		);
-		expect(await (await fetch(`${preview.url}sessions`)).json()).toEqual([]);
+		// The preview trades no login, so the app's files open and its data routes stay closed.
+		expect((await fetch(`${preview.url}sessions`)).status).toBe(401);
 	} finally {
 		preview.stop();
 	}
