@@ -18,7 +18,11 @@ import { dots, FRAME_MS, spin } from "./motion.ts";
 
 export const PEERS_TYPING = "pi-peers-typing";
 
-/** A message waiting for the agent shows this many lines of its words. */
+/**
+ * A message waiting for the agent shows this many lines of its words. The frame over the editor is
+ * this many lines plus the two dashed ones around them: a line added here changes the height the
+ * tests pin, so the assertion and the constant move together.
+ */
 export const WAITING_SHOWN = 3;
 
 const WHEN: Record<Waiting["mode"], string> = {
