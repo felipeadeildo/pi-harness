@@ -49,6 +49,12 @@ let browser: Browser | undefined;
 let page: Page | undefined;
 let root = "";
 
+/**
+ * Two things the daemon does that make a run lie, both paid for once:
+ * the export is read at startup, so a rebuild under a running daemon answers 404 on the new hash and
+ * draws a blank page that looks like a broken app; and the login cookie's line carries an
+ * `#HttpOnly_` prefix, so a filter that skips `#` lines skips the only cookie that matters.
+ */
 function browserPath(): string | undefined {
 	if (process.env.CHROME_PATH !== undefined) return process.env.CHROME_PATH;
 	return BROWSERS.find((path) => existsSync(path));
