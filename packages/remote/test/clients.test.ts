@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { connect, memoryCache, type Transport } from "@adeildo/pi-remote-client";
 import { envelope, type Envelope, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
-import { issueToken } from "../src/cli/open.ts";
+import { requestLink } from "../src/cli/open.ts";
 import { Logins } from "../src/daemon/auth.ts";
 import { Clients } from "../src/daemon/clients.ts";
 import { FILES, History, type Page } from "../src/daemon/history.ts";
@@ -286,10 +286,13 @@ describe("logging in", () => {
 		expect(opened).toBe(false);
 	});
 
-	test("the pi-remote command gets a token on the socket, which trades once for an HttpOnly cookie", async () => {
+	test("the pi-remote command gets a link on the socket, whose token trades once for an HttpOnly cookie", async () => {
 		const { daemon, port } = await openDaemon();
-		const token = await issueToken(socket);
-		if (token === undefined) throw new Error("no token");
+		const link = await requestLink(socket);
+		// Port 0 took a free port, so a link that guessed 7878 would lead nowhere.
+		const prefix = `http://127.0.0.1:${port}/#token=`;
+		if (!("url" in link) || !link.url.startsWith(prefix)) throw new Error("no link to this port");
+		const token = link.url.slice(prefix.length);
 		expect(daemon.sessions.list()).toEqual([]);
 		const post = (body: string, query = "") =>
 			fetch(`http://127.0.0.1:${port}/login${query}`, {
@@ -323,8 +326,8 @@ describe("logging in", () => {
 		expect((await logIn(daemon, port)).startsWith("pi_remote=")).toBe(true);
 	});
 
-	test("a bridge gets a token for token.issue, answered on the same id", async () => {
-		await openDaemon();
+	test("a bridge gets a link for token.issue, answered on the same id", async () => {
+		const { port } = await openDaemon();
 		const client: Socket = dial(socket);
 		await new Promise<void>((resolve) => client.once("connect", () => resolve()));
 		const replies: Envelope[] = [];
@@ -341,9 +344,18 @@ describe("logging in", () => {
 		client.write(line(envelope("command", "token.issue", {}, { ...at, id: "c7" })));
 		await until(() => replies.length === 1);
 		expect(replies[0]).toMatchObject({ type: "token.issue", id: "c7" });
-		const data = replies[0]?.data as { token?: unknown } | undefined;
-		expect(typeof data?.token).toBe("string");
+		const data = replies[0]?.data as { url?: unknown } | undefined;
+		expect(data?.url).toStartWith(`http://127.0.0.1:${port}/#token=`);
 		client.destroy();
+	});
+
+	test("a daemon that listens on no port for clients says so instead of giving a link", async () => {
+		const daemon = await Daemon.start({ socket, version: "1.2.0" });
+		if (daemon === undefined) throw new Error("the daemon did not start");
+		running.push(daemon);
+		expect(await requestLink(socket)).toEqual({
+			reason: "the daemon listens on no port for clients",
+		});
 	});
 
 	test("a file of the web build named like a route never stands in for it", async () => {

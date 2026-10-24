@@ -19,6 +19,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Bridge, type SessionKind } from "./bridge/bridge.ts";
 import type { GoneReason } from "./bridge/connection.ts";
 import { openInBrowser } from "./browser.ts";
+import { linkOf } from "./cli/open.ts";
 import { startDaemon, writeLauncher } from "./launcher.ts";
 import { CLIENT_PORT, daemonDir, daemonPaths } from "./places.ts";
 import { VERSION } from "./version.ts";
@@ -136,16 +137,13 @@ export const remote = defineFeature({
 		scope.registerCommand("remote", {
 			description: "Open this machine's sessions in a browser, with a link good once for a minute",
 			handler: async (_args, ctx) => {
-				const reply = await bridge?.request("token.issue", {});
-				const token = isObject(reply?.data) ? reply.data.token : undefined;
-				if (reply?.kind !== "reply" || typeof token !== "string") {
-					ctx.ui.notify("pi-remote: the daemon did not answer, so there is no link yet", "warning");
+				const link = linkOf(await bridge?.request("token.issue", {}), "the daemon did not answer");
+				if ("reason" in link) {
+					ctx.ui.notify(`pi-remote: ${link.reason}, so there is no link yet`, "warning");
 					return;
 				}
-				// The token rides in the fragment, which no request carries to a server or a log.
-				const url = `http://127.0.0.1:${CLIENT_PORT}/#token=${token}`;
-				openInBrowser(url);
-				ctx.ui.notify(`pi-remote: ${url} works once, for a minute`, "info");
+				openInBrowser(link.url);
+				ctx.ui.notify(`pi-remote: ${link.url} works once, for a minute`, "info");
 			},
 		});
 

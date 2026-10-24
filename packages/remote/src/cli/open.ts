@@ -1,10 +1,10 @@
 // `pi-remote open`: asks the daemon for a link good once for a minute, prints it and opens it. It
 // speaks to the daemon over the same unix socket as a bridge, says hello as `cli`, and leaves as soon
-// as the daemon answers. Without a daemon it says so: only a pi starts one.
+// as the daemon answers. Without a daemon it says so.
 import { randomUUID } from "node:crypto";
 import { connect } from "node:net";
 
-import { envelope, isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
+import { envelope, type Envelope, isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
 import { openInBrowser } from "../browser.ts";
 import { VERSION } from "../version.ts";
@@ -13,16 +13,30 @@ import { envelopeOf, line, Lines } from "../wire/lines.ts";
 /** How long the command waits for the daemon. */
 const ANSWER_MS = 3_000;
 
-/** Asks the daemon for a token. Resolves with nothing when no daemon answers in time. */
-export function issueToken(socketPath: string): Promise<string | undefined> {
+/** A login link, or why there is none. */
+export type Link = { url: string } | { reason: string };
+
+/**
+ * Reads the daemon's answer to `token.issue`, for `/remote` and for this command alike. The daemon
+ * builds the link, since only it knows the port it listens on. `silence` words a missing answer.
+ */
+export function linkOf(answer: Envelope | undefined, silence: string): Link {
+	const data = isObject(answer?.data) ? answer.data : {};
+	if (answer?.kind === "reply" && typeof data.url === "string") return { url: data.url };
+	if (answer?.kind === "error" && typeof data.reason === "string") return { reason: data.reason };
+	return { reason: silence };
+}
+
+/** Asks the daemon on the socket for a link. */
+export function requestLink(socketPath: string): Promise<Link> {
 	return new Promise((resolve) => {
 		const socket = connect(socketPath);
 		const id = randomUUID();
 		const lines = new Lines();
-		const done = (token: string | undefined): void => {
+		const done = (answer: Envelope | undefined): void => {
 			clearTimeout(timer);
 			socket.destroy();
-			resolve(token);
+			resolve(linkOf(answer, NO_DAEMON));
 		};
 		const timer = setTimeout(() => done(undefined), ANSWER_MS);
 		socket.setEncoding("utf8");
@@ -35,29 +49,27 @@ export function issueToken(socketPath: string): Promise<string | undefined> {
 		socket.on("data", (chunk: string) => {
 			for (const text of lines.push(chunk)) {
 				const message = envelopeOf(text);
-				if (message?.kind !== "reply" || message.id !== id) continue;
-				const token = isObject(message.data) ? message.data.token : undefined;
-				done(typeof token === "string" ? token : undefined);
+				if (message?.id === id) done(message);
 			}
 		});
 	});
 }
 
+const NO_DAEMON = "no daemon answered; a pi in a terminal starts one, and so does pi-remote serve";
+
 /** Prints the link and opens it, or says why there is none. Returns the exit code. */
 export async function open(
 	socketPath: string,
-	port: number,
 	out: (line: string) => void,
 	err: (line: string) => void,
 	browse: (url: string) => void = openInBrowser,
 ): Promise<number> {
-	const token = await issueToken(socketPath);
-	if (token === undefined) {
-		err("pi-remote: no daemon answered; it starts with a pi in a terminal");
+	const link = await requestLink(socketPath);
+	if ("reason" in link) {
+		err(`pi-remote: ${link.reason}`);
 		return 1;
 	}
-	const url = `http://127.0.0.1:${port}/#token=${token}`;
-	out(`${url}\n(good once, for a minute)`);
-	browse(url);
+	out(`${link.url}\n(good once, for a minute)`);
+	browse(link.url);
 	return 0;
 }

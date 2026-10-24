@@ -214,13 +214,16 @@ export class Daemon {
 
 	/** A command from a bridge or the `pi-remote` command, answered on the same id. */
 	#command(socket: Socket, message: Envelope): void {
-		if (message.type !== "token.issue") {
-			socket.write(
-				line(envelope("error", message.type, { reason: "unknown command" }, { id: message.id })),
-			);
-			return;
-		}
-		socket.write(line(envelope("reply", "token.issue", this.logins.issue(), { id: message.id })));
+		const answer = (kind: "reply" | "error", data: object): void => {
+			socket.write(line(envelope(kind, message.type, data, { id: message.id })));
+		};
+		if (message.type !== "token.issue") return answer("error", { reason: "unknown command" });
+		if (this.clientPort === undefined)
+			return answer("error", { reason: "the daemon listens on no port for clients" });
+		const { token, expiresAt } = this.logins.issue();
+		// The daemon names the port, since `serve --port` may have moved it. The token rides in the
+		// fragment, which no request carries to a server or a log.
+		answer("reply", { url: `http://127.0.0.1:${this.clientPort}/#token=${token}`, expiresAt });
 	}
 
 	#bridgeSaid(bridge: { session: string; epoch: string }, message: Envelope): void {

@@ -25,7 +25,7 @@ export function run(
 		return 0;
 	}
 	if (first === "serve") return serve(rest, out, err, options);
-	if (first === "open") return open(daemonPaths(daemonDir()).socket, CLIENT_PORT, out, err);
+	if (first === "open") return open(daemonPaths(daemonDir()).socket, out, err);
 	err(first === undefined ? USAGE : `pi-remote: unknown command "${first}"\n${USAGE}`);
 	return 2;
 }
