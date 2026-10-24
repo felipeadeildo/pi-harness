@@ -179,12 +179,12 @@ otter   quokka  wombat  axolotl  narwhal  puffin   gecko    lemur  walrus  orca
 badger  toucan  marmot  pelican  meerkat  kestrel  heron    wren   bison   koala
 ```
 
-A test holds the list to these rules. Before the list is fixed, a script checks a candidate list against them. Short animal names crowd together, so when 600 of them cannot stay 3 edits apart, the script's counts decide how the distance rule bends.
+A test holds the list to these rules. Before the list was fixed, a script checked a candidate list against them: 1,057 candidates left 665 words with their own first three letters, 484 three edits apart, and 607 two. The list needs 600, so it keeps two edits, and a typo may land one edit from a second word.
 
 - At least 600 words, so 7 days of reserved handles still leave most of the list free. The operator's sessions run at about 70 a week.
 - Lowercase ASCII, 3 to 8 letters, one word.
 - Every word has its own first three letters, so `@kes` and Tab completes it ([EFF's short list](https://www.eff.org/deeplinks/2016/07/new-wordlists-random-passphrases) has the same property).
-- Any two words are at least 3 edits apart, so one typo still resolves to one word.
+- Any two words are at least 2 edits apart, so no single typo turns one handle into another; Tab may offer a second word when the typo lands one edit from it.
 - No word that reads as code or as an instruction (`test`, `main`, `build`, `merge`, `push`), and none that is a pi or harness command.
 
 ### Drawing a handle
