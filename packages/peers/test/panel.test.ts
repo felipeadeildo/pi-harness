@@ -349,9 +349,17 @@ describe("changing the rooms", () => {
 		// Drawn from the room as the line left it: the key now offers the way back.
 		rooms.shown[0] = withMode(rooms.shown[0], "listening") as Room;
 		expect(press(panelOf(rooms), TAB)).toMatch(/m take part/);
-		// A shared room toggles too, and the row keeps its place and its one line.
+		// A shared room goes one step further: from listening to out, and `m` again brings it back.
 		press(panelOf(rooms), TAB, DOWN, DOWN, "m");
 		expect(rooms.calls.at(-1)).toBe("mode r1 listening");
+		rooms.shown[1] = withMode(rooms.shown[1], "listening") as Room;
+		press(panelOf(rooms), TAB, DOWN, DOWN, "m");
+		expect(rooms.calls.at(-1)).toBe("mode r1 out");
+		// A room this session stepped out of keeps its row, with `○`, so there is a way back.
+		rooms.shown[1] = withMode(rooms.shown[1], "out") as Room;
+		const back = press(panelOf(rooms), TAB, DOWN, DOWN, "m");
+		expect(rooms.calls.at(-1)).toBe("mode r1 in");
+		expect(back).toMatch(/m take part/);
 	});
 
 	test("the mark before a room's name never moves the name", () => {

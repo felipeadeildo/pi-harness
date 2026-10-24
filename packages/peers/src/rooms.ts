@@ -101,6 +101,8 @@ export class Rooms implements RoomsView {
 	/** When each stale member or room was first seen, by `staleIn`'s key. */
 	#stale = new Map<string, number>();
 	#wake: { at: number; timer: ReturnType<typeof setTimeout> } | undefined;
+	/** Rooms this session stepped out of with `m`, kept in the list so `m` brings it back. */
+	readonly #steppedOut = new Set<string>();
 	/** The part of the tasks last written to the shared rooms, so an unchanged board is not written again. */
 	#board = "";
 	readonly #listeners = new Set<() => void>();
@@ -175,6 +177,7 @@ export class Rooms implements RoomsView {
 			room.stop();
 		}
 		this.#shared.clear();
+		this.#steppedOut.clear();
 		this.#home?.close();
 		this.#home = undefined;
 		removePresence(this.#session);
@@ -364,11 +367,26 @@ export class Rooms implements RoomsView {
 	 * How this session stands in a room. `listening` hears only what names it and never takes a
 	 * request to everyone; `in` takes part. The folder's room takes the same line as the others.
 	 */
-	setMode(room: string | undefined, mode: Exclude<RoomMode, "out">): void {
+	setMode(room: string | undefined, mode: RoomMode): void {
 		if (this.#session === undefined) return;
 		const member = { session: this.#session, cwd: this.#cwd };
-		if (room === undefined) this.#home?.log("room.mode", { member, mode });
-		else this.#write(room, "room.mode", { member, mode });
+		// The folder's room cannot be left: there, stepping out is the farthest a session goes.
+		if (room === undefined) {
+			if (mode !== "out") this.#home?.log("room.mode", { member, mode });
+			this.sync();
+			return;
+		}
+		if (mode === "out") {
+			// Out is removal, and the room stays in the list for this session: without that row the
+			// operator has no way back in after stepping out.
+			this.#write(room, "room.removed", { member });
+			this.#steppedOut.add(room);
+			this.sync();
+			return;
+		}
+		if (this.#steppedOut.delete(room))
+			this.#write(room, "room.added", { member: { ...member }, by: "you" });
+		this.#write(room, "room.mode", { member, mode });
 		this.sync();
 	}
 
@@ -820,7 +838,7 @@ export class Rooms implements RoomsView {
 	/** The shared rooms this session is in, oldest first. */
 	#joinedShared(): Shared[] {
 		return [...this.#shared.values()]
-			.filter((room) => room.here !== undefined)
+			.filter((room) => room.here !== undefined || this.#steppedOut.has(room.id))
 			.toSorted(
 				(a, b) =>
 					(a.folder.membership.createdAt ?? 0) - (b.folder.membership.createdAt ?? 0) ||

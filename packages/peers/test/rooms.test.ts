@@ -524,6 +524,20 @@ describe("how a session stands in a room", () => {
 		expect(loud.rooms.rooms().find((room) => room.id === id)?.mode).toBe("in");
 	});
 
+	test("stepping out keeps the room in the list, with its row, so `m` can bring it back", () => {
+		const api = session("api", "backend");
+		const id = api.rooms.create("pair", [{ folder: api.cwd }]);
+		sync(api);
+		api.rooms.setMode(id, "listening");
+		api.rooms.setMode(id, "out");
+		sync(api);
+		const listed = api.rooms.rooms().find((room) => room.id === id);
+		expect(listed?.mode).toBe("out");
+		api.rooms.setMode(id, "in");
+		sync(api);
+		expect(api.rooms.rooms().find((room) => room.id === id)?.mode).toBe("in");
+	});
+
 	test("the folder's room opens the way this session says, and the line stands", () => {
 		const quiet = session("quiet", "backend", { opening: () => "listening" });
 		expect(quiet.rooms.rooms()[0]?.mode).toBe("listening");

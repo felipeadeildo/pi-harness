@@ -104,19 +104,21 @@ brings only itself. Making a room or adding to one opens a picker where the conv
 open, so a folder with no agent open cannot join. Under the open room, the list shows its agents, then its folders
 with how many agents are open in each.
 
-| Key | On the list                                                        |
-| --- | ------------------------------------------------------------------ |
-| `n` | A new room: pick from what is open on this machine, then name it   |
-| `a` | Add to the open room                                               |
-| `r` | Take the agent or the folder under the cursor out of the open room |
-| `l` | Take this session out of the open room                             |
-| `x` | Close the open room, after asking                                  |
-| `m` | Listen to the room without taking part, and `m` again to come back |
+| Key | On the list                                                           |
+| --- | --------------------------------------------------------------------- |
+| `n` | A new room: pick from what is open on this machine, then name it      |
+| `a` | Add to the open room                                                  |
+| `r` | Take the agent or the folder under the cursor out of the open room    |
+| `l` | Take this session out of the open room                                |
+| `x` | Close the open room, after asking                                     |
+| `m` | Listen without taking part, then step out of the room, then come back |
 
 The folder's room has no `a`, `r`, `l` or `x`.
 
 Every room wears a mark before its name, so the name never moves when the mode changes: `●` takes part, `◐` only
-listens. Listening is hearing what names it, nothing else: the room's other messages wait until you take part.
+listens, `○` stepped out. A room this session stepped out of keeps its row, so `m` brings it back; every other
+session that is out simply does not appear. Listening is hearing what names it, nothing else: the room's other
+messages wait until you take part.
 `@anyone` and `@everyone` are addresses of the agents taking part, so listening is not taking part and a request to
 anyone never picks a session that listens. How a session opens is its own "When a room takes you in" setting, and it
 writes that for itself, in the folder's room and in each shared room it joins. A setting never decides another

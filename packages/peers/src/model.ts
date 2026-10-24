@@ -65,8 +65,8 @@ export interface RoomsView {
 	remove(room: string, member: Member): void;
 	/** Takes this session out of a shared room. */
 	leave(room: string): void;
-	/** How this session stands in a room: taking part, or listening without taking part. */
-	setMode(room: string | undefined, mode: Exclude<RoomMode, "out">): void;
+	/** How this session stands in a room: taking part, listening, or out of it. */
+	setMode(room: string | undefined, mode: RoomMode): void;
 	close(room: string): void;
 	/** Called once for any change to the above. Returns what stops it. */
 	onChange(listener: () => void): () => void;

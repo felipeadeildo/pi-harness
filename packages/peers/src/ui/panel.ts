@@ -141,9 +141,7 @@ export class PeersPanel implements Component, Focusable {
 		if (data === "n") return this.#pick(undefined);
 		// Any room, the folder's own included: `m` switches between taking part and just hearing it.
 		if (data === "m" && entry?.kind === "room")
-			return this.#act(() =>
-				this.#options.view.setMode(entry.room.id, entry.room.mode === "in" ? "listening" : "in"),
-			);
+			return this.#act(() => this.#options.view.setMode(entry.room.id, nextMode(entry.room)));
 		if (shared !== undefined && room !== undefined && this.#manage(data, shared, room, entry))
 			return;
 		// Typing on the list writes in the room, so the line you write in is never far. The keys that
@@ -165,7 +163,7 @@ export class PeersPanel implements Component, Focusable {
 				this.#act(() => view.leave(shared));
 				return true;
 			case "m":
-				this.#act(() => view.setMode(shared, room.mode === "in" ? "listening" : "in"));
+				this.#act(() => view.setMode(shared, nextMode(room)));
 				return true;
 			case "x":
 				this.#closing = shared;
@@ -277,7 +275,7 @@ export class PeersPanel implements Component, Focusable {
 		return { lines, cursorAt };
 	}
 
-	/** The mark before a room's name, for the rooms this session hears without taking part in. */
+	/** The mark before a room's name, for how this session stands in it. */
 	#mark(mode: RoomMode): string {
 		const { theme } = this.#options;
 		if (mode === "listening") return theme.fg("muted", GLYPH.half);
@@ -349,8 +347,8 @@ export class PeersPanel implements Component, Focusable {
 		} else keys.push(["enter", "write"]);
 		if (entry?.kind === "folder") keys.push(["r", "remove folder"]);
 		keys.push(["n", "new room"]);
+		if (entry?.kind === "room") keys.push(["m", modeKey(entry.room)]);
 		if (shared) keys.push(["a", "add"], ["l", "leave"], ["x", "close room"]);
-		if (entry?.kind === "room") keys.push(["m", entry.room.mode === "in" ? "listen" : "take part"]);
 		keys.push(["tab", "write"], ["esc", "close"]);
 		return keys;
 	}
@@ -494,6 +492,20 @@ export class PeersPanel implements Component, Focusable {
 	#now(): number {
 		return this.#options.now?.() ?? Date.now();
 	}
+}
+
+/** What `m` does next: the room is a promise, and stepping out keeps the row so `m` brings it back. */
+function nextMode(room: Room): RoomMode {
+	if (room.mode === "in") return "listening";
+	if (room.mode === "listening") return room.id === undefined ? "in" : "out";
+	return "in";
+}
+
+/** What `m` says it will do, in the room's own words. The folder's room cannot be stepped out of. */
+function modeKey(room: Room): string {
+	const next = nextMode(room);
+	if (next === "listening") return "listen";
+	return next === "out" ? "step out" : "take part";
 }
 
 function keyOf(room: Room): string {
