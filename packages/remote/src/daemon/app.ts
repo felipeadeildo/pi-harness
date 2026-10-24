@@ -39,11 +39,19 @@ export interface Served {
 	body: Buffer | string;
 }
 
-/** The app in `dir`, or undefined when the folder holds no export the build listed. */
+/**
+ * The app in `dir`, or undefined when the folder holds no export the build listed, or a list that
+ * does not read. A broken list costs the app and never the daemon: the data routes still answer.
+ */
 export function loadWebApp(dir: string): WebApp | undefined {
 	const list = join(dir, FILES);
 	if (!existsSync(list)) return undefined;
-	const parsed: unknown = JSON.parse(readFileSync(list, "utf8"));
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(readFileSync(list, "utf8"));
+	} catch {
+		return undefined;
+	}
 	if (!Array.isArray(parsed) || !parsed.every((one) => typeof one === "string")) return undefined;
 	const files = new Set(parsed as string[]);
 	const dynamic = [...files]

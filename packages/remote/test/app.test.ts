@@ -117,6 +117,23 @@ describe("the daemon serving the app", () => {
 		expect((await get("/nowhere")).status).toBe(404);
 	});
 
+	test("a list that does not read costs the app, and the data routes still answer", async () => {
+		appOf();
+		writeFileSync(join(dir, "dist", "web", "files.json"), "{ not json");
+		expect(loadWebApp(join(dir, "dist", "web"))).toBeUndefined();
+		const daemon = await Daemon.start({
+			socket: join(dir, "remote", "daemon.sock"),
+			version: "1.2.0",
+			clientPort: 0,
+			webDir: join(dir, "dist", "web"),
+		});
+		if (daemon?.clientPort === undefined) throw new Error("the daemon did not start");
+		running.push(daemon);
+		const get = (path: string) => fetch(`http://127.0.0.1:${daemon.clientPort}${path}`);
+		expect((await get("/health")).status).toBe(200);
+		expect((await get("/")).status).toBe(404);
+	});
+
 	test("without an export, the daemon serves its data routes and nothing else", async () => {
 		const daemon = await Daemon.start({
 			socket: join(dir, "remote", "daemon.sock"),
