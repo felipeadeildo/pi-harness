@@ -112,6 +112,37 @@ describe("a call that reaches a protected entry", () => {
 		);
 	});
 
+	test("a key under the home is reached through $HOME, and by a walk down from the home", async () => {
+		const away = join(homedir(), ".pi-protected-test-never-created");
+		const state = gate({
+			protected: () => ({ paths: [join(away, "machine.key")], sockets: [], commands: [] }),
+		});
+		const by = async (tool: string, input: unknown) => {
+			const result = await decision(tool, input, state);
+			return "by" in result ? result.by : undefined;
+		};
+		for (const command of [
+			"cat $HOME/.pi-protected-test-never-created/machine.key",
+			"cat ${HOME}/.pi-protected-test-never-created/machine.key",
+			"grep -r secret ~",
+			"rg secret ~",
+			"find ~ -name '*.key' -exec cat {} +",
+			"tar czf out.tgz ~",
+		]) {
+			// oxlint-disable-next-line no-await-in-loop -- one command at a time, so a failure names it
+			expect({ command, by: await by("bash", { command }) }).toEqual({ command, by: "protected" });
+		}
+		expect(await by("grep", { pattern: "secret", path: "~" })).toBe("protected");
+		// Looking at the home is not reaching into it.
+		for (const command of ["ls ~", "git -C ~ status", "cd ~"]) {
+			// oxlint-disable-next-line no-await-in-loop -- one command at a time, so a failure names it
+			expect({ command, by: await by("bash", { command }) }).not.toEqual({
+				command,
+				by: "protected",
+			});
+		}
+	});
+
 	test("a call that reaches none of it goes on to the other layers", async () => {
 		expect(await decision("read", { path: join(root, "work", "notes.md") })).toMatchObject({
 			by: expect.not.stringMatching(/^protected$/),

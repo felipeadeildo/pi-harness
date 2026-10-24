@@ -22,13 +22,14 @@ export function protectedEntry(call: Call, list: ProtectedList): string | undefi
 	const words = command === undefined ? [] : piecesOf(tokenize(command));
 	const paths = [...(call.tool.paths(call.input) ?? []), ...words];
 
-	// Through `~` and symlinks, so a link to the key or a relative path to it is the key.
-	const where = (path: string) => canonical(resolvePath(path, cwd));
+	// Through `~`, `$HOME` and symlinks, so a link to the key or a relative path to it is the key.
+	const where = (path: string) => canonical(resolvePath(path.replace(HOME_VARIABLE, "~"), cwd));
 	const reached = paths.map(where);
-	const wide = new Set([canonical(homedir()), canonical("/")]);
+	// The home and the root hold everything, and asking about each `ls ~` would teach you to say
+	// yes. A call that walks down from them reaches the entry, though.
+	const wide = walks(call, words) ? new Set() : new Set([canonical(homedir()), canonical("/")]);
 	for (const entry of [...list.paths, ...list.sockets.filter(isPath)].map(where)) {
-		// A folder above the entry reaches it too, as a recursive grep would, but the home and the
-		// root hold everything, and asking about each `ls ~` would teach you to say yes.
+		// A folder above the entry reaches it too, as a recursive grep would.
 		const reaches = (path: string) =>
 			isInside(path, [entry]) || (!wide.has(path) && isInside(entry, [path]));
 		if (reached.some(reaches)) return tildify(entry);
@@ -52,6 +53,21 @@ export function protectedEntry(call: Call, list: ProtectedList): string | undefi
 function piecesOf(words: string[]): string[] {
 	const pieces = words.flatMap((word) => [word, ...word.split(/[\s;|&()'"`<>=@,:]+/)]);
 	return [...new Set(pieces.filter((piece) => piece !== ""))];
+}
+
+const HOME_VARIABLE = /^\$\{?HOME\}?(?=\/|$)/;
+
+const WALKERS = new Set(["find", "rg", "tar", "zip", "rsync", "du", "tree"]);
+
+/** Whether the call goes down through the folders it names, rather than looking at them. */
+function walks(call: Call, words: string[]): boolean {
+	if (call.toolName === "grep" || call.toolName === "find") return true;
+	return words.some(
+		(word) =>
+			WALKERS.has(basename(word)) ||
+			/^-[a-zA-Z]*[rR][a-zA-Z]*$/.test(word) ||
+			word === "--recursive",
+	);
 }
 
 function isPath(socket: string): boolean {
