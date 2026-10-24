@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { bySession } from "../src/by-session.ts";
 import { isBy } from "../src/contracts/by.ts";
+import { NAMES } from "../src/contracts/names.ts";
 import { TASKS } from "../src/contracts/tasks.ts";
 import { HOST } from "../src/host.ts";
 import { emptyTasks } from "../src/tasks/state.ts";
@@ -41,6 +42,12 @@ describe("a session as the cause", () => {
 			name: "release",
 			machine: "laptop",
 		});
+	});
+
+	test("is named by the handle the names feature drew, before the tasks'", () => {
+		const scope = tasksScope("release");
+		NAMES.provide(scope, () => ({ handle: "kestrel" }));
+		expect(bySession("agent", scope, SESSION).name).toBe("kestrel");
 	});
 
 	test("is new- and the end of its id while it has no handle", () => {

@@ -2,15 +2,16 @@
 // handles from the names list only this file changes.
 import type { EventScope } from "./contract.ts";
 import type { By } from "./contracts/by.ts";
+import { NAMES } from "./contracts/names.ts";
 import { TASKS } from "./contracts/tasks.ts";
 import { HOST } from "./host.ts";
 
 /**
- * A session as the `by` of what happens in it. The name is the handle the tasks feature gave the
- * session, which is what the room calls it, or `new-` and the last four characters of the id while it
- * has none, as peers shows an untitled session. Never the title: it changes with the work, and the
- * name of a fact must not. A client is named by its device, which a session cannot know, so a client
- * builds its own `By`.
+ * A session as the `by` of what happens in it. The name is the handle the names feature drew from
+ * the list, which is what the room calls it, or the handle the tasks logged before the list existed,
+ * or `new-` and the last four characters of the id while it has none, as peers shows an untitled
+ * session. Never the title: it changes with the work, and the name of a fact must not. A client is
+ * named by its device, which a session cannot know, so a client builds its own `By`.
  */
 export function bySession(
 	kind: Exclude<By["kind"], "client">,
@@ -18,7 +19,7 @@ export function bySession(
 	session: { getSessionId(): string },
 	options: { machine?: string } = {},
 ): By {
-	const handle = TASKS.current(scope)?.state.handle;
+	const handle = NAMES.current(scope)?.handle ?? TASKS.current(scope)?.state.handle;
 	const name = handle ?? `new-${session.getSessionId().slice(-4)}`;
 	return { kind, name, machine: options.machine ?? HOST };
 }
