@@ -4,7 +4,7 @@ This plan splits [the remote design](remote.md) into slices that land on `main` 
 
 ## Status
 
-A slice is ticked in the commit that lands it.
+A slice is ticked in the commit that lands it. A slice whose parts are on `main` and whose last part is still coming keeps its box empty and says `nearly:` with what it waits on, because a task list counts boxes and that is where the progress is read.
 
 - [x] C1. The `By` type in the kit (core, F0)
 - [x] C2. Presence in the kit (core, F0)
@@ -30,8 +30,8 @@ A slice is ticked in the commit that lands it.
 - [x] W1. The Expo app and the CSP (client, F1)
 - [x] W2. Text from elsewhere (client, F1)
 - [x] W3. The Sessions and Session screens (client, F1)
-- [ ] I1. The inbox (names, before F2)
-- [ ] C8. Commands through the bridge (core, F2)
+- [ ] I1. The inbox (names, before F2) — nearly: peers delivering through the inbox waits on N4
+- [ ] C8. Commands through the bridge (core, F2) — nearly: prompt.send and queue.clear wait on I1
 - [ ] A5. Clients in the race for the harness's dialogs (ask, F2)
 - [ ] A6. pi's own dialogs in the race (ask, F2)
 - [x] P4. Commands and the outbox in the client library (protocol, F2)
@@ -350,7 +350,7 @@ The daemon serves the three cursors of [Sync](remote.md#sync): entries by id, fa
 
 Owner: protocol. Needs: P2.
 
-`packages/remote-client` holds the connection (the token login, reconnect with backoff, resume by cursors), the cache's interface with an IndexedDB adapter for the web, and the protocol's reducers. It has no React in it. Until C5 and C7 land, its tests run against a fake daemon that replays the recording.
+`packages/remote-client` holds the connection (the token login, reconnect with backoff, resume by cursors), the cache's interface with an IndexedDB adapter for the web, and the protocol's reducers. It has no React in it. Its tests run against a fake daemon that replays the recording, and the daemon's tests join them as the daemon slices land.
 
 - Tests: a reconnect resumes from the cursors; a warm cache draws before the network answers.
 
