@@ -125,7 +125,14 @@ export const remote = defineFeature({
 		 */
 		const afterCompaction = (_event: unknown, ctx: ExtensionContext): void => {
 			setTimeout(() => {
-				if (ctx.isIdle()) bridge?.settled();
+				// The turn this waited for may be after the session was replaced or the process is
+				// going away, and pi refuses a context it no longer owns. A session that is gone has
+				// nothing to drain, so the refusal is the answer, not an error to report.
+				try {
+					if (ctx.isIdle()) bridge?.settled();
+				} catch {
+					// The context belongs to a session that is not this one any more.
+				}
 			}, 0);
 		};
 		scope.on("session_compact", afterCompaction);
