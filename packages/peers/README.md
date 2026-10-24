@@ -80,7 +80,7 @@ the right, with the line you write in under it. Neither side moves or changes wi
 
 Typing while the list has the keys writes in the room, so you never have to go back first.
 
-`Enter` on another agent shows its session over the panel, read from its file as it grows: what it was asked, what it answered and the calls it made, with the look's frames. `Alt+G` or `Esc` there goes back to the panel, on the same line. With nothing installed that can show a session, `Enter` writes to the agent, as `@` does.
+`Enter` on another agent shows its session over the panel, read from its file as it grows: what it was asked, what it answered and the calls it made, with the look's frames. `Alt+G` or `Esc` there goes back to the panel, on the same line. `Enter` writes to the agent instead, as `@` does, when nothing installed can show a session, or when this one cannot be read: the agent closed since the panel drew it, or its session is on another machine.
 
 ## Rooms across folders
 
