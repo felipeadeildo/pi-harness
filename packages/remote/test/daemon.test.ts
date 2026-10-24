@@ -15,8 +15,7 @@ import { dirname, join } from "node:path";
 import { envelope, type Envelope, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
 import { BridgeConnection } from "../src/bridge/connection.ts";
-import { daemonDir } from "../src/daemon/main.ts";
-import { Daemon, type ExitReason, newer } from "../src/daemon/server.ts";
+import { Daemon, daemonDir, type ExitReason, newer } from "../src/daemon/server.ts";
 import { Sessions } from "../src/daemon/sessions.ts";
 import { envelopeOf, line, Lines } from "../src/wire/lines.ts";
 import { until } from "./fakes.ts";
@@ -344,6 +343,20 @@ describe("a session's events", () => {
 		const unread = envelope("event", "snapshot", { entries: [] }, { ...ORIGIN, seq: 2 });
 		expect(sessions.event(unread)).toBe("a snapshot that does not read");
 	});
+});
+
+test("importing the daemon's entry starts nothing", async () => {
+	const remote = join(dir, "remote");
+	const before = process.env.PI_REMOTE_DIR;
+	process.env.PI_REMOTE_DIR = remote;
+	try {
+		await import("../src/daemon/main.ts");
+		await Bun.sleep(50);
+		expect(existsSync(join(remote, "daemon.sock"))).toBe(false);
+	} finally {
+		if (before === undefined) delete process.env.PI_REMOTE_DIR;
+		else process.env.PI_REMOTE_DIR = before;
+	}
 });
 
 test("versions compare by their numbers", () => {
