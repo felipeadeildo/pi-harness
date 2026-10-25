@@ -244,7 +244,7 @@ test("a run turns the tool back on when something else left it off", async () =>
 
 test("the board action answers with the whole title, not what the panel would cut", async () => {
 	// The panel cuts at the width it is drawn in; the model reads the board itself, so a long title
-	// has to arrive whole — the two renderers are not interchangeable.
+	// has to arrive whole. The two renderers are not interchangeable.
 	const long = "a card whose title is long enough that a hundred columns would cut it somewhere";
 	const board = {
 		...emptyBoard(),

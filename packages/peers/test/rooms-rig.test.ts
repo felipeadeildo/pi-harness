@@ -1,6 +1,6 @@
 // The room a session opens in, with a real pi: the setting belongs to the session that opens, so two
 // sessions in the same folder can start in different modes and each says so for itself. A rig holds
-// one session at a time — the log's folder is process-wide — so the runs are one after the other,
+// one session at a time, because the log's folder is process-wide, so the runs are one after the other,
 // over the same folder, and what survives is what the log carries.
 import { afterEach, beforeEach, expect, setDefaultTimeout, test } from "bun:test";
 import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
