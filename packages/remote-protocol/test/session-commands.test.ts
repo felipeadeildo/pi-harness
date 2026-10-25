@@ -19,4 +19,18 @@ describe("what a client may run by typing a slash", () => {
 		expect(again.commands).toEqual(listed.commands);
 		expect(again.name).toBe("rig again");
 	});
+
+	test("a list this version cannot read does not become the state", async () => {
+		// The composer groups by `source`, and the wire decides by it: a value neither knows would be
+		// drawn by the screen and misjudged by the refusal.
+		const { isFact } = await import("../src/facts.ts");
+		expect(isFact("session.live", { kind: "terminal", commands: [{ name: 7 }] })).toBe(false);
+		expect(
+			isFact("session.live", { kind: "terminal", commands: [{ name: "x", source: "other" }] }),
+		).toBe(false);
+		expect(
+			isFact("session.live", { kind: "terminal", commands: [{ name: "x", source: "skill" }] }),
+		).toBe(true);
+		expect(isFact("session.live", { kind: "terminal" })).toBe(true);
+	});
 });

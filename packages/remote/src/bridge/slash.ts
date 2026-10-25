@@ -50,7 +50,11 @@ export function slashOf(text: string, offered: readonly SessionCommand[]): Slash
 	if (!text.startsWith("/")) return "expand";
 	const typed = text.slice(1).split(/\s/, 1)[0] ?? "";
 	if (typed === "compact") return "compact";
-	const known = offered.some((one) => one.name === typed && one.source !== "pi");
+	// Positive on both sides, like `commandsFor`: a `source` added later must be a decision here, not a
+	// default that slips through.
+	const known = offered.some(
+		(one) => one.name === typed && (one.source === "skill" || one.source === "prompt"),
+	);
 	return known ? "expand" : "refused";
 }
 

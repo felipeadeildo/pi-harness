@@ -10,6 +10,7 @@ import {
 	type AskResult,
 	type CallRuling,
 	type PermissionMode,
+	type SessionCommand,
 	type SessionTasks,
 } from "../facts.ts";
 import { type QueuedMessage } from "../snapshot.ts";
@@ -64,18 +65,6 @@ export interface SessionState {
 	 * here is refused when it is sent, so the field and the refusal cannot disagree.
 	 */
 	commands?: SessionCommand[];
-}
-
-/** One slash command a client may use, and where it comes from. */
-export interface SessionCommand {
-	/** The name as pi knows it, without the slash. */
-	name: string;
-	description?: string;
-	/**
-	 * `skill` and `prompt` reach the model expanded; `pi` is a command this harness answers itself, which
-	 * today is `compact`. An extension command never appears here: it runs only at the terminal.
-	 */
-	source: "skill" | "prompt" | "pi";
 }
 
 export function emptySessionState(): SessionState {

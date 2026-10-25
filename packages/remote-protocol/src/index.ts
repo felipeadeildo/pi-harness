@@ -26,6 +26,7 @@ export {
 	type PermissionMode,
 	type RulingTone,
 	SESSION_STATES,
+	type SessionCommand,
 	type SessionTasks,
 	type Task,
 	type TaskStatus,
@@ -42,7 +43,6 @@ export {
 	openQuestions,
 	applyEvent,
 	foldLogged,
-	type SessionCommand,
 	type SessionState,
 } from "./reduce/state.ts";
 export { COMMAND_TYPES, type CommandMap, type CommandType, isCommand } from "./commands.ts";
