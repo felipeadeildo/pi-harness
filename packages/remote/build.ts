@@ -11,6 +11,9 @@ const ENTRIES = {
 	"cli.js": join(import.meta.dir, "src/cli/main.ts"),
 };
 
+/** What `ws` loads when it is there, and works without. */
+const OPTIONAL = ["bufferutil", "utf-8-validate"];
+
 export interface Built {
 	/** Each file written, by its name in `outdir`. */
 	files: Record<keyof typeof ENTRIES, string>;
@@ -30,6 +33,9 @@ export async function buildRemote(outdir: string): Promise<Built> {
 			outdir,
 			naming: name,
 			metafile: true,
+			// `ws` asks for these two in a `try`, to use them when an install happens to have them: they
+			// stay out of the bundle and the build passes without them.
+			external: OPTIONAL,
 		});
 		if (!result.success) throw new AggregateError(result.logs, `could not build ${name}`);
 		for (const input of Object.values(result.metafile?.inputs ?? {})) {
@@ -59,7 +65,10 @@ export function nodeBuiltins(node = Bun.which("node") ?? "node"): Set<string> {
 
 /** The imports a built file must not have: anything but Node's own modules. */
 export function foreign(outside: readonly string[], builtins: ReadonlySet<string>): string[] {
-	return outside.filter((path) => !builtins.has(path.startsWith("node:") ? path.slice(5) : path));
+	return outside.filter(
+		(path) =>
+			!builtins.has(path.startsWith("node:") ? path.slice(5) : path) && !OPTIONAL.includes(path),
+	);
 }
 
 /** The Expo app, whose web export the daemon serves. */

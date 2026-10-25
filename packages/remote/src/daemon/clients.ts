@@ -9,8 +9,9 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
 import type { Envelope } from "@adeildo/pi-remote-protocol";
+import type { WebSocketServer } from "ws";
 
-import { accept } from "../wire/websocket.ts";
+import { accept, server } from "../wire/websocket.ts";
 import { isAppFile, type WebApp } from "./app.ts";
 import { authorize, type Logins, loopbackHosts } from "./auth.ts";
 import { Hub } from "./hub.ts";
@@ -47,6 +48,7 @@ export type ListenResult = { port: number } | { why: string | undefined };
 export class Clients {
 	readonly #options: ClientsOptions;
 	readonly #server: Server;
+	readonly #wss: WebSocketServer;
 	readonly #started: number;
 	/** The names this daemon answers to, once it knows its port. Nothing answers before. */
 	#hosts: ReadonlySet<string> = new Set();
@@ -71,6 +73,7 @@ export class Clients {
 			...(options.now === undefined ? {} : { now: options.now }),
 		});
 		this.#server = createServer((request, response) => this.routes.handle(request, response));
+		this.#wss = server();
 		this.#server.on("upgrade", (request: IncomingMessage, socket, head: Buffer) => {
 			// Any page can open a WebSocket to 127.0.0.1, so one from another Origin is refused here,
 			// and one with no login too.
@@ -86,8 +89,7 @@ export class Clients {
 				socket.end("HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n");
 				return;
 			}
-			if (head.length > 0) socket.unshift(head);
-			accept(request, socket, (ws) => this.hub.open(ws));
+			accept(this.#wss, request, socket, head, (ws) => this.hub.open(ws));
 		});
 	}
 
@@ -107,6 +109,7 @@ export class Clients {
 
 	close(): void {
 		this.hub.close();
+		this.#wss.close();
 		this.#server.close();
 	}
 

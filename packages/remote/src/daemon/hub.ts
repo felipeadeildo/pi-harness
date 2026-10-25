@@ -189,7 +189,7 @@ export class Hub {
 	}
 
 	#send(ws: WebSocket, message: Envelope): void {
-		if (ws.pending() > CLIENT_BACKLOG) {
+		if (ws.bufferedAmount > CLIENT_BACKLOG) {
 			this.#options.warn?.("a client fell too far behind and was closed");
 			ws.close(1013);
 			return;
