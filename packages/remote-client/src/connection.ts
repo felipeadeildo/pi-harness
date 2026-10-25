@@ -60,7 +60,6 @@ export interface Client {
 	 * each command carries, and this is the place a screen meets it.
 	 */
 	send<K extends CommandType>(type: K, data: CommandMap[K]): Outgoing;
-	/** The commands that have not been answered yet, in the order they were typed. */
 	outbox(): Outbox;
 	/**
 	 * Sends a command that waited past the window, because the person said so. Only the connection can
@@ -70,7 +69,6 @@ export interface Client {
 	release(id: string): boolean;
 	/** Drops a command that never went out, so it leaves the queue and nothing is sent. */
 	drop(id: string): boolean;
-	/** Ends the connection and stops reconnecting. */
 	stop(): void;
 }
 

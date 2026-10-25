@@ -17,7 +17,6 @@ export interface LiveSession {
 	kind: "terminal" | "background";
 }
 
-/** One session, as the daemon lists it. */
 export interface ListedSession {
 	machine: string;
 	session: string;

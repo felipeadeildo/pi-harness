@@ -38,7 +38,7 @@ export function decide(cursor: Cursor, envelope: Envelope): Next {
 	return { read: "now" };
 }
 
-/** The cursor after reading the envelope, which is what the next reconnect sends. */
+/** What the next reconnect sends. */
 export function advance(cursor: Cursor, envelope: Envelope): Cursor {
 	return {
 		...cursor,
