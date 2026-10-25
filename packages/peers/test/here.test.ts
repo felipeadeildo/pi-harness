@@ -70,6 +70,7 @@ function session(
 	const state = { idle: true };
 	const hooks: Hooks = {
 		events: { emit: () => {}, on: () => () => {} } as unknown as Hooks["events"],
+		defer: (run) => void setTimeout(run, 0),
 		sendMessage: ((
 			message: { content: string; customType: string; display?: boolean },
 			options: unknown,

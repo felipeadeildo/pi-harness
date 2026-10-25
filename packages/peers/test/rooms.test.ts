@@ -88,6 +88,7 @@ function session(id: string, folder: string, extra: Partial<Hooks> = {}) {
 		changed: () => {},
 		now: () => now,
 		alive: () => true,
+		defer: (run) => void setTimeout(run, 0),
 		...extra,
 	};
 	const rooms = new Rooms(hooks);

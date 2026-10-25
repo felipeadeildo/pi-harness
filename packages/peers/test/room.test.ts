@@ -48,6 +48,7 @@ function session(id: string, fit: Fit = { fit: 0.5, reason: "" }): Here {
 		show: () => {},
 		now: () => now,
 		alive: () => true,
+		defer: (run) => void setTimeout(run, 0),
 	};
 	const here = new Here(hooks);
 	opened.push(here);

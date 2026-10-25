@@ -53,6 +53,7 @@ function session(id: string, cwd: string): Here {
 		show: () => {},
 		now: () => 1_000_000,
 		alive: () => true,
+		defer: (run) => void setTimeout(run, 0),
 	};
 	const here = new Here(hooks);
 	opened.push(here);
