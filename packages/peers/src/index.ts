@@ -9,6 +9,7 @@ import {
 	modelRef,
 	modelsFor,
 	BOARD,
+	boardText as boardOfKit,
 	boardView,
 	openView,
 	PEERS,
@@ -44,7 +45,6 @@ import {
 	PEERS_SETTINGS,
 	roomGrace,
 } from "./settings.ts";
-import { boardLines } from "./ui/board.ts";
 import {
 	heldBlock,
 	type HeldDelivery,
@@ -458,9 +458,11 @@ export const peers = defineFeature({
 				if (params.action === "board") {
 					// The board this session folded, drawn the way the panel draws it, plus who else is
 					// in the room and what they are on.
+					// The model reads text, not the panel's drawing: the kit writes this one, and it is the
+					// same the board tool answers with.
 					const board = BOARD.current(scope);
 					const lines = [
-						...(board === undefined ? [] : boardLines(boardView(board), ctx.ui.theme, 100)),
+						...(board === undefined ? [] : [boardOfKit(board)]),
 						boardText(rooms.joined(), me),
 					];
 					return reply(lines.filter((line) => line !== "").join("\n"));

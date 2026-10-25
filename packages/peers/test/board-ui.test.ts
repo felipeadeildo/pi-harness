@@ -53,3 +53,15 @@ describe("the board in the panel", () => {
 		expect(lines.every((line) => visibleWidth(line) <= 30)).toBe(true);
 	});
 });
+
+test("the tool answers the model with the board's text, not the panel's drawing", async () => {
+	const { boardText } = await import("@adeildo/pi-kit");
+	const long = "a title long enough that the panel would cut it somewhere in the middle of a word";
+	const { emptyBoard } = await import("@adeildo/pi-kit");
+	const written = boardText({
+		...emptyBoard(),
+		cards: [{ id: "c1", title: long, column: "todo", at: 1 }],
+	});
+	expect(written).toContain(long);
+	expect(written).not.toContain("\u2026");
+});
