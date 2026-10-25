@@ -13,8 +13,6 @@ export const CLIENT_BACKLOG = 8 * 1024 * 1024;
 
 export interface HubOptions {
 	sessions: Sessions;
-	/** Asks a session's bridge for a snapshot. False when no bridge of the session is connected. */
-	askSnapshot: (session: string) => boolean;
 	/**
 	 * Passes a client's command to the session's bridge. False when no bridge is connected, and then
 	 * the client hears why on the command's id instead of waiting for an answer that never comes.
@@ -37,8 +35,6 @@ export class Hub {
 	#opened = 0;
 	/** Who asked for each command in flight, by session and id, so the answer goes back to it alone. */
 	readonly #asked = new Map<string, Connection>();
-	/** Sessions a client asked about while no bridge was there to answer. */
-	readonly #told = new Set<string>();
 
 	constructor(options: HubOptions) {
 		this.#options = options;
@@ -73,18 +69,6 @@ export class Hub {
 		for (const ws of this.#sockets.values()) ws.close(1001);
 	}
 
-	/**
-	 * A session's bridge came back. A client that asked while it was away heard "no snapshot yet" and
-	 * nothing asks again, so the daemon asks now and sends the state to whoever is watching.
-	 */
-	refresh(session: string): void {
-		// Only the clients that asked and heard "no snapshot yet": a client that has not asked will
-		// ask for itself, and asking twice would put a second snapshot on the wire for nothing.
-		if (!this.#told.has(session)) return;
-		this.#told.delete(session);
-		this.#options.askSnapshot(session);
-	}
-
 	/** The sessions some client watches, each with how many. */
 	watched(): Map<string, number> {
 		return this.#presence.counts();
@@ -103,7 +87,6 @@ export class Hub {
 	 * that will never come.
 	 */
 	forget(session: string): number {
-		this.#told.delete(session);
 		const watching = this.#presence.counts().get(session) ?? 0;
 		this.#presence.forget(session);
 		for (const [wasAsked] of this.#asked) {
@@ -145,12 +128,9 @@ export class Hub {
 		this.#presence.watch(session, connection);
 		const by = byOf(message.data);
 		if (by !== undefined) this.#presence.name(session, connection, by);
-		if (sessions.get(session) === undefined) {
-			// Not an end: the client keeps watching, and the daemon asks the bridge when it registers.
-			this.#told.add(session);
-			this.#send(ws, envelope("error", "hello", { reason: "waiting for the session", session }));
-			return;
-		}
+		// A session no bridge registered has nothing to answer with, and the client keeps watching: the
+		// daemon sends what it has when one registers.
+		if (sessions.get(session) === undefined) return;
 
 		const cursor = cursorOf(message.data);
 		const missed = cursor === undefined ? undefined : sessions.after(session, cursor);
@@ -158,11 +138,6 @@ export class Hub {
 		if (catchUp !== undefined) {
 			for (const event of catchUp) this.#send(ws, event);
 			return;
-		}
-		if (!this.#options.askSnapshot(session)) {
-			// Nothing to give yet: the daemon asks again when the bridge registers, and sends it then.
-			this.#told.add(session);
-			this.#send(ws, envelope("error", "hello", { reason: "no snapshot yet", session }));
 		}
 	}
 

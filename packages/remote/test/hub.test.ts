@@ -5,7 +5,15 @@ import { connect, memoryCache } from "@adeildo/pi-remote-client";
 import { envelope, type Envelope, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
 import { envelopeOf, line, Lines } from "../src/wire/lines.ts";
-import { bridgeOf, entry, openDaemon, socket, transportTo, useDaemon } from "./daemon-harness.ts";
+import {
+	bridgeOf,
+	entry,
+	missed,
+	openDaemon,
+	socket,
+	transportTo,
+	useDaemon,
+} from "./daemon-harness.ts";
 import { until } from "./fakes.ts";
 
 useDaemon();
@@ -79,22 +87,6 @@ describe("a client of the daemon", () => {
 		ws.close();
 	});
 
-	test("with no snapshot to give, the daemon asks the bridge, and its answer reaches the client", async () => {
-		const { port, cookie } = await openDaemon();
-		const bridge = await bridgeOf("s1");
-		const client = connect({
-			key: { machine: "laptop", session: "s1" },
-			cache: memoryCache(),
-			open: transportTo(port, cookie),
-		});
-		await client.load();
-		await until(() => bridge.asked.length === 1);
-		expect(bridge.asked[0]).toMatchObject({ kind: "command", type: "state.get", session: "s1" });
-		bridge.snapshot([entry("a", null)]);
-		await until(() => client.session().entries.length === 1);
-		client.stop();
-	});
-
 	test("a client that comes before the bridge gets the session once the bridge registers it", async () => {
 		const { daemon, port, cookie } = await openDaemon();
 		const client = connect({
@@ -138,7 +130,7 @@ describe("a client of the daemon", () => {
 
 	test("a client that asked before the bridge came back is sent the state when it does", async () => {
 		const { port, cookie } = await openDaemon();
-		// A client opens the session while no bridge has registered it: it hears why, and waits.
+		// A client opens a session no bridge registered yet, and says nothing back: it keeps watching.
 		const heard: Envelope[] = [];
 		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
 			headers: { Origin: `http://127.0.0.1:${port}`, Cookie: cookie },
@@ -146,21 +138,12 @@ describe("a client of the daemon", () => {
 		ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)) as Envelope);
 		await new Promise<void>((resolve) => (ws.onopen = () => resolve()));
 		ws.send(JSON.stringify(envelope("hello", "hello", {}, { machine: "laptop", session: "s1" })));
-		await until(() =>
-			heard.some(
-				(one) =>
-					one.kind === "error" &&
-					one.data &&
-					(one.data as { reason?: string }).reason === "waiting for the session",
-			),
-		);
 
-		// The bridge registers, which is the moment the daemon notices someone was already waiting.
 		const bridge = await bridgeOf("s1");
-		bridge.snapshot([]);
-		// The daemon asks for the state on its own, so the client does not have to ask again.
-		await until(() => bridge.asked.some((one) => one.type === "state.get"));
+		bridge.snapshot([entry("a", null)]);
 		await until(() => heard.some((one) => one.kind === "event" && one.type === "state"));
+		// The daemon keeps the answer, so it never asks the bridge for a second one.
+		expect(bridge.asked.some((one) => one.type === "state.get")).toBe(false);
 		ws.close();
 		bridge.close();
 	});
@@ -360,7 +343,6 @@ test("a command for a session with no bridge answers on its id, so the client is
 	ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)) as Envelope);
 	await new Promise<void>((resolve) => (ws.onopen = () => resolve()));
 	ws.send(JSON.stringify(envelope("hello", "gone", {}, { machine: "laptop", session: "gone" })));
-	await until(() => heard.length > 0);
 	ws.send(
 		JSON.stringify(
 			envelope("command", "run.abort", {}, { session: "gone", id: "c9", by: undefined }),
@@ -394,4 +376,78 @@ test("a bridge gets a link for token.issue, answered on the same id", async () =
 	const data = replies[0]?.data as { url?: unknown } | undefined;
 	expect(data?.url).toStartWith(`http://127.0.0.1:${port}/#token=`);
 	client.destroy();
+});
+
+describe("a daemon that answers for itself", () => {
+	test("a session no bridge registered gets no answer, and the one that exists still does", async () => {
+		const { daemon, port, cookie } = await openDaemon();
+		const bridge = await bridgeOf("s1");
+		bridge.snapshot([entry("a", null)]);
+		await until(() => daemon.sessions.get("s1") !== undefined);
+
+		const heard: Envelope[] = [];
+		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+			headers: { Origin: `http://127.0.0.1:${port}`, Cookie: cookie },
+		});
+		ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)));
+		await new Promise((resolve) => (ws.onopen = resolve));
+		const at = (session: string) => ({ machine: "laptop", session });
+		ws.send(JSON.stringify(envelope("hello", "hello", {}, at("s2"))));
+		ws.send(JSON.stringify(envelope("hello", "hello", {}, at("s1"))));
+		await until(() => heard.some((one) => one.type === "state" && one.session === "s1"));
+		expect(heard.filter((one) => one.session === "s2")).toEqual([]);
+		ws.close();
+		bridge.close();
+	});
+
+	test("a session that ended keeps the answer it gave, and a socket back mid-stream finds the same message", async () => {
+		const { daemon, port, cookie } = await openDaemon();
+		const bridge = await bridgeOf("s1");
+		bridge.snapshot([entry("a", null)]);
+		bridge.send("stream.bound", { messages: [{ stream: 1, entry: "a" }] });
+		bridge.send("pi.message_update", {
+			type: "message_update",
+			usage: undefined,
+			assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: "he" },
+		});
+		const open = () => {
+			const heard: Envelope[] = [];
+			const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+				headers: { Origin: `http://127.0.0.1:${port}`, Cookie: cookie },
+			});
+			ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)));
+			return { ws, heard };
+		};
+		const first = open();
+		await new Promise((resolve) => (first.ws.onopen = resolve));
+		first.ws.send(
+			JSON.stringify(envelope("hello", "hello", {}, { machine: "laptop", session: "s1" })),
+		);
+		await until(() => first.heard.some((one) => one.type === "stream.bound"));
+		first.ws.close();
+
+		const second = open();
+		await new Promise((resolve) => (second.ws.onopen = resolve));
+		second.ws.send(
+			JSON.stringify(envelope("hello", "hello", {}, { machine: "laptop", session: "s1" })),
+		);
+		await until(() => second.heard.some((one) => one.type === "stream.bound"));
+		const bounds = second.heard.filter((one) => one.type === "stream.bound");
+		expect(bounds.map((one) => one.data)).toEqual([{ messages: [{ stream: 1, entry: "a" }] }]);
+		expect(missed(daemon, "s1", { epoch: "e1", seq: bounds[0]?.seq ?? -1 })).toEqual([]);
+		expect(second.heard.some((one) => one.type === "pi.message_update")).toBe(false);
+
+		bridge.send("pi.message_update", {
+			type: "message_update",
+			usage: undefined,
+			assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: "llo" },
+		});
+		await until(() => second.heard.some((one) => one.type === "pi.message_update"));
+		const update = second.heard.find((one) => one.type === "pi.message_update")?.data as {
+			assistantMessageEvent?: { delta?: string };
+		};
+		expect(update.assistantMessageEvent?.delta).toBe("llo");
+		second.ws.close();
+		bridge.close();
+	});
 });
