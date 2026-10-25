@@ -16,6 +16,9 @@ export interface Current {
 	daemon: string;
 	/** The package's version. */
 	version: string;
+	/** The daemon that holds the socket, once one is listening: who to stop, and on what port. */
+	pid?: number;
+	port?: number;
 }
 
 /**
@@ -64,6 +67,18 @@ export function writeLauncher(dir: string, current: Current): void {
 }
 
 /** What `current.json` names, or nothing when it is missing or not what a pi wrote. */
+/**
+ * Says which process holds the socket and on what port, for whoever has to stop it. The daemon writes
+ * its own pid here: the socket is bound to a temporary name and renamed, so finding the process by the
+ * socket's path finds nothing.
+ */
+export function writeHolder(dir: string, holder: { pid: number; port: number }): void {
+	const known = readCurrent(dir);
+	if (known === undefined) return;
+	const current: Current = { ...known, pid: holder.pid, port: holder.port };
+	writeAtomically(join(dir, "current.json"), `${JSON.stringify(current, null, "\t")}\n`);
+}
+
 export function readCurrent(dir: string): Current | undefined {
 	let value: unknown;
 	try {
@@ -75,7 +90,15 @@ export function readCurrent(dir: string): Current | undefined {
 	const { node, cli, daemon, version } = value as Record<string, unknown>;
 	if (typeof node !== "string" || typeof cli !== "string") return undefined;
 	if (typeof daemon !== "string" || typeof version !== "string") return undefined;
-	return { node, cli, daemon, version };
+	const { pid, port } = value as Record<string, unknown>;
+	return {
+		node,
+		cli,
+		daemon,
+		version,
+		...(typeof pid === "number" ? { pid } : {}),
+		...(typeof port === "number" ? { port } : {}),
+	};
 }
 
 /**

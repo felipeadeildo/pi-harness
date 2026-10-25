@@ -15,7 +15,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { buildRemote } from "../build.ts";
-import { type Current, readCurrent, startDaemon, writeLauncher } from "../src/launcher.ts";
+import {
+	type Current,
+	readCurrent,
+	startDaemon,
+	writeHolder,
+	writeLauncher,
+} from "../src/launcher.ts";
 import { VERSION } from "../src/version.ts";
 import { until } from "./fakes.ts";
 
@@ -120,5 +126,32 @@ describe("starting the daemon", () => {
 		expect(() => startDaemon(join(root, "nowhere"), 7878)).toThrow(
 			"current.json names no daemon to start",
 		);
+	});
+});
+
+describe("who holds the socket", () => {
+	test("is written where a reader looks, with the port it listens on", () => {
+		const dir = mkdtempSync(join(tmpdir(), "pi-remote-holder-"));
+		try {
+			writeLauncher(dir, current);
+			writeHolder(dir, { pid: 4242, port: 7911 });
+			const written = JSON.parse(readFileSync(join(dir, "current.json"), "utf8"));
+			expect(written).toMatchObject({ pid: 4242, port: 7911, version: current.version });
+			// The rest of the file survives the daemon saying who it is.
+			expect(written.node).toBe(current.node);
+			expect(readCurrent(dir)?.pid).toBe(4242);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	test("is not written into a folder with no launcher, which is one nobody started", () => {
+		const dir = mkdtempSync(join(tmpdir(), "pi-remote-holder-"));
+		try {
+			writeHolder(dir, { pid: 4242, port: 7911 });
+			expect(existsSync(join(dir, "current.json"))).toBe(false);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
 	});
 });

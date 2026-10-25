@@ -32,15 +32,22 @@ export async function peersRoom(
 	process.env.HOME = root;
 	let now = START;
 	const opened: Rooms[] = [];
-	const hooks = {
-		events: { emit() {}, on: () => () => {} },
-		sendMessage() {},
-		sendUserMessage() {},
+	// Typed, so a field the room starts requiring is a compile error here and not a blank picture: only
+	// the two fakes that have no room in a picture keep a cast, and each says why.
+	const hooks: Hooks = {
+		// Nothing in a picture emits or listens: the bus is what the real app passes through.
+		events: { emit() {}, on: () => () => {} } as unknown as Hooks["events"],
+		// The picture is not a session, so nothing is sent to one.
+		sendMessage: (() => {}) as unknown as Hooks["sendMessage"],
+		sendUserMessage: (() => {}) as unknown as Hooks["sendUserMessage"],
 		idle: () => true,
+		fit: async () => ({ fit: 1, reason: "" }),
 		changed() {},
 		now: () => now,
 		alive: () => true,
-	} as unknown as Hooks;
+		// The pictures are drawn in one turn, so a read waiting for the log runs before the next one.
+		defer: (run) => void run(),
+	};
 
 	function session(id: string, fit: number, folder = "pi-harness"): Rooms {
 		const cwd = join(root, "Projects", folder);
