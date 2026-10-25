@@ -321,7 +321,7 @@ async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
 			const delivered = rig.session.sessionManager.getBranch().length > before;
 			return {
 				ok: false,
-				why: `no queue row (run going at the send: ${sentWhileBusy}, message delivered: ${delivered})`,
+				why: `no queue row (rows before: ${known.size}, rows now: ${(await heldIds()).length}, run going at the send: ${sentWhileBusy}, message delivered: ${delivered})`,
 			};
 		}
 		const row = page.locator(`[data-testid="held-row"][id="${fresh}"]`);
