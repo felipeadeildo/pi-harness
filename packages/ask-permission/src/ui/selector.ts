@@ -1,3 +1,4 @@
+import { openAboveEditor } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { type Scope, SCOPE_LABEL, SCOPES } from "#core/always-yes.ts";
@@ -13,7 +14,13 @@ export async function askViaSelector(
 ): Promise<DialogAnswer> {
 	const choices = fallbackChoices(offer);
 	const labels = choices.map((option) => `${option.key}. ${option.label}`);
-	const choice = await ctx.ui.select(`Allow ${toolName}?\n${target.summary}`, labels);
+	const asked = `Allow ${toolName}?`;
+	const choice =
+		// A host that can draw a component keeps the editor visible under the question, and one that
+		// cannot still has the plain selector. Both answer the same list.
+		drawsAboveEditor(ctx)
+			? await overEditor(ctx, asked, target.summary, labels)
+			: await ctx.ui.select(`${asked}\n${target.summary}`, labels);
 	const option = choice ? choices[labels.indexOf(choice)] : undefined;
 	if (!option) return { decision: "deny" };
 
@@ -47,4 +54,56 @@ export async function askViaSelector(
 	}
 
 	return { decision: option.decision, note, remember, scope, open };
+}
+
+/** The keys the dialog reads, in the ones the terminal sends for them. */
+const ONE = "1".charCodeAt(0);
+const NINE = "9".charCodeAt(0);
+
+/** Whether this host can draw the question above the editor, keeping the editor under it. */
+function drawsAboveEditor(ctx: ExtensionContext): boolean {
+	const ui = ctx.ui as Partial<{
+		setWidget: unknown;
+		onTerminalInput: unknown;
+		getEditorText: unknown;
+	}>;
+	return (
+		typeof ui.setWidget === "function" &&
+		typeof ui.onTerminalInput === "function" &&
+		typeof ui.getEditorText === "function"
+	);
+}
+
+/**
+ * The permission asked above the editor, where the reader is already typing: a dialog that took the
+ * editor's place would hide the command the question is about.
+ */
+async function overEditor(
+	ctx: ExtensionContext,
+	title: string,
+	summary: string,
+	labels: readonly string[],
+): Promise<string | undefined> {
+	const opened = openAboveEditor<number>(
+		ctx.ui,
+		(tools) => ({
+			// The rows are known before the first frame, so the answer that says "no" is never the line
+			// that gets cut: the list is shortened instead, and "esc denies" is drawn last, always.
+			render: () => {
+				const shown = labels.slice(0, Math.max(1, tools.rows() - 4));
+				const more = labels.length - shown.length;
+				return [title, summary, ...shown, ...(more > 0 ? [`and ${more} more`] : []), "esc denies"];
+			},
+			handleInput: (data) => {
+				const code = data.charCodeAt(0);
+				// A key it does not read is dropped: the answer is one of the numbers, and nothing else.
+				if (data.length !== 1 || code < ONE || code > NINE) return;
+				const at = code - ONE;
+				if (at < labels.length) tools.done(at);
+			},
+		}),
+		{ title },
+	);
+	const result = await opened.result;
+	return result === undefined ? undefined : labels[result.value];
 }
