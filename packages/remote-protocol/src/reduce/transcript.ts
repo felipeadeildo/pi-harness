@@ -49,7 +49,10 @@ export interface Transcript {
 }
 
 function field<T>(entry: Entry, name: string): T | undefined {
-	return (entry as unknown as Record<string, unknown>)[name] as T | undefined;
+	// Read by name through `Reflect`: the entry is a shape the protocol keeps rather than one it owns,
+	// so no cast to a record it never promised, and a missing field stays missing.
+	const value: unknown = Reflect.get(entry, name);
+	return value === undefined ? undefined : (value as T);
 }
 
 /**

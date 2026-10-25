@@ -43,11 +43,14 @@ function refused(message: string): { ok: false; problems: Problem[] } {
 
 /** `inbox` holds the queue; `inbox:port` is how another feature puts a letter in or takes one back. */
 export const INBOX = defineContract<InboxState>("inbox", state);
+/** Whether the value is an inbox port, in a type the compiler carries past the check. */
+function isInboxPort(value: unknown): value is InboxPort {
+	return isObject(value) && typeof value.put === "function" && typeof value.take === "function";
+}
+
 export const INBOX_PORT = defineContract<InboxPort>("inbox:port", {
 	decode(value) {
-		return isObject(value) && typeof value.put === "function" && typeof value.take === "function"
-			? pass(value as unknown as InboxPort)
-			: refused("an inbox port");
+		return isInboxPort(value) ? pass(value) : refused("an inbox port");
 	},
 });
 

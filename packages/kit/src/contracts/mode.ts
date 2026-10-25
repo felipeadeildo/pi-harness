@@ -22,10 +22,15 @@ export interface ModeSet {
  * The way in to the mode. The owner provides it, and a feature that has no session of its own, such
  * as the remote's bridge, asks through it instead of writing the owner's state.
  */
+/** Whether the value is a way to set the mode, said in a type the compiler can carry forward. */
+function isModeSet(value: unknown): value is ModeSet {
+	return isObject(value) && typeof value.set === "function";
+}
+
 export const MODE_SET = defineContract<ModeSet>("mode:set", {
 	decode(value) {
-		return isObject(value) && typeof value.set === "function"
-			? pass(value as unknown as ModeSet)
+		return isModeSet(value)
+			? pass(value)
 			: { ok: false, problems: [{ path: "", message: "a way to set the mode" }] as Problem[] };
 	},
 });
