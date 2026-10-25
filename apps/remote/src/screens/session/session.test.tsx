@@ -12,8 +12,12 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { openTasksOf } from "./panel-data.ts";
-import { aboutOf, LINE_CHARS, OUTPUT_LINES, titleOf, viewOf } from "./session-document.tsx";
-import { SessionDocument } from "./session-document.tsx";
+import SessionDocument from "./session-document.tsx";
+import { aboutOf, titleOf, viewOf } from "./session-view.ts";
+
+/** The document's own fold limits, which are not exported: a `"use dom"` module exports one thing. */
+const OUTPUT_LINES = 8;
+const LINE_CHARS = 160;
 
 const RECORDING = join(
 	import.meta.dir,
