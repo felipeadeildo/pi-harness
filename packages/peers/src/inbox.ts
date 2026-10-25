@@ -284,17 +284,24 @@ export class Inbox {
 		if (mode === "woke") this.#wokenBy ??= items[0]?.from;
 		this.#send(items, mode, held === undefined || this.#hooks.held === undefined);
 		// Pi does not list what an extension queues, so the inbox keeps it until the model reads it.
-		if (mode === "steered" || mode === "after-run")
-			for (const one of ordered) {
-				this.#shown.set(one.message.id, {
-					details: one.details,
-					from: one.from,
-					message: one.message,
-					waiting: { ...one.details, mode },
-				});
-				this.#letters.put(letterOf(one.message, one.from.by, mode));
-			}
+		if (mode === "steered" || mode === "after-run") {
+			for (const one of ordered) this.#queueUp(one, mode);
+		}
 		this.#handed(arrivals, mode);
+	}
+
+	/** Keeps one message in both places: what the room draws, and the queue the kit holds. */
+	#queueUp(
+		one: { details: PeerMessageDetails; from: Sender; message: Posted },
+		mode: Waiting["mode"],
+	): void {
+		this.#shown.set(one.message.id, {
+			details: one.details,
+			from: one.from,
+			message: one.message,
+			waiting: { ...one.details, mode },
+		});
+		this.#letters.put(letterOf(one.message, one.from.by, mode));
 	}
 
 	#send(items: PeerMessageDetails[], mode: Delivery, display: boolean): void {
