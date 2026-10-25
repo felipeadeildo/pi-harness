@@ -154,6 +154,30 @@ describe("the inbox", () => {
 		expect(held.queue()).toMatchObject([{ why: "quiet" }]);
 	});
 
+	test("a letter a run already carried never comes back, whatever reason arrives late", () => {
+		const inbox = new Inbox();
+		const carried = letter("carried");
+		inbox.put(carried);
+		inbox.take([carried.id]);
+		// A reason learned after the delivery must not resurrect the message: the run is answering it.
+		inbox.holdFor(carried, "stopped");
+		expect(inbox.queue()).toEqual([]);
+	});
+
+	test("holding the same letter again keeps its place and takes the latest reason", () => {
+		const inbox = new Inbox();
+		const first = letter("first");
+		const second = letter("second");
+		inbox.holdFor(first, "quiet");
+		inbox.holdFor(second, "quiet");
+		// The reason can be learned later than the holding, and the line a screen draws is the place.
+		inbox.holdFor(first, "not-started");
+		expect(inbox.queue().map((one) => [one.id, one.why])).toEqual([
+			[first.id, "not-started"],
+			[second.id, "quiet"],
+		]);
+	});
+
 	test("holds again what a run did not carry, in the order it arrived", () => {
 		const inbox = new Inbox();
 		const first = letter("first");
