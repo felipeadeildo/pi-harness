@@ -63,6 +63,35 @@ describe("a daemon that restarts", () => {
 		expect(Object.keys(state?.questions ?? {})).toEqual(["q1"]);
 	});
 
+	test("the opening a restarted daemon serves says which capabilities the session has", () => {
+		const sessions = restarted();
+		sessions.event(
+			envelope(
+				"event",
+				"state",
+				{
+					summary: {
+						session: "s",
+						machine: "m",
+						cwd: "/x",
+						kind: "terminal",
+						state: {
+							...emptySessionState(),
+							permissions: { rulings: {}, serves: true },
+						},
+					},
+					entries: [],
+				},
+				around(1),
+			),
+		);
+		expect(opening(sessions)?.permissions.serves).toBe(true);
+	});
+
+	test("a session no bridge answered for says nothing about its capabilities", () => {
+		expect(emptySessionState().permissions.serves).toBeUndefined();
+	});
+
 	test("folds what comes after the snapshot on top of it", () => {
 		const sessions = restarted();
 		sessions.event(
