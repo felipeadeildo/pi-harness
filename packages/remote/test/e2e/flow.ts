@@ -13,6 +13,7 @@ import { type Browser, chromium, type Page } from "playwright-core";
 import { requestLink } from "../../src/cli/open.ts";
 import { findWebDir } from "../../src/daemon/app.ts";
 import piRemote from "../../src/index.ts";
+import { readCurrent } from "../../src/launcher.ts";
 import { daemonPaths } from "../../src/places.ts";
 
 /** Where a browser is, if this machine has one. The CI runner does; a laptop may not. */
@@ -33,7 +34,7 @@ const MANDATORY: ReadonlySet<number> = new Set([1, 2, 3]);
 
 /** The steps with a body. The rest are named and not written: a report that says `fail` for them
  * claims a measurement nobody made, and a reader cannot tell that from a step that ran and broke. */
-const WRITTEN: ReadonlySet<number> = new Set([1, 2, 3]);
+const WRITTEN: ReadonlySet<number> = new Set([1, 2, 3, 4]);
 
 const STEPS = [
 	"the daemon's link opens the app, and the session list is there",
@@ -95,7 +96,10 @@ async function main(): Promise<number> {
 		// The bridge starts the daemon when none answers, which is the path a user takes.
 		rig = await createRig({
 			extensions: [piRemote],
-			answer: () => fauxAssistantMessage("Answered."),
+			// Slow enough that a run is still going when the next step types: a follow-up is only a
+			// follow-up while something else runs.
+			answer: () => fauxAssistantMessage("Answered, one word after another, slowly."),
+			tokensPerSecond: 2,
 			settings: { remote: { port } },
 		});
 		const link = await waitForLink();
@@ -114,6 +118,7 @@ async function main(): Promise<number> {
 			reports.push({ step: 1, ...(await seesList(page)) });
 			reports.push({ step: 2, ...(await opensSession(page)) });
 			reports.push({ step: 3, ...(await sendsPrompt(page, rig)) });
+			reports.push({ step: 4, ...(await queuesFollowUp(page, rig)) });
 		} else {
 			reports.push({ step: 1, ok: false, why: link.why });
 		}
@@ -231,10 +236,55 @@ async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
 }
 
 /**
+ * A message sent while a run is going waits in the session's queue, and the person can take it back.
+ * Both halves are read where the person reads them: the row in the composer, and its withdrawal. The
+ * queue is the property; the announcement that it changed is only how the screen hears of it.
+ */
+async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
+	try {
+		const box = page.locator("textarea, [contenteditable='true'], input[type='text']").first();
+		await box.click({ timeout: 20_000 });
+		await box.fill("first, a slow answer please");
+		await page.keyboard.press("Enter");
+		// The run is what makes the next message wait, so the step waits for it to start, on the event
+		// the session is in, not on the branch having grown.
+		const deadline = Date.now() + 20_000;
+		const busy = (): boolean => !rig.session.isIdle;
+		while (!busy() && Date.now() < deadline) await Bun.sleep(50);
+		if (!busy()) return { ok: false, why: "the run never started" };
+
+		await box.fill("wait for me");
+		await page.keyboard.press("Enter");
+		const row = page.locator(".remote-composer-waiting").first();
+		// The session's queue is drawn by the composer from `state.queue`; the screen has to hand it
+		// over, and until it does the row never appears.
+		await row.waitFor({ timeout: 20_000 });
+		const said = (await row.locator(".remote-composer-text").innerText()).trim();
+
+		await row.getByRole("button", { name: "Withdraw", exact: true }).click();
+		await page.locator(".remote-composer-held").waitFor({ state: "detached", timeout: 20_000 });
+		return said === "wait for me" ? { ok: true } : { ok: false, why: `the queue showed "${said}"` };
+	} catch (error) {
+		return { ok: false, why: short(error) };
+	}
+}
+
+/**
  * The daemon the bridge started is detached and outlives this process, so the run that leaves one
  * behind makes the next run fail on a port it cannot have. It is found by the socket it holds.
  */
 function stopDaemon(): void {
+	// The socket is bound to a temporary name and renamed, so `lsof` on its path finds nothing: the
+	// daemon writes the pid it has in `current.json`, and the pid is what stops it. `lsof` stays as the
+	// reserve for a daemon from an older build, which never wrote one.
+	const holder = readCurrent(root)?.pid;
+	if (holder !== undefined) {
+		try {
+			process.kill(holder, "SIGTERM");
+		} catch {
+			// Already gone: the socket outlived it, and nothing else holds the port.
+		}
+	}
 	const { socket } = daemonPaths(root);
 	const found = spawnSync("lsof", ["-t", `--`, socket], { encoding: "utf8" });
 	for (const pid of (found.stdout ?? "").split("\n")) {
