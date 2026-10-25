@@ -172,6 +172,27 @@ describe("what the recording does not hold", () => {
 		expect(html).not.toContain("who is here");
 	});
 
+	test("every user message says you, and the one a client sent also says where it came from", () => {
+		const phone = { kind: "client" as const, name: "phone", machine: "box" };
+		const session = handmade(
+			[
+				message("e1", null, "user", "from the phone"),
+				message("e2", "e1", "assistant", [{ type: "text", text: "ok" }]),
+				message("e3", "e2", "user", "typed here"),
+			],
+			[{ type: "prompt.from", data: { entry: "e1", by: phone } }],
+		);
+		const html = draw(session);
+		const items = [...html.matchAll(/<li class="remote-you">(.*?)<\/li>/g)].map(
+			(one) => one[1] ?? "",
+		);
+		expect(items).toHaveLength(2);
+		for (const item of items) expect(item).toContain('<span class="remote-who">you</span>');
+		expect(items[0]).toContain(">from phone</span>");
+		// No mark is not a claim about the terminal: the message says only that it is yours.
+		expect(items[1]).not.toContain("remote-from");
+	});
+
 	test("a short output is not folded", () => {
 		const html = draw(handmade([message("a", null, "toolResult", [{ type: "text", text: "ok" }])]));
 		expect(html).not.toContain("<details>");

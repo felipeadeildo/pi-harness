@@ -103,7 +103,7 @@ A slice is ticked in the commit that lands it. A slice whose parts are on `main`
 - [x] A6. pi's own dialogs in the race (ask, F2)
 - [x] P4. Commands and the outbox in the client library (protocol, F2)
 - [x] C9. Presence and its marks (core, F2)
-- [ ] W4. The composer and the controls (client, F2)
+- [x] W4. The composer and the controls (client, F2)
 
 ## How the work runs
 

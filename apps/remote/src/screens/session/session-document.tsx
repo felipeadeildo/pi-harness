@@ -12,6 +12,7 @@
 import type { ClientSession } from "@adeildo/pi-remote-client";
 import {
 	type ChatMessage,
+	type SessionState,
 	type SessionTasks,
 	type TranscriptItem,
 } from "@adeildo/pi-remote-protocol";
@@ -19,7 +20,7 @@ import { type ReactNode, createElement as h } from "react";
 
 import { Markdown, plain } from "../../render/index.ts";
 import { theme } from "../../ui/theme.ts";
-import { aboutOf, titleOf, viewOf } from "./session-view.ts";
+import { aboutOf, originOf, titleOf, viewOf } from "./session-view.ts";
 
 /** How many lines of a tool's output show before the rest folds. */
 const OUTPUT_LINES = 8;
@@ -57,7 +58,7 @@ export default function SessionDocument({ session }: SessionScreenProps): ReactN
 				// A transcript is a sequence of messages, not a numbered procedure: the index says nothing.
 				style: { listStyle: "none", margin: 0, padding: 0, display: "grid", gap: theme.space(3) },
 			},
-			...items.flatMap((item) => itemNodes(item)),
+			...items.flatMap((item) => itemNodes(item, state.promptFrom)),
 		),
 	);
 }
@@ -83,10 +84,10 @@ function header(session: ClientSession, tasks: SessionTasks | undefined): ReactN
 	);
 }
 
-function itemNodes(item: TranscriptItem): ReactNode[] {
+function itemNodes(item: TranscriptItem, promptFrom: SessionState["promptFrom"]): ReactNode[] {
 	switch (item.kind) {
 		case "message":
-			return messageNodes(item.entry, item.message);
+			return messageNodes(item.entry, item.message, promptFrom);
 		case "compaction":
 			return [line(item.entry, "compacted", item.summary)];
 		case "branch":
@@ -106,11 +107,17 @@ function itemNodes(item: TranscriptItem): ReactNode[] {
 }
 
 /** A message, one node per part: what you wrote, what the model thought, said and called. */
-function messageNodes(entry: string, message: ChatMessage): ReactNode[] {
+function messageNodes(
+	entry: string,
+	message: ChatMessage,
+	promptFrom: SessionState["promptFrom"],
+): ReactNode[] {
 	const parts = partsOf(message.content);
 	switch (message.role) {
 		case "user":
-			return [block(entry, "you", h(Markdown, { text: textOf(parts) }))];
+			return [
+				block(entry, "you", h(Markdown, { text: textOf(parts) }), originOf(promptFrom, entry)),
+			];
 		case "assistant": {
 			const nodes = parts.map((part, at) => assistantPart(`${entry}:${at}`, part));
 			if (message.errorMessage !== undefined)
@@ -212,11 +219,21 @@ function argsOf(args: unknown): string {
 		.join(" ");
 }
 
-function block(key: string, who: string, body: ReactNode): ReactNode {
+function block(key: string, who: string, body: ReactNode, origin?: string): ReactNode {
 	return h(
 		"li",
 		{ key, className: `remote-${who}` },
 		h("span", { className: "remote-who" }, who),
+		origin === undefined
+			? null
+			: h(
+					"span",
+					{
+						className: "remote-from",
+						style: { ...theme.type.caption, color: theme.color.muted, marginLeft: theme.space(3) },
+					},
+					origin,
+				),
 		body,
 	);
 }

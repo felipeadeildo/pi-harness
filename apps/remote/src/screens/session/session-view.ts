@@ -4,6 +4,8 @@
 import { type ClientSession, harnessOf, transcriptOfSession } from "@adeildo/pi-remote-client";
 import type { SessionState, SessionTasks, TranscriptItem } from "@adeildo/pi-remote-protocol";
 
+import { plain } from "../../render/index.ts";
+
 export interface View {
 	state: SessionState;
 	items: TranscriptItem[];
@@ -58,4 +60,22 @@ export function aboutOf(session: ClientSession): string[] {
 	return [session.key.machine, state.status, state.model?.id].filter(
 		(part): part is string => part !== undefined,
 	);
+}
+
+/**
+ * Where a user message was typed, when the bridge could say. Every user message is the operator's, since
+ * the clients are devices they signed in, so the screen says "you" on all of them and this adds the
+ * device beside it. No origin does not mean the terminal: the bridge says nothing when it is not sure
+ * (two prompts with the same words, a slash prompt pi expanded), and the screen then says only "you".
+ * The name is the client's own, so it is read as text.
+ */
+export function originOf(
+	promptFrom: SessionState["promptFrom"],
+	entry: string,
+): string | undefined {
+	const by = promptFrom?.[entry];
+	if (by === undefined) return undefined;
+	// A sender with no name is still known to be a client, and the line does not invent one.
+	const name = plain(by.name).trim();
+	return name === "" ? "from a client" : `from ${name}`;
 }
