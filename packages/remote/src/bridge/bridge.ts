@@ -237,6 +237,11 @@ export class Bridge {
 		this.#inbox.settle();
 	}
 
+	/** A run started: the prompt that started it is delivered, so it leaves the queue. */
+	started(): void {
+		this.#inbox.started();
+	}
+
 	/** The session's status changed, in pi's program status words. */
 	status(state: SessionStatus): void {
 		this.#connection.event("session.status", { status: state });

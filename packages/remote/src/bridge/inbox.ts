@@ -25,8 +25,14 @@ export interface InboxSession {
  * whenever it changes, so a reader can draw what waits without asking, and it takes messages through
  * `INBOX_PORT` so another feature, such as peers, reaches the same queue without importing this.
  */
+/** How long a send waits for pi to start the run before the letter is left in the queue. */
+export const PROOF_MS = 500;
+
 export class SessionInbox {
 	readonly #inbox = new Inbox();
+	/** The letter waiting for pi to prove it started a run, by id. */
+	#pending: string | undefined;
+	#deadline: ReturnType<typeof setTimeout> | undefined;
 	readonly #scope: EventScope;
 	readonly #session: InboxSession;
 
@@ -58,8 +64,12 @@ export class SessionInbox {
 		if (letter.want === "steer") this.#session.send(letter.text, "steer");
 		else if (!this.#session.busy()) {
 			// Nothing to wait for: this letter starts the run, so it leaves the queue the moment it goes.
-			this.#inbox.take([letter.id]);
+			// The letter leaves the queue only when the run it starts has begun: `sendUserMessage`
+			// returns before pi has decided anything, and a send pi drops would otherwise lose the
+			// message in silence — it stayed in the queue, which is what a client draws.
+			this.#pending = letter.id;
 			this.#session.send(letter.text, undefined);
+			this.#deadline = setTimeout(() => this.#expire(), PROOF_MS);
 		}
 		this.#publish();
 	}
@@ -87,6 +97,28 @@ export class SessionInbox {
 		for (const [at, letter] of letters.entries()) {
 			this.#session.send(letter.text, at === 0 ? undefined : "followUp");
 		}
+		this.#publish();
+	}
+
+	/**
+	 * A run started, so the letter that was sent to start it is out of the queue: the proof is pi's
+	 * own event, not a tick of the loop.
+	 */
+	started(): void {
+		if (this.#pending === undefined) return;
+		this.#inbox.take([this.#pending]);
+		this.#settled();
+	}
+
+	/** The deadline passed without a run: the letter stays in the queue, where a client sees it. */
+	#expire(): void {
+		this.#settled();
+	}
+
+	#settled(): void {
+		this.#pending = undefined;
+		if (this.#deadline !== undefined) clearTimeout(this.#deadline);
+		this.#deadline = undefined;
 		this.#publish();
 	}
 
