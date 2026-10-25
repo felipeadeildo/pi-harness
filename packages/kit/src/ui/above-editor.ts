@@ -92,6 +92,8 @@ function hostOf(ui: ExtensionUIContext): Host {
  * the time at "nobody is typing".
  */
 export function watchEditor(ui: ExtensionUIContext): void {
+	// A host with no input to listen to (print, json) has no editor to keep the focus for.
+	if (typeof ui.onTerminalInput !== "function") return;
 	const host = hostOf(ui);
 	if (host.tracked !== undefined) return;
 	host.tracked = ui.onTerminalInput(() => {
