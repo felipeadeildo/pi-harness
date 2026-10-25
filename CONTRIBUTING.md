@@ -92,6 +92,12 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
   pull request and `git show origin/main:<path>` for what `main` has. Approved is not merged, and a
   held branch is not a held merge. A `nearly:` that claims a merge which did not happen is worse than
   an empty box: the box asks for work, and the wrong sentence reports progress that is not there.
+- The merge is a read of the same object: `gh pr view <n> --json mergeStateStatus,statusCheckRollup`
+  with `CLEAN` and the checks of that head at `SUCCESS`. A refused merge means the pull request is
+  not ready, and `--admin` never applies. The reviewer reads the checks of the head before
+  approving, so a red pull request gets "red" and not an approval. `--no-verify` skips the hook that
+  would have caught what the reviewer is about to read; when it fails in a fresh worktree, the
+  missing piece is the install above.
 - A hold lives on the pull request, not in the room: whoever stops a merge runs
   `gh pr ready <n> --undo` and says why in a review. The author marks it ready when the point is in.
   Every agent pushes from the same account, so a requested change cannot block a merge; a draft can.
