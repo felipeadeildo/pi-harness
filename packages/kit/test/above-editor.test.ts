@@ -279,3 +279,11 @@ describe("the row above the editor", () => {
 		expect(rig.mostOpen).toBe(1);
 	});
 });
+
+describe("a host with nothing to listen to", () => {
+	test("watching its editor is not an error, it is nothing to do", () => {
+		// A session with no terminal has no input to listen to. Asking it to watch would throw inside
+		// the session start and be reported as a failed start, which is the bug this pins.
+		expect(() => watchEditor({} as never)).not.toThrow();
+	});
+});
