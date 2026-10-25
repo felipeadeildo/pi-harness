@@ -32,11 +32,11 @@ const BROWSERS = [
  * still red are reported and do not hold a merge, which is what keeps this file useful before the
  * last fix lands.
  */
-const MANDATORY: ReadonlySet<number> = new Set([1, 2, 3, 4, 5]);
+const MANDATORY: ReadonlySet<number> = new Set([1, 2, 3, 4, 5, 7]);
 
 /** The steps with a body. The rest are named and not written: a report that says `fail` for them
  * claims a measurement nobody made, and a reader cannot tell that from a step that ran and broke. */
-const WRITTEN: ReadonlySet<number> = new Set([1, 2, 3, 4, 5]);
+const WRITTEN: ReadonlySet<number> = new Set([1, 2, 3, 4, 5, 7]);
 
 const STEPS = [
 	"the daemon's link opens the app, and the session list is there",
@@ -143,6 +143,7 @@ async function main(): Promise<number> {
 			reports.push({ step: 3, ...(await sendsPrompt(page, rig)) });
 			reports.push({ step: 4, ...(await queuesFollowUp(page, rig)) });
 			reports.push({ step: 5, ...(await answersQuestion(page, rig)) });
+			reports.push({ step: 7, ...(await sentWhileOffline(page, rig)) });
 		} else {
 			reports.push({ step: 1, ok: false, why: link.why });
 		}
@@ -361,6 +362,37 @@ function lastSaid(context: { messages: readonly { role?: string; content?: unkno
 		.map((part) => (typeof part === "object" && part !== null && "text" in part ? part.text : ""))
 		.filter((text): text is string => typeof text === "string")
 		.join(" ");
+}
+
+/**
+ * A command typed with no wire goes out after the reload. The proof is the session's own branch: the
+ * line on the screen says it was queued, and the branch says it arrived.
+ */
+async function sentWhileOffline(page: Page, rig: Rig): Promise<Result> {
+	try {
+		const before = rig.session.sessionManager.getBranch().length;
+		const box = page.locator("textarea, [contenteditable='true'], input[type='text']").first();
+		await page.context().setOffline(true);
+		await box.click({ timeout: 20_000 });
+		await box.fill("typed while the wire was down");
+		await page.keyboard.press("Enter");
+		// The device keeps it: the outbox is drawn, and nothing reached the session.
+		await page.locator(".remote-composer-row").first().waitFor({ timeout: 20_000 });
+		await Bun.sleep(500);
+
+		await page.context().setOffline(false);
+		await page.reload({ waitUntil: "domcontentloaded" });
+		await page.locator(".remote-composer").waitFor({ timeout: 60_000 });
+
+		const arrived = Date.now() + 60_000;
+		while (rig.session.sessionManager.getBranch().length <= before && Date.now() < arrived)
+			await Bun.sleep(200);
+		return rig.session.sessionManager.getBranch().length > before
+			? { ok: true }
+			: { ok: false, why: "the command typed offline never reached the session" };
+	} catch (error) {
+		return { ok: false, why: short(error) };
+	}
 }
 
 /**
