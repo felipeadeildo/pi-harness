@@ -50,7 +50,7 @@ export interface LogEventMap {
 	"session.named": { handle?: string; title?: string };
 	/**
 	 * A handle moved. The word the session had stays an alias for a week, so a mention written before
-	 * the rename still reaches it — unless another live session holds that word.
+	 * the rename still reaches it, unless another live session holds that word.
 	 */
 	"session.renamed": { from: string; to: string; by?: "you" | "agent" };
 	/** What a session's board holds, as the sessions that read it draw it. */
