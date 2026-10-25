@@ -17,7 +17,6 @@ export interface Outgoing {
 	/** When the operator typed it, which is not when it goes out. */
 	at: number;
 	state: CommandState;
-	/** Why it was refused, when it was. */
 	why?: string;
 }
 
@@ -26,11 +25,9 @@ export interface OutboxOptions {
 	now?: () => number;
 	/** The id maker, so a test can read the ids it expects. */
 	id?: () => string;
-	/** How long a waiting command still goes out alone. */
 	window?: number;
 }
 
-/** The commands that have not reached the session yet, in the order they were typed. */
 export class Outbox {
 	readonly #now: () => number;
 	readonly #newId: () => string;
@@ -65,7 +62,6 @@ export class Outbox {
 		this.#commands.sort((one, other) => one.at - other.at);
 	}
 
-	/** Every command still held, in the order they were typed. */
 	all(): Outgoing[] {
 		return [...this.#commands];
 	}

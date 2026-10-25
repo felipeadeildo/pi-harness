@@ -11,7 +11,6 @@ export interface SessionKey {
 	session: string;
 }
 
-/** What a session looks like on disk or in the browser's store. */
 export interface CachedSession {
 	key: SessionKey;
 	cursor: Cursor;
