@@ -42,6 +42,7 @@ export {
 	openQuestions,
 	applyEvent,
 	foldLogged,
+	type SessionCommand,
 	type SessionState,
 } from "./reduce/state.ts";
 export { COMMAND_TYPES, type CommandMap, type CommandType, isCommand } from "./commands.ts";
