@@ -1,9 +1,9 @@
 // The shapes the harness writes to its log, copied here because the client reads them without the
 // kit. A copy is only safe while a test proves it matches, which `test/conformance.test.ts` does.
 
-import { isBy, isObject, type By } from "./by.ts";
+import { type By } from "./by.ts";
 import type { SessionCost } from "./reduce/state.ts";
-import { isQueuedMessage, type QueuedMessage } from "./snapshot.ts";
+import type { QueuedMessage } from "./snapshot.ts";
 
 export type TaskStatus = "doing" | "queued" | "waiting" | "deferred" | "done" | "dropped";
 export type Origin = "you" | "agent";
@@ -169,118 +169,3 @@ export interface FactMap {
 }
 
 export type FactType = keyof FactMap;
-
-export const FACT_TYPES: readonly FactType[] = [
-	"tasks.changed",
-	"ask.opened",
-	"ask.closed",
-	"call.ruled",
-	"mode.changed",
-	"session.renamed",
-	"session.status",
-	"session.live",
-	"session.gone",
-	"stream.bound",
-	"leaf.changed",
-	"prompt.received",
-	"queue.changed",
-	"cost.changed",
-];
-
-/**
- * Whether a fact carries the shape its name promises. Only the fields the reducers read are checked:
- * a fact written by a newer harness still reduces as long as the old fields are there.
- */
-export function isFact(type: string, data: unknown): boolean {
-	if (!isObject(data)) return false;
-	switch (type) {
-		case "tasks.changed":
-			return isTasks(data.state);
-		case "ask.opened":
-			return typeof data.id === "string" && Array.isArray(data.questions);
-		case "ask.closed":
-			return typeof data.id === "string" && isObject(data.result);
-		case "call.ruled":
-			return (
-				typeof data.toolCallId === "string" &&
-				isObject(data.ruling) &&
-				typeof data.ruling.head === "string" &&
-				typeof data.ruling.tone === "string"
-			);
-		case "mode.changed":
-			return (
-				data.mode === "manual" ||
-				data.mode === "edits" ||
-				data.mode === "judge" ||
-				data.mode === "full"
-			);
-		case "session.status":
-			// pi's program status words only: the log's own `session.state` is peers' running or idle,
-			// and a line of it must never read as a status.
-			return SESSION_STATES.some((status) => status === data.status);
-		case "stream.bound":
-			// The number matters: a stream that is not pi's number cannot be matched to a transcript.
-			return (
-				Array.isArray(data.messages) &&
-				data.messages.every(
-					(message) =>
-						isObject(message) &&
-						typeof message.stream === "number" &&
-						typeof message.entry === "string",
-				)
-			);
-		case "leaf.changed":
-			return data.leaf === null || typeof data.leaf === "string";
-		case "queue.changed":
-			return Array.isArray(data.queue) && data.queue.every(isQueuedMessage);
-		case "cost.changed":
-			// Every number a reader sums: a `NaN` here would be drawn as `$NaN` and kept for the day.
-			return isCost(data.cost);
-		case "session.live":
-			// The list is the contract the composer and the refusal both read: a `source` this version
-			// does not know would be drawn by the screen and misjudged by the wire, so it is refused here.
-			return (
-				data.commands === undefined ||
-				(Array.isArray(data.commands) &&
-					data.commands.every(
-						(one) =>
-							isObject(one) &&
-							typeof one.name === "string" &&
-							(one.source === "skill" || one.source === "prompt" || one.source === "pi"),
-					))
-			);
-		case "prompt.received":
-			// A prompt that reached the log names who sent it; anything else is not this fact.
-			return isBy(data.by);
-		case "session.renamed":
-			return data.by === undefined || isBy(data.by);
-		default:
-			return true;
-	}
-}
-
-function isTasks(value: unknown): value is SessionTasks {
-	return (
-		isObject(value) &&
-		value.version === 1 &&
-		Array.isArray(value.tasks) &&
-		Array.isArray(value.decisions)
-	);
-}
-
-/** Whether a value is one sum of usage: five finite numbers, which is what the screens draw. */
-function isCost(value: unknown): value is SessionCost {
-	if (!isObject(value)) return false;
-	return (
-		typeof value.input === "number" &&
-		Number.isFinite(value.input) &&
-		typeof value.output === "number" &&
-		Number.isFinite(value.output) &&
-		typeof value.cacheRead === "number" &&
-		Number.isFinite(value.cacheRead) &&
-		typeof value.cacheWrite === "number" &&
-		Number.isFinite(value.cacheWrite) &&
-		typeof value.total === "number" &&
-		Number.isFinite(value.total)
-	);
-}

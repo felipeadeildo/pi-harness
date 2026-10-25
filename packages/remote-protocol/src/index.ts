@@ -17,10 +17,8 @@ export {
 	type AskResult,
 	type CallRuling,
 	type Decision,
-	FACT_TYPES,
 	type FactMap,
 	type FactType,
-	isFact,
 	type Mark,
 	type Origin,
 	type PermissionMode,
@@ -34,6 +32,7 @@ export {
 	type ThinkingLevel,
 	type WaitingOn,
 } from "./facts.ts";
+export { FACT_TYPES, isFact, isFactType } from "./reduce/entry.ts";
 export {
 	type Ask,
 	type ClosedAsk,

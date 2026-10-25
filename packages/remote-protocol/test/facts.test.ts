@@ -2,7 +2,8 @@
 // stream is the number pi gives it, and a leaf may be null when a `/tree` move goes back to the root.
 import { describe, expect, test } from "bun:test";
 
-import { isFact } from "../src/facts.ts";
+import type { FactMap, FactType } from "../src/facts.ts";
+import { ENTRY, type Entry, FACT_TYPES, isFact, isFactType } from "../src/reduce/entry.ts";
 import { isQueuedMessage, isSnapshot } from "../src/snapshot.ts";
 
 describe("a fact the daemon has to carry", () => {
@@ -27,11 +28,28 @@ describe("a fact the daemon has to carry", () => {
 	});
 });
 
+describe("the table of entries", () => {
+	test("a fact with no check and no apply does not compile", () => {
+		// `ENTRY` is a mapped type over `FactType`: a fact added to `FactMap` without an entry fails
+		// here. The directive is the test — if the map became partial, it would be unused and `tsc`
+		// reports that instead of silence.
+		// @ts-expect-error the object is missing every entry, which is the compile error this pins
+		const incomplete: { [K in FactType]: Entry<FactMap[K]> } = {};
+		expect(incomplete).toBeDefined();
+	});
+
+	test("every fact the protocol lists has an entry, and every entry a fact", () => {
+		expect([...FACT_TYPES].sort()).toEqual((Object.keys(ENTRY) as FactType[]).sort());
+	});
+});
+
 describe("a session's status", () => {
 	test("is one of pi's five words", () => {
-		for (const state of ["working", "blocked", "done", "error", "idle"]) {
-			expect(isFact("session.state", { state })).toBe(true);
+		for (const status of ["working", "blocked", "done", "error", "idle"]) {
+			expect(isFact("session.status", { status })).toBe(true);
 		}
+		// The log's own `session.state` is not a fact of this protocol, and never reads as one.
+		expect(isFactType("session.state")).toBe(false);
 	});
 
 	test("is never peers' running or idle from the log, nor any other word", () => {
