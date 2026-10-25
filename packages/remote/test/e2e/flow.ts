@@ -299,15 +299,31 @@ async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
 		while (!busy() && Date.now() < deadline) await Bun.sleep(50);
 		if (!busy()) return { ok: false, why: "the run never started" };
 
+		// A message only waits while a run is going. Recording both sides here is what tells the
+		// failure apart: a run that ended first means the message went in at once, not that the queue
+		// is broken.
+		const sentWhileBusy = busy();
+		const before = rig.session.sessionManager.getBranch().length;
 		await box.fill("wait for me");
 		await page.keyboard.press("Enter");
-		// The last row is the message this step just sent: an earlier one can still be waiting.
-		const row = page.locator(".remote-composer-waiting").last();
-		await row.waitFor({ timeout: 90_000 });
+		// The row is chosen by what it holds: an earlier message can still be waiting, and a wait on
+		// "the last row" is satisfied by that one.
+		const row = page.locator(".remote-composer-waiting", { hasText: "wait for me" });
+		try {
+			await row.waitFor({ timeout: 90_000 });
+		} catch {
+			const delivered = rig.session.sessionManager.getBranch().length > before;
+			return {
+				ok: false,
+				why: `no queue row (run going at the send: ${sentWhileBusy}, message delivered: ${delivered})`,
+			};
+		}
+		const rows = await row.count();
+		if (rows !== 1) return { ok: false, why: `${rows} queue rows say "wait for me", expected 1` };
 		const said = (await row.locator(".remote-composer-text").innerText()).trim();
 
 		await row.getByRole("button", { name: "Withdraw", exact: true }).click();
-		await page.locator(".remote-composer-held").waitFor({ state: "detached", timeout: 20_000 });
+		await row.waitFor({ state: "detached", timeout: 20_000 });
 		return said === "wait for me" ? { ok: true } : { ok: false, why: `the queue showed "${said}"` };
 	} catch (error) {
 		return { ok: false, why: short(error) };
