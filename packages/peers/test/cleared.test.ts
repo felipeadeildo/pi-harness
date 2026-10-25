@@ -35,7 +35,9 @@ test("the method we wrap is the one the real pi runs, so the effect is ours too"
 	const stop = onQueueCleared((session) => heard.push(session));
 	const rig = await createRig();
 	try {
-		rig.session.clearQueue();
+		// What pi returned, and not only that we heard about it: a wrapper that swallows the call and
+		// returns `undefined` would still reach our listener, and the message would be gone.
+		expect(rig.session.clearQueue()).toEqual({ steering: [], followUp: [] });
 		expect(heard).toEqual([rig.session.sessionId]);
 	} finally {
 		stop();
