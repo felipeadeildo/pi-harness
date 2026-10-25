@@ -16,8 +16,11 @@ import {
 // the session were on it.
 import { type ReactNode, createElement as h, useEffect, useState } from "react";
 
+import { dropNow, enterSends, sendNow, stateOf } from "./composer-data.ts";
 import { queuedLines, type QueuedLine, withdraw } from "./pending.ts";
 import { chosen, suggested, type Suggestion } from "./suggestions.ts";
+
+export { dropNow, enterSends, sendNow, stateOf } from "./composer-data.ts";
 
 export interface ComposerProps {
 	/** The connection this session is drawn from, which is also where commands go. */
@@ -91,20 +94,6 @@ export function Composer({
 		queueNode(queue, client, held),
 		heldNode(queued, client),
 	);
-}
-
-/**
- * Whether a key press is "send this draft". Enter is, Shift+Enter is not: the second is how a person
- * writes a second line in a one-line field that some hosts give them, and swallowing it loses the line.
- */
-export function enterSends(
-	event: { key: string; shiftKey?: boolean; preventDefault?: () => void },
-	take: () => void,
-): boolean {
-	if (event.key !== "Enter" || event.shiftKey === true) return false;
-	event.preventDefault?.();
-	take();
-	return true;
 }
 
 function promptRow(
@@ -316,30 +305,10 @@ function queueNode(
 }
 
 /** What a command's state reads as, which is what tells the person to wait, retry or give up. */
-export function stateOf(command: Outgoing): string {
-	switch (command.state) {
-		case "waiting":
-			// A waiting command reaches this function only when it waited past the window: one inside
-			// it is said as "goes out when the daemon answers" by the caller.
-			return "waiting for you";
-		case "sent":
-			return "sent, no answer yet";
-		case "applied":
-			return "done";
-		case "refused":
-			return `refused: ${command.why ?? "the daemon said no"}`;
-	}
-}
 
 /** Sends a held command now: it keeps its id, so the far side still reads it as the same one. */
-export function sendNow(client: Client, id: string): void {
-	client.release(id);
-}
 
 /** Gives up on a held command: it leaves the queue and nothing goes out. */
-export function dropNow(client: Client, id: string): void {
-	client.drop(id);
-}
 
 /**
  * The session's queue, in the order it will run, with the act that takes a message back. It says
