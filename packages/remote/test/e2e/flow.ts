@@ -32,7 +32,7 @@ const BROWSERS = [
  * still red are reported and do not hold a merge, which is what keeps this file useful before the
  * last fix lands.
  */
-const MANDATORY: ReadonlySet<number> = new Set([1, 2, 3, 4]);
+const MANDATORY: ReadonlySet<number> = new Set([1, 2, 3, 4, 5]);
 
 /** The steps with a body. The rest are named and not written: a report that says `fail` for them
  * claims a measurement nobody made, and a reader cannot tell that from a step that ran and broke. */
@@ -102,23 +102,27 @@ async function main(): Promise<number> {
 			// other prompt is words, and slow enough that a run is still going when the next step types:
 			// a follow-up is only a follow-up while something else runs.
 			answer: (context) =>
-				lastSaid(context).includes("ask me")
-					? fauxAssistantMessage([
-							fauxToolCall(TOOL_NAME, {
-								questions: [
-									{
-										header: "Deploy",
-										question: "Ship the release now?",
-										options: [
-											{ label: "Ship it", description: "Publish today." },
-											{ label: "Wait", description: "Publish tomorrow." },
-										],
-									},
-								],
-							}),
-						])
-					: fauxAssistantMessage("Answered, one word after another, slowly."),
-			tokensPerSecond: 2,
+				lastSaid(context).includes("slow answer")
+					? fauxAssistantMessage(`${"Answered, one word after another. ".repeat(60)}`.trim())
+					: lastSaid(context).includes("ask me")
+						? fauxAssistantMessage([
+								fauxToolCall(TOOL_NAME, {
+									questions: [
+										{
+											header: "Deploy",
+											question: "Ship the release now?",
+											options: [
+												{ label: "Ship it", description: "Publish today." },
+												{ label: "Wait", description: "Publish tomorrow." },
+											],
+										},
+									],
+								}),
+							])
+						: fauxAssistantMessage("Answered, one word after another, slowly."),
+			// Fast enough that a tool call's JSON arrives in about a second, slow enough that the long
+			// answer below still takes seconds to write out.
+			tokensPerSecond: 50,
 			settings: { remote: { port } },
 		});
 		const link = await waitForLink();
@@ -294,7 +298,7 @@ async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
 		await page.keyboard.press("Enter");
 		// The last row is the message this step just sent: an earlier one can still be waiting.
 		const row = page.locator(".remote-composer-waiting").last();
-		await row.waitFor({ timeout: 20_000 });
+		await row.waitFor({ timeout: 90_000 });
 		const said = (await row.locator(".remote-composer-text").innerText()).trim();
 
 		await row.getByRole("button", { name: "Withdraw", exact: true }).click();
@@ -317,9 +321,11 @@ async function answersQuestion(page: Page, rig: Rig): Promise<Result> {
 		await box.fill("ask me before you ship");
 		await page.keyboard.press("Enter");
 
-		const option = page.getByRole("button", { name: "Ship it", exact: true });
+		// The option's accessible name carries its description, so the match is a prefix.
+		const option = page.getByRole("button", { name: /^Ship it/ });
 		try {
-			await option.waitFor({ timeout: 15_000 });
+			// The scripted model writes the tool call at two tokens a second, so the JSON takes ~30 s.
+			await option.waitFor({ timeout: 90_000 });
 		} catch {
 			const said = await page
 				.locator("body")
@@ -333,8 +339,8 @@ async function answersQuestion(page: Page, rig: Rig): Promise<Result> {
 
 		// The question closed and the run went on: the dialog is gone, and the branch grew with the
 		// answer the model read and the words it said after it.
-		await option.waitFor({ state: "detached", timeout: 20_000 });
-		const deadline = Date.now() + 20_000;
+		await option.waitFor({ state: "detached", timeout: 60_000 });
+		const deadline = Date.now() + 60_000;
 		while (rig.session.sessionManager.getBranch().length <= before && Date.now() < deadline)
 			await Bun.sleep(50);
 		return rig.session.sessionManager.getBranch().length > before
