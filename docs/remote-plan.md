@@ -64,7 +64,7 @@ The app runs on iOS and Android as well as the web:
 
 Before 6.0.0:
 
-- [x] No test fails one run in ten (#241)
+- [ ] No test in the suite fails one run in ten. nearly: the gate's steps 6 and 7 wait and say which side failed (#327), and the unit tests hold (#241); step 4 failed once in five and its pull request is in review
 - [x] Each `as unknown as` cast outside test fakes, and each patched pi prototype, has a test, a guard, or the reason it stays: the casts that covered a check are guards now, and the ones left each say why they stay (#243, #249, #250, #260; issue #251 asks pi for the hooks)
 - [ ] [The remote design](remote.md) speaks the new names
 - [ ] The release notes, and 6.0.0
