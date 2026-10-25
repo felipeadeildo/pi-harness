@@ -35,6 +35,7 @@ The structure:
 - [x] The WebSocket refuses what it never negotiated, and finds a dead peer (#205)
 - [x] Work deferred by a feature ends with its session (#221, #224)
 - [x] The bridge keeps its lifecycle, and pi's events reach their owners (#237)
+- [ ] pi's events are wired in one typed table, where a new event of pi names an owner or an ignore before it compiles
 - [ ] The client's session is immutable, and commands are typed by their names
 - [ ] The session and composer screens in React Native, on the visual base. nearly: the list and the question panel are React Native; `session.tsx` and `composer.tsx` still draw the DOM, and the visual base (the theme's tokens) does not exist yet
 
@@ -52,7 +53,7 @@ The other tracks of the cycle:
 Before 6.0.0:
 
 - [x] No test fails one run in ten (#241)
-- [ ] The `as unknown as` casts outside test fakes, and the patched pi prototypes, have a test or are gone. nearly: the kit's casts are guards now (#243); the presence guard is #249, the prototype tests are #250, and issue #251 asks pi for the hooks
+- [ ] The `as unknown as` casts outside test fakes, and the patched pi prototypes, have a test or are gone. nearly: the kit's decoders are guards now (#243), and 20 casts are left in `src`; the presence guard is #249, the prototype tests are #250, and issue #251 asks pi for the hooks
 - [ ] [The remote design](remote.md) speaks the new names
 - [ ] The release notes, and 6.0.0
 
