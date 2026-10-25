@@ -158,15 +158,8 @@ export const peers = defineFeature({
 			},
 			changed: () => {
 				for (const redraw of rows.values()) redraw();
-				// This runs from a log change read a moment later, and pi takes the context away before
-				// it announces the shutdown: drawing then throws from inside a timer, where nothing
-				// catches it. The first refusal is the notice that the session is over.
-				try {
-					showStatus();
-					showTyping();
-				} catch {
-					uiGone = true;
-				}
+				showStatus();
+				showTyping();
 			},
 			show: (details) => scope.appendEntry(PEER_BROADCAST, details),
 			held: (waiting, why) => {
@@ -190,17 +183,15 @@ export const peers = defineFeature({
 				}
 			},
 			roomGrace: () => roomGrace.get(scope) * 1000,
+			defer: (run, ms) => scope.defer(run, ms),
 			opening: () => opening.get(scope),
 		});
 		let typingShown = false;
-		/** pi refused the session's context, so nothing more is drawn for it. */
-		let uiGone = false;
 		/** What let each call of the tool through, from the permission gate, by call id. */
 		const allowed = new Map<string, string>();
 
 		/** Over the editor while another agent writes to a room, and after, until the agent reads it. */
 		function showTyping(): void {
-			if (uiGone) return;
 			const ctx = session;
 			if (ctx === undefined || ctx.mode !== "tui") return;
 			// Only what waits for this session takes a frame over the editor. Another agent's draft is
@@ -227,7 +218,6 @@ export const peers = defineFeature({
 		 */
 		let announced: string | undefined;
 		function showStatus(): void {
-			if (uiGone) return;
 			const summary = rooms.summary();
 			const writing = writingMarks(rooms.othersTyping(), rooms);
 			const state = {
@@ -284,7 +274,6 @@ export const peers = defineFeature({
 
 		scope.onSessionStart((ctx) => {
 			session = ctx;
-			uiGone = false;
 			wentIn.clear();
 			for (const entry of ctx.sessionManager.getEntries())
 				if (entry.type === "custom" && entry.customType === PEER_WENT_IN && isWentIn(entry.data))

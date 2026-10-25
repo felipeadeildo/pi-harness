@@ -97,7 +97,7 @@ export class Rooms implements RoomsView {
 	#startedAt = 0;
 	#state: RoomActivity = "idle";
 	#stops: (() => void)[] = [];
-	#soonTimer: ReturnType<typeof setTimeout> | undefined;
+	#soonPending = false;
 	/** When each stale member or room was first seen, by `staleIn`'s key. */
 	#stale = new Map<string, number>();
 	#wake: { at: number; timer: ReturnType<typeof setTimeout> } | undefined;
@@ -167,8 +167,7 @@ export class Rooms implements RoomsView {
 		if (this.#session === undefined) return;
 		for (const stop of this.#stops) stop();
 		this.#stops = [];
-		if (this.#soonTimer !== undefined) clearTimeout(this.#soonTimer);
-		this.#soonTimer = undefined;
+		this.#soonPending = false;
 		clearTimeout(this.#wake?.timer);
 		this.#wake = undefined;
 		this.#stale = new Map();
@@ -883,16 +882,17 @@ export class Rooms implements RoomsView {
 		for (const listener of this.#listeners) listener();
 	}
 
-	/** Several logs change at once when a message lands, so they are read together a moment later. */
 	#soon(): void {
-		if (this.#soonTimer !== undefined) return;
-		this.#soonTimer = setTimeout(() => {
-			this.#soonTimer = undefined;
-			// A log can change one last time as the session ends, and reading it then reaches a
-			// context pi no longer owns: the room is closed, so there is nothing to read.
-			if (this.#session === undefined) return;
+		// Several logs change at once when a message lands, so they are read together a moment later.
+		// The wait belongs to the session: an app that owns its lifetime takes the read with it.
+		if (this.#soonPending) return;
+		this.#soonPending = true;
+		const read = (): void => {
+			this.#soonPending = false;
 			this.sync();
-		}, 10);
+		};
+		if (this.#hooks.defer === undefined) setTimeout(read, 10);
+		else this.#hooks.defer(read, 10);
 	}
 
 	#writeLive(): void {
