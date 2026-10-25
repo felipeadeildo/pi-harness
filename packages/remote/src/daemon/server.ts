@@ -243,7 +243,7 @@ export class Daemon {
 				this.#warn(`a ${message.kind} of ${message.type} came with no id and reached nobody`);
 				return;
 			}
-			this.#clients?.answer(message);
+			this.#clients?.hub.answer(message);
 			return;
 		}
 		if (message.kind !== "event") return;
@@ -253,7 +253,7 @@ export class Daemon {
 				// told to the clients as `presence.changed` and never forwarded as itself, which they
 				// have no shape for.
 				const typist = isObject(message.data) ? message.data.by : undefined;
-				if (isBy(typist)) this.#clients?.typed(bridge.session, typist);
+				if (isBy(typist)) this.#clients?.hub.typed(bridge.session, typist);
 				return;
 			}
 			case "session.live":
@@ -271,7 +271,7 @@ export class Daemon {
 				if (dropped !== undefined) this.#warn(dropped);
 			}
 		}
-		this.#clients?.forward(message);
+		this.#clients?.hub.forward(message);
 		this.#settle();
 	}
 
@@ -301,7 +301,7 @@ export class Daemon {
 
 	/** The sessions some client watches, each with how many. */
 	watched(): Map<string, number> {
-		return this.#clients?.watched() ?? new Map();
+		return this.#clients?.hub.watched() ?? new Map();
 	}
 
 	/**
