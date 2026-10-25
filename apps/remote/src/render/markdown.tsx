@@ -1,7 +1,8 @@
-// The one renderer for text that comes from somewhere else: a model's answer, a tool's output, a
-// diff. It is written against the DOM, so the native app can host it as a DOM component later, and
-// it builds nodes with `createElement` instead of JSX, because a `.tsx` here would need the app's
-// React Native types to know what a `div` is.
+"use dom";
+
+// The one renderer for text that comes from somewhere else: a model's answer, a tool's output. It is a
+// DOM component, so native hosts it in a webview, and it builds nodes with `createElement` instead of
+// JSX, because a `.tsx` here would need the app's React Native types to know what a `div` is.
 //
 // It never renders raw HTML. What looks like a tag comes out as text, so `<script>` is the eight
 // characters a model wrote, and a link only becomes a link when it is http or https.
@@ -14,10 +15,11 @@ export interface MarkdownProps {
 	text: string;
 	/** The colour of a link's domain, which the app sets once. */
 	dim?: string;
+	dom?: import("expo/dom").DOMProps;
 }
 
 /** Draws the subset of markdown a session writes: paragraphs, headings, lists, code and diffs. */
-export function Markdown({ text, dim }: MarkdownProps): ReactNode {
+export default function Markdown({ text, dim }: MarkdownProps): ReactNode {
 	const lines = plain(text).split("\n");
 	const blocks: ReactNode[] = [];
 	let at = 0;
@@ -81,7 +83,7 @@ export function Markdown({ text, dim }: MarkdownProps): ReactNode {
 }
 
 /** The inline marks: code, bold, italic, links and images, in the order they open. */
-export function inline(text: string, dim?: string): ReactNode[] {
+function inline(text: string, dim?: string): ReactNode[] {
 	const nodes: ReactNode[] = [];
 	const pattern =
 		/(`[^`]*`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(!\[[^\]]*\]\([^)\s]+\))|(\[[^\]]*\]\([^)\s]+\))/g;
