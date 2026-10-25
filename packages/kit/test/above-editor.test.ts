@@ -67,7 +67,8 @@ function host(editor = "") {
 		},
 		type: (data: string) => {
 			let answer: { consume?: boolean } | undefined;
-			for (const listener of [...listeners]) answer = listener(data) ?? answer;
+			const all = listeners.slice();
+			for (const listener of all) answer = listener(data) ?? answer;
 			return answer;
 		},
 		get editor(): string {
