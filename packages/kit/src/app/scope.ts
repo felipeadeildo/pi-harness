@@ -2,6 +2,7 @@ import type { ExtensionAPI, MessageRenderer } from "@earendil-works/pi-coding-ag
 
 import type { SettingsStore } from "../settings/store.ts";
 import { attributed } from "./attribution.ts";
+import { describe } from "./attribution.ts";
 import type {
 	FeatureScope,
 	ScreenEntry,
@@ -29,6 +30,10 @@ export interface AppState {
 	shutdowns: Hook<ShutdownHook>[];
 	screen: Map<string, ScreenEntry[]>;
 	screenGroups: Map<string, ScreenGroup[]>;
+	/** False once the session is shutting down: nothing new may be deferred. */
+	live(): boolean;
+	/** Ends the session from inside a deferral a refused context was found in. */
+	stop(): void;
 	report(source: string, message: string): void;
 }
 
@@ -72,6 +77,24 @@ export function createScope(state: AppState, featureId: string): FeatureScope {
 			keepMessageRenderer(featureId, customType, renderer as MessageRenderer);
 			state.pi.registerMessageRenderer(customType, renderer);
 		},
+		defer(run, ms = 0) {
+			// `unref` only keeps a pending timer from holding the process open; the guard at the top
+			// of the callback is what keeps the work from running once the session is over.
+			setTimeout(() => {
+				if (!state.live()) return;
+				try {
+					run();
+				} catch (error) {
+					// The host takes the context away before it announces the shutdown, so `live` is
+					// still true here; its refusal is the only notice that the session is over.
+					if (refusedByHost(error)) {
+						state.stop();
+						return;
+					}
+					state.report(featureId, `deferred work failed: ${describe(error)}`);
+				}
+			}, ms).unref();
+		},
 		onSessionStart: (run) => state.starts.push({ source: featureId, run }),
 		onShutdown: (run) => state.shutdowns.push({ source: featureId, run }),
 		warn: (message) => state.report(featureId, message),
@@ -83,6 +106,18 @@ export function createScope(state: AppState, featureId: string): FeatureScope {
 			rows: (provider) => void groups.push(provider),
 		},
 	} as FeatureScope;
+}
+
+/**
+ * pi's words when a renderer, a hook or a scope call uses a context the host no longer owns. Read from
+ * `@earendil-works/pi-coding-agent@1.4.0`, `dist/core/extensions/runner.js:482`, where the message
+ * comes from whoever invalidated the context.
+ */
+const STALE = "stale after session replacement or reload";
+
+/** Whether the host refused a context, which is how a session that ended announces itself. */
+export function refusedByHost(error: unknown): boolean {
+	return error instanceof Error && error.message.includes(STALE);
 }
 
 type UntypedHandler = (...args: unknown[]) => unknown;

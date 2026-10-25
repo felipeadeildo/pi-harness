@@ -38,6 +38,12 @@ export interface FeatureScope extends ExtensionAPI, SettingsScope {
 	onSessionStart(hook: SessionHook): void;
 	/** Runs once per session, newest first. */
 	onShutdown(hook: ShutdownHook): void;
+	/**
+	 * Work that belongs to this session: it runs once, after `ms` (zero by default), and never after
+	 * the session ends. The app cancels it before any shutdown hook runs, so a hook that stops a
+	 * service never races a read of it, and a `defer` called from a shutdown hook does nothing.
+	 */
+	defer(run: () => void, ms?: number): void;
 	/** Shown as `<app>: <feature>: <message>`. */
 	warn(message: string): void;
 	/** True when this app runs a feature with that id. */

@@ -77,6 +77,10 @@ function mount(pi: ExtensionAPI, options: AppOptions, features: readonly Feature
 		shutdowns: [],
 		screen: new Map(),
 		screenGroups: new Map(),
+		live: () => live,
+		stop: () => {
+			live = false;
+		},
 		report: (source, message) => deliver(`${options.name}: ${source}: ${message}`),
 	};
 	const app: App = { name: options.name, settings, has: (id) => mounted.has(id) };
@@ -119,7 +123,8 @@ function mount(pi: ExtensionAPI, options: AppOptions, features: readonly Feature
 
 	pi.on("session_shutdown", async () => {
 		if (!live) return;
-		live = false;
+		// Before the hooks: a hook stops a service, and a timer left running would read it after.
+		state.stop();
 		await runInOrder(
 			state.shutdowns.toReversed(),
 			(run) => run(),
