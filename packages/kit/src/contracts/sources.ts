@@ -10,7 +10,7 @@ import { isObject } from "../decode.ts";
 
 type Events = ExtensionAPI["events"];
 
-/** What a session's entries do not say, and only grows. */
+/** What a session's entries do not say, which only grows. */
 export interface SessionSummary {
 	session: string;
 	/** The machine the session runs on: its hostname, until machines get ids. */
