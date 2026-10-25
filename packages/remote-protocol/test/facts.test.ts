@@ -35,9 +35,12 @@ describe("a session's status", () => {
 	});
 
 	test("is never peers' running or idle from the log, nor any other word", () => {
-		expect(isFact("session.state", { state: "running" })).toBe(false);
-		expect(isFact("session.state", { state: "waiting" })).toBe(false);
-		expect(isFact("session.state", {})).toBe(false);
+		// The log's own `session.state` is peers' activity and never crosses; the wire's status is
+		// pi's, and a word from the other side is refused rather than shown as a status.
+		expect(isFact("session.status", { status: "running" })).toBe(false);
+		expect(isFact("session.status", { status: "waiting" })).toBe(false);
+		expect(isFact("session.status", {})).toBe(false);
+		expect(isFact("session.status", { status: "blocked" })).toBe(true);
 	});
 });
 

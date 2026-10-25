@@ -239,7 +239,7 @@ export class Bridge {
 
 	/** The session's status changed, in pi's program status words. */
 	status(state: SessionStatus): void {
-		this.#connection.event("session.state", { state });
+		this.#connection.event("session.status", { status: state });
 	}
 
 	async stop(reason: GoneReason | undefined): Promise<void> {

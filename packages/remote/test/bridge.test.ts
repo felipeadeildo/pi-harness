@@ -706,10 +706,10 @@ describe("the bridge", () => {
 		await until(() => types(daemon).includes("state"));
 		await fake.fire("agent_start", { type: "agent_start" }, ctx);
 		await fake.fire("agent_settled", { type: "agent_settled", aborted: false }, ctx);
-		await until(() => types(daemon).filter((type) => type === "session.state").length === 2);
+		await until(() => types(daemon).filter((type) => type === "session.status").length === 2);
 		expect(
-			daemon.received.filter((one) => one.type === "session.state").map((one) => one.data),
-		).toEqual([{ state: "working" }, { state: "done" }]);
+			daemon.received.filter((one) => one.type === "session.status").map((one) => one.data),
+		).toEqual([{ status: "working" }, { status: "done" }]);
 	});
 
 	test("what the kit logs for this session goes out, and not another session's lines or peers' state", async () => {
