@@ -1,35 +1,42 @@
-// The judge's intent: the session and what it is doing in your words, and your last message.
-import { type EventScope, intentOf, TASKS, tasksSettled } from "@adeildo/pi-kit";
+// The judge's intent: what the operator asked for, in their words and under the name they gave the
+// session. Nothing the agent wrote reaches it, and there is nothing to wait for: the words are
+// already in the branch when the judge reads it.
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { isRecord } from "#util/primitives.ts";
 
-/** How long the judge waits for the tasks to take in your last message. */
-const TASKS_WAIT_MS = 3000;
+/** How many of the operator's messages the judge reads: a short "yes" needs the one before it. */
+const RECENT_MESSAGES = 3;
 
-export async function intentFor(
-	ctx: Pick<ExtensionContext, "sessionManager">,
-	scope: EventScope,
-): Promise<string | undefined> {
-	const last = currentIntent(ctx);
-	if (TASKS.current(scope) === undefined) return last;
-	await tasksSettled(scope, TASKS_WAIT_MS);
-
-	const tasks = TASKS.current(scope)?.state;
+export function intentFor(ctx: Pick<ExtensionContext, "sessionManager">): string | undefined {
 	const parts: string[] = [];
-	const ours = tasks === undefined ? undefined : intentOf(tasks);
-	if (ours !== undefined) parts.push(ours);
-	if (last !== undefined) parts.push(`Last message: ${last}`);
+	const name = ctx.sessionManager.getSessionName()?.trim();
+	if (name !== undefined && name !== "") parts.push(`Session: ${name}`);
+	const recent = recentIntents(ctx);
+	if (recent.length === 1) parts.push(`Last message: ${recent[0]}`);
+	else if (recent.length > 1) {
+		const lines = recent.map((text, index) => `  ${index + 1}. ${text}`);
+		parts.push(`The operator's last messages, newest first:\n${lines.join("\n")}`);
+	}
 	return parts.length === 0 ? undefined : parts.join("\n");
 }
 
-export function currentIntent(ctx: Pick<ExtensionContext, "sessionManager">): string | undefined {
+/** The operator's last messages, newest first. Image-only ones take no slot, agent turns no place. */
+export function recentIntents(
+	ctx: Pick<ExtensionContext, "sessionManager">,
+	limit = RECENT_MESSAGES,
+): string[] {
 	const branch: readonly unknown[] = ctx.sessionManager.getBranch();
-	for (let index = branch.length - 1; index >= 0; index--) {
+	const texts: string[] = [];
+	for (let index = branch.length - 1; index >= 0 && texts.length < limit; index--) {
 		const text = userText(branch[index]);
-		if (text !== undefined) return text;
+		if (text !== undefined) texts.push(text);
 	}
-	return undefined;
+	return texts;
+}
+
+export function currentIntent(ctx: Pick<ExtensionContext, "sessionManager">): string | undefined {
+	return recentIntents(ctx, 1)[0];
 }
 
 function userText(entry: unknown): string | undefined {

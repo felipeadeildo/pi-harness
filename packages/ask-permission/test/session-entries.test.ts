@@ -83,7 +83,9 @@ describe("restoreSession", () => {
 			entry({ kind: "mode", mode: "full" }),
 			entry({ kind: "always-yes", toolName: "bash", level: "git" }),
 		];
-		const ctx = { sessionManager: { getBranch: () => branch } } as unknown as ExtensionContext;
+		const ctx = {
+			sessionManager: { getBranch: () => branch, getSessionName: () => undefined },
+		} as unknown as ExtensionContext;
 		restoreSession(state, ctx);
 
 		expect(state.mode).toBe("full");
@@ -106,7 +108,9 @@ describe("restoreSession", () => {
 			entry({ kind: "folder", path: "/b", access: "write" }),
 			entry({ kind: "folder", path: "/c", access: "sideways" }),
 		];
-		const ctx = { sessionManager: { getBranch: () => branch } } as unknown as ExtensionContext;
+		const ctx = {
+			sessionManager: { getBranch: () => branch, getSessionName: () => undefined },
+		} as unknown as ExtensionContext;
 		restoreSession(state, ctx);
 
 		expect(state.folders.list("session")).toEqual([{ path: "/b", access: "write" }]);

@@ -296,7 +296,7 @@ async function runJudge(
 		rawInput: call.input,
 		source: judgeSource(call),
 		toolDescription: call.description,
-		intent: await intentFor(ctx, scope),
+		intent: intentFor(ctx),
 		cache: state.judgeCache,
 		onStatus: (status) => ctx.ui.setStatus(JUDGE_STATUS, status),
 	});

@@ -34,7 +34,7 @@ function session() {
 		hasUI: false,
 		cwd: dir,
 		isProjectTrusted: () => false,
-		sessionManager: { getBranch: () => [] },
+		sessionManager: { getBranch: () => [], getSessionName: () => undefined },
 		ui: { notify: () => {}, setStatus: () => {} },
 	} as unknown as ExtensionContext;
 }

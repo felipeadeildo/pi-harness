@@ -46,7 +46,7 @@ async function started(settings?: unknown, notes: string[] = []) {
 		hasUI: false,
 		cwd: dir,
 		isProjectTrusted: () => false,
-		sessionManager: { getBranch: () => [] },
+		sessionManager: { getBranch: () => [], getSessionName: () => undefined },
 		modelRegistry: {
 			getModelsOfType: (type: string) =>
 				type === "classifier"
