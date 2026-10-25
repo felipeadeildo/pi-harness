@@ -38,6 +38,9 @@ export default function SessionRoute() {
 				mode={session.snapshot?.mode}
 				model={session.snapshot?.model}
 				thinking={session.snapshot?.thinkingLevel}
+				// What the session is holding for the agent to finish: it lives in the state, and a screen
+				// that does not pass it shows nothing while the queue is the thing the person waits on.
+				waiting={session.state.queue}
 			/>
 			{asked === undefined ? null : <QuestionDialog ask={asked} client={client} />}
 		</View>
