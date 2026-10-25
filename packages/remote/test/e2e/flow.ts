@@ -29,7 +29,11 @@ const BROWSERS = [
  * still red are reported and do not hold a merge, which is what keeps this file useful before the
  * last fix lands.
  */
-const MANDATORY: ReadonlySet<number> = new Set([1, 2]);
+const MANDATORY: ReadonlySet<number> = new Set([1, 2, 3]);
+
+/** The steps with a body. The rest are named and not written: a report that says `fail` for them
+ * claims a measurement nobody made, and a reader cannot tell that from a step that ran and broke. */
+const WRITTEN: ReadonlySet<number> = new Set([1, 2, 3]);
 
 const STEPS = [
 	"the daemon's link opens the app, and the session list is there",
@@ -124,6 +128,10 @@ async function main(): Promise<number> {
 		delete process.env.PI_REMOTE_SHARE;
 	}
 	for (const [at, name] of STEPS.entries()) {
+		if (!WRITTEN.has(at + 1)) {
+			console.log(`not written yet  ${at + 1}. ${name}`);
+			continue;
+		}
 		const report = reports.find((one) => one.step === at + 1);
 		const mark = report?.ok === true ? "pass" : "fail";
 		console.log(
@@ -189,6 +197,10 @@ async function opensSession(page: Page): Promise<Result> {
  */
 async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
 	try {
+		// Counted before the click, not after: the scripted model answers at once, so a run that starts
+		// and ends between the click and the first read looks like no run at all.
+		const entries = (): number => rig.session.sessionManager.getBranch().length;
+		const before = entries();
 		const box = page.locator("input[name='prompt']").first();
 		await box.click({ timeout: 20_000 });
 		await box.fill("say hello from the gate");
@@ -200,8 +212,6 @@ async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
 		if ((await box.inputValue()) !== "")
 			return { ok: false, why: "the screen did not send: the field still holds the text" };
 
-		const entries = (): number => rig.session.sessionManager.getBranch().length;
-		const before = entries();
 		const deadline = Date.now() + 20_000;
 		while (entries() <= before && Date.now() < deadline) await Bun.sleep(100);
 		if (entries() > before) return { ok: true };
