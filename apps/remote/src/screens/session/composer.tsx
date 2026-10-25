@@ -334,6 +334,7 @@ function Held({ lines, client }: { lines: readonly QueuedLine[]; client: Client 
 				<View
 					key={line.id}
 					testID="held-row"
+					nativeID={line.id}
 					style={{ flexDirection: "row", alignItems: "center", gap: theme.space(3) }}
 				>
 					<View style={{ flex: 1 }}>
