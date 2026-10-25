@@ -39,7 +39,7 @@ export function SessionsScreen({ sessions, kept, hrefOf }: SessionsScreenProps) 
 			renderItem={({ item }) => (
 				// A row is a real link: middle click, a new tab and a screen reader all depend on it. The
 				// style is one flat object because `Link asChild` spreads the child's props through a Slot,
-				// and an array spread there becomes `{0: …}` — which the browser refuses to apply.
+				// and an array spread there becomes `{0: …}`, which the browser refuses to apply.
 				<Link href={hrefOf(item.listed)} asChild>
 					<Pressable style={rowStyle(item.waits)}>
 						<Text style={styles.name}>{item.name}</Text>

@@ -133,7 +133,7 @@ describe("the composer", () => {
 
 	test("Enter sends the draft, and Shift+Enter leaves it alone", () => {
 		// The gate and every chat field press Enter; a composer that only answers a click means the
-		// person types, presses Enter and nothing happens — which is what the browser run found.
+		// person types, presses Enter and nothing happens, which is what the browser run found.
 		let took = 0;
 		expect(enterSends({ key: "Enter" }, () => (took += 1))).toBe(true);
 		expect(took).toBe(1);
