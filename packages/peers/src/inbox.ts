@@ -84,6 +84,8 @@ export function letterOf(message: Posted, by: By, mode: Waiting["mode"]): Letter
 }
 
 interface Queued {
+	/** The same message as the kit's letter, so the queue can move there without translating again. */
+	letter?: Letter;
 	from: Sender;
 	message: Posted;
 	/** What the transcript keeps, and the same with how it was queued, for the screen. */
@@ -182,6 +184,13 @@ export class Inbox {
 		return [...this.#queued.values()].map(({ waiting }) => waiting);
 	}
 
+	/** What waits, as the kit's letters: the shape the queue takes when it moves there. */
+	letters(): Letter[] {
+		return [...this.#queued.values()].flatMap((one) =>
+			one.letter === undefined ? [] : [one.letter],
+		);
+	}
+
 	/** The model read it, so it leaves the queue. Says whether it was there. */
 	read(id: string): boolean {
 		return this.#queued.delete(id);
@@ -276,7 +285,11 @@ export class Inbox {
 		// Pi does not list what an extension queues, so the inbox keeps it until the model reads it.
 		if (mode === "steered" || mode === "after-run")
 			for (const one of ordered)
-				this.#queued.set(one.message.id, { ...one, waiting: { ...one.details, mode } });
+				this.#queued.set(one.message.id, {
+					...one,
+					waiting: { ...one.details, mode },
+					letter: letterOf(one.message, one.from.by, mode),
+				});
 		this.#handed(arrivals, mode);
 	}
 

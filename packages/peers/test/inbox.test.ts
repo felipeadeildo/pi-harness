@@ -135,3 +135,14 @@ describe("the letter a message becomes", () => {
 		expect(letterOf(posted("m2", "later"), by, "after-run").want).toBe("followUp");
 	});
 });
+
+test("what waits is also a letter of the kit, ready for the queue to move there", () => {
+	const { inbox, from } = busy();
+	inbox.arrive(from, [posted("m1", "are you in auth.ts?"), posted("m2", "later")]);
+	const letters = inbox.letters();
+	expect(letters.map((one) => [one.id, one.want, one.text])).toEqual([
+		["m1", "steer", "are you in auth.ts?"],
+		["m2", "steer", "later"],
+	]);
+	expect(letters[0]?.by).toEqual({ kind: "agent", name: "oauth", machine: "laptop" });
+});
