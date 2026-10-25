@@ -373,6 +373,8 @@ describe("the bridge", () => {
 	});
 
 	test("a prompt leaves the queue when pi starts the run, and stays until then", async () => {
+		// The session is idle, so the letter is sent straight away and waits only for the proof.
+		running = false;
 		const daemon = await listening();
 		const fake = mounted();
 		const ctx = session();

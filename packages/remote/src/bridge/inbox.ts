@@ -122,11 +122,14 @@ export class SessionInbox {
 	 * the fact and not a guess — pi never said it started. `started()` clears it by taking the letter.
 	 */
 	#expire(): void {
+		// A start that arrived first took the letter, and there is nothing left to say about it.
 		const pending = this.#pending;
 		this.#settled();
 		if (pending === undefined) return;
 		const letter = this.#inbox.queue().find((one) => one.id === pending);
-		if (letter !== undefined) this.#inbox.holdFor(letter, "not-started");
+		// Nothing changed means nothing to announce: a redundant event reads as a lost order.
+		if (letter === undefined || letter.why === "not-started") return;
+		this.#inbox.holdFor(letter, "not-started");
 		this.#publish();
 	}
 

@@ -92,6 +92,9 @@ export class Inbox {
 	 * held keeps its place and gains the reason: the reason can be learned later than the holding.
 	 */
 	holdFor(letter: Letter, why: Letter["why"]): void {
+		// A letter already carried is never put back: a late reason must not resurrect a message that
+		// a run is already answering.
+		if (this.#done.has(letter.id)) return;
 		const at = this.#held.findIndex((one) => one.id === letter.id);
 		const held = why === undefined ? letter : { ...letter, why };
 		if (at === -1) this.#held.push(held);
