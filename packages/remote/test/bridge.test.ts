@@ -82,9 +82,9 @@ function entries(count: number): Entry[] {
 		type: "message",
 		id: `e${at + 1}`,
 		parentId: at === 0 ? null : `e${at}`,
-		// A `message` entry carries its message: pi never writes one without, and a fixture that did
-		// taught the product code to tolerate a shape it will never meet.
-		message: { role: "user", content: [] },
+		// A `message` entry carries the message pi wrote. A user turn has no usage, so the total is
+		// untouched here; the tests that compare a number push a real `usage` entry of their own.
+		message: { role: "user", content: [{ type: "text", text: `message ${at + 1}` }] },
 	}));
 }
 
