@@ -2,6 +2,7 @@
 // so each one reaches the same board, the same room and the same winner of a request.
 import {
 	type Activity,
+	type BoardView,
 	type Delivery,
 	type Lives,
 	type LoggedEvent,
@@ -114,6 +115,11 @@ export class Folder {
 	readonly room: RoomItem[] = [];
 	/** Who counts in this room, folded from its `room.*` events. */
 	readonly membership = new Membership();
+	/**
+	 * The board each session last wrote into this room, by session. A room has no board of its own: a
+	 * reader draws the board of a session it chose, and nothing is merged here.
+	 */
+	readonly boards = new Map<string, BoardView>();
 
 	/**
 	 * A room of one folder. The folder is its first member, so a session opened there is in before
@@ -179,6 +185,11 @@ export class Folder {
 			case "session.prompted":
 				peer.prompted = true;
 				return;
+			case "board.changed": {
+				const { view } = event.data as LoggedEvent<"board.changed">["data"];
+				this.boards.set(event.session, view);
+				return;
+			}
 			case "tasks.changed":
 			case "tasks.board":
 				return this.#tasks(
