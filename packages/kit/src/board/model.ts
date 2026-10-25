@@ -253,15 +253,14 @@ export function findBoard(
 	return { matches: all.slice(0, TOO_MANY), more: Math.max(0, all.length - TOO_MANY) };
 }
 
-/** The one translation of the blocker: the operator reads "you", a third session reads the operator. */
+/** The one translation of the blocker: the operator reads "você", a third session reads the operator. */
 export function blockedText(blocker: BoardBlocker, reader: "operator" | "agent"): string {
 	if (blocker.on === "operator") {
-		return reader === "operator"
-			? `waiting for you: ${blocker.why}`
-			: `waiting for the operator: ${blocker.why}`;
+		return `${reader === "operator" ? "você" : "o operador"}: ${blocker.why}`;
 	}
-	if (blocker.on === "outside") return `waiting outside: ${blocker.why}`;
-	return `waiting for ${blocker.handle}: ${blocker.why}`;
+	if (blocker.on === "outside") return `fora: ${blocker.why}`;
+	const handle = blocker.handle.startsWith("@") ? blocker.handle : `@${blocker.handle}`;
+	return `${handle}: ${blocker.why}`;
 }
 
 /** The board is the fold of the session's operations, in the order the log keeps them. */
