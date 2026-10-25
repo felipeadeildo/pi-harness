@@ -1,10 +1,9 @@
-// The session screen: the frame and the chrome in React Native, and the document handed to the one
-// component that draws text from elsewhere. A phone has no `main` or `ol`, and a browser has no reason
-// to draw them around a document either: one frame, two hosts.
+// The session screen: the chrome in React Native beside a document that draws text from elsewhere. The
+// route owns the layout, so this adds no frame of its own — a second `flex` here pushed the composer
+// off the screen, and the composer is where the thumb is.
 import type { ClientSession } from "@adeildo/pi-remote-client";
 import { openQuestions } from "@adeildo/pi-remote-protocol";
-import { type ReactNode } from "react";
-import { View } from "react-native";
+import { Fragment, type ReactNode } from "react";
 
 import { OpenQuestions, Tasks } from "./chrome.tsx";
 import { SessionDocument, viewOf } from "./session-document.tsx";
@@ -14,10 +13,10 @@ export { aboutOf, LINE_CHARS, OUTPUT_LINES, titleOf, viewOf } from "./session-do
 export function SessionScreen({ session }: { session: ClientSession }): ReactNode {
 	const { state } = viewOf(session);
 	return (
-		<View style={{ flex: 1, paddingHorizontal: 16 }}>
+		<Fragment>
 			<Tasks tasks={state.tasks} />
 			<OpenQuestions asks={openQuestions(state)} />
 			<SessionDocument session={session} />
-		</View>
+		</Fragment>
 	);
 }
