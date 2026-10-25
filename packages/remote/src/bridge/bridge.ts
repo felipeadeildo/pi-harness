@@ -22,7 +22,7 @@ import {
 } from "@adeildo/pi-kit";
 import { type AnswerEvent, isAskResult } from "@adeildo/pi-kit";
 import type { Letter } from "@adeildo/pi-kit";
-import type { Envelope, SessionSummary } from "@adeildo/pi-remote-protocol";
+import type { Envelope, SessionState, SessionSummary } from "@adeildo/pi-remote-protocol";
 import type { PromptKind, SessionCommand } from "@adeildo/pi-remote-protocol";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
@@ -258,18 +258,19 @@ export class Bridge {
 	 * the terminal's footer calls, so the phone and the terminal cannot disagree about the number.
 	 */
 	charged(): void {
+		this.connection.event("cost.changed", { cost: this.#cost() });
+	}
+
+	/** What the session has spent, in the wire's shape. The opening carries it, so a reconnect keeps it. */
+	#cost(): SessionState["cost"] {
 		const totals = totalsOf(this.ctx.sessionManager.getEntries());
-		// The kit names the money `cost`; the wire has called it `total` since the field existed, and a
-		// client may still hold that shape in its cache. One line, named, instead of a second name.
-		this.connection.event("cost.changed", {
-			cost: {
-				input: totals.input,
-				output: totals.output,
-				cacheRead: totals.cacheRead,
-				cacheWrite: totals.cacheWrite,
-				total: totals.cost,
-			},
-		});
+		return {
+			input: totals.input,
+			output: totals.output,
+			cacheRead: totals.cacheRead,
+			cacheWrite: totals.cacheWrite,
+			total: totals.cost,
+		};
 	}
 
 	/** The queue changed: it folds into the state and goes out numbered, as one list for every client. */
@@ -306,6 +307,10 @@ export class Bridge {
 			.map((event) => (event.data as { id: string }).id);
 	}
 
+	/**
+	 * The opening a client draws first. If this throws, the client draws nothing, and the throw becomes a
+	 * warning two frames up: the failure has to name itself, and today it does not.
+	 */
 	#snapshot(): void {
 		this.stream.flush();
 		const { scope, kind } = this.options;
@@ -317,7 +322,12 @@ export class Bridge {
 				handle: tasks?.handle,
 				status: SESSION_STATUS.current(scope),
 				// Already folded, so a reader draws the session's state without a replay.
-				state: this.#changes.snapshot(tasks, mode, MODE_SET.current(scope) !== undefined),
+				state: this.#changes.snapshot(
+					tasks,
+					mode,
+					MODE_SET.current(scope) !== undefined,
+					this.#cost(),
+				),
 			},
 			entries: this.ctx.sessionManager.getBranch().slice(-STATE_ENTRIES),
 			streaming: this.stream.streaming,

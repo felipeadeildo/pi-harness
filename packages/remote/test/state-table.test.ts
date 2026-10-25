@@ -189,7 +189,7 @@ const ROWS: Row[] = [
 function heldByBridge(events: Logged[]): SessionState {
 	const harness = new Harness();
 	for (const one of events) harness.saw(one.type, one.data);
-	return harness.snapshot(undefined, undefined, undefined);
+	return harness.snapshot(undefined, undefined, undefined, undefined);
 }
 
 /** The daemon keeps its own copy, seeded by the snapshot and folded on every event it forwards. */

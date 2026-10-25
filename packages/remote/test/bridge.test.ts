@@ -28,7 +28,7 @@ import { ANSWER, ASK, CANCEL, totalsOf } from "@adeildo/pi-kit";
 import type { SessionSource, SourceItem } from "@adeildo/pi-kit";
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
 import { type FakePi, fakeContext, fakePi, keystrokes } from "@adeildo/pi-kit/testing";
-import { envelope } from "@adeildo/pi-remote-protocol";
+import { envelope, type SessionState } from "@adeildo/pi-remote-protocol";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import type { MessageStartEvent, MessageUpdateEvent } from "@earendil-works/pi-coding-agent";
 
@@ -775,13 +775,43 @@ describe("the bridge", () => {
 
 	test("the snapshot carries the branch, not every entry the session holds", async () => {
 		const daemon = await listening();
-		const all = [...entries(2), { type: "message", id: "x9", parentId: "e1" }];
+		const all = [
+			...entries(2),
+			{ type: "message", id: "x9", parentId: "e1", message: { role: "user", content: [] } },
+		];
 		await start(mounted(), session(all, "tui", entries(2)));
 		await until(() => types(daemon).includes("state"));
 		const snapshot = daemon.received.find((one) => one.type === "state")?.data as
 			| { entries: Entry[] }
 			| undefined;
 		expect(snapshot?.entries).toEqual(entries(2));
+	});
+
+	test("the opening carries what the session spent, so a reconnect does not lose it", async () => {
+		const daemon = await listening();
+		const spent = [
+			...entries(2),
+			{
+				type: "usage",
+				id: "u1",
+				parentId: "e2",
+				timestamp: "2026-10-25T00:00:00.000Z",
+				usage: {
+					input: 100,
+					output: 50,
+					cacheRead: 10,
+					cacheWrite: 5,
+					totalTokens: 165,
+					cost: { input: 0.01, output: 0.02, cacheRead: 0, cacheWrite: 0, total: 0.03 },
+				},
+			},
+		];
+		await start(mounted(), session(spent));
+		await until(() => types(daemon).includes("state"));
+		const opening = daemon.received.find((one) => one.type === "state")?.data as
+			| { summary: { state?: SessionState } }
+			| undefined;
+		expect(opening?.summary.state?.cost?.total).toBe(0.03);
 	});
 
 	test("a change of model, thinking or name, and a running tool's output, each go out", async () => {
