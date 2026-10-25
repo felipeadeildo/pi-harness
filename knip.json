@@ -26,18 +26,16 @@
 			"entry": ["src/*.ts", "test/**/*.test.ts"]
 		},
 		"packages/remote": {
-			"entry": ["src/daemon/main.ts", "src/cli/main.ts", "test/**/*.ts"]
+			"entry": ["src/cli/main.ts", "src/daemon/main.ts", "test/**/*.test.ts", "test/**/*.ts"]
 		},
 		"apps/remote": {
 			"entry": ["src/app/**/*.tsx", "src/session/browser.ts", "scripts/*.ts"]
 		},
 		".": {
 			"entry": ["scripts/**/*.ts"]
-		},
-		"packages/remote": {
-			"entry": ["src/cli/main.ts", "src/daemon/main.ts", "test/**/*.test.ts", "test/**/*.ts"]
 		}
 	},
 	"ignoreDependencies": ["babel-plugin-react-compiler", "expo-updates"],
-	"ignoreBinaries": ["script", "rsvg-convert"]
+	"ignoreBinaries": ["script", "rsvg-convert"],
+	"ignoreWorkspaces": ["packages/tasks"]
 }
