@@ -54,10 +54,9 @@ jobs:
   # only this job sees the page throw.
   gate:
     runs-on: ubuntu-latest
-    # A job that goes green while the screen is blank is the failure this exists to catch, so it is
-    # allowed to be red: the steps that hold it are the ones already passing (see MANDATORY in
-    # packages/remote/test/e2e/flow.ts).
-    continue-on-error: true
+    # No `continue-on-error`: the script fails only on the steps that already pass (`MANDATORY` in
+    # packages/remote/test/e2e/flow.ts), so green here means the list drew and the row was followed.
+    # A job that reports green over a blank screen is the failure this exists to catch.
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2

@@ -11,6 +11,7 @@ import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import { type Browser, chromium, type Page } from "playwright-core";
 
 import { requestLink } from "../../src/cli/open.ts";
+import { findWebDir } from "../../src/daemon/app.ts";
 import piRemote from "../../src/index.ts";
 import { daemonPaths } from "../../src/places.ts";
 
@@ -74,6 +75,15 @@ async function main(): Promise<number> {
 	process.env.PI_REMOTE_SHARE = "1";
 	const reports: Report[] = [];
 	try {
+		// The daemon serves the export it finds at startup, and a checkout has none until it builds.
+		// Asking the daemon's own function keeps `PI_REMOTE_WEB` working and the message true if the
+		// candidates change; the failure it prevents is a red step 1 that reads like a broken screen.
+		if (findWebDir(join(import.meta.dir, "..", "..", "dist")) === undefined) {
+			console.error(
+				"gate: the app is not packaged beside the daemon; run `bun run --cwd packages/remote build` (`app:export` alone is not enough)",
+			);
+			return 1;
+		}
 		// The bridge starts the daemon when none answers, which is the path a user takes.
 		rig = await createRig({
 			extensions: [piRemote],
