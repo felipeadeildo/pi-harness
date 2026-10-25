@@ -89,7 +89,9 @@ export function titleOf(session: ClientSession, tasks?: SessionTasks): string {
 
 function header(session: ClientSession, tasks: SessionTasks | undefined): ReactNode {
 	const snapshot = session.snapshot;
-	const about = [
+	// Typed as text on purpose: this array goes to a `join`, and `unknown[]` let the folded state object
+	// through to become `[object Object]` in the header without a word from the compiler.
+	const about: (string | undefined)[] = [
 		session.key.machine,
 		// The status, not the state: since the wire calls the folded state `state`, reading it here drew
 		// `[object Object]` where the word "working" belongs.
