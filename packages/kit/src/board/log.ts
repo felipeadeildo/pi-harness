@@ -5,15 +5,8 @@ import { foldBoard, type Board, type BoardOp } from "./model.ts";
 
 export const BOARD_OP = "pi-board:op";
 
-/** One board operation as the session log carries it. */
-export interface BoardEntry {
-	type: "custom";
-	customType: typeof BOARD_OP;
-	data: { version: 1; op: BoardOp };
-}
-
 /** Whether a value is an operation this version knows. An unknown or half-written one is skipped. */
-export function isBoardOp(value: unknown): value is BoardOp {
+function isBoardOp(value: unknown): value is BoardOp {
 	if (!isObject(value) || typeof value.op !== "string" || typeof value.at !== "number")
 		return false;
 	switch (value.op) {
