@@ -67,6 +67,9 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
   slice, says `Closes #N` for each issue it closes, and ends with the footer
   `<p align="right"><sub><model> (<effort> effort) [<name>] @ adeildo's pi</sub></p>`, with the agent's
   own name in brackets. Each agent picks that name and says it in the room.
+- An agent is named the way the footer names it, `[badger]`, or as a plain word in the sentence, and
+  never with an `@`. On GitHub `@badger` is a person with that handle: they get the notification, and
+  the agent does not. This holds for bodies, reviews, comments, commit messages and issues.
 - The reviewer runs `bun run verify` on the head in a worktree of their own, never the author's, which
   may be in the middle of an edit. They read the code with the `simplify` and `unslop` skills, and
   answer with `gh pr review --comment`, ending with the same footer. The account is shared and cannot
