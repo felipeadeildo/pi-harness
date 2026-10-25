@@ -265,7 +265,7 @@ Only a pi in tui mode, or one a runner started, is a session to the remote: it r
 
 ### One process, several sessions
 
-A pi process holds one session at a time, though not always the same one. `/reload` keeps the session and replaces the extension runtime, so the bridge starts a new epoch and clients take a snapshot. `/new`, `/resume` and `/fork` replace the session itself: the old one ends with `session.gone { reason: "replaced" }` and moves to recent, and the new one registers as any session does, with a new epoch. A new or forked session draws its own handle, and a resumed one gets back the handle it had when nobody else holds it, so a mention of `@kestrel` keeps reaching the conversation it meant.
+A pi process holds one session at a time, though not always the same one. `/reload` keeps the session and replaces the extension runtime, so the bridge starts a new epoch and clients take the state again. `/new`, `/resume` and `/fork` replace the session itself: the old one ends with `session.gone { reason: "replaced" }` and moves to recent, and the new one registers as any session does, with a new epoch. A new or forked session draws its own handle, and a resumed one gets back the handle it had when nobody else holds it, so a mention of `@kestrel` keeps reaching the conversation it meant.
 
 ### The runner
 
@@ -402,16 +402,16 @@ The daemon reads the session file of both kinds itself. For each file it keeps t
 ### The first load
 
 1. The client asks for the machines and the sessions: a small list with names, states, costs and last lines. It draws at once.
-2. Opening a session fetches a snapshot: the tail of the active branch, from the last compaction or the last 50 messages, whichever is shorter, plus the live state and the entry cursor. Then the live stream follows from the snapshot's `seq`.
+2. Opening a session asks for its state: the client's hello without a `seq` is the request, and the bridge answers it with one `state` message — the last 50 entries of the active branch, with no rule about compaction, plus the entry cursor. (`state.get` is the other direction: the daemon asking a bridge for a session it holds no state for.) Then the live stream follows from the `state`'s `seq`.
 3. Older history comes in pages as the client scrolls up, by entry id.
 
 ### The cache
 
-Each client keeps what it downloaded, keyed by machine, session and entry id: IndexedDB on the web, SQLite in the native app, a file under `remote/cache/` for a viewing pi. The next time it draws the cache at once and asks for the entries after its cursor, then the live snapshot. When the owner does not know the cursor, the client drops that session's cache and fetches the tail again. Logging out, unpairing or unlinking clears the cache.
+Each client keeps what it downloaded, keyed by machine, session and entry id: IndexedDB on the web, SQLite in the native app, a file under `remote/cache/` for a viewing pi. The next time it draws the cache at once and asks for the entries after its cursor, then the live `state`. When the owner does not know the cursor, the client drops that session's cache and fetches the tail again. Logging out, unpairing or unlinking clears the cache.
 
 ### Resuming the live stream
 
-A client that reconnects sends `(epoch, seq)` for each open session. When the epoch matches and the daemon still holds every event after that `seq`, it sends them. Otherwise it asks the bridge for a snapshot. A new epoch always means a snapshot.
+A client that reconnects sends `(epoch, seq)` for each open session. When the epoch matches and the daemon still holds every event after that `seq`, it sends them. Otherwise it asks the bridge for the `state`. A new epoch always means a `state`.
 
 ### The live message and the entries
 
