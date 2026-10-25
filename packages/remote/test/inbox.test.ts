@@ -37,12 +37,29 @@ function letter(text: string, want: "steer" | "followUp" = "followUp") {
 }
 
 describe("a session's inbox", () => {
+	test("a prompt pi never started stays in the queue, so the line the client draws is true", async () => {
+		const { inbox, sent, state } = wired();
+		state.running = false;
+		inbox.put(letter("pi will not take this", "followUp"));
+		// The send happened, and nothing proves a run started: the letter must still be drawn.
+		expect(sent).toHaveLength(1);
+		expect(inbox.queue().map((one) => one.text)).toEqual(["pi will not take this"]);
+		// The proof is pi's own event: when it arrives, the letter leaves the queue.
+		const { inbox: started, sent: went, state: later } = wired();
+		later.running = false;
+		started.put(letter("pi takes this one", "followUp"));
+		started.started();
+		expect(went).toHaveLength(1);
+		expect(started.queue()).toEqual([]);
+	});
+
 	test("sends a follow-up at once when no run is in flight, and leaves the queue empty", () => {
 		const { inbox, sent, state } = wired();
 		state.running = false;
 		inbox.put(letter("the first one", "followUp"));
-		// Nothing to wait for: the letter starts the run, and a client's queue does not keep it.
+		// Nothing to wait for: the letter starts the run. It leaves the queue once pi says it started.
 		expect(sent).toEqual([{ text: "the first one" }]);
+		inbox.started();
 		expect(inbox.queue()).toEqual([]);
 	});
 

@@ -118,6 +118,9 @@ export const remote = defineFeature({
 		});
 		// A follow-up waits for this: the run is over, so what a client held goes in now.
 		scope.on("agent_settled", () => bridge?.settled());
+		// And a run that starts is the proof that the prompt which started it is in: until it arrives
+		// the letter stays in the queue, so a send pi drops is visible instead of lost.
+		scope.on("agent_start", () => bridge?.started());
 		/**
 		 * A compaction is the other moment a follow-up is held for, and it ends no run: pi emits this
 		 * before it clears the flag that makes a send throw, so the queue is drained on the next turn
