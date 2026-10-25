@@ -70,7 +70,7 @@ describe("reading never mutates the session it was given", () => {
 		expect(afterEntry.session.state.permissions.mode).toBeUndefined();
 	});
 
-	test("a skip or a request for the whole state leaves the object identical, not just equal", () => {
+	test("a skip or a request for the whole state leaves the object equal to a copy taken before", () => {
 		const session = deepFreeze(started());
 		const before = structuredClone(session);
 		expect(readEnvelope(session, envelope("mode.changed", { mode: "nope" }, 1))).toEqual({
@@ -79,5 +79,25 @@ describe("reading never mutates the session it was given", () => {
 		const gap = readEnvelope(session, envelope("leaf.changed", { leaf: "missing" }, 2));
 		expect(gap).toEqual({ read: "state", why: "gap" });
 		expect(session).toEqual(before);
+	});
+
+	test("an opening that does not carry the state keeps the one the client had", () => {
+		// The snapshot may arrive without the folded state; replacing it with nothing would draw an
+		// empty session beside a branch full of entries.
+		const before = readEnvelope(started(), envelope("mode.changed", { mode: "judge" }, 2));
+		if (before.read !== "now") throw new Error("expected a read");
+		const after = readEnvelope(
+			before.session,
+			envelope(
+				"state",
+				{
+					summary: { session: "s", machine: "box", cwd: "/work", kind: "terminal" },
+					entries: [],
+				},
+				1,
+			),
+		);
+		if (after.read !== "now") throw new Error("expected a read");
+		expect(after.session.state.permissions.mode).toBe("judge");
 	});
 });
