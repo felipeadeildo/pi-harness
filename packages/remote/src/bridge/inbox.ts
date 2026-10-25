@@ -1,14 +1,13 @@
-// The session's inbox, wired to pi. The question this module answers is when a message goes in: a
-// steer at once, between the agent's calls, and a follow-up only when the agent settles.
+// The session's inbox, wired to pi: a steer goes in between the agent's calls, and a follow-up waits
+// until the agent settles.
 import { type By, Inbox, INBOX, INBOX_PORT, type Letter, type EventScope } from "@adeildo/pi-kit";
 import type { QueuedMessage } from "@adeildo/pi-remote-protocol";
 
 export interface InboxSession {
 	send(text: string, deliverAs: "steer" | "followUp" | undefined): void;
 	/**
-	 * Whether a run is in flight. A follow-up only waits for the agent to settle when there is
-	 * something to settle: in a session that is idle, holding it would wait for an event that never
-	 * comes, and the prompt would sit in the queue until someone typed at the terminal.
+	 * Whether a run is in flight. Holding a follow-up in an idle session waits for an event that never
+	 * comes, and the prompt sits in the queue until someone types at the terminal.
 	 */
 	busy(): boolean;
 	arrived(text: string, by: By): void;
