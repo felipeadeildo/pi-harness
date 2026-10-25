@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-	applyEvent,
+	applyChange,
 	emptySessionState,
 	envelope,
 	type SessionState,
@@ -93,7 +93,7 @@ describe("a daemon that restarts", () => {
 		sessions.event(envelope("event", "mode.changed", { mode: "not a mode" }, around(2)));
 		expect(sessions.get("s")?.state.permissions.mode).toBe("edits");
 		expect(
-			applyEvent(sessions.get("s")?.state ?? emptySessionState(), "mode.changed", { mode: "full" })
+			applyChange(sessions.get("s")?.state ?? emptySessionState(), "mode.changed", { mode: "full" })
 				.permissions.mode,
 		).toBe("full");
 	});

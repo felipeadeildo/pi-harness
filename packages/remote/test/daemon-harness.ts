@@ -8,10 +8,11 @@ import { join } from "node:path";
 
 import { type Transport } from "@adeildo/pi-remote-client";
 import {
-	applyEvent,
+	applyChange,
 	emptySessionState,
 	envelope,
 	type Envelope,
+	isStateChangeType,
 	PROTOCOL,
 } from "@adeildo/pi-remote-protocol";
 
@@ -58,7 +59,7 @@ export async function bridgeOf(session: string, epoch = "e1", file?: string) {
 	// same whether the state came from the log or from here.
 	let harness = emptySessionState();
 	const send = (type: string, data: unknown) => {
-		harness = applyEvent(harness, type, data);
+		if (isStateChangeType(type)) harness = applyChange(harness, type, data);
 		client.write(line(envelope("event", type, data, { ...at, seq: seq++ })));
 	};
 	const snapshot = (entries: unknown[]) =>

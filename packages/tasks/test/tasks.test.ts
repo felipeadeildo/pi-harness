@@ -11,10 +11,10 @@ import {
 	FolderFeed,
 	emptyTasks,
 	intentOf,
-	LEGACY_ENTRY,
+	LEGACY_CHANGES,
 	type SessionTasks,
-	TASKS_ENTRY,
-	TASKS_USAGE_ENTRY,
+	TASKS_CHANGES,
+	TASKS_USAGE_CHANGES,
 	type TaskOp,
 	type TasksUpdate,
 	tasksSettled,
@@ -177,7 +177,7 @@ async function mounted(answers: Record<string, Answer>[], branch: unknown[] = []
 	await fake.fire("session_start", {}, ctx);
 	const updates = () =>
 		fake.entries
-			.filter((entry) => entry.customType === TASKS_ENTRY)
+			.filter((entry) => entry.customType === TASKS_CHANGES)
 			.map((entry) => entry.data as TasksUpdate);
 	const bus = { events: fake.pi.events, warn: () => {} };
 	const state = () => TASKS.current(bus)?.state ?? emptyTasks();
@@ -308,7 +308,7 @@ describe("your messages", () => {
 		await say("m1", "ok");
 		await say("m2", "only a question?");
 		expect(updates()).toEqual([]);
-		const calls = fake.entries.filter((entry) => entry.customType === TASKS_USAGE_ENTRY);
+		const calls = fake.entries.filter((entry) => entry.customType === TASKS_USAGE_CHANGES);
 		expect(calls.map((entry) => entry.data)).toEqual([
 			{
 				trigger: "message",
@@ -452,7 +452,7 @@ describe("a session that comes back", () => {
 		const branch = [
 			{
 				type: "custom",
-				customType: TASKS_ENTRY,
+				customType: TASKS_CHANGES,
 				data: { version: 1, trigger: "message", ops: [], state: saved },
 			},
 		];
@@ -492,7 +492,7 @@ describe("a session that comes back", () => {
 	test("an older session writes the handle it was given with its title", async () => {
 		const saved = { ...emptyTasks(), handle: "oauth", title: "OAuth" };
 		const branch = [
-			{ type: "custom", customType: TASKS_ENTRY, data: { version: 1, state: saved } },
+			{ type: "custom", customType: TASKS_CHANGES, data: { version: 1, state: saved } },
 		];
 		await mounted([], branch);
 		const named = new FolderFeed(eventsDir("/repo"))
@@ -507,7 +507,7 @@ describe("a session that comes back", () => {
 
 	test("one titled before it could be named gets its name when it opens", async () => {
 		const saved = { ...emptyTasks(), title: "OAuth for the MCP" };
-		const entry = { type: "custom", customType: TASKS_ENTRY, data: { version: 1, state: saved } };
+		const entry = { type: "custom", customType: TASKS_CHANGES, data: { version: 1, state: saved } };
 		expect((await mounted([], [entry])).fake.sessionName).toBe("OAuth for the MCP");
 	});
 
@@ -515,7 +515,7 @@ describe("a session that comes back", () => {
 		const branch = [
 			{
 				type: "custom",
-				customType: LEGACY_ENTRY,
+				customType: LEGACY_CHANGES,
 				data: {
 					state: {
 						version: 1,

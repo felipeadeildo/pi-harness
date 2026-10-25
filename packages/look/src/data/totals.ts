@@ -18,9 +18,9 @@ export interface RequestRecord {
 	generationMs: number;
 }
 
-export const REQUEST_ENTRY = "pi-look:request";
+export const REQUEST_CHANGES = "pi-look:request";
 /** Written by this package before it was renamed. It has no `prompt`, so it only counts for decode. */
-const LEGACY_ENTRY = "pi-statusline:turn";
+const LEGACY_CHANGES = "pi-statusline:turn";
 
 export interface Averages {
 	decode: number | undefined;
@@ -57,7 +57,7 @@ export function averagesOf(entries: readonly SessionEntry[]): Averages {
 
 	for (const entry of entries) {
 		if (entry.type !== "custom") continue;
-		if (entry.customType !== REQUEST_ENTRY && entry.customType !== LEGACY_ENTRY) continue;
+		if (entry.customType !== REQUEST_CHANGES && entry.customType !== LEGACY_CHANGES) continue;
 		const record = entry.data;
 		if (!isRecord(record)) continue;
 

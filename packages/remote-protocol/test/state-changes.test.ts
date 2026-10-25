@@ -2,63 +2,63 @@
 // stream is the number pi gives it, and a leaf may be null when a `/tree` move goes back to the root.
 import { describe, expect, test } from "bun:test";
 
-import type { FactMap, FactType } from "../src/facts.ts";
-import { ENTRY, type Entry, FACT_TYPES, isFact, isFactType } from "../src/reduce/entry.ts";
+import { CHANGES, type Entry, STATE_CHANGES, isStateChangeType } from "../src/reduce/entry.ts";
 import { isQueuedMessage, isSnapshot } from "../src/snapshot.ts";
+import type { StateChangeMap, StateChangeType } from "../src/state-changes.ts";
 
 describe("a fact the daemon has to carry", () => {
 	test("a bound stream is the number pi numbered it with", () => {
-		expect(isFact("stream.bound", { messages: [{ stream: 3, entry: "e1" }] })).toBe(true);
+		expect(CHANGES["stream.bound"].check({ messages: [{ stream: 3, entry: "e1" }] })).toBe(true);
 	});
 
 	test("a stream that is not a number is refused, not read as one", () => {
-		expect(isFact("stream.bound", { messages: [{ stream: "3", entry: "e1" }] })).toBe(false);
-		expect(isFact("stream.bound", { messages: [{ entry: "e1" }] })).toBe(false);
-		expect(isFact("stream.bound", { messages: [{ stream: 3 }] })).toBe(false);
+		expect(CHANGES["stream.bound"].check({ messages: [{ stream: "3", entry: "e1" }] })).toBe(false);
+		expect(CHANGES["stream.bound"].check({ messages: [{ entry: "e1" }] })).toBe(false);
+		expect(CHANGES["stream.bound"].check({ messages: [{ stream: 3 }] })).toBe(false);
 	});
 
 	test("a leaf back at the root is a leaf change, not a broken fact", () => {
-		expect(isFact("leaf.changed", { leaf: null })).toBe(true);
-		expect(isFact("leaf.changed", { leaf: "e1" })).toBe(true);
+		expect(CHANGES["leaf.changed"].check({ leaf: null })).toBe(true);
+		expect(CHANGES["leaf.changed"].check({ leaf: "e1" })).toBe(true);
 	});
 
 	test("a leaf of the wrong shape is still refused", () => {
-		expect(isFact("leaf.changed", { leaf: 4 })).toBe(false);
-		expect(isFact("leaf.changed", {})).toBe(false);
+		expect(CHANGES["leaf.changed"].check({ leaf: 4 })).toBe(false);
+		expect(CHANGES["leaf.changed"].check({})).toBe(false);
 	});
 });
 
 describe("the table of entries", () => {
 	test("a fact with no check and no apply does not compile", () => {
-		// `ENTRY` is a mapped type over `FactType`: a fact added to `FactMap` without an entry fails
+		// `CHANGES` is a mapped type over `StateChangeType`: a fact added to `StateChangeMap` without an entry fails
 		// here. The directive is the test — if the map became partial, it would be unused and `tsc`
 		// reports that instead of silence.
 		// @ts-expect-error the object is missing every entry, which is the compile error this pins
-		const incomplete: { [K in FactType]: Entry<FactMap[K]> } = {};
+		const incomplete: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {};
 		expect(incomplete).toBeDefined();
 	});
 
 	test("every fact the protocol lists has an entry, and every entry a fact", () => {
-		expect([...FACT_TYPES].sort()).toEqual((Object.keys(ENTRY) as FactType[]).sort());
+		expect([...STATE_CHANGES].sort()).toEqual((Object.keys(CHANGES) as StateChangeType[]).sort());
 	});
 });
 
 describe("a session's status", () => {
 	test("is one of pi's five words", () => {
 		for (const status of ["working", "blocked", "done", "error", "idle"]) {
-			expect(isFact("session.status", { status })).toBe(true);
+			expect(CHANGES["session.status"].check({ status })).toBe(true);
 		}
 		// The log's own `session.state` is not a fact of this protocol, and never reads as one.
-		expect(isFactType("session.state")).toBe(false);
+		expect(isStateChangeType("session.state")).toBe(false);
 	});
 
 	test("is never peers' running or idle from the log, nor any other word", () => {
 		// The log's own `session.state` is peers' activity and never crosses; the wire's status is
 		// pi's, and a word from the other side is refused rather than shown as a status.
-		expect(isFact("session.status", { status: "running" })).toBe(false);
-		expect(isFact("session.status", { status: "waiting" })).toBe(false);
-		expect(isFact("session.status", {})).toBe(false);
-		expect(isFact("session.status", { status: "blocked" })).toBe(true);
+		expect(CHANGES["session.status"].check({ status: "running" })).toBe(false);
+		expect(CHANGES["session.status"].check({ status: "waiting" })).toBe(false);
+		expect(CHANGES["session.status"].check({})).toBe(false);
+		expect(CHANGES["session.status"].check({ status: "blocked" })).toBe(true);
 	});
 });
 
@@ -88,11 +88,11 @@ describe("a letter waiting in the inbox", () => {
 describe("a prompt that arrived from elsewhere", () => {
 	test("names who sent it, since that is the whole fact", () => {
 		expect(
-			isFact("prompt.received", { by: { kind: "client", name: "phone", machine: "here" } }),
+			CHANGES["prompt.received"].check({ by: { kind: "client", name: "phone", machine: "here" } }),
 		).toBe(true);
 		// A prompt of nobody says nothing: the writer is the reason the fact exists.
-		expect(isFact("prompt.received", {})).toBe(false);
-		expect(isFact("prompt.received", { by: { kind: "client" } })).toBe(false);
+		expect(CHANGES["prompt.received"].check({})).toBe(false);
+		expect(CHANGES["prompt.received"].check({ by: { kind: "client" } })).toBe(false);
 	});
 });
 

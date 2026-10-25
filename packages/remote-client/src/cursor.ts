@@ -1,5 +1,5 @@
 // Where a client stopped reading, one cursor per kind of data: entries by pi's entry id, the log's
-// facts by their position, and the live stream by (epoch, seq). A cursor is what a reconnect sends.
+// state changes by their position, and the live stream by (epoch, seq). A cursor is what a reconnect sends.
 import type { Envelope } from "@adeildo/pi-remote-protocol";
 
 export interface Cursor {
@@ -10,7 +10,7 @@ export interface Cursor {
 	/** The last entry of the branch the client holds. */
 	entry?: string;
 	/** The last position in the harness log the client read. */
-	facts?: number;
+	changes?: number;
 }
 
 export type Next =

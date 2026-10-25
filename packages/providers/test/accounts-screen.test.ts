@@ -6,7 +6,7 @@ import type { Credential } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { accountStatus } from "../src/accounts/actions.ts";
-import { SESSION_ENTRY } from "../src/accounts/names.ts";
+import { SESSION_CHANGES } from "../src/accounts/names.ts";
 import type { Pins } from "../src/accounts/pins.ts";
 import { accountRows } from "../src/accounts/screen.ts";
 import { AccountStore } from "../src/accounts/store.ts";
@@ -69,7 +69,7 @@ test("using an account pins it for the session and remembers it", () => {
 	expect(pins.get("anthropic")).toBe(work.id);
 	expect(store.active("anthropic")?.id).toBe(work.id);
 	expect(fake.entries).toContainEqual({
-		customType: SESSION_ENTRY,
+		customType: SESSION_CHANGES,
 		data: { kind: "account", provider: "anthropic", account: work.id },
 	});
 });

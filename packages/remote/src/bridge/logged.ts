@@ -1,8 +1,8 @@
 // The session's harness state as this bridge knows it: what the kit logs for this session, folded the
 // same way every reader folds it, so the snapshot it sends needs no replay behind it.
 import {
-	applyEvent,
-	isFactType,
+	applyChange,
+	isStateChangeType,
 	emptySessionState,
 	openQuestions,
 	type PermissionMode,
@@ -61,7 +61,7 @@ export class Harness {
 	/** Folds one event the session logged into the state a snapshot carries. */
 	saw(type: string, data: unknown): void {
 		// The forwarder hands whatever the log wrote; only a fact has an effect to fold.
-		if (isFactType(type)) this.#state = applyEvent(this.#state, type, data);
+		if (isStateChangeType(type)) this.#state = applyChange(this.#state, type, data);
 	}
 
 	get openQuestions(): string[] {

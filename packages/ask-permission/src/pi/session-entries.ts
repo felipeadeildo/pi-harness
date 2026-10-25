@@ -8,7 +8,7 @@ import { NAME } from "#identity";
 import type { SessionState } from "#pi/session.ts";
 import { isRecord } from "#util/primitives.ts";
 
-export const SESSION_ENTRY = `${NAME}:session`;
+export const SESSION_CHANGES = `${NAME}:session`;
 
 export type SessionEntry =
 	| { kind: "mode"; mode: PermissionMode }
@@ -26,7 +26,7 @@ export interface SessionSnapshot {
 }
 
 export function record(pi: ExtensionAPI, entry: SessionEntry): void {
-	pi.appendEntry(SESSION_ENTRY, entry);
+	pi.appendEntry(SESSION_CHANGES, entry);
 }
 
 export function replay(
@@ -78,7 +78,7 @@ export function restoreSession(state: SessionState, ctx: ExtensionContext): void
 }
 
 function sessionEntry(item: unknown): SessionEntry | undefined {
-	if (!isRecord(item) || item.type !== "custom" || item.customType !== SESSION_ENTRY) {
+	if (!isRecord(item) || item.type !== "custom" || item.customType !== SESSION_CHANGES) {
 		return undefined;
 	}
 

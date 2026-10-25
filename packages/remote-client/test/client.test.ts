@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { Entry, Envelope } from "@adeildo/pi-remote-protocol";
-import { applyEvent, emptySessionState } from "@adeildo/pi-remote-protocol";
+import { applyChange, emptySessionState, isStateChangeType } from "@adeildo/pi-remote-protocol";
 
 import { memoryCache } from "../src/cache.ts";
 import { connect } from "../src/connection.ts";
@@ -37,7 +37,11 @@ const facts = lines("harness.jsonl") as { type: string; data: unknown }[];
 
 /** The recording's facts folded once, which is what a cache holds now. */
 const folded = (list: { type: string; data: unknown }[]) =>
-	list.reduce((state, fact) => applyEvent(state, fact.type, fact.data), emptySessionState());
+	list.reduce(
+		(state, fact) =>
+			isStateChangeType(fact.type) ? applyChange(state, fact.type, fact.data) : state,
+		emptySessionState(),
+	);
 
 /** The envelopes the bridge sends after a snapshot: the log's facts, then the entries, numbered. */
 function stream(first: number): Envelope[] {
@@ -325,7 +329,11 @@ describe("a client of a session", () => {
 		// left no second copy behind.
 		const read = stream(1).filter((envelope) => envelope.seq === 2 || envelope.seq === 3);
 		expect(client.session().state).toEqual(
-			read.reduce((state, one) => applyEvent(state, one.type, one.data), emptySessionState()),
+			read.reduce(
+				(state, one) =>
+					isStateChangeType(one.type) ? applyChange(state, one.type, one.data) : state,
+				emptySessionState(),
+			),
 		);
 		client.stop();
 	});

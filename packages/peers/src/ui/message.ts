@@ -2,7 +2,7 @@
 // the agent that wrote it, who and to whom in its top edge with the time on the right, the words inside.
 import { basename } from "node:path";
 
-import { drawnByWidth, ENTRY_X, entryFrame, formatClock, GLYPH } from "@adeildo/pi-kit";
+import { drawnByWidth, CHANGES_X, entryFrame, formatClock, GLYPH } from "@adeildo/pi-kit";
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { type Component, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
@@ -29,7 +29,7 @@ export function messageLines(details: PeerMessageDetails, theme: Theme, width: n
 	const where =
 		details.where === undefined ? "" : theme.fg("dim", ` \u00b7 ${basename(details.where)}`);
 	const top = `${theme.fg(color, theme.bold(who))}${where} ${theme.fg("muted", addressed(details))}`;
-	const body = wrapTextWithAnsi(details.text.trim(), Math.max(1, width - ENTRY_X)).map((line) =>
+	const body = wrapTextWithAnsi(details.text.trim(), Math.max(1, width - CHANGES_X)).map((line) =>
 		theme.fg("text", line),
 	);
 	return entryFrame(body, width, theme, {

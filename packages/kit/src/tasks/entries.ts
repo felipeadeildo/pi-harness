@@ -12,10 +12,10 @@ import {
 	type TasksTrigger,
 } from "./state.ts";
 
-export const TASKS_ENTRY = "pi-tasks:update";
-export const TASKS_USAGE_ENTRY = "pi-tasks:usage";
-export const LEGACY_ENTRY = "pi-goal:update";
-const LEGACY_USAGE_ENTRY = "pi-goal:usage";
+export const TASKS_CHANGES = "pi-tasks:update";
+export const TASKS_USAGE_CHANGES = "pi-tasks:usage";
+export const LEGACY_CHANGES = "pi-goal:update";
+const LEGACY_USAGE_CHANGES = "pi-goal:usage";
 
 export interface TasksUsage {
 	input: number;
@@ -53,14 +53,19 @@ export function tasksFromEntries(entries: readonly unknown[]): SessionTasks {
 }
 
 export function tasksUpdateOf(entry: unknown): TasksUpdate | undefined {
-	if (!isObject(entry) || entry.type !== "custom" || entry.customType !== TASKS_ENTRY)
+	if (!isObject(entry) || entry.type !== "custom" || entry.customType !== TASKS_CHANGES)
 		return undefined;
 	const data = entry.data;
 	if (!isObject(data) || data.version !== TASKS_VERSION || !isTasks(data.state)) return undefined;
 	return data as unknown as TasksUpdate;
 }
 
-const USAGE_ENTRIES = new Set([TASKS_ENTRY, TASKS_USAGE_ENTRY, LEGACY_ENTRY, LEGACY_USAGE_ENTRY]);
+const USAGE_ENTRIES = new Set([
+	TASKS_CHANGES,
+	TASKS_USAGE_CHANGES,
+	LEGACY_CHANGES,
+	LEGACY_USAGE_CHANGES,
+]);
 
 export function tasksUsageOf(entry: unknown): TasksUsage | undefined {
 	if (!isObject(entry) || entry.type !== "custom" || !isObject(entry.data)) return undefined;
@@ -111,7 +116,7 @@ interface LegacyItem {
 }
 
 function legacyStateOf(entry: unknown): SessionTasks | undefined {
-	if (!isObject(entry) || entry.type !== "custom" || entry.customType !== LEGACY_ENTRY)
+	if (!isObject(entry) || entry.type !== "custom" || entry.customType !== LEGACY_CHANGES)
 		return undefined;
 	const state = isObject(entry.data) ? entry.data.state : undefined;
 	if (!isObject(state) || !Array.isArray(state.items) || typeof state.nextId !== "number")

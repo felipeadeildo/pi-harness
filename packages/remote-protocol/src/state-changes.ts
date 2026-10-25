@@ -129,7 +129,7 @@ export type PermissionMode = "manual" | "edits" | "judge" | "full";
 export const SESSION_STATES = ["working", "blocked", "done", "error", "idle"] as const;
 
 /** Every fact the client reduces, with the shape each carries. */
-export interface FactMap {
+export interface StateChangeMap {
 	"tasks.changed": { state: SessionTasks };
 	"ask.opened": { id: string; source: string; questions: AskQuestion[]; expiresAt?: number };
 	"ask.closed": { id: string; by?: By; result: AskResult };
@@ -160,7 +160,7 @@ export interface FactMap {
 	"stream.bound": { messages: { stream: number; entry: string }[] };
 	/** The entry the branch ends at, or null when a `/tree` move goes back to the root. */
 	"leaf.changed": { leaf: string | null };
-	/** Always written with who sent it, since that is the whole fact; read leniently, see `isFact`. */
+	/** Always written with who sent it, since that is the whole fact; read leniently, see `isStateChange`. */
 	"prompt.received": { by: By };
 	/** The whole queue as it stands: it waits in the session, so every client sees the same list. */
 	"queue.changed": { queue: QueuedMessage[] };
@@ -168,4 +168,4 @@ export interface FactMap {
 	"cost.changed": { cost: SessionCost };
 }
 
-export type FactType = keyof FactMap;
+export type StateChangeType = keyof StateChangeMap;

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { ANSWER, ASK, type AnswerEvent, AVAILABLE, CANCEL, type By } from "@adeildo/pi-kit";
-import { emptySessionState, isFact, applyEvent } from "@adeildo/pi-remote-protocol";
+import { emptySessionState, isStateChangeType, applyChange } from "@adeildo/pi-remote-protocol";
 import { createEventBus } from "@earendil-works/pi-coding-agent";
 
 import { ClientAsks, OpenAsks } from "../src/bridge/asks.ts";
@@ -92,8 +92,8 @@ describe("the questions of a session with no terminal", () => {
 		expect(sent).toEqual([{ type: "ask.closed", data: { id: "q2", result: CANCELLED } }]);
 		let facts = emptySessionState();
 		for (const event of sent) {
-			expect(isFact(event.type, event.data)).toBe(true);
-			facts = applyEvent(facts, event.type, event.data);
+			expect(isStateChangeType(event.type)).toBe(true);
+			facts = isStateChangeType(event.type) ? applyChange(facts, event.type, event.data) : facts;
 		}
 		expect(Object.values(facts.questions).filter((one) => one.closed === undefined)).toEqual([]);
 	});

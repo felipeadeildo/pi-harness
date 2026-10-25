@@ -1,7 +1,7 @@
 // Colleagues' messages that wait for your next prompt, drawn when they arrive: the same frames as a
 // delivery, and one line under them that says why the agent did not get them yet, or, once a run
 // that was not yours took them, which run that was.
-import { drawnByWidth, ENTRY_X, isObject } from "@adeildo/pi-kit";
+import { drawnByWidth, CHANGES_X, isObject } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
@@ -45,8 +45,8 @@ export function heldBlock(
 		...frames.render(width),
 		...wrapTextWithAnsi(
 			heldLine(held, wentIn(held.items[0]?.id ?? "")),
-			Math.max(1, width - ENTRY_X),
-		).map((line) => `${" ".repeat(ENTRY_X)}${theme.fg("muted", line)}`),
+			Math.max(1, width - CHANGES_X),
+		).map((line) => `${" ".repeat(CHANGES_X)}${theme.fg("muted", line)}`),
 	]);
 }
 

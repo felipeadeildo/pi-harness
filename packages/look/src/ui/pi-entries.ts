@@ -3,7 +3,7 @@
 // apart with a background and blank rows; the frame does that job here, so the text keeps its colour,
 // loses the background, and sits against the edges. Pi has no hook for drawing these, so this wraps
 // the render of each component.
-import { ENTRY_CUT, ENTRY_X, entryFrame, type EntryFrame, GLYPH } from "@adeildo/pi-kit";
+import { CHANGES_CUT, CHANGES_X, entryFrame, type EntryFrame, GLYPH } from "@adeildo/pi-kit";
 import {
 	BashExecutionComponent,
 	BranchSummaryMessageComponent,
@@ -116,7 +116,7 @@ function wrap(
 	const own = prototype.render;
 	prototype.render = function render(this: object, width: number) {
 		const look = paint();
-		const frame = look === undefined || width < ENTRY_X * 2 ? undefined : frameOf(this, look);
+		const frame = look === undefined || width < CHANGES_X * 2 ? undefined : frameOf(this, look);
 		if (look === undefined || frame === undefined) return own.call(this, width);
 		const source = own.call(this, width - 2);
 		// The transcript draws every entry on every keystroke. Pi caches its own lines, so the frame
@@ -163,7 +163,7 @@ export function framed(
 		lines = lines.filter((line) => !/^\u2500+$/.test(stripTerminalSequences(line).trim()));
 		// The blank line between a command and what it printed.
 		const gap = lines.findIndex((line, index) => index > 0 && isBlank(line));
-		if (gap > 0 && gap < lines.length - 1) lines[gap] = ENTRY_CUT;
+		if (gap > 0 && gap < lines.length - 1) lines[gap] = CHANGES_CUT;
 	}
 	// The blank rows pi pads its entries with.
 	const trim = () => {

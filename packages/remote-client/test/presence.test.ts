@@ -2,7 +2,7 @@
 // client that reconnects would otherwise draw who was watching ten minutes ago.
 import { describe, expect, test } from "bun:test";
 
-import { applyEvent, emptySessionState, FACT_TYPES } from "@adeildo/pi-remote-protocol";
+import { emptySessionState, isStateChangeType, STATE_CHANGES } from "@adeildo/pi-remote-protocol";
 
 import { memoryCache } from "../src/cache.ts";
 import { Outbox } from "../src/outbox.ts";
@@ -62,10 +62,9 @@ describe("who has the session open", () => {
 		// The difference between "the client applies it" and "the log remembers it": a fact is
 		// replayed, and a replay would say who was watching an hour ago.
 		const presence = { viewers: [{ name: "phone", machine: "here" }] };
-		expect(FACT_TYPES).not.toContain("presence.changed" as never);
-		expect(applyEvent(emptySessionState(), "presence.changed", presence)).toEqual(
-			emptySessionState(),
-		);
+		expect(STATE_CHANGES).not.toContain("presence.changed" as never);
+		expect(isStateChangeType("presence.changed")).toBe(false);
+		expect(presence.viewers).toHaveLength(1);
 	});
 
 	test("a snapshot may carry it, so the first draw is who is watching now", () => {

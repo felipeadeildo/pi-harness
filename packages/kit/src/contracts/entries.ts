@@ -3,4 +3,4 @@
 // other side would simply find nothing to read.
 
 /** The compact's record of a prune: what it hid, what it freed, and what the rewrite cost. */
-export const PRUNE_ENTRY = "pi-compact:prune";
+export const PRUNE_CHANGES = "pi-compact:prune";

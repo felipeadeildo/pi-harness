@@ -29,7 +29,7 @@ import { emptySnapshot, type LiveInputs, type Snapshot, SnapshotReader } from ".
 import type { LastVisit } from "./data/start-notes.ts";
 import { Telemetry } from "./data/telemetry.ts";
 import type { DeltaKind } from "./data/telemetry.ts";
-import { REQUEST_ENTRY, type RequestRecord } from "./data/totals.ts";
+import { REQUEST_CHANGES, type RequestRecord } from "./data/totals.ts";
 import { visit } from "./data/visits.ts";
 import { type Glyphs, glyphsOf } from "./render/glyphs.ts";
 import { PLAIN, themePaint } from "./render/paint.ts";
@@ -246,7 +246,7 @@ export const look = defineFeature({
 			if (event.message.role !== "assistant") return;
 			const record = telemetry.answerEnded(event.message.usage);
 			// Pi records usage without a duration, so the session keeps it for the speeds after a resume.
-			if (record !== undefined) scope.appendEntry<RequestRecord>(REQUEST_ENTRY, record);
+			if (record !== undefined) scope.appendEntry<RequestRecord>(REQUEST_CHANGES, record);
 			repaint();
 		});
 

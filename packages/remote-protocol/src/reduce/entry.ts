@@ -1,11 +1,11 @@
 // One entry per fact: the shape it must carry, and what it does to the state. Written as a table so a
-// fact added to `FactMap` does not compile until somebody says both — a fact with a shape and no
+// fact added to `StateChangeMap` does not compile until somebody says both — a fact with a shape and no
 // effect is a shape nobody folds, and one with an effect and no check is a reader trusting the wire.
 
 import { isBy } from "../by.ts";
 import { isObject } from "../by.ts";
-import { SESSION_STATES, type FactMap, type FactType } from "../facts.ts";
 import { type QueuedMessage } from "../snapshot.ts";
+import { SESSION_STATES, type StateChangeMap, type StateChangeType } from "../state-changes.ts";
 import type { SessionState } from "./state.ts";
 
 /** One fact: what it must carry, and what it leaves behind. */
@@ -39,13 +39,13 @@ function bound(state: SessionState): SessionState {
 }
 
 /** Every fact the protocol knows, each with its check and its effect. */
-export const ENTRY: { [K in FactType]: Entry<FactMap[K]> } = {
+export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 	"tasks.changed": {
-		check: (data): data is FactMap["tasks.changed"] => isObject(data) && isTasks(data.state),
+		check: (data): data is StateChangeMap["tasks.changed"] => isObject(data) && isTasks(data.state),
 		apply: (state, data) => ({ ...state, tasks: data.state }),
 	},
 	"call.ruled": {
-		check: (data): data is FactMap["call.ruled"] =>
+		check: (data): data is StateChangeMap["call.ruled"] =>
 			isObject(data) &&
 			typeof data.toolCallId === "string" &&
 			isObject(data.ruling) &&
@@ -71,7 +71,7 @@ export const ENTRY: { [K in FactType]: Entry<FactMap[K]> } = {
 			}),
 	},
 	"ask.opened": {
-		check: (data): data is FactMap["ask.opened"] =>
+		check: (data): data is StateChangeMap["ask.opened"] =>
 			isObject(data) && typeof data.id === "string" && Array.isArray(data.questions),
 		apply: (state, data) => ({
 			...state,
@@ -79,7 +79,7 @@ export const ENTRY: { [K in FactType]: Entry<FactMap[K]> } = {
 		}),
 	},
 	"ask.closed": {
-		check: (data): data is FactMap["ask.closed"] =>
+		check: (data): data is StateChangeMap["ask.closed"] =>
 			isObject(data) && typeof data.id === "string" && isObject(data.result),
 		apply: (state, data) => {
 			const before = state.questions[data.id];
@@ -103,7 +103,7 @@ export const ENTRY: { [K in FactType]: Entry<FactMap[K]> } = {
 		},
 	},
 	"mode.changed": {
-		check: (data): data is FactMap["mode.changed"] =>
+		check: (data): data is StateChangeMap["mode.changed"] =>
 			isObject(data) &&
 			(data.mode === "manual" ||
 				data.mode === "edits" ||
@@ -115,21 +115,21 @@ export const ENTRY: { [K in FactType]: Entry<FactMap[K]> } = {
 		}),
 	},
 	"session.renamed": {
-		check: (data): data is FactMap["session.renamed"] =>
+		check: (data): data is StateChangeMap["session.renamed"] =>
 			isObject(data) && (data.by === undefined || isBy(data.by)),
 		apply: (state, data) => ({ ...state, renamed: data }),
 	},
 	"session.status": {
 		// pi's program status words only: the log's own `session.state` is peers' running or idle, and a
 		// line of it must never read as a status.
-		check: (data): data is FactMap["session.status"] =>
+		check: (data): data is StateChangeMap["session.status"] =>
 			isObject(data) && SESSION_STATES.some((status) => status === data.status),
 		apply: (state, data) => ({ ...state, status: data.status }),
 	},
 	"session.live": {
 		// The list is the contract the composer and the refusal both read: a `source` this version does
 		// not know would be drawn by the screen and misjudged by the wire, so it is refused here.
-		check: (data): data is FactMap["session.live"] =>
+		check: (data): data is StateChangeMap["session.live"] =>
 			isObject(data) &&
 			(data.commands === undefined ||
 				(Array.isArray(data.commands) &&
@@ -149,7 +149,7 @@ export const ENTRY: { [K in FactType]: Entry<FactMap[K]> } = {
 		}),
 	},
 	"session.gone": {
-		check: (data): data is FactMap["session.gone"] =>
+		check: (data): data is StateChangeMap["session.gone"] =>
 			isObject(data) &&
 			(data.reason === "exit" ||
 				data.reason === "crash" ||
@@ -160,7 +160,7 @@ export const ENTRY: { [K in FactType]: Entry<FactMap[K]> } = {
 	},
 	"stream.bound": {
 		// The number matters: a stream that is not pi's number cannot be matched to a transcript.
-		check: (data): data is FactMap["stream.bound"] =>
+		check: (data): data is StateChangeMap["stream.bound"] =>
 			isObject(data) &&
 			Array.isArray(data.messages) &&
 			data.messages.every(
@@ -172,55 +172,47 @@ export const ENTRY: { [K in FactType]: Entry<FactMap[K]> } = {
 		apply: unchanged,
 	},
 	"leaf.changed": {
-		check: (data): data is FactMap["leaf.changed"] =>
+		check: (data): data is StateChangeMap["leaf.changed"] =>
 			isObject(data) && (data.leaf === null || typeof data.leaf === "string"),
 		// Where the branch ends is the stream's cursor, not the state's: the entries carry the leaf.
 		apply: unchanged,
 	},
 	"prompt.received": {
 		// A prompt that reached the log names who sent it; anything else is not this fact.
-		check: (data): data is FactMap["prompt.received"] => isObject(data) && isBy(data.by),
+		check: (data): data is StateChangeMap["prompt.received"] => isObject(data) && isBy(data.by),
 		apply: unchanged,
 	},
 	"queue.changed": {
-		check: (data): data is FactMap["queue.changed"] =>
+		check: (data): data is StateChangeMap["queue.changed"] =>
 			isObject(data) && Array.isArray(data.queue) && data.queue.every(isQueuedMessage),
 		apply: (state, data) => ({ ...state, queue: data.queue }),
 	},
 	"cost.changed": {
 		// Every number a reader sums: a `NaN` here would be drawn as `$NaN` and kept for the day.
-		check: (data): data is FactMap["cost.changed"] => isObject(data) && isCost(data.cost),
+		check: (data): data is StateChangeMap["cost.changed"] => isObject(data) && isCost(data.cost),
 		apply: (state, data) => ({ ...state, cost: data.cost }),
 	},
 };
 
 /** Every fact this version folds, derived from the table so the two cannot drift. */
-export const FACT_TYPES: readonly FactType[] = Object.keys(ENTRY) as FactType[];
+export const STATE_CHANGES: readonly StateChangeType[] = Object.keys(CHANGES) as StateChangeType[];
 
 /** Whether a string names a fact this version folds. */
-export function isFactType(type: string): type is FactType {
-	return Object.hasOwn(ENTRY, type);
-}
-
-/**
- * Whether a fact carries the shape its name promises. Only the fields the reducers read are checked:
- * a fact written by a newer harness still reduces as long as the old fields are there.
- */
-export function isFact(type: string, data: unknown): boolean {
-	return isFactType(type) && ENTRY[type].check(data);
+export function isStateChangeType(type: string): type is StateChangeType {
+	return Object.hasOwn(CHANGES, type);
 }
 
 /** Folds one fact, through the entry that owns it. A fact a check refuses leaves the state alone. */
-export function applyOne<K extends FactType>(
+export function applyOne<K extends StateChangeType>(
 	state: SessionState,
 	type: K,
 	data: unknown,
 ): SessionState {
-	const entry = ENTRY[type];
+	const entry = CHANGES[type];
 	return entry.check(data) ? entry.apply(state, data) : state;
 }
 
-function isTasks(value: unknown): value is FactMap["tasks.changed"]["state"] {
+function isTasks(value: unknown): value is StateChangeMap["tasks.changed"]["state"] {
 	return (
 		isObject(value) &&
 		value.version === 1 &&

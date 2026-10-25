@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { TASKS_ENTRY, TASKS_USAGE_ENTRY, totalsOf as totalsInKit } from "@adeildo/pi-kit";
+import { TASKS_CHANGES, TASKS_USAGE_CHANGES, totalsOf as totalsInKit } from "@adeildo/pi-kit";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 
 import { readGit } from "../src/data/git.ts";
@@ -9,7 +9,7 @@ import { Telemetry } from "../src/data/telemetry.ts";
 import {
 	averagesOf,
 	cacheHitPercent,
-	REQUEST_ENTRY,
+	REQUEST_CHANGES,
 	totalsOf,
 	type Totals,
 } from "../src/data/totals.ts";
@@ -263,8 +263,8 @@ describe("totals", () => {
 	test("the tasks' model calls count in the session's cost", () => {
 		const entries = [
 			assistant({ input: 10, output: 5, cost: 0.1 }),
-			custom(TASKS_ENTRY, { usage: { input: 100, output: 20, cost: 0.002 } }),
-			custom(TASKS_USAGE_ENTRY, { usage: { input: 80, output: 10, cost: 0.001 } }),
+			custom(TASKS_CHANGES, { usage: { input: 100, output: 20, cost: 0.002 } }),
+			custom(TASKS_USAGE_CHANGES, { usage: { input: 80, output: 10, cost: 0.001 } }),
 		];
 		const totals = totalsOf(entries);
 		expect(totals).toMatchObject({ input: 190, output: 35 });
@@ -273,13 +273,13 @@ describe("totals", () => {
 
 	test("averages both speeds, and reads the records this package wrote under its old name", () => {
 		const entries = [
-			custom(REQUEST_ENTRY, {
+			custom(REQUEST_CHANGES, {
 				output: 300,
 				prompt: 60_000,
 				firstTokenMs: 2_000,
 				generationMs: 1_000,
 			}),
-			custom(REQUEST_ENTRY, {
+			custom(REQUEST_CHANGES, {
 				output: 100,
 				prompt: 40_000,
 				firstTokenMs: 2_000,

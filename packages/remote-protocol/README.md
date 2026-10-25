@@ -35,7 +35,7 @@ A fact is one thing the harness did, written to the session's log and sent as an
 question opened or closed, a ruling on a call, the permission mode, the session's state, a rename, the
 number of a streamed message bound to its entry, a move in the tree.
 
-`FactMap` is the shape of each and `FACT_TYPES` is the closed list. `isFact` checks a fact against its
+`StateChangeMap` is the shape of each and `STATE_CHANGES` is the closed list. `isStateChange` checks a fact against its
 type, and `reduceFact` folds that list into `SessionFacts`: the tasks as they stand, the questions still
 open, the ruling of each call, the mode and the rename. `openAsks` is the questions a screen should
 draw.

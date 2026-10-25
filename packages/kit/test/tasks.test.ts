@@ -10,11 +10,11 @@ import {
 	emptyTasks,
 	intentOf,
 	isStale,
-	LEGACY_ENTRY,
+	LEGACY_CHANGES,
 	type SessionTasks,
 	type Task,
-	TASKS_ENTRY,
-	TASKS_USAGE_ENTRY,
+	TASKS_CHANGES,
+	TASKS_USAGE_CHANGES,
 	TASKS_VERSION,
 	tasksFromEntries,
 	tasksSpent,
@@ -215,7 +215,7 @@ test("the description carries results, what is left, who a task waits on, and de
 function entry(state: SessionTasks) {
 	return {
 		type: "custom",
-		customType: TASKS_ENTRY,
+		customType: TASKS_CHANGES,
 		data: { version: TASKS_VERSION, trigger: "message", ops: [], state },
 	};
 }
@@ -230,7 +230,7 @@ test("a branch's tasks are its last update", () => {
 test("a session from before reads its goal timeline as tasks", () => {
 	const legacy = {
 		type: "custom",
-		customType: LEGACY_ENTRY,
+		customType: LEGACY_CHANGES,
 		data: {
 			version: 1,
 			trigger: "message",
@@ -322,8 +322,8 @@ function usage(customType: string) {
 
 test("what the calls cost adds up across both formats", () => {
 	const spent = tasksSpent([
-		usage(TASKS_USAGE_ENTRY),
-		usage(LEGACY_ENTRY),
+		usage(TASKS_USAGE_CHANGES),
+		usage(LEGACY_CHANGES),
 		usage("pi-goal:usage"),
 		usage("other"),
 	]);

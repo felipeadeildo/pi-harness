@@ -2,7 +2,7 @@
 // envelope's `id`, so a resent command is a repeat instead of a second effect.
 
 import { isObject } from "./by.ts";
-import type { AskResult, PermissionMode } from "./facts.ts";
+import type { AskResult, PermissionMode } from "./state-changes.ts";
 
 export interface CommandMap {
 	"prompt.send": { text: string; images?: string[]; deliverAs?: "steer" | "followUp" | "nextTurn" };

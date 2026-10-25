@@ -1,12 +1,17 @@
 // The acceptance table the room asked for: one sequence of logged events, and the state it leaves —
 // run through the three holders of that state, not only through the reducer. The rule lives in
-// `applyEvent`, but what the day taught is that a holder can stop calling it and every test of the
+// `applyChange`, but what the day taught is that a holder can stop calling it and every test of the
 // function stays green: the bridge, the daemon and the client each have their own way in, and each
 // one is checked here against the same expected state.
 import { describe, expect, test } from "bun:test";
 
 import { readEnvelope, sessionOf } from "@adeildo/pi-remote-client";
-import { applyEvent, emptySessionState, type SessionState } from "@adeildo/pi-remote-protocol";
+import {
+	applyChange,
+	emptySessionState,
+	isStateChangeType,
+	type SessionState,
+} from "@adeildo/pi-remote-protocol";
 
 import { Harness } from "../src/bridge/logged.ts";
 import { Sessions } from "../src/daemon/sessions.ts";
@@ -33,7 +38,10 @@ interface Row {
 }
 
 function folded(events: Logged[]): SessionState {
-	return events.reduce((state, one) => applyEvent(state, one.type, one.data), emptySessionState());
+	return events.reduce(
+		(state, one) => (isStateChangeType(one.type) ? applyChange(state, one.type, one.data) : state),
+		emptySessionState(),
+	);
 }
 
 const ROWS: Row[] = [

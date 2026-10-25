@@ -16,7 +16,7 @@ export {
 export {
 	cachedOf,
 	type ClientSession,
-	ENTRY,
+	CHANGES,
 	harnessOf,
 	hello,
 	readEnvelope,

@@ -16,7 +16,7 @@ import { NAME } from "#identity";
 import type { SessionState } from "#pi/session.ts";
 import { isRecord } from "#util/primitives.ts";
 
-export const RULING_ENTRY = `${NAME}:ruling`;
+export const RULING_CHANGES = `${NAME}:ruling`;
 
 const ARGS_PREVIEW = 100;
 
@@ -53,7 +53,7 @@ export function keepRuling(
 	ruling: CallRuling | undefined,
 ): void {
 	showRuling(scope, state, toolCallId, ruling);
-	if (ruling !== undefined) scope.appendEntry(RULING_ENTRY, { toolCallId, ...ruling });
+	if (ruling !== undefined) scope.appendEntry(RULING_CHANGES, { toolCallId, ...ruling });
 }
 
 export function restoreRulings(state: SessionState, ctx: ExtensionContext): void {
@@ -68,7 +68,7 @@ export function restoreRulings(state: SessionState, ctx: ExtensionContext): void
 }
 
 function keptRuling(entry: unknown): { toolCallId: string; ruling: CallRuling } | undefined {
-	if (!isRecord(entry) || entry.type !== "custom" || entry.customType !== RULING_ENTRY) return;
+	if (!isRecord(entry) || entry.type !== "custom" || entry.customType !== RULING_CHANGES) return;
 	const data = entry.data;
 	if (!isRecord(data) || typeof data.toolCallId !== "string" || typeof data.head !== "string")
 		return;

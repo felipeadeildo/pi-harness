@@ -16,16 +16,16 @@ import type {
 } from "@adeildo/pi-kit";
 
 import type { By } from "../src/by.ts";
+import { STATE_CHANGES } from "../src/reduce/entry.ts";
+import { type QueuedMessage, isQueuedMessage } from "../src/snapshot.ts";
 import {
 	type AskQuestion,
 	type AskResult,
 	type CallRuling,
-	type FactMap,
-	type FactType,
+	type StateChangeMap,
+	type StateChangeType,
 	type SessionTasks,
-} from "../src/facts.ts";
-import { FACT_TYPES } from "../src/reduce/entry.ts";
-import { type QueuedMessage, isQueuedMessage } from "../src/snapshot.ts";
+} from "../src/state-changes.ts";
 
 /** A value of the kit's shape must always be readable as our copy, never the other way round. */
 const copyOfBy = (by: KitBy): By => by;
@@ -35,7 +35,7 @@ const copyOfQuestion = (question: KitAskQuestion): AskQuestion => question;
 const copyOfRuling = (ruling: KitRuling): CallRuling => ruling;
 
 /**
- * The facts the kit's log writes today. The rest of `FACT_TYPES` comes from the bridge and the
+ * The facts the kit's log writes today. The rest of `STATE_CHANGES` comes from the bridge and the
  * daemon, which have no log of their own: `session.live`, `session.gone`, `stream.bound`,
  * `leaf.changed` and `prompt.received`. `call.ruled` and `mode.changed` join the kit's log with A3,
  * and `session.renamed` with N3. `session.state` and `session.named` are left out on purpose: the
@@ -69,9 +69,9 @@ const fromTheKit: Pick<LogEventMap, InTheKit> = {
 // Each line is the proof: the kit's fact is assigned to the copy, so a field missing here is a
 // compile error. A generic would say the same and prove less, since it would need a constraint
 // narrow enough to be the answer.
-const tasksFact: FactMap["tasks.changed"] = fromTheKit["tasks.changed"];
-const openedFact: FactMap["ask.opened"] = fromTheKit["ask.opened"];
-const closedFact: FactMap["ask.closed"] = fromTheKit["ask.closed"];
+const tasksFact: StateChangeMap["tasks.changed"] = fromTheKit["tasks.changed"];
+const openedFact: StateChangeMap["ask.opened"] = fromTheKit["ask.opened"];
+const closedFact: StateChangeMap["ask.closed"] = fromTheKit["ask.closed"];
 
 describe("the protocol's copies match the kit", () => {
 	test("a fact the kit logs reads as the copy, field for field", () => {
@@ -81,8 +81,8 @@ describe("the protocol's copies match the kit", () => {
 	});
 
 	test("every fact it names is one it can tell apart, and the kit's are a subset", () => {
-		expect(new Set(FACT_TYPES).size).toBe(FACT_TYPES.length);
-		for (const type of IN_THE_KIT) expect(FACT_TYPES).toContain(type as FactType);
+		expect(new Set(STATE_CHANGES).size).toBe(STATE_CHANGES.length);
+		for (const type of IN_THE_KIT) expect(STATE_CHANGES).toContain(type as StateChangeType);
 	});
 
 	test("the reasons a letter waits are the ones the kit's own validator accepts", () => {

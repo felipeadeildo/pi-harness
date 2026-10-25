@@ -65,7 +65,7 @@ export class ClientAsks {
 		this.#open.clear();
 	}
 
-	/** Closes a question the session abandons, with the fact the log will never carry. */
+	/** Closes a question the session abandons, with the state change the log will never carry. */
 	#closedOnStop(id: string): void {
 		this.#options.send({ type: "ask.closed", data: { id, result: CANCELLED } });
 		this.#close(id, CANCELLED);
@@ -77,17 +77,17 @@ export class ClientAsks {
 			return;
 		}
 		this.#open.add(data.id);
-		// No fact is sent from here: the ask client logs `ask.opened` and `ask.closed`, and the bridge
+		// No state change is sent from here: the ask client logs `ask.opened` and `ask.closed`, and the bridge
 		// forwards the log. Two producers meant two copies, and the second one erased the author.
 	}
 
 	/**
 	 * What a closed question owes everyone else: the bus's `CANCEL`, which the session's status watches
-	 * to leave `blocked`. The fact is the log's, written once by the ask client; the one exception is
+	 * to leave `blocked`. The state change is the log's, written once by the ask client; the one exception is
 	 * a session that shuts down, and `#closedOnStop` writes that one.
 	 */
 	#close(id: string, _result: AskResult, by?: By): void {
-		// The `CANCEL` stays: it is what the session's status watches to leave `blocked`. The fact is
+		// The `CANCEL` stays: it is what the session's status watches to leave `blocked`. The state change is
 		// the log's, written by the ask client with the same answer and the same author.
 		this.#options.events.emit(CANCEL, { id, ...(by === undefined ? {} : { by }) });
 	}
