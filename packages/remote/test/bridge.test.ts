@@ -151,7 +151,7 @@ describe("the bridge", () => {
 			type: "state",
 			seq: 1,
 			data: {
-				snapshot: {
+				summary: {
 					session: "s1",
 					machine: HOST,
 					cwd: "/work",
@@ -715,9 +715,9 @@ describe("the bridge", () => {
 		daemon.sockets[0]?.write(line(envelope("command", "state.get", {}, { session: "s1" })));
 		await until(() => daemon.received.filter((one) => one.type === "state").length === 2);
 		const snapshot = daemon.received.filter((one) => one.type === "state").at(-1)?.data as
-			| { snapshot: { state: { queue: { text: string }[] } } }
+			| { summary: { state: { queue: { text: string }[] } } }
 			| undefined;
-		expect(snapshot?.snapshot.state.queue.map((one) => one.text)).toEqual(["wait for the run"]);
+		expect(snapshot?.summary.state.queue.map((one) => one.text)).toEqual(["wait for the run"]);
 	});
 
 	test("a move in the tree names the new leaf, the root included", async () => {
@@ -889,12 +889,12 @@ describe("the bridge", () => {
 		daemon.sockets[0]?.write(line(envelope("command", "state.get", {})));
 		await until(() => types(daemon).filter((type) => type === "state").length === 2);
 		const snapshot = daemon.received.findLast((one) => one.type === "state")?.data as
-			| { snapshot: Record<string, unknown> }
+			| { summary: Record<string, unknown> }
 			| undefined;
 		// The snapshot keeps what is a photograph — the handle and the status — and nothing the state
 		// already carries: `tasks`, the questions and the mode are read from `state` below.
-		expect(snapshot?.snapshot).toMatchObject({ handle: "otter", status: "idle" });
-		const state = (snapshot?.snapshot as { state?: Record<string, unknown> } | undefined)?.state as
+		expect(snapshot?.summary).toMatchObject({ handle: "otter", status: "idle" });
+		const state = (snapshot?.summary as { state?: Record<string, unknown> } | undefined)?.state as
 			| {
 					permissions: { mode?: string; rulings: Record<string, unknown> };
 					questions: Record<string, unknown>;

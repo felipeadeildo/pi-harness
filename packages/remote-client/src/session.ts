@@ -29,7 +29,7 @@ export const CHANGES = "entry";
 export const STATE = "state";
 
 export interface SnapshotData {
-	snapshot: SessionSummary;
+	summary: SessionSummary;
 	/** The tail of the branch, oldest first, which is what a screen draws first. */
 	entries: Entry[];
 	/** What the session knew when the snapshot was taken, already folded, so no replay is needed. */
@@ -46,7 +46,7 @@ export interface ClientSession {
 	 * log, so the state a client draws is the state the daemon holds.
 	 */
 	state: SessionState;
-	snapshot?: SessionSummary;
+	summary?: SessionSummary;
 	/** Who has the session open and who typed last, as the daemon last said. */
 	presence?: Presence;
 	/**
@@ -112,7 +112,7 @@ export function cachedOf(session: ClientSession, outbox: Outbox): CachedSession 
  * none, because the half that arrived would look like the truth.
  */
 function isSummaryData(value: unknown): value is SnapshotData {
-	return isObject(value) && isSummary(value.snapshot) && Array.isArray(value.entries);
+	return isObject(value) && isSummary(value.summary) && Array.isArray(value.entries);
 }
 
 export function readEnvelope(
@@ -127,14 +127,14 @@ export function readEnvelope(
 		// an envelope that decodes is not the same as a snapshot that does.
 		if (!isSummaryData(value.data)) return { read: "skip" };
 		const data = value.data;
-		session.snapshot = data.snapshot;
+		session.summary = data.summary;
 		// A snapshot carries who is watching now, which is what makes the first draw right instead of
 		// showing whoever was there when the page closed. Absent means the fields are not known yet.
-		const watching = data.snapshot?.viewers;
+		const watching = data.summary?.viewers;
 		if (watching !== undefined)
 			session.presence = {
 				viewers: watching,
-				...(data.snapshot?.active === undefined ? {} : { active: data.snapshot.active }),
+				...(data.summary?.active === undefined ? {} : { active: data.summary.active }),
 			};
 		session.entries = data.entries;
 		session.state = data.state ?? session.state;
@@ -142,7 +142,7 @@ export function readEnvelope(
 		// A snapshot with no entries leaves no leaf to point at, and the old one named an entry the
 		// client no longer holds.
 		// The snapshot may name the leaf itself; the last entry is the fallback the format allows.
-		session.leaf = data.snapshot?.leaf ?? last?.id;
+		session.leaf = data.summary?.leaf ?? last?.id;
 		session.cursor = { ...advance(session.cursor, value), entry: session.leaf ?? undefined };
 		return { read: "now" };
 	}

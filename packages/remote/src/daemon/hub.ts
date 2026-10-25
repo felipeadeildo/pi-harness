@@ -192,9 +192,9 @@ export class Hub {
 	#withPresence(message: Envelope): Envelope {
 		// The snapshot is already folded by the bridge; a client adds who is watching, which is the
 		// daemon's to know and never travels in the session's own state.
-		if (!isObject(message.data) || !isObject(message.data.snapshot)) return message;
-		const snapshot = { ...message.data.snapshot, ...this.#presence.of(message.session ?? "") };
-		return { ...message, data: { ...message.data, snapshot } };
+		if (!isObject(message.data) || !isObject(message.data.summary)) return message;
+		const summary = { ...message.data.summary, ...this.#presence.of(message.session ?? "") };
+		return { ...message, data: { ...message.data, summary } };
 	}
 
 	/** The sockets watching a session, which is who an event of it goes to. */

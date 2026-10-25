@@ -10,7 +10,7 @@ useDaemon();
 test("the clients watching a session are named, and the latest input marks the active one", async () => {
 	const { daemon, port, cookie } = await openDaemon();
 	const bridge = await bridgeOf("s1");
-	bridge.snapshot([]);
+	bridge.state([]);
 	await until(() => daemon.sessions.get("s1") !== undefined);
 	const origin = `http://127.0.0.1:${port}`;
 	const open = async (name: string): Promise<{ ws: WebSocket; heard: Envelope[] }> => {
@@ -113,7 +113,7 @@ test("the clients watching a session are named, and the latest input marks the a
 test("the terminal is a viewer, and typing there takes the mark from a client", async () => {
 	const { daemon, port, cookie } = await openDaemon();
 	const bridge = await bridgeOf("s1");
-	bridge.snapshot([]);
+	bridge.state([]);
 	await until(() => daemon.sessions.get("s1") !== undefined);
 	const heard: Envelope[] = [];
 	const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
@@ -150,7 +150,7 @@ test("the terminal is a viewer, and typing there takes the mark from a client", 
 test("a key at the terminal reaches the others as presence, never as the keypress itself", async () => {
 	const { daemon, port, cookie } = await openDaemon();
 	const bridge = await bridgeOf("s1");
-	bridge.snapshot([]);
+	bridge.state([]);
 	await until(() => daemon.sessions.get("s1") !== undefined);
 	const heard: Envelope[] = [];
 	const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {

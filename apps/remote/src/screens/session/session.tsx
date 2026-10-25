@@ -77,7 +77,7 @@ export function viewOf(session: ClientSession): View {
 
 /** What the session is called: the title pi or the tasks gave it, else the handle a room uses. */
 export function titleOf(session: ClientSession, tasks?: SessionTasks): string {
-	const snapshot = session.snapshot;
+	const snapshot = session.summary;
 	return (
 		snapshot?.name ??
 		tasks?.title ??

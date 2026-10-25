@@ -16,10 +16,10 @@ useDaemon();
 test("the HTTP routes: health, the session list, and a snapshot only for a known machine", async () => {
 	const { daemon, port, cookie } = await openDaemon();
 	const bridge = await bridgeOf("s1");
-	bridge.snapshot([]);
+	bridge.state([]);
 	const get = (path: string) =>
 		fetch(`http://127.0.0.1:${port}${path}`, { headers: { Cookie: cookie } });
-	await until(() => daemon.sessions.get("s1")?.snapshot !== undefined);
+	await until(() => daemon.sessions.get("s1")?.opening !== undefined);
 
 	expect(await (await get("/health")).json()).toMatchObject({
 		version: "1.2.0",
@@ -27,11 +27,11 @@ test("the HTTP routes: health, the session list, and a snapshot only for a known
 	});
 	const list = (await (await get("/sessions")).json()) as unknown[];
 	expect(list).toMatchObject([{ machine: "laptop", session: "s1", connected: true }]);
-	expect((await get("/sessions/desktop/s1/snapshot")).status).toBe(404);
+	expect((await get("/sessions/desktop/s1/opening")).status).toBe(404);
 	expect((await get("/nowhere")).status).toBe(404);
 	// A segment that does not decode is refused, and the daemon goes on answering.
-	expect((await get("/sessions/laptop/%E0%A4%A/snapshot")).status).toBe(400);
-	expect((await get("/sessions/laptop/s%31/snapshot")).status).toBe(200);
+	expect((await get("/sessions/laptop/%E0%A4%A/opening")).status).toBe(400);
+	expect((await get("/sessions/laptop/s%31/opening")).status).toBe(200);
 	expect((await get("/health")).status).toBe(200);
 });
 
@@ -39,7 +39,7 @@ test("with no login, the session list, a snapshot, a page and the WebSocket answ
 	const { port } = await openDaemon();
 	const origin = `http://127.0.0.1:${port}`;
 	expect((await fetch(`${origin}/sessions`)).status).toBe(401);
-	expect((await fetch(`${origin}/sessions/laptop/s1/snapshot`)).status).toBe(401);
+	expect((await fetch(`${origin}/sessions/laptop/s1/opening`)).status).toBe(401);
 	expect((await fetch(`${origin}/sessions/laptop/s1/entries?before=b`)).status).toBe(401);
 	expect((await fetch(`${origin}/health`)).status).toBe(200);
 	expect(
@@ -174,7 +174,7 @@ describe("a session's older entries", () => {
 		const { daemon, port, cookie } = await openDaemon();
 		const file = sessionFile("s1", [entry("a", null), entry("b", "a")]);
 		const bridge = await bridgeOf("s1", "e1", file);
-		bridge.snapshot([]);
+		bridge.state([]);
 		const get = (query: string, machine = "laptop") =>
 			fetch(`http://127.0.0.1:${port}/sessions/${machine}/s1/entries${query}`, {
 				headers: { Cookie: cookie },

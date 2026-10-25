@@ -90,12 +90,12 @@ test("a client that loses its connection mid-run ends with the branch, every ent
 	const { daemon, cookie } = await startDaemon();
 	rig = await openRig();
 	const session = rig.session.sessionId;
-	await until(() => daemon.sessions.get(session)?.snapshot !== undefined, SLOW);
+	await until(() => daemon.sessions.get(session)?.opening !== undefined, SLOW);
 
 	const opened = clientOf(session, () => daemon.clientPort ?? 0, cookie, "pi.message_start");
 	client = opened.client;
 	await client.load();
-	await until(() => opened.client.session().snapshot !== undefined, SLOW);
+	await until(() => opened.client.session().summary !== undefined, SLOW);
 
 	// One turn goes by untouched, so the client holds a cursor in this life of the session. Without
 	// one, any reconnect asks for a snapshot and the test would pass in either world.
@@ -131,12 +131,12 @@ test("a daemon that restarts mid-run hands the client the branch through a new s
 	let { daemon, cookie } = await startDaemon();
 	rig = await openRig();
 	const session = rig.session.sessionId;
-	await until(() => daemon.sessions.get(session)?.snapshot !== undefined, SLOW);
+	await until(() => daemon.sessions.get(session)?.opening !== undefined, SLOW);
 
 	const opened = clientOf(session, () => daemon.clientPort ?? 0, cookie);
 	client = opened.client;
 	await client.load();
-	await until(() => opened.client.session().snapshot !== undefined, SLOW);
+	await until(() => opened.client.session().summary !== undefined, SLOW);
 
 	const running = rig.prompt("first");
 	daemon.stop();

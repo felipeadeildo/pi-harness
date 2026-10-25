@@ -323,7 +323,7 @@ export class Bridge {
 		const tasks = TASKS.current(scope)?.state;
 		const mode = MODE.current(scope);
 		this.connection.event("state", {
-			snapshot: {
+			summary: {
 				...snapshotOf(this.ctx, kind),
 				handle: tasks?.handle,
 				status: SESSION_STATUS.current(scope),

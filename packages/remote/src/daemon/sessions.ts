@@ -48,12 +48,12 @@ export interface LiveSession {
 	gone?: GoneReason;
 	state: SessionState;
 	/** The last snapshot its bridge sent: what a client draws before the replay. */
-	snapshot?: Opening;
+	opening?: Opening;
 }
 
 /** What a bridge's `snapshot` event carries. */
 export interface Opening {
-	snapshot: SessionSummary;
+	summary: SessionSummary;
 	/** The tail of the branch, oldest first. */
 	entries: unknown[];
 	/** The message being written, when one is. */
@@ -79,8 +79,8 @@ export interface StateChangeEntry {
 
 interface Entry {
 	state: LiveSession;
-	/** The snapshot as its bridge sent it, so a client gets its epoch and seq too. */
-	snapshot?: Envelope;
+	/** The opening as its bridge sent it, so a client gets its epoch and seq too. */
+	opening?: Envelope;
 	replay: Buffered[];
 	/** What `replay` holds, in bytes of JSON. */
 	bytes: number;
@@ -123,14 +123,14 @@ export class Sessions {
 			live,
 			connected: true,
 			state: known?.state.state ?? emptySessionState(),
-			...(same(known, epoch) && known?.state.snapshot !== undefined
-				? { snapshot: known.state.snapshot }
+			...(same(known, epoch) && known?.state.opening !== undefined
+				? { opening: known.state.opening }
 				: {}),
 		};
 		const kept = same(known, epoch) ? known : undefined;
 		this.#entries.set(session, {
 			state,
-			...(kept?.snapshot === undefined ? {} : { snapshot: kept.snapshot }),
+			...(kept?.opening === undefined ? {} : { opening: kept.opening }),
 			replay: kept?.replay ?? [],
 			bytes: kept?.bytes ?? 0,
 			evicted: kept?.evicted ?? -1,
@@ -198,7 +198,7 @@ export class Sessions {
 	 */
 	opening(session: string): Envelope[] | undefined {
 		const entry = this.#entries.get(session);
-		const snapshot = entry?.snapshot;
+		const snapshot = entry?.opening;
 		if (entry === undefined || snapshot === undefined) return undefined;
 		const after = this.after(session, { epoch: snapshot.epoch ?? "", seq: snapshot.seq ?? -1 });
 		if (after === undefined) return undefined;
@@ -210,13 +210,13 @@ export class Sessions {
 	 * than it takes the snapshot instead of a replay.
 	 */
 	#rebase(entry: Entry, envelope: Envelope, snapshot: Opening): void {
-		entry.state.snapshot = snapshot;
+		entry.state.opening = snapshot;
 		// The bridge folds the state it sends, so this is the truth from here: the daemon seeds itself
 		// with it instead of rebuilding, and a daemon that just started learns the session in one event.
 		// A snapshot without a state comes from a bridge that does not know it, so the folded state
 		// stays: absence means "unchanged", as it does everywhere else in this protocol.
-		entry.state.state = snapshot.snapshot.state ?? entry.state.state;
-		entry.snapshot = envelope;
+		entry.state.state = snapshot.summary.state ?? entry.state.state;
+		entry.opening = envelope;
 		this.#drop(entry);
 		entry.evicted = Math.max(entry.evicted, envelope.seq ?? -1);
 	}
@@ -248,5 +248,5 @@ function same(entry: Entry | undefined, epoch: string): entry is Entry {
 }
 
 function isOpening(value: unknown): value is Opening {
-	return isObject(value) && isSummary(value.snapshot) && Array.isArray(value.entries);
+	return isObject(value) && isSummary(value.summary) && Array.isArray(value.entries);
 }
