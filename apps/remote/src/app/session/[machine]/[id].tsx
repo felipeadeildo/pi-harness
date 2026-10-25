@@ -6,6 +6,7 @@ import { Link, useLocalSearchParams } from "expo-router";
 import { Text, View } from "react-native";
 
 import { Composer } from "../../../screens/session/composer.tsx";
+import { composerOf } from "../../../screens/session/live.ts";
 import { QuestionDialog } from "../../../screens/session/questions.tsx";
 import { SessionScreen } from "../../../screens/session/session.tsx";
 import { browserSource } from "../../../session/browser.ts";
@@ -24,6 +25,7 @@ export default function SessionRoute() {
 	// The oldest comes first: whoever asked first has been waiting longest, and a question nobody can
 	// answer is worse than one answered in an order the person did not choose.
 	const waiting = session === undefined ? [] : openQuestions(harnessOf(session));
+	const composer = session === undefined ? undefined : composerOf(session);
 	const asked = waiting[0];
 	return session === undefined || client === undefined ? null : (
 		<View style={{ flex: 1 }}>
@@ -32,17 +34,9 @@ export default function SessionRoute() {
 				All sessions
 			</Link>
 			<SessionScreen session={session} />
-			{/* What the session is on now, so the pickers start where the session stands. */}
-			<Composer
-				client={client}
-				mode={session.snapshot?.mode}
-				model={session.snapshot?.model}
-				thinking={session.snapshot?.thinkingLevel}
-				// What the session is holding for the agent to finish: it lives in the state, and a screen
-				// that does not pass it shows nothing while the queue is the thing the person waits on.
-				waiting={session.state.queue}
-				commands={session.state.commands}
-			/>
+			{/* Everything from the live state, in one spread: naming a field here is how the snapshot's
+			    photograph got back into a picker. */}
+			<Composer client={client} {...composer} />
 			{asked === undefined ? null : <QuestionDialog ask={asked} client={client} />}
 		</View>
 	);
