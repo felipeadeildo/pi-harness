@@ -23,7 +23,7 @@ import {
 	TASKS,
 	targetOf,
 } from "@adeildo/pi-kit";
-import { ANSWER, ASK, CANCEL } from "@adeildo/pi-kit";
+import { ANSWER, ASK, CANCEL, totalsOf } from "@adeildo/pi-kit";
 import type { SessionSource, SourceItem } from "@adeildo/pi-kit";
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
 import { type FakePi, fakeContext, fakePi, keystrokes } from "@adeildo/pi-kit/testing";
@@ -152,8 +152,6 @@ describe("the bridge", () => {
 					cwd: "/work",
 					name: "Fix the release",
 					leaf: "e2",
-					model: { provider: "rig", id: "scripted" },
-					thinkingLevel: "high",
 					context: { tokens: 1_200, window: 200_000 },
 					kind: "terminal",
 				},
@@ -820,6 +818,39 @@ describe("the bridge", () => {
 		]);
 	});
 
+	test("the cost a client draws is the sum the terminal's footer draws, from the same entries", async () => {
+		const daemon = await listening();
+		const fake = mounted();
+		const kept = entries(2);
+		await start(fake, session(kept));
+		await until(() => types(daemon).includes("state"));
+		// pi records the usage of each message, with the money the provider charged. The fake's branch
+		// holds the same shape, so the sum the bridge takes is the sum the footer takes.
+		kept.push({
+			id: "u1",
+			parentId: null,
+			type: "usage",
+			timestamp: "2026-10-25T00:00:00.000Z",
+			usage: {
+				input: 100,
+				output: 50,
+				cacheRead: 10,
+				cacheWrite: 5,
+				totalTokens: 165,
+				cost: { input: 0.01, output: 0.02, cacheRead: 0, cacheWrite: 0, total: 0.03 },
+			},
+		} as never);
+		await fake.fire("turn_end", { type: "turn_end", messageEntryId: "u1" }, session(kept));
+		await until(() => types(daemon).includes("cost.changed"));
+		const sent = daemon.received.findLast((one) => one.type === "cost.changed")?.data as
+			| { cost: { total: number } }
+			| undefined;
+		const summed = totalsOf(kept as never);
+		// The same branch through the two readers: what the event carried, and what the sum says.
+		expect(summed.cost).toBeGreaterThan(0);
+		expect(sent?.cost.total).toBe(summed.cost);
+	});
+
 	test("a snapshot carries the handle, the status, the tasks, the mode and the open questions, as facts too", async () => {
 		const daemon = await listening();
 		const fake = mounted();
@@ -840,12 +871,9 @@ describe("the bridge", () => {
 		const snapshot = daemon.received.findLast((one) => one.type === "state")?.data as
 			| { snapshot: Record<string, unknown> }
 			| undefined;
-		expect(snapshot?.snapshot).toMatchObject({
-			handle: "otter",
-			status: "idle",
-			tasks,
-			openAsks: ["q2"],
-		});
+		// The snapshot keeps what is a photograph — the handle and the status — and nothing the state
+		// already carries: `tasks`, the questions and the mode are read from `state` below.
+		expect(snapshot?.snapshot).toMatchObject({ handle: "otter", status: "idle" });
 		const state = (snapshot?.snapshot as { state?: Record<string, unknown> } | undefined)?.state as
 			| {
 					permissions: { mode?: string; rulings: Record<string, unknown> };

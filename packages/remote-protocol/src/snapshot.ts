@@ -2,7 +2,6 @@
 // and the live state the daemon adds. A shape only grows, so every field past the cursor is optional.
 
 import { isBy, isObject, type By } from "./by.ts";
-import type { PermissionMode, SessionTasks } from "./facts.ts";
 import type { SessionState } from "./reduce/state.ts";
 
 export interface SessionSnapshot {
@@ -16,19 +15,10 @@ export interface SessionSnapshot {
 	handle?: string;
 	/** The entry the branch ends at, which is the cursor older history pages back from. */
 	leaf?: string;
-	model?: { provider: string; id: string };
-	thinkingLevel?: string;
 	context?: { tokens: number; window?: number };
 	kind: "terminal" | "background";
 	/** What the session is doing right now: the word the footer and the list show. */
 	status?: "working" | "blocked" | "done" | "error" | "idle";
-	tasks?: SessionTasks;
-	mode?: PermissionMode;
-	/** What waits to be sent, as the inbox holds it. */
-	queue?: QueuedMessage[];
-	/** The questions nobody answered yet, by id. */
-	openAsks?: string[];
-	cost?: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
 	/**
 	 * Who has the session open: the one with the latest input, and everyone watching it. They come
 	 * from the connection, not from the session, so they are replaced by `presence.changed` and never

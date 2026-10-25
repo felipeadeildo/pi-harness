@@ -161,7 +161,12 @@ export const remote = defineFeature({
 		scope.on("tool_execution_start", (event) => bridge?.stream.toolStart(event));
 		scope.on("tool_execution_update", (event) => bridge?.stream.toolUpdate(event));
 		scope.on("tool_execution_end", (event) => bridge?.stream.toolEnd(event));
-		scope.on("turn_end", (event) => bridge?.stream.turnEnd(event));
+		scope.on("turn_end", (event) => {
+			bridge?.stream.turnEnd(event);
+			// The turn's cost is only whole after its last message was forwarded, so it goes after the
+			// stream binds the entry, not on the way in.
+			bridge?.charged();
+		});
 		// A leaf of null is the root: the branch is empty, and a client drops what it drew.
 		scope.on("session_tree", (event) => {
 			bridge?.connection.event("leaf.changed", { leaf: event.newLeafId });
