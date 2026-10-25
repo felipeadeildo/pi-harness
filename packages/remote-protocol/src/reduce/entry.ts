@@ -26,7 +26,7 @@ const unchanged = (state: SessionState): SessionState => state;
 export const KEPT_CLOSED = 100;
 
 /** How many models the state keeps of what a registry lists. A registry is a third party's data. */
-export const KEPT_MODELS = 300;
+const KEPT_MODELS = 300;
 
 /** How many prompts' senders the state keeps. The number is a choice, not a measurement. */
 const KEPT_PROMPTS = 100;
