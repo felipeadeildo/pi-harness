@@ -11,6 +11,7 @@ import {
 	type Board,
 	type BoardOp,
 } from "../src/board/model.ts";
+import { boardText } from "../src/board/tool.ts";
 
 const at = 1;
 const blocker = { on: "operator", why: "which name?" } as const;
@@ -208,4 +209,14 @@ test("a board reads back only in the shape this version wrote", () => {
 	expect(
 		isBoard({ ...board, decisions: [{ id: "d1", text: "x", at: 1, by: { kind: "nobody" } }] }),
 	).toBe(false);
+});
+
+test("a card waiting for the operator and one waiting for an agent read differently", () => {
+	const board = applied([
+		added("Uma", { blocked: { on: "operator", why: "o nome" } }),
+		added("Outra", { blocked: { on: "agent", handle: "quokka", why: "a revisão" } }),
+	]);
+	const text = boardText(board);
+	expect(text).toContain("o operador: o nome");
+	expect(text).toContain("@quokka: a revisão");
 });
