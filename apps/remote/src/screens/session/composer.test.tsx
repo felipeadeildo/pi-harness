@@ -187,6 +187,17 @@ describe("the composer", () => {
 		clickOf(element)();
 		expect(written).toEqual(["/compact "]);
 	});
+	test("the mode picker is absent when the session has no mode to change", () => {
+		// A session without the permission feature never has one in the state, and the command would be
+		// refused: a control that only ever fails should not be drawn.
+		const { client } = clientOf();
+		const served = draw({ client, mode: "edits" });
+		expect(served).toContain('aria-label="Permission mode"');
+		expect(served).toContain('<option value="edits" selected="">');
+
+		const plain = draw({ client });
+		expect(plain).not.toContain('aria-label="Permission mode"');
+	});
 });
 
 /** The first `onClick` in a tree built with `h`, so a test can press what the markup only draws. */

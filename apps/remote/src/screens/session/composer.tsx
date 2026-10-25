@@ -210,27 +210,31 @@ function pickers(
 	return h(
 		"div",
 		{ className: "remote-composer-row" },
-		h(
-			"select",
-			{
-				name: "mode",
-				"aria-label": "Permission mode",
-				// Without a value React draws the first option, which would say "manual" for a session
-				// that is in `judge`: the snapshot's mode is what the select starts on.
-				value: mode ?? "manual",
-				onChange: (event: { target: { value: string } }) => {
-					const mode = CLIENT_MODES.find((one) => one === event.target.value);
-					if (mode !== undefined) send("mode.set", { mode });
-				},
-			},
-			...CLIENT_MODES.map((mode) =>
-				h(
-					"option",
-					{ key: mode, value: mode },
-					`${mode}${mode === "manual" ? " (asks first)" : ""}`,
+		// A session without a permission feature has no mode to change: the state never carries one, and
+		// the command would be refused. Offering it would be a control that only ever fails.
+		mode === undefined
+			? null
+			: h(
+					"select",
+					{
+						name: "mode",
+						"aria-label": "Permission mode",
+						// Without a value React draws the first option, which would say "manual" for a session
+						// that is in `judge`: the snapshot's mode is what the select starts on.
+						value: mode ?? "manual",
+						onChange: (event: { target: { value: string } }) => {
+							const mode = CLIENT_MODES.find((one) => one === event.target.value);
+							if (mode !== undefined) send("mode.set", { mode });
+						},
+					},
+					...CLIENT_MODES.map((mode) =>
+						h(
+							"option",
+							{ key: mode, value: mode },
+							`${mode}${mode === "manual" ? " (asks first)" : ""}`,
+						),
+					),
 				),
-			),
-		),
 		h(
 			"select",
 			{
