@@ -391,9 +391,25 @@ async function sentWhileOffline(page: Page, rig: Rig): Promise<Result> {
 		const arrived = Date.now() + 60_000;
 		while (rig.session.sessionManager.getBranch().length <= before && Date.now() < arrived)
 			await Bun.sleep(200);
-		return rig.session.sessionManager.getBranch().length > before
-			? { ok: true }
-			: { ok: false, why: "the command typed offline never reached the session" };
+		if (rig.session.sessionManager.getBranch().length > before) return { ok: true };
+		// Where the command stopped tells the two failures apart: still in the device's storage means
+		// the reload did not drain the outbox, gone means the client sent it and the session lost it.
+		const kept = await page.evaluate(() => {
+			const found: string[] = [];
+			for (let at = 0; at < localStorage.length; at++) {
+				const key = localStorage.key(at) ?? "";
+				const value = localStorage.getItem(key) ?? "";
+				if (value.includes("typed while the wire was down")) found.push(key);
+			}
+			return found;
+		});
+		return {
+			ok: false,
+			why:
+				kept.length === 0
+					? "the command left the outbox and never reached the session"
+					: `the command is still in the outbox (${kept.join(", ")})`,
+		};
 	} catch (error) {
 		return { ok: false, why: short(error) };
 	}
@@ -425,10 +441,15 @@ async function survivesRestart(page: Page): Promise<Result> {
 		await page.locator(".remote-composer").waitFor({ timeout: 60_000 });
 		// The page draws from the state the session sends, and that state arrives when the bridge
 		// registers with the new daemon: the daemon pushes it to whoever was waiting.
+		// Both halves wait the same way: the mode and the closed question arrive with the same state,
+		// so reading one of them once is a race the test loses now and then.
 		const settled = Date.now() + 60_000;
-		while ((await picker.inputValue()) !== "edits" && Date.now() < settled) await Bun.sleep(200);
+		const stillOpen = async (): Promise<boolean> =>
+			(await page.getByRole("button", { name: /^Ship it/ }).count()) > 0;
+		while (((await picker.inputValue()) !== "edits" || (await stillOpen())) && Date.now() < settled)
+			await Bun.sleep(200);
 		const mode = (await picker.inputValue()) === "edits";
-		const closed = (await page.getByRole("button", { name: /^Ship it/ }).count()) === 0;
+		const closed = !(await stillOpen());
 		return mode && closed
 			? { ok: true }
 			: { ok: false, why: `mode back=${mode}, question closed=${closed}` };
