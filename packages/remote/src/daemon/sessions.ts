@@ -13,10 +13,10 @@ import {
 } from "@adeildo/pi-remote-protocol";
 
 /** The replay buffers of every session together hold at most this many bytes of JSON. */
-export const REPLAY_BYTES = 8 * 1024 * 1024;
+const REPLAY_BYTES = 8 * 1024 * 1024;
 
 /** Events that only matter while they happen, so they never reach the replay buffer. */
-export const EPHEMERAL: ReadonlySet<string> = new Set([
+const EPHEMERAL: ReadonlySet<string> = new Set([
 	"pi.message_update",
 	"pi.tool_execution_update",
 	"presence.changed",
@@ -69,12 +69,6 @@ export interface Cursor {
 interface Buffered {
 	envelope: Envelope;
 	bytes: number;
-}
-
-/** A state change as a client's summary carries it, for the client to reduce. */
-export interface StateChangeEntry {
-	type: string;
-	data: unknown;
 }
 
 interface Entry {

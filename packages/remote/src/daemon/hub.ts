@@ -8,7 +8,7 @@ import { type Connection, Presence, type PresenceOf } from "./presence.ts";
 import type { Sessions } from "./sessions.ts";
 
 /** A client this far behind is closed, to come back from its cursor. */
-export const CLIENT_BACKLOG = 8 * 1024 * 1024;
+const CLIENT_BACKLOG = 8 * 1024 * 1024;
 
 export interface HubOptions {
 	sessions: Sessions;

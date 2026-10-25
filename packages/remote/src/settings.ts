@@ -4,7 +4,7 @@ import { boolean, type Decoder, integer, setting } from "@adeildo/pi-kit";
 
 import { CLIENT_PORT, PORT_ID } from "./places.ts";
 
-export const REMOTE_SECTION = "Remote";
+const REMOTE_SECTION = "Remote";
 
 /**
  * The port clients reach the daemon on. It is a setting and not a flag because the address a phone or

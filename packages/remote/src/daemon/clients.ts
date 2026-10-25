@@ -18,8 +18,6 @@ import { Hub } from "./hub.ts";
 import { asking, isRoute, Routes, STATUS } from "./routes.ts";
 import type { Sessions } from "./sessions.ts";
 
-export { CLIENT_BACKLOG } from "./hub.ts";
-
 export interface ClientsOptions {
 	sessions: Sessions;
 	logins: Logins;

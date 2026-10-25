@@ -8,7 +8,7 @@ import { WebSocketServer, type WebSocket } from "ws";
 export type { WebSocket };
 
 /** A message larger than this closes the connection: a client sends commands, never files. */
-export const MAX_MESSAGE = 1024 * 1024;
+const MAX_MESSAGE = 1024 * 1024;
 
 /**
  * How often the server asks whether the other end is there. A socket whose peer died holds what it was

@@ -13,13 +13,13 @@ export const DROP_DELTAS_AT = 1024 * 1024;
 /** Past this much, the socket is closed and opened again, and the bridge sends a snapshot. */
 export const RECONNECT_AT = 8 * 1024 * 1024;
 /** The waits between attempts to connect. The last one repeats for as long as nothing answers. */
-export const BACKOFF_MS: readonly number[] = [100, 200, 400, 800, 1_600, 3_200, 5_000];
+const BACKOFF_MS: readonly number[] = [100, 200, 400, 800, 1_600, 3_200, 5_000];
 /** While nothing answers, the daemon is started at most this often. */
 export const RESTART_DAEMON_MS = 10_000;
 /** How long closing waits for the last message to leave before it drops the socket. */
 const CLOSE_WAIT_MS = 500;
 /** How long a request waits for the daemon's reply. */
-export const REQUEST_MS = 3_000;
+const REQUEST_MS = 3_000;
 
 export interface Origin {
 	/** The socket the daemon listens on. */

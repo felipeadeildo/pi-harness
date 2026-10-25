@@ -27,10 +27,8 @@ import { Logins } from "./auth.ts";
 import { Clients } from "./clients.ts";
 import { type GoneReason, type SessionLive, Sessions } from "./sessions.ts";
 
-export { CLIENT_PORT, daemonDir, daemonPaths } from "../places.ts";
-
 /** With no session connected for this long, a daemon a pi started exits. */
-export const IDLE_EXIT_MS = 5 * 60_000;
+const IDLE_EXIT_MS = 5 * 60_000;
 /** How often the daemon looks at `current.json` for a newer version. */
 const CURRENT_POLL_MS = 2_000;
 

@@ -43,7 +43,7 @@ const DELTAS: ReadonlySet<string> = new Set(["text_delta", "thinking_delta", "to
  * pi's JSON form of an update: no cumulative message and no `partial`, so the stream grows with the
  * text and not with its square. A tool call's start keeps the id and name its partial held.
  */
-export function wireUpdate(event: MessageUpdateEvent): WireUpdate {
+function wireUpdate(event: MessageUpdateEvent): WireUpdate {
 	const usage = "usage" in event.message ? event.message.usage : undefined;
 	return {
 		type: "message_update",

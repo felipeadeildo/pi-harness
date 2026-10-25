@@ -15,9 +15,10 @@ import { dirname, join } from "node:path";
 import { envelope, type Envelope, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
 import { BridgeConnection } from "../src/bridge/connection.ts";
-import { Daemon, daemonDir, type ExitReason, newer } from "../src/daemon/server.ts";
+import { Daemon, type ExitReason, newer } from "../src/daemon/server.ts";
 import { Sessions } from "../src/daemon/sessions.ts";
 import { readCurrent, writeLauncher } from "../src/launcher.ts";
+import { daemonDir } from "../src/places.ts";
 import { VERSION } from "../src/version.ts";
 import { envelopeOf, line, Lines } from "../src/wire/lines.ts";
 import { until } from "./fakes.ts";

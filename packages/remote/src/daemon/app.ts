@@ -7,7 +7,7 @@ import { extname, join, relative, sep } from "node:path";
 import { POLICY, policyFor } from "./web.ts";
 
 /** The list the build writes next to the export: every file, as a path from `/`. */
-export const FILES = "files.json";
+const FILES = "files.json";
 
 const TYPES: Record<string, string> = {
 	".html": "text/html; charset=utf-8",

@@ -33,6 +33,9 @@
 		},
 		".": {
 			"entry": ["scripts/**/*.ts"]
+		},
+		"packages/remote": {
+			"entry": ["src/cli/main.ts", "src/daemon/main.ts", "test/**/*.test.ts", "test/**/*.ts"]
 		}
 	},
 	"ignoreDependencies": ["babel-plugin-react-compiler", "expo-updates"],
