@@ -51,7 +51,7 @@ const SNAPSHOT_FILES = 8;
 /** How many done tasks a shared room carries, as the board shows them. */
 const BOARD_DONE = 3;
 /** How long a room keeps a member with no open agent. */
-export const ROOM_GRACE_MS = 30_000;
+const ROOM_GRACE_MS = 30_000;
 
 interface SessionSource {
 	getCwd(): string;
@@ -956,7 +956,7 @@ function describeLive(entry: LiveSession): string {
 }
 
 /** A folder as the rooms compare it: absolute, with symlinks resolved. */
-export function real(path: string): string {
+function real(path: string): string {
 	const absolute = resolve(expandHome(path));
 	try {
 		return realpathSync(absolute);

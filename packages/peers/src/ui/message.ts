@@ -9,8 +9,6 @@ import { type Component, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import type { PeerDelivery, PeerMessageDetails } from "../here.ts";
 import type { MembershipChange, Room } from "../model.ts";
 
-export const PEER_MARK = GLYPH.diamond;
-
 export function messageBlock(details: PeerMessageDetails, theme: Theme): Component {
 	return drawnByWidth((width) => messageLines(details, theme, width));
 }
@@ -22,7 +20,7 @@ export function deliveryBlock(delivery: PeerDelivery, theme: Theme): Component {
 	);
 }
 
-export function messageLines(details: PeerMessageDetails, theme: Theme, width: number): string[] {
+function messageLines(details: PeerMessageDetails, theme: Theme, width: number): string[] {
 	const color = details.fromYou ? "accent" : (details.color as ThemeColor);
 	const who = details.fromYou ? "you, from another session" : `@${details.from}`;
 	// An agent from another folder says which, since the paths it names are there.

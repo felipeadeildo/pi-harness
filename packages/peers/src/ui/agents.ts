@@ -180,7 +180,7 @@ function task(
 	return out;
 }
 
-export function since(at: number, now: number): string {
+function since(at: number, now: number): string {
 	const minutes = Math.max(0, Math.round((now - at) / 60_000));
 	if (minutes < 1) return "now";
 	if (minutes < 60) return `${minutes}m`;

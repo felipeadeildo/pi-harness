@@ -249,7 +249,7 @@ export class Picker {
 	}
 }
 
-export function wrapped(theme: Theme, text: string, width: number): string[] {
+function wrapped(theme: Theme, text: string, width: number): string[] {
 	return wrapTextWithAnsi(text, width).map((line) => theme.fg("dim", line));
 }
 
