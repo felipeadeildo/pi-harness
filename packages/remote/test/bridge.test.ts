@@ -1242,6 +1242,18 @@ describe("one bridge", () => {
 			await bridge.stop(undefined);
 		});
 
+		test("the mark goes out before the entry it names, so a client never draws the entry bare", async () => {
+			let feed: ((item: SourceItem) => void) | undefined;
+			const { bridge, socket } = bridged(source((on) => void (feed = on)));
+			bridge.sentBy("from the phone", phone);
+			feed?.(said("e1", "from the phone"));
+			const order = socket.written
+				.filter((one) => one.type === "prompt.from" || one.type === "entry")
+				.map((one) => one.type);
+			expect(order).toEqual(["prompt.from", "entry"]);
+			await bridge.stop(undefined);
+		});
+
 		test("the mark is part of the state a snapshot carries, so a client that opens later draws it", async () => {
 			let feed: ((item: SourceItem) => void) | undefined;
 			const { bridge, socket } = bridged(source((on) => void (feed = on)));

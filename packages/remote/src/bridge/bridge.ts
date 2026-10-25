@@ -240,8 +240,10 @@ export class Bridge {
 			last === undefined ? undefined : { entry: last },
 			(item) => {
 				if (item.kind === "entry") {
-					this.connection.event("entry", item.entry);
+					// The mark goes first: it names an entry the client has not drawn yet, so the entry arrives
+					// already marked and is never drawn bare and then again.
 					this.#whose(item.entry as UserEntry);
+					this.connection.event("entry", item.entry);
 				} else if (item.kind === "reset") this.#snapshot();
 			},
 		);
