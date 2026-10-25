@@ -138,7 +138,7 @@ describe("the socket", () => {
 				session: "s1",
 				epoch: "e1",
 				seq: 1,
-				type: "snapshot",
+				type: "state",
 				data: { entries: [] },
 				at: 0,
 			}),
@@ -169,7 +169,7 @@ describe("the socket", () => {
 			session: "s1",
 			epoch: "e1",
 			seq: 1,
-			type: "snapshot",
+			type: "state",
 			data: {
 				snapshot: { session: "s1", machine: "box", cwd: "/", kind: "terminal" },
 				entries: [entry],

@@ -145,7 +145,7 @@ export class Sessions {
 		const entry = this.#entries.get(envelope.session ?? "");
 		if (entry === undefined) return "an event for a session no bridge registered";
 		if (entry.state.epoch !== envelope.epoch) return "an event from another life of the session";
-		if (envelope.type === "snapshot") {
+		if (envelope.type === "state") {
 			if (!isSnapshotEvent(envelope.data)) return "a snapshot that does not read";
 			this.#rebase(entry, envelope, envelope.data);
 			return undefined;

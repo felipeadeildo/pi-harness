@@ -33,7 +33,7 @@ import { FORWARDED, Harness } from "./logged.ts";
 import { LiveStream } from "./stream.ts";
 
 /** How many entries of the branch a snapshot carries. A client pages through older ones over HTTP. */
-export const SNAPSHOT_ENTRIES = 50;
+export const STATE_ENTRIES = 50;
 
 /** How often the terminal tells the daemon that someone typed there, in milliseconds. */
 export const TYPED_EVERY_MS = 2_000;
@@ -277,7 +277,7 @@ export class Bridge {
 
 	#heard(message: Envelope): void {
 		if (message.kind !== "command") return;
-		if (message.type === "snapshot.get") return this.#snapshot();
+		if (message.type === "state.get") return this.#snapshot();
 		void this.#commands.run(message);
 	}
 
@@ -301,7 +301,7 @@ export class Bridge {
 		const { scope, kind } = this.options;
 		const tasks = TASKS.current(scope)?.state;
 		const mode = MODE.current(scope);
-		this.#connection.event("snapshot", {
+		this.#connection.event("state", {
 			snapshot: {
 				...snapshotOf(this.ctx, kind),
 				handle: tasks?.handle,
@@ -313,7 +313,7 @@ export class Bridge {
 				// Already folded, so a reader draws the session's state without a replay.
 				state: this.#facts.snapshot(tasks, mode),
 			},
-			entries: this.ctx.sessionManager.getBranch().slice(-SNAPSHOT_ENTRIES),
+			entries: this.ctx.sessionManager.getBranch().slice(-STATE_ENTRIES),
 			streaming: this.stream.streaming,
 		});
 	}

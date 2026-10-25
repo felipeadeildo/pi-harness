@@ -82,7 +82,7 @@ describe("who has the session open", () => {
 			session: "s",
 			epoch: "e1",
 			seq: 2,
-			type: "snapshot",
+			type: "state",
 			data: {
 				snapshot: {
 					session: "s",

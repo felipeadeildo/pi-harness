@@ -331,7 +331,7 @@ export class Daemon {
 	#askSnapshot(session: string): boolean {
 		const socket = this.#bridges.get(session);
 		if (socket === undefined || socket.destroyed) return false;
-		socket.write(line(envelope("command", "snapshot.get", {}, { session })));
+		socket.write(line(envelope("command", "state.get", {}, { session })));
 		return true;
 	}
 

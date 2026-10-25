@@ -69,7 +69,7 @@ describe("the leaf the bridge names", () => {
 
 		// A sibling branch, or one older than the snapshot: only a snapshot can put it back.
 		const answer = readEnvelope(session, envelope("leaf.changed", { leaf: "c" }, 4));
-		expect(answer).toEqual({ read: "snapshot", why: "gap" });
+		expect(answer).toEqual({ read: "state", why: "gap" });
 		expect(transcriptOfSession(session).items).toHaveLength(2);
 		expect(session.cursor.entry).toBe("b");
 	});
@@ -84,7 +84,7 @@ describe("the leaf the bridge names", () => {
 		readEnvelope(
 			session,
 			envelope(
-				"snapshot",
+				"state",
 				{
 					snapshot: { session: "s", machine: "here", cwd: "/work", kind: "terminal", leaf: "a" },
 					entries: [entry("a", null, "first"), entry("b", "a", "second")],

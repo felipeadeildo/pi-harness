@@ -26,7 +26,7 @@ import type { Outbox } from "./outbox.ts";
 
 /** The envelope a bridge sends for an entry pi appended, and for the snapshot it is asked for. */
 export const ENTRY = "entry";
-export const SNAPSHOT = "snapshot";
+export const STATE = "state";
 
 export interface SnapshotData {
 	snapshot: SessionSnapshot;
@@ -113,11 +113,11 @@ function isFactType(type: string): type is FactType {
 export function readEnvelope(
 	session: ClientSession,
 	value: unknown,
-): { read: "now" } | { read: "snapshot"; why: "new" | "epoch" | "gap" } | { read: "skip" } {
+): { read: "now" } | { read: "state"; why: "new" | "epoch" | "gap" } | { read: "skip" } {
 	if (!isEnvelope(value)) return { read: "skip" };
 	// The snapshot is the answer to every way of being lost, so it is read before the cursor is
 	// consulted: a client that asked for one has nothing to compare its epoch against.
-	if (value.type === SNAPSHOT) {
+	if (value.type === STATE) {
 		// The snapshot replaces the whole state at once, so its shape is checked before the swap:
 		// an envelope that decodes is not the same as a snapshot that does.
 		if (!isObject(value.data) || !Array.isArray(value.data.entries)) return { read: "skip" };
@@ -165,7 +165,7 @@ export function readEnvelope(
 			// A leaf the client does not hold is a branch it never read: a sibling, or one older than
 			// the snapshot. Only a snapshot can put it back, so nothing is applied here.
 			if (leaf !== null && !session.entries.some((held) => held.id === leaf)) {
-				return { read: "snapshot", why: "gap" };
+				return { read: "state", why: "gap" };
 			}
 		}
 		// The cursor is what keeps this from replaying: a fact already folded into the state a snapshot

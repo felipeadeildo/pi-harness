@@ -121,7 +121,7 @@ export class Clients {
 	forward(message: Envelope): void {
 		const watchers = this.#watchers(message.session ?? "");
 		if (watchers.length === 0) return;
-		const out = message.type === "snapshot" ? this.#withPresence(message) : message;
+		const out = message.type === "state" ? this.#withPresence(message) : message;
 		for (const ws of watchers) this.#send(ws, out);
 	}
 

@@ -71,7 +71,7 @@ const snapshot: Envelope = {
 	session: key.session,
 	epoch: "e1",
 	seq: 1,
-	type: "snapshot",
+	type: "state",
 	data: {
 		snapshot: { session: key.session, machine: key.machine, cwd: "/work", kind: "terminal" },
 		entries: [],

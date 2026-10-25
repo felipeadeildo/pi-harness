@@ -46,7 +46,7 @@ async function openDaemon(): Promise<{ daemon: Daemon; port: number; cookie: str
 
 /**
  * A bridge as the daemon sees one: a hello, `session.live`, events with a seq, and an answer to
- * `snapshot.get`, which tells whether the daemon asked for one.
+ * `state.get`, which tells whether the daemon asked for one.
  */
 async function bridgeOf(session: string, epoch = "e1", file?: string) {
 	const at = { machine: "laptop", session, epoch };
@@ -63,8 +63,8 @@ async function bridgeOf(session: string, epoch = "e1", file?: string) {
 		client.write(line(envelope("event", type, data, { ...at, seq: seq++ })));
 	};
 	const snapshot = (entries: unknown[]) =>
-		send("snapshot", {
-			snapshot: { session, machine: "laptop", cwd: "/repo", kind: "terminal", harness },
+		send("state", {
+			snapshot: { session, machine: "laptop", cwd: "/repo", kind: "terminal", state: harness },
 			entries,
 		});
 	client.setEncoding("utf8");
@@ -202,7 +202,7 @@ describe("a client of the daemon", () => {
 		});
 		await client.load();
 		await until(() => bridge.asked.length === 1);
-		expect(bridge.asked[0]).toMatchObject({ kind: "command", type: "snapshot.get", session: "s1" });
+		expect(bridge.asked[0]).toMatchObject({ kind: "command", type: "state.get", session: "s1" });
 		bridge.snapshot([entry("a", null)]);
 		await until(() => client.session().entries.length === 1);
 		client.stop();
@@ -263,10 +263,10 @@ describe("a client of the daemon", () => {
 			headers: { Cookie: cookie },
 		});
 		const snapshot = (await response.json()) as Envelope & {
-			data: { snapshot: { harness: Record<string, unknown> } };
+			data: { snapshot: { state: Record<string, unknown> } };
 		};
 		// One shape for everyone: the mode the log ended on, and the question with its answer.
-		const state = snapshot.data.snapshot.harness as {
+		const state = snapshot.data.snapshot.state as {
 			permissions: { mode?: string };
 			questions: Record<string, unknown>;
 		};

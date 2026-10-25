@@ -47,7 +47,7 @@ describe("a daemon that restarts", () => {
 		sessions.event(
 			envelope(
 				"event",
-				"snapshot",
+				"state",
 				{
 					snapshot: { session: "s", machine: "m", cwd: "/x", kind: "terminal", state: folded },
 					entries: [],
@@ -68,7 +68,7 @@ describe("a daemon that restarts", () => {
 		sessions.event(
 			envelope(
 				"event",
-				"snapshot",
+				"state",
 				{
 					snapshot: {
 						session: "s",
