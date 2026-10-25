@@ -27,7 +27,6 @@ export async function serveExport(exported: string): Promise<Preview> {
 		// data route would answer 401 without a cookie.
 		logins: new Logins(join(out, "logins.json")),
 		version: "preview",
-		askSnapshot: () => false,
 		// A preview has no session behind it, so a command answers that nothing can take it.
 		command: () => false,
 		web,

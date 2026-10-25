@@ -33,7 +33,6 @@ function composed(): { clients: Clients; sessions: Sessions; file: string } {
 		sessions,
 		logins: new Logins(`/tmp/pi-remote-compose-${process.pid}.json`),
 		version: "1.2.0",
-		askSnapshot: () => false,
 		command: () => false,
 	});
 	return { clients, sessions, file };

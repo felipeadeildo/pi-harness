@@ -87,22 +87,6 @@ describe("a client of the daemon", () => {
 		ws.close();
 	});
 
-	test("with no snapshot to give, the daemon asks the bridge, and its answer reaches the client", async () => {
-		const { port, cookie } = await openDaemon();
-		const bridge = await bridgeOf("s1");
-		const client = connect({
-			key: { machine: "laptop", session: "s1" },
-			cache: memoryCache(),
-			open: transportTo(port, cookie),
-		});
-		await client.load();
-		await until(() => bridge.asked.length === 1);
-		expect(bridge.asked[0]).toMatchObject({ kind: "command", type: "state.get", session: "s1" });
-		bridge.snapshot([entry("a", null)]);
-		await until(() => client.session().entries.length === 1);
-		client.stop();
-	});
-
 	test("a client that comes before the bridge gets the session once the bridge registers it", async () => {
 		const { daemon, port, cookie } = await openDaemon();
 		const client = connect({
@@ -146,7 +130,7 @@ describe("a client of the daemon", () => {
 
 	test("a client that asked before the bridge came back is sent the state when it does", async () => {
 		const { port, cookie } = await openDaemon();
-		// A client opens the session while no bridge has registered it: it hears why, and waits.
+		// A client opens a session no bridge registered yet, and says nothing back: it keeps watching.
 		const heard: Envelope[] = [];
 		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
 			headers: { Origin: `http://127.0.0.1:${port}`, Cookie: cookie },
@@ -154,21 +138,12 @@ describe("a client of the daemon", () => {
 		ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)) as Envelope);
 		await new Promise<void>((resolve) => (ws.onopen = () => resolve()));
 		ws.send(JSON.stringify(envelope("hello", "hello", {}, { machine: "laptop", session: "s1" })));
-		await until(() =>
-			heard.some(
-				(one) =>
-					one.kind === "error" &&
-					one.data &&
-					(one.data as { reason?: string }).reason === "waiting for the session",
-			),
-		);
 
-		// The bridge registers, which is the moment the daemon notices someone was already waiting.
 		const bridge = await bridgeOf("s1");
-		bridge.snapshot([]);
-		// The daemon asks for the state on its own, so the client does not have to ask again.
-		await until(() => bridge.asked.some((one) => one.type === "state.get"));
+		bridge.snapshot([entry("a", null)]);
 		await until(() => heard.some((one) => one.kind === "event" && one.type === "state"));
+		// The daemon keeps the answer, so it never asks the bridge for a second one.
+		expect(bridge.asked.some((one) => one.type === "state.get")).toBe(false);
 		ws.close();
 		bridge.close();
 	});
@@ -368,7 +343,6 @@ test("a command for a session with no bridge answers on its id, so the client is
 	ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)) as Envelope);
 	await new Promise<void>((resolve) => (ws.onopen = () => resolve()));
 	ws.send(JSON.stringify(envelope("hello", "gone", {}, { machine: "laptop", session: "gone" })));
-	await until(() => heard.length > 0);
 	ws.send(
 		JSON.stringify(
 			envelope("command", "run.abort", {}, { session: "gone", id: "c9", by: undefined }),
@@ -405,16 +379,11 @@ test("a bridge gets a link for token.issue, answered on the same id", async () =
 });
 
 describe("a daemon that answers for itself", () => {
-	test("a session it never saw is not offered, and the client is not told a session is coming", async () => {
+	test("a session no bridge registered gets no answer, and the one that exists still does", async () => {
 		const { daemon, port, cookie } = await openDaemon();
 		const bridge = await bridgeOf("s1");
 		bridge.snapshot([entry("a", null)]);
 		await until(() => daemon.sessions.get("s1") !== undefined);
-		bridge.close();
-		await until(() => daemon.sessions.get("s1")?.connected === false);
-
-		expect(daemon.sessions.list().map((one) => one.session)).toEqual(["s1"]);
-		expect(daemon.sessions.get("s2")).toBeUndefined();
 
 		const heard: Envelope[] = [];
 		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
@@ -422,10 +391,13 @@ describe("a daemon that answers for itself", () => {
 		});
 		ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)));
 		await new Promise((resolve) => (ws.onopen = resolve));
-		ws.send(JSON.stringify(envelope("hello", "hello", {}, { machine: "laptop", session: "s2" })));
-		await until(() => heard.length > 0);
-		expect(heard.every((one) => one.kind !== "error")).toBe(true);
+		const at = (session: string) => ({ machine: "laptop", session });
+		ws.send(JSON.stringify(envelope("hello", "hello", {}, at("s2"))));
+		ws.send(JSON.stringify(envelope("hello", "hello", {}, at("s1"))));
+		await until(() => heard.some((one) => one.type === "state" && one.session === "s1"));
+		expect(heard.filter((one) => one.session === "s2")).toEqual([]);
 		ws.close();
+		bridge.close();
 	});
 
 	test("a session that ended keeps the answer it gave, and a socket back mid-stream finds the same message", async () => {

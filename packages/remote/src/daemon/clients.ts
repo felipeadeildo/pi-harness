@@ -23,8 +23,6 @@ export interface ClientsOptions {
 	sessions: Sessions;
 	logins: Logins;
 	version: string;
-	/** Asks a session's bridge for a snapshot. False when no bridge of the session is connected. */
-	askSnapshot: (session: string) => boolean;
 	/**
 	 * Passes a client's command to the session's bridge. False when no bridge is connected, and then
 	 * the client hears why on the command's id instead of waiting for an answer that never comes.
@@ -60,7 +58,6 @@ export class Clients {
 		this.#started = (options.now ?? Date.now)();
 		this.hub = new Hub({
 			sessions: options.sessions,
-			askSnapshot: options.askSnapshot,
 			command: options.command,
 			...(options.warn === undefined ? {} : { warn: options.warn }),
 		});

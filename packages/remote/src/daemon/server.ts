@@ -262,8 +262,8 @@ export class Daemon {
 				// then exit as idle and be started again, so it says why.
 				if (isLive(message.data)) {
 					this.sessions.live(message, message.data);
-					// A client watching since before the restart asked a bridge that was not there.
-					this.#clients?.hub.refresh(bridge.session);
+					// A client watching since before the restart asked a daemon that had nothing to say.
+					this.#clients?.hub.wake(bridge.session);
 				} else this.#warn("a session.live that does not read");
 				break;
 			case "session.gone":
@@ -288,7 +288,6 @@ export class Daemon {
 			sessions: this.sessions,
 			logins: this.logins,
 			version: this.#options.version,
-			askSnapshot: (session) => this.#askSnapshot(session),
 			command: (session, message) => this.#toBridge(session, message),
 			...(web === undefined ? {} : { web }),
 			warn: (message) => this.#warn(message),
@@ -336,14 +335,6 @@ export class Daemon {
 				}),
 			),
 		);
-		return true;
-	}
-
-	/** Asks a session's bridge for a snapshot, which comes back as an event like any other. */
-	#askSnapshot(session: string): boolean {
-		const socket = this.#bridges.get(session);
-		if (socket === undefined || socket.destroyed) return false;
-		socket.write(line(envelope("command", "state.get", {}, { session })));
 		return true;
 	}
 
