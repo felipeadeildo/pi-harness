@@ -51,6 +51,7 @@ describe("what the pickers start on", () => {
 			thinking: undefined,
 			waiting: [expect.objectContaining({ id: "q1" })],
 			commands: undefined,
+			serves: undefined,
 		});
 	});
 });
