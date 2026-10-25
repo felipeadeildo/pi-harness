@@ -154,12 +154,12 @@ describe("a bridge and its daemon", () => {
 		made.start();
 		await until(() => heard.connected === 1 && listening.sockets.length === 1);
 		listening.sockets[0]?.write(
-			`not json\n{"v":1}\n${line(envelope("command", "snapshot.get", {}, { id: "c1" }))}`,
+			`not json\n{"v":1}\n${line(envelope("command", "state.get", {}, { id: "c1" }))}`,
 		);
 		await until(() => heard.messages.length === 1);
 		await Bun.sleep(20);
 		expect(heard.messages.map((message) => [message.type, message.id])).toEqual([
-			["snapshot.get", "c1"],
+			["state.get", "c1"],
 		]);
 		// Two lines it cannot read, and one warning with the start of the first.
 		expect(heard.warnings).toEqual([
@@ -178,11 +178,11 @@ describe("a bridge and its daemon", () => {
 		const command = listening.received.find((one) => one.kind === "command");
 		expect(command).toMatchObject({ type: "token.issue", session: "s1", epoch: "e1" });
 		const socket = listening.sockets[0];
-		socket?.write(line(envelope("command", "snapshot.get", {}, { id: "other" })));
+		socket?.write(line(envelope("command", "state.get", {}, { id: "other" })));
 		socket?.write(line(envelope("reply", "token.issue", { token: "t" }, { id: command?.id })));
 		expect((await asked)?.data).toEqual({ token: "t" });
 		await until(() => heard.messages.length === 1);
-		expect(heard.messages.map((one) => one.type)).toEqual(["snapshot.get"]);
+		expect(heard.messages.map((one) => one.type)).toEqual(["state.get"]);
 	});
 
 	test("a request with no daemon, no reply or a lost socket comes back with nothing", async () => {

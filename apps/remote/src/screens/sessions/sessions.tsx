@@ -18,10 +18,12 @@ export interface SessionsScreenProps {
 	sessions: readonly ListedSession[];
 	/** Where a row goes; the row is the link, so the whole line is tappable. */
 	hrefOf: (session: ListedSession) => string;
+	/** The order the list had when it opened; omitted, the list orders itself. */
+	kept?: readonly string[];
 }
 
-export function SessionsScreen({ sessions, hrefOf }: SessionsScreenProps) {
-	const rows = rowsOf(sessions);
+export function SessionsScreen({ sessions, kept, hrefOf }: SessionsScreenProps) {
+	const rows = rowsOf(sessions, kept);
 	if (rows.length === 0) {
 		return (
 			<View style={styles.page}>

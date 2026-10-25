@@ -29,9 +29,18 @@ export function nameOf(session: ListedSession): string {
 	);
 }
 
-/** The list as lines, ordered so the ones that need you come first. */
-export function rowsOf(sessions: readonly ListedSession[]): Row[] {
-	return inOrder(sessions).map((session) => ({
+/** What a row is called across refreshes: the address of the session, which never changes. */
+export function keyOf(session: ListedSession): string {
+	return `${session.machine}/${session.session}`;
+}
+
+/**
+ * The list as lines. The order is the one the screen kept when it was mounted, so a session that starts
+ * waiting does not jump under the thumb reaching for another one; only a list drawn for the first time
+ * sorts itself, and that is the one the person expects to see ordered.
+ */
+export function rowsOf(sessions: readonly ListedSession[], kept?: readonly string[]): Row[] {
+	return ordered(sessions, kept).map((session) => ({
 		listed: session,
 		machine: session.machine,
 		session: session.session,
@@ -41,6 +50,19 @@ export function rowsOf(sessions: readonly ListedSession[]): Row[] {
 		cost: costOf(session),
 		waits: wantsYou(session),
 	}));
+}
+
+/**
+ * The sessions in the order the screen kept, with anything new appended where the list would put it. A
+ * refresh never moves a row the person is already looking at: what changes is the mark, not the place.
+ */
+function ordered(sessions: readonly ListedSession[], kept?: readonly string[]): ListedSession[] {
+	if (kept === undefined) return inOrder(sessions);
+	const place = (session: ListedSession): number => {
+		const at = kept.indexOf(keyOf(session));
+		return at === -1 ? kept.length : at;
+	};
+	return [...inOrder(sessions)].sort((left, right) => place(left) - place(right));
 }
 
 /** What the session has cost, when the snapshot says; the daemon does not always know. */

@@ -31,7 +31,7 @@ import { envelope } from "@adeildo/pi-remote-protocol";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import type { MessageStartEvent, MessageUpdateEvent } from "@earendil-works/pi-coding-agent";
 
-import { Bridge, SNAPSHOT_ENTRIES, TYPED_EVERY_MS } from "../src/bridge/bridge.ts";
+import { Bridge, STATE_ENTRIES, TYPED_EVERY_MS } from "../src/bridge/bridge.ts";
 import piRemote, { goneReason, remote, sessionKind } from "../src/index.ts";
 import { CLIENT_PORT, daemonPaths } from "../src/places.ts";
 import { VERSION } from "../src/version.ts";
@@ -142,7 +142,7 @@ describe("the bridge", () => {
 			},
 		});
 		expect(snapshot).toMatchObject({
-			type: "snapshot",
+			type: "state",
 			seq: 1,
 			data: {
 				snapshot: {
@@ -184,7 +184,7 @@ describe("the bridge", () => {
 			},
 		});
 		await start(fake, ctx);
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 		const by = { kind: "client", name: "phone", machine: HOST } as const;
 		const at = { machine: HOST, session: "s1", epoch: "e1", id: "c1", by };
 		daemon.sockets[0]?.write(
@@ -211,7 +211,7 @@ describe("the bridge", () => {
 		const daemon = await listening();
 		const fake = mounted();
 		await start(fake);
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 		// The handler this session registered, which is the last one pi was given.
 		const press = keystrokes.at(-1);
 		if (press === undefined) throw new Error("no key handler was registered");
@@ -242,7 +242,7 @@ describe("the bridge", () => {
 		const fake = mounted();
 		const ctx = session();
 		await start(fake, ctx);
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 		const by = { kind: "client", name: "phone", machine: HOST } as const;
 		daemon.sockets[0]?.write(
 			line(
@@ -276,7 +276,7 @@ describe("the bridge", () => {
 		const fake = mounted();
 		const ctx = session();
 		await start(fake, ctx);
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 		daemon.sockets[0]?.write(
 			line(
 				envelope(
@@ -342,7 +342,7 @@ describe("the bridge", () => {
 		const fake = mounted();
 		const ctx = session();
 		await start(fake, ctx);
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 		daemon.sockets[0]?.write(
 			line(
 				envelope(
@@ -377,7 +377,7 @@ describe("the bridge", () => {
 		const fake = mounted();
 		const ctx = session();
 		await start(fake, ctx);
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 		daemon.sockets[0]?.write(
 			line(
 				envelope(
@@ -405,7 +405,7 @@ describe("the bridge", () => {
 		const daemon = await listening();
 		const fake = mounted();
 		await start(fake);
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 		const by = { kind: "client", name: "phone", machine: HOST } as const;
 		const at = { machine: HOST, session: "s1", epoch: "e1", by };
 		const send = (id: string, level: string) =>
@@ -431,7 +431,7 @@ describe("the bridge", () => {
 		const answered: { id: string; by?: unknown; result: unknown }[] = [];
 		fake.pi.events.on(ANSWER, (data: unknown) => answered.push(data as never));
 		await start(fake);
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 
 		const by = { kind: "client", name: "my phone", machine: "phone" } as const;
 		const at = { machine: HOST, session: "s1", epoch: "e1", by };
@@ -487,7 +487,7 @@ describe("the bridge", () => {
 			order.push(`cancel:${String(data && (data as { id: string }).id)}`),
 		);
 		await start(fake, ctx);
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 
 		// One question is waiting; another was answered, so the stop has nothing to say about it.
 		fake.pi.events.emit(ASK, { id: "waiting", questions: [] });
@@ -522,7 +522,7 @@ describe("the bridge", () => {
 			},
 		});
 		await start(fake, ctx);
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 		const by = { kind: "client", name: "phone", machine: HOST } as const;
 		const at = { machine: HOST, session: "s1", epoch: "e1", by };
 		daemon.sockets[0]?.write(
@@ -573,7 +573,7 @@ describe("the bridge", () => {
 			{ id: "before", command: "session.compact" },
 		);
 		await start(fake, ctx);
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 		const by = { kind: "client", name: "phone", machine: HOST } as const;
 		const at = { machine: HOST, session: "s1", epoch: "e1", by };
 		daemon.sockets[0]?.write(
@@ -592,7 +592,7 @@ describe("the bridge", () => {
 		const fake = mounted();
 		const ctx = session(kept);
 		await start(fake, ctx);
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 		kept.push({ type: "message", id: "e3", parentId: "e2" });
 		await fake.fire("turn_end", { type: "turn_end", messageEntryId: "e3" }, ctx);
 		await until(() => types(daemon).includes("entry"));
@@ -605,15 +605,15 @@ describe("the bridge", () => {
 
 	test("a snapshot carries the end of the branch, and goes out again when the daemon asks", async () => {
 		const daemon = await listening();
-		await start(mounted(), session(entries(SNAPSHOT_ENTRIES + 10)));
-		await until(() => types(daemon).includes("snapshot"));
-		daemon.sockets[0]?.write(line(envelope("command", "snapshot.get", {})));
-		await until(() => types(daemon).filter((type) => type === "snapshot").length === 2);
-		const snapshots = daemon.received.filter((one) => one.type === "snapshot");
+		await start(mounted(), session(entries(STATE_ENTRIES + 10)));
+		await until(() => types(daemon).includes("state"));
+		daemon.sockets[0]?.write(line(envelope("command", "state.get", {})));
+		await until(() => types(daemon).filter((type) => type === "state").length === 2);
+		const snapshots = daemon.received.filter((one) => one.type === "state");
 		for (const one of snapshots) {
 			const tail = (one.data as { entries: Entry[] }).entries;
-			expect(tail).toHaveLength(SNAPSHOT_ENTRIES);
-			expect(tail.at(-1)?.id).toBe(`e${SNAPSHOT_ENTRIES + 10}`);
+			expect(tail).toHaveLength(STATE_ENTRIES);
+			expect(tail.at(-1)?.id).toBe(`e${STATE_ENTRIES + 10}`);
 		}
 	});
 
@@ -622,7 +622,7 @@ describe("the bridge", () => {
 		const fake = mounted();
 		const ctx = session();
 		await start(fake, ctx);
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 		await fake.fire(
 			"session_tree",
 			{ type: "session_tree", newLeafId: "e1", oldLeafId: "e2" },
@@ -645,9 +645,9 @@ describe("the bridge", () => {
 		const fake = mounted();
 		const ctx = session(kept);
 		await start(fake, ctx);
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 		daemon.sockets[0]?.destroy();
-		await until(() => types(daemon).filter((type) => type === "snapshot").length === 2, 3_000);
+		await until(() => types(daemon).filter((type) => type === "state").length === 2, 3_000);
 		kept.push({ type: "message", id: "e3", parentId: "e2" });
 		await fake.fire("turn_end", { type: "turn_end", messageEntryId: "e3" }, ctx);
 		await until(() => types(daemon).includes("entry"));
@@ -659,8 +659,8 @@ describe("the bridge", () => {
 		const daemon = await listening();
 		const all = [...entries(2), { type: "message", id: "x9", parentId: "e1" }];
 		await start(mounted(), session(all, "tui", entries(2)));
-		await until(() => types(daemon).includes("snapshot"));
-		const snapshot = daemon.received.find((one) => one.type === "snapshot")?.data as
+		await until(() => types(daemon).includes("state"));
+		const snapshot = daemon.received.find((one) => one.type === "state")?.data as
 			| { entries: Entry[] }
 			| undefined;
 		expect(snapshot?.entries).toEqual(entries(2));
@@ -671,7 +671,7 @@ describe("the bridge", () => {
 		const fake = mounted();
 		const ctx = session();
 		await start(fake, ctx);
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 		const model = { provider: "rig", id: "other" };
 		await fake.fire("model_select", { type: "model_select", model, source: "set" }, ctx);
 		await fake.fire("thinking_level_select", { type: "thinking_level_select", level: "low" }, ctx);
@@ -703,20 +703,20 @@ describe("the bridge", () => {
 		const fake = mounted();
 		const ctx = session();
 		await start(fake, ctx);
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 		await fake.fire("agent_start", { type: "agent_start" }, ctx);
 		await fake.fire("agent_settled", { type: "agent_settled", aborted: false }, ctx);
-		await until(() => types(daemon).filter((type) => type === "session.state").length === 2);
+		await until(() => types(daemon).filter((type) => type === "session.status").length === 2);
 		expect(
-			daemon.received.filter((one) => one.type === "session.state").map((one) => one.data),
-		).toEqual([{ state: "working" }, { state: "done" }]);
+			daemon.received.filter((one) => one.type === "session.status").map((one) => one.data),
+		).toEqual([{ status: "working" }, { status: "done" }]);
 	});
 
 	test("what the kit logs for this session goes out, and not another session's lines or peers' state", async () => {
 		const daemon = await listening();
 		const fake = mounted();
 		await start(fake);
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 		const log = (owner: string, type: string, data: unknown) =>
 			fake.pi.events.emit(LOGGED_EVENT, { v: 1, id: "x", at: 1, session: owner, type, data });
 		log("other", "mode.changed", { mode: "full" });
@@ -738,31 +738,34 @@ describe("the bridge", () => {
 		TASKS.provide(scope, () => ({ state: tasks }));
 		MODE.provide(scope, () => "edits");
 		await start(fake);
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 		const log = (type: string, data: unknown) =>
 			fake.pi.events.emit(LOGGED_EVENT, { v: 1, id: "x", at: 1, session: "s1", type, data });
 		log("ask.opened", { id: "q1", source: "agent", questions: [] });
 		log("ask.opened", { id: "q2", source: "agent", questions: [] });
 		log("ask.closed", { id: "q1", result: {} });
 		log("call.ruled", { toolCallId: "c1", ruling: { head: "allowed", tone: "success" } });
-		daemon.sockets[0]?.write(line(envelope("command", "snapshot.get", {})));
-		await until(() => types(daemon).filter((type) => type === "snapshot").length === 2);
-		const snapshot = daemon.received.findLast((one) => one.type === "snapshot")?.data as
+		daemon.sockets[0]?.write(line(envelope("command", "state.get", {})));
+		await until(() => types(daemon).filter((type) => type === "state").length === 2);
+		const snapshot = daemon.received.findLast((one) => one.type === "state")?.data as
 			| { snapshot: Record<string, unknown> }
 			| undefined;
 		expect(snapshot?.snapshot).toMatchObject({
 			handle: "otter",
-			state: "idle",
+			status: "idle",
 			tasks,
-			mode: "edits",
 			openAsks: ["q2"],
 		});
-		const harness = (snapshot?.snapshot as { harness?: Record<string, unknown> } | undefined)
-			?.harness;
-		expect(harness?.mode).toBe("edits");
+		const state = (snapshot?.snapshot as { state?: Record<string, unknown> } | undefined)?.state as
+			| {
+					permissions: { mode?: string; rulings: Record<string, unknown> };
+					questions: Record<string, unknown>;
+			  }
+			| undefined;
+		expect(state?.permissions.mode).toBe("edits");
 		// The state keeps both, and says which one is still waiting: a reader needs no replay to know.
-		expect(harness?.asks).toMatchObject({ q1: { id: "q1", closed: true }, q2: { id: "q2" } });
-		expect(harness?.rulings).toMatchObject({ c1: { ruling: { head: "allowed" } } });
+		expect(state?.questions).toMatchObject({ q1: { id: "q1", closed: true }, q2: { id: "q2" } });
+		expect(state?.permissions.rulings).toMatchObject({ c1: { ruling: { head: "allowed" } } });
 	});
 
 	test("the remote's files, its socket, its port and its command are protected, whatever the mode", () => {
@@ -798,7 +801,7 @@ describe("the bridge", () => {
 			sessionManager: session().sessionManager,
 		});
 		await start(fake);
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 		const asked = fake.commands.get("remote")?.handler("", ctx as never);
 		await until(() => daemon.received.some((one) => one.kind === "command"));
 		const command = daemon.received.find((one) => one.kind === "command");
@@ -860,10 +863,10 @@ describe("the bridge", () => {
 		expect(types(daemon)).toEqual([
 			"bridge",
 			"session.live",
-			"snapshot",
+			"state",
 			"bridge",
 			"session.live",
-			"snapshot",
+			"state",
 			"session.gone",
 		]);
 		expect(daemon.received[0]?.epoch).not.toBe(daemon.received[3]?.epoch);
@@ -933,15 +936,15 @@ describe("one bridge", () => {
 		const { bridge, socket } = bridged();
 		bridge.stream.messageStart(writing as unknown as MessageStartEvent);
 		bridge.stream.messageUpdate(hel as unknown as MessageUpdateEvent);
-		socket.emit("data", line(envelope("command", "snapshot.get", {})));
+		socket.emit("data", line(envelope("command", "state.get", {})));
 		await Bun.sleep(50);
 		expect(socket.written.map((one) => one.type)).toEqual([
 			"bridge",
 			"session.live",
-			"snapshot",
+			"state",
 			"pi.message_start",
 			"pi.message_update",
-			"snapshot",
+			"state",
 		]);
 		await bridge.stop(undefined);
 	});
@@ -969,8 +972,8 @@ describe("one bridge", () => {
 		expect(socket.written.map((one) => one.type)).toEqual([
 			"bridge",
 			"session.live",
-			"snapshot",
-			"snapshot",
+			"state",
+			"state",
 		]);
 		await bridge.stop(undefined);
 	});
@@ -990,7 +993,7 @@ describe("a real pi session", () => {
 			extensions: [piRemote],
 			answer: () => fauxAssistantMessage("Hello from the scripted model."),
 		});
-		await until(() => types(daemon).includes("snapshot"));
+		await until(() => types(daemon).includes("state"));
 		await rig.prompt("say hello");
 		await until(() => types(daemon).includes("stream.bound"));
 		const bound = daemon.received.find((one) => one.type === "stream.bound")?.data as

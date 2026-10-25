@@ -6,9 +6,9 @@ import { join } from "node:path";
 
 import { connect, memoryCache, type Transport } from "@adeildo/pi-remote-client";
 import {
-	applyLogged,
+	applyEvent,
 	type By,
-	emptyHarnessState,
+	emptySessionState,
 	envelope,
 	type Envelope,
 	PROTOCOL,
@@ -46,7 +46,7 @@ async function openDaemon(): Promise<{ daemon: Daemon; port: number; cookie: str
 
 /**
  * A bridge as the daemon sees one: a hello, `session.live`, events with a seq, and an answer to
- * `snapshot.get`, which tells whether the daemon asked for one.
+ * `state.get`, which tells whether the daemon asked for one.
  */
 async function bridgeOf(session: string, epoch = "e1", file?: string) {
 	const at = { machine: "laptop", session, epoch };
@@ -57,14 +57,14 @@ async function bridgeOf(session: string, epoch = "e1", file?: string) {
 	let seq = 0;
 	// The real bridge folds the state it sends, so the fake folds it too: what a client reads is the
 	// same whether the state came from the log or from here.
-	let harness = emptyHarnessState();
+	let harness = emptySessionState();
 	const send = (type: string, data: unknown) => {
-		harness = applyLogged(harness, type, data);
+		harness = applyEvent(harness, type, data);
 		client.write(line(envelope("event", type, data, { ...at, seq: seq++ })));
 	};
 	const snapshot = (entries: unknown[]) =>
-		send("snapshot", {
-			snapshot: { session, machine: "laptop", cwd: "/repo", kind: "terminal", harness },
+		send("state", {
+			snapshot: { session, machine: "laptop", cwd: "/repo", kind: "terminal", state: harness },
 			entries,
 		});
 	client.setEncoding("utf8");
@@ -130,7 +130,7 @@ describe("a client of the daemon", () => {
 		bridge.snapshot([entry("a", null)]);
 		bridge.send("entry", entry("b", "a"));
 		bridge.send("mode.changed", { mode: "judge" });
-		await until(() => daemon.sessions.get("s1")?.facts.mode === "judge");
+		await until(() => daemon.sessions.get("s1")?.state.permissions.mode === "judge");
 
 		const client = connect({
 			key: { machine: "laptop", session: "s1" },
@@ -139,7 +139,7 @@ describe("a client of the daemon", () => {
 		});
 		await client.load();
 		await until(() => client.session().entries.length === 2);
-		expect(client.session().harness.mode).toBe("judge");
+		expect(client.session().state.permissions.mode).toBe("judge");
 
 		bridge.send("entry", entry("c", "b"));
 		await until(() => client.session().entries.length === 3);
@@ -202,7 +202,7 @@ describe("a client of the daemon", () => {
 		});
 		await client.load();
 		await until(() => bridge.asked.length === 1);
-		expect(bridge.asked[0]).toMatchObject({ kind: "command", type: "snapshot.get", session: "s1" });
+		expect(bridge.asked[0]).toMatchObject({ kind: "command", type: "state.get", session: "s1" });
 		bridge.snapshot([entry("a", null)]);
 		await until(() => client.session().entries.length === 1);
 		client.stop();
@@ -225,6 +225,30 @@ describe("a client of the daemon", () => {
 		await until(() => daemon.watched().size === 0);
 	});
 
+	test("a queue that changed reaches a client that resumes, through the replay", async () => {
+		const { daemon } = await openDaemon();
+		const bridge = await bridgeOf("s1");
+		bridge.snapshot([]);
+		await until(() => daemon.sessions.get("s1")?.snapshot !== undefined);
+		const queued = {
+			id: "m1",
+			by: { kind: "client", name: "phone", machine: "laptop" },
+			text: "waiting",
+			want: "followUp",
+			when: 1,
+		};
+		// A numbered event, so it is kept for the replay: a client that missed it reads it on resume.
+		bridge.send("queue.changed", { queue: [queued] });
+		await until(() => daemon.sessions.get("s1")?.state.queue.length === 1);
+
+		// The daemon applied it with the same function the client uses, so a client that resumes from a
+		// cursor before it reads the queue out of the replay instead of asking for a new snapshot.
+		const replayed = daemon.sessions.after("s1", { epoch: "e1", seq: 0 }) ?? [];
+		const queueEvent = replayed.find((one) => one.type === "queue.changed");
+		const queuedAgain = (queueEvent?.data as { queue: { id: string }[] } | undefined)?.queue ?? [];
+		expect(queuedAgain.map((one) => one.id)).toEqual(["m1"]);
+	});
+
 	test("a snapshot carries the harness state folded, and the daemon seeds its own with it", async () => {
 		const { daemon, port, cookie } = await openDaemon();
 		const bridge = await bridgeOf("s1");
@@ -233,17 +257,21 @@ describe("a client of the daemon", () => {
 		bridge.send("ask.closed", { id: "q1", result: { answers: [], cancelled: true } });
 		bridge.send("mode.changed", { mode: "full" });
 		bridge.snapshot([]);
-		await until(() => daemon.sessions.get("s1")?.facts.mode === "full");
+		await until(() => daemon.sessions.get("s1")?.state.permissions.mode === "full");
 
 		const response = await fetch(`http://127.0.0.1:${port}/sessions/laptop/s1/snapshot`, {
 			headers: { Cookie: cookie },
 		});
 		const snapshot = (await response.json()) as Envelope & {
-			data: { snapshot: { harness: { mode?: string; asks: Record<string, unknown> } } };
+			data: { snapshot: { state: Record<string, unknown> } };
 		};
 		// One shape for everyone: the mode the log ended on, and the question with its answer.
-		expect(snapshot.data.snapshot.harness.mode).toBe("full");
-		expect(snapshot.data.snapshot.harness.asks).toMatchObject({ q1: { closed: true } });
+		const state = snapshot.data.snapshot.state as {
+			permissions: { mode?: string };
+			questions: Record<string, unknown>;
+		};
+		expect(state.permissions.mode).toBe("full");
+		expect(state.questions).toMatchObject({ q1: { closed: true } });
 	});
 
 	test("the HTTP routes: health, the session list, and a snapshot only for a known machine", async () => {

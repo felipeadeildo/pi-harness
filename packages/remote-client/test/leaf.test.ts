@@ -3,7 +3,7 @@
 // the next visit instead of recomputing it from the last entry it happens to hold.
 import { describe, expect, test } from "bun:test";
 
-import { emptyHarnessState } from "@adeildo/pi-remote-protocol";
+import { emptySessionState } from "@adeildo/pi-remote-protocol";
 
 import { memoryCache } from "../src/cache.ts";
 import { Outbox } from "../src/outbox.ts";
@@ -37,7 +37,7 @@ function started() {
 		key,
 		cursor: { epoch: "e1", seq: 1 },
 		entries: [],
-		harness: emptyHarnessState(),
+		state: emptySessionState(),
 	});
 }
 
@@ -69,7 +69,7 @@ describe("the leaf the bridge names", () => {
 
 		// A sibling branch, or one older than the snapshot: only a snapshot can put it back.
 		const answer = readEnvelope(session, envelope("leaf.changed", { leaf: "c" }, 4));
-		expect(answer).toEqual({ read: "snapshot", why: "gap" });
+		expect(answer).toEqual({ read: "state", why: "gap" });
 		expect(transcriptOfSession(session).items).toHaveLength(2);
 		expect(session.cursor.entry).toBe("b");
 	});
@@ -79,16 +79,16 @@ describe("the leaf the bridge names", () => {
 			key,
 			cursor: { epoch: "e1", seq: 1 },
 			entries: [],
-			harness: emptyHarnessState(),
+			state: emptySessionState(),
 		});
 		readEnvelope(
 			session,
 			envelope(
-				"snapshot",
+				"state",
 				{
 					snapshot: { session: "s", machine: "here", cwd: "/work", kind: "terminal", leaf: "a" },
 					entries: [entry("a", null, "first"), entry("b", "a", "second")],
-					harness: emptyHarnessState(),
+					state: emptySessionState(),
 				},
 				2,
 			),

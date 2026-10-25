@@ -3,8 +3,8 @@
 import {
 	isObject,
 	isSnapshot,
-	openAsks,
-	type HarnessState,
+	openQuestions,
+	type SessionState,
 	type SessionSnapshot,
 } from "@adeildo/pi-remote-protocol";
 
@@ -29,7 +29,7 @@ export interface ListedSession {
 	live: LiveSession;
 	/** What a client draws before the replay, when the daemon holds one. */
 	snapshot?: SessionSnapshot;
-	facts: HarnessState;
+	state: SessionState;
 }
 
 /**
@@ -83,10 +83,11 @@ function isListed(value: unknown): value is ListedSession {
 		typeof live.startedAt === "number" &&
 		typeof live.cwd === "string" &&
 		(live.kind === "terminal" || live.kind === "background") &&
-		// The facts are typed with both collections, so a row that omits one is not this shape.
-		isObject(value.facts) &&
-		isObject(value.facts.asks) &&
-		isObject(value.facts.rulings) &&
+		// The state is typed with both collections, so a row that omits one is not this shape.
+		isObject(value.state) &&
+		isObject(value.state.questions) &&
+		isObject(value.state.permissions) &&
+		isObject((value.state.permissions as Record<string, unknown>).rulings) &&
 		// The snapshot is the shape the rest of the package draws from, so it is the protocol's call.
 		(value.snapshot === undefined || isSnapshot(value.snapshot))
 	);
@@ -96,7 +97,7 @@ function isListed(value: unknown): value is ListedSession {
 export function stateOf(session: ListedSession): string {
 	if (session.gone !== undefined) return session.gone;
 	if (!session.connected) return "reconnecting";
-	return session.snapshot?.state ?? (session.live.kind === "background" ? "idle" : "working");
+	return session.snapshot?.status ?? (session.live.kind === "background" ? "idle" : "working");
 }
 
 /**
@@ -105,7 +106,7 @@ export function stateOf(session: ListedSession): string {
  */
 export function wantsYou(session: ListedSession): boolean {
 	const state = stateOf(session);
-	return state === "blocked" || state === "error" || openAsks(session.facts).length > 0;
+	return state === "blocked" || state === "error" || openQuestions(session.state).length > 0;
 }
 
 /** The ones that need you, then the running ones, then what ended. Ties broken by identity. */

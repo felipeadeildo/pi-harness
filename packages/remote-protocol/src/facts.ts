@@ -2,6 +2,7 @@
 // kit. A copy is only safe while a test proves it matches, which `test/conformance.test.ts` does.
 
 import { isBy, isObject, type By } from "./by.ts";
+import { isQueuedMessage, type QueuedMessage } from "./snapshot.ts";
 
 export type TaskStatus = "doing" | "queued" | "waiting" | "deferred" | "done" | "dropped";
 export type Origin = "you" | "agent";
@@ -107,7 +108,7 @@ export interface CallRuling {
 
 export type PermissionMode = "manual" | "edits" | "judge" | "full";
 
-/** A session's status in pi's program status words, as `session.state` carries it. */
+/** A session's status in pi's program status words, as `session.status` carries it. */
 export const SESSION_STATES = ["working", "blocked", "done", "error", "idle"] as const;
 
 /** Every fact the client reduces, with the shape each carries. */
@@ -118,13 +119,16 @@ export interface FactMap {
 	"call.ruled": { toolCallId: string; ruling: CallRuling; by?: By };
 	"mode.changed": { mode: PermissionMode };
 	"session.renamed": { from: string; to: string; by?: By };
-	"session.state": { state: (typeof SESSION_STATES)[number] };
+	"session.status": { status: (typeof SESSION_STATES)[number] };
 	"session.live": {
 		pid?: number;
 		startedAt?: number;
 		cwd?: string;
 		name?: string;
 		kind: "terminal" | "background";
+		/** The model this session answers with, and how hard it thinks, as pi reports them live. */
+		model?: { provider: string; id: string };
+		thinkingLevel?: string;
 		/**
 		 * pi's session file, which the daemon pages older entries from. pi knows the path from the
 		 * start, but writes the file only with the first message, so until then a page finds nothing:
@@ -139,6 +143,8 @@ export interface FactMap {
 	"leaf.changed": { leaf: string | null };
 	/** Always written with who sent it, since that is the whole fact; read leniently, see `isFact`. */
 	"prompt.received": { by: By };
+	/** The whole queue as it stands: it waits in the session, so every client sees the same list. */
+	"queue.changed": { queue: QueuedMessage[] };
 }
 
 export type FactType = keyof FactMap;
@@ -150,12 +156,13 @@ export const FACT_TYPES: readonly FactType[] = [
 	"call.ruled",
 	"mode.changed",
 	"session.renamed",
-	"session.state",
+	"session.status",
 	"session.live",
 	"session.gone",
 	"stream.bound",
 	"leaf.changed",
 	"prompt.received",
+	"queue.changed",
 ];
 
 /**
@@ -185,10 +192,10 @@ export function isFact(type: string, data: unknown): boolean {
 				data.mode === "judge" ||
 				data.mode === "full"
 			);
-		case "session.state":
+		case "session.status":
 			// pi's program status words only: the log's own `session.state` is peers' running or idle,
 			// and a line of it must never read as a status.
-			return SESSION_STATES.some((state) => state === data.state);
+			return SESSION_STATES.some((status) => status === data.status);
 		case "stream.bound":
 			// The number matters: a stream that is not pi's number cannot be matched to a transcript.
 			return (
@@ -202,6 +209,8 @@ export function isFact(type: string, data: unknown): boolean {
 			);
 		case "leaf.changed":
 			return data.leaf === null || typeof data.leaf === "string";
+		case "queue.changed":
+			return Array.isArray(data.queue) && data.queue.every(isQueuedMessage);
 		case "prompt.received":
 			// A prompt that reached the log names who sent it; anything else is not this fact.
 			return isBy(data.by);

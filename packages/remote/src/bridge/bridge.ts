@@ -28,12 +28,12 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { OpenAsks } from "./asks.ts";
 import { Commands, Refused } from "./commands.ts";
 import { BridgeConnection, type ConnectionSeams, type GoneReason } from "./connection.ts";
-import { Harness, LOGGED_FACTS } from "./harness.ts";
-import { letterOf, SessionInbox } from "./inbox.ts";
+import { letterOf, queuedOf, SessionInbox } from "./inbox.ts";
+import { FORWARDED, Harness } from "./logged.ts";
 import { LiveStream } from "./stream.ts";
 
 /** How many entries of the branch a snapshot carries. A client pages through older ones over HTTP. */
-export const SNAPSHOT_ENTRIES = 50;
+export const STATE_ENTRIES = 50;
 
 /** How often the terminal tells the daemon that someone typed there, in milliseconds. */
 export const TYPED_EVERY_MS = 2_000;
@@ -125,6 +125,9 @@ export class Bridge {
 			send: (text, deliverAs) => options.api.send(text, deliverAs),
 			busy: () => options.api.busy(),
 			arrived: (text, by) => options.api.arrived(text, by),
+			// A queue that waits in the session is one list for every client, so it travels numbered:
+			// a client that missed an event recovers it from the replay, and a hole asks for the state.
+			queued: (queue) => this.#connection.event("queue.changed", { queue }),
 		});
 		this.#inbox.start();
 		// A key at the terminal is input, and it makes the terminal the session's active client. The
@@ -156,7 +159,7 @@ export class Bridge {
 				setThinking: (level) => options.api.setThinking(level),
 				setMode: (mode, by) => options.api.setMode(mode, by),
 				prompt: (id, by, text, deliverAs) => this.#inbox.put(letterOf(id, by, text, deliverAs)),
-				clearQueue: () => this.#inbox.take(),
+				clearQueue: (ids) => this.#inbox.take(ids),
 				// A client's answer to a question it is looking at. Without an open question with that
 				// id, the answer is refused: the question was answered elsewhere or already closed.
 				// The answer goes on the bus, where whoever is holding the question is listening: the
@@ -222,7 +225,7 @@ export class Bridge {
 
 	/** Forwards a fact the kit logged for this session, and keeps what a snapshot needs of it. */
 	logged(line: Logged): void {
-		if (line.session !== this.ctx.sessionManager.getSessionId() || !LOGGED_FACTS.has(line.type)) {
+		if (line.session !== this.ctx.sessionManager.getSessionId() || !FORWARDED.has(line.type)) {
 			return;
 		}
 		this.#facts.saw(line.type, line.data);
@@ -236,7 +239,7 @@ export class Bridge {
 
 	/** The session's status changed, in pi's program status words. */
 	status(state: SessionStatus): void {
-		this.#connection.event("session.state", { state });
+		this.#connection.event("session.status", { status: state });
 	}
 
 	async stop(reason: GoneReason | undefined): Promise<void> {
@@ -257,6 +260,11 @@ export class Bridge {
 			name: manager.getSessionName(),
 			kind: this.options.kind,
 			file: manager.getSessionFile(),
+			model:
+				this.ctx.model === undefined
+					? undefined
+					: { provider: this.ctx.model.provider, id: this.ctx.model.id },
+			thinkingLevel: this.ctx.thinkingLevel,
 		});
 		this.#snapshot();
 		// What the snapshot does not carry is older than its tail or off the branch, and a client reads
@@ -274,7 +282,7 @@ export class Bridge {
 
 	#heard(message: Envelope): void {
 		if (message.kind !== "command") return;
-		if (message.type === "snapshot.get") return this.#snapshot();
+		if (message.type === "state.get") return this.#snapshot();
 		void this.#commands.run(message);
 	}
 
@@ -298,18 +306,19 @@ export class Bridge {
 		const { scope, kind } = this.options;
 		const tasks = TASKS.current(scope)?.state;
 		const mode = MODE.current(scope);
-		this.#connection.event("snapshot", {
+		this.#connection.event("state", {
 			snapshot: {
 				...snapshotOf(this.ctx, kind),
 				handle: tasks?.handle,
-				state: SESSION_STATUS.current(scope),
+				status: SESSION_STATUS.current(scope),
 				tasks,
 				mode,
-				openAsks: this.#facts.openAsks,
-				// Already folded, so a reader draws the session's harness state without a replay.
-				harness: this.#facts.snapshot(tasks, mode),
+				openAsks: this.#facts.openQuestions,
+				queue: this.#inbox.queue().map(queuedOf),
+				// Already folded, so a reader draws the session's state without a replay.
+				state: this.#facts.snapshot(tasks, mode),
 			},
-			entries: this.ctx.sessionManager.getBranch().slice(-SNAPSHOT_ENTRIES),
+			entries: this.ctx.sessionManager.getBranch().slice(-STATE_ENTRIES),
 			streaming: this.stream.streaming,
 		});
 	}

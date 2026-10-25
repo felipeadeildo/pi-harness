@@ -20,7 +20,7 @@ export {
 	harnessOf,
 	hello,
 	readEnvelope,
-	SNAPSHOT,
+	STATE,
 	type SnapshotData,
 	sessionOf,
 	transcriptOfSession,

@@ -198,9 +198,9 @@ describe("the daemon on its socket", () => {
 		// The first bridge speaks for the second session, which it does not own.
 		client.send(envelope("event", "mode.changed", { mode: "full" }, { ...other, seq: 0 }));
 		client.send(envelope("event", "mode.changed", { mode: "judge" }, { ...ORIGIN, seq: 1 }));
-		await until(() => started?.sessions.get("s1")?.facts.mode !== undefined);
-		expect(started?.sessions.get("s1")?.facts.mode).toBe("judge");
-		expect(started?.sessions.get("s2")?.facts.mode).toBeUndefined();
+		await until(() => started?.sessions.get("s1")?.state.permissions.mode !== undefined);
+		expect(started?.sessions.get("s1")?.state.permissions.mode).toBe("judge");
+		expect(started?.sessions.get("s2")?.state.permissions.mode).toBeUndefined();
 		// The facts are set as the event is read, before the daemon's own hello reaches this client.
 		await until(() => client.received.length > 0);
 		expect(client.received[0]).toMatchObject({ kind: "hello", type: "daemon" });
@@ -304,12 +304,12 @@ describe("the replay buffer", () => {
 			snapshot: { session: "s1", machine: "laptop", cwd: "/", kind: "terminal" as const },
 			entries: [],
 		};
-		sessions.event(envelope("event", "snapshot", snapshot, { ...ORIGIN, seq: 3 }));
+		sessions.event(envelope("event", "state", snapshot, { ...ORIGIN, seq: 3 }));
 		sessions.event(event(4));
 		expect(sessions.get("s1")?.snapshot).toEqual(snapshot);
 		expect(sessions.after("s1", { epoch: "e1", seq: 1 })).toBeUndefined();
 		expect(sessions.after("s1", { epoch: "e1", seq: 3 })?.map((e) => e.seq)).toEqual([4]);
-		sessions.event(envelope("event", "snapshot", { entries: "no" }, { ...ORIGIN, seq: 5 }));
+		sessions.event(envelope("event", "state", { entries: "no" }, { ...ORIGIN, seq: 5 }));
 		expect(sessions.get("s1")?.snapshot).toEqual(snapshot);
 	});
 
@@ -337,10 +337,10 @@ describe("a session's events", () => {
 		expect(sessions.event(mode("full", "e1"))).toBe("an event for a session no bridge registered");
 		sessions.live(envelope("event", "session.live", live, ORIGIN), live);
 		expect(sessions.event(mode("full", "e0"))).toBe("an event from another life of the session");
-		expect(sessions.get("s1")?.facts.mode).toBeUndefined();
+		expect(sessions.get("s1")?.state.permissions.mode).toBeUndefined();
 		expect(sessions.event(mode("judge", "e1"))).toBeUndefined();
-		expect(sessions.get("s1")?.facts.mode).toBe("judge");
-		const unread = envelope("event", "snapshot", { entries: [] }, { ...ORIGIN, seq: 2 });
+		expect(sessions.get("s1")?.state.permissions.mode).toBe("judge");
+		const unread = envelope("event", "state", { entries: [] }, { ...ORIGIN, seq: 2 });
 		expect(sessions.event(unread)).toBe("a snapshot that does not read");
 	});
 });

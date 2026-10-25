@@ -25,7 +25,7 @@ export interface CommandEffects {
 	/** Puts a prompt in the session's inbox: a steer goes in at once, a follow-up waits for the settle. */
 	prompt(id: string, by: By | undefined, text: string, deliverAs: Letter["want"]): void;
 	/** Takes back what the inbox holds, which is what pi's Esc does with its queue. */
-	clearQueue(): Letter[];
+	clearQueue(ids?: readonly string[]): Letter[];
 }
 
 export interface CommandOptions {
@@ -46,6 +46,12 @@ export interface CommandOptions {
  * something the command's shape allows, such as a forced stop that needs a runner.
  */
 export class Refused extends Error {}
+
+/** The ids a `queue.clear` names, when it names any: absent means "the whole queue". */
+function idsOf(fields: Record<string, unknown>): string[] | undefined {
+	if (!Array.isArray(fields.ids)) return undefined;
+	return fields.ids.filter((id): id is string => typeof id === "string");
+}
 
 export class Commands {
 	readonly #options: CommandOptions;
@@ -160,7 +166,7 @@ export class Commands {
 			}
 			case "queue.clear":
 				// What was taken back is the answer, so a client draws the queue it now holds.
-				return { taken: effects.clearQueue() };
+				return { taken: effects.clearQueue(idsOf(fields)) };
 			default:
 				// A command of a type this session does not serve yet: the client hears "not yet"
 				// instead of a command that seems to work and does nothing.

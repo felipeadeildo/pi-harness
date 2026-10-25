@@ -3,7 +3,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { connect, memoryCache, type CachedSession } from "@adeildo/pi-remote-client";
-import { emptyHarnessState } from "@adeildo/pi-remote-protocol";
+import { emptySessionState } from "@adeildo/pi-remote-protocol";
 
 import { KEPT, pageCache, storageCache, type StorageLike } from "./cache.ts";
 import { openSocket, type SocketLike, socketUrl } from "./transport.ts";
@@ -138,7 +138,7 @@ describe("the socket", () => {
 				session: "s1",
 				epoch: "e1",
 				seq: 1,
-				type: "snapshot",
+				type: "state",
 				data: { entries: [] },
 				at: 0,
 			}),
@@ -169,7 +169,7 @@ describe("the socket", () => {
 			session: "s1",
 			epoch: "e1",
 			seq: 1,
-			type: "snapshot",
+			type: "state",
 			data: {
 				snapshot: { session: "s1", machine: "box", cwd: "/", kind: "terminal" },
 				entries: [entry],
@@ -204,7 +204,7 @@ describe("the store", () => {
 		key,
 		cursor: { epoch: "e1", seq: 3 },
 		entries: [],
-		harness: emptyHarnessState(),
+		state: emptySessionState(),
 		leaf: "a",
 	};
 

@@ -3,7 +3,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { isFact } from "../src/facts.ts";
-import { isQueued, isSnapshot } from "../src/snapshot.ts";
+import { isQueuedMessage, isSnapshot } from "../src/snapshot.ts";
 
 describe("a fact the daemon has to carry", () => {
 	test("a bound stream is the number pi numbered it with", () => {
@@ -35,9 +35,12 @@ describe("a session's status", () => {
 	});
 
 	test("is never peers' running or idle from the log, nor any other word", () => {
-		expect(isFact("session.state", { state: "running" })).toBe(false);
-		expect(isFact("session.state", { state: "waiting" })).toBe(false);
-		expect(isFact("session.state", {})).toBe(false);
+		// The log's own `session.state` is peers' activity and never crosses; the wire's status is
+		// pi's, and a word from the other side is refused rather than shown as a status.
+		expect(isFact("session.status", { status: "running" })).toBe(false);
+		expect(isFact("session.status", { status: "waiting" })).toBe(false);
+		expect(isFact("session.status", {})).toBe(false);
+		expect(isFact("session.status", { status: "blocked" })).toBe(true);
 	});
 });
 
@@ -47,20 +50,20 @@ describe("a letter waiting in the inbox", () => {
 
 	test("the four reasons a letter waits are the ones the kit writes", () => {
 		for (const why of ["asleep", "quiet", "full", "stopped"] as const) {
-			expect(isQueued({ ...letter, why })).toBe(true);
+			expect(isQueuedMessage({ ...letter, why })).toBe(true);
 		}
-		expect(isQueued({ ...letter, why: "waiting" })).toBe(false);
+		expect(isQueuedMessage({ ...letter, why: "waiting" })).toBe(false);
 	});
 
 	test("a letter needs who wrote it, which is what puts a person's words first", () => {
-		expect(isQueued(letter)).toBe(true);
-		expect(isQueued({ ...letter, by: undefined })).toBe(false);
-		expect(isQueued({ ...letter, by: { kind: "client", name: "phone" } })).toBe(false);
-		expect(isQueued({ ...letter, want: "later" })).toBe(false);
-		expect(isQueued({ ...letter, id: "" })).toBe(false);
-		expect(isQueued({ ...letter, text: "" })).toBe(false);
+		expect(isQueuedMessage(letter)).toBe(true);
+		expect(isQueuedMessage({ ...letter, by: undefined })).toBe(false);
+		expect(isQueuedMessage({ ...letter, by: { kind: "client", name: "phone" } })).toBe(false);
+		expect(isQueuedMessage({ ...letter, want: "later" })).toBe(false);
+		expect(isQueuedMessage({ ...letter, id: "" })).toBe(false);
+		expect(isQueuedMessage({ ...letter, text: "" })).toBe(false);
 		// `NaN` is a number, and a queue ordered by it is a queue that never orders.
-		expect(isQueued({ ...letter, when: Number.NaN })).toBe(false);
+		expect(isQueuedMessage({ ...letter, when: Number.NaN })).toBe(false);
 	});
 });
 

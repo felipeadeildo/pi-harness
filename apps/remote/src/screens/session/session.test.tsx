@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { type ClientSession, sessionOf } from "@adeildo/pi-remote-client";
-import { applyLogged, emptyHarnessState } from "@adeildo/pi-remote-protocol";
+import { applyEvent, emptySessionState } from "@adeildo/pi-remote-protocol";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -28,9 +28,9 @@ function lines(file: string): Record<string, unknown>[] {
 function recorded(): ClientSession {
 	const session = sessionOf({ machine: "server", session: "01a16b1b-a4b1-734c-81d9-0c534a12eac1" });
 	session.entries = lines("session.jsonl").filter((entry) => entry.type !== "session") as never;
-	session.harness = lines("harness.jsonl").reduce(
-		(state, fact) => applyLogged(state, String(fact.type), fact.data),
-		emptyHarnessState(),
+	session.state = lines("harness.jsonl").reduce(
+		(state, fact) => applyEvent(state, String(fact.type), fact.data),
+		emptySessionState(),
 	);
 	return session;
 }
@@ -58,9 +58,9 @@ function handmade(
 ): ClientSession {
 	const session = sessionOf({ machine: "box", session: "abcdef12" });
 	session.entries = entries as never;
-	session.harness = facts.reduce(
-		(state, fact) => applyLogged(state, fact.type, fact.data),
-		emptyHarnessState(),
+	session.state = facts.reduce(
+		(state, fact) => applyEvent(state, fact.type, fact.data),
+		emptySessionState(),
 	);
 	return session;
 }
@@ -244,8 +244,8 @@ describe("drawing again on every envelope", () => {
 		expect(moved).not.toBe(pushed);
 		expect(moved.items).toHaveLength(1);
 
-		session.harness = applyLogged(session.harness, "mode.changed", { mode: "judge" });
-		expect(viewOf(session).facts.mode).toBe("judge");
+		session.state = applyEvent(session.state, "mode.changed", { mode: "judge" });
+		expect(viewOf(session).state.permissions.mode).toBe("judge");
 
 		// A snapshot swaps the list for one of the same length.
 		session.entries = [message("c", null, "user", [{ type: "text", text: "new" }])] as never;

@@ -36,23 +36,25 @@ export {
 export {
 	type Ask,
 	type ClosedAsk,
-	emptyHarnessState,
+	emptySessionState,
 	KEPT_CLOSED,
 	type OpenAsk,
-	openAsks,
-	applyLogged,
-	applyAll,
-	type HarnessState,
+	openQuestions,
+	applyEvent,
+	foldLogged,
+	type SessionState,
 } from "./reduce/state.ts";
 export { COMMAND_TYPES, type CommandMap, type CommandType, isCommand } from "./commands.ts";
 export {
 	type CommandBy,
 	isCommandBy,
 	isPresence,
+	isQueuedMessage,
 	isSnapshot,
 	PRESENCE,
 	PRESENCE_HERE,
 	type Presence,
+	type QueuedMessage,
 	type SessionSnapshot,
 	type Viewer,
 } from "./snapshot.ts";

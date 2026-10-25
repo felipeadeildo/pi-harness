@@ -6,7 +6,8 @@ import type { AskResult, PermissionMode } from "./facts.ts";
 
 export interface CommandMap {
 	"prompt.send": { text: string; images?: string[]; deliverAs?: "steer" | "followUp" | "nextTurn" };
-	"queue.clear": Record<string, never>;
+	/** Takes the queued messages back: all of them, or the ones named. Absent ids take everything. */
+	"queue.clear": { ids?: string[] };
 	"run.abort": Record<string, never>;
 	"ask.answer": { ask: string; result: AskResult };
 	"model.set": { provider: string; id: string };
@@ -69,6 +70,10 @@ export function isCommand(type: string, data: unknown): boolean {
 		case "session.stop":
 			return data.force === undefined || typeof data.force === "boolean";
 		case "queue.clear":
+			return (
+				data.ids === undefined ||
+				(Array.isArray(data.ids) && data.ids.every((id) => typeof id === "string"))
+			);
 		case "run.abort":
 		case "session.clone":
 		case "tree.get":

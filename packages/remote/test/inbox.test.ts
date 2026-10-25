@@ -24,6 +24,7 @@ function wired() {
 			void sent.push(deliverAs === undefined ? { text } : { text, deliverAs }),
 		arrived: (text, by) => void notes.push(`${by.name}: ${text}`),
 		busy: () => state.running,
+		queued: (queue) => void notes.push(`queue:${queue.length}`),
 	});
 	const stop = inbox.start();
 	return { inbox, sent, notes, scope, stop, state };
@@ -79,7 +80,8 @@ describe("a session's inbox", () => {
 			text: "typed here",
 			want: "followUp",
 		});
-		expect(notes).toEqual(["phone: from the phone"]);
+		// The arrival note is one per client letter; the queue notices are the wire's, kept apart.
+		expect(notes.filter((one) => !one.startsWith("queue:"))).toEqual(["phone: from the phone"]);
 	});
 
 	test("sends nothing when the agent settles with an empty queue", () => {

@@ -147,7 +147,7 @@ export function clientOf(
 			};
 			opened.onmessage = (event) => {
 				const message = JSON.parse(String(event.data)) as { type?: string };
-				if (message.type === "snapshot") snapshots += 1;
+				if (message.type === "state") snapshots += 1;
 				if (message.type === "pi.message_update") deltas += 1;
 				// The network goes before the event is applied, on the first of the kind named. A delta
 				// is the one the client sees live and the replay does not give back, so dropping on it

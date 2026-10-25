@@ -2,6 +2,7 @@ import type { Client, Outgoing } from "@adeildo/pi-remote-client";
 import {
 	type CommandType,
 	type PermissionMode,
+	type QueuedMessage,
 	THINKING_LEVELS,
 } from "@adeildo/pi-remote-protocol";
 // The controls under the transcript: send a prompt, steer or follow up, abort, pick the model and the
@@ -13,6 +14,8 @@ import {
 // the session were on it.
 import { type ReactNode, createElement as h, useEffect, useState } from "react";
 
+import { queuedLines, type QueuedLine, withdraw } from "./pending.ts";
+
 export interface ComposerProps {
 	/** The connection this session is drawn from, which is also where commands go. */
 	client: Client;
@@ -23,12 +26,21 @@ export interface ComposerProps {
 	thinking?: string;
 	/** Called when a control needs a value from the person, as rename does. */
 	ask?: (question: string) => string | undefined;
+	/** What the session is holding for the agent to finish, which every client sees the same way. */
+	waiting?: readonly QueuedMessage[];
 }
 
 /** The three modes a client may set: `full` runs everything unasked, so only a terminal may choose it. */
 export const CLIENT_MODES: readonly PermissionMode[] = ["manual", "edits", "judge"];
 
-export function Composer({ client, mode, model, thinking, ask }: ComposerProps): ReactNode {
+export function Composer({
+	client,
+	mode,
+	model,
+	thinking,
+	ask,
+	waiting,
+}: ComposerProps): ReactNode {
 	// The queue changes without the session changing, so the composer hears the client itself.
 	// Reading `outbox()` once per render makes "drawn by state" true at the mount and a lie after.
 	const [, redraw] = useState(0);
@@ -38,6 +50,9 @@ export function Composer({ client, mode, model, thinking, ask }: ComposerProps):
 	// native target with no `document`, must not share the first input it finds.
 	const [draft, write] = useState("");
 	const queue = client.outbox().all();
+	// The session's own queue is drawn beside the outbox and never merged with it: what this device
+	// sent and what the session holds are different lists, and each has its own act.
+	const queued = queuedLines(waiting ?? []);
 	// A command past the window waits for the person, and one inside it goes out on its own: the
 	// screen has to say which, or a prompt typed offline three minutes ago looks like one in flight.
 	const held = new Set(
@@ -57,6 +72,7 @@ export function Composer({ client, mode, model, thinking, ask }: ComposerProps):
 		pickers(send, mode, model, thinking),
 		ask === undefined ? null : naming(send, ask),
 		queueNode(queue, client, held),
+		heldNode(queued, client),
 	);
 }
 
@@ -235,4 +251,30 @@ export function sendNow(client: Client, id: string): void {
 /** Gives up on a held command: it leaves the queue and nothing goes out. */
 export function dropNow(client: Client, id: string): void {
 	client.drop(id);
+}
+
+/**
+ * The session's queue, in the order it will run, with the act that takes a message back. It says
+ * "waiting its turn" and not "sending", because this list belongs to the session, not to the device:
+ * two phones see the same lines, and neither of them can make one go faster.
+ */
+function heldNode(lines: readonly QueuedLine[], client: Client): ReactNode {
+	if (lines.length === 0) return null;
+	return h(
+		"ul",
+		{ className: "remote-composer-held" },
+		...lines.map((line) =>
+			h(
+				"li",
+				{ key: line.id, className: "remote-composer-waiting" },
+				h("span", { className: "remote-composer-text" }, line.text),
+				h("span", { className: "remote-composer-by" }, line.by),
+				h(
+					"button",
+					{ key: "withdraw", type: "button", onClick: () => withdraw(client, line.id) },
+					"Withdraw",
+				),
+			),
+		),
+	);
 }

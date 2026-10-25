@@ -147,7 +147,7 @@ export function connect(options: ConnectionOptions): Client {
 				if (reply(envelope)) return;
 				const answer = readEnvelope(session, envelope);
 				if (answer.read === "now") asking = false;
-				if (answer.read === "snapshot" && !asking) {
+				if (answer.read === "state" && !asking) {
 					asking = true;
 					// A hole or a new epoch cannot be put back, so the client asks for the whole tail:
 					// without `seq` the hello is a snapshot request.
@@ -158,7 +158,7 @@ export function connect(options: ConnectionOptions): Client {
 					queueMicrotask(() => transport?.send(hello(session)));
 					return;
 				}
-				if (answer.read === "snapshot") return;
+				if (answer.read === "state") return;
 				if (answer.read === "skip") return;
 				waiting = backoff.first;
 				save();
