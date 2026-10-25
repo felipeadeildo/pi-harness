@@ -169,6 +169,7 @@ export function fakeScope(options: FakeScopeOptions = {}): FeatureScope {
 		registerCommand: (name, command) => fake.pi.registerCommand(name, command),
 		onSessionStart: (run) => void fake.pi.on("session_start", (_event, ctx) => run(ctx)),
 		onShutdown: (run) => void fake.pi.on("session_shutdown", () => run()),
+		defer: (run, ms = 0) => void setTimeout(run, ms),
 		warn: (message) => void notes.push(message),
 		has: () => false,
 		screen: {
