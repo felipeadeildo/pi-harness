@@ -52,7 +52,7 @@ The other tracks of the cycle:
 Before 6.0.0:
 
 - [x] No test fails one run in ten (#241)
-- [ ] The `as unknown as` casts outside test fakes, and the patched pi prototypes, have a test or are gone. nearly: the kit's casts are guards now (#243); the presence guard is #249, the prototype tests are #250, and #251 asks pi for the hooks
+- [ ] The `as unknown as` casts outside test fakes, and the patched pi prototypes, have a test or are gone. nearly: the kit's casts are guards now (#243); the presence guard is #249, the prototype tests are #250, and issue #251 asks pi for the hooks
 - [ ] [The remote design](remote.md) speaks the new names
 - [ ] The release notes, and 6.0.0
 
