@@ -47,7 +47,7 @@ What each piece of the screen shows.
 | `branch`       | The branch, ahead `↑` and behind `↓`, staged `+`, modified `~`, untracked `?`, conflicts `!`, stashes                                                                |
 | `host`         | The machine, so a pasted line says where it came from                                                                                                                |
 | `session`      | The session name, once it has one                                                                                                                                    |
-| `tasks`        | What the agent is doing (`+1` when it does more), then how many wait (`⚑ 1`, in yellow), are queued (`⧗ 3`) and are done (`✓ 2`, in green), from `@adeildo/pi-tasks` |
+| `tasks`        | What the agent is doing (`+1` when it does more), then how many wait (`⚑ 1`, in yellow), are queued (`⧗ 3`) and are done (`✓ 2`, in green), from `@adeildo/pi-board` |
 | `version`      | The pi version                                                                                                                                                       |
 | `clock`        | The time                                                                                                                                                             |
 | `model`        | `provider/model`, with the account in parentheses when one is in use                                                                                                 |

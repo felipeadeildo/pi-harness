@@ -1,7 +1,7 @@
-<h1 align="center">@adeildo/pi-tasks</h1>
+<h1 align="center">@adeildo/pi-board</h1>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@adeildo/pi-tasks"><img src="https://img.shields.io/npm/v/@adeildo/pi-tasks" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/@adeildo/pi-board"><img src="https://img.shields.io/npm/v/@adeildo/pi-board" alt="npm"></a>
   <a href="https://pi.dev"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffelipeadeildo%2Fpi-harness%2Fmain%2Fpackage.json&query=%24.devDependencies%5B%22%40earendil-works%2Fpi-coding-agent%22%5D&label=pi%20SDK&color=6E56CF" alt="pi SDK"></a>
 </p>
 
@@ -10,7 +10,7 @@
   What the agent is doing, what it did and what came out of it, what waits on you, and what was decided.
 </p>
 
-<p align="center"><code>pi install npm:@adeildo/pi-tasks</code></p>
+<p align="center"><code>pi install npm:@adeildo/pi-board</code></p>
 
 ## What it keeps
 

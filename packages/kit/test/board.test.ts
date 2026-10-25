@@ -7,9 +7,11 @@ import {
 	emptyBoard,
 	findBoard,
 	foldBoard,
+	isBoard,
 	type Board,
 	type BoardOp,
 } from "../src/board/model.ts";
+import { boardText } from "../src/board/tool.ts";
 
 const at = 1;
 const blocker = { on: "operator", why: "which name?" } as const;
@@ -184,10 +186,37 @@ describe("what others read", () => {
 		expect(found.more).toBe(2);
 	});
 
-	test("the blocker names the thing, and reads as you only to the operator", () => {
-		expect(blockedText(blocker, "operator")).toBe("waiting for you: which name?");
-		expect(blockedText(blocker, "agent")).toBe("waiting for the operator: which name?");
-		const agent = { on: "agent", handle: "@quokka", why: "the review" } as const;
-		expect(blockedText(agent, "operator")).toBe("waiting for @quokka: the review");
+	test("the blocker reads as you only to the operator, and names the agent the same way", () => {
+		expect(blockedText(blocker, "operator")).toBe("você: which name?");
+		expect(blockedText(blocker, "agent")).toBe("o operador: which name?");
+		const agent = { on: "agent", handle: "quokka", why: "the review" } as const;
+		expect(blockedText(agent, "operator")).toBe("@quokka: the review");
+		expect(blockedText(agent, "agent")).toBe("@quokka: the review");
+		const outside = { on: "outside", why: "the deploy" } as const;
+		expect(blockedText(outside, "operator")).toBe("fora: the deploy");
 	});
+});
+
+test("a board reads back only in the shape this version wrote", () => {
+	const board = applied([
+		added("Uma", { blocked: { on: "agent", handle: "quokka", why: "the review" } }),
+	]);
+	expect(isBoard(board)).toBe(true);
+	expect(isBoard({ ...board, cards: [{ ...board.cards[0], column: "wip" }] })).toBe(false);
+	expect(
+		isBoard({ ...board, cards: [{ ...board.cards[0], blocked: { on: "agent", why: "x" } }] }),
+	).toBe(false);
+	expect(
+		isBoard({ ...board, decisions: [{ id: "d1", text: "x", at: 1, by: { kind: "nobody" } }] }),
+	).toBe(false);
+});
+
+test("a card waiting for the operator and one waiting for an agent read differently", () => {
+	const board = applied([
+		added("Uma", { blocked: { on: "operator", why: "o nome" } }),
+		added("Outra", { blocked: { on: "agent", handle: "quokka", why: "a revisão" } }),
+	]);
+	const text = boardText(board);
+	expect(text).toContain("o operador: o nome");
+	expect(text).toContain("@quokka: a revisão");
 });

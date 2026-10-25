@@ -2,6 +2,8 @@
 // what it already delivered. It is a fold of operations, one writer per session, so a `/tree` or a
 // fork carries the board with it and no operation has to be merged.
 import type { By } from "../contracts/by.ts";
+import { isBy } from "../contracts/by.ts";
+import { isObject } from "../decode.ts";
 
 export type BoardColumn = "backlog" | "todo" | "doing" | "review" | "done" | "dropped";
 
@@ -222,8 +224,14 @@ function badTitle(title: string): string | undefined {
 	return undefined;
 }
 
-/** The board a session hands to others: the open cards, the backlog as a count, the last three done. */
-export function boardView(board: Board): { open: BoardCard[]; backlog: number; done: BoardCard[] } {
+/** What a session hands to others: the open cards, the backlog as a count, the last three done. */
+export interface BoardView {
+	open: BoardCard[];
+	backlog: number;
+	done: BoardCard[];
+}
+
+export function boardView(board: Board): BoardView {
 	const open = board.cards.filter((card) => OPEN_COLUMNS.has(card.column)).slice(0, OPEN);
 	const backlog = board.cards.filter((card) => card.column === "backlog").length;
 	const done = board.cards.filter((card) => card.column === "done").slice(-3);
@@ -247,15 +255,14 @@ export function findBoard(
 	return { matches: all.slice(0, TOO_MANY), more: Math.max(0, all.length - TOO_MANY) };
 }
 
-/** The one translation of the blocker: the operator reads "you", a third session reads the operator. */
+/** The one translation of the blocker: the operator reads "você", a third session reads the operator. */
 export function blockedText(blocker: BoardBlocker, reader: "operator" | "agent"): string {
 	if (blocker.on === "operator") {
-		return reader === "operator"
-			? `waiting for you: ${blocker.why}`
-			: `waiting for the operator: ${blocker.why}`;
+		return `${reader === "operator" ? "você" : "o operador"}: ${blocker.why}`;
 	}
-	if (blocker.on === "outside") return `waiting outside: ${blocker.why}`;
-	return `waiting for ${blocker.handle}: ${blocker.why}`;
+	if (blocker.on === "outside") return `fora: ${blocker.why}`;
+	const handle = blocker.handle.startsWith("@") ? blocker.handle : `@${blocker.handle}`;
+	return `${handle}: ${blocker.why}`;
 }
 
 /** The board is the fold of the session's operations, in the order the log keeps them. */
@@ -266,4 +273,55 @@ export function foldBoard(ops: readonly BoardOp[], writer: BoardWriter = "agent"
 		if (result.ok) board = result.board;
 	}
 	return board;
+}
+
+const COLUMNS: ReadonlySet<string> = new Set([
+	"backlog",
+	"todo",
+	"doing",
+	"review",
+	"done",
+	"dropped",
+]);
+
+/** Whether a value is a board this version wrote. A shape it cannot read is skipped, never guessed. */
+export function isBoard(value: unknown): value is Board {
+	if (!isObject(value)) return false;
+	const { cards, decisions, next } = value;
+	if (typeof next !== "number" || !Array.isArray(cards) || !Array.isArray(decisions)) return false;
+	return cards.every(isCard) && decisions.every(isDecision);
+}
+
+function isCard(value: unknown): value is BoardCard {
+	if (!isObject(value)) return false;
+	if (
+		typeof value.id !== "string" ||
+		typeof value.title !== "string" ||
+		typeof value.at !== "number"
+	)
+		return false;
+	if (typeof value.column !== "string" || !COLUMNS.has(value.column)) return false;
+	if (value.pr !== undefined && typeof value.pr !== "number") return false;
+	if (value.now !== undefined && typeof value.now !== "string") return false;
+	if (value.reviewer !== undefined && typeof value.reviewer !== "string") return false;
+	if (value.result !== undefined && typeof value.result !== "string") return false;
+	if (value.why !== undefined && typeof value.why !== "string") return false;
+	return value.blocked === undefined || isBlocker(value.blocked);
+}
+
+function isBlocker(value: unknown): value is BoardBlocker {
+	if (!isObject(value) || typeof value.why !== "string") return false;
+	if (value.on === "operator" || value.on === "outside") return true;
+	return value.on === "agent" && typeof value.handle === "string";
+}
+
+function isDecision(value: unknown): value is BoardDecision {
+	if (!isObject(value)) return false;
+	if (
+		typeof value.id !== "string" ||
+		typeof value.text !== "string" ||
+		typeof value.at !== "number"
+	)
+		return false;
+	return value.by === undefined || isBy(value.by);
 }
