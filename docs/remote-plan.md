@@ -13,8 +13,8 @@ The gate:
 - [x] 3. A prompt sent to an idle session runs (required)
 - [x] 4. A follow-up sent during a run waits in the queue, and can be taken back (required, #240)
 - [x] 5. A question the model asks is answered in the browser (required, #244)
-- [ ] 6. After the daemon restarts, a reloaded page still draws tasks and mode. Not written yet
-- [ ] 7. A command typed offline goes out after the reload. Not written yet
+- [ ] 6. After the daemon restarts, a reloaded page still draws the session's mode and its answered question. nearly: written, and red where the mode picker reads the snapshot (#248); the daemon now sends the state to a client that waited (#252)
+- [x] 7. A command typed offline goes out after the reload (required, #255)
 
 What the review of the work since v5.15.0 found broken, all fixed:
 
