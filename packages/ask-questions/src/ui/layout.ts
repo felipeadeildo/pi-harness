@@ -20,7 +20,7 @@ const MAX_LEFT_RATIO = 0.45;
 const LEFT_EXTRA = 24;
 
 /** The least room a body gets however short the terminal is, and the shortest cap of a panel. */
-export const PANEL_MIN_ROWS = 5;
+const PANEL_MIN_ROWS = 5;
 const PANEL_MAX_ROWS = 18;
 /** The frame, with the keys in its bottom edge, the tabs or the blank line, and the blank under the question. */
 const CHROME_ROWS = FRAME_Y + 2;

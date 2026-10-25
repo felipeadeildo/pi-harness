@@ -53,7 +53,6 @@ export function renderCall(
 	);
 }
 
-/** How many questions, and their headers. */
 function headersLine(questions: Streamed, theme: Theme, width: number): string {
 	const headers = questions.map((question) => theme.fg("accent", question?.header ?? ""));
 	const count = theme.fg("muted", counted(questions.length, "question"));
