@@ -152,6 +152,19 @@ async function main(): Promise<number> {
 		delete process.env.PI_REMOTE_DIR;
 		delete process.env.PI_REMOTE_SHARE;
 	}
+	// The daemon this run started is gone: `stopDaemon` is what makes the next run able to listen,
+	// and a signal 0 is how the same run can tell that it worked.
+	const holder = readCurrent(root)?.pid;
+	if (holder !== undefined) {
+		try {
+			process.kill(holder, 0);
+			console.error(`gate: the daemon ${holder} outlived the run`);
+			reports.push({ step: 0, ok: false, why: `the daemon ${holder} outlived the run` });
+		} catch {
+			// The process is gone, which is what the end of a run asks for.
+		}
+	}
+
 	for (const [at, name] of STEPS.entries()) {
 		if (!WRITTEN.has(at + 1)) {
 			console.log(`not written yet  ${at + 1}. ${name}`);
