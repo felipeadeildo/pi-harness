@@ -12,7 +12,7 @@ The gate:
 - [x] 2. The list leads to the session's screen (required)
 - [x] 3. A prompt sent to an idle session runs (required)
 - [x] 4. A follow-up sent during a run waits in the queue, and can be taken back (required, #240)
-- [ ] 5. A question the model asks is answered in the browser. nearly: the question reaches the browser; the step waits too little for the scripted model and names the button wrong
+- [x] 5. A question the model asks is answered in the browser (required, #244)
 - [ ] 6. After the daemon restarts, a reloaded page still draws tasks and mode. Not written yet
 - [ ] 7. A command typed offline goes out after the reload. Not written yet
 
