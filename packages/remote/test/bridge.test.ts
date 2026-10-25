@@ -73,6 +73,8 @@ interface Entry {
 	type: string;
 	id: string;
 	parentId: string | null;
+	/** What a `message` entry carries: pi never writes one without, and `totalsOf` reads its usage. */
+	message?: { role?: string; content?: unknown; usage?: unknown };
 }
 
 function entries(count: number): Entry[] {
@@ -80,6 +82,9 @@ function entries(count: number): Entry[] {
 		type: "message",
 		id: `e${at + 1}`,
 		parentId: at === 0 ? null : `e${at}`,
+		// A `message` entry carries its message: pi never writes one without, and a fixture that did
+		// taught the product code to tolerate a shape it will never meet.
+		message: { role: "user", content: [] },
 	}));
 }
 
@@ -639,13 +644,18 @@ describe("the bridge", () => {
 		const ctx = session(kept);
 		await start(fake, ctx);
 		await until(() => types(daemon).includes("state"));
-		kept.push({ type: "message", id: "e3", parentId: "e2" });
+		kept.push({
+			type: "message",
+			id: "e3",
+			parentId: "e2",
+			message: { role: "user", content: [] },
+		});
 		await fake.fire("turn_end", { type: "turn_end", messageEntryId: "e3" }, ctx);
 		await until(() => types(daemon).includes("entry"));
 		await fake.fire("turn_end", { type: "turn_end", messageEntryId: "e3" }, ctx);
 		await Bun.sleep(20);
 		expect(daemon.received.filter((one) => one.type === "entry").map((one) => one.data)).toEqual([
-			{ type: "message", id: "e3", parentId: "e2" },
+			{ type: "message", id: "e3", parentId: "e2", message: { role: "user", content: [] } },
 		]);
 	});
 
@@ -736,7 +746,12 @@ describe("the bridge", () => {
 		await until(() => types(daemon).includes("state"));
 		daemon.sockets[0]?.destroy();
 		await until(() => types(daemon).filter((type) => type === "state").length === 2, 3_000);
-		kept.push({ type: "message", id: "e3", parentId: "e2" });
+		kept.push({
+			type: "message",
+			id: "e3",
+			parentId: "e2",
+			message: { role: "user", content: [] },
+		});
 		await fake.fire("turn_end", { type: "turn_end", messageEntryId: "e3" }, ctx);
 		await until(() => types(daemon).includes("entry"));
 		await Bun.sleep(30);
