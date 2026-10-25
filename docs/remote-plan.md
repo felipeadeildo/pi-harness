@@ -97,7 +97,7 @@ A slice is ticked in the commit that lands it. A slice whose parts are on `main`
 - [x] W1. The Expo app and the CSP (client, F1)
 - [x] W2. Text from elsewhere (client, F1)
 - [x] W3. The Sessions and Session screens (client, F1)
-- [ ] I1. The inbox (names, before F2) — nearly: wired to pi; the peers' modes wait on N4
+- [x] I1. The inbox (names, before F2) (#232, #285)
 - [x] C8. Commands through the bridge (core, F2)
 - [x] A5. Clients in the race for the harness's dialogs (ask, F2)
 - [ ] A6. pi's own dialogs in the race (ask, F2). nearly: the bridge and the state say when `custom()` or the editor waits on the terminal; the app does not draw the line yet, and `select`, `confirm` and `input` race in #310
