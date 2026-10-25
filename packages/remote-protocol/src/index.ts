@@ -17,8 +17,8 @@ export {
 	type AskResult,
 	type CallRuling,
 	type Decision,
-	type FactMap,
-	type FactType,
+	type StateChangeMap,
+	type StateChangeType,
 	type Mark,
 	type Origin,
 	type PermissionMode,
@@ -31,8 +31,8 @@ export {
 	THINKING_LEVELS,
 	type ThinkingLevel,
 	type WaitingOn,
-} from "./facts.ts";
-export { FACT_TYPES, isFact, isFactType } from "./reduce/entry.ts";
+} from "./state-changes.ts";
+export { STATE_CHANGES, isStateChangeType } from "./reduce/entry.ts";
 export {
 	type Ask,
 	type ClosedAsk,
@@ -40,7 +40,7 @@ export {
 	KEPT_CLOSED,
 	type OpenAsk,
 	openQuestions,
-	applyEvent,
+	applyChange,
 	foldLogged,
 	type SessionState,
 } from "./reduce/state.ts";

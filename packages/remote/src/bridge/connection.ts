@@ -1,6 +1,6 @@
 // A bridge's connection to its daemon. Nothing here may hold pi up: a send never waits, a daemon
 // that is gone is retried in the background, and what it missed comes back through what the bridge
-// sends on every connect. The facts reach the disk on their own, so only deltas are ever dropped.
+// sends on every connect. The state changes reach the disk on their own, so only deltas are ever dropped.
 import { randomUUID } from "node:crypto";
 import { connect, type Socket } from "node:net";
 

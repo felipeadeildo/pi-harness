@@ -1,4 +1,4 @@
-// Which session caused a fact, as its `by`. Every caller asks here, so the day sessions draw their
+// Which session caused a state change, as its `by`. Every caller asks here, so the day sessions draw their
 // handles from the names list only this file changes.
 import type { EventScope } from "./contract.ts";
 import type { By } from "./contracts/by.ts";

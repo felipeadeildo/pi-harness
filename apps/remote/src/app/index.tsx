@@ -61,7 +61,7 @@ export default function Sessions() {
 	}, [sessions]);
 
 	// A blank frame while the daemon answers, and never an empty screen that says there is nothing:
-	// "no session is open" is a fact only the daemon can give.
+	// "no session is open" is a state change only the daemon can make.
 	if (why !== undefined)
 		return (
 			<View style={{ flex: 1, padding: 24 }}>

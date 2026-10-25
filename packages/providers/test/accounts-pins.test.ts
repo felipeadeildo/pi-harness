@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 
-import { SESSION_ENTRY } from "../src/accounts/names.ts";
+import { SESSION_CHANGES } from "../src/accounts/names.ts";
 import { replay } from "../src/accounts/pins.ts";
 
 function entry(data: unknown): unknown {
-	return { type: "custom", customType: SESSION_ENTRY, data };
+	return { type: "custom", customType: SESSION_CHANGES, data };
 }
 
 test("a branch replays its pins, newest winning", () => {
@@ -35,7 +35,7 @@ test("anything that is not our entry is ignored", () => {
 		entry({ nope: true }),
 		{
 			type: "custom",
-			customType: SESSION_ENTRY,
+			customType: SESSION_CHANGES,
 			data: { kind: "account", provider: "anthropic", account: "ok" },
 		},
 	]);

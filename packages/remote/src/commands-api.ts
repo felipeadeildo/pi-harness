@@ -76,7 +76,7 @@ export function commandApi(scope: FeatureScope, ctx: ExtensionContext): SessionA
 			});
 		},
 		arrived: (text, by) => {
-			// The fact is what a reader of the log needs; the line is what the person at the terminal
+			// The state change is what a reader of the log needs; the line is what the person at the terminal
 			// needs, since the message itself already went in as an ordinary one.
 			logFrom(ctx, scope.events, "prompt.received", { by });
 			ctx.ui.notify(`From ${by.name}: ${firstLine(text)}`, "info");

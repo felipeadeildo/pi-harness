@@ -7,9 +7,9 @@ import { type Component, truncateToWidth, visibleWidth } from "@earendil-works/p
 import { CUT, LINE } from "./glyphs.ts";
 
 /** Columns the frame takes from a row: both sides and a space inside each. */
-export const ENTRY_X = 4;
+export const CHANGES_X = 4;
 /** A body line that the frame draws as a rule across it, as between a call and what it printed. */
-export const ENTRY_CUT = "\u0000cut";
+export const CHANGES_CUT = "\u0000cut";
 
 export interface EntryFrame {
 	/** Left of the top edge: who or what. */
@@ -31,7 +31,7 @@ export interface EntryFrame {
 const SOLID = { h: LINE.h, v: LINE.v };
 const DASHED = { h: LINE.hDashed, v: LINE.vDashed };
 
-/** Lines drawn `ENTRY_X` columns narrower than `width` (two with no pad), in the frame. */
+/** Lines drawn `CHANGES_X` columns narrower than `width` (two with no pad), in the frame. */
 export function entryFrame(
 	body: readonly string[],
 	width: number,
@@ -57,7 +57,8 @@ export function entryFrame(
 	return [
 		edge([LINE.topLeft, LINE.topRight], frame.top, frame.topRight),
 		...body.map((line) => {
-			if (line === ENTRY_CUT) return paint(LINE.teeLeft + LINE.h.repeat(width - 2) + LINE.teeRight);
+			if (line === CHANGES_CUT)
+				return paint(LINE.teeLeft + LINE.h.repeat(width - 2) + LINE.teeRight);
 			// The line is measured to pad it anyway, so it is only cut when it does not fit.
 			const cells = visibleWidth(line);
 			const cut = cells > inner ? truncateToWidth(line, inner, "") : line;

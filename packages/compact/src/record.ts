@@ -1,11 +1,11 @@
-import { formatCost, formatTokens, isObject, GLYPH, PRUNE_ENTRY } from "@adeildo/pi-kit";
+import { formatCost, formatTokens, isObject, GLYPH, PRUNE_CHANGES } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 import type { Hidden } from "./prune.ts";
 
-export { PRUNE_ENTRY };
-export const REREAD_ENTRY = "pi-compact:reread";
+export { PRUNE_CHANGES };
+export const REREAD_CHANGES = "pi-compact:reread";
 export const NOTE_MESSAGE = "pi-compact:note";
 
 const LISTED = 12;
@@ -40,7 +40,7 @@ export interface Spent {
 }
 
 export function recordOf(entry: unknown): PruneRecord | undefined {
-	if (!isObject(entry) || entry.type !== "custom" || entry.customType !== PRUNE_ENTRY)
+	if (!isObject(entry) || entry.type !== "custom" || entry.customType !== PRUNE_CHANGES)
 		return undefined;
 	const data = entry.data;
 	if (!isObject(data) || typeof data.before !== "number" || typeof data.after !== "number")
@@ -78,7 +78,7 @@ export function spentOn(branch: readonly unknown[]): Spent {
 			spent.prunes++;
 			spent.freed += record.before - record.after;
 			spent.hidden += record.hidden.length;
-		} else if (isObject(entry) && entry.type === "custom" && entry.customType === REREAD_ENTRY)
+		} else if (isObject(entry) && entry.type === "custom" && entry.customType === REREAD_CHANGES)
 			spent.rereads++;
 	}
 	return spent;
@@ -119,7 +119,7 @@ export function hiddenCalls(branch: readonly unknown[]): Set<string> {
 		if (
 			isObject(entry) &&
 			entry.type === "custom" &&
-			entry.customType === REREAD_ENTRY &&
+			entry.customType === REREAD_CHANGES &&
 			isObject(entry.data)
 		)
 			calls.delete(String(entry.data.call));

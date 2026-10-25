@@ -3,7 +3,7 @@
 import { isObject } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-import { SESSION_ENTRY } from "./names.ts";
+import { SESSION_CHANGES } from "./names.ts";
 
 /** The account pinned for a provider. */
 export type Pins = Map<string, string>;
@@ -17,7 +17,7 @@ export interface PinEntry {
 /** Pins the account for the rest of the session, and writes it into the session file. */
 export function pin(pi: ExtensionAPI, pins: Pins, providerId: string, accountId: string): void {
 	pins.set(providerId, accountId);
-	pi.appendEntry(SESSION_ENTRY, {
+	pi.appendEntry(SESSION_CHANGES, {
 		kind: "account",
 		provider: providerId,
 		account: accountId,
@@ -28,7 +28,7 @@ export function pin(pi: ExtensionAPI, pins: Pins, providerId: string, accountId:
 export function replay(branch: readonly unknown[]): Pins {
 	const pins: Pins = new Map();
 	for (const item of branch) {
-		if (!isObject(item) || item.type !== "custom" || item.customType !== SESSION_ENTRY) continue;
+		if (!isObject(item) || item.type !== "custom" || item.customType !== SESSION_CHANGES) continue;
 		const data = item.data;
 		if (!isObject(data) || typeof data.provider !== "string") continue;
 		if (data.kind === "account" && typeof data.account === "string") {

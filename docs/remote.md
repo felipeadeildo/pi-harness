@@ -26,7 +26,7 @@ Six things should work when this is done:
 | How machines see each other                                    | Daemons pair into links. A client connects to one daemon and sees every linked machine through it                                                                                                | No central server. The machine behind NAT dials out, and one connection carries both directions                                                                                                                                                     |
 | Who holds the truth                                            | The machine that owns a session. Clients never sync with each other                                                                                                                              | Every client converges on the owner, so there is nothing to merge                                                                                                                                                                                   |
 | Control with one operator                                      | Soft presence: no locks. The client with the latest input is the active one                                                                                                                      | One person is never in two places, so a lock only costs a key press                                                                                                                                                                                 |
-| What peers and remote share                                    | Presence, the inbox, session state, addresses and `by` live in the kit. Neither package imports the other                                                                                        | Both read and write the same facts, so each has one owner                                                                                                                                                                                           |
+| What peers and remote share                                    | Presence, the inbox, session state, addresses and `by` live in the kit. Neither package imports the other                                                                                        | Both read and write the same state changes, so each has one owner                                                                                                                                                                                   |
 | How the phone reaches the machine                              | The daemon listens on loopback. Tailscale serve, a Cloudflare tunnel, a bound interface or a reverse proxy expose it, with the daemon's login                                                    | Each user picks the reach they trust. The daemon never assumes a network is private                                                                                                                                                                 |
 | The client                                                     | One Expo codebase for the web, iOS and Android. The daemon serves the web build                                                                                                                  | One set of screens, and the web build installs as a PWA                                                                                                                                                                                             |
 | Who hosts a session                                            | Only a machine. A browser or a phone is always a client, and a pi is a client whenever it shows a view. A session never moves                                                                    | Where a session runs never depends on who asked for it, so there is one place to look for its file, its process and its truth                                                                                                                       |
@@ -138,17 +138,17 @@ A refused start answers with the reason, `starts-off`, `not-granted`, `outside-r
 
 ## Where state lives
 
-| State                                                                    | Its owner                      | Where it persists                                                       |
-| ------------------------------------------------------------------------ | ------------------------------ | ----------------------------------------------------------------------- |
-| The conversation                                                         | The pi process                 | pi's session file, on its machine                                       |
-| The harness's facts: tasks, rulings, questions, the room's messages      | The session that wrote them    | That session's harness log, on its machine. Shared rooms are replicated |
-| Live state: the streamed message, open questions, the queue, mode, model | The bridge                     | Nowhere. The daemon keeps a materialized copy for clients               |
-| Which sessions are open                                                  | The presence index, in the kit | `~/.pi/agent/harness/events/live/`, one file per session                |
-| The machine's identity, links, devices, credentials, settings            | The daemon                     | `~/.pi/agent/harness/remote/`                                           |
-| Where the operator is active                                             | The daemon                     | Memory only, sent to every client                                       |
-| Drafts, scroll, the open session, the cache                              | The client                     | The client                                                              |
+| State                                                                       | Its owner                      | Where it persists                                                       |
+| --------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------- |
+| The conversation                                                            | The pi process                 | pi's session file, on its machine                                       |
+| The harness's state changes: tasks, rulings, questions, the room's messages | The session that wrote them    | That session's harness log, on its machine. Shared rooms are replicated |
+| Live state: the streamed message, open questions, the queue, mode, model    | The bridge                     | Nowhere. The daemon keeps a materialized copy for clients               |
+| Which sessions are open                                                     | The presence index, in the kit | `~/.pi/agent/harness/events/live/`, one file per session                |
+| The machine's identity, links, devices, credentials, settings               | The daemon                     | `~/.pi/agent/harness/remote/`                                           |
+| Where the operator is active                                                | The daemon                     | Memory only, sent to every client                                       |
+| Drafts, scroll, the open session, the cache                                 | The client                     | The client                                                              |
 
-A client is a replica. It never holds a fact nobody else has, so losing a client loses only its cache and its outbox.
+A client is a replica. It never holds a state change nobody else has, so losing a client loses only its cache and its outbox.
 
 ## Machines and links
 
@@ -207,7 +207,7 @@ A test holds the list to these rules. Before the list was fixed, a script checke
 ### Renaming
 
 - Only the operator renames: a session from the panel or `pi-remote rename`, a machine from the Remote tab or `pi-remote machines rename`. Agents never rename, and nothing renames by itself.
-- A rename is a fact in the log, `session.renamed { from, to, by }` or `machine.renamed { from, to }`, sent over the links like any other. Every reader computes names from these facts, the way a Matrix room carries each display name change as an event.
+- A rename is a state change in the log, `session.renamed { from, to, by }` or `machine.renamed { from, to }`, sent over the links like any other. Every reader computes names from these state changes, the way a Matrix room carries each display name change as an event.
 
 ### What the agent knows
 
@@ -391,11 +391,11 @@ sequenceDiagram
 
 ### Three kinds of data, three cursors
 
-| Data                | Nature                                                                   | Cursor                                                                          |
-| ------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| The conversation    | Durable, a tree of entries, appended to except when pi migrates the file | pi's entry id. Pi documents it as a durable cursor (`get_entries` with `since`) |
-| The harness's facts | Durable, append only, one writer per file                                | The byte offset in the file                                                     |
-| Live state          | Ephemeral                                                                | `(epoch, seq)`: `seq` is assigned by the bridge and restarts with each epoch    |
+| Data                        | Nature                                                                   | Cursor                                                                          |
+| --------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| The conversation            | Durable, a tree of entries, appended to except when pi migrates the file | pi's entry id. Pi documents it as a durable cursor (`get_entries` with `since`) |
+| The harness's state changes | Durable, append only, one writer per file                                | The byte offset in the file                                                     |
+| Live state                  | Ephemeral                                                                | `(epoch, seq)`: `seq` is assigned by the bridge and restarts with each epoch    |
 
 The daemon reads the session file of both kinds itself. For each file it keeps the byte offset it read up to, the id of the last entry it read, the inode and the size. Following a session then costs one read of what was appended. Pi rewrites the whole file when it migrates it to a newer version. When the file shrank, changed inode, or the line before the offset is no longer that entry, the daemon reads it again from the start. Clients hold entry ids, which survive the rewrite. Pi writes the file only once the session has its first message, and until then the bridge serves the entries from memory.
 
@@ -429,7 +429,7 @@ Each room event carries a hybrid logical clock: the larger of the writer's clock
 
 - **Only the owner declares a session ended.** A lost link makes a remote session "out of contact since 14:02", never ended.
 - **Timeouts use the measuring side's monotonic clock.** `at` is for display. Order comes from `seq`, the offset, or in a shared room the hybrid clock, never from another machine's wall clock.
-- **Nothing blocks pi.** With the daemon gone, the bridge keeps working, drops deltas, and its facts are on disk already.
+- **Nothing blocks pi.** With the daemon gone, the bridge keeps working, drops deltas, and its state changes are on disk already.
 - **Commands carry an id.** The bridge keeps the last 1,000 ids per session and ignores a repeat, so resending is safe. Every logged command carries its id, and a bridge that restarts reads the last 1,000 back from the log, so a resend after a restart is still a repeat.
 
 ### Heartbeats
@@ -501,11 +501,11 @@ A shape only grows. A field that changes meaning gets a new name, and an incompa
 
 ### Naming
 
-One name per fact, the same on disk, on the wire and inside the process.
+One name per state change, the same on disk, on the wire and inside the process.
 
 | Kind               | Form                                 | Examples                                                                 |
 | ------------------ | ------------------------------------ | ------------------------------------------------------------------------ |
-| A fact             | `<subject>.<verb in the past>`       | `ask.opened`, `call.ruled`, `mode.changed`, `machine.linked`             |
+| A state change     | `<subject>.<verb in the past>`       | `ask.opened`, `call.ruled`, `mode.changed`, `machine.linked`             |
 | A command          | `<subject>.<verb in the imperative>` | `prompt.send`, `ask.answer`, `model.set`, `session.stop`                 |
 | A state            | `<subject>`                          | `tasks`, `account`, `mode`, `peers`                                      |
 | pi's own events    | `pi.<pi's name>`, unchanged          | `pi.message_update`, `pi.agent_settled`                                  |
@@ -536,7 +536,7 @@ Ephemeral events never reach the disk or the replay buffer beyond the message be
 
 **`pi.*`** is pi's event stream in the shapes of its [JSON and RPC modes](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/json.md), so the client follows pi's rules for rebuilding a streamed message: buffer the deltas of each `contentIndex`, replace the block on its `*_end`, and replace the whole message on `message_end`. The bridge subscribes with `pi.on()` and drops the cumulative `partial` fields, as pi's JSON mode does. `pi.model_select` has no JSON form in pi, so the bridge sends one in the same style.
 
-**Harness facts:**
+**Harness state changes:**
 
 | Event              | Data                                                             | Logged |
 | ------------------ | ---------------------------------------------------------------- | ------ |
@@ -552,7 +552,7 @@ Ephemeral events never reach the disk or the replay buffer beyond the message be
 | `prompt.received`  | `{ by }`, written next to a prompt that came from a client       | yes    |
 | `notice.shown`     | `{ text, level }`, from `ctx.ui.notify` and the runner's notices | no     |
 
-**Session and machine facts**, from the bridge and the daemon:
+**Session and machine state changes**, from the bridge and the daemon:
 
 | Event               | Data                                                                       |
 | ------------------- | -------------------------------------------------------------------------- |
@@ -615,7 +615,7 @@ A terminal session cannot fork, clone or switch from outside: pi offers those on
 - **The bridge batches.** Deltas of one message are joined in windows of about 33 ms, so a fast model costs about 30 frames a second, not one per token. The bridge does constant work per delta and never builds a snapshot on that path. `bun run bench:typing` must show no cost from the bridge on a local session.
 - **Interest decides volume.** Only a session some client has open streams deltas and tool output to it. The others send state changes only. Over a link, a daemon sends a session's stream only while a client on the other side views it.
 - **Tool output in the stream** is the last 4 KB of each call, at most 10 updates a second. The whole output is fetched over HTTP.
-- **Backpressure.** Each client has a bounded queue. When a slow client passes the bound, the daemon drops its pending deltas and sends a resync with the current message. Deltas can be dropped because `message_end` replaces the message; facts are never dropped. The bridge bounds its own writes the same way. Past 1 MB waiting on its socket, it drops deltas and marks a resync; past 8 MB, it closes the connection and reconnects with a snapshot. Its facts are on disk already.
+- **Backpressure.** Each client has a bounded queue. When a slow client passes the bound, the daemon drops its pending deltas and sends a resync with the current message. Deltas can be dropped because `message_end` replaces the message; state changes are never dropped. The bridge bounds its own writes the same way. Past 1 MB waiting on its socket, it drops deltas and marks a resync; past 8 MB, it closes the connection and reconnects with a snapshot. Its state changes are on disk already.
 - **Large payloads** (images, whole outputs, history pages) go over HTTP, never through the WebSocket.
 - **Memory.** The daemon's replay buffer has a byte budget across the machine, and a session's deltas collapse into its current message once that message ends.
 - **pi's own backpressure.** The runner reads pi's stdout continuously, so a slow client never stalls pi.
@@ -632,7 +632,7 @@ Peers works today with files only: each session writes its own log, and the othe
 | Session state | `working`, `blocked`, `done`, `error`, `idle`                                                                                                                                                                                                    |
 | The inbox     | The one way to put a message into a session. It decides between starting a run, steering and following up, and puts the operator's messages ahead of agents'. It holds a follow-up until the run settles, so clients see it and can take it back |
 | Names         | The word list, the draw, renames and aliases, and the identity section, as described in [Naming](#naming)                                                                                                                                        |
-| `by`          | Who caused a fact: a terminal, a client, or an agent, with the machine                                                                                                                                                                           |
+| `by`          | Who caused a state change: a terminal, a client, or an agent, with the machine                                                                                                                                                                   |
 | Machines      | `harness:machines`, a state contract remote fills: each machine's name, link state, last contact and policy. Without remote it holds this machine only                                                                                           |
 | Sources       | The `SessionSource` interface, the adapters for this pi and for a session file, and `harness:sources`, where remote adds its daemon and link adapters                                                                                            |
 | Views         | `harness:view.open`, a request the look answers by drawing the view with its shells. Without the look nobody answers, and the panel offers no view                                                                                               |
@@ -753,7 +753,7 @@ The harness publishes in two ways.
 
 - **Every contract that crosses packages has a state and a change**, and the change carries the whole new value. The bridge listens to changes and never polls. The permission mode is the one left without a contract.
 - **What crosses is JSON**, so the bridge forwards values without knowing them. The settings screen keeps its `Preview` functions on the terminal; its remote form is the JSON part of each row.
-- **Every feature writes its own facts to the log** through `logFrom`. The log keeps what happened, and the live stream adds what is only worth seeing as it happens.
+- **Every feature writes its own state changes to the log** through `logFrom`. The log keeps what happened, and the live stream adds what is only worth seeing as it happens.
 - **The daemon reads history from files**, so a client that was away for a day sees the same story as one that watched.
 
 ### What each feature adds

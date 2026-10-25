@@ -98,7 +98,7 @@ export interface BridgeOptions {
 
 export class Bridge {
 	readonly stream: LiveStream;
-	readonly #facts = new Harness();
+	readonly #changes = new Harness();
 	/** The wire to the daemon. The bridge owns its life; the wiring sends on it. */
 	readonly connection: BridgeConnection;
 	readonly #commands: Commands;
@@ -179,7 +179,7 @@ export class Bridge {
 					if (!this.#asks.open.includes(ask))
 						throw new Refused(`the question ${ask} was answered somewhere else`);
 					// The result comes from the network: it reaches the bus as a decision, so its shape
-					// is checked here like any fact's, instead of being trusted with a cast.
+					// is checked here like any state change's, instead of being trusted with a cast.
 					if (!isAskResult(fields.result))
 						throw new Refused("an answer needs `answers` and `cancelled`");
 					const answer: AnswerEvent = { id: ask, result: fields.result, by };
@@ -222,9 +222,9 @@ export class Bridge {
 		return this.connection.request(type, data);
 	}
 
-	/** Forwards a fact the kit logged for this session, and keeps what a snapshot needs of it. */
+	/** Forwards a state change the kit logged for this session, and keeps what a snapshot needs of it. */
 	logged(line: Logged): void {
-		forward(line, this.ctx.sessionManager.getSessionId(), this.#facts, (type, data) =>
+		forward(line, this.ctx.sessionManager.getSessionId(), this.#changes, (type, data) =>
 			this.connection.event(type, data),
 		);
 	}
@@ -292,7 +292,7 @@ export class Bridge {
 
 	/** The queue changed: it folds into the state and goes out numbered, as one list for every client. */
 	queued(queue: readonly Letter[]): void {
-		this.#facts.saw("queue.changed", { queue });
+		this.#changes.saw("queue.changed", { queue });
 		this.connection.event("queue.changed", { queue });
 	}
 
@@ -328,7 +328,7 @@ export class Bridge {
 				handle: tasks?.handle,
 				status: SESSION_STATUS.current(scope),
 				// Already folded, so a reader draws the session's state without a replay.
-				state: this.#facts.snapshot(tasks, mode),
+				state: this.#changes.snapshot(tasks, mode),
 			},
 			entries: this.ctx.sessionManager.getBranch().slice(-STATE_ENTRIES),
 			streaming: this.stream.streaming,

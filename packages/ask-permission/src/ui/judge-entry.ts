@@ -1,4 +1,11 @@
-import { CUT, drawnByWidth, ENTRY_X, entryFrame, type FeatureScope, GLYPH } from "@adeildo/pi-kit";
+import {
+	CUT,
+	drawnByWidth,
+	CHANGES_X,
+	entryFrame,
+	type FeatureScope,
+	GLYPH,
+} from "@adeildo/pi-kit";
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
@@ -6,7 +13,7 @@ import { flatten, judgeActionLabel, judgeSignalText, judgeStatText } from "#core
 import type { JudgeRecord } from "#core/judge/types.ts";
 import { NAME } from "#identity";
 
-const JUDGE_ENTRY = `${NAME}:judge`;
+const JUDGE_CHANGES = `${NAME}:judge`;
 
 const MIN_TARGET = 12;
 
@@ -16,7 +23,7 @@ interface Columns {
 }
 
 export function registerJudgeEntry(scope: FeatureScope): void {
-	scope.registerEntryRenderer<unknown>(JUDGE_ENTRY, (entry, { expanded }, theme) => {
+	scope.registerEntryRenderer<unknown>(JUDGE_CHANGES, (entry, { expanded }, theme) => {
 		const records = toRecords(entry.data);
 		if (records.length === 0) return undefined;
 		const card = new JudgeEntry(records, expanded, theme);
@@ -38,7 +45,7 @@ function isJudgeRecord(value: unknown): value is JudgeRecord {
 
 /** Written when the judge answers, so the card shows before the call runs. */
 export function appendJudgeEntry(pi: ExtensionAPI, record: JudgeRecord): void {
-	pi.appendEntry(JUDGE_ENTRY, [record]);
+	pi.appendEntry(JUDGE_CHANGES, [record]);
 }
 
 class JudgeEntry implements Component {
@@ -63,7 +70,7 @@ class JudgeEntry implements Component {
 	private build(width: number): string[] {
 		const lines: string[] = [];
 		const columns = this.columns();
-		const inner = width - ENTRY_X;
+		const inner = width - CHANGES_X;
 
 		for (const record of this.records) {
 			lines.push(this.row(record, inner, columns));

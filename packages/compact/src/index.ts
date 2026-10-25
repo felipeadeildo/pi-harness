@@ -33,12 +33,12 @@ import {
 	hiddenCalls,
 	lastPromptOf,
 	NOTE_MESSAGE,
-	PRUNE_ENTRY,
+	PRUNE_CHANGES,
 	priced,
 	PruneEntry,
 	type PruneRecord,
 	recordOf,
-	REREAD_ENTRY,
+	REREAD_CHANGES,
 	type Spent,
 	spentOn,
 } from "./record.ts";
@@ -180,7 +180,7 @@ export const compact = defineFeature({
 					...entries,
 					...plan.edits,
 					note(tasksNow(ctx), false),
-					{ type: "custom", customType: PRUNE_ENTRY, data: record },
+					{ type: "custom", customType: PRUNE_CHANGES, data: record },
 				],
 			};
 		}
@@ -193,7 +193,7 @@ export const compact = defineFeature({
 					reason: `Not run: its arguments carry ${copied}, copied from an old call whose arguments left the context. Write every argument out in full.`,
 				};
 			const call = describeCall(event.toolName, event.input);
-			if (hidden.delete(call)) scope.appendEntry(REREAD_ENTRY, { call });
+			if (hidden.delete(call)) scope.appendEntry(REREAD_CHANGES, { call });
 			return undefined;
 		});
 
@@ -225,7 +225,7 @@ export const compact = defineFeature({
 			},
 		});
 
-		scope.registerEntryRenderer<unknown>(PRUNE_ENTRY, (entry, { expanded }, theme) => {
+		scope.registerEntryRenderer<unknown>(PRUNE_CHANGES, (entry, { expanded }, theme) => {
 			const record = recordOf(entry);
 			if (record === undefined) return undefined;
 			const card = new PruneEntry(record, expanded, theme);
@@ -260,7 +260,10 @@ export const compact = defineFeature({
 				server: true,
 				...priced(usage, ctx.model?.cost.cacheRead ?? 0, previous - prompt, usage.cacheWrite),
 			};
-			return [note(tasksNow(ctx), true), { type: "custom", customType: PRUNE_ENTRY, data: record }];
+			return [
+				note(tasksNow(ctx), true),
+				{ type: "custom", customType: PRUNE_CHANGES, data: record },
+			];
 		}
 
 		function tasksNow(ctx: ExtensionContext): SessionTasks {

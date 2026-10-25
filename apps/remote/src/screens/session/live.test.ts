@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { sessionOf } from "@adeildo/pi-remote-client";
-import { applyEvent } from "@adeildo/pi-remote-protocol";
+import { applyChange } from "@adeildo/pi-remote-protocol";
 
 import { composerOf, liveOf } from "./live.ts";
 
@@ -11,8 +11,8 @@ describe("what the pickers start on", () => {
 		// React put the photographed value back on the next render.
 		const session = sessionOf({ machine: "box", session: "abcdef12" });
 		session.snapshot = { mode: "manual", model: undefined } as never;
-		session.state = applyEvent(session.state, "mode.changed", { mode: "edits" });
-		session.state = applyEvent(session.state, "session.live", {
+		session.state = applyChange(session.state, "mode.changed", { mode: "edits" });
+		session.state = applyChange(session.state, "session.live", {
 			model: { provider: "rig", id: "scripted" },
 			thinkingLevel: "high",
 		});
@@ -35,7 +35,7 @@ describe("what the pickers start on", () => {
 		// got back into the select, and no test noticed because the screen still drew.
 		const session = sessionOf({ machine: "box", session: "abcdef12" });
 		session.snapshot = { mode: "manual" } as never;
-		session.state = applyEvent(session.state, "mode.changed", { mode: "edits" });
+		session.state = applyChange(session.state, "mode.changed", { mode: "edits" });
 		const queued = {
 			id: "q1",
 			by: { kind: "client" as const, name: "phone", machine: "box" },

@@ -1,11 +1,12 @@
-// The facts of one session, folded into what a client draws next to it: the tasks, the rulings of the
+// The state changes of one session, folded into what a client draws next to it: the tasks, the rulings of the
 // calls in view, the open questions, the permission mode and the handle. Folding is the whole
 // interface: a client that resumed from a cursor replays what it missed through the same function.
 
 import type { By } from "../by.ts";
-import { applyOne, isFactType } from "./entry.ts";
+import { applyOne, isStateChangeType } from "./entry.ts";
 export { KEPT_CLOSED } from "./entry.ts";
-import { type SESSION_STATES } from "../facts.ts";
+import type { QueuedMessage } from "../snapshot.ts";
+import { type SESSION_STATES } from "../state-changes.ts";
 import type {
 	AskQuestion,
 	AskResult,
@@ -13,8 +14,8 @@ import type {
 	PermissionMode,
 	SessionCommand,
 	SessionTasks,
-} from "../facts.ts";
-import type { QueuedMessage } from "../snapshot.ts";
+} from "../state-changes.ts";
+import type { StateChangeType } from "../state-changes.ts";
 
 export interface OpenAsk {
 	id: string;
@@ -93,17 +94,23 @@ export function openQuestions(state: SessionState): OpenAsk[] {
 }
 
 /**
- * Adds one fact to the state. A fact the shape check refuses is skipped, not thrown: a log written by a
- * newer harness must not stop a client from drawing the rest.
+ * Adds one state change to the state. One the shape check refuses is skipped, not thrown: a log written
+ * by a newer harness must not stop a client from drawing the rest.
  */
-export function applyEvent(state: SessionState, type: string, data: unknown): SessionState {
-	if (!isFactType(type)) return state;
+export function applyChange(
+	state: SessionState,
+	type: StateChangeType,
+	data: unknown,
+): SessionState {
 	return applyOne(state, type, data);
 }
 
-/** The state after every logged event, in the order the log wrote them. */
+/** The state after every logged event that changes it, in the order the log wrote them. */
 export function foldLogged(events: readonly { type: string; data: unknown }[]): SessionState {
 	let state = emptySessionState();
-	for (const event of events) state = applyEvent(state, event.type, event.data);
+	for (const event of events) {
+		// The log holds more than state changes; the type of the field is the whole reason to ask.
+		if (isStateChangeType(event.type)) state = applyChange(state, event.type, event.data);
+	}
 	return state;
 }

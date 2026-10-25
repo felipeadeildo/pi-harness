@@ -3,10 +3,10 @@
 // gap and a duplicate impossible.
 
 import {
-	applyEvent,
+	applyChange,
 	emptySessionState,
 	type SessionState,
-	FACT_TYPES,
+	isStateChangeType,
 	PRESENCE,
 	isEnvelope,
 	isObject,
@@ -17,7 +17,6 @@ import {
 	type Presence,
 	type SessionSnapshot,
 	type Transcript,
-	type FactType,
 	transcriptOf,
 } from "@adeildo/pi-remote-protocol";
 
@@ -26,7 +25,7 @@ import { advance, decide, type Cursor } from "./cursor.ts";
 import type { Outbox } from "./outbox.ts";
 
 /** The envelope a bridge sends for an entry pi appended, and for the snapshot it is asked for. */
-export const ENTRY = "entry";
+export const CHANGES = "entry";
 export const STATE = "state";
 
 export interface SnapshotData {
@@ -103,10 +102,6 @@ export function cachedOf(session: ClientSession, outbox: Outbox): CachedSession 
 	};
 }
 
-function isFactType(type: string): type is FactType {
-	return FACT_TYPES.some((known) => known === type);
-}
-
 /**
  * Reads one envelope. The answer says whether the client can draw it now or has to ask for a
  * snapshot first, and the session is only changed in the first case.
@@ -153,7 +148,7 @@ export function readEnvelope(
 	}
 	const next = decide(session.cursor, value);
 	if (next.read !== "now") return next;
-	if (value.type === ENTRY) {
+	if (value.type === CHANGES) {
 		const entry = value.data as Entry;
 		// A message pi wrote after the client read it through the stream replaces the copy it bound.
 		if (!session.entries.some((held) => held.id === entry.id)) session.entries.push(entry);
@@ -161,7 +156,7 @@ export function readEnvelope(
 		session.cursor = { ...advance(session.cursor, value), entry: entry.id };
 		return { read: "now" };
 	}
-	// Presence is not a fact: reducing it from a replay would draw who was watching ten minutes ago.
+	// Presence is not a state change: reducing it from a replay would draw who was watching ten minutes ago.
 	// It is applied as it arrives, and the snapshot of a reconnect carries the current one.
 	if (value.type === PRESENCE) {
 		if (!isPresence(value.data)) return { read: "skip" };
@@ -169,7 +164,7 @@ export function readEnvelope(
 		session.cursor = advance(session.cursor, value);
 		return { read: "now" };
 	}
-	if (isFactType(value.type)) {
+	if (isStateChangeType(value.type)) {
 		if (value.type === "leaf.changed") {
 			const leaf = (value.data as { leaf: string | null }).leaf;
 			// A leaf the client does not hold is a branch it never read: a sibling, or one older than
@@ -178,9 +173,9 @@ export function readEnvelope(
 				return { read: "state", why: "gap" };
 			}
 		}
-		// The cursor is what keeps this from replaying: a fact already folded into the state a snapshot
+		// The cursor is what keeps this from replaying: a change already folded into the state a snapshot
 		// carried has a seq at or behind the cursor, so it never reaches here twice.
-		session.state = applyEvent(session.state, value.type, value.data);
+		session.state = applyChange(session.state, value.type, value.data);
 		session.cursor = advance(session.cursor, value);
 		if (value.type === "leaf.changed") {
 			// A `/tree` move, including the one back to the root: the branch the screen draws ends

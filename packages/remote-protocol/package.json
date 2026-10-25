@@ -2,7 +2,7 @@
 	"name": "@adeildo/pi-remote-protocol",
 	"version": "0.0.0",
 	"private": true,
-	"description": "The shapes that cross a process in pi-remote: the envelope, the facts, the snapshot and their reducers, with no pi and no kit behind them.",
+	"description": "The shapes that cross a process in pi-remote: the envelope, the state changes, the snapshot and their reducers, with no pi and no kit behind them.",
 	"files": [
 		"src",
 		"README.md"

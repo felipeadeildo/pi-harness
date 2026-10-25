@@ -5,12 +5,12 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { AlwaysYes } from "#core/always-yes.ts";
 import { defaultConfig } from "#core/config/schema.ts";
 import { OpenFolders } from "#core/folders.ts";
-import { replay, restoreSession, SESSION_ENTRY, type SessionEntry } from "#pi/session-entries.ts";
+import { replay, restoreSession, SESSION_CHANGES, type SessionEntry } from "#pi/session-entries.ts";
 import type { SessionState } from "#pi/session.ts";
 
 const START = { mode: "manual", outside: "ask" } as const;
 
-function entry(data: SessionEntry | Record<string, unknown>, customType = SESSION_ENTRY) {
+function entry(data: SessionEntry | Record<string, unknown>, customType = SESSION_CHANGES) {
 	return { type: "custom", customType, data };
 }
 
@@ -55,7 +55,7 @@ describe("replay", () => {
 			entry({ kind: "outside", outside: "sometimes" }),
 			entry({ kind: "always-yes", toolName: "bash" }),
 			{ type: "message", role: "user" },
-			entry({ kind: "mode", mode: "full" }, `${SESSION_ENTRY}-not`),
+			entry({ kind: "mode", mode: "full" }, `${SESSION_CHANGES}-not`),
 		];
 		expect(replay(branch, START)).toEqual({
 			mode: "manual",

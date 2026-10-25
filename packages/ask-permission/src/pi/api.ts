@@ -7,7 +7,7 @@ import { isRecord } from "#util/primitives.ts";
 
 export const DECIDED_EVENT = `${NAME}:decided`;
 export const TOOL_EVENT = `${NAME}:tool`;
-export const ANSWER_ENTRY = `${NAME}:answer`;
+export const ANSWER_CHANGES = `${NAME}:answer`;
 
 export interface Decided {
 	toolCallId: string;
@@ -24,7 +24,7 @@ export interface Decided {
 
 export function announce(pi: ExtensionAPI, decided: Decided): void {
 	pi.events.emit(DECIDED_EVENT, decided);
-	if (decided.by === "you") pi.appendEntry(ANSWER_ENTRY, decided);
+	if (decided.by === "you") pi.appendEntry(ANSWER_CHANGES, decided);
 }
 
 // Emit from session_start: every extension has loaded by then, so this one is listening.

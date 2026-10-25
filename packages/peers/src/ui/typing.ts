@@ -4,7 +4,7 @@
 // lands in the chat.
 import { basename } from "node:path";
 
-import { ENTRY_X, entryFrame, formatClock } from "@adeildo/pi-kit";
+import { CHANGES_X, entryFrame, formatClock } from "@adeildo/pi-kit";
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { type Component, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
@@ -79,7 +79,7 @@ export function waitingLines(waiting: readonly Waiting[], theme: Theme, width: n
 	return waiting.flatMap((one) => {
 		const color = (one.fromYou ? "accent" : one.color) as ThemeColor;
 		const where = one.where === undefined ? "" : theme.fg("dim", ` \u00b7 ${basename(one.where)}`);
-		const body = firstLines(one.text, Math.max(1, width - ENTRY_X)).map((line) =>
+		const body = firstLines(one.text, Math.max(1, width - CHANGES_X)).map((line) =>
 			line.more ? theme.fg("dim", line.text) : theme.fg("muted", line.text),
 		);
 		return entryFrame(body, width, theme, {

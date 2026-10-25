@@ -1,4 +1,4 @@
-// Who caused a fact. The kit has the same type, and the copy is deliberate: this package ships to the
+// Who caused a state change. The kit has the same type, and the copy is deliberate: this package ships to the
 // Expo app, which cannot carry the kit or pi behind it. `test/conformance.test.ts` holds the two
 // together, so they can drift in no direction.
 

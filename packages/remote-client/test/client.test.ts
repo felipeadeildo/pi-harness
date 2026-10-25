@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { Entry, Envelope } from "@adeildo/pi-remote-protocol";
-import { applyEvent, emptySessionState } from "@adeildo/pi-remote-protocol";
+import { applyChange, emptySessionState, isStateChangeType } from "@adeildo/pi-remote-protocol";
 
 import { memoryCache } from "../src/cache.ts";
 import { connect } from "../src/connection.ts";
@@ -37,7 +37,11 @@ const facts = lines("harness.jsonl") as { type: string; data: unknown }[];
 
 /** The recording's facts folded once, which is what a cache holds now. */
 const folded = (list: { type: string; data: unknown }[]) =>
-	list.reduce((state, fact) => applyEvent(state, fact.type, fact.data), emptySessionState());
+	list.reduce(
+		(state, fact) =>
+			isStateChangeType(fact.type) ? applyChange(state, fact.type, fact.data) : state,
+		emptySessionState(),
+	);
 
 /** The envelopes the bridge sends after a snapshot: the log's facts, then the entries, numbered. */
 function stream(first: number): Envelope[] {
@@ -162,6 +166,37 @@ describe("a client of a session", () => {
 		);
 		expect(client.session().state.tasks?.handle).toBe("rig");
 		expect(transcriptOfSession(client.session()).items.length).toBeGreaterThan(0);
+		client.stop();
+	});
+
+	test("a cache written before the cursor lost its facts field still resumes", async () => {
+		// The cursor used to carry a position in the log, which nothing reads now. A tab that closed
+		// before this version kept one; the field is unknown, and the rest of the cursor is what the
+		// hello sends, so the client resumes instead of starting over.
+		const cache = memoryCache();
+		await cache.write({
+			key,
+			cursor: { epoch: "e1", seq: 4, entry: "e2", facts: 12 } as never,
+			entries: [],
+			state: emptySessionState(),
+		});
+		let hello: Envelope | undefined;
+		const client = connect({
+			key,
+			cache,
+			open: (onMessage) => ({
+				send: (sent) => {
+					hello = sent;
+					for (const envelope of stream(5)) onMessage(envelope);
+				},
+				close: () => {},
+			}),
+		});
+		await client.load();
+		// It resumed in the same epoch instead of asking for the state, and the field it never read
+		// travelled along without stopping anything.
+		expect(cursorOf(hello as Envelope).epoch).toBe("e1");
+		expect(client.session().entries.length).toBeGreaterThan(0);
 		client.stop();
 	});
 
@@ -325,7 +360,11 @@ describe("a client of a session", () => {
 		// left no second copy behind.
 		const read = stream(1).filter((envelope) => envelope.seq === 2 || envelope.seq === 3);
 		expect(client.session().state).toEqual(
-			read.reduce((state, one) => applyEvent(state, one.type, one.data), emptySessionState()),
+			read.reduce(
+				(state, one) =>
+					isStateChangeType(one.type) ? applyChange(state, one.type, one.data) : state,
+				emptySessionState(),
+			),
 		);
 		client.stop();
 	});

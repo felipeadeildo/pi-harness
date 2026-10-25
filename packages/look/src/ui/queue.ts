@@ -2,7 +2,7 @@
 // because they have not happened yet. Each says when it goes in, `steer` between the agent's calls
 // and `next` after its run, and the bottom edge names the key that takes them back to the editor.
 // Pi lists them as plain grey lines and has no hook for drawing them, so this wraps its method.
-import { CUT, drawnByWidth, ENTRY_X, entryFrame } from "@adeildo/pi-kit";
+import { CUT, drawnByWidth, CHANGES_X, entryFrame } from "@adeildo/pi-kit";
 import { InteractiveMode, type Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
@@ -54,7 +54,7 @@ const LABEL = Math.max(...MODES.map(([label]) => label.length));
 
 export function queueBlock(queued: Queued, key: string, theme: Theme): Component {
 	return drawnByWidth((width) => {
-		const room = Math.max(1, width - ENTRY_X - LABEL - 2);
+		const room = Math.max(1, width - CHANGES_X - LABEL - 2);
 		const rows = MODES.flatMap(([label, mode]) =>
 			queued[mode].map((text) => {
 				const color = label === "steer" ? "accent" : "muted";

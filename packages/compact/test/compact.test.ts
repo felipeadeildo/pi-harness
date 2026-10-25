@@ -8,7 +8,7 @@ import {
 	createApp,
 	emptyTasks,
 	type SessionTasks,
-	TASKS_ENTRY,
+	TASKS_CHANGES,
 } from "@adeildo/pi-kit";
 import { fakeContext, fakePi } from "@adeildo/pi-kit/testing";
 import type { ProjectedSessionEntry, Theme } from "@earendil-works/pi-coding-agent";
@@ -20,9 +20,9 @@ import {
 	costRows,
 	hiddenCalls,
 	priced,
-	PRUNE_ENTRY,
+	PRUNE_CHANGES,
 	PruneEntry,
-	REREAD_ENTRY,
+	REREAD_CHANGES,
 	spentOn,
 } from "../src/record.ts";
 import { withServerClearing } from "../src/server.ts";
@@ -195,7 +195,7 @@ interface Proposed {
 function tasksEntry(state: SessionTasks) {
 	return {
 		type: "custom",
-		customType: TASKS_ENTRY,
+		customType: TASKS_CHANGES,
 		data: { version: 1, trigger: "message", ops: [], state },
 	};
 }
@@ -270,7 +270,7 @@ describe("at the end of a run", () => {
 		expect(note?.content).toContain("Each placeholder names the call it came from");
 		expect(note?.content).toContain("Doing:\n- Fix the login");
 		expect(answer?.entries.at(-1)).toMatchObject({
-			customType: PRUNE_ENTRY,
+			customType: PRUNE_CHANGES,
 			data: { before: 25_000 },
 		});
 	});
@@ -308,7 +308,7 @@ describe("at the end of a run", () => {
 		await fake.fire("tool_call", read, ctx);
 		await fake.fire("tool_call", read, ctx);
 		expect(fake.entries).toEqual([
-			{ customType: REREAD_ENTRY, data: { call: "read src/file0.ts" } },
+			{ customType: REREAD_CHANGES, data: { call: "read src/file0.ts" } },
 		]);
 	});
 
@@ -330,7 +330,7 @@ function pruneEntry(calls: string[]) {
 	const hidden = calls.map((name) => ({ entry: name, call: name, tokens: 1000 }));
 	return {
 		type: "custom",
-		customType: PRUNE_ENTRY,
+		customType: PRUNE_CHANGES,
 		data: { before: 200_000, after: 120_000, hidden },
 	};
 }
@@ -338,7 +338,7 @@ function pruneEntry(calls: string[]) {
 test("the session's prunes add up, with how much of what they hid was read again", () => {
 	const branch = [
 		pruneEntry(["read a", "read b", "read c", "read d"]),
-		{ type: "custom", customType: REREAD_ENTRY, data: { call: "read a" } },
+		{ type: "custom", customType: REREAD_CHANGES, data: { call: "read a" } },
 		pruneEntry(["read e"]),
 	];
 	expect(spentText(spentOn(branch))).toBe(
@@ -400,7 +400,7 @@ describe("on Anthropic models", () => {
 		expect(note?.content).toContain("Anthropic cleared older tool output");
 		const record = answer?.entries.at(-1);
 		expect(record).toMatchObject({
-			customType: PRUNE_ENTRY,
+			customType: PRUNE_CHANGES,
 			data: { before: 25_000, after: 12_000, server: true },
 		});
 		const hidden = (record?.data as { hidden?: unknown[] } | undefined)?.hidden ?? [];

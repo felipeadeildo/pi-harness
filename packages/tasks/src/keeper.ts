@@ -2,8 +2,8 @@ import {
 	applyTaskOps,
 	emptyTasks,
 	type SessionTasks,
-	TASKS_ENTRY,
-	TASKS_USAGE_ENTRY,
+	TASKS_CHANGES,
+	TASKS_USAGE_CHANGES,
 	TASKS_VERSION,
 	type TaskOp,
 	type TasksCall,
@@ -61,7 +61,7 @@ export class Keeper {
 			...(proposal?.rejected.length ? { rejected: proposal.rejected } : {}),
 			state: next,
 		};
-		this.#append(TASKS_ENTRY, update);
+		this.#append(TASKS_CHANGES, update);
 		this.#changed(trigger);
 		return true;
 	}
@@ -74,7 +74,7 @@ export class Keeper {
 		if (this.apply(proposal.ops, trigger, { ...context, proposal })) return;
 		const call: TasksCall = { trigger, model: proposal.model, usage: proposal.usage };
 		if (proposal.rejected.length > 0) call.rejected = proposal.rejected;
-		this.#append(TASKS_USAGE_ENTRY, call);
+		this.#append(TASKS_USAGE_CHANGES, call);
 	}
 }
 

@@ -1,13 +1,13 @@
 // What the daemon knows about each session a bridge registered: who it is, whether its bridge is
-// connected, the facts reduced from its events, and a replay buffer so a client that missed a few
+// connected, the state changes reduced from its events, and a replay buffer so a client that missed a few
 // events catches up from its cursor instead of taking a new snapshot.
 import {
 	emptySessionState,
 	type Envelope,
 	isObject,
 	isSnapshot,
-	applyEvent,
-	isFactType,
+	applyChange,
+	isStateChangeType,
 	type SessionState,
 	type SessionSnapshot,
 } from "@adeildo/pi-remote-protocol";
@@ -71,8 +71,8 @@ interface Buffered {
 	bytes: number;
 }
 
-/** A fact as a client's snapshot carries it, for the client to reduce. */
-export interface Fact {
+/** A state change as a client's snapshot carries it, for the client to reduce. */
+export interface StateChangeEntry {
 	type: string;
 	data: unknown;
 }
@@ -151,10 +151,10 @@ export class Sessions {
 			this.#rebase(entry, envelope, envelope.data);
 			return undefined;
 		}
-		// Only facts fold: a delta or a stream bound travels for the client, and folding it would ask the
+		// Only state changes fold: a delta or a stream bound travels for the client, and folding it would ask the
 		// reducer to return the state it was given.
-		if (isFactType(envelope.type))
-			entry.state.state = applyEvent(entry.state.state, envelope.type, envelope.data);
+		if (isStateChangeType(envelope.type))
+			entry.state.state = applyChange(entry.state.state, envelope.type, envelope.data);
 		if (EPHEMERAL.has(envelope.type) || envelope.seq === undefined) return undefined;
 		const bytes = JSON.stringify(envelope).length;
 		entry.replay.push({ envelope, bytes });
@@ -192,7 +192,7 @@ export class Sessions {
 	}
 
 	/**
-	 * What a client with no usable cursor reads first: the last snapshot, with the session's facts,
+	 * What a client with no usable cursor reads first: the last snapshot, with the session's state changes,
 	 * then the events after it. `undefined` when there is no snapshot, or the events after it were
 	 * dropped, and then the bridge is asked for a new one.
 	 */
