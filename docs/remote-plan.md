@@ -53,14 +53,14 @@ The simplifications:
 
 - [x] One entry per state change, and a state change the table lacks does not compile (#275, #278)
 - [x] The daemon answers a client from what it keeps; the opening packet has one name (#277, #280)
-- [ ] The daemon speaks WebSocket through `ws`. nearly: #290 in review
-- [ ] No export without a reader, and `knip` in `verify`. nearly: providers, look and ask-permission are clean (#274, #281, #283); kit, remote, peers and the app are still coming
-- [ ] Comments say only what the code cannot. nearly: the protocol is at 14% (#286) and two daemon modules are cut (#292); the rest of the remote stack is still coming
+- [x] The daemon speaks WebSocket through `ws`, with one clock (#290)
+- [ ] No export without a reader, and `knip` in `verify`. nearly: every package but the app and tasks is clean (#274, #281, #283, #301, #303, #307, #308) and the config names what each package has (#313); the app's exports, the tasks package and the step into `verify` are still coming
+- [ ] Comments say only what the code cannot. nearly: the protocol, the client library, the daemon modules, the kit's contracts and peers are cut (#286, #292, #295, #304, #305, #311, #312); the kit's last files and the app are still coming
 
 The app runs on iOS and Android as well as the web:
 
-- [ ] Markdown and diff as DOM components, the React Compiler and typed routes, and a native cache. nearly: #284, #287 and #288 are approved
-- [ ] A phone learns the daemon's address from the link that opened it. nearly: #291 in review
+- [x] Markdown and diff as DOM components, the React Compiler and typed routes, and a native cache (#284, #287, #288)
+- [x] A phone learns the daemon's address from the link that opened it (#291)
 
 Before 6.0.0:
 
