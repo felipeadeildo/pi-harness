@@ -16,6 +16,7 @@ import {
 	provideProtected,
 	SESSION_STATUS,
 } from "@adeildo/pi-kit";
+import { PROMPT_KINDS, type PromptKind } from "@adeildo/pi-remote-protocol";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { ClientAsks } from "./bridge/asks.ts";
@@ -192,6 +193,16 @@ export const remote = defineFeature({
 		// And a run that starts is the proof that the prompt which started it is in: until it arrives
 		// the letter stays in the queue, so a send pi drops is visible instead of lost.
 		scope.on("agent_start", () => inbox?.started());
+		// Only the terminal can answer `custom()` and the editor, so clients say it waits. The other
+		// dialogs reach the clients as asks they can answer.
+		const onlyTerminal = (kind: string): kind is PromptKind =>
+			PROMPT_KINDS.some((one) => one === kind);
+		scope.on("ui_prompt_start", (event) => {
+			if (onlyTerminal(event.kind)) bridge?.prompted(true, event.kind, event.title);
+		});
+		scope.on("ui_prompt_end", (event) => {
+			if (onlyTerminal(event.kind)) bridge?.prompted(false, event.kind, undefined);
+		});
 		/**
 		 * A compaction is the other moment a follow-up is held for, and it ends no run: pi emits this
 		 * before it clears the flag that makes a send throw, so the queue is drained on the next turn

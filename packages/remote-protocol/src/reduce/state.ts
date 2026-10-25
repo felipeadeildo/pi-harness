@@ -10,6 +10,7 @@ import type {
 	AskResult,
 	CallRuling,
 	PermissionMode,
+	PromptKind,
 	SessionCommand,
 	SessionTasks,
 } from "../state-changes.ts";
@@ -62,6 +63,8 @@ export interface SessionState {
 	 * here is refused when it is sent, so the field and the refusal cannot disagree.
 	 */
 	commands?: SessionCommand[];
+	/** The dialog the terminal waits on that no client can answer, while it is open. */
+	prompt?: { kind: PromptKind; title?: string };
 	/** Changes every turn, so it lives in the state. */
 	cost?: SessionCost;
 }

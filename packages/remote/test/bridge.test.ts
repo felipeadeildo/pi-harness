@@ -881,6 +881,34 @@ describe("the bridge", () => {
 		expect(sent?.cost.total).toBe(summed.cost);
 	});
 
+	test("a dialog only the terminal can answer reaches the clients, and the others do not", async () => {
+		const daemon = await listening();
+		const fake = mounted();
+		await start(fake, session([]));
+		await until(() => types(daemon).includes("state"));
+		const prompts = () =>
+			daemon.received.filter((one) => one.type === "terminal.prompted").map((one) => one.data);
+
+		await fake.fire(
+			"ui_prompt_start",
+			{ type: "ui_prompt_start", kind: "select", title: "Pick" },
+			session([]),
+		);
+		await fake.fire("ui_prompt_end", { type: "ui_prompt_end", kind: "select" }, session([]));
+		await fake.fire(
+			"ui_prompt_start",
+			{ type: "ui_prompt_start", kind: "custom", title: "Theme" },
+			session([]),
+		);
+		await fake.fire("ui_prompt_end", { type: "ui_prompt_end", kind: "custom" }, session([]));
+		await until(() => prompts().length === 2);
+
+		expect(prompts()).toEqual([
+			{ open: true, kind: "custom", title: "Theme" },
+			{ open: false, kind: "custom" },
+		]);
+	});
+
 	test("a snapshot carries the handle, the status, the tasks, the mode and the open questions, as facts too", async () => {
 		const daemon = await listening();
 		const fake = mounted();

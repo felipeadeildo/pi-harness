@@ -22,6 +22,8 @@ export {
 	type Mark,
 	type Origin,
 	type PermissionMode,
+	PROMPT_KINDS,
+	type PromptKind,
 	type RulingTone,
 	SESSION_STATES,
 	type SessionCommand,

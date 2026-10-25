@@ -87,7 +87,7 @@ A slice is ticked in the commit that lands it. A slice whose parts are on `main`
 - [ ] I1. The inbox (names, before F2) — nearly: wired to pi; the peers' modes wait on N4
 - [x] C8. Commands through the bridge (core, F2)
 - [x] A5. Clients in the race for the harness's dialogs (ask, F2)
-- [ ] A6. pi's own dialogs in the race (ask, F2). nearly: `select`, `confirm` and `input` race and the setting exists; the `custom()` line on clients is still to come
+- [ ] A6. pi's own dialogs in the race (ask, F2). nearly: the bridge and the state say when `custom()` or the editor waits on the terminal; the app does not draw the line yet, and `select`, `confirm` and `input` race in #310
 - [x] P4. Commands and the outbox in the client library (protocol, F2)
 - [x] C9. Presence and its marks (core, F2)
 - [ ] W4. The composer and the controls (client, F2)

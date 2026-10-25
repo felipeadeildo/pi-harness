@@ -128,6 +128,10 @@ export type PermissionMode = "manual" | "edits" | "judge" | "full";
 /** A session's status in pi's program status words, as `session.status` carries it. */
 export const SESSION_STATES = ["working", "blocked", "done", "error", "idle"] as const;
 
+/** The blocking dialogs only the terminal can answer: a client can race for the others. */
+export const PROMPT_KINDS = ["editor", "custom"] as const;
+export type PromptKind = (typeof PROMPT_KINDS)[number];
+
 /** Every state change the client reduces, with the shape each carries. */
 export interface StateChangeMap {
 	"tasks.changed": { state: SessionTasks };
@@ -164,6 +168,8 @@ export interface StateChangeMap {
 	"prompt.received": { by: By };
 	/** The whole queue as it stands: it waits in the session, so every client sees the same list. */
 	"queue.changed": { queue: QueuedMessage[] };
+	/** The terminal waits on a dialog a client cannot answer, or stops waiting on it. */
+	"terminal.prompted": { open: boolean; kind: PromptKind; title?: string };
 	/** What the session has cost so far, summed by the bridge from pi's per-message usage. */
 	"cost.changed": { cost: SessionCost };
 }
