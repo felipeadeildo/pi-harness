@@ -60,6 +60,20 @@ export function Composer({ client, mode, model, thinking, ask }: ComposerProps):
 	);
 }
 
+/**
+ * Whether a key press is "send this draft". Enter is, Shift+Enter is not: the second is how a person
+ * writes a second line in a one-line field that some hosts give them, and swallowing it loses the line.
+ */
+export function enterSends(
+	event: { key: string; shiftKey?: boolean; preventDefault?: () => void },
+	take: () => void,
+): boolean {
+	if (event.key !== "Enter" || event.shiftKey === true) return false;
+	event.preventDefault?.();
+	take();
+	return true;
+}
+
 function promptRow(
 	send: (type: CommandType, data: unknown) => void,
 	draft: string,
@@ -82,6 +96,12 @@ function promptRow(
 			placeholder: "Write to the session",
 			"aria-label": "Prompt",
 			onChange: (event: { target: { value: string } }) => write(event.target.value),
+			// Enter sends, which is what a phone keyboard and every chat field do. Without it the field
+			// takes the text and the person has to find the button, and a keyboard-only reader is stuck
+			// with a draft nobody sent.
+			onKeyDown: (event: { key: string; shiftKey?: boolean; preventDefault: () => void }) => {
+				enterSends(event, () => take("followUp"));
+			},
 		}),
 		h("button", { type: "button", disabled: empty, onClick: () => take("followUp") }, "Send"),
 		h("button", { type: "button", disabled: empty, onClick: () => take("steer") }, "Steer now"),

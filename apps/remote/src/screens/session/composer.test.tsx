@@ -7,7 +7,7 @@ import type { CommandType } from "@adeildo/pi-remote-protocol";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { CLIENT_MODES, Composer, dropNow, sendNow, stateOf } from "./composer.tsx";
+import { CLIENT_MODES, Composer, dropNow, enterSends, sendNow, stateOf } from "./composer.tsx";
 
 function clientOf(
 	queue: Outgoing[] = [],
@@ -120,5 +120,16 @@ describe("the composer", () => {
 			"waiting for you",
 		);
 		expect(stateOf({ id: "a", type: "run.abort", data: {}, at: 0, state: "applied" })).toBe("done");
+	});
+
+	test("Enter sends the draft, and Shift+Enter leaves it alone", () => {
+		// The gate and every chat field press Enter; a composer that only answers a click means the
+		// person types, presses Enter and nothing happens — which is what the browser run found.
+		let took = 0;
+		expect(enterSends({ key: "Enter" }, () => (took += 1))).toBe(true);
+		expect(took).toBe(1);
+		expect(enterSends({ key: "Enter", shiftKey: true }, () => (took += 1))).toBe(false);
+		expect(enterSends({ key: "a" }, () => (took += 1))).toBe(false);
+		expect(took).toBe(1);
 	});
 });
