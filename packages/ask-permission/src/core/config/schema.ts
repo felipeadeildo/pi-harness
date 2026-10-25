@@ -18,7 +18,7 @@ export interface TypingConfig {
 	maxWait: number | null;
 }
 
-export interface McpConfig {
+interface McpConfig {
 	/** The policy per server, by server name. A server not listed follows the default. */
 	servers: Record<string, McpPolicy>;
 }
@@ -70,14 +70,6 @@ export function defaultConfig(): PermissionConfig {
 
 export function isMcpPolicy(value: unknown): value is McpPolicy {
 	return MCP_POLICIES.some((policy) => policy === value);
-}
-
-export function isNoUIMode(value: unknown): value is NoUIMode {
-	return value === "allow" || value === "deny";
-}
-
-export function isNoteDelivery(value: unknown): value is NoteDelivery {
-	return value === "result" || value === "message";
 }
 
 export function isOutsideScope(value: unknown): value is OutsideScope {

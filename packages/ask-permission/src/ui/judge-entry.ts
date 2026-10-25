@@ -6,7 +6,7 @@ import {
 	type FeatureScope,
 	GLYPH,
 } from "@adeildo/pi-kit";
-import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
+import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 import { flatten, judgeActionLabel, judgeSignalText, judgeStatText } from "#core/judge/report.ts";
@@ -44,10 +44,6 @@ function isJudgeRecord(value: unknown): value is JudgeRecord {
 }
 
 /** Written when the judge answers, so the card shows before the call runs. */
-export function appendJudgeEntry(pi: ExtensionAPI, record: JudgeRecord): void {
-	pi.appendEntry(JUDGE_CHANGES, [record]);
-}
-
 class JudgeEntry implements Component {
 	constructor(
 		private readonly records: JudgeRecord[],

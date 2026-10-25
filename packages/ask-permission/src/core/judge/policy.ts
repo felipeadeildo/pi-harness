@@ -98,11 +98,7 @@ export function detectPolicyPreset(policy: string): string {
 	return match ? match.id : "custom";
 }
 
-export function getPolicyPreset(id: string): PolicyPreset | undefined {
-	return POLICY_PRESETS.find((preset) => preset.id === id);
-}
-
-export const MAX_POLICY_CHARS = 8000;
+const MAX_POLICY_CHARS = 8000;
 
 export function policyWarning(policy: string): string | undefined {
 	const trimmed = policy.trim();

@@ -115,7 +115,7 @@ function widen(folders: Map<string, Access>, path: string, access: Access): void
 	folders.set(path, access);
 }
 
-export function readFolders(path: string): { folders: Map<string, Access>; warning?: string } {
+function readFolders(path: string): { folders: Map<string, Access>; warning?: string } {
 	if (!existsSync(path)) return { folders: new Map() };
 
 	let raw: unknown;

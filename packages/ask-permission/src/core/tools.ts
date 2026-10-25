@@ -120,7 +120,7 @@ export function pathLevels(path: string): string[] {
 	return [directory, display];
 }
 
-export function commandPaths(command: string): string[] | undefined {
+function commandPaths(command: string): string[] | undefined {
 	const words = commandWords(command);
 	if (words === undefined) return undefined;
 
@@ -138,7 +138,7 @@ function pathValue(word: string): string | undefined {
 	return /^(~|\/|\.\.?$|\.\.?\/)/.test(value) || value.includes("/") ? value : undefined;
 }
 
-export function summarizeInput(input: ToolInput): string {
+function summarizeInput(input: ToolInput): string {
 	const keys = Object.keys(input);
 	if (keys.length === 0) return "(no input)";
 

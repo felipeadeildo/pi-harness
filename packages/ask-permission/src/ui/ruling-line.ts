@@ -16,7 +16,7 @@ import { NAME } from "#identity";
 import type { SessionState } from "#pi/session.ts";
 import { isRecord } from "#util/primitives.ts";
 
-export const RULING_CHANGES = `${NAME}:ruling`;
+const RULING_CHANGES = `${NAME}:ruling`;
 
 const ARGS_PREVIEW = 100;
 
@@ -117,7 +117,7 @@ function colorOf(tone: RulingTone): "dim" | "success" | "warning" | "error" {
 	return tone === "pending" ? "dim" : tone;
 }
 
-export function rulingText(ruling: CallRuling, theme: Theme, expanded: boolean): string {
+function rulingText(ruling: CallRuling, theme: Theme, expanded: boolean): string {
 	const color = colorOf(ruling.tone);
 	let line = `${theme.fg(color, GLYPH.judge)} ${theme.fg(color, ruling.head)}`;
 	if (ruling.note) line += ` ${theme.fg("accent", GLYPH.chevron)} ${ruling.note}`;

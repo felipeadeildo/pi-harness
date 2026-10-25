@@ -60,7 +60,7 @@ export const SECTIONS = [
 	"Always yes",
 ] as const;
 
-export type Section = (typeof SECTIONS)[number];
+type Section = (typeof SECTIONS)[number];
 
 interface Leaf<T> extends Omit<SettingUi, "section"> {
 	id: string;
