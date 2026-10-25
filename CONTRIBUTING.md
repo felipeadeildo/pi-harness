@@ -13,6 +13,10 @@ bun run verify     # all of the above, the docs check and the pi defaults
 bun run docs       # redraw the pictures in the docs from the code
 ```
 
+`check` covers `packages` and `apps/remote/scripts`; `app:check` covers the screen, with the app's own
+`tsconfig`; `verify` runs both. A missing type import in `apps/remote` passes `check` and fails
+`app:check`, so "check is clean" says nothing about the app.
+
 Lefthook formats and lints staged files on commit, type-checks the repository, and runs the full verify before a push. The perf check (see [Tests](#tests)) runs on a commit too, and only then.
 
 In a git worktree, every Bun command that installs runs with `--ignore-scripts`: `bun install --frozen-lockfile --ignore-scripts` for a new one, and the same flag on `bun install`, `bun add` and `bun remove` later. The hooks live in `.git/hooks`, which every worktree of the repository shares, and `lefthook` is a trusted dependency whose postinstall runs `lefthook install`, which writes the installing folder's absolute path into them. Once that worktree is removed, the hook points at nothing and every commit and push loses its checks. The hooks belong to the main checkout. Its own `bun install` sets them, and so does `bunx lefthook install` run from there, which also repairs a hook a worktree broke. A commit in a worktree still runs them, with that worktree's files.
@@ -96,6 +100,12 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
   pull request and `git show origin/main:<path>` for what `main` has. Approved is not merged, and a
   held branch is not a held merge. A `nearly:` that claims a merge which did not happen is worse than
   an empty box: the box asks for work, and the wrong sentence reports progress that is not there.
+- Absent is not a value, on both sides of the wire: the producer does not write what it does not
+  know, and the screen does not draw the absence as if it were one. An empty state answering
+  `serves: false` hid the mode dial, and a sheet that opens to an empty list tells the person
+  there are no models. The test to pin is not "an absent field does not break the screen" but
+  "the screen does not present the absence as a value": the dial is there, the sheet is closed,
+  no board is drawn. A test that passes with `undefined` and with the empty value proves half.
 - The merge is a read of the same object: `gh pr view <n> --json mergeStateStatus,statusCheckRollup`
   with `CLEAN` and the checks of that head at `SUCCESS`. A refused merge means the pull request is
   not ready, and `--admin` never applies. The reviewer reads the checks of the head before
