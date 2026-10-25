@@ -242,6 +242,34 @@ describe("a client of a session", () => {
 		client.stop();
 	});
 
+	test("the hello waits for the cache, so a slow disk cannot let an envelope overtake it", async () => {
+		const resolved = Promise.withResolvers<void>();
+		const sent: Envelope[] = [];
+		const client = connect({
+			key,
+			cache: {
+				read: () => resolved.promise.then(() => undefined),
+				write: async () => {},
+				drop: async () => {},
+			},
+			open: () => ({
+				send: (hello) => sent.push(hello),
+				close: () => {},
+			}),
+		});
+
+		const loaded = client.load();
+		// The cache has not answered yet, so nothing may have gone out: a hello before it would race
+		// the state it restores, and the lighter of the two would win by being later.
+		await Bun.sleep(0);
+		expect(sent).toEqual([]);
+
+		resolved.resolve();
+		await loaded;
+		expect(sent[0]).toMatchObject({ kind: "hello", type: "hello" });
+		client.stop();
+	});
+
 	test("a warm cache draws before a single byte goes out, and hello resumes from it", async () => {
 		const cache = memoryCache();
 		await cache.write({
