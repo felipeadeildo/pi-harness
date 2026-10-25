@@ -6,8 +6,10 @@ import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
+import piQuestions from "@adeildo/pi-ask-questions";
+import { TOOL_NAME } from "@adeildo/pi-ask-questions";
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
-import { fauxAssistantMessage } from "@earendil-works/pi-ai";
+import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import { type Browser, chromium, type Page } from "playwright-core";
 
 import { requestLink } from "../../src/cli/open.ts";
@@ -30,11 +32,11 @@ const BROWSERS = [
  * still red are reported and do not hold a merge, which is what keeps this file useful before the
  * last fix lands.
  */
-const MANDATORY: ReadonlySet<number> = new Set([1, 2, 3, 4]);
+const MANDATORY: ReadonlySet<number> = new Set([1, 2, 3, 4, 5]);
 
 /** The steps with a body. The rest are named and not written: a report that says `fail` for them
  * claims a measurement nobody made, and a reader cannot tell that from a step that ran and broke. */
-const WRITTEN: ReadonlySet<number> = new Set([1, 2, 3, 4]);
+const WRITTEN: ReadonlySet<number> = new Set([1, 2, 3, 4, 5]);
 
 const STEPS = [
 	"the daemon's link opens the app, and the session list is there",
@@ -95,11 +97,32 @@ async function main(): Promise<number> {
 		}
 		// The bridge starts the daemon when none answers, which is the path a user takes.
 		rig = await createRig({
-			extensions: [piRemote],
-			// Slow enough that a run is still going when the next step types: a follow-up is only a
-			// follow-up while something else runs.
-			answer: () => fauxAssistantMessage("Answered, one word after another, slowly."),
-			tokensPerSecond: 2,
+			extensions: [piRemote, piQuestions],
+			// A prompt that says "ask me" gets a question back, and its answer goes on as words. Every
+			// other prompt is words, and slow enough that a run is still going when the next step types:
+			// a follow-up is only a follow-up while something else runs.
+			answer: (context) =>
+				lastSaid(context).includes("slow answer")
+					? fauxAssistantMessage(`${"Answered, one word after another. ".repeat(60)}`.trim())
+					: lastSaid(context).includes("ask me")
+						? fauxAssistantMessage([
+								fauxToolCall(TOOL_NAME, {
+									questions: [
+										{
+											header: "Deploy",
+											question: "Ship the release now?",
+											options: [
+												{ label: "Ship it", description: "Publish today." },
+												{ label: "Wait", description: "Publish tomorrow." },
+											],
+										},
+									],
+								}),
+							])
+						: fauxAssistantMessage("Answered, one word after another, slowly."),
+			// Fast enough that a tool call's JSON arrives in about a second, slow enough that the long
+			// answer below still takes seconds to write out.
+			tokensPerSecond: 50,
 			settings: { remote: { port } },
 		});
 		const link = await waitForLink();
@@ -119,6 +142,7 @@ async function main(): Promise<number> {
 			reports.push({ step: 2, ...(await opensSession(page)) });
 			reports.push({ step: 3, ...(await sendsPrompt(page, rig)) });
 			reports.push({ step: 4, ...(await queuesFollowUp(page, rig)) });
+			reports.push({ step: 5, ...(await answersQuestion(page, rig)) });
 		} else {
 			reports.push({ step: 1, ok: false, why: link.why });
 		}
@@ -132,6 +156,19 @@ async function main(): Promise<number> {
 		delete process.env.PI_REMOTE_DIR;
 		delete process.env.PI_REMOTE_SHARE;
 	}
+	// The daemon this run started is gone: `stopDaemon` is what makes the next run able to listen,
+	// and a signal 0 is how the same run can tell that it worked.
+	const holder = readCurrent(root)?.pid;
+	if (holder !== undefined) {
+		try {
+			process.kill(holder, 0);
+			console.error(`gate: the daemon ${holder} outlived the run`);
+			reports.push({ step: 0, ok: false, why: `the daemon ${holder} outlived the run` });
+		} catch {
+			// The process is gone, which is what the end of a run asks for.
+		}
+	}
+
 	for (const [at, name] of STEPS.entries()) {
 		if (!WRITTEN.has(at + 1)) {
 			console.log(`not written yet  ${at + 1}. ${name}`);
@@ -261,7 +298,7 @@ async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
 		await page.keyboard.press("Enter");
 		// The last row is the message this step just sent: an earlier one can still be waiting.
 		const row = page.locator(".remote-composer-waiting").last();
-		await row.waitFor({ timeout: 20_000 });
+		await row.waitFor({ timeout: 90_000 });
 		const said = (await row.locator(".remote-composer-text").innerText()).trim();
 
 		await row.getByRole("button", { name: "Withdraw", exact: true }).click();
@@ -270,6 +307,60 @@ async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
 	} catch (error) {
 		return { ok: false, why: short(error) };
 	}
+}
+
+/**
+ * A question the model asks is answered in the browser. The question is the tool call the scripted
+ * model returns; the answer goes back through the daemon to the session, and the proof is the
+ * question closing — in the state the session carries — and the run going on to its words.
+ */
+async function answersQuestion(page: Page, rig: Rig): Promise<Result> {
+	try {
+		const box = page.locator("textarea, [contenteditable='true'], input[type='text']").first();
+		await box.click({ timeout: 20_000 });
+		await box.fill("ask me before you ship");
+		await page.keyboard.press("Enter");
+
+		// The option's accessible name carries its description, so the match is a prefix.
+		const option = page.getByRole("button", { name: /^Ship it/ });
+		try {
+			// The scripted model writes the tool call at two tokens a second, so the JSON takes ~30 s.
+			await option.waitFor({ timeout: 90_000 });
+		} catch {
+			const said = await page
+				.locator("body")
+				.innerText()
+				.catch(() => "");
+			return { ok: false, why: `no question: ${JSON.stringify(said.slice(0, 300))}` };
+		}
+		const before = rig.session.sessionManager.getBranch().length;
+		await option.click();
+		await page.getByRole("button", { name: "Send answer", exact: true }).click();
+
+		// The question closed and the run went on: the dialog is gone, and the branch grew with the
+		// answer the model read and the words it said after it.
+		await option.waitFor({ state: "detached", timeout: 60_000 });
+		const deadline = Date.now() + 60_000;
+		while (rig.session.sessionManager.getBranch().length <= before && Date.now() < deadline)
+			await Bun.sleep(50);
+		return rig.session.sessionManager.getBranch().length > before
+			? { ok: true }
+			: { ok: false, why: "the run did not go on after the answer" };
+	} catch (error) {
+		return { ok: false, why: short(error) };
+	}
+}
+
+/** What the person last typed, which is how the scripted model knows which turn it is answering. */
+function lastSaid(context: { messages: readonly { role?: string; content?: unknown }[] }): string {
+	const last = [...context.messages].reverse().find((one) => one.role === "user");
+	const content = last?.content;
+	if (typeof content === "string") return content;
+	if (!Array.isArray(content)) return "";
+	return content
+		.map((part) => (typeof part === "object" && part !== null && "text" in part ? part.text : ""))
+		.filter((text): text is string => typeof text === "string")
+		.join(" ");
 }
 
 /**
