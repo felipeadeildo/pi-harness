@@ -44,11 +44,13 @@ pi's files, and a name that is not an open session, like `@src/auth.ts`, stays a
 everyone, its call in your chat shows who read it, got it, or still has it on its way, name by name; a request to
 anyone shows the bids and who took it.
 
-The room reaches you without being opened. A dashed frame over the editor names who writes to whom as the words
-arrive. When the message is for your agent and its run is going, the frame stays after it is sent, with its first
-lines and when the agent gets it: `between calls` or `after this run`. It leaves when the agent reads it and the
-message lands in your chat, the way your own queued messages do. A request to anyone that another agent took shows in your chat with who took it, for you to read
-only: your agent never gets it, so two of them do not start the same work. The footer keeps one mark per other
+The room reaches you without being opened. A dashed frame over the editor belongs to the message that waits for
+your agent: its first lines, and when the agent gets it, `between calls` or `after this run`. It leaves when the
+agent reads it and the message lands in your chat, the way your own queued messages do. The frame is the only thing
+that takes that line, and it keeps the same height while it waits, so what you are typing does not move. A draft
+that someone is still writing is not for you yet: it goes to the footer, naming who writes to whom, where the
+height never changes. A request to anyone that another agent took shows in your chat with who took it, for you to
+read only: your agent never gets it, so two of them do not start the same work. The footer keeps one mark per other
 agent, filled while it works, hollow while it is idle, a flag when it waits on you, and `@N` for what your agent
 has not read yet.
 
