@@ -2,11 +2,11 @@
 // own line and no other line changes place.
 import { describe, expect, test } from "bun:test";
 
-import type { BoardCard, BoardView } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 
-import { boardLines } from "../src/ui/board.ts";
+import { boardLines } from "../src/board/lines.ts";
+import type { BoardCard, BoardView } from "../src/board/model.ts";
 
 const plain = {
 	fg: (_color: string, text: string) => text,
@@ -23,9 +23,10 @@ describe("the board in the panel", () => {
 	test("draws every open card once, oldest first, with the two counts", () => {
 		const lines = boardLines(
 			// The ids run opposite to the arrival order, so sorting by id would be seen.
-			view([card("c1", 20, { column: "doing", now: "writing the test" }), card("c2", 10)]),
+			view([card("c2", 10), card("c1", 20, { column: "doing", now: "writing the test" })]),
 			plain,
 			80,
+			"operator",
 		);
 		expect(lines).toHaveLength(3);
 		expect(lines[0]).toContain("2 open");
@@ -35,7 +36,7 @@ describe("the board in the panel", () => {
 
 	test("the title keeps its column when a card changes column", () => {
 		const at = (column: BoardCard["column"]): number => {
-			const line = boardLines(view([card("c1", 10, { column })]), plain, 80)[1] ?? "";
+			const line = boardLines(view([card("c1", 10, { column })]), plain, 80, "operator")[1] ?? "";
 			return visibleWidth(line.split("card c1")[0] ?? "");
 		};
 		expect(at("todo")).toBe(at("doing"));
@@ -44,12 +45,14 @@ describe("the board in the panel", () => {
 
 	test("the blocker is the kit's sentence for this reader", () => {
 		const blocked = card("c1", 10, { blocked: { on: "operator", why: "the setting's name" } });
-		expect(boardLines(view([blocked]), plain, 80)[1]).toContain("você: the setting's name");
+		expect(boardLines(view([blocked]), plain, 80, "operator")[1]).toContain(
+			"você: the setting's name",
+		);
 	});
 
 	test("with no board it draws nothing, and every line fits", () => {
-		expect(boardLines(undefined, plain, 40)).toEqual([]);
-		const lines = boardLines(view([card("c1", 10, { pr: 188 })]), plain, 30);
+		expect(boardLines(undefined, plain, 40, "operator")).toEqual([]);
+		const lines = boardLines(view([card("c1", 10, { pr: 188 })]), plain, 30, "operator");
 		expect(lines.every((line) => visibleWidth(line) <= 30)).toBe(true);
 	});
 });

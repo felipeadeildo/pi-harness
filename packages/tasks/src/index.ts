@@ -3,8 +3,9 @@ import {
 	createApp,
 	defineFeature,
 	TASKS_SETTLED,
+	BOARD,
+	emptyBoard,
 	TASKS,
-	tasksSpent,
 	tasksWith,
 	logFrom,
 	hideImagesUnderOverlays,
@@ -14,12 +15,12 @@ import {
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Key } from "@earendil-works/pi-tui";
 
+import { BoardPanel } from "./board-panel.ts";
 import { Keeper } from "./keeper.ts";
 import { registerScreen, sessionSection } from "./screen.ts";
 import { model, nameSession, SETTINGS_SECTION, TASKS_SETTINGS } from "./settings.ts";
 import { type SkillNote, withSkills, yourWords } from "./transcript.ts";
 import { Updates } from "./updates.ts";
-import { TasksView } from "./view.ts";
 
 /** The look draws this status as its tasks segment. */
 export const TASKS_STATUS = "pi-tasks";
@@ -134,7 +135,7 @@ export const tasks = defineFeature({
 		registerScreen(scope, keeper);
 
 		scope.registerShortcut(Key.alt("t"), {
-			description: "The session's tasks: doing, waiting, queued, done and decided",
+			description: "The session's board: what it is doing, what waits and what it delivered",
 			handler: (ctx) => openTasks(ctx),
 		});
 
@@ -144,16 +145,12 @@ export const tasks = defineFeature({
 			await ctx.ui.custom<void>(
 				(tui, theme, _keybindings, done) => {
 					hideImagesUnderOverlays(tui);
-					stopWatching = TASKS.onChanged(scope, () => tui.requestRender());
-					return new TasksView({
+					stopWatching = BOARD.onChanged(scope, () => tui.requestRender());
+					return new BoardPanel({
 						theme,
-						state: () => keeper.state(),
-						spent: () => tasksSpent(ctx.sessionManager.getBranch()),
-						rows: () => Math.floor(tui.terminal.rows * 0.8) - 1,
 						close: () => done(),
 						requestRender: () => tui.requestRender(),
-						// What you do here is yours, and joins the tasks under way instead of pushing them aside.
-						act: (op) => keeper.apply([op], "you", { busy: true }),
+						read: () => BOARD.current(scope) ?? emptyBoard(),
 					});
 				},
 				{
