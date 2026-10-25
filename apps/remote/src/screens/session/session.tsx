@@ -1,6 +1,6 @@
 // The session screen: the chrome in React Native beside a document that draws text from elsewhere. The
-// route owns the layout, so this adds no frame of its own — a second `flex` here pushed the composer
-// off the screen, and the composer is where the thumb is.
+// route owns the layout, so this adds no frame of its own. A second `flex` here pushed the composer off
+// the screen, and the composer is where the thumb is.
 import type { ClientSession } from "@adeildo/pi-remote-client";
 import { openQuestions } from "@adeildo/pi-remote-protocol";
 import { Fragment, type ReactNode } from "react";

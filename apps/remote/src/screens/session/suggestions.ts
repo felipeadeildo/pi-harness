@@ -1,4 +1,4 @@
-// Typing `/` in the composer offers what the session says it can run — nothing else. The list is the
+// Typing `/` in the composer offers what the session says it can run, and nothing else. The list is the
 // host's, so a command the bridge would refuse never appears; a text that only looks like one stays text.
 
 import type { SessionCommand } from "@adeildo/pi-remote-protocol";
@@ -35,7 +35,7 @@ export function suggested(draft: string, commands: readonly SessionCommand[]): S
 
 /**
  * The draft after choosing a command: the command, a space, and nothing else. The instruction beside a
- * command is part of the prompt — `/compact keep the tests` is one message to the same effect.
+ * command is part of the prompt: `/compact keep the tests` is one message to the same effect.
  */
 export function chosen(name: string): string {
 	return `${name} `;

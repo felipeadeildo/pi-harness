@@ -1,6 +1,6 @@
 // The panel that holds a question is measured as it renders, and these pin the rule the
 // measurement follows. The height itself comes from the device, so what is proven here is what the
-// panel promises when a question is swapped for another while it is open — the half a thumb
+// panel promises when a question is swapped for another while it is open: the half a thumb
 // notices, and the reason the first frame is a run on a phone rather than a test here.
 import { describe, expect, test } from "bun:test";
 

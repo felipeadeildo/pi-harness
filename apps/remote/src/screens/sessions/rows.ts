@@ -74,7 +74,7 @@ function costOf(session: ListedSession): string {
 /**
  * The row's own style, as one object and never an array. A row that sits inside `Link asChild` reaches
  * the document through a Slot that spreads props, and an array spread there becomes `{0: …}` which the
- * browser refuses to apply — the page threw before drawing a single row because of exactly that.
+ * browser refuses to apply: the page threw before drawing a single row because of exactly that.
  */
 export function rowStyle(marked: boolean): Record<string, number | string> {
 	return marked

@@ -83,7 +83,7 @@ export function titleOf(session: ClientSession, tasks?: SessionTasks): string {
 
 /**
  * What the header says about the session beside its name: the machine, what it is doing and the model it
- * answers with. It is text, and typed as text on purpose — this array goes to a `join`, and an
+ * answers with. It is text, and typed as text on purpose: this array goes to a `join`, and an
  * `unknown[]` let the folded state object through to become `[object Object]` without a word from the
  * compiler. The status is the field for "what it is doing"; the folded `state` is the whole picture.
  */
