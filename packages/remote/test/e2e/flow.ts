@@ -6,6 +6,7 @@ import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
+import permission from "@adeildo/pi-ask-permission";
 import piQuestions from "@adeildo/pi-ask-questions";
 import { TOOL_NAME } from "@adeildo/pi-ask-questions";
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
@@ -97,7 +98,9 @@ async function main(): Promise<number> {
 		}
 		// The bridge starts the daemon when none answers, which is the path a user takes.
 		rig = await createRig({
-			extensions: [piRemote, piQuestions],
+			// The permission feature owns the session mode, and the composer offers it: without it the picker
+			// would promise a change the session cannot make.
+			extensions: [piRemote, piQuestions, permission],
 			// A prompt that says "ask me" gets a question back, and its answer goes on as words. Every
 			// other prompt is words, and slow enough that a run is still going when the next step types:
 			// a follow-up is only a follow-up while something else runs.
