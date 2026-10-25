@@ -92,6 +92,32 @@ describe("a daemon that restarts", () => {
 		expect(emptySessionState().permissions.serves).toBeUndefined();
 	});
 
+	test("the opening of a restarted daemon carries the question answered before it", () => {
+		const sessions = restarted();
+		const answered = {
+			...emptySessionState(),
+			questions: { q1: { id: "q1", source: "agent", questions: [], closed: true } },
+		};
+		sessions.event(
+			envelope(
+				"event",
+				"state",
+				{
+					summary: { session: "s", machine: "m", cwd: "/x", kind: "terminal", state: answered },
+					entries: [],
+				},
+				around(1),
+			),
+		);
+		const opening = sessions.opening("s") ?? [];
+		const state = (opening[0]?.data as { summary: { state?: SessionState } } | undefined)?.summary
+			.state;
+		expect(state?.questions.q1?.closed).toBe(true);
+		// Nothing after the opening says the question opened again, which is what a bridge reposting it
+		// on a reconnect would do.
+		expect(opening.slice(1).map((one) => one.type)).not.toContain("ask.opened");
+	});
+
 	test("folds what comes after the snapshot on top of it", () => {
 		const sessions = restarted();
 		sessions.event(
