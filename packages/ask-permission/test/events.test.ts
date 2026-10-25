@@ -531,6 +531,23 @@ describe("workspace scope", () => {
 		expect(opened).toBe(false);
 	});
 
+	test("a folder opened from a phone lasts for the session, whatever scope it picked", async () => {
+		const phone: By = { kind: "client", name: "phone", machine: "m" };
+		const { bus } = questionsProvider(
+			[answerTo("yes, and allow reads in /etc"), answerTo("everywhere")],
+			phone,
+		);
+		const { entries, state, toolCall } = harness("manual", "ask", bus);
+
+		await toolCall(judgeCall("call-1", "cat /etc/hostname"), fakeContext());
+
+		expect(state.folders.covers("/etc/passwd", "read")).toBe(true);
+		expect(entries).toContainEqual({
+			customType: "pi-ask-permission:session",
+			data: { kind: "folder", path: "/etc", access: "read" },
+		});
+	});
+
 	test("the folder is offered only when the workspace is what asks", async () => {
 		const shown: string[] = [];
 		const ctx = (): ExtensionContext => fakeContext((labels) => shown.push(labels.join("\n")));
