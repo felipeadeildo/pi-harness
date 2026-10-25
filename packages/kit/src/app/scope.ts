@@ -30,8 +30,6 @@ export interface AppState {
 	shutdowns: Hook<ShutdownHook>[];
 	screen: Map<string, ScreenEntry[]>;
 	screenGroups: Map<string, ScreenGroup[]>;
-	/** Work waiting for the session, by timer, so the shutdown can call it off. */
-	deferred: Set<ReturnType<typeof setTimeout>>;
 	/** False once the session is shutting down: nothing new may be deferred. */
 	live(): boolean;
 	/** Ends the session from inside a deferral a refused context was found in. */
@@ -80,11 +78,9 @@ export function createScope(state: AppState, featureId: string): FeatureScope {
 			state.pi.registerMessageRenderer(customType, renderer);
 		},
 		defer(run, ms = 0) {
-			// A session on its way out takes no new work: a shutdown hook that defers would otherwise
-			// leave a timer that runs after everything it depended on is stopped.
-			if (!state.live()) return;
-			const timer = setTimeout(() => {
-				state.deferred.delete(timer);
+			// `unref` only keeps a pending timer from holding the process open; the guard at the top
+			// of the callback is what keeps the work from running once the session is over.
+			setTimeout(() => {
 				if (!state.live()) return;
 				try {
 					run();
@@ -97,8 +93,7 @@ export function createScope(state: AppState, featureId: string): FeatureScope {
 					}
 					state.report(featureId, `deferred work failed: ${describe(error)}`);
 				}
-			}, ms);
-			state.deferred.add(timer);
+			}, ms).unref();
 		},
 		onSessionStart: (run) => state.starts.push({ source: featureId, run }),
 		onShutdown: (run) => state.shutdowns.push({ source: featureId, run }),

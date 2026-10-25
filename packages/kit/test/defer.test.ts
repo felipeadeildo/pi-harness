@@ -64,6 +64,17 @@ test("work deferred with a delay waits for it while the session is up", async ()
 	await app.end();
 });
 
+test("a delayed deferral runs while the session is up, with nothing else holding the loop", async () => {
+	const app = await mounted((scope: FeatureScope) => {
+		scope.defer(() => ran.push("alone"), 10);
+	});
+	// The timer is not holding the loop open on its own; this sleep is the only anchor, and the work
+	// still has to happen inside it.
+	await Bun.sleep(40);
+	expect(ran).toEqual(["alone"]);
+	await app.end();
+});
+
 test("the session ending cancels what waits, and nothing runs after it", async () => {
 	const app = await mounted((scope: FeatureScope) => {
 		scope.defer(() => ran.push("too late"), 100);
@@ -73,7 +84,7 @@ test("the session ending cancels what waits, and nothing runs after it", async (
 	expect(ran).toEqual([]);
 });
 
-test("work deferred from a shutdown hook does nothing, since the session is over", async () => {
+test("work deferred from a shutdown hook never runs, because the session is over", async () => {
 	const app = await mounted((scope: FeatureScope) => {
 		scope.onShutdown(() => scope.defer(() => ran.push("from the hook")));
 	});

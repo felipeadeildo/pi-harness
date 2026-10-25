@@ -77,12 +77,9 @@ function mount(pi: ExtensionAPI, options: AppOptions, features: readonly Feature
 		shutdowns: [],
 		screen: new Map(),
 		screenGroups: new Map(),
-		deferred: new Set(),
 		live: () => live,
 		stop: () => {
 			live = false;
-			for (const timer of state.deferred) clearTimeout(timer);
-			state.deferred.clear();
 		},
 		report: (source, message) => deliver(`${options.name}: ${source}: ${message}`),
 	};
