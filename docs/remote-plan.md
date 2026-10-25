@@ -36,7 +36,7 @@ The structure:
 - [x] Work deferred by a feature ends with its session (#221, #224)
 - [x] The bridge keeps its lifecycle, and pi's events reach their owners (#237)
 - [x] The client's session is immutable, and commands are typed by their names (#270, #282)
-- [ ] The session and composer screens in React Native, on the visual base. nearly: the list and the question panel are React Native and the theme's steps exist (#258); the session frame is in review (#296), and `composer.tsx` still draws the DOM
+- [x] The session and composer screens in React Native, on the visual base (#258, #296, #336, #337)
 
 The other tracks of the cycle:
 
@@ -44,7 +44,7 @@ The other tracks of the cycle:
 - [x] The permission is asked above the editor, which stays usable (#214)
 - [x] The questions are asked above the editor the same way (#254, #298)
 - [x] Skills, templates and `/compact` from the phone, and nothing else offered (#231, #245, #261)
-- [ ] The board each agent keeps. nearly: the model, the contract, the tool (#201, #256) and the room's reader (#279) are on `main`; the Alt+T panel and the small model's removal are still coming
+- [ ] The board each agent keeps. nearly: the model, the contract and the tool (#201, #256), the Alt+T panel (#338) and the other sessions' cards in the room (#346) are on `main`; the small model's removal is still coming
 - [x] The permission judge reads only the operator's words (#213)
 - [x] The port clients reach the daemon on is a setting (#197, #225)
 - [x] `main` takes no merge with `verify`, `app` or `gate` red
@@ -55,7 +55,7 @@ The simplifications:
 - [x] The daemon answers a client from what it keeps; the opening packet has one name (#277, #280)
 - [x] The daemon speaks WebSocket through `ws`, with one clock (#290)
 - [ ] No export without a reader, and `knip` in `verify`. nearly: most packages are clean (#274, #281, #283, #301, #303, #307, #308, #319) and the config names what each package has (#313); the app, `compact` and `tasks` still export what nobody reads, and the step into `verify` is still coming
-- [ ] Comments say only what the code cannot. nearly: the protocol, the client library, the daemon modules, the kit's contracts and peers are cut (#286, #292, #295, #304, #305, #311, #312); the kit's last files and the app are still coming
+- [x] Comments say only what the code cannot: the remote stack, the kit and peers are read line by line (#286, #292, #295, #304, #305, #311, #312, #315, #318, #320, #339)
 
 The app runs on iOS and Android as well as the web:
 
@@ -64,9 +64,9 @@ The app runs on iOS and Android as well as the web:
 
 Before 6.0.0:
 
-- [ ] No test in the suite fails one run in ten. nearly: the gate's steps 6 and 7 wait and say which side failed (#327), and the unit tests hold (#241); step 4 failed once in five and its pull request is in review
+- [ ] No test in the suite fails one run in ten. nearly: the gate's steps 4 and 6 wait for the right thing and say which side failed (#327, #330, #345), and the unit tests hold (#241); step 7 still drops a command whose send was lost, and its fix is coming
 - [x] Each `as unknown as` cast outside test fakes, and each patched pi prototype, has a test, a guard, or the reason it stays: the casts that covered a check are guards now, and the ones left each say why they stay (#243, #249, #250, #260; issue #251 asks pi for the hooks)
-- [ ] [The remote design](remote.md) speaks the new names
+- [x] [The remote design](remote.md) speaks the new names (#265, #269, #297)
 - [ ] The release notes, and 6.0.0
 
 ## Status
