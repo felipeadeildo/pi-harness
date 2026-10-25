@@ -8,6 +8,8 @@ import {
 	isObject,
 	modelRef,
 	modelsFor,
+	BOARD,
+	boardView,
 	openView,
 	PEERS,
 } from "@adeildo/pi-kit";
@@ -288,6 +290,9 @@ export const peers = defineFeature({
 					input.action === "link" && link.get(scope) === "ask",
 			});
 			rooms.open(ctx.sessionManager, ctx.model === undefined ? undefined : modelRef(ctx.model));
+			// What this session's board holds, for the other sessions in the room to read.
+			const board = BOARD.current(scope);
+			if (board !== undefined) rooms.board(boardView(board));
 			if (ctx.mode === "tui")
 				ctx.ui.addAutocompleteProvider((current) =>
 					completeMentions(current, () => rooms.others()),

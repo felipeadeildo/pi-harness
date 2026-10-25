@@ -1,3 +1,4 @@
+import type { BoardView } from "../board/model.ts";
 // The events the harness writes, one shape per type. A viewer reads these and nothing else, so a
 // shape only grows: a field that changes meaning gets a new name, and a new version of the log
 // would get a new `v`.
@@ -50,6 +51,8 @@ export interface LogEventMap {
 	 * carried. That one write is a backfill, not a leftover.
 	 */
 	"session.named": { handle?: string; title?: string };
+	/** What a session's board holds, as the sessions that read it draw it. */
+	"board.changed": { view: BoardView };
 	"session.state": { state: RoomActivity };
 	/** You sent a prompt in this session. What you said stays in pi's own session file. */
 	"session.prompted": Record<string, never>;

@@ -21,6 +21,7 @@ import {
 	removePresence,
 	roomDir,
 	roomsDir,
+	type BoardView,
 	type RoomActivity,
 	type RoomMode,
 	type SessionTasks,
@@ -105,6 +106,7 @@ export class Rooms implements RoomsView {
 	readonly #steppedOut = new Set<string>();
 	/** The part of the tasks last written to the shared rooms, so an unchanged board is not written again. */
 	#board = "";
+	#boardView = "";
 	readonly #listeners = new Set<() => void>();
 	readonly #membership = new Set<(change: MembershipChange) => void>();
 
@@ -755,6 +757,14 @@ export class Rooms implements RoomsView {
 		if (text === this.#board) return;
 		this.#board = text;
 		for (const here of shared) here.log("tasks.board", { state: board });
+	}
+
+	/** Writes what this session's board holds, for the sessions that read it from the folder. */
+	board(view: BoardView): void {
+		const text = JSON.stringify(view);
+		if (text === this.#boardView) return;
+		this.#boardView = text;
+		for (const here of this.joined()) here.log("board.changed", { view });
 	}
 
 	#addMembers(room: string, members: readonly Member[], by: AddedBy): void {
