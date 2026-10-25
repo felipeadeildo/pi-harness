@@ -10,6 +10,7 @@ import {
 	followSessionStatus,
 	isObject,
 	LOGGED_EVENT,
+	logFrom,
 	piSource,
 	provideProtected,
 	SESSION_STATUS,
@@ -18,8 +19,10 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 
 import { ClientAsks } from "./bridge/asks.ts";
 import { Bridge, type SessionKind } from "./bridge/bridge.ts";
+import { Commands, Refused } from "./bridge/commands.ts";
 import type { GoneReason } from "./bridge/connection.ts";
 import { letterOf, SessionInbox } from "./bridge/inbox.ts";
+import { commandsFor } from "./bridge/slash.ts";
 import { openInBrowser } from "./browser.ts";
 import { linkOf } from "./cli/open.ts";
 import { commandApi } from "./commands-api.ts";
@@ -78,6 +81,7 @@ export const remote = defineFeature({
 		let bridge: Bridge | undefined;
 		let asks: ClientAsks | undefined;
 		let inbox: SessionInbox | undefined;
+		let commands: Commands | undefined;
 
 		scope.on("session_start", (_event, ctx) => {
 			const kind = sessionKind(ctx.mode);
@@ -108,20 +112,51 @@ export const remote = defineFeature({
 				scope,
 				version: VERSION,
 				kind,
-				// The two queue commands, decided here: the letter goes in through the inbox this file
-				// owns, so the bridge never holds the letters themselves.
-				letters: {
-					prompt: (id, by, text, deliverAs) =>
-						inbox?.put(letterOf(id, by, text, deliverAs ?? "followUp")),
-					clear: (ids) => inbox?.take(ids) ?? [],
-				},
+				command: (message) => commands?.run(message),
 				api,
 				// `FeatureScope` is the extension API, so the list of slash commands is asked here.
-				offered: () => scope.getCommands(),
+				offered: () => commandsFor(scope.getCommands()),
 				startDaemon: () => startDaemon(dir, port.get(scope)),
 				warn: (message) => scope.warn(message),
 			});
 			bridge.start();
+			// The commands are built here, where the inbox, the api and the dialogs of this session meet.
+			commands = new Commands({
+				session: ctx.sessionManager.getSessionId(),
+				effects: {
+					abort: () => ctx.abort(),
+					compact: (instructions) =>
+						ctx.compact(
+							instructions === undefined ? undefined : { customInstructions: instructions },
+						),
+					rename: (name) => api.rename(name),
+					setModel: (provider, id) => api.setModel(provider, id),
+					setThinking: (level) => api.setThinking(level),
+					setMode: (mode, by) => api.setMode(mode, by),
+					prompt: (id, by, text, deliverAs) =>
+						inbox?.put(letterOf(id, by, text, deliverAs ?? "followUp")),
+					clearQueue: (ids) => inbox?.take(ids) ?? [],
+					answerAsk: (fields, by) => {
+						const ask = typeof fields.ask === "string" ? fields.ask : "";
+						bridge?.answer(ask, fields.result, by);
+					},
+					stop: (force) => {
+						if (force)
+							throw new Refused("a forced stop needs a background session, which has a runner");
+						bridge?.cancelAsks();
+						ctx.abort();
+						ctx.shutdown();
+					},
+				},
+				history: bridge.ran(),
+				answer: (kind, type, data, id) => bridge?.connection.answer(kind, type, data, id),
+				received: (id, command, by) => {
+					logFrom(ctx, scope.events, "command.received", { id, command, by });
+				},
+				outcome: (id, command, by, outcome) => {
+					logFrom(ctx, scope.events, "command.outcome", { id, command, by, outcome });
+				},
+			});
 			// A session with no terminal has no dialog to draw, so the questions go to the clients.
 			if (kind === "background") {
 				asks = new ClientAsks({

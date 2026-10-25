@@ -32,6 +32,7 @@ import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import type { MessageStartEvent, MessageUpdateEvent } from "@earendil-works/pi-coding-agent";
 
 import { Bridge, STATE_ENTRIES, TYPED_EVERY_MS } from "../src/bridge/bridge.ts";
+import { Commands } from "../src/bridge/commands.ts";
 import { letterOf, SessionInbox } from "../src/bridge/inbox.ts";
 import piRemote, { goneReason, remote, sessionKind } from "../src/index.ts";
 import { CLIENT_PORT, daemonPaths } from "../src/places.ts";
@@ -1045,17 +1046,13 @@ describe("one bridge", () => {
 			queued: (queue) => bridge.queued(queue),
 		});
 		inbox.start();
+		// Assigned once the bridge exists: the commands answer through the connection it opened.
+		const commands = { run: (_message: unknown): void => {} };
 		const bridge = new Bridge(session(), from, {
 			typedEveryMs,
 			path: "/nowhere",
 			scope,
-			// The real inbox decides the queue's two commands here: the tests of the queue read what
-			// the bridge builds from it, not a stub that says nothing.
-			letters: {
-				prompt: (id, by, text, deliverAs) =>
-					inbox.put(letterOf(id, by, text, deliverAs ?? "followUp")),
-				clear: (ids) => inbox.take(ids),
-			},
+			command: (message) => commands.run(message),
 			version: VERSION,
 			kind: "terminal",
 			api: {
@@ -1073,6 +1070,29 @@ describe("one bridge", () => {
 			seams: { dial, backoff: [5] },
 		});
 		bridge.start();
+		const built = new Commands({
+			session: "s",
+			effects: {
+				abort: () => {},
+				compact: () => {},
+				rename: () => {},
+				setModel: () => Promise.resolve(),
+				setThinking: () => {},
+				setMode: () => {},
+				prompt: (id, by, text, deliverAs) =>
+					inbox.put(letterOf(id, by, text, deliverAs ?? "followUp")),
+				clearQueue: (ids) => inbox.take(ids),
+				answerAsk: (fields, by) => {
+					bridge.answer(typeof fields.ask === "string" ? fields.ask : "", fields.result, by);
+				},
+				stop: () => {},
+			},
+			history: bridge.ran(),
+			answer: (kind, type, data, id) => bridge.connection.answer(kind, type, data, id),
+			received: () => {},
+			outcome: () => {},
+		});
+		commands.run = (message) => built.run(message as never);
 		const [socket] = sockets;
 		if (socket === undefined) throw new Error("no socket");
 		socket.emit("connect");
