@@ -10,9 +10,9 @@ import {
 } from "@adeildo/pi-remote-protocol";
 
 /**
- * The log's state changes a client reduces. The bridge sends the session's own state changes itself, and the log's
- * The log's own `session.state` is peers' running or idle, a `RoomActivity` from another package,
- * and it never crosses: the wire's `session.status` is pi's program status, written by the bridge.
+ * The log's state changes a client reduces. The log's own `session.state` is peers' running or idle, a
+ * `RoomActivity` from another package, and it never crosses: the wire's `session.status` is pi's
+ * program status, written by the bridge.
  */
 export const FORWARDED: ReadonlySet<string> = new Set([
 	"tasks.changed",

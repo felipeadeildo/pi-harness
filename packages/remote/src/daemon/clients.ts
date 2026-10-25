@@ -1,10 +1,6 @@
-// The port clients reach: the server that accepts a socket, the upgrade that turns it into the hub's
-// connection, and the HTTP requests the routes answer.
-//
-// Who owns what, so a reader does not have to read three files to find the home of a state:
-//   hub     the sockets, the connection ids, what each one watches and asks, and the presence marks
-//   routes  the names the daemon answers to, the logins, and the index of each session's paged file
-//   here    the server, the port it took, and the one place a `session.gone` clears both halves
+// The port clients reach: the server, the upgrade into the hub, and the HTTP requests the routes
+// answer. The sockets and their marks are the hub's, the names and the logins are the routes', and
+// what lives here is the server, the port it took, and the one place a `session.gone` clears both.
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
@@ -24,33 +20,24 @@ export interface ClientsOptions {
 	sessions: Sessions;
 	logins: Logins;
 	version: string;
-	/**
-	 * Passes a client's command to the session's bridge. False when no bridge is connected, and then
-	 * the client hears why on the command's id instead of waiting for an answer that never comes.
-	 */
+	/** False when no bridge is connected, and the client hears why on the command's id. */
 	command: (session: string, message: Envelope) => boolean;
-	/**
-	 * The web app, answered for every path the data routes leave. Its files are the only paths a
-	 * browser loads before it holds a login. None in a daemon built without it.
-	 */
+	/** Answered for every path the data routes leave. The only paths a browser loads before a login. */
 	web?: WebApp;
 	warn?: (message: string) => void;
 	now?: () => number;
 }
 
-/** What a listen attempt came to: the port it took, or the code of the error that stopped it. */
+/** The port it took, or the code of the error that stopped it. */
 export type ListenResult = { port: number } | { why: string | undefined };
 
-/**
- * The server's lifetime and nothing else: it listens, refuses an upgrade it was not asked for, and
- * closes. The sockets belong to the hub and the requests to the routes.
- */
+/** The server's lifetime: it listens and closes. */
 export class Clients {
 	readonly #options: ClientsOptions;
 	readonly #server: Server;
 	readonly #wss: WebSocketServer;
 	readonly #started: number;
-	/** The names this daemon answers to, once it knows its port. Nothing answers before. */
+	/** The names this daemon answers to, once it knows its port. */
 	#hosts: ReadonlySet<string> = new Set();
 	readonly hub: Hub;
 	readonly routes: Routes;
