@@ -44,6 +44,8 @@ export interface SessionState {
 	permissions: {
 		rulings: Record<string, { ruling: CallRuling; by?: By }>;
 		mode?: PermissionMode;
+		/** Whether this session takes `mode.set` at all, which a client needs before it offers a dial. */
+		serves?: boolean;
 	};
 	/** The last rename, for a mention of the older handle. */
 	renamed?: { from: string; to: string; by?: By };
@@ -73,7 +75,7 @@ export interface SessionCost {
 }
 
 export function emptySessionState(): SessionState {
-	return { questions: {}, permissions: { rulings: {} }, queue: [] };
+	return { questions: {}, permissions: { rulings: {}, serves: false }, queue: [] };
 }
 
 export function openQuestions(state: SessionState): OpenAsk[] {

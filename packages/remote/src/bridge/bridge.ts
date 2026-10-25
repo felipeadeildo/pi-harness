@@ -12,6 +12,7 @@ import {
 	type LogSession,
 	logPath,
 	MODE,
+	MODE_SET,
 	readTail,
 	SESSION_STATUS,
 	type SessionSource,
@@ -264,7 +265,7 @@ export class Bridge {
 				handle: tasks?.handle,
 				status: SESSION_STATUS.current(scope),
 				// Already folded, so a reader draws the session's state without a replay.
-				state: this.#changes.snapshot(tasks, mode),
+				state: this.#changes.snapshot(tasks, mode, MODE_SET.current(scope) !== undefined),
 			},
 			entries: this.ctx.sessionManager.getBranch().slice(-STATE_ENTRIES),
 			streaming: this.stream.streaming,
