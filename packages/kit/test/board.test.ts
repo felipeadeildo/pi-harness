@@ -227,7 +227,10 @@ test("the view takes the first open cards by arrival, then shows them oldest fir
 	const view = boardView(board);
 	expect(view.open).toHaveLength(15);
 	expect(view.open.map((card) => card.title)).not.toContain("Card 15");
-	// Arrival order is the only order: the ids and the dates both run another way on purpose.
+	// Arrival order is the only order. A card with a date older than the ones already on the board
+	// is a state the product does not make: one writer per session appends, and no operation merges
+	// (the model header says so). The ids and the dates run another way here on purpose, so sorting
+	// by either would show.
 	const hand: Board = {
 		next: 4,
 		cards: [

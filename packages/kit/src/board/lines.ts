@@ -12,23 +12,33 @@ const COLUMNS: readonly BoardColumn[] = ["todo", "doing", "review"];
 const WIDTH = Math.max(...COLUMNS.map((column) => column.length));
 
 /** What the panel shows of the board: the open cards, the backlog's count and the last done. */
-export function boardLines(view: BoardView | undefined, theme: Theme, width: number): string[] {
+export function boardLines(
+	view: BoardView | undefined,
+	theme: Theme,
+	width: number,
+	reader: "operator" | "agent",
+): string[] {
 	if (view === undefined) return [];
 	const head = theme.fg(
 		"dim",
 		`board  ${view.open.length} open · ${view.backlog} in the backlog · ${view.done.length} done`,
 	);
-	const lines = view.open.map((card) => cardLine(card, theme, width));
+	const lines = view.open.map((card) => cardLine(card, theme, width, reader));
 	return [truncateToWidth(head, width, CUT), ...lines];
 }
 
 /** One card: the column, what it is, and the one fact that goes with its column. */
-function cardLine(card: BoardCard, theme: Theme, width: number): string {
+function cardLine(
+	card: BoardCard,
+	theme: Theme,
+	width: number,
+	reader: "operator" | "agent",
+): string {
 	const column = card.column.padEnd(WIDTH);
 	const rest = width - WIDTH - 2;
 	const what = [theme.bold(card.title)];
 	if (card.pr !== undefined) what.push(theme.fg("dim", `#${card.pr}`));
-	const fact = factOf(card);
+	const fact = factOf(card, reader);
 	if (fact !== undefined) what.push(theme.fg("muted", fact));
 	const body = truncateToWidth(what.join(" "), Math.max(1, rest), CUT);
 	const left = `${theme.fg("dim", column)} ${body}`;
@@ -37,9 +47,9 @@ function cardLine(card: BoardCard, theme: Theme, width: number): string {
 	return left;
 }
 
-function factOf(card: BoardCard): string | undefined {
+function factOf(card: BoardCard, reader: "operator" | "agent"): string | undefined {
 	if (card.column === "doing" && card.now !== undefined) return `· ${card.now}`;
 	if (card.column === "review" && card.reviewer !== undefined) return `· @${card.reviewer}`;
-	if (card.blocked !== undefined) return `· ${blockedText(card.blocked, "operator")}`;
+	if (card.blocked !== undefined) return `· ${blockedText(card.blocked, reader)}`;
 	return undefined;
 }
