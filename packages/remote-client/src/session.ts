@@ -11,6 +11,7 @@ import {
 	isEnvelope,
 	isObject,
 	isPresence,
+	isSnapshot,
 	type Envelope,
 	type Entry,
 	type Presence,
@@ -110,6 +111,15 @@ function isFactType(type: string): type is FactType {
  * Reads one envelope. The answer says whether the client can draw it now or has to ask for a
  * snapshot first, and the session is only changed in the first case.
  */
+/**
+ * Whether a `state` envelope carries a snapshot this version can swap in. The whole state is replaced
+ * at once, so every field the swap reads is checked before it happens: half a snapshot is worse than
+ * none, because the half that arrived would look like the truth.
+ */
+function isSnapshotData(value: unknown): value is SnapshotData {
+	return isObject(value) && isSnapshot(value.snapshot) && Array.isArray(value.entries);
+}
+
 export function readEnvelope(
 	session: ClientSession,
 	value: unknown,
@@ -120,8 +130,8 @@ export function readEnvelope(
 	if (value.type === STATE) {
 		// The snapshot replaces the whole state at once, so its shape is checked before the swap:
 		// an envelope that decodes is not the same as a snapshot that does.
-		if (!isObject(value.data) || !Array.isArray(value.data.entries)) return { read: "skip" };
-		const data = value.data as unknown as SnapshotData;
+		if (!isSnapshotData(value.data)) return { read: "skip" };
+		const data = value.data;
 		session.snapshot = data.snapshot;
 		// A snapshot carries who is watching now, which is what makes the first draw right instead of
 		// showing whoever was there when the page closed. Absent means the fields are not known yet.

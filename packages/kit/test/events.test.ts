@@ -67,6 +67,20 @@ test("reading resumes where it stopped, and a line still being written waits", (
 	expect(rest.events.map((event) => event.data)).toEqual([{ state: "idle" }]);
 });
 
+test("a line that lost its payload is not an event, so nothing folds it", () => {
+	// The log is written by whichever version was running. An event without `data` would hand
+	// `undefined` to whoever folds it, which reads as "nothing changed" and hides the loss.
+	logEvent(target("s1"), undefined, "session.state", { state: "running" });
+	const start = readFrom(logPath(target("s1")), 0).offset;
+	appendFileSync(
+		logPath(target("s1")),
+		'{"v":1,"type":"session.state","session":"s1","at":5,"id":"x"}\n',
+	);
+	const read = readFrom(logPath(target("s1")), start);
+	expect(read.events.map((event) => event.id)).toEqual([]);
+	expect(read.offset).toBeGreaterThan(start);
+});
+
 test("a feed reads every session in the folder, oldest first, each event once", () => {
 	const feed = new FolderFeed(dir);
 	expect(feed.read()).toEqual([]);
