@@ -119,9 +119,9 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
   the harness from it running code from before the merge.
 - Work happens in a worktree, never in `~/Projects/pi-harness`: that is the checkout the operator's
   `pi` loads the harness from, and it stays on `main` and clean. The rule starts at `git switch`,
-  which is the first step of the mistake, and it holds for `git switch <branch>` as much as for `git
-  switch -c`: a branch is never checked out there, only repaired back to `main`. A tree there that
-  does not compile does not break a pull request, it breaks the session the operator is about to
+  which is the first step of the mistake, and it holds for `git switch <branch>` as much as for
+  `git switch -c`. A branch is never checked out there, only repaired back to `main`. A tree there
+  that does not compile does not break a pull request, it breaks the session the operator is about to
   start, and `pi` says nothing more than a load that failed.
 - A review worktree under `/tmp` installs with `bun install --frozen-lockfile --ignore-scripts`, and
   that same install is what lets a commit or a push there run the hooks: without `node_modules` the
