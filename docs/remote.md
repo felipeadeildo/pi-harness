@@ -470,7 +470,7 @@ The presence index in the kit is the one list of open sessions, read by peers an
 ### Transport
 
 - **Clients and their daemon:** HTTP for login, the session list, openings, history pages and files, and one WebSocket per client for everything live. JSON text frames, through `ws`, which the daemon bundles.
-- **Liveness:** one clock. The server pings, the client's pong answers, and a socket that stays silent through a ping is terminated; a client that hears nothing closes and reconnects from its cursor.
+- **Liveness:** one clock, ten seconds long. The server pings, the pong answers, and a peer that misses a beat is terminated by the next one, so a dead socket is gone within 20 seconds. A client that hears nothing closes and reconnects from its cursor.
 - **Bridges and runners with their daemon:** the unix socket, one JSON object per line, split on LF only. Only here does a hello take the role `bridge` or `runner`; elsewhere it is `client` or `link` (see [Roles](#roles)).
 - **Daemons over a link:** one WebSocket, the same envelopes, with `permessage-deflate`.
 
