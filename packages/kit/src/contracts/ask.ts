@@ -1,5 +1,5 @@
-// One dialog for every question. The permission dialog used to ask in its own way, with its own
-// keys; now whoever needs an answer asks here and the questions feature draws it.
+// One dialog for every question: the permission and the agent both ask here, and the questions
+// feature draws it.
 //
 // The bus is synchronous, so a request carries an id and the answer arrives on a second channel,
 // like the screen's `run` does.
