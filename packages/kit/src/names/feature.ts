@@ -12,7 +12,7 @@ import { TASKS } from "../contracts/tasks.ts";
 import { logFrom } from "../events/log.ts";
 import { HOST } from "../host.ts";
 import { readPresence } from "../presence/index.ts";
-import { drawWord } from "./claim.ts";
+import { claimWord, drawWord } from "./claim.ts";
 import { WORDS } from "./words.ts";
 
 export interface NamesOptions {
@@ -31,11 +31,19 @@ export function names(options: NamesOptions = {}): Feature {
 			let held: { handle: string } | undefined;
 			NAMES.provide(scope, () => held);
 			scope.onSessionStart((ctx) => {
-				// An older session keeps the handle the tasks logged; drawing a new word would rename
-				// it on upgrade. `bySession` falls back to that handle too.
-				if (TASKS.current(scope)?.state.handle !== undefined) return;
 				const session = ctx.sessionManager.getSessionId();
 				const dir = options.dir ?? join(getAgentDir(), "harness", "names");
+				// An older session keeps the handle the tasks logged. Claim it here so the next start,
+				// after the tasks feature is gone, reads it back from the names folder.
+				const previous = TASKS.current(scope)?.state.handle;
+				if (previous !== undefined) {
+					held = { handle: previous };
+					NAMES.changed(scope, held);
+					if (claimWord({ dir }, previous, session, HOST)) {
+						logFrom(ctx, scope.events, "session.named", { handle: previous });
+					}
+					return;
+				}
 				const open = readPresence().filter((entry) => entry.host === HOST);
 				const claim = drawWord(
 					{

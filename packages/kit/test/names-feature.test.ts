@@ -76,14 +76,17 @@ describe("the names feature", () => {
 		expect(current(again)?.handle).toBe(drawn as string);
 	});
 
-	test("a session that already has a handle from the tasks draws nothing", async () => {
+	test("a session that already has a handle from the tasks keeps it, and the claim survives the tasks", async () => {
 		const fake = mounted("oauth");
 		await fake.fire("session_start", {}, ctx());
-		expect(current(fake)).toBeUndefined();
+		expect(current(fake)?.handle).toBe("oauth");
 		const logged = new FolderFeed(eventsDir("/repo"))
 			.read()
 			.filter((event) => event.type === "session.named");
-		expect(logged).toEqual([]);
+		expect(logged.map((event) => event.data)).toEqual([{ handle: "oauth" }]);
+		const after = mounted();
+		await after.fire("session_start", {}, ctx());
+		expect(current(after)?.handle).toBe("oauth");
 	});
 
 	test("a rename logs the word it left, which mentions keep resolving", async () => {
