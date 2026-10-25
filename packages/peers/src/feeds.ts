@@ -3,12 +3,12 @@
 // it changed, and the caller reconciles.
 import { readdirSync } from "node:fs";
 
-import { FolderFeed, roomDir, roomsDir } from "@adeildo/pi-kit";
+import { eventsRoot, FolderFeed, roomDir, roomsDir } from "@adeildo/pi-kit";
 
 import { Folder } from "./folder.ts";
 
 /** One room as this process holds it. */
-export interface Room {
+export interface RoomOnDisk {
 	id: string;
 	feed: FolderFeed;
 	folder: Folder;
@@ -18,7 +18,7 @@ export interface Room {
 }
 
 export class RoomFeeds {
-	readonly #rooms = new Map<string, Room>();
+	readonly #rooms = new Map<string, RoomOnDisk>();
 	readonly #changed: () => void;
 
 	constructor(changed: () => void) {
@@ -26,21 +26,21 @@ export class RoomFeeds {
 	}
 
 	/** The rooms known now, in the order the disk listed them. */
-	values(): IterableIterator<Room> {
+	values(): IterableIterator<RoomOnDisk> {
 		return this.#rooms.values();
 	}
 
 	/** Reads the room folder and watches every room it names that this process does not hold yet. */
-	scan(): void {
+	scan(root: string = eventsRoot()): void {
 		let ids: string[];
 		try {
-			ids = readdirSync(roomsDir());
+			ids = readdirSync(roomsDir(root));
 		} catch {
 			return;
 		}
 		for (const id of ids) {
 			if (this.#rooms.has(id)) continue;
-			const feed = new FolderFeed(roomDir(id));
+			const feed = new FolderFeed(roomDir(id, root));
 			const folder = new Folder();
 			folder.apply(feed.read());
 			this.#rooms.set(id, { id, feed, folder, stop: feed.watch(() => this.#changed()) });
@@ -48,12 +48,12 @@ export class RoomFeeds {
 	}
 
 	/** Folds what the room's folder holds now, for a room no session is inside yet. */
-	read(room: Room): void {
+	read(room: RoomOnDisk): void {
 		room.folder.apply(room.feed.read());
 	}
 
 	/** Stops watching a room that will never open again. */
-	close(room: Room): void {
+	close(room: RoomOnDisk): void {
 		room.stop();
 		room.done = true;
 	}
