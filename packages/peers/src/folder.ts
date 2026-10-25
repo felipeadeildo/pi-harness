@@ -27,7 +27,7 @@ export interface Peer {
 	startedAt: number;
 	endedAt?: number;
 	handle?: string;
-	/** The words this session used to have, which mentions still resolve for a week. */
+	/** The earlier words, which mentions still resolve for a week. */
 	aliases?: string[];
 	title?: string;
 	state: RoomActivity;

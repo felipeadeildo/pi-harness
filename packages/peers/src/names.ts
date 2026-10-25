@@ -27,7 +27,8 @@ export interface Named {
 }
 
 /**
- * The words the room uses: the open sessions by session id, and the words they used to have.
+ * The words the room uses: the open sessions by session id, and the earlier words that still point
+ * at them.
  * The two travel together, because "a live word wins" is a rule about both.
  */
 export interface Names {
@@ -45,7 +46,7 @@ export function namesOf(live: readonly Peer[]): Names {
 	const taken = new Set<string>();
 	const used = new Set<PeerColor>();
 	for (const peer of live) {
-		// A word a session used to have points here, unless a live session holds it now.
+		// An earlier word points here, unless a live session holds it.
 		for (const alias of peer.aliases ?? [])
 			if (!live.some((other) => other !== peer && other.handle === alias)) {
 				taken.add(alias);
@@ -79,8 +80,8 @@ function hash(text: string): number {
 }
 
 /**
- * The open session a name points at, ignoring case and a leading @. A word a session used to have
- * reaches it too, which is what keeps `@oauth` working after the session became `auth`.
+ * The open session a name points at, ignoring case and a leading @. An earlier word reaches the
+ * session that owned it, which is what keeps `@oauth` working after the session became `auth`.
  */
 export function byHandle(names: Names, name: string): Named | undefined {
 	const wanted = name.replace(/^@/, "").toLowerCase();
@@ -98,7 +99,7 @@ export function mentionedNames(text: string): string[] {
 	return [...text.matchAll(MENTION)].map((match) => (match[1] ?? "").toLowerCase());
 }
 
-/** Every @name in a text that points at an open session, by its word or by one it used to have. */
+/** Every @name in a text that points at an open session, by its word or by an earlier one. */
 export function mentionsIn(names: Names, text: string): Named[] {
 	const found = new Map<string, Named>();
 	for (const name of mentionedNames(text)) {
