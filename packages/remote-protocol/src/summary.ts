@@ -75,9 +75,9 @@ export function isCommandBy(value: unknown): value is CommandBy {
 }
 
 /** Absent when the letter waits only for the run to settle. */
-export type WaitingWhy = "asleep" | "quiet" | "full" | "stopped" | "not-started";
+type WaitingWhy = "asleep" | "quiet" | "full" | "stopped" | "not-started";
 
-export type WaitingWant = "steer" | "followUp";
+type WaitingWant = "steer" | "followUp";
 
 /** A letter waiting in the queue. `when` is the writer's clock, from the letter's `at`. */
 export interface QueuedMessage {

@@ -8,7 +8,7 @@ import {
 // 10 turns did best on SWE-bench: arxiv.org/abs/2508.21433
 export const KEEP_TURNS = 10;
 // Each prune rewrites the prompt cache, so it waits to free this much at once.
-export const MIN_FREED_SHARE = 0.4;
+const MIN_FREED_SHARE = 0.4;
 const MIN_OUTPUT_TOKENS = 250;
 const MIN_ARGUMENT_CHARS = 1500;
 const LONG_STRING = 200;
@@ -217,7 +217,7 @@ function shortened(args: ToolCall["arguments"]): ToolCall["arguments"] {
 }
 
 /** The key of the note an old call carries in place of its long arguments. */
-export const PRUNED_KEY = "_pruned";
+const PRUNED_KEY = "_pruned";
 /** How cut values read before: an agent that saw them wrote its own arguments that way. */
 const OLD_MARKER = /characters, hidden to save context\)/u;
 
