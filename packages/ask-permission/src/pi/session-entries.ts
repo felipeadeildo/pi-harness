@@ -18,7 +18,7 @@ export type SessionEntry =
 	| { kind: "folder"; path: string; access: Access }
 	| { kind: "close-folders" };
 
-export interface SessionSnapshot {
+export interface SessionSummary {
 	mode: PermissionMode;
 	outside: OutsideScope;
 	alwaysYes: { toolName: string; level: string }[];
@@ -31,9 +31,9 @@ export function record(pi: ExtensionAPI, entry: SessionEntry): void {
 
 export function replay(
 	branch: readonly unknown[],
-	start: Pick<SessionSnapshot, "mode" | "outside">,
-): SessionSnapshot {
-	const snapshot: SessionSnapshot = { ...start, alwaysYes: [], folders: [] };
+	start: Pick<SessionSummary, "mode" | "outside">,
+): SessionSummary {
+	const snapshot: SessionSummary = { ...start, alwaysYes: [], folders: [] };
 
 	for (const item of branch) {
 		const entry = sessionEntry(item);

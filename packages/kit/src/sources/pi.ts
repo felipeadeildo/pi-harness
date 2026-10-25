@@ -3,7 +3,7 @@
 // may have added one.
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import type { SessionSnapshot, SessionSource, SourceItem } from "../contracts/sources.ts";
+import type { SessionSummary, SessionSource, SourceItem } from "../contracts/sources.ts";
 import { HOST } from "../events/log.ts";
 
 interface Follower {
@@ -119,7 +119,7 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 	};
 }
 
-function snapshotOf(ctx: ExtensionContext): SessionSnapshot {
+function snapshotOf(ctx: ExtensionContext): SessionSummary {
 	const session = ctx.sessionManager;
 	const usage = ctx.getContextUsage();
 	return {

@@ -3,9 +3,9 @@
 // interface: a client that resumed from a cursor replays what it missed through the same function.
 
 import type { By } from "../by.ts";
+import type { QueuedMessage } from "../summary.ts";
 import { applyOne, isStateChangeType } from "./entry.ts";
 export { KEPT_CLOSED } from "./entry.ts";
-import type { QueuedMessage } from "../snapshot.ts";
 import { type SESSION_STATES } from "../state-changes.ts";
 import type {
 	AskQuestion,

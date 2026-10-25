@@ -11,11 +11,11 @@ import {
 	isEnvelope,
 	isObject,
 	isPresence,
-	isSnapshot,
+	isSummary,
 	type Envelope,
 	type Entry,
 	type Presence,
-	type SessionSnapshot,
+	type SessionSummary,
 	type Transcript,
 	transcriptOf,
 } from "@adeildo/pi-remote-protocol";
@@ -29,7 +29,7 @@ export const CHANGES = "entry";
 export const STATE = "state";
 
 export interface SnapshotData {
-	snapshot: SessionSnapshot;
+	snapshot: SessionSummary;
 	/** The tail of the branch, oldest first, which is what a screen draws first. */
 	entries: Entry[];
 	/** What the session knew when the snapshot was taken, already folded, so no replay is needed. */
@@ -46,7 +46,7 @@ export interface ClientSession {
 	 * log, so the state a client draws is the state the daemon holds.
 	 */
 	state: SessionState;
-	snapshot?: SessionSnapshot;
+	snapshot?: SessionSummary;
 	/** Who has the session open and who typed last, as the daemon last said. */
 	presence?: Presence;
 	/**
@@ -111,8 +111,8 @@ export function cachedOf(session: ClientSession, outbox: Outbox): CachedSession 
  * at once, so every field the swap reads is checked before it happens: half a snapshot is worse than
  * none, because the half that arrived would look like the truth.
  */
-function isSnapshotData(value: unknown): value is SnapshotData {
-	return isObject(value) && isSnapshot(value.snapshot) && Array.isArray(value.entries);
+function isSummaryData(value: unknown): value is SnapshotData {
+	return isObject(value) && isSummary(value.snapshot) && Array.isArray(value.entries);
 }
 
 export function readEnvelope(
@@ -125,7 +125,7 @@ export function readEnvelope(
 	if (value.type === STATE) {
 		// The snapshot replaces the whole state at once, so its shape is checked before the swap:
 		// an envelope that decodes is not the same as a snapshot that does.
-		if (!isSnapshotData(value.data)) return { read: "skip" };
+		if (!isSummaryData(value.data)) return { read: "skip" };
 		const data = value.data;
 		session.snapshot = data.snapshot;
 		// A snapshot carries who is watching now, which is what makes the first draw right instead of

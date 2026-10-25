@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 
 import { CHANGES, type Entry, STATE_CHANGES, isStateChangeType } from "../src/reduce/entry.ts";
 import { applyChange, emptySessionState } from "../src/reduce/state.ts";
-import { isQueuedMessage, isSnapshot } from "../src/snapshot.ts";
+import { isQueuedMessage, isSummary } from "../src/summary.ts";
 import type { StateChangeMap, StateChangeType } from "../src/state-changes.ts";
 
 describe("a fact the daemon has to carry", () => {
@@ -104,15 +104,15 @@ describe("a snapshot without a queue, and one with an empty queue", () => {
 		// The screen draws "no queue" and "an empty queue" differently, so the protocol keeps both.
 		const without = { ...base };
 		const empty = { ...base, queue: [] };
-		expect(isSnapshot(without)).toBe(true);
-		expect(isSnapshot(empty)).toBe(true);
+		expect(isSummary(without)).toBe(true);
+		expect(isSummary(empty)).toBe(true);
 		expect("queue" in without).toBe(false);
 		expect("queue" in empty).toBe(true);
 	});
 
 	test("a queue with a letter that does not decode is not a snapshot", () => {
 		const bad = { ...base, queue: [{ id: "l1", text: "hold on", when: 1 }] };
-		expect(isSnapshot(bad)).toBe(false);
+		expect(isSummary(bad)).toBe(false);
 	});
 });
 

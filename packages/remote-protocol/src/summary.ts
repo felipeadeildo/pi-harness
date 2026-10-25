@@ -4,7 +4,7 @@
 import { isBy, isObject, type By } from "./by.ts";
 import type { SessionState } from "./reduce/state.ts";
 
-export interface SessionSnapshot {
+export interface SessionSummary {
 	/** pi's session id. */
 	session: string;
 	machine: string;
@@ -68,7 +68,7 @@ export function isPresence(value: unknown): value is Presence {
 }
 
 /** Whether a value is a snapshot this version reads. */
-export function isSnapshot(value: unknown): value is SessionSnapshot {
+export function isSummary(value: unknown): value is SessionSummary {
 	return (
 		isObject(value) &&
 		typeof value.session === "string" &&

@@ -3,7 +3,7 @@
 
 import { type By } from "./by.ts";
 import type { SessionCost } from "./reduce/state.ts";
-import type { QueuedMessage } from "./snapshot.ts";
+import type { QueuedMessage } from "./summary.ts";
 
 export type TaskStatus = "doing" | "queued" | "waiting" | "deferred" | "done" | "dropped";
 export type Origin = "you" | "agent";

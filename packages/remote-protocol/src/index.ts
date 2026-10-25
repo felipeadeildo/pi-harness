@@ -50,14 +50,14 @@ export {
 	isCommandBy,
 	isPresence,
 	isQueuedMessage,
-	isSnapshot,
+	isSummary,
 	PRESENCE,
 	PRESENCE_HERE,
 	type Presence,
 	type QueuedMessage,
-	type SessionSnapshot,
+	type SessionSummary,
 	type Viewer,
-} from "./snapshot.ts";
+} from "./summary.ts";
 export {
 	branchOf,
 	type ChatMessage,

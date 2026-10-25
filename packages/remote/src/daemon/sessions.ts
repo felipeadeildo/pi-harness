@@ -5,11 +5,11 @@ import {
 	emptySessionState,
 	type Envelope,
 	isObject,
-	isSnapshot,
-	applyChange,
+	isSummary,
 	isStateChangeType,
+	applyChange,
 	type SessionState,
-	type SessionSnapshot,
+	type SessionSummary,
 } from "@adeildo/pi-remote-protocol";
 
 /** The replay buffers of every session together hold at most this many bytes of JSON. */
@@ -48,12 +48,12 @@ export interface LiveSession {
 	gone?: GoneReason;
 	state: SessionState;
 	/** The last snapshot its bridge sent: what a client draws before the replay. */
-	snapshot?: SnapshotEvent;
+	snapshot?: Opening;
 }
 
 /** What a bridge's `snapshot` event carries. */
-export interface SnapshotEvent {
-	snapshot: SessionSnapshot;
+export interface Opening {
+	snapshot: SessionSummary;
 	/** The tail of the branch, oldest first. */
 	entries: unknown[];
 	/** The message being written, when one is. */
@@ -147,7 +147,7 @@ export class Sessions {
 		if (entry === undefined) return "an event for a session no bridge registered";
 		if (entry.state.epoch !== envelope.epoch) return "an event from another life of the session";
 		if (envelope.type === "state") {
-			if (!isSnapshotEvent(envelope.data)) return "a snapshot that does not read";
+			if (!isOpening(envelope.data)) return "a snapshot that does not read";
 			this.#rebase(entry, envelope, envelope.data);
 			return undefined;
 		}
@@ -209,7 +209,7 @@ export class Sessions {
 	 * A snapshot is the new base: the client that reads it starts from its seq, and a cursor older
 	 * than it takes the snapshot instead of a replay.
 	 */
-	#rebase(entry: Entry, envelope: Envelope, snapshot: SnapshotEvent): void {
+	#rebase(entry: Entry, envelope: Envelope, snapshot: Opening): void {
 		entry.state.snapshot = snapshot;
 		// The bridge folds the state it sends, so this is the truth from here: the daemon seeds itself
 		// with it instead of rebuilding, and a daemon that just started learns the session in one event.
@@ -247,6 +247,6 @@ function same(entry: Entry | undefined, epoch: string): entry is Entry {
 	return entry?.state.epoch === epoch;
 }
 
-function isSnapshotEvent(value: unknown): value is SnapshotEvent {
-	return isObject(value) && isSnapshot(value.snapshot) && Array.isArray(value.entries);
+function isOpening(value: unknown): value is Opening {
+	return isObject(value) && isSummary(value.snapshot) && Array.isArray(value.entries);
 }

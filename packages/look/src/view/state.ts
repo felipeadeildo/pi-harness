@@ -1,13 +1,13 @@
 // What a view holds of the session it shows, folded from its source, and where its reader is
 // scrolled. Kept apart from drawing so the rules a reader feels (the end followed, a place kept while
 // reading back, a session that ended) are tested without a terminal.
-import type { SessionSnapshot, SourceItem } from "@adeildo/pi-kit";
+import type { SessionSummary, SourceItem } from "@adeildo/pi-kit";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 
 export class ViewState {
 	readonly #entries: SessionEntry[] = [];
 	readonly #ids = new Set<string>();
-	#snapshot: SessionSnapshot | undefined;
+	#snapshot: SessionSummary | undefined;
 	#ended = false;
 	/** Bumped on every change, so a drawing can tell it is stale. */
 	#version = 0;
@@ -16,7 +16,7 @@ export class ViewState {
 		return this.#entries;
 	}
 
-	get snapshot(): SessionSnapshot | undefined {
+	get snapshot(): SessionSummary | undefined {
 		return this.#snapshot;
 	}
 

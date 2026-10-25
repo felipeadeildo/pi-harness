@@ -17,7 +17,6 @@ import type {
 
 import type { By } from "../src/by.ts";
 import { STATE_CHANGES } from "../src/reduce/entry.ts";
-import { type QueuedMessage, isQueuedMessage } from "../src/snapshot.ts";
 import {
 	type AskQuestion,
 	type AskResult,
@@ -26,6 +25,7 @@ import {
 	type StateChangeType,
 	type SessionTasks,
 } from "../src/state-changes.ts";
+import { type QueuedMessage, isQueuedMessage } from "../src/summary.ts";
 
 /** A value of the kit's shape must always be readable as our copy, never the other way round. */
 const copyOfBy = (by: KitBy): By => by;

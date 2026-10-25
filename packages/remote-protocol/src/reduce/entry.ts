@@ -2,10 +2,9 @@
 // change added to `StateChangeMap` does not compile until somebody says both — one with a shape and
 // no effect is a shape nobody folds, and one with an effect and no check is a reader trusting the wire.
 
-import { isBy } from "../by.ts";
-import { isObject } from "../by.ts";
-import { type QueuedMessage } from "../snapshot.ts";
+import { isBy, isObject } from "../by.ts";
 import { SESSION_STATES, type StateChangeMap, type StateChangeType } from "../state-changes.ts";
+import { type QueuedMessage } from "../summary.ts";
 import type { SessionState } from "./state.ts";
 
 /** One state change: what it must carry, and what it leaves behind. */
