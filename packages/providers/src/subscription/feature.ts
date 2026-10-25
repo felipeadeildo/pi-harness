@@ -40,7 +40,7 @@ function pinned(version: string): Decoder<string> {
 	};
 }
 
-export const mirrored = setting({
+const mirrored = setting({
 	id: "subscription.claudeCodeVersion",
 	default: CLAUDE_CODE_VERSION,
 	decoder: pinned(CLAUDE_CODE_VERSION),
