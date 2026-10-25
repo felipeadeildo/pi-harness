@@ -8,3 +8,4 @@ lefthook-local.*
 apps/remote/.expo/
 
 *.orig
+*.rej
