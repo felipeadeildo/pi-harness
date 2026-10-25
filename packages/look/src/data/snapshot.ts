@@ -15,13 +15,13 @@ import {
 	totalsOf,
 } from "./totals.ts";
 
-export interface ModelInfo {
+interface ModelInfo {
 	name: string;
 	provider: string;
 	reasoning: boolean;
 }
 
-export interface ContextInfo {
+interface ContextInfo {
 	percent: number;
 	tokens: number;
 	window: number;

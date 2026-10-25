@@ -51,7 +51,7 @@ export const SEGMENT_IDS = [
 ] as const;
 
 export type BuiltinSegment = (typeof SEGMENT_IDS)[number];
-export type StatusSegment = `status:${string}`;
+type StatusSegment = `status:${string}`;
 export type SegmentId = BuiltinSegment | StatusSegment;
 
 const STATUS_PREFIX = "status:";

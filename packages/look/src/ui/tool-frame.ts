@@ -430,7 +430,7 @@ interface ResultParts {
 }
 
 /** One rule of the frame: two corners, and what sits on the left. */
-export function rule(
+function rule(
 	edge: "top" | "bottom",
 	left: string,
 	width: number,
@@ -587,7 +587,7 @@ export function isBlank(line: string | undefined): boolean {
 	return stripTerminalSequences(line ?? "").trim() === "";
 }
 
-export function rulingText(ruling: CallRuling, theme: Theme, expanded: boolean): string {
+function rulingText(ruling: CallRuling, theme: Theme, expanded: boolean): string {
 	const color = PHASE_COLORS[stateOf(ruling.tone)];
 	let line = `${theme.fg(color, GLYPH.judge)} ${theme.fg(color, ruling.head)}`;
 	if (ruling.note) line += ` ${theme.fg("accent", GLYPH.chevron)} ${ruling.note}`;

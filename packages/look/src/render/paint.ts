@@ -104,7 +104,7 @@ export function themePaint(theme: Theme, frame?: (text: string) => string): Pain
 	};
 }
 
-export function stressToken(percent: number): ThemeColor {
+function stressToken(percent: number): ThemeColor {
 	if (percent >= 90) return "error";
 	if (percent >= 70) return "warning";
 	return "success";

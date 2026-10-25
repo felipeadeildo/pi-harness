@@ -16,7 +16,7 @@ import { stripTerminalSequences } from "@earendil-works/pi-tui";
 
 import { look } from "../src/index.ts";
 
-export interface ScriptedCall {
+interface ScriptedCall {
 	id: string;
 	name: "write" | "edit";
 	args: Record<string, unknown>;

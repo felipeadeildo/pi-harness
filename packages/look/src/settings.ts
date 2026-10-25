@@ -15,7 +15,7 @@ export const SECTIONS = ["Appearance"];
 export type HeaderStyle = "card" | "compact";
 export type CursorStyle = "block" | "bar" | "underline";
 
-export const PERMISSION_MODE: SegmentId = "status:pi-ask-permission:mode";
+const PERMISSION_MODE: SegmentId = "status:pi-ask-permission:mode";
 
 /** The line above the editor: how long the agent has worked, and the last call that finished. */
 export const strip: readonly SegmentId[] = ["elapsed"];
