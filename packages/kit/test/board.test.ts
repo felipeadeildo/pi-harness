@@ -220,3 +220,13 @@ test("a card waiting for the operator and one waiting for an agent read differen
 	expect(text).toContain("o operador: o nome");
 	expect(text).toContain("@quokka: a revisão");
 });
+
+test("the view takes the first open cards by arrival, then shows them oldest first", () => {
+	const sixteen = Array.from({ length: 16 }, (_, index) => added(`Card ${index}`, { at: index }));
+	const board = applied(sixteen, "operator");
+	const view = boardView(board);
+	expect(view.open).toHaveLength(15);
+	expect(view.open.map((card) => card.title)).not.toContain("Card 15");
+	const byAt = applied([added("Nova", { at: 20 }), added("Velha", { at: 10 })]);
+	expect(boardView(byAt).open.map((card) => card.title)).toEqual(["Velha", "Nova"]);
+});

@@ -25,6 +25,7 @@ export * from "./contracts/board.ts";
 export * from "./board/model.ts";
 export { names, type NamesOptions } from "./names/feature.ts";
 export { board } from "./board/feature.ts";
+export { boardLines } from "./board/lines.ts";
 export { boardText } from "./board/tool.ts";
 export * from "./events/log.ts";
 export { Inbox } from "./inbox/inbox.ts";

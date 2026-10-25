@@ -1,36 +1,67 @@
-import { expect, test } from "bun:test";
+// The board in the panel: one line per open card, the column first, so a card that moves changes its
+// own line and no other line changes place.
+import { describe, expect, test } from "bun:test";
+
+import type { Theme } from "@earendil-works/pi-coding-agent";
+import { visibleWidth } from "@earendil-works/pi-tui";
 
 import { boardLines } from "../src/board/lines.ts";
-import { applyBoard, emptyBoard, type Board, type BoardOp } from "../src/board/model.ts";
+import type { BoardCard, BoardView } from "../src/board/model.ts";
 
-const at = 1_700_000_000_000;
+const plain = {
+	fg: (_color: string, text: string) => text,
+	bold: (text: string) => text,
+} as unknown as Theme;
 
-function applied(...ops: BoardOp[]): Board {
-	let board = emptyBoard();
-	for (const op of ops) {
-		const result = applyBoard(board, op, "agent");
-		if (result.ok) board = result.board;
-	}
-	return board;
+function card(id: string, at: number, rest: Partial<BoardCard> = {}): BoardCard {
+	return { id, title: `card ${id}`, column: "todo", at, ...rest };
 }
 
-test("a card keeps its title column when it changes column", () => {
-	const board = applied(
-		{ op: "add", title: "Primeira", column: "backlog", at },
-		{ op: "add", title: "Segunda", column: "doing", at: at + 1 },
-	);
-	const [first, second] = boardLines(board);
-	expect(first?.indexOf("Primeira")).toBe(second?.indexOf("Segunda"));
+const view = (cards: BoardCard[]): BoardView => ({ open: cards, backlog: 3, done: [] });
+
+describe("the board in the panel", () => {
+	test("draws every open card once, oldest first, with the two counts", () => {
+		const lines = boardLines(
+			// The ids run opposite to the arrival order, so sorting by id would be seen.
+			view([card("c2", 10), card("c1", 20, { column: "doing", now: "writing the test" })]),
+			plain,
+			80,
+		);
+		expect(lines).toHaveLength(3);
+		expect(lines[0]).toContain("2 open");
+		expect(lines[1]).toContain("card c2");
+		expect(lines[2]).toContain("writing the test");
+	});
+
+	test("the title keeps its column when a card changes column", () => {
+		const at = (column: BoardCard["column"]): number => {
+			const line = boardLines(view([card("c1", 10, { column })]), plain, 80)[1] ?? "";
+			return visibleWidth(line.split("card c1")[0] ?? "");
+		};
+		expect(at("todo")).toBe(at("doing"));
+		expect(at("review")).toBe(at("doing"));
+	});
+
+	test("the blocker is the kit's sentence for this reader", () => {
+		const blocked = card("c1", 10, { blocked: { on: "operator", why: "the setting's name" } });
+		expect(boardLines(view([blocked]), plain, 80)[1]).toContain("você: the setting's name");
+	});
+
+	test("with no board it draws nothing, and every line fits", () => {
+		expect(boardLines(undefined, plain, 40)).toEqual([]);
+		const lines = boardLines(view([card("c1", 10, { pr: 188 })]), plain, 30);
+		expect(lines.every((line) => visibleWidth(line) <= 30)).toBe(true);
+	});
 });
 
-test("a blocked card names who waits, and a doing card says what happens now", () => {
-	const board = applied(
-		{ op: "add", title: "Uma", at },
-		{ op: "edit", id: "c1", blocked: { on: "operator", why: "o nome" }, at: at + 1 },
-		{ op: "add", title: "Duas", column: "doing", at: at + 2 },
-		{ op: "edit", id: "c2", now: "medindo", at: at + 3 },
-	);
-	const lines = boardLines(board);
-	expect(lines[0]).toContain("você: o nome");
-	expect(lines[1]).toContain("medindo");
+test("the tool answers the model with the board's text, not the panel's drawing", async () => {
+	const { boardText } = await import("@adeildo/pi-kit");
+	const long = "a title long enough that the panel would cut it somewhere in the middle of a word";
+	const { emptyBoard } = await import("@adeildo/pi-kit");
+	const written = boardText({
+		...emptyBoard(),
+		cards: [{ id: "c1", title: long, column: "todo", at: 1 }],
+	});
+	expect(written).toContain(long);
+	expect(written).not.toContain("\u2026");
 });
