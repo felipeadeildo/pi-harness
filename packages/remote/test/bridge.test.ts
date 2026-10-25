@@ -23,7 +23,7 @@ import {
 	TASKS,
 	targetOf,
 } from "@adeildo/pi-kit";
-import { ANSWER, ASK, CANCEL } from "@adeildo/pi-kit";
+import { ANSWER, ASK, CANCEL, totalsOf } from "@adeildo/pi-kit";
 import type { SessionSource, SourceItem } from "@adeildo/pi-kit";
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
 import { type FakePi, fakeContext, fakePi, keystrokes } from "@adeildo/pi-kit/testing";
@@ -73,6 +73,8 @@ interface Entry {
 	type: string;
 	id: string;
 	parentId: string | null;
+	/** What a `message` entry carries: pi never writes one without, and `totalsOf` reads its usage. */
+	message?: { role?: string; content?: unknown; usage?: unknown };
 }
 
 function entries(count: number): Entry[] {
@@ -80,6 +82,9 @@ function entries(count: number): Entry[] {
 		type: "message",
 		id: `e${at + 1}`,
 		parentId: at === 0 ? null : `e${at}`,
+		// A `message` entry carries the message pi wrote. A user turn has no usage, so the total is
+		// untouched here; the tests that compare a number push a real `usage` entry of their own.
+		message: { role: "user", content: [{ type: "text", text: `message ${at + 1}` }] },
 	}));
 }
 
@@ -152,8 +157,6 @@ describe("the bridge", () => {
 					cwd: "/work",
 					name: "Fix the release",
 					leaf: "e2",
-					model: { provider: "rig", id: "scripted" },
-					thinkingLevel: "high",
 					context: { tokens: 1_200, window: 200_000 },
 					kind: "terminal",
 				},
@@ -641,13 +644,23 @@ describe("the bridge", () => {
 		const ctx = session(kept);
 		await start(fake, ctx);
 		await until(() => types(daemon).includes("state"));
-		kept.push({ type: "message", id: "e3", parentId: "e2" });
+		kept.push({
+			type: "message",
+			id: "e3",
+			parentId: "e2",
+			message: { role: "user", content: [{ type: "text", text: "the second" }] },
+		});
 		await fake.fire("turn_end", { type: "turn_end", messageEntryId: "e3" }, ctx);
 		await until(() => types(daemon).includes("entry"));
 		await fake.fire("turn_end", { type: "turn_end", messageEntryId: "e3" }, ctx);
 		await Bun.sleep(20);
 		expect(daemon.received.filter((one) => one.type === "entry").map((one) => one.data)).toEqual([
-			{ type: "message", id: "e3", parentId: "e2" },
+			{
+				type: "message",
+				id: "e3",
+				parentId: "e2",
+				message: { role: "user", content: [{ type: "text", text: "the second" }] },
+			},
 		]);
 	});
 
@@ -738,7 +751,12 @@ describe("the bridge", () => {
 		await until(() => types(daemon).includes("state"));
 		daemon.sockets[0]?.destroy();
 		await until(() => types(daemon).filter((type) => type === "state").length === 2, 3_000);
-		kept.push({ type: "message", id: "e3", parentId: "e2" });
+		kept.push({
+			type: "message",
+			id: "e3",
+			parentId: "e2",
+			message: { role: "user", content: [{ type: "text", text: "the first" }] },
+		});
 		await fake.fire("turn_end", { type: "turn_end", messageEntryId: "e3" }, ctx);
 		await until(() => types(daemon).includes("entry"));
 		await Bun.sleep(30);
@@ -820,6 +838,39 @@ describe("the bridge", () => {
 		]);
 	});
 
+	test("the cost a client draws is the sum the terminal's footer draws, from the same entries", async () => {
+		const daemon = await listening();
+		const fake = mounted();
+		const kept = entries(2);
+		await start(fake, session(kept));
+		await until(() => types(daemon).includes("state"));
+		// pi records the usage of each message, with the money the provider charged. The fake's branch
+		// holds the same shape, so the sum the bridge takes is the sum the footer takes.
+		kept.push({
+			id: "u1",
+			parentId: null,
+			type: "usage",
+			timestamp: "2026-10-25T00:00:00.000Z",
+			usage: {
+				input: 100,
+				output: 50,
+				cacheRead: 10,
+				cacheWrite: 5,
+				totalTokens: 165,
+				cost: { input: 0.01, output: 0.02, cacheRead: 0, cacheWrite: 0, total: 0.03 },
+			},
+		} as never);
+		await fake.fire("turn_end", { type: "turn_end", messageEntryId: "u1" }, session(kept));
+		await until(() => types(daemon).includes("cost.changed"));
+		const sent = daemon.received.findLast((one) => one.type === "cost.changed")?.data as
+			| { cost: { total: number } }
+			| undefined;
+		const summed = totalsOf(kept as never);
+		// The same branch through the two readers: what the event carried, and what the sum says.
+		expect(summed.cost).toBeGreaterThan(0);
+		expect(sent?.cost.total).toBe(summed.cost);
+	});
+
 	test("a snapshot carries the handle, the status, the tasks, the mode and the open questions, as facts too", async () => {
 		const daemon = await listening();
 		const fake = mounted();
@@ -840,12 +891,9 @@ describe("the bridge", () => {
 		const snapshot = daemon.received.findLast((one) => one.type === "state")?.data as
 			| { snapshot: Record<string, unknown> }
 			| undefined;
-		expect(snapshot?.snapshot).toMatchObject({
-			handle: "otter",
-			status: "idle",
-			tasks,
-			openAsks: ["q2"],
-		});
+		// The snapshot keeps what is a photograph — the handle and the status — and nothing the state
+		// already carries: `tasks`, the questions and the mode are read from `state` below.
+		expect(snapshot?.snapshot).toMatchObject({ handle: "otter", status: "idle" });
 		const state = (snapshot?.snapshot as { state?: Record<string, unknown> } | undefined)?.state as
 			| {
 					permissions: { mode?: string; rulings: Record<string, unknown> };

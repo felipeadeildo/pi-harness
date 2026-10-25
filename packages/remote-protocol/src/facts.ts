@@ -2,6 +2,7 @@
 // kit. A copy is only safe while a test proves it matches, which `test/conformance.test.ts` does.
 
 import { isBy, isObject, type By } from "./by.ts";
+import type { SessionCost } from "./reduce/state.ts";
 import { isQueuedMessage, type QueuedMessage } from "./snapshot.ts";
 
 export type TaskStatus = "doing" | "queued" | "waiting" | "deferred" | "done" | "dropped";
@@ -163,6 +164,8 @@ export interface FactMap {
 	"prompt.received": { by: By };
 	/** The whole queue as it stands: it waits in the session, so every client sees the same list. */
 	"queue.changed": { queue: QueuedMessage[] };
+	/** What the session has cost so far, summed by the bridge from pi's per-message usage. */
+	"cost.changed": { cost: SessionCost };
 }
 
 export type FactType = keyof FactMap;
@@ -181,6 +184,7 @@ export const FACT_TYPES: readonly FactType[] = [
 	"leaf.changed",
 	"prompt.received",
 	"queue.changed",
+	"cost.changed",
 ];
 
 /**
@@ -229,6 +233,9 @@ export function isFact(type: string, data: unknown): boolean {
 			return data.leaf === null || typeof data.leaf === "string";
 		case "queue.changed":
 			return Array.isArray(data.queue) && data.queue.every(isQueuedMessage);
+		case "cost.changed":
+			// Every number a reader sums: a `NaN` here would be drawn as `$NaN` and kept for the day.
+			return isCost(data.cost);
 		case "session.live":
 			// The list is the contract the composer and the refusal both read: a `source` this version
 			// does not know would be drawn by the screen and misjudged by the wire, so it is refused here.
@@ -258,5 +265,22 @@ function isTasks(value: unknown): value is SessionTasks {
 		value.version === 1 &&
 		Array.isArray(value.tasks) &&
 		Array.isArray(value.decisions)
+	);
+}
+
+/** Whether a value is one sum of usage: five finite numbers, which is what the screens draw. */
+function isCost(value: unknown): value is SessionCost {
+	if (!isObject(value)) return false;
+	return (
+		typeof value.input === "number" &&
+		Number.isFinite(value.input) &&
+		typeof value.output === "number" &&
+		Number.isFinite(value.output) &&
+		typeof value.cacheRead === "number" &&
+		Number.isFinite(value.cacheRead) &&
+		typeof value.cacheWrite === "number" &&
+		Number.isFinite(value.cacheWrite) &&
+		typeof value.total === "number" &&
+		Number.isFinite(value.total)
 	);
 }

@@ -257,10 +257,9 @@ describe("drawing again on every envelope", () => {
 		// The `unknown[]` that used to hold these parts is what let the folded state through as
 		// `[object Object]`: `join` coerces anything and the type said nothing.
 		const session = handmade([]);
-		session.snapshot = {
-			...session.snapshot,
-			status: "working",
-		} as never;
+		// The status lives in the state now; the snapshot keeps the photograph, and the header reads
+		// what changes during the session.
+		session.state = { ...session.state, status: "working" };
 		expect(aboutOf(session).every((part) => typeof part === "string")).toBe(true);
 		expect(aboutOf(session)).toContain("working");
 	});
@@ -269,10 +268,7 @@ describe("drawing again on every envelope", () => {
 		// The wire calls the folded state `state`, and this line read it: the header drew
 		// `[object Object]` where "working" belongs, and no type caught it because the parts are joined.
 		const session = handmade([]);
-		session.snapshot = {
-			...session.snapshot,
-			status: "working",
-		} as never;
+		session.state = { ...session.state, status: "working" };
 		const html = draw(session);
 		expect(html).toContain("working");
 		expect(html).not.toContain("[object Object]");

@@ -94,12 +94,10 @@ export function titleOf(session: ClientSession, tasks?: SessionTasks): string {
  * compiler. The status is the field for "what it is doing"; the folded `state` is the whole picture.
  */
 export function aboutOf(session: ClientSession): string[] {
-	const snapshot = session.snapshot;
-	return [
-		session.key.machine,
-		snapshot?.status,
-		snapshot?.model === undefined ? undefined : snapshot.model.id,
-	].filter((part): part is string => part !== undefined);
+	const { state } = session;
+	return [session.key.machine, state.status, state.model?.id].filter(
+		(part): part is string => part !== undefined,
+	);
 }
 
 function header(session: ClientSession, tasks: SessionTasks | undefined): ReactNode {

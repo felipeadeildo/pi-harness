@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { TASKS_ENTRY, TASKS_USAGE_ENTRY } from "@adeildo/pi-kit";
+import { TASKS_ENTRY, TASKS_USAGE_ENTRY, totalsOf as totalsInKit } from "@adeildo/pi-kit";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 
 import { readGit } from "../src/data/git.ts";
@@ -28,6 +28,14 @@ function clock() {
 		},
 	};
 }
+
+describe("the sum the footer and the phone share", () => {
+	test("is one function, not a copy: the look reads the kit's", () => {
+		// A copy per reader is how the footer and the list came to disagree. The identity is the
+		// property, and it is cheaper than comparing two implementations on a fixture.
+		expect(totalsOf).toBe(totalsInKit);
+	});
+});
 
 describe("telemetry", () => {
 	test("measures both directions: prefill over the wait, decode over the writing", () => {

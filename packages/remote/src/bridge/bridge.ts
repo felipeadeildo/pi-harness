@@ -19,6 +19,7 @@ import {
 	type SessionSource,
 	TASKS,
 	targetOf,
+	totalsOf,
 } from "@adeildo/pi-kit";
 import { type AnswerEvent, isAskResult } from "@adeildo/pi-kit";
 import type { Letter } from "@adeildo/pi-kit";
@@ -268,6 +269,27 @@ export class Bridge {
 		);
 	}
 
+	/**
+	 * A turn ended, so what the session has cost so far is known and worth sending: the number changes
+	 * during the session, and a reader that opened it at the first turn would otherwise draw that
+	 * turn's figure for the rest of the day. Summed from pi's own per-message usage, by the function
+	 * the terminal's footer calls, so the phone and the terminal cannot disagree about the number.
+	 */
+	charged(): void {
+		const totals = totalsOf(this.ctx.sessionManager.getEntries());
+		// The kit names the money `cost`; the wire has called it `total` since the field existed, and a
+		// client may still hold that shape in its cache. One line, named, instead of a second name.
+		this.connection.event("cost.changed", {
+			cost: {
+				input: totals.input,
+				output: totals.output,
+				cacheRead: totals.cacheRead,
+				cacheWrite: totals.cacheWrite,
+				total: totals.cost,
+			},
+		});
+	}
+
 	/** The queue changed: it folds into the state and goes out numbered, as one list for every client. */
 	queued(queue: readonly Letter[]): void {
 		this.#facts.saw("queue.changed", { queue });
@@ -305,10 +327,6 @@ export class Bridge {
 				...snapshotOf(this.ctx, kind),
 				handle: tasks?.handle,
 				status: SESSION_STATUS.current(scope),
-				tasks,
-				mode,
-				openAsks: this.#facts.openQuestions,
-				queue: this.#facts.snapshot(tasks, mode).queue,
 				// Already folded, so a reader draws the session's state without a replay.
 				state: this.#facts.snapshot(tasks, mode),
 			},
@@ -328,8 +346,6 @@ export function snapshotOf(ctx: ExtensionContext, kind: SessionKind): SessionSna
 		cwd: ctx.cwd,
 		name: manager.getSessionName(),
 		leaf: manager.getLeafId() ?? undefined,
-		model: ctx.model === undefined ? undefined : { provider: ctx.model.provider, id: ctx.model.id },
-		thinkingLevel: ctx.thinkingLevel,
 		context:
 			usage === undefined || usage.tokens === null
 				? undefined

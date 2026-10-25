@@ -27,6 +27,8 @@ type Logged = { type: string; data: unknown };
 interface Row {
 	name: string;
 	events: Logged[];
+	/** What the state holds, written out: the reducer is compared against this, not against itself. */
+	expects: unknown;
 	leaves: (state: SessionState) => unknown;
 }
 
@@ -38,6 +40,7 @@ const ROWS: Row[] = [
 	{
 		name: "nothing at all is an empty state, not a missing one",
 		events: [],
+		expects: { questions: {}, permissions: { rulings: {} }, queue: [] },
 		leaves: (state) => state,
 	},
 	{
@@ -51,6 +54,18 @@ const ROWS: Row[] = [
 				data: { id: "q1", by: { kind: "client", name: "phone" }, result: {} },
 			},
 		],
+		expects: {
+			tasks,
+			mode: "edits",
+			// `ask.closed` keeps what the answer needs: the id, the result, who answered. The question
+			// text belongs to the opening, and the closed entry does not repeat it.
+			ask: {
+				id: "q1",
+				result: {},
+				closed: true,
+				by: { kind: "client", name: "phone" },
+			},
+		},
 		leaves: (state) => ({
 			tasks: state.tasks,
 			mode: state.permissions.mode,
@@ -64,11 +79,34 @@ const ROWS: Row[] = [
 			{ type: "queue.changed", data: { queue: [queued("a"), queued("b")] } },
 			{ type: "queue.changed", data: { queue: [] } },
 		],
+		expects: [],
 		leaves: (state) => state.queue,
+	},
+	{
+		name: "the cost of the session is the last sum the bridge sent, and a bad one is ignored",
+		events: [
+			{
+				type: "cost.changed",
+				data: { cost: { input: 1, output: 2, cacheRead: 3, cacheWrite: 4, total: 0.05 } },
+			},
+			{
+				type: "cost.changed",
+				data: { cost: { input: 2, output: 3, cacheRead: 4, cacheWrite: 5, total: 0.08 } },
+			},
+		],
+		expects: 0.08,
+		leaves: (state) => state.cost?.total,
+	},
+	{
+		name: "a cost that is not five numbers never becomes the state",
+		events: [{ type: "cost.changed", data: { cost: { input: "1", total: Number.NaN } } }],
+		expects: undefined,
+		leaves: (state) => state.cost,
 	},
 	{
 		name: "an event this version cannot read leaves the state as it was",
 		events: [{ type: "mode.changed", data: { mode: "not a mode" } }],
+		expects: undefined,
 		leaves: (state) => state.permissions.mode,
 	},
 	{
@@ -77,6 +115,7 @@ const ROWS: Row[] = [
 			{ type: "leaf.changed", data: { leaf: null } },
 			{ type: "stream.bound", data: { messages: [] } },
 		],
+		expects: { questions: {}, permissions: { rulings: {} }, queue: [] },
 		leaves: (state) => ({ ...state }),
 	},
 ];
@@ -151,21 +190,19 @@ function heldByClient(events: Logged[]): SessionState {
 describe("the state a sequence of events leaves, in each holder of it", () => {
 	for (const row of ROWS) {
 		test(`the reducer: ${row.name}`, () => {
-			expect(row.leaves(folded(row.events))).toEqual(row.leaves(folded(row.events)));
+			expect(row.leaves(folded(row.events))).toEqual(row.expects);
 		});
 
 		test(`the bridge: ${row.name}`, () => {
-			expect(row.leaves(heldByBridge(row.events))).toEqual(row.leaves(folded(row.events)));
+			expect(row.leaves(heldByBridge(row.events))).toEqual(row.expects);
 		});
 
 		test(`the daemon: ${row.name}`, () => {
-			expect(row.leaves(heldByDaemon(row.events) ?? emptySessionState())).toEqual(
-				row.leaves(folded(row.events)),
-			);
+			expect(row.leaves(heldByDaemon(row.events) ?? emptySessionState())).toEqual(row.expects);
 		});
 
 		test(`the client: ${row.name}`, () => {
-			expect(row.leaves(heldByClient(row.events))).toEqual(row.leaves(folded(row.events)));
+			expect(row.leaves(heldByClient(row.events))).toEqual(row.expects);
 		});
 	}
 });

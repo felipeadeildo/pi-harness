@@ -65,6 +65,21 @@ export interface SessionState {
 	 * here is refused when it is sent, so the field and the refusal cannot disagree.
 	 */
 	commands?: SessionCommand[];
+	/**
+	 * What the session has cost so far, summed from the usage pi records per message. It changes during
+	 * the session, which is why it is state and not a photograph: a reader that opened the session at
+	 * the first turn would otherwise draw that turn's number for the rest of the day.
+	 */
+	cost?: SessionCost;
+}
+
+/** One sum of a session's usage: tokens by kind, and the total in the provider's money. */
+export interface SessionCost {
+	input: number;
+	output: number;
+	cacheRead: number;
+	cacheWrite: number;
+	total: number;
 }
 
 export function emptySessionState(): SessionState {
@@ -149,6 +164,10 @@ export function applyEvent(state: SessionState, type: string, data: unknown): Se
 				...(live.thinkingLevel === undefined ? {} : { thinkingLevel: live.thinkingLevel }),
 				...(live.commands === undefined ? {} : { commands: live.commands }),
 			};
+		}
+		case "cost.changed": {
+			const { cost } = data as { cost: SessionCost };
+			return { ...state, cost };
 		}
 		case "queue.changed": {
 			const { queue } = data as { queue: QueuedMessage[] };

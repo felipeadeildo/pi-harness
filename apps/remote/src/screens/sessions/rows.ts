@@ -65,9 +65,9 @@ function ordered(sessions: readonly ListedSession[], kept?: readonly string[]): 
 	return [...inOrder(sessions)].sort((left, right) => place(left) - place(right));
 }
 
-/** What the session has cost, when the snapshot says; the daemon does not always know. */
+/** What the session has cost, as the state says; before the first turn ends, nothing. */
 function costOf(session: ListedSession): string {
-	const cost = session.snapshot?.cost?.total;
+	const cost = session.state?.cost?.total;
 	return cost === undefined ? "" : `$${cost.toFixed(2)}`;
 }
 

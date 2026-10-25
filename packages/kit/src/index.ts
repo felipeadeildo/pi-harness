@@ -35,6 +35,7 @@ export {
 } from "./sources/follow.ts";
 export { piSource } from "./sources/pi.ts";
 export * from "./tasks/index.ts";
+export * from "./totals.ts";
 export * from "./control.ts";
 export * from "./decode.ts";
 export * from "./contract.ts";
