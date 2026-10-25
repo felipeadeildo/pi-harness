@@ -1,4 +1,4 @@
-// A session as the client holds it. Reading an envelope is the only way it changes.
+// A session as the client holds it: the branch, the state beside it, and the cursor a reconnect sends.
 
 import {
 	applyChange,
@@ -22,15 +22,13 @@ import type { CachedSession, SessionKey } from "./cache.ts";
 import { advance, decide, type Cursor } from "./cursor.ts";
 import type { Outbox } from "./outbox.ts";
 
-/** The envelope for an appended entry, and for the opening a bridge is asked for. */
-export const ENTRY = "entry";
+export const CHANGES = "entry";
+export const ENTRY = CHANGES;
 export const STATE = "state";
 
 export interface SnapshotData {
 	summary: SessionSummary;
-	/** The tail of the branch, oldest first. */
 	entries: Entry[];
-	/** The folded state, so no replay is needed. */
 	state?: SessionState;
 }
 
@@ -95,76 +93,88 @@ function isSummaryData(value: unknown): value is SnapshotData {
 	return isObject(value) && isSummary(value.summary) && Array.isArray(value.entries);
 }
 
-export function readEnvelope(
-	session: ClientSession,
-	value: unknown,
-): { read: "now" } | { read: "state"; why: "new" | "epoch" | "gap" } | { read: "skip" } {
+/**
+ * What reading an envelope did. `now` carries the session **after** it: reading never mutates the session
+ * it was given, so two readers holding one session cannot change each other, and a view that memoises by
+ * identity sees a new object exactly when something changed.
+ */
+export type Read =
+	| { read: "skip" }
+	| { read: "state"; why: "new" | "epoch" | "gap" }
+	| { read: "now"; session: ClientSession };
+
+export function readEnvelope(session: ClientSession, value: unknown): Read {
 	if (!isEnvelope(value)) return { read: "skip" };
-	// The opening answers every way of being lost, so it is read before the cursor: one that asked
-	// has nothing to compare its epoch against.
+	// The opening answers every way of being lost, so it is read before the cursor.
 	if (value.type === STATE) {
-		// It replaces the whole state at once, so the shape is checked before the swap.
 		if (!isSummaryData(value.data)) return { read: "skip" };
 		const data = value.data;
-		session.summary = data.summary;
-		// Who watches now, so the first draw is right instead of showing who was there when the page closed.
 		const watching = data.summary?.viewers;
-		if (watching !== undefined)
-			session.presence = {
-				viewers: watching,
-				...(data.summary?.active === undefined ? {} : { active: data.summary.active }),
-			};
-		session.entries = data.entries;
-		session.state = data.state ?? session.state;
 		const last = data.entries.at(-1);
 		// No entries leaves no leaf, and the old one named an entry the client no longer holds.
-		// The snapshot may name the leaf itself; the last entry is the fallback the format allows.
-		session.leaf = data.summary?.leaf ?? last?.id;
-		session.cursor = { ...advance(session.cursor, value), entry: session.leaf ?? undefined };
-		return { read: "now" };
+		const leaf = data.summary?.leaf ?? last?.id;
+		return {
+			read: "now",
+			session: {
+				...session,
+				summary: data.summary,
+				presence:
+					watching === undefined
+						? session.presence
+						: {
+								viewers: watching,
+								...(data.summary?.active === undefined ? {} : { active: data.summary.active }),
+							},
+				entries: data.entries,
+				state: data.state ?? session.state,
+				leaf,
+				cursor: { ...advance(session.cursor, value), entry: leaf ?? undefined },
+			},
+		};
 	}
 	const next = decide(session.cursor, value);
 	if (next.read !== "now") return next;
 	if (value.type === ENTRY) {
 		const entry = value.data as Entry;
-		// A message pi wrote after the client read it through the stream replaces the copy it bound.
-		if (!session.entries.some((held) => held.id === entry.id)) session.entries.push(entry);
-		session.leaf = entry.id;
-		session.cursor = { ...advance(session.cursor, value), entry: entry.id };
-		return { read: "now" };
+		const held = session.entries.some((one) => one.id === entry.id);
+		return {
+			read: "now",
+			session: {
+				...session,
+				entries: held ? session.entries : [...session.entries, entry],
+				leaf: entry.id,
+				cursor: { ...advance(session.cursor, value), entry: entry.id },
+			},
+		};
 	}
 	// Presence is not a state change: reducing it from a replay would draw who was watching ten minutes ago.
-	// It is applied as it arrives, and the snapshot of a reconnect carries the current one.
 	if (value.type === PRESENCE) {
 		if (!isPresence(value.data)) return { read: "skip" };
-		session.presence = value.data;
-		session.cursor = advance(session.cursor, value);
-		return { read: "now" };
+		return {
+			read: "now",
+			session: { ...session, presence: value.data, cursor: advance(session.cursor, value) },
+		};
 	}
 	if (isStateChangeType(value.type)) {
-		if (value.type === "leaf.changed") {
-			const leaf = (value.data as { leaf: string | null }).leaf;
-			// A leaf the client does not hold is a branch it never read: a sibling, or one older than
-			// the snapshot. Only a snapshot can put it back, so nothing is applied here.
-			if (leaf !== null && !session.entries.some((held) => held.id === leaf)) {
-				return { read: "state", why: "gap" };
-			}
-		}
-		// The cursor is what keeps this from replaying: a change already folded into the state a snapshot
-		// carried has a seq at or behind the cursor, so it never reaches here twice.
-		session.state = applyChange(session.state, value.type, value.data);
-		session.cursor = advance(session.cursor, value);
-		if (value.type === "leaf.changed") {
-			// A `/tree` move, including the one back to the root: the branch the screen draws ends
-			// where the bridge says, not where the last entry the client happens to hold ends.
-			const leaf = (value.data as { leaf: string | null }).leaf;
-			session.leaf = leaf;
-			session.cursor = { ...session.cursor, entry: leaf ?? undefined };
-		}
-		return { read: "now" };
+		const leaf =
+			value.type === "leaf.changed" ? (value.data as { leaf: string | null }).leaf : null;
+		// A leaf the client does not hold is a branch it never read: only the whole state can put it back.
+		if (leaf !== null && !session.entries.some((held) => held.id === leaf))
+			return { read: "state", why: "gap" };
+		return {
+			read: "now",
+			session: {
+				...session,
+				state: applyChange(session.state, value.type, value.data),
+				...(value.type === "leaf.changed" ? { leaf } : {}),
+				cursor: {
+					...advance(session.cursor, value),
+					...(value.type === "leaf.changed" ? { entry: leaf ?? undefined } : {}),
+				},
+			},
+		};
 	}
-	session.cursor = advance(session.cursor, value);
-	return { read: "now" };
+	return { read: "now", session: { ...session, cursor: advance(session.cursor, value) } };
 }
 
 /** The hello a client sends, which is what tells the bridge where the client stopped reading. */

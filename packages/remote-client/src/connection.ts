@@ -157,13 +157,15 @@ export function connect(options: ConnectionOptions): Client {
 			(envelope) => {
 				if (reply(envelope)) return;
 				const answer = readEnvelope(session, envelope);
+				// Reading is pure: the session it returns is the one everything else draws.
+				if (answer.read === "now") session = answer.session;
 				if (answer.read === "now") asking = false;
 				if (answer.read === "state" && !asking) {
 					asking = true;
 					// A hole or a new epoch cannot be put back, so the client asks for the whole tail:
-					// without `seq` the hello is a snapshot request.
+					// without `seq` the hello is that request.
 					const { seq: _seq, ...rest } = session.cursor;
-					session.cursor = rest;
+					session = { ...session, cursor: rest };
 					// Inside a message the transport may not be assigned yet, so the hello goes out
 					// after the attempt is in place.
 					queueMicrotask(() => transport?.send(hello(session)));

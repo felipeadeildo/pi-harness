@@ -7,7 +7,13 @@ import { emptySessionState } from "@adeildo/pi-remote-protocol";
 
 import { memoryCache } from "../src/cache.ts";
 import { Outbox } from "../src/outbox.ts";
-import { readEnvelope, sessionOf, cachedOf, transcriptOfSession } from "../src/session.ts";
+import {
+	type ClientSession,
+	readEnvelope,
+	sessionOf,
+	cachedOf,
+	transcriptOfSession,
+} from "../src/session.ts";
 
 const key = { machine: "here", session: "s" };
 
@@ -41,47 +47,56 @@ function started() {
 	});
 }
 
+/** Reads an envelope and keeps the session it returned: reading never mutates the one it was given. */
+function read(session: ClientSession, value: unknown): ClientSession {
+	const answer = readEnvelope(session, value);
+	return answer.read === "now" ? answer.session : session;
+}
+
 describe("the leaf the bridge names", () => {
 	test("a move back in the tree draws the branch from there, not from the last entry held", () => {
-		const session = started();
-		readEnvelope(session, envelope("entry", entry("a", null, "first"), 2));
-		readEnvelope(session, envelope("entry", entry("b", "a", "second"), 3));
-		readEnvelope(session, envelope("entry", entry("c", "b", "third"), 4));
+		let session = started();
+		session = read(session, envelope("entry", entry("a", null, "first"), 2));
+		session = read(session, envelope("entry", entry("b", "a", "second"), 3));
+		session = read(session, envelope("entry", entry("c", "b", "third"), 4));
 		expect(transcriptOfSession(session).items).toHaveLength(3);
 
-		readEnvelope(session, envelope("leaf.changed", { leaf: "b" }, 5));
+		session = read(session, envelope("leaf.changed", { leaf: "b" }, 5));
 		expect(transcriptOfSession(session).items).toHaveLength(2);
 		expect(session.cursor.entry).toBe("b");
 	});
 
 	test("a leaf back at the root draws nothing, because nothing comes before the root", () => {
-		const session = started();
-		readEnvelope(session, envelope("entry", entry("a", null, "first"), 2));
-		readEnvelope(session, envelope("leaf.changed", { leaf: null }, 3));
+		let session = started();
+		session = read(session, envelope("entry", entry("a", null, "first"), 2));
+		session = read(session, envelope("leaf.changed", { leaf: null }, 3));
 		expect(transcriptOfSession(session).items).toEqual([]);
 		expect(session.cursor.entry).toBeUndefined();
 	});
 
 	test("a leaf the client never read asks for a snapshot, and keeps what it had", () => {
-		const session = started();
-		readEnvelope(session, envelope("entry", entry("a", null, "first"), 2));
-		readEnvelope(session, envelope("entry", entry("b", "a", "second"), 3));
+		let session = started();
+		session = read(session, envelope("entry", entry("a", null, "first"), 2));
+		session = read(session, envelope("entry", entry("b", "a", "second"), 3));
 
-		// A sibling branch, or one older than the snapshot: only a snapshot can put it back.
-		const answer = readEnvelope(session, envelope("leaf.changed", { leaf: "c" }, 4));
-		expect(answer).toEqual({ read: "state", why: "gap" });
+		// A sibling branch, or one older than the state: only the whole state can put it back, and the
+		// read says so while leaving the session exactly as it was.
+		expect(readEnvelope(session, envelope("leaf.changed", { leaf: "c" }, 4))).toEqual({
+			read: "state",
+			why: "gap",
+		});
 		expect(transcriptOfSession(session).items).toHaveLength(2);
 		expect(session.cursor.entry).toBe("b");
 	});
 
 	test("a snapshot that names its leaf is read from that leaf, not from its last entry", () => {
-		const session = sessionOf(key, {
+		let session = sessionOf(key, {
 			key,
 			cursor: { epoch: "e1", seq: 1 },
 			entries: [],
 			state: emptySessionState(),
 		});
-		readEnvelope(
+		session = read(
 			session,
 			envelope(
 				"state",
@@ -98,10 +113,10 @@ describe("the leaf the bridge names", () => {
 	});
 
 	test("the leaf travels with the cache, so a warm open draws the same branch", async () => {
-		const session = started();
-		readEnvelope(session, envelope("entry", entry("a", null, "first"), 2));
-		readEnvelope(session, envelope("entry", entry("b", "a", "second"), 3));
-		readEnvelope(session, envelope("leaf.changed", { leaf: "a" }, 4));
+		let session = started();
+		session = read(session, envelope("entry", entry("a", null, "first"), 2));
+		session = read(session, envelope("entry", entry("b", "a", "second"), 3));
+		session = read(session, envelope("leaf.changed", { leaf: "a" }, 4));
 
 		const cache = memoryCache();
 		await cache.write(cachedOf(session, new Outbox()));

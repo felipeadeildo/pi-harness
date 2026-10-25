@@ -5,7 +5,7 @@
 // one is checked here against the same expected state.
 import { describe, expect, test } from "bun:test";
 
-import { readEnvelope, sessionOf } from "@adeildo/pi-remote-client";
+import { type ClientSession, readEnvelope, sessionOf } from "@adeildo/pi-remote-client";
 import {
 	applyChange,
 	emptySessionState,
@@ -175,12 +175,12 @@ function heldByDaemon(events: Logged[]): SessionState | undefined {
 
 /** The client is a replica: it reads each envelope and folds it into the state it draws. */
 function heldByClient(events: Logged[]): SessionState {
-	const session = sessionOf(key);
+	let session = sessionOf(key);
 	// A client that is already following this epoch: the events below are the ones it reads live, and
 	// a client that has just opened would ask for the state and get it whole instead.
 	session.cursor = { epoch: "e", seq: 0 };
 	events.forEach((one, at) => {
-		readEnvelope(session, {
+		session = read(session, {
 			v: 1,
 			kind: "event",
 			machine: "m",
@@ -193,6 +193,12 @@ function heldByClient(events: Logged[]): SessionState {
 		});
 	});
 	return session.state;
+}
+
+/** Reads an envelope and keeps the session it returned: reading never mutates the one it was given. */
+function read(session: ClientSession, value: unknown): ClientSession {
+	const answer = readEnvelope(session, value);
+	return answer.read === "now" ? answer.session : session;
 }
 
 describe("the state a sequence of events leaves, in each holder of it", () => {

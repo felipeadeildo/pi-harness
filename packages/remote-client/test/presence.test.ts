@@ -6,7 +6,7 @@ import { emptySessionState, isStateChangeType, STATE_CHANGES } from "@adeildo/pi
 
 import { memoryCache } from "../src/cache.ts";
 import { Outbox } from "../src/outbox.ts";
-import { cachedOf, readEnvelope, sessionOf } from "../src/session.ts";
+import { type ClientSession, cachedOf, readEnvelope, sessionOf } from "../src/session.ts";
 
 const key = { machine: "here", session: "s" };
 
@@ -30,10 +30,16 @@ const started = () =>
 		state: emptySessionState(),
 	});
 
+/** Reads an envelope and keeps the session it returned: reading never mutates the one it was given. */
+function read(session: ClientSession, value: unknown): ClientSession {
+	const answer = readEnvelope(session, value);
+	return answer.read === "now" ? answer.session : session;
+}
+
 describe("who has the session open", () => {
 	test("the event is applied, and the cursor moves with it", () => {
-		const session = started();
-		const answer = readEnvelope(
+		let session = started();
+		session = read(
 			session,
 			envelope(
 				"presence.changed",
@@ -44,7 +50,7 @@ describe("who has the session open", () => {
 				2,
 			),
 		);
-		expect(answer.read).toBe("now");
+
 		expect(session.presence?.viewers).toHaveLength(1);
 		expect(session.presence?.active?.kind).toBe("client");
 		expect(session.cursor.seq).toBe(2);
@@ -68,13 +74,13 @@ describe("who has the session open", () => {
 	});
 
 	test("a snapshot may carry it, so the first draw is who is watching now", () => {
-		const session = sessionOf(key, {
+		let session = sessionOf(key, {
 			key,
 			cursor: { epoch: "e1", seq: 1 },
 			entries: [],
 			state: emptySessionState(),
 		});
-		readEnvelope(session, {
+		session = read(session, {
 			v: 1,
 			kind: "event",
 			machine: "here",
@@ -98,8 +104,8 @@ describe("who has the session open", () => {
 	});
 
 	test("the last presence travels with the cache, so a warm open draws who was there", async () => {
-		const session = started();
-		readEnvelope(
+		let session = started();
+		session = read(
 			session,
 			envelope("presence.changed", { viewers: [{ name: "phone", machine: "here" }] }, 2),
 		);
@@ -112,8 +118,8 @@ describe("who has the session open", () => {
 	test("the cache keeps who was watching and not who was typing", async () => {
 		// `active` says someone is typing now, and a cache can be days old: it comes back from the
 		// snapshot or the next event, never from a file.
-		const session = started();
-		readEnvelope(
+		let session = started();
+		session = read(
 			session,
 			envelope(
 				"presence.changed",
