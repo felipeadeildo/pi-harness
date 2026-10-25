@@ -304,22 +304,27 @@ async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
 		// is broken.
 		const sentWhileBusy = busy();
 		const before = rig.session.sessionManager.getBranch().length;
+		// The row is told by its id, which the screen carries as the DOM id: an earlier row can still
+		// be waiting, and a second row with the same words is the row text cannot tell apart.
+		const heldIds = (): Promise<string[]> =>
+			page.getByTestId("held-row").evaluateAll((rows) => rows.map((one) => one.id));
+		const known = new Set(await heldIds());
 		await box.fill("wait for me");
 		await page.keyboard.press("Enter");
-		// The row is chosen by what it holds: an earlier message can still be waiting, and a wait on
-		// "the last row" is satisfied by that one.
-		const row = page.getByTestId("held-row").filter({ hasText: "wait for me" });
-		try {
-			await row.waitFor({ timeout: 90_000 });
-		} catch {
+		let fresh: string | undefined;
+		const appeared = Date.now() + 90_000;
+		while (fresh === undefined && Date.now() < appeared) {
+			fresh = (await heldIds()).find((id) => id !== "" && !known.has(id));
+			if (fresh === undefined) await Bun.sleep(100);
+		}
+		if (fresh === undefined) {
 			const delivered = rig.session.sessionManager.getBranch().length > before;
 			return {
 				ok: false,
 				why: `no queue row (run going at the send: ${sentWhileBusy}, message delivered: ${delivered})`,
 			};
 		}
-		const rows = await row.count();
-		if (rows !== 1) return { ok: false, why: `${rows} queue rows say "wait for me", expected 1` };
+		const row = page.locator(`[data-testid="held-row"][id="${fresh}"]`);
 		const said = (await row.getByTestId("held-text").innerText()).trim();
 
 		await row.getByRole("button", { name: "Withdraw", exact: true }).click();
