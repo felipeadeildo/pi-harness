@@ -4,6 +4,8 @@
 import { type ClientSession, harnessOf, transcriptOfSession } from "@adeildo/pi-remote-client";
 import type { SessionState, SessionTasks, TranscriptItem } from "@adeildo/pi-remote-protocol";
 
+import { plain } from "../../render/index.ts";
+
 export interface View {
 	state: SessionState;
 	items: TranscriptItem[];
@@ -58,4 +60,17 @@ export function aboutOf(session: ClientSession): string[] {
 	return [session.key.machine, state.status, state.model?.id].filter(
 		(part): part is string => part !== undefined,
 	);
+}
+
+/**
+ * Who a user message is from. The bridge marks a prompt that came from a client, and only when it is
+ * sure; any other user message was typed at the terminal where the session runs, and the transcript
+ * calls it "you", as it always did. The name is the client's own, so it is read as text.
+ */
+export function whoSaid(promptFrom: SessionState["promptFrom"], entry: string): string {
+	const by = promptFrom?.[entry];
+	if (by === undefined) return "you";
+	// A sender with no name is still not the terminal's person, so the line says so without inventing one.
+	const name = plain(by.name).trim();
+	return name === "" ? "from a client" : `from ${name}`;
 }

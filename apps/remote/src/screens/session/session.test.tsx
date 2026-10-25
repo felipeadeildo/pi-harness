@@ -172,6 +172,23 @@ describe("what the recording does not hold", () => {
 		expect(html).not.toContain("who is here");
 	});
 
+	test("a prompt a client sent says where it came from, and one typed at the terminal says you", () => {
+		const phone = { kind: "client" as const, name: "phone", machine: "box" };
+		const session = handmade(
+			[
+				message("e1", null, "user", "from the phone"),
+				message("e2", "e1", "assistant", [{ type: "text", text: "ok" }]),
+				message("e3", "e2", "user", "typed here"),
+			],
+			[{ type: "prompt.from", data: { entry: "e1", by: phone } }],
+		);
+		const html = draw(session);
+		const said = [
+			...html.matchAll(/<li class="remote-you"><span class="remote-who">([^<]*)<\/span>/g),
+		].map((one) => one[1]);
+		expect(said).toEqual(["from phone", "you"]);
+	});
+
 	test("a short output is not folded", () => {
 		const html = draw(handmade([message("a", null, "toolResult", [{ type: "text", text: "ok" }])]));
 		expect(html).not.toContain("<details>");
