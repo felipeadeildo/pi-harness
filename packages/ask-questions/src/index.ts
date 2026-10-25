@@ -14,6 +14,7 @@ import {
 	decodeAskRequest,
 	defineFeature,
 	type FeatureScope,
+	isBy,
 	isObject,
 	oneAtATime,
 	openAboveEditor,
@@ -198,7 +199,12 @@ export const questions = defineFeature({
 		});
 		scope.events.on(CANCEL, (data: unknown) => {
 			if (!isObject(data) || typeof data.id !== "string") return;
-			pending.get(data.id)?.abort();
+			// The terminal's own answer left `pending` before it was emitted, so what is still there
+			// was closed by someone else, and the reader sees where.
+			const open = pending.get(data.id);
+			if (open !== undefined && isBy(data.by) && data.by.kind === "client")
+				session?.ui.notify(`answered on ${data.by.name}`, "info");
+			open?.abort();
 			pending.delete(data.id);
 		});
 

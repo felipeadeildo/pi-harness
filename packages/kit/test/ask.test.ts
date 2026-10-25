@@ -135,7 +135,7 @@ describe("closing a question", () => {
 		answer(PHONE);
 		answer(TERMINAL, { answers: [], cancelled: true });
 		expect(await asking).toEqual({ ...PICKED, by: PHONE });
-		expect(cancels).toEqual([{ id: asks[0]!.id, reason: "answered" }]);
+		expect(cancels).toEqual([{ id: asks[0]!.id, reason: "answered", by: PHONE }]);
 	});
 
 	test("an abort after the answer changes nothing", async () => {

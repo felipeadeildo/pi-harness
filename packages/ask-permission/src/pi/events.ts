@@ -220,7 +220,8 @@ async function askInTurn(
 	}
 
 	if (answer.remember) {
-		const where = answer.scope ?? "session";
+		// A phone's yes lasts until the session ends: a rule that outlives it needs the terminal.
+		const where = answer.by?.kind === "client" ? "session" : (answer.scope ?? "session");
 		rememberAlwaysYes(scope, state, ctx, where, call.toolName, answer.remember);
 		ctx.ui.notify(
 			`${NAME}: always yes for ${call.toolName}: ${answer.remember} (${SCOPE_LABEL[where]})`,
@@ -229,7 +230,8 @@ async function askInTurn(
 	}
 
 	if (answer.open) {
-		const { path, access, scope: where } = answer.open;
+		const { path, access } = answer.open;
+		const where = answer.by?.kind === "client" ? "session" : answer.open.scope;
 		openFolder(scope, state, ctx, where, path, access);
 		renderStatus(ctx, state);
 		const what =

@@ -70,7 +70,7 @@ export function askQuestions(
 			signal?.removeEventListener("abort", abort);
 			if (ctx !== undefined)
 				logFrom(ctx, events, "ask.closed", { id, result, ...(by === undefined ? {} : { by }) });
-			const cancel: AskCancel = { id, reason };
+			const cancel: AskCancel = { id, reason, ...(by === undefined ? {} : { by }) };
 			events.emit(CANCEL, cancel);
 			resolve(by === undefined ? result : { ...result, by });
 		};

@@ -1,5 +1,5 @@
 // The line under a call that says who decided and why.
-import type { CallRuling } from "@adeildo/pi-kit";
+import type { By, CallRuling } from "@adeildo/pi-kit";
 
 import { judgeSignalText, judgeStatText } from "#core/judge/report.ts";
 import type { JudgeRecord } from "#core/judge/types.ts";
@@ -11,6 +11,8 @@ export interface Settled {
 	action: "allow" | "block";
 	/** The layer that decided, `you` for the dialog. */
 	by: string;
+	/** Who answered the dialog, when the provider that drew it says. */
+	answeredBy?: By;
 	reason?: string;
 	note?: string;
 }
@@ -38,11 +40,17 @@ export function judgeDetail(record: JudgeRecord): string {
 
 /** The line once the gate settled, or undefined for a call that runs without a word. */
 export function settle(settled: Settled, current: Ruling | undefined): Ruling | undefined {
-	const { action, by, note } = settled;
+	const { action, by, note, answeredBy } = settled;
 	const reason = settled.reason?.replace(`${NAME}: `, "");
 	// What you answered reads on its own, and why it was asked stays for the expanded call.
 	if (by === "you") {
-		const head = action === "allow" ? "you approved" : "you said no";
+		const approved = action === "allow";
+		const head =
+			answeredBy?.kind === "client"
+				? `${approved ? "approved" : "denied"} on ${answeredBy.name}`
+				: approved
+					? "you approved"
+					: "you said no";
 		return {
 			tone: action === "allow" ? "success" : "error",
 			head,

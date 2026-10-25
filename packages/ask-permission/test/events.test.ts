@@ -452,6 +452,23 @@ describe("workspace scope", () => {
 		});
 	});
 
+	test("an always yes from a phone lasts for the session, whatever scope it picked", async () => {
+		const phone: By = { kind: "client", name: "phone", machine: "m" };
+		const { bus } = questionsProvider(
+			[answerTo("always yes"), answerTo("git push"), answerTo("this project")],
+			phone,
+		);
+		const { toolCall, state, entries } = harness("judge", "ask", bus);
+
+		await toolCall(judgeCall("call-1", "git push origin main"), fakeContext());
+
+		expect(state.alwaysYes.has("bash", ["git push"])).toBe(true);
+		expect(entries).toContainEqual({
+			customType: "pi-ask-permission:session",
+			data: { kind: "always-yes", toolName: "bash", level: "git push" },
+		});
+	});
+
 	test("every decision is announced, and the dialog's answer is kept in the session", async () => {
 		const { entries, decided, toolCall } = harness("manual");
 
