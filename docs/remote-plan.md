@@ -87,7 +87,7 @@ A slice is ticked in the commit that lands it. A slice whose parts are on `main`
 - [ ] I1. The inbox (names, before F2) — nearly: wired to pi; the peers' modes wait on N4
 - [x] C8. Commands through the bridge (core, F2)
 - [x] A5. Clients in the race for the harness's dialogs (ask, F2)
-- [ ] A6. pi's own dialogs in the race (ask, F2)
+- [ ] A6. pi's own dialogs in the race (ask, F2). nearly: `select`, `confirm` and `input` race and the setting exists; the `custom()` line on clients is still to come
 - [x] P4. Commands and the outbox in the client library (protocol, F2)
 - [x] C9. Presence and its marks (core, F2)
 - [ ] W4. The composer and the controls (client, F2)
@@ -491,7 +491,7 @@ A client answers an open question with `ask.answer { ask, result }`. The bridge 
 
 Owner: ask. Needs: A5.
 
-In a terminal session, the bridge wraps `select`, `confirm`, `input` and `editor` on the shared `ctx.ui`, and races the terminal against the clients with an `AbortSignal` that closes the terminal's dialog when a client answers. A new `forwardOtherDialogs` setting, from [the design's settings](remote.md#settings) and on by default, turns the wrapping off. A6 declares it with the kit's `setting()`, as `packages/peers/src/settings.ts` declares the peers' settings. A `custom()` component shows on clients as "waiting in the terminal: <title>", from `ui_prompt_start`.
+In a terminal session, the bridge wraps `select`, `confirm` and `input` on the shared `ctx.ui`, and races the terminal against the clients with an `AbortSignal` that closes the terminal's dialog when a client answers. Pi gives `editor` no signal, so a client could not close the terminal's editor, and it stays in the terminal. A new `forwardOtherDialogs` setting, from [the design's settings](remote.md#settings) and on by default, turns the wrapping off. A6 declares it with the kit's `setting()`, as `packages/peers/src/settings.ts` declares the peers' settings. A `custom()` component shows on clients as "waiting in the terminal: <title>", from `ui_prompt_start`.
 
 - Tests: an extension's `confirm` answered by a client returns that answer to the extension and closes the terminal's dialog; with the setting off, nothing is wrapped.
 

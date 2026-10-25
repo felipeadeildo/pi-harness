@@ -38,6 +38,8 @@ export interface AskQuestion {
 export interface AskRequest {
 	id: string;
 	questions: AskQuestion[];
+	/** The asker's own terminal already draws this question, so a provider that draws skips it. */
+	drawn?: true;
 	answer?: AskResult;
 }
 
@@ -117,8 +119,9 @@ export function decodeAskRequest(value: unknown): string | undefined {
 		if (!isObject(question)) return "a question is not an object";
 		if (typeof question.header !== "string" || typeof question.question !== "string")
 			return "a question has no header or text";
-		if (!Array.isArray(question.options) || question.options.length === 0)
-			return `"${question.header}" has no options`;
+		if (!Array.isArray(question.options)) return `"${question.header}" has no options`;
+		if (question.options.length === 0 && question.typed === false)
+			return `"${question.header}" has no options and no typed row`;
 		if (question.typed !== undefined && typeof question.typed !== "boolean")
 			return `"${question.header}" has a typed flag that is not a boolean`;
 		for (const option of question.options) {

@@ -39,6 +39,8 @@ export interface AskOptions {
 	 * the caller's job: two open asks with one id would both close on the first answer.
 	 */
 	id?: string;
+	/** The asker draws the question in its own terminal, so the questions feature leaves it alone. */
+	drawn?: true;
 }
 
 /** A new one every time, so a caller that changes its result changes nobody else's. */
@@ -87,7 +89,11 @@ export function askQuestions(
 				source: options.source ?? "unknown",
 				questions: [...questions],
 			});
-		const request: AskRequest = { id, questions: [...questions] };
+		const request: AskRequest = {
+			id,
+			questions: [...questions],
+			...(options.drawn === true ? { drawn: true } : {}),
+		};
 		events.emit(ASK, request);
 	});
 }
