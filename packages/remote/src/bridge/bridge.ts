@@ -154,6 +154,8 @@ export class Bridge {
 	 * when pi consumes a steer or a follow-up. The bridge remembers who sent it until the entry shows.
 	 */
 	sentBy(text: string, by: By): void {
+		// A prompt with no words would match every entry with none, and says nothing about whose it is.
+		if (text.trim() === "") return;
 		this.#senders = [...this.#senders, { text: text.trim(), by }].slice(-REMEMBERED_SENDERS);
 	}
 

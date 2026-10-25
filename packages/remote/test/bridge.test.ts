@@ -1231,6 +1231,15 @@ describe("one bridge", () => {
 			await bridge.stop(undefined);
 		});
 
+		test("a prompt with no words is not remembered, so it cannot mark an entry that has none", async () => {
+			let feed: ((item: SourceItem) => void) | undefined;
+			const { bridge, socket } = bridged(source((on) => void (feed = on)));
+			bridge.sentBy("   ", phone);
+			feed?.(said("e1", ""));
+			expect(marks(socket)).toEqual([]);
+			await bridge.stop(undefined);
+		});
+
 		test("two prompts with the same words are not marked, because the words cannot tell them apart", async () => {
 			let feed: ((item: SourceItem) => void) | undefined;
 			const { bridge, socket } = bridged(source((on) => void (feed = on)));
