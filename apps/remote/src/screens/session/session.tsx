@@ -8,8 +8,6 @@ import { Fragment, type ReactNode } from "react";
 import { OpenQuestions, Tasks } from "./chrome.tsx";
 import { SessionDocument, viewOf } from "./session-document.tsx";
 
-export { aboutOf, LINE_CHARS, OUTPUT_LINES, titleOf, viewOf } from "./session-document.tsx";
-
 export function SessionScreen({ session }: { session: ClientSession }): ReactNode {
 	const { state } = viewOf(session);
 	return (
