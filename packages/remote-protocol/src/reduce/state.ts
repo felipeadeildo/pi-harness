@@ -1,4 +1,4 @@
-// The facts of one session, folded into what a client draws next to it: the tasks, the rulings of the
+// The state changes of one session, folded into what a client draws next to it: the tasks, the rulings of the
 // calls in view, the open questions, the permission mode and the handle. Folding is the whole
 // interface: a client that resumed from a cursor replays what it missed through the same function.
 
@@ -94,8 +94,8 @@ export function openQuestions(state: SessionState): OpenAsk[] {
 }
 
 /**
- * Adds one fact to the state. A fact the shape check refuses is skipped, not thrown: a log written by a
- * newer harness must not stop a client from drawing the rest.
+ * Adds one state change to the state. One the shape check refuses is skipped, not thrown: a log written
+ * by a newer harness must not stop a client from drawing the rest.
  */
 export function applyChange(
 	state: SessionState,

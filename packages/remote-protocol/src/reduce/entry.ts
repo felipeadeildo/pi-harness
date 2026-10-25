@@ -1,6 +1,6 @@
-// One entry per fact: the shape it must carry, and what it does to the state. Written as a table so a
-// fact added to `StateChangeMap` does not compile until somebody says both — a fact with a shape and no
-// effect is a shape nobody folds, and one with an effect and no check is a reader trusting the wire.
+// One entry per state change: the shape it must carry, and what it does to the state. Written as a table so a
+// change added to `StateChangeMap` does not compile until somebody says both — one with a shape and
+// no effect is a shape nobody folds, and one with an effect and no check is a reader trusting the wire.
 
 import { isBy } from "../by.ts";
 import { isObject } from "../by.ts";
@@ -8,7 +8,7 @@ import { type QueuedMessage } from "../snapshot.ts";
 import { SESSION_STATES, type StateChangeMap, type StateChangeType } from "../state-changes.ts";
 import type { SessionState } from "./state.ts";
 
-/** One fact: what it must carry, and what it leaves behind. */
+/** One state change: what it must carry, and what it leaves behind. */
 export interface Entry<T> {
 	check(data: unknown): data is T;
 	apply(state: SessionState, data: T): SessionState;
@@ -38,7 +38,7 @@ function bound(state: SessionState): SessionState {
 	};
 }
 
-/** Every fact the protocol knows, each with its check and its effect. */
+/** Every state change the protocol knows, each with its check and its effect. */
 export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 	"tasks.changed": {
 		check: (data): data is StateChangeMap["tasks.changed"] => isObject(data) && isTasks(data.state),
@@ -178,7 +178,7 @@ export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 		apply: unchanged,
 	},
 	"prompt.received": {
-		// A prompt that reached the log names who sent it; anything else is not this fact.
+		// A prompt that reached the log names who sent it; anything else is not this state change.
 		check: (data): data is StateChangeMap["prompt.received"] => isObject(data) && isBy(data.by),
 		apply: unchanged,
 	},
@@ -194,15 +194,15 @@ export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 	},
 };
 
-/** Every fact this version folds, derived from the table so the two cannot drift. */
+/** Every state change this version folds, derived from the table so the two cannot drift. */
 export const STATE_CHANGES: readonly StateChangeType[] = Object.keys(CHANGES) as StateChangeType[];
 
-/** Whether a string names a fact this version folds. */
+/** Whether a string names a state change this version folds. */
 export function isStateChangeType(type: string): type is StateChangeType {
 	return Object.hasOwn(CHANGES, type);
 }
 
-/** Folds one fact, through the entry that owns it. A fact a check refuses leaves the state alone. */
+/** Folds one state change, through the entry that owns it. One a check refuses leaves the state alone. */
 export function applyOne<K extends StateChangeType>(
 	state: SessionState,
 	type: K,

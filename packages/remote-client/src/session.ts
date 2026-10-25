@@ -156,7 +156,7 @@ export function readEnvelope(
 		session.cursor = { ...advance(session.cursor, value), entry: entry.id };
 		return { read: "now" };
 	}
-	// Presence is not a fact: reducing it from a replay would draw who was watching ten minutes ago.
+	// Presence is not a state change: reducing it from a replay would draw who was watching ten minutes ago.
 	// It is applied as it arrives, and the snapshot of a reconnect carries the current one.
 	if (value.type === PRESENCE) {
 		if (!isPresence(value.data)) return { read: "skip" };
@@ -173,7 +173,7 @@ export function readEnvelope(
 				return { read: "state", why: "gap" };
 			}
 		}
-		// The cursor is what keeps this from replaying: a fact already folded into the state a snapshot
+		// The cursor is what keeps this from replaying: a change already folded into the state a snapshot
 		// carried has a seq at or behind the cursor, so it never reaches here twice.
 		session.state = applyChange(session.state, value.type, value.data);
 		session.cursor = advance(session.cursor, value);

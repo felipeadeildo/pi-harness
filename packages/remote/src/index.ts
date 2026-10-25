@@ -195,7 +195,7 @@ export const remote = defineFeature({
 		SESSION_STATUS.onChanged(scope, (state) => {
 			if (state !== undefined) bridge?.connection.event("session.status", { status: state });
 		});
-		// Every line the kit logs is published inside the process too, and the bridge keeps the facts.
+		// Every line the kit logs is published inside the process too, and the bridge keeps the state changes.
 		scope.events.on(LOGGED_EVENT, (line: unknown) => {
 			if (!isObject(line) || typeof line.session !== "string" || typeof line.type !== "string")
 				return;

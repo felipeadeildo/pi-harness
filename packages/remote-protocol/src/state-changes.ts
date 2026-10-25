@@ -50,7 +50,7 @@ export type ThinkingLevel = (typeof THINKING_LEVELS)[number];
 
 /**
  * One slash command a client may use, and where it comes from. It lives here, with the other shapes the
- * wire carries, and the reducer imports it from here: the state is a reading of these facts, not their
+ * wire carries, and the reducer imports it from here: the state is a reading of these state changes, not their
  * owner.
  */
 export interface SessionCommand {
@@ -128,7 +128,7 @@ export type PermissionMode = "manual" | "edits" | "judge" | "full";
 /** A session's status in pi's program status words, as `session.status` carries it. */
 export const SESSION_STATES = ["working", "blocked", "done", "error", "idle"] as const;
 
-/** Every fact the client reduces, with the shape each carries. */
+/** Every state change the client reduces, with the shape each carries. */
 export interface StateChangeMap {
 	"tasks.changed": { state: SessionTasks };
 	"ask.opened": { id: string; source: string; questions: AskQuestion[]; expiresAt?: number };
@@ -160,7 +160,7 @@ export interface StateChangeMap {
 	"stream.bound": { messages: { stream: number; entry: string }[] };
 	/** The entry the branch ends at, or null when a `/tree` move goes back to the root. */
 	"leaf.changed": { leaf: string | null };
-	/** Always written with who sent it, since that is the whole fact; read leniently, see `isStateChange`. */
+	/** Always written with who sent it, since that is the whole state change; read leniently, see `isStateChange`. */
 	"prompt.received": { by: By };
 	/** The whole queue as it stands: it waits in the session, so every client sees the same list. */
 	"queue.changed": { queue: QueuedMessage[] };

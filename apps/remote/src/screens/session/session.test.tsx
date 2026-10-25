@@ -24,13 +24,13 @@ function lines(file: string): Record<string, unknown>[] {
 		.map((line) => JSON.parse(line) as Record<string, unknown>);
 }
 
-/** The recording as a client holds it: pi's entries and the harness's facts, in the order written. */
+/** The recording as a client holds it: pi's entries and the harness's state changes, in the order written. */
 function recorded(): ClientSession {
 	const session = sessionOf({ machine: "server", session: "01a16b1b-a4b1-734c-81d9-0c534a12eac1" });
 	session.entries = lines("session.jsonl").filter((entry) => entry.type !== "session") as never;
 	session.state = lines("harness.jsonl").reduce(
-		(state, fact) =>
-			isStateChangeType(fact.type) ? applyChange(state, fact.type, fact.data) : state,
+		(state, change) =>
+			isStateChangeType(change.type) ? applyChange(state, change.type, change.data) : state,
 		emptySessionState(),
 	);
 	return session;
@@ -55,13 +55,13 @@ const draw = (session: ClientSession): string =>
 /** A session made by hand, for what the recording does not hold. */
 function handmade(
 	entries: unknown[],
-	facts: { type: string; data: unknown }[] = [],
+	changes: { type: string; data: unknown }[] = [],
 ): ClientSession {
 	const session = sessionOf({ machine: "box", session: "abcdef12" });
 	session.entries = entries as never;
-	session.state = facts.reduce(
-		(state, fact) =>
-			isStateChangeType(fact.type) ? applyChange(state, fact.type, fact.data) : state,
+	session.state = changes.reduce(
+		(state, change) =>
+			isStateChangeType(change.type) ? applyChange(state, change.type, change.data) : state,
 		emptySessionState(),
 	);
 	return session;
@@ -231,7 +231,7 @@ describe("what the recording does not hold", () => {
 });
 
 describe("drawing again on every envelope", () => {
-	test("works the transcript and the facts out again only when the session moved", () => {
+	test("works the transcript and the state changes out again only when the session moved", () => {
 		const session = handmade([message("a", null, "user", [{ type: "text", text: "hi" }])]);
 		const first = viewOf(session);
 		expect(viewOf(session)).toBe(first);

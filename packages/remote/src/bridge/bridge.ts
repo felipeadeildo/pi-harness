@@ -179,7 +179,7 @@ export class Bridge {
 					if (!this.#asks.open.includes(ask))
 						throw new Refused(`the question ${ask} was answered somewhere else`);
 					// The result comes from the network: it reaches the bus as a decision, so its shape
-					// is checked here like any fact's, instead of being trusted with a cast.
+					// is checked here like any state change's, instead of being trusted with a cast.
 					if (!isAskResult(fields.result))
 						throw new Refused("an answer needs `answers` and `cancelled`");
 					const answer: AnswerEvent = { id: ask, result: fields.result, by };
@@ -222,7 +222,7 @@ export class Bridge {
 		return this.connection.request(type, data);
 	}
 
-	/** Forwards a fact the kit logged for this session, and keeps what a snapshot needs of it. */
+	/** Forwards a state change the kit logged for this session, and keeps what a snapshot needs of it. */
 	logged(line: Logged): void {
 		forward(line, this.ctx.sessionManager.getSessionId(), this.#changes, (type, data) =>
 			this.connection.event(type, data),
