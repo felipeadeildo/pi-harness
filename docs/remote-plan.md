@@ -13,8 +13,8 @@ The gate:
 - [x] 3. A prompt sent to an idle session runs (required)
 - [x] 4. A follow-up sent during a run waits in the queue, and can be taken back (required, #240)
 - [x] 5. A question the model asks is answered in the browser (required, #244)
-- [ ] 6. After the daemon restarts, a reloaded page still draws tasks and mode. Not written yet
-- [ ] 7. A command typed offline goes out after the reload. Not written yet
+- [ ] 6. After the daemon restarts, a reloaded page still draws the session's mode and its answered question. nearly: green on its branch once the gate's rig loads the permission feature, which owns the mode; the pickers read the state (#248) and the daemon sends it to a client that waited (#252)
+- [x] 7. A command typed offline goes out after the reload (required, #255)
 
 What the review of the work since v5.15.0 found broken, all fixed:
 
@@ -34,7 +34,7 @@ The structure:
 - [x] The daemon's client side is three modules: presence, the WebSocket hub, the HTTP routes (#207, #227)
 - [x] The WebSocket refuses what it never negotiated, and finds a dead peer (#205)
 - [x] Work deferred by a feature ends with its session (#221, #224)
-- [ ] The bridge keeps its lifecycle, and pi's events reach their owners through one table (#237)
+- [x] The bridge keeps its lifecycle, and pi's events reach their owners (#237)
 - [ ] The client's session is immutable, and commands are typed by their names
 - [ ] The session and composer screens in React Native, on the visual base. nearly: the list and the question panel are React Native; `session.tsx` and `composer.tsx` still draw the DOM, and the visual base (the theme's tokens) does not exist yet
 
@@ -42,8 +42,8 @@ The other tracks of the cycle:
 
 - [x] Rooms: taking part, listening or out, and a frame that never pushes the editor (#198, #206, #212, #220)
 - [x] The permission is asked above the editor, which stays usable (#214)
-- [ ] The questions are asked above the editor the same way
-- [ ] Skills, templates and `/compact` from the phone, and nothing else offered (#231)
+- [ ] The questions are asked above the editor the same way. nearly: the slot can hand the dialog the user's key bindings (`KeybindingsManager.create`); the move itself is still coming
+- [ ] Skills, templates and `/compact` from the phone, and nothing else offered. nearly: the session says what a client may run (#231) and the composer offers it (#245); the send does not decide yet, so a `/skill:` from the phone still reaches the model as plain text
 - [ ] The board each agent keeps. nearly: the model is on `main` (#201); the contract, the tool, its readers and the small model removed are still coming
 - [x] The permission judge reads only the operator's words (#213)
 - [x] The port clients reach the daemon on is a setting (#197, #225)
@@ -52,7 +52,7 @@ The other tracks of the cycle:
 Before 6.0.0:
 
 - [x] No test fails one run in ten (#241)
-- [ ] The `as unknown as` casts outside test fakes, and the patched pi prototypes, have a test or are gone
+- [x] Each `as unknown as` cast outside test fakes, and each patched pi prototype, has a test, a guard, or the reason it stays: the casts that covered a check are guards now, and the ones left each say why they stay (#243, #249, #250, #260; issue #251 asks pi for the hooks)
 - [ ] [The remote design](remote.md) speaks the new names
 - [ ] The release notes, and 6.0.0
 
