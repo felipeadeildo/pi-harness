@@ -10,7 +10,7 @@ import { applyEvent, emptySessionState } from "@adeildo/pi-remote-protocol";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { LINE_CHARS, OUTPUT_LINES, SessionScreen, titleOf, viewOf } from "./session.tsx";
+import { aboutOf, LINE_CHARS, OUTPUT_LINES, SessionScreen, titleOf, viewOf } from "./session.tsx";
 
 const RECORDING = join(
 	import.meta.dir,
@@ -251,6 +251,18 @@ describe("drawing again on every envelope", () => {
 		session.entries = [message("c", null, "user", [{ type: "text", text: "new" }])] as never;
 		session.leaf = undefined;
 		expect(viewOf(session).items[0]).toMatchObject({ entry: "c" });
+	});
+
+	test("every part the header joins is text, so no object can slip through the join", () => {
+		// The `unknown[]` that used to hold these parts is what let the folded state through as
+		// `[object Object]`: `join` coerces anything and the type said nothing.
+		const session = handmade([]);
+		session.snapshot = {
+			...session.snapshot,
+			status: "working",
+		} as never;
+		expect(aboutOf(session).every((part) => typeof part === "string")).toBe(true);
+		expect(aboutOf(session)).toContain("working");
 	});
 
 	test("the header says the status in words, not the folded state as an object", () => {

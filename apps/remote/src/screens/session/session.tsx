@@ -87,17 +87,23 @@ export function titleOf(session: ClientSession, tasks?: SessionTasks): string {
 	);
 }
 
-function header(session: ClientSession, tasks: SessionTasks | undefined): ReactNode {
+/**
+ * What the header says about the session beside its name: the machine, what it is doing and the model it
+ * answers with. It is text, and typed as text on purpose — this array goes to a `join`, and an
+ * `unknown[]` let the folded state object through to become `[object Object]` without a word from the
+ * compiler. The status is the field for "what it is doing"; the folded `state` is the whole picture.
+ */
+export function aboutOf(session: ClientSession): string[] {
 	const snapshot = session.snapshot;
-	// Typed as text on purpose: this array goes to a `join`, and `unknown[]` let the folded state object
-	// through to become `[object Object]` in the header without a word from the compiler.
-	const about: (string | undefined)[] = [
+	return [
 		session.key.machine,
-		// The status, not the state: since the wire calls the folded state `state`, reading it here drew
-		// `[object Object]` where the word "working" belongs.
 		snapshot?.status,
 		snapshot?.model === undefined ? undefined : snapshot.model.id,
-	].filter((part) => part !== undefined);
+	].filter((part): part is string => part !== undefined);
+}
+
+function header(session: ClientSession, tasks: SessionTasks | undefined): ReactNode {
+	const about = aboutOf(session);
 	return h(
 		"header",
 		undefined,
