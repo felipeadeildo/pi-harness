@@ -12,8 +12,6 @@ import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { rowStyle, rowsOf } from "./rows.ts";
 
-export { nameOf, rowStyle, type Row, rowsOf } from "./rows.ts";
-
 export interface SessionsScreenProps {
 	sessions: readonly ListedSession[];
 	/** Where a row goes; the row is the link, so the whole line is tappable. */

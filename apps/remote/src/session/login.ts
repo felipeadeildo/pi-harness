@@ -5,7 +5,7 @@
 import { type Cache, memoryCache } from "@adeildo/pi-remote-client";
 
 /** Where the token rides in the link: after `#`, so no request ever carries it. */
-export const TOKEN_KEY = "token";
+const TOKEN_KEY = "token";
 
 /** The token in a location's hash, or undefined when the link carries none. */
 export function tokenOf(hash: string): string | undefined {
