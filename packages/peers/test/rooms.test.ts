@@ -422,8 +422,10 @@ describe("a shared room", () => {
 		api.name("api");
 		client.name("client");
 		const id = api.rooms.create("backend+frontend", [{ folder: api.cwd }, { folder: client.cwd }]);
-		// Three rounds: the membership has to be read before `here()` answers for the client.
+		// Three rounds: the membership has to be read before `here()` answers for the client, and a
+		// line written through a missing room goes nowhere instead of failing.
 		for (let round = 0; round < 3; round++) sync(api, client);
+		expect(client.rooms.here(id)).toBeDefined();
 		client.rooms.here(id)?.log("board.changed", {
 			view: {
 				open: [
