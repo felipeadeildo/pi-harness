@@ -262,8 +262,6 @@ export class Daemon {
 				// then exit as idle and be started again, so it says why.
 				if (isLive(message.data)) {
 					this.sessions.live(message, message.data);
-					// A client watching since before the restart asked a daemon that had nothing to say.
-					this.#clients?.hub.wake(bridge.session);
 				} else this.#warn("a session.live that does not read");
 				break;
 			case "session.gone":

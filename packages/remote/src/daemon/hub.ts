@@ -69,16 +69,6 @@ export class Hub {
 		for (const ws of this.#sockets.values()) ws.close(1001);
 	}
 
-	/**
-	 * A session's bridge registered. Whoever watches it was waiting on a daemon that had nothing to
-	 * say yet, so it sends them what it keeps: the state the bridge folded and the events after it.
-	 */
-	wake(session: string): void {
-		const catchUp = this.#options.sessions.opening(session);
-		if (catchUp === undefined) return;
-		for (const ws of this.#watchers(session)) for (const event of catchUp) this.#send(ws, event);
-	}
-
 	/** The sessions some client watches, each with how many. */
 	watched(): Map<string, number> {
 		return this.#presence.counts();
