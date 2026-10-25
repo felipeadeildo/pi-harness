@@ -35,6 +35,9 @@ export function namesOf(live: readonly Peer[]): Map<string, Named> {
 	const taken = new Set<string>();
 	const used = new Set<PeerColor>();
 	for (const peer of live) {
+		// The word a session used to have still points here, unless a live session holds it now.
+		for (const alias of peer.aliases ?? [])
+			if (!live.some((other) => other !== peer && other.handle === alias)) taken.add(alias);
 		const base = peer.handle ?? `new-${peer.session.slice(-4)}`;
 		let handle = base;
 		for (let n = 2; taken.has(handle); n++) handle = `${base}-${n}`;
@@ -62,10 +65,20 @@ function hash(text: string): number {
 	return value;
 }
 
-/** The open session a name points at, ignoring case and a leading @. */
-export function byHandle(names: ReadonlyMap<string, Named>, name: string): Named | undefined {
+/**
+ * The open session a name points at, ignoring case and a leading @. A word a session used to have
+ * reaches it too, which is what keeps `@oauth` working after the session became `auth`.
+ */
+export function byHandle(
+	names: ReadonlyMap<string, Named>,
+	name: string,
+	aliases?: ReadonlyMap<string, string>,
+): Named | undefined {
 	const wanted = name.replace(/^@/, "").toLowerCase();
-	return [...names.values()].find((named) => named.handle === wanted);
+	const named = [...names.values()].find((one) => one.handle === wanted);
+	if (named !== undefined) return named;
+	const session = aliases?.get(wanted);
+	return session === undefined ? undefined : names.get(session);
 }
 
 /** `@` and a name, not inside an address. A path or a file name after the `@` is a file. */

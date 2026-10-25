@@ -27,6 +27,8 @@ export interface Peer {
 	startedAt: number;
 	endedAt?: number;
 	handle?: string;
+	/** The words this session used to have, which mentions still resolve for a week. */
+	aliases?: string[];
 	title?: string;
 	state: RoomActivity;
 	stateAt: number;
@@ -158,6 +160,14 @@ export class Folder {
 				// "unchanged", not "erase it".
 				if (data.handle !== undefined) peer.handle = data.handle;
 				if (data.title !== undefined) peer.title = data.title;
+				return;
+			}
+			case "session.renamed": {
+				const data = event.data as LoggedEvent<"session.renamed">["data"];
+				// The old word keeps pointing here for a week: a mention written before the rename
+				// still reaches the session it meant.
+				peer.aliases = [...(peer.aliases ?? []).filter((one) => one !== data.from), data.from];
+				peer.handle = data.to;
 				return;
 			}
 			case "session.state": {
