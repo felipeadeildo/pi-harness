@@ -202,10 +202,19 @@ function assistantPart(key: string, part: Part): ReactNode {
 		case "thinking":
 			return thought(key, part.thinking ?? "");
 		case "toolCall":
-			return line(key, part.name ?? "tool", argsOf(part.arguments));
+			// A question is drawn by the panel above the composer, where it can be answered: showing its
+			// call here would draw the same question twice, and the raw arguments are not the question.
+			return isQuestion(part.name)
+				? undefined
+				: line(key, part.name ?? "tool", argsOf(part.arguments));
 		default:
 			return undefined;
 	}
+}
+
+/** The two tools a session asks a person with, which the panel draws instead of the transcript. */
+function isQuestion(name: string | undefined): boolean {
+	return name === "ask_questions" || name === "ask_permission";
 }
 
 /** A thought, folded into its first line. */

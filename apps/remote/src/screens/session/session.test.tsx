@@ -299,4 +299,24 @@ describe("drawing again on every envelope", () => {
 		const headerOf = (html: string): string => html.slice(0, html.indexOf("<ol"));
 		expect(headerOf(after)).toBe(headerOf(before));
 	});
+
+	test("a question is drawn once, by the panel, not again as the raw call", () => {
+		// The transcript used to show the call and its arguments, while the panel above the composer
+		// showed the question a person can answer: the same question twice, and the raw form is not it.
+		const asked = handmade([
+			message("a", null, "assistant", [
+				{ type: "toolCall", name: "ask_questions", arguments: { questions: [] } },
+			]),
+		]);
+		const html = draw(asked);
+		expect(html).not.toContain("ask_questions");
+
+		// Another tool is still the transcript's to show.
+		const other = handmade([
+			message("a", null, "assistant", [
+				{ type: "toolCall", name: "bash", arguments: { command: "ls" } },
+			]),
+		]);
+		expect(draw(other)).toContain("bash");
+	});
 });
