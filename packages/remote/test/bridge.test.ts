@@ -648,14 +648,19 @@ describe("the bridge", () => {
 			type: "message",
 			id: "e3",
 			parentId: "e2",
-			message: { role: "user", content: [] },
+			message: { role: "user", content: [{ type: "text", text: "the second" }] },
 		});
 		await fake.fire("turn_end", { type: "turn_end", messageEntryId: "e3" }, ctx);
 		await until(() => types(daemon).includes("entry"));
 		await fake.fire("turn_end", { type: "turn_end", messageEntryId: "e3" }, ctx);
 		await Bun.sleep(20);
 		expect(daemon.received.filter((one) => one.type === "entry").map((one) => one.data)).toEqual([
-			{ type: "message", id: "e3", parentId: "e2", message: { role: "user", content: [] } },
+			{
+				type: "message",
+				id: "e3",
+				parentId: "e2",
+				message: { role: "user", content: [{ type: "text", text: "the second" }] },
+			},
 		]);
 	});
 
@@ -750,7 +755,7 @@ describe("the bridge", () => {
 			type: "message",
 			id: "e3",
 			parentId: "e2",
-			message: { role: "user", content: [] },
+			message: { role: "user", content: [{ type: "text", text: "the first" }] },
 		});
 		await fake.fire("turn_end", { type: "turn_end", messageEntryId: "e3" }, ctx);
 		await until(() => types(daemon).includes("entry"));
