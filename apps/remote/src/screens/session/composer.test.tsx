@@ -159,4 +159,20 @@ describe("the composer", () => {
 		element.props.onKeyDown({ key: "a", preventDefault: () => {} });
 		expect(taken).toEqual(["followUp"]);
 	});
+
+	test("the field offers what the session says it can run, and nothing when it says nothing", () => {
+		const { client } = clientOf();
+		const listed = draw({
+			client,
+			initialDraft: "/re",
+			commands: [{ name: "review", description: "Review the branch", source: "prompt" }],
+		} as never);
+		expect(listed).toContain("/review");
+		expect(listed).toContain("Review the branch");
+
+		// Without the list the field stays plain: a daemon that predates the field must not make the
+		// screen promise a command the wire would refuse.
+		const plain = draw({ client, initialDraft: "/re" } as never);
+		expect(plain).not.toContain("/review");
+	});
 });

@@ -32,6 +32,11 @@ export interface ComposerProps {
 	waiting?: readonly QueuedMessage[];
 	/** What a phone may run by typing `/`, as the session last said. Nothing here, nothing offered. */
 	commands?: SessionCommand[];
+	/**
+	 * What the field starts with. A draft restored from the cache and a test both need the field to open
+	 * with text already in it, which is why it is a prop and not a fixture inside the component.
+	 */
+	initialDraft?: string;
 }
 
 /** The three modes a client may set: `full` runs everything unasked, so only a terminal may choose it. */
@@ -45,6 +50,7 @@ export function Composer({
 	ask,
 	waiting,
 	commands,
+	initialDraft,
 }: ComposerProps): ReactNode {
 	// The queue changes without the session changing, so the composer hears the client itself.
 	// Reading `outbox()` once per render makes "drawn by state" true at the mount and a lie after.
@@ -53,7 +59,7 @@ export function Composer({
 
 	// The typed text belongs to the component, not to the document: two composers on a page, or a
 	// native target with no `document`, must not share the first input it finds.
-	const [draft, write] = useState("");
+	const [draft, write] = useState(initialDraft ?? "");
 	const queue = client.outbox().all();
 	// The session's own queue is drawn beside the outbox and never merged with it: what this device
 	// sent and what the session holds are different lists, and each has its own act.
