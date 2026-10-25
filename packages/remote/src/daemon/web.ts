@@ -1,4 +1,4 @@
-// `apps/remote/scripts/csp.ts` imports from here, so the CI job tests what the daemon runs.
+// `apps/remote/scripts/csp.ts` imports from here, so CI tests what the daemon runs.
 import { createHash } from "node:crypto";
 
 /**
