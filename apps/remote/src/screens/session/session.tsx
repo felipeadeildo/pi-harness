@@ -91,7 +91,9 @@ function header(session: ClientSession, tasks: SessionTasks | undefined): ReactN
 	const snapshot = session.snapshot;
 	const about = [
 		session.key.machine,
-		snapshot?.state,
+		// The status, not the state: since the wire calls the folded state `state`, reading it here drew
+		// `[object Object]` where the word "working" belongs.
+		snapshot?.status,
 		snapshot?.model === undefined ? undefined : snapshot.model.id,
 	].filter((part) => part !== undefined);
 	return h(

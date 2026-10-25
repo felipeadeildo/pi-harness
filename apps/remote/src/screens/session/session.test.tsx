@@ -252,4 +252,17 @@ describe("drawing again on every envelope", () => {
 		session.leaf = undefined;
 		expect(viewOf(session).items[0]).toMatchObject({ entry: "c" });
 	});
+
+	test("the header says the status in words, not the folded state as an object", () => {
+		// The wire calls the folded state `state`, and this line read it: the header drew
+		// `[object Object]` where "working" belongs, and no type caught it because the parts are joined.
+		const session = handmade([]);
+		session.snapshot = {
+			...session.snapshot,
+			status: "working",
+		} as never;
+		const html = draw(session);
+		expect(html).toContain("working");
+		expect(html).not.toContain("[object Object]");
+	});
 });
