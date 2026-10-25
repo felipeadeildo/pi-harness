@@ -1,4 +1,5 @@
-// What a deep link says, apart from the API that reads one: the rule is testable, the reader is not.
+// What a deep link says, read from the link itself. The parser of the platform drops the port and the
+// fragment, and the daemon's link carries both: the address with its port, and the token in the fragment.
 
 /** The parts of an address the login and the socket need, from a page or from a link. */
 export interface Link {
@@ -9,27 +10,25 @@ export interface Link {
 	hash: string;
 }
 
-/** What `expo-linking` parses out of a URL. */
-export interface Parsed {
-	scheme: string | null;
-	hostname: string | null;
-	path: string | null;
-	queryParams: Record<string, undefined | string | string[]> | null;
-}
+const URL_LIKE = /^([a-zA-Z][a-zA-Z0-9+.-]*):\/\/([^/?#]*)([^?#]*)(\?[^#]*)?(#.*)?$/;
 
 /**
- * The address a deep link names. A link without a host is refused, not guessed: `localhost` would open the
+ * The address a link names. A link without a host is refused, not guessed: `localhost` would open the
  * phone itself, and the daemon is rarely there.
+ *
+ * The token stays in the fragment because the fragment is never sent: no request carries it, so it
+ * reaches no access log and no `Referer`. Reading it there is what the web link does too.
  */
-export function parseLink(parsed: Parsed, fallbackScheme = "piremote"): Link | undefined {
-	if (parsed.hostname === null || parsed.hostname === "") return undefined;
-	const token = parsed.queryParams?.token;
+export function parseLink(url: string): Link | undefined {
+	const found = URL_LIKE.exec(url.trim());
+	if (found === null) return undefined;
+	const [, protocol, host, pathname, search, hash] = found;
+	if (host === undefined || host === "") return undefined;
 	return {
-		protocol: parsed.scheme ?? fallbackScheme,
-		// `hostname` keeps the port when the link carries one, which is how a daemon on 7878 is named.
-		host: parsed.hostname,
-		pathname: parsed.path ?? "",
-		search: "",
-		hash: typeof token === "string" ? `#token=${token}` : "",
+		protocol: protocol ?? "piremote",
+		host,
+		pathname: pathname ?? "",
+		search: search ?? "",
+		hash: hash ?? "",
 	};
 }

@@ -13,7 +13,7 @@ export function pageLink(): Link {
 
 /** The address the link that opened the app names. */
 export function linkOf(url: string): Link | undefined {
-	return parseLink(Linking.parse(url));
+	return parseLink(url);
 }
 
 /** The link that opened the app, which is where a phone learns the daemon's address. */
