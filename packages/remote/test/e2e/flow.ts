@@ -29,7 +29,11 @@ const BROWSERS = [
  * still red are reported and do not hold a merge, which is what keeps this file useful before the
  * last fix lands.
  */
-const MANDATORY: ReadonlySet<number> = new Set([1, 2]);
+const MANDATORY: ReadonlySet<number> = new Set([1, 2, 3]);
+
+/** The steps with a body. The rest are named and not written: a report that says `fail` for them
+ * claims a measurement nobody made, and a reader cannot tell that from a step that ran and broke. */
+const WRITTEN: ReadonlySet<number> = new Set([1, 2, 3]);
 
 const STEPS = [
 	"the daemon's link opens the app, and the session list is there",
@@ -73,6 +77,10 @@ async function main(): Promise<number> {
 	root = mkdtempSync(join(tmpdir(), "pi-remote-gate-"));
 	process.env.PI_REMOTE_DIR = root;
 	process.env.PI_REMOTE_SHARE = "1";
+	// A port of its own: two runs at once, or a daemon left behind, would fight for 7878 and the
+	// loser would report a taken port as if it were a bug. It goes through the rig's settings file,
+	// which is the one pi reads, nested the way that file groups an id.
+	const port = await freePort();
 	const reports: Report[] = [];
 	try {
 		// The daemon serves the export it finds at startup, and a checkout has none until it builds.
@@ -88,6 +96,7 @@ async function main(): Promise<number> {
 		rig = await createRig({
 			extensions: [piRemote],
 			answer: () => fauxAssistantMessage("Answered."),
+			settings: { remote: { port } },
 		});
 		const link = await waitForLink();
 		if ("url" in link) {
@@ -119,6 +128,10 @@ async function main(): Promise<number> {
 		delete process.env.PI_REMOTE_SHARE;
 	}
 	for (const [at, name] of STEPS.entries()) {
+		if (!WRITTEN.has(at + 1)) {
+			console.log(`not written yet  ${at + 1}. ${name}`);
+			continue;
+		}
 		const report = reports.find((one) => one.step === at + 1);
 		const mark = report?.ok === true ? "pass" : "fail";
 		console.log(
@@ -177,17 +190,41 @@ async function opensSession(page: Page): Promise<Result> {
  * the prompt arrives, which is the case #188 fixed: the letter goes in at once instead of waiting for
  * a settle that never comes.
  */
+/**
+ * A prompt typed in the browser, and the three things that have to happen for it to count: the field
+ * takes the text, the screen sends it, and the session's branch grows. Each has its own sentence,
+ * because "the branch did not grow" covered three different failures for an afternoon.
+ */
 async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
 	try {
-		const box = page.locator("textarea, [contenteditable='true'], input[type='text']").first();
-		await box.click({ timeout: 20_000 });
-		await box.fill("say hello from the gate");
-		await page.keyboard.press("Enter");
+		// Counted before the click, not after: the scripted model answers at once, so a run that starts
+		// and ends between the click and the first read looks like no run at all.
 		const entries = (): number => rig.session.sessionManager.getBranch().length;
 		const before = entries();
+		const box = page.locator("input[name='prompt']").first();
+		await box.click({ timeout: 20_000 });
+		await box.fill("say hello from the gate");
+		if ((await box.inputValue()) !== "say hello from the gate")
+			return { ok: false, why: "the field did not take the text" };
+		// The composer has two buttons whose name starts with "Send" ("Send" and "Send now"), and a
+		// click on a disabled one does nothing: exact, and then the field must be empty afterwards.
+		await page.getByRole("button", { name: "Send", exact: true }).click({ timeout: 20_000 });
+		if ((await box.inputValue()) !== "")
+			return { ok: false, why: "the screen did not send: the field still holds the text" };
+
 		const deadline = Date.now() + 20_000;
 		while (entries() <= before && Date.now() < deadline) await Bun.sleep(100);
-		return entries() > before ? { ok: true } : { ok: false, why: "the branch did not grow" };
+		if (entries() > before) return { ok: true };
+		const seen = await rig
+			.until((line) => line.type === "prompt.received", 2_000)
+			.then(() => true)
+			.catch(() => false);
+		return {
+			ok: false,
+			why: seen
+				? "the bridge logged the prompt and pi never started: the inbox or the delivery"
+				: "the prompt never reached the bridge: the outbox or the wire",
+		};
 	} catch (error) {
 		return { ok: false, why: short(error) };
 	}
@@ -210,6 +247,14 @@ function stopDaemon(): void {
 			}
 		}
 	}
+}
+
+/** A port nothing listens on, taken and released so the daemon can have it. */
+function freePort(): number {
+	const server = Bun.listen({ hostname: "127.0.0.1", port: 0, socket: { data: () => {} } });
+	const { port } = server;
+	server.stop(true);
+	return port;
 }
 
 function short(error: unknown): string {
