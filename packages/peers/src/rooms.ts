@@ -525,7 +525,7 @@ export class Rooms implements RoomsView {
 	others(): (Named & { where?: string })[] {
 		const seen = new Set<string>();
 		return this.joined().flatMap((here) =>
-			[...here.names().values()].flatMap((named) => {
+			[...here.names().bySession.values()].flatMap((named) => {
 				if (named.session === this.#session || seen.has(named.session)) return [];
 				seen.add(named.session);
 				return [
@@ -806,7 +806,7 @@ export class Rooms implements RoomsView {
 	#info(room: Shared): Room {
 		const membership = room.folder.membership;
 		const live = room.here?.live() ?? [];
-		const names = room.here?.names() ?? new Map<string, Named>();
+		const names: ReadonlyMap<string, Named> = room.here?.names().bySession ?? new Map();
 		const sessions: RoomSession[] = [...membership.sessions].map(([session, cwd]) => {
 			const peer = live.find((one) => one.session === session) ?? room.folder.peers.get(session);
 			const open = live.some((one) => one.session === session);
@@ -832,7 +832,7 @@ export class Rooms implements RoomsView {
 
 	#handleIn(room: Shared, session: string): string {
 		return (
-			room.here?.names().get(session)?.handle ??
+			room.here?.names().bySession.get(session)?.handle ??
 			room.folder.peers.get(session)?.handle ??
 			"an agent"
 		);

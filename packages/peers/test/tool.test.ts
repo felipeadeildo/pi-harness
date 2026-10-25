@@ -50,7 +50,7 @@ function source(message: Posted, open = ["me", "a", "b", "c"]): Source {
 			peers: new Map(live.map((one) => [one.session, one])),
 		},
 		live: () => live,
-		names: () => names,
+		names: () => ({ bySession: names, aliases: new Map() }),
 	} as unknown as Source;
 }
 

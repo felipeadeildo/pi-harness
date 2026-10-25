@@ -109,6 +109,9 @@ function session(id: string, folder: string, extra: Partial<Hooks> = {}) {
 	function name(handle: string) {
 		logEvent(targetOf(source), events, "session.named", { handle, title: handle }, undefined, now);
 	}
+	function renamed(from: string, to: string) {
+		logEvent(targetOf(source), events, "session.renamed", { from, to, by: "you" }, undefined, now);
+	}
 	return {
 		rooms,
 		dir: targetOf(source).dir,
@@ -119,6 +122,7 @@ function session(id: string, folder: string, extra: Partial<Hooks> = {}) {
 		cwd,
 		tasks,
 		name,
+		renamed,
 		peers: () => sent.filter((one) => one.kind === "custom"),
 	};
 }
@@ -589,3 +593,18 @@ function writtenIn(dir: string, writer: string, type: LoggedEvent["type"]): Logg
 function rawLines(room: string, writer: string): LoggedEvent[] {
 	return readFrom(join(roomDir(room), `${writer}.jsonl`), 0).events;
 }
+
+test("a mention written with the word a session used to have still reaches it", () => {
+	const api = session("api", "backend");
+	const auth = session("auth", "backend");
+	sync(api, auth);
+	auth.name("oauth");
+	sync(api, auth);
+	auth.renamed("oauth", "auth");
+	sync(api, auth);
+
+	// The word the session had is what the operator's hands typed, and it arrives.
+	api.rooms.send(undefined, "@oauth the migration is yours");
+	sync(auth);
+	expect(auth.sent.map((one) => one.text).join("\n")).toContain("the migration is yours");
+});

@@ -50,6 +50,11 @@ export interface LogEventMap {
 	 * carried. That one write is a backfill, not a leftover.
 	 */
 	"session.named": { handle?: string; title?: string };
+	/**
+	 * A handle moved. The word the session had stays an alias for a week, so a mention written before
+	 * the rename still reaches it — unless another live session holds that word.
+	 */
+	"session.renamed": { from: string; to: string; by?: "you" | "agent" };
 	"session.state": { state: RoomActivity };
 	/** You sent a prompt in this session. What you said stays in pi's own session file. */
 	"session.prompted": Record<string, never>;

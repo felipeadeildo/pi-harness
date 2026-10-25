@@ -168,7 +168,7 @@ describe("being here", () => {
 		const b = session("b");
 		name(b.here, "migration");
 		a.here.sync();
-		expect([...a.here.names().values()].map((named) => named.handle)).toEqual([
+		expect([...a.here.names().bySession.values()].map((named) => named.handle)).toEqual([
 			"new-a",
 			"migration",
 		]);
@@ -200,7 +200,7 @@ describe("who is open, asked on every drawing", () => {
 		name(b.here, "migration");
 		here.sync();
 		checked = 0;
-		expect(here.names().get("b")?.handle).toBe("migration");
+		expect(here.names().bySession.get("b")?.handle).toBe("migration");
 		expect(checked).toBeLessThanOrEqual(2);
 		const after = checked;
 
@@ -584,7 +584,7 @@ describe("a request to anyone", () => {
 		const c = session("c", { fit: 0.6, reason: "" });
 		a.here.post("any", "switch the login to OAuth", "agent");
 		await settle(a, b, c);
-		const taker = b.here.names().get("b")?.handle;
+		const taker = b.here.names().bySession.get("b")?.handle;
 		expect(c.shown.map((one) => [one.text, one.takenBy])).toEqual([
 			["switch the login to OAuth", taker],
 		]);

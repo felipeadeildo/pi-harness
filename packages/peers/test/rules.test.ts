@@ -113,7 +113,7 @@ describe("names", () => {
 			peer("s-bbbb2222", "oauth"),
 			peer("s-cccc3333"),
 		]);
-		expect([...names.values()].map((named) => named.handle)).toEqual([
+		expect([...names.bySession.values()].map((named) => named.handle)).toEqual([
 			"oauth",
 			"oauth-2",
 			"new-3333",
@@ -122,9 +122,11 @@ describe("names", () => {
 
 	test("open sessions never share a color, and a session keeps its own when it can", () => {
 		const many = Array.from({ length: PEER_COLORS.length }, (_, i) => peer(`s${i}`, `p${i}`));
-		const colors = [...namesOf(many).values()].map((named) => named.color);
+		const colors = [...namesOf(many).bySession.values()].map((named) => named.color);
 		expect(new Set(colors).size).toBe(PEER_COLORS.length);
-		expect(namesOf([peer("s3", "p3")]).get("s3")?.color).toBe(namesOf(many).get("s3")?.color);
+		expect(namesOf([peer("s3", "p3")]).bySession.get("s3")?.color).toBe(
+			namesOf(many).bySession.get("s3")?.color,
+		);
 	});
 
 	test("mentions find open sessions, not e-mail addresses or unknown names", () => {

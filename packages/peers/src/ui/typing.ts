@@ -12,7 +12,7 @@ import type { Here } from "../here.ts";
 import type { Waiting } from "../inbox.ts";
 import { EVERYONE_MENTION } from "../mention.ts";
 import type { Room, RoomTyping } from "../model.ts";
-import { byHandle, type Named } from "../names.ts";
+import { type Named } from "../names.ts";
 import { addressed } from "./message.ts";
 import { FRAME_MS } from "./motion.ts";
 
@@ -52,7 +52,7 @@ export function writingMarks(
 ): WritingMark[] {
 	return typing.map((one) => {
 		const here = source.here(one.room);
-		const names: ReadonlyMap<string, Named> = here?.names() ?? new Map();
+		const names: ReadonlyMap<string, Named> = here?.names().bySession ?? new Map();
 		const me = here?.session === undefined ? undefined : names.get(here.session)?.handle;
 		const named = names.get(one.session);
 		return {
@@ -138,7 +138,7 @@ export function typingRecipients(
 		.filter((handle) => handle !== "")
 		.map((handle) => {
 			if (handle === me) return theme.fg("accent", "you");
-			const named = byHandle(names, handle);
+			const named = [...names.values()].find((one) => one.handle === handle);
 			return theme.fg((named?.color ?? "muted") as ThemeColor, `@${handle}`);
 		})
 		.join(theme.fg("dim", ", "));

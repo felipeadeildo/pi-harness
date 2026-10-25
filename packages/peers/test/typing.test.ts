@@ -15,7 +15,7 @@ const names = new Map<string, Named>([
 	["b", { session: "b", handle: "migration", color: "syntaxType" } as Named],
 	["c", { session: "c", handle: "docs", color: "syntaxNumber" } as Named],
 ]);
-const folder = { session: "c", names: () => names };
+const folder = { session: "c", names: () => ({ bySession: names, aliases: new Map() }) };
 const source = {
 	othersTyping: () => [],
 	queued: () => [],
