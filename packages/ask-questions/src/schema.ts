@@ -8,8 +8,8 @@ export const TOOL_NAME = "ask_questions";
 export const MAX_QUESTIONS = 4;
 export const MIN_OPTIONS = 2;
 export const MAX_OPTIONS = 4;
-export const MAX_HEADER_LENGTH = 16;
-export const MAX_LABEL_LENGTH = 60;
+const MAX_HEADER_LENGTH = 16;
+const MAX_LABEL_LENGTH = 60;
 
 export const TYPED_LABEL = "Type something.";
 

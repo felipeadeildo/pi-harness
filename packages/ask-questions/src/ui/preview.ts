@@ -19,7 +19,7 @@ const TAB = "    ";
  * Whether a preview is a picture to show as written. Markdown joins its lines and squeezes its
  * spaces, which breaks a mockup or a diagram. A preview with a fenced block is markdown.
  */
-export function isDrawing(text: string): boolean {
+function isDrawing(text: string): boolean {
 	return !ANY_FENCE.test(text) && (DRAWING.test(text) || COLUMNS.test(text));
 }
 
