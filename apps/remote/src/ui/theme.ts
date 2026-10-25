@@ -9,8 +9,8 @@ export const SPACE = [0, 2, 4, 8, 12, 16, 24] as const;
 /** Corner radii, in pixels: square, soft, card, sheet. */
 export const RADIUS = [0, 6, 10, 16] as const;
 
-export type SpaceStep = 0 | 1 | 2 | 3 | 4 | 5 | 6;
-export type RadiusStep = 0 | 1 | 2 | 3;
+type SpaceStep = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+type RadiusStep = 0 | 1 | 2 | 3;
 
 export interface Theme {
 	color: {
