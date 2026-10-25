@@ -82,6 +82,19 @@ describe("a select, confirm or input in a terminal session", () => {
 		expect(opened[0]?.signal?.aborted).toBe(true);
 	});
 
+	test("a client that answered first is the only answer, even when the terminal settles late", async () => {
+		const { ui, answers, opened, clientAnswers } = rig();
+		const choice = ui.select("Branch", ["main", "dev"]);
+		await until(() => opened.length === 1);
+
+		clientAnswers(pick("dev"));
+		await choice;
+		await Promise.resolve();
+
+		expect(answers).toHaveLength(1);
+		expect(answers[0]).toMatchObject({ by: PHONE });
+	});
+
 	test("the terminal's answer closes the clients' question under the terminal's name", async () => {
 		const { ui, answers, opened } = rig();
 		const choice = ui.select("Branch", ["main", "dev"]);
