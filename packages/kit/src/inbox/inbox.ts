@@ -87,10 +87,15 @@ export class Inbox {
 		return letters;
 	}
 
-	/** Holds a letter that is not ready to go yet, with the reason the client reads. */
+	/**
+	 * Holds a letter that is not ready to go yet, with the reason the client reads. A letter already
+	 * held keeps its place and gains the reason: the reason can be learned later than the holding.
+	 */
 	holdFor(letter: Letter, why: Letter["why"]): void {
-		if (this.#held.some((one) => one.id === letter.id)) return;
-		this.#held.push(why === undefined ? letter : { ...letter, why });
+		const at = this.#held.findIndex((one) => one.id === letter.id);
+		const held = why === undefined ? letter : { ...letter, why };
+		if (at === -1) this.#held.push(held);
+		else this.#held[at] = held;
 	}
 
 	/**

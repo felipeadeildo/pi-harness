@@ -12,7 +12,7 @@ export type Want = "steer" | "followUp";
  * chain of agents stopped waking it, a run is full of steers, or the operator stopped the run before
  * the agent read it. Absent is the ordinary case, a follow-up of the run going on.
  */
-export type Why = "asleep" | "quiet" | "full" | "stopped";
+export type Why = "asleep" | "quiet" | "full" | "stopped" | "not-started";
 
 export interface Letter {
 	/** Unique among the letters of one session, so a repeat in the same run is recognized. */
@@ -39,7 +39,13 @@ export function isLetter(value: unknown): value is Letter {
 	return value.custom === undefined || isCustom(value.custom);
 }
 
-const WHYS: ReadonlySet<string> = new Set<Why>(["asleep", "quiet", "full", "stopped"]);
+const WHYS: ReadonlySet<string> = new Set<Why>([
+	"asleep",
+	"quiet",
+	"full",
+	"stopped",
+	"not-started",
+]);
 
 function isCustom(value: unknown): boolean {
 	return (
