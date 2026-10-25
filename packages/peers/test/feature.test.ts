@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+	BOARD,
 	createApp,
+	emptyBoard,
 	eventsDir,
 	FolderFeed,
 	HOST,
@@ -36,7 +38,12 @@ afterEach(() => {
 	rmSync(dir, { recursive: true, force: true });
 });
 
-async function mounted(id: string, cwd = "/repo", entries: unknown[] = []) {
+async function mounted(
+	id: string,
+	cwd = "/repo",
+	entries: unknown[] = [],
+	extra?: Parameters<ReturnType<typeof createApp>["use"]>[0],
+) {
 	writeFileSync(join(dir, "settings.json"), "{}");
 	const fake = fakePi();
 	let active = ["read", "bash"];
@@ -46,9 +53,9 @@ async function mounted(id: string, cwd = "/repo", entries: unknown[] = []) {
 			active = names;
 		},
 	});
-	createApp(fake.pi, { name: "test", settingsPath: join(dir, "settings.json") })
-		.use(peers)
-		.build();
+	const app = createApp(fake.pi, { name: "test", settingsPath: join(dir, "settings.json") });
+	if (extra !== undefined) app.use(extra);
+	app.use(peers).build();
 	const notes: string[] = [];
 	let editor = "";
 	const ctx = fakeContext([], true, {
@@ -233,6 +240,32 @@ test("a run turns the tool back on when something else left it off", async () =>
 	expect(active()).toEqual(["read", "bash", "peers"]);
 	await fake.fire("before_agent_start", { type: "before_agent_start", prompt: "" }, ctx);
 	expect(active()).toEqual(["read", "bash", "peers"]);
+});
+
+test("the board action answers with the whole title, not what the panel would cut", async () => {
+	// The panel cuts at the width it is drawn in; the model reads the board itself, so a long title
+	// has to arrive whole — the two renderers are not interchangeable.
+	const long = "a card whose title is long enough that a hundred columns would cut it somewhere";
+	const board = {
+		...emptyBoard(),
+		cards: [{ id: "c1", title: long, column: "todo" as const, at: 1 }],
+	};
+	const provider = {
+		id: "board-for-the-test",
+		description: "offers the board",
+		setup: (scope: Parameters<typeof BOARD.provide>[0]) => BOARD.provide(scope, () => board),
+	};
+	const { fake } = await mounted("a", "/repo", [], provider as never);
+	const tool = fake.tools.find((candidate) => candidate.name === "peers");
+	const answer = await tool?.execute(
+		"1",
+		{ action: "board" },
+		undefined,
+		undefined,
+		undefined as never,
+	);
+	const first = answer?.content[0];
+	expect(first?.type === "text" ? first.text : "").toContain(long);
 });
 
 test("the tool reads the board and refuses names nobody has", async () => {
