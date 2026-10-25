@@ -8,7 +8,7 @@ import { describe, expect, test } from "bun:test";
 import { readEnvelope, sessionOf } from "@adeildo/pi-remote-client";
 import { applyEvent, emptySessionState, type SessionState } from "@adeildo/pi-remote-protocol";
 
-import { Harness } from "../src/bridge/harness.ts";
+import { Harness } from "../src/bridge/logged.ts";
 import { Sessions } from "../src/daemon/sessions.ts";
 
 const key = { machine: "m", session: "s" };

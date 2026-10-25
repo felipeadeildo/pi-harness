@@ -28,8 +28,8 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { OpenAsks } from "./asks.ts";
 import { Commands, Refused } from "./commands.ts";
 import { BridgeConnection, type ConnectionSeams, type GoneReason } from "./connection.ts";
-import { Harness, LOGGED_FACTS } from "./harness.ts";
 import { letterOf, queuedOf, SessionInbox } from "./inbox.ts";
+import { FORWARDED, Harness } from "./logged.ts";
 import { LiveStream } from "./stream.ts";
 
 /** How many entries of the branch a snapshot carries. A client pages through older ones over HTTP. */
@@ -225,7 +225,7 @@ export class Bridge {
 
 	/** Forwards a fact the kit logged for this session, and keeps what a snapshot needs of it. */
 	logged(line: Logged): void {
-		if (line.session !== this.ctx.sessionManager.getSessionId() || !LOGGED_FACTS.has(line.type)) {
+		if (line.session !== this.ctx.sessionManager.getSessionId() || !FORWARDED.has(line.type)) {
 			return;
 		}
 		this.#facts.saw(line.type, line.data);

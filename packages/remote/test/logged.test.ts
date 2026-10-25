@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { KEPT_CLOSED } from "@adeildo/pi-remote-protocol";
 
-import { Harness } from "../src/bridge/harness.ts";
+import { Harness } from "../src/bridge/logged.ts";
 
 function ruled(toolCallId: string, head = "ok") {
 	return { toolCallId, ruling: { head, tone: "success" } };

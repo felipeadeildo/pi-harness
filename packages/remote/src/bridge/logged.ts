@@ -12,7 +12,7 @@ import {
  * The log's facts a client reduces. The bridge sends the session's own facts itself, and the log's
  * `session.state` is peers' running or idle, not pi's program status, so it never crosses.
  */
-export const LOGGED_FACTS: ReadonlySet<string> = new Set([
+export const FORWARDED: ReadonlySet<string> = new Set([
 	"tasks.changed",
 	"ask.opened",
 	"ask.closed",
