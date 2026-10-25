@@ -22,13 +22,14 @@ const view = (cards: BoardCard[]): BoardView => ({ open: cards, backlog: 3, done
 describe("the board in the panel", () => {
 	test("draws every open card once, oldest first, with the two counts", () => {
 		const lines = boardLines(
-			view([card("c2", 20, { column: "doing", now: "writing the test" }), card("c1", 10)]),
+			// The ids run opposite to the arrival order, so sorting by id would be seen.
+			view([card("c1", 20, { column: "doing", now: "writing the test" }), card("c2", 10)]),
 			plain,
 			80,
 		);
 		expect(lines).toHaveLength(3);
 		expect(lines[0]).toContain("2 open");
-		expect(lines[1]).toContain("card c1");
+		expect(lines[1]).toContain("card c2");
 		expect(lines[2]).toContain("writing the test");
 	});
 
