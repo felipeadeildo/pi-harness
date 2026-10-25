@@ -33,6 +33,8 @@ export interface ComposerProps {
 	waiting?: readonly QueuedMessage[];
 	/** What a phone may run by typing `/`, as the session last said. Nothing here, nothing offered. */
 	commands?: SessionCommand[];
+	/** Whether the session takes `mode.set`. A dial that can only be refused is worse than none. */
+	serves?: boolean;
 	/**
 	 * What the field starts with. A draft restored from the cache and a test both need the field to open
 	 * with text already in it, which is why it is a prop and not a fixture inside the component.
@@ -51,6 +53,7 @@ export function Composer({
 	ask,
 	waiting,
 	commands,
+	serves,
 	initialDraft,
 }: ComposerProps): ReactNode {
 	// The queue changes without the session changing, so the composer hears the client itself.
@@ -86,7 +89,7 @@ export function Composer({
 		{ className: "remote-composer" },
 		promptRow(send, draft, write, offering),
 		controls(send),
-		pickers(send, mode, model, thinking),
+		pickers(send, mode, serves, model, thinking),
 		ask === undefined ? null : naming(send, ask),
 		queueNode(queue, client, held),
 		heldNode(queued, client),
@@ -207,33 +210,38 @@ function controls(send: <K extends CommandType>(type: K, data: CommandMap[K]) =>
 function pickers(
 	send: <K extends CommandType>(type: K, data: CommandMap[K]) => void,
 	mode: PermissionMode | undefined,
+	serves: boolean | undefined,
 	model: { provider: string; id: string } | undefined,
 	thinking: string | undefined,
 ): ReactNode {
 	return h(
 		"div",
 		{ className: "remote-composer-row" },
-		h(
-			"select",
-			{
-				name: "mode",
-				"aria-label": "Permission mode",
-				// Without a value React draws the first option, which would say "manual" for a session
-				// that is in `judge`: the snapshot's mode is what the select starts on.
-				value: mode ?? "manual",
-				onChange: (event: { target: { value: string } }) => {
-					const mode = CLIENT_MODES.find((one) => one === event.target.value);
-					if (mode !== undefined) send("mode.set", { mode });
-				},
-			},
-			...CLIENT_MODES.map((mode) =>
-				h(
-					"option",
-					{ key: mode, value: mode },
-					`${mode}${mode === "manual" ? " (asks first)" : ""}`,
+		// A session that does not take `mode.set` has no dial: the state says so, and a control that can
+		// only be refused is worse than none. Not said yet is not "no": the dial waits instead of blinking.
+		serves === false
+			? null
+			: h(
+					"select",
+					{
+						name: "mode",
+						"aria-label": "Permission mode",
+						// Without a value React draws the first option, which would say "manual" for a session
+						// that is in `judge`: the snapshot's mode is what the select starts on.
+						value: mode ?? "manual",
+						onChange: (event: { target: { value: string } }) => {
+							const mode = CLIENT_MODES.find((one) => one === event.target.value);
+							if (mode !== undefined) send("mode.set", { mode });
+						},
+					},
+					...CLIENT_MODES.map((mode) =>
+						h(
+							"option",
+							{ key: mode, value: mode },
+							`${mode}${mode === "manual" ? " (asks first)" : ""}`,
+						),
+					),
 				),
-			),
-		),
 		h(
 			"select",
 			{
