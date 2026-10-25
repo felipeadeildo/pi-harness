@@ -19,10 +19,11 @@ export interface Producer {
 export const PRODUCERS: readonly Producer[] = [
 	{
 		// Whether the session takes a mode at all. A capability, not a value: the mode itself comes from
-		// the log, and this says only whether there is a dial to turn.
-		apply: (state, scope) =>
-			MODE_SET.current(scope) === undefined
-				? state
-				: { ...state, permissions: { ...state.permissions, serves: true } },
+		// the log, and this says only whether there is a dial to turn. A live bridge always knows, so it
+		// answers both ways; only the empty state before any bridge spoke has no opinion.
+		apply: (state, scope) => ({
+			...state,
+			permissions: { ...state.permissions, serves: MODE_SET.current(scope) !== undefined },
+		}),
 	},
 ];
