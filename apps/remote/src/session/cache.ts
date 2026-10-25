@@ -1,5 +1,6 @@
-// What the browser keeps of each session between visits, so a reload draws at once from what it had.
-// It lives in the page's storage, one item per session; an item that does not read is a cold open.
+// What the app keeps of each session between visits, so a reload draws at once from what it had.
+// It lives in the platform's storage (`store.ts`), one item per session; an item that does not
+// read is a cold open.
 // The store is small and shared with nothing else of ours, so it keeps the sessions written last and
 // lets the oldest go, instead of filling up and turning every next visit into a cold open.
 import {
@@ -9,7 +10,7 @@ import {
 	type SessionKey,
 } from "@adeildo/pi-remote-client";
 
-/** The part of the Web Storage API the cache uses. */
+/** The part of the Web Storage API the cache uses, which is also the shape `store.ts` gives native. */
 export interface StorageLike {
 	getItem(key: string): string | null;
 	setItem(key: string, value: string): void;

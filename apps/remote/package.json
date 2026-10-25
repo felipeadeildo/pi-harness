@@ -8,7 +8,9 @@
 		"check": "expo customize tsconfig.json > /dev/null && tsc --noEmit",
 		"csp": "bun scripts/csp.ts"
 	},
-	"dependencies": {},
+	"dependencies": {
+		"expo-sqlite": "~58.0.14"
+	},
 	"devDependencies": {
 		"@adeildo/pi-remote": "workspace:*",
 		"@adeildo/pi-remote-client": "workspace:*",
