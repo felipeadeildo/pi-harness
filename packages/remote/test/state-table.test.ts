@@ -106,6 +106,31 @@ const ROWS: Row[] = [
 		leaves: (state) => state.cost?.total,
 	},
 	{
+		name: "the terminal waits on a dialog from when it opens until it closes",
+		events: [
+			{ type: "terminal.prompted", data: { open: true, kind: "custom", title: "Theme" } },
+			{ type: "terminal.prompted", data: { open: false, kind: "custom" } },
+			{ type: "terminal.prompted", data: { open: true, kind: "editor" } },
+		],
+		expects: { kind: "editor", title: undefined },
+		leaves: (state) => state.prompt,
+	},
+	{
+		name: "closing the dialog ends the wait",
+		events: [
+			{ type: "terminal.prompted", data: { open: true, kind: "custom", title: "Theme" } },
+			{ type: "terminal.prompted", data: { open: false, kind: "custom" } },
+		],
+		expects: undefined,
+		leaves: (state) => state.prompt,
+	},
+	{
+		name: "a dialog a client can answer is not a wait on the terminal",
+		events: [{ type: "terminal.prompted", data: { open: true, kind: "select", title: "Pick" } }],
+		expects: undefined,
+		leaves: (state) => state.prompt,
+	},
+	{
 		name: "a cost that is not five numbers never becomes the state",
 		events: [{ type: "cost.changed", data: { cost: { input: "1", total: Number.NaN } } }],
 		expects: undefined,

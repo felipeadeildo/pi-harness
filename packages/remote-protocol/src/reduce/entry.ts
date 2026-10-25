@@ -3,7 +3,12 @@
 // no effect is a shape nobody folds, and one with an effect and no check is a reader trusting the wire.
 
 import { isBy, isObject } from "../by.ts";
-import { SESSION_STATES, type StateChangeMap, type StateChangeType } from "../state-changes.ts";
+import {
+	PROMPT_KINDS,
+	SESSION_STATES,
+	type StateChangeMap,
+	type StateChangeType,
+} from "../state-changes.ts";
 import { type QueuedMessage } from "../summary.ts";
 import type { SessionState } from "./state.ts";
 
@@ -180,6 +185,17 @@ export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 		check: (data): data is StateChangeMap["queue.changed"] =>
 			isObject(data) && Array.isArray(data.queue) && data.queue.every(isQueuedMessage),
 		apply: (state, data) => ({ ...state, queue: data.queue }),
+	},
+	"terminal.prompted": {
+		check: (data): data is StateChangeMap["terminal.prompted"] =>
+			isObject(data) &&
+			typeof data.open === "boolean" &&
+			PROMPT_KINDS.some((kind) => kind === data.kind) &&
+			(data.title === undefined || typeof data.title === "string"),
+		apply: (state, data) => {
+			const { prompt: _closed, ...rest } = state;
+			return data.open ? { ...rest, prompt: { kind: data.kind, title: data.title } } : rest;
+		},
 	},
 	"cost.changed": {
 		// Every number a reader sums: a `NaN` here would be drawn as `$NaN` and kept for the day.

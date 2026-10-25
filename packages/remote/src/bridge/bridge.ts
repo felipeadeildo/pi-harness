@@ -23,7 +23,7 @@ import {
 import { type AnswerEvent, isAskResult } from "@adeildo/pi-kit";
 import type { Letter } from "@adeildo/pi-kit";
 import type { Envelope, SessionSummary } from "@adeildo/pi-remote-protocol";
-import type { SessionCommand } from "@adeildo/pi-remote-protocol";
+import type { PromptKind, SessionCommand } from "@adeildo/pi-remote-protocol";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { OpenAsks } from "./asks.ts";
@@ -231,6 +231,13 @@ export class Bridge {
 	queued(queue: readonly Letter[]): void {
 		this.#changes.saw("queue.changed", { queue });
 		this.connection.event("queue.changed", { queue });
+	}
+
+	/** The terminal opened or closed a dialog no client can answer, so clients say it waits. */
+	prompted(open: boolean, kind: PromptKind, title: string | undefined): void {
+		const change = { open, kind, ...(title === undefined ? {} : { title }) };
+		this.#changes.saw("terminal.prompted", change);
+		this.connection.event("terminal.prompted", change);
 	}
 
 	#heard(message: Envelope): void {
