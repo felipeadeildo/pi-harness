@@ -1,9 +1,8 @@
-// What a phone may run by typing `/`. One function decides, and it reads the same list the session
-// offers: a name the screen shows and a name the wire accepts cannot disagree.
+// What a phone may run by typing `/`: the list the session offers, so the screen and the wire agree.
 
 import type { SessionCommand } from "@adeildo/pi-remote-protocol";
 
-/** One command as pi describes it, before this file decides what a client may do with it. */
+/** A command as pi describes it, before this file decides what a client may do with it. */
 export interface Offered {
 	name: string;
 	description?: string;
@@ -11,11 +10,9 @@ export interface Offered {
 }
 
 /**
- * The commands a client may run: skills and templates, plus what this harness answers itself.
- *
- * An extension command is left out, and that is the point: with `expandPromptTemplates` such a name
- * would run at the terminal's privilege from a phone. Filtering here means the list the screen shows
- * is already the list the wire accepts.
+ * The commands a client may run: skills and templates, plus what this harness answers itself. An
+ * extension command is left out because `expandPromptTemplates` would run it at the terminal's
+ * privilege from a phone.
  */
 export function commandsFor(offered: readonly Offered[]): SessionCommand[] {
 	const commands: SessionCommand[] = offered
@@ -25,8 +22,7 @@ export function commandsFor(offered: readonly Offered[]): SessionCommand[] {
 			...(one.description === undefined ? {} : { description: one.description }),
 			source: one.source === "skill" ? "skill" : "prompt",
 		}));
-	// `compact` is not in pi's list: this harness answers it, with the same effect `session.compact`
-	// has, so the phone can find it and there is still one path to one effect.
+	// `compact` is not in pi's list: this harness answers it with the effect `session.compact` has.
 	return [
 		...commands,
 		{ name: "compact", description: "Ask pi to compact this session", source: "pi" },
@@ -39,12 +35,9 @@ export type Slash = "compact" | "expand" | "refused";
 const COMPACT = /^\/compact(?:\s+([\s\S]*))?$/;
 
 /**
- * Reads one text. A text that does not start with `/` is a prompt, and comes back as `expand`: the two
- * are told apart by the caller, because "send it as it is" is the same act either way.
- *
- * A name is accepted only if the session offers it. The list is the one the screen shows, so a command
- * that appeared after the list was sent — or one this harness never offers — is refused instead of
- * being expanded into the model.
+ * Reads one text: without a `/` it is a prompt, and the caller tells the two apart. A name is accepted
+ * only if the session offers it, so a command that appeared after the list was sent is refused
+ * instead of being expanded into the model.
  */
 export function slashOf(text: string, offered: readonly SessionCommand[]): Slash {
 	if (!text.startsWith("/")) return "expand";
