@@ -44,6 +44,7 @@ import {
 	PEERS_SETTINGS,
 	roomGrace,
 } from "./settings.ts";
+import { boardLines } from "./ui/board.ts";
 import {
 	heldBlock,
 	type HeldDelivery,
@@ -454,7 +455,16 @@ export const peers = defineFeature({
 			execute: async (toolCallId, params, _signal, _onUpdate, ctx) => {
 				const me = rooms.session;
 				if (me === undefined) return reply("Not in a session.");
-				if (params.action === "board") return reply(boardText(rooms.joined(), me));
+				if (params.action === "board") {
+					// The board this session folded, drawn the way the panel draws it, plus who else is
+					// in the room and what they are on.
+					const board = BOARD.current(scope);
+					const lines = [
+						...(board === undefined ? [] : boardLines(boardView(board), ctx.ui.theme, 100)),
+						boardText(rooms.joined(), me),
+					];
+					return reply(lines.filter((line) => line !== "").join("\n"));
+				}
 				if (params.action === "link") return linkFor(toolCallId, params, ctx);
 				const text = params.text?.trim() ?? "";
 				if (text === "") return reply("Nothing to send: write the message in text.");
