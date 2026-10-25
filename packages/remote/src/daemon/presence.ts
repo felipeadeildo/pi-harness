@@ -1,34 +1,24 @@
-// Who has a session open, and whose input came last. It holds no socket and decides nothing in time:
-// a connection is anything a caller can name, so this is testable without a network. What the daemon
-// does with a change is not this module's business: it is told, and it decides.
+// Who has a session open, and whose input came last. It holds no socket and decides nothing in time, so
+// it is testable without a network; what the daemon does with a change is not this module's business.
 import type { By, Viewer } from "@adeildo/pi-remote-protocol";
 
-/** A connection, as the caller names it. A socket, a test's string: this module only compares them. */
 export type Connection = string;
 
-/** The terminal of a session, as the bridge named it the last time someone typed there. */
 const TERMINAL = "terminal";
 
 export interface PresenceOf {
 	viewers: Viewer[];
-	/** The one whose input came last: a client, or the session's own terminal. */
 	active?: By;
 }
 
 export class Presence {
-	/** Who watches each session, in the order they arrived. */
 	readonly #watching = new Map<string, Connection[]>();
-	/** The name each connection gave for itself: a client that never named one is not a viewer. */
 	readonly #by = new Map<Connection, By>();
-	/** The last connection to type in a session, or its terminal. */
 	readonly #latest = new Map<string, Connection>();
-	/** The `by` of each session's terminal, once its bridge has named it. */
 	readonly #terminal = new Map<string, By>();
-	/** What was announced last, so two changes that say the same thing are said once. */
 	readonly #announced = new Map<string, string>();
 	#listen: ((session: string, presence: PresenceOf) => void) | undefined;
 
-	/** What to do when a session's presence changed, which is what tells the clients watching it. */
 	onChange(listen: (session: string, presence: PresenceOf) => void): void {
 		this.#listen = listen;
 	}

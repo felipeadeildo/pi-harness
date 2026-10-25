@@ -1,12 +1,9 @@
-// The session's inbox, wired to pi. A message from a client or from another agent arrives here, and
-// the question this module answers is when it goes in: a steer at once, between the agent's calls, and
-// a follow-up only when the agent settles, which is what lets a client show it and take it back.
+// The session's inbox, wired to pi. The question this module answers is when a message goes in: a
+// steer at once, between the agent's calls, and a follow-up only when the agent settles.
 import { type By, Inbox, INBOX, INBOX_PORT, type Letter, type EventScope } from "@adeildo/pi-kit";
 import type { QueuedMessage } from "@adeildo/pi-remote-protocol";
 
-/** What a session's inbox needs from the pi that runs it. */
 export interface InboxSession {
-	/** Hands text to pi: a steer goes in at once, a follow-up waits for the agent to settle. */
 	send(text: string, deliverAs: "steer" | "followUp" | undefined): void;
 	/**
 	 * Whether a run is in flight. A follow-up only waits for the agent to settle when there is
@@ -14,23 +11,15 @@ export interface InboxSession {
 	 * comes, and the prompt would sit in the queue until someone typed at the terminal.
 	 */
 	busy(): boolean;
-	/** Says in the terminal that the text came from elsewhere, and who sent it. */
 	arrived(text: string, by: By): void;
-	/** Hands the whole queue to whoever draws it, whenever it changes. */
 	queued(queue: QueuedMessage[]): void;
 }
 
-/**
- * One session's inbox, and the only way a message reaches it. It publishes its queue through `INBOX`
- * whenever it changes, so a reader can draw what waits without asking, and it takes messages through
- * `INBOX_PORT` so another feature, such as peers, reaches the same queue without importing this.
- */
 /** How long a send waits for pi to start the run before the letter is left in the queue. */
 export const PROOF_MS = 500;
 
 export class SessionInbox {
 	readonly #inbox = new Inbox();
-	/** The letter waiting for pi to prove it started a run, by id. */
 	#pending: string | undefined;
 	#deadline: ReturnType<typeof setTimeout> | undefined;
 	readonly #scope: EventScope;
@@ -68,10 +57,8 @@ export class SessionInbox {
 		if (letter.by.kind === "client") this.#session.arrived(letter.text, letter.by);
 		if (letter.want === "steer") this.#session.send(letter.text, "steer");
 		else if (!this.#session.busy()) {
-			// Nothing to wait for: this letter starts the run, so it leaves the queue the moment it goes.
-			// The letter leaves the queue only when the run it starts has begun: `sendUserMessage`
-			// returns before pi has decided anything, and a send pi drops would otherwise lose the
-			// message in silence — it stayed in the queue, which is what a client draws.
+			// `sendUserMessage` returns before pi has decided anything, so the letter leaves the queue
+			// only when the run it starts has begun: a send pi drops would otherwise lose it in silence.
 			this.#pending = letter.id;
 			this.#session.send(letter.text, undefined);
 			this.#deadline = setTimeout(() => this.#expire(), this.proofMs);
