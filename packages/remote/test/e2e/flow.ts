@@ -7,7 +7,8 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
-import { fauxAssistantMessage } from "@earendil-works/pi-ai";
+import piTasks from "@adeildo/pi-tasks";
+import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import { type Browser, chromium, type Page } from "playwright-core";
 
 import { requestLink } from "../../src/cli/open.ts";
@@ -34,7 +35,7 @@ const MANDATORY: ReadonlySet<number> = new Set([1, 2, 3, 4]);
 
 /** The steps with a body. The rest are named and not written: a report that says `fail` for them
  * claims a measurement nobody made, and a reader cannot tell that from a step that ran and broke. */
-const WRITTEN: ReadonlySet<number> = new Set([1, 2, 3, 4]);
+const WRITTEN: ReadonlySet<number> = new Set([1, 2, 3, 4, 6]);
 
 const STEPS = [
 	"the daemon's link opens the app, and the session list is there",
@@ -95,10 +96,22 @@ async function main(): Promise<number> {
 		}
 		// The bridge starts the daemon when none answers, which is the path a user takes.
 		rig = await createRig({
-			extensions: [piRemote],
+			extensions: [piRemote, piTasks],
 			// Slow enough that a run is still going when the next step types: a follow-up is only a
-			// follow-up while something else runs.
-			answer: () => fauxAssistantMessage("Answered, one word after another, slowly."),
+			// follow-up while something else runs. The one prompt that says "a task" gets the tool call
+			// that leaves a card behind, which is what the reloaded page has to draw again.
+			answer: (context) =>
+				lastSaid(context).includes("a task")
+					? fauxAssistantMessage(
+							[
+								fauxToolCall("update_tasks", {
+									language: "English",
+									ops: [{ op: "ask", text: "the gate sets a task" }],
+								}),
+							],
+							{ stopReason: "toolUse" },
+						)
+					: fauxAssistantMessage("Answered, one word after another, slowly."),
 			tokensPerSecond: 2,
 			settings: { remote: { port } },
 		});
@@ -119,6 +132,7 @@ async function main(): Promise<number> {
 			reports.push({ step: 2, ...(await opensSession(page)) });
 			reports.push({ step: 3, ...(await sendsPrompt(page, rig)) });
 			reports.push({ step: 4, ...(await queuesFollowUp(page, rig)) });
+			reports.push({ step: 6, ...(await survivesRestart(page, rig)) });
 		} else {
 			reports.push({ step: 1, ok: false, why: link.why });
 		}
@@ -267,6 +281,65 @@ async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
 		await row.getByRole("button", { name: "Withdraw", exact: true }).click();
 		await page.locator(".remote-composer-held").waitFor({ state: "detached", timeout: 20_000 });
 		return said === "wait for me" ? { ok: true } : { ok: false, why: `the queue showed "${said}"` };
+	} catch (error) {
+		return { ok: false, why: short(error) };
+	}
+}
+
+/** What the person last typed, which is how the scripted model knows which turn it is answering. */
+function lastSaid(context: { messages: readonly { role?: string; content?: unknown }[] }): string {
+	const last = [...context.messages].reverse().find((one) => one.role === "user");
+	const content = last?.content;
+	if (typeof content === "string") return content;
+	if (!Array.isArray(content)) return "";
+	return content
+		.map((part) => (typeof part === "object" && part !== null && "text" in part ? part.text : ""))
+		.filter((text): text is string => typeof text === "string")
+		.join(" ");
+}
+
+/**
+ * The daemon restarts and a reloaded page still draws the session: its card and its mode, read from
+ * the state the session carries, not from what the old page happened to remember.
+ */
+async function survivesRestart(page: Page, rig: Rig): Promise<Result> {
+	try {
+		const box = page.locator("textarea, [contenteditable='true'], input[type='text']").first();
+		// A run of its own, or the message waits for one that already ended.
+		const idle = Date.now() + 20_000;
+		while (!rig.session.isIdle && Date.now() < idle) await Bun.sleep(50);
+		await box.click({ timeout: 20_000 });
+		await box.fill("leave a task for the gate");
+		await page.keyboard.press("Enter");
+
+		const card = page.locator(".remote-task-queued, .remote-task-doing, .remote-task-waiting");
+		await card.first().waitFor({ timeout: 20_000 });
+		const drawn = (await card.first().innerText()).trim();
+		const mode = (await page.locator(".remote-composer").innerText()).includes("manual")
+			? "manual"
+			: "other";
+
+		// The daemon goes away, as a crash or a restart does, and the page is reloaded after it.
+		const holder = readCurrent(root)?.pid;
+		if (holder !== undefined) {
+			try {
+				process.kill(holder, "SIGTERM");
+			} catch {
+				// Already gone: nothing to restart, and the reload measures the same thing.
+			}
+		}
+		const back = Date.now() + 30_000;
+		while (readCurrent(root)?.pid === holder && Date.now() < back) await Bun.sleep(100);
+		await page.reload({ waitUntil: "domcontentloaded" });
+
+		await card.first().waitFor({ timeout: 30_000 });
+		const again = (await card.first().innerText()).trim();
+		const modeAgain = (await page.locator(".remote-composer").innerText()).includes("manual")
+			? "manual"
+			: "other";
+		return drawn === again && mode === modeAgain
+			? { ok: true }
+			: { ok: false, why: `before "${drawn}"/${mode}, after "${again}"/${modeAgain}` };
 	} catch (error) {
 		return { ok: false, why: short(error) };
 	}
