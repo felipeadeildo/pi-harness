@@ -57,8 +57,8 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
 - A comment says what is true now and the code cannot say, such as a rule pi imposes or the unit of a
   number, or asks for care later: "keep in step with X", "changing this breaks Y". One line where one
   line does.
-- No history in the code: no "used to", "now", "no longer", pull request numbers or dates. Git keeps
-  that.
+- No history in the code: no "used to", no "now" or "no longer" set against an earlier version, no
+  pull request numbers or dates. Git keeps that.
 
 ## Branches and commits
 
