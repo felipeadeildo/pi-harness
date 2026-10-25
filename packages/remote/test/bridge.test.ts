@@ -442,7 +442,9 @@ describe("the bridge", () => {
 		await until(() => fake.userMessages.length === 1);
 		// It never entered the queue a client draws: it went in as the run that was missing.
 		expect(fake.userMessages).toEqual(["the first one from the phone"]);
-		expect(daemon.received.some((one) => one.kind === "reply" && one.id === "p2")).toBe(true);
+		// The reply is written after the command runs, so it is waited for: asserting it right after
+		// the message goes in reads the state before the effect, and fails once in a few runs.
+		await until(() => daemon.received.some((one) => one.kind === "reply" && one.id === "p2"));
 		await stop(fake, "quit");
 	});
 

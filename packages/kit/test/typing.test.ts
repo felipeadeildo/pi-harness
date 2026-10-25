@@ -58,9 +58,11 @@ describe("typing monitor", () => {
 		const interval = setInterval(() => type(), 10);
 		setTimeout(() => clearInterval(interval), 150);
 
-		const started = Date.now();
+		// `performance.now()`, not `Date.now()`: the millisecond clock truncates, and a clearInterval
+		// that lands at 149.6 ms reads as 149 — a red for the clock, not for the monitor.
+		const started = performance.now();
 		await typing.waitUntilQuiet(undefined, () => {});
-		const elapsed = Date.now() - started;
+		const elapsed = performance.now() - started;
 		expect(elapsed).toBeGreaterThanOrEqual(150);
 		expect(elapsed).toBeLessThan(1000);
 	});
