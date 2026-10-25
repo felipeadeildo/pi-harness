@@ -193,7 +193,7 @@ export class Here implements Sender {
 		return cached.names;
 	}
 
-	/** The words sessions here used to have, each pointing at the session that owns it now. */
+	/** The earlier words here, each pointing at the session that owns it. */
 	aliases(): Map<string, string> {
 		const summary = new Map<string, string>();
 		for (const peer of this.live())
