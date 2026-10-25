@@ -15,7 +15,6 @@ import type { PermissionMode } from "./mode.ts";
  */
 export type RoomActivity = "running" | "idle";
 
-/** How a message reached the agent it was for. */
 export type Delivery = "woke" | "after-run" | "steered" | "next-turn";
 
 export type Activity =
@@ -44,16 +43,14 @@ export interface LogEventMap {
 	"session.started": { pid: number; host: string; model?: string; cwd?: string; start?: string };
 	"session.ended": Record<string, never>;
 	/**
-	 * The short name others mention it by, and the title it took it from. Two writers and a reader
-	 * that merges them field by field, so an absent field means "unchanged" and not "erased": the
-	 * names feature logs the handle, and the tasks logs the title always, plus the handle it was
-	 * given once, because a session from before the list carries a handle that no event has ever
-	 * carried. That one write is a backfill, not a leftover.
+	 * The short name others mention it by, and the title it took it from. An absent field means
+	 * "unchanged", so two writers can log one each: the names feature the handle, and the tasks the
+	 * title always, plus the handle it was given once, which backfills a session from before the list.
 	 */
 	"session.named": { handle?: string; title?: string };
 	/**
 	 * A handle moved. The word the session had stays an alias for a week, so a mention written before
-	 * the rename still reaches it — unless another live session holds that word.
+	 * the rename still reaches it, unless another live session holds that word.
 	 */
 	"session.renamed": { from: string; to: string; by?: "you" | "agent" };
 	/** What a session's board holds, as the sessions that read it draw it. */
