@@ -60,7 +60,7 @@ export interface SessionState {
 	 * here is refused when it is sent, so the field and the refusal cannot disagree.
 	 */
 	commands?: SessionCommand[];
-	/** Summed per turn from pi's usage. */
+	/** Changes every turn, so it lives in the state. */
 	cost?: SessionCost;
 }
 
