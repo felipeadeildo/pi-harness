@@ -1,5 +1,5 @@
-// Who takes a request to everyone, and when a message reaches an agent. Both are plain functions of
-// the folder, so every session reaches the same answer without asking the others.
+// Who takes a request to everyone, and when a message reaches an agent: plain functions of the
+// folder, so every session reaches the same answer without asking the others.
 import { type Delivery, tasksWith } from "@adeildo/pi-kit";
 
 import type { Peer, Posted } from "./folder.ts";
@@ -9,10 +9,10 @@ export const BID_WINDOW_MS = 6_000;
 /** How long the winner has to take it before the next one in line does. */
 export const TAKE_MS = 8_000;
 /**
- * Agent replies in a chain, each one waking the agent that writes the next, before the chain stops
- * waking anyone. That many without you is a loop, not a conversation. `peers.chainLimit` changes it.
- * It holds only messages sent to an agent: a message to the whole room always goes through, by the
- * operator's choice, so agents that only talk to everyone are not stopped by it.
+ * Agent replies in a chain, each waking the next. That many without you is a loop, not a
+ * conversation, and `peers.chainLimit` changes the number. It holds only messages sent to an agent:
+ * a message to the whole room always goes through, so agents that only talk to everyone are not
+ * stopped by it.
  */
 export const CHAIN_LIMIT = 20;
 /** Colleagues' messages one run takes while it works; past that, they wait for the next prompt. */
