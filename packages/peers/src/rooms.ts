@@ -891,8 +891,7 @@ export class Rooms implements RoomsView {
 			this.#soonPending = false;
 			this.sync();
 		};
-		if (this.#hooks.defer === undefined) setTimeout(read, 10);
-		else this.#hooks.defer(read, 10);
+		this.#hooks.defer(read, 10);
 	}
 
 	#writeLive(): void {

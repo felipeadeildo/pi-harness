@@ -73,8 +73,11 @@ export interface Hooks extends InboxHooks {
 	roomGrace?(): number;
 	/** How a session the operator adds to a room stands there: taking part, or only listening. */
 	opening?(): Exclude<RoomMode, "out">;
-	/** Work that belongs to the session, and stops with it: the app owns the lifetime. */
-	defer?(run: () => void, ms?: number): void;
+	/**
+	 * Work that belongs to the session, and stops with it: the app owns the lifetime. Required, so a
+	 * caller cannot forget it and land back on a timer that outlives the session.
+	 */
+	defer(run: () => void, ms?: number): void;
 }
 
 /** A shared room, as this session knows it. */
