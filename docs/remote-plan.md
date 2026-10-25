@@ -43,7 +43,7 @@ The other tracks of the cycle:
 - [x] Rooms: taking part, listening or out, and a frame that never pushes the editor (#198, #206, #212, #220)
 - [x] The permission is asked above the editor, which stays usable (#214)
 - [ ] The questions are asked above the editor the same way. nearly: the slot can hand the dialog the user's key bindings (`KeybindingsManager.create`); the move itself is still coming
-- [x] Skills, templates and `/compact` from the phone, and nothing else offered (#231, #245)
+- [ ] Skills, templates and `/compact` from the phone, and nothing else offered. nearly: the session says what a client may run (#231) and the composer offers it (#245); the send does not decide yet, so a `/skill:` from the phone still reaches the model as plain text
 - [ ] The board each agent keeps. nearly: the model is on `main` (#201); the contract, the tool, its readers and the small model removed are still coming
 - [x] The permission judge reads only the operator's words (#213)
 - [x] The port clients reach the daemon on is a setting (#197, #225)
