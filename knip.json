@@ -35,6 +35,6 @@
 			"entry": ["scripts/**/*.ts"]
 		}
 	},
-	"ignoreDependencies": [],
-	"ignoreBinaries": ["script"]
+	"ignoreDependencies": ["babel-plugin-react-compiler", "expo-updates"],
+	"ignoreBinaries": ["script", "rsvg-convert"]
 }
