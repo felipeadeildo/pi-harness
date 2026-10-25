@@ -402,7 +402,7 @@ The daemon reads the session file of both kinds itself. For each file it keeps t
 ### The first load
 
 1. The client asks for the machines and the sessions: a small list with names, states, costs and last lines. It draws at once.
-2. Opening a session asks for its state (`state.get`, answered by the bridge): the tail of the active branch, from the last compaction or the last 50 messages, whichever is shorter, folded into one `state` message with the entry cursor. Then the live stream follows from its `seq`.
+2. Opening a session asks for its state: the client's hello without a `seq` is the request, and the bridge answers it with one `state` message — the last 50 entries of the active branch, with no rule about compaction, plus the entry cursor. (`state.get` is the other direction: the daemon asking a bridge for a session it holds no state for.) Then the live stream follows from the `state`'s `seq`.
 3. Older history comes in pages as the client scrolls up, by entry id.
 
 ### The cache
