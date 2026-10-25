@@ -16,11 +16,9 @@ import {
 // the session were on it.
 import { type ReactNode, createElement as h, useEffect, useState } from "react";
 
-import { dropNow, enterSends, sendNow, stateOf } from "./composer-data.ts";
+import { dropNow, enterSends, sendNow, stateOf, takeDraft } from "./composer-data.ts";
 import { queuedLines, type QueuedLine, withdraw } from "./pending.ts";
 import { chosen, suggested, type Suggestion } from "./suggestions.ts";
-
-export { dropNow, enterSends, sendNow, stateOf } from "./composer-data.ts";
 
 export interface ComposerProps {
 	/** The connection this session is drawn from, which is also where commands go. */
@@ -102,12 +100,8 @@ function promptRow(
 	write: (text: string) => void,
 	offering: readonly Suggestion[],
 ): ReactNode {
-	const take = (deliverAs: "steer" | "followUp"): void => {
-		const text = draft.trim();
-		if (text === "") return;
-		send("prompt.send", { text, deliverAs });
-		write("");
-	};
+	const take = (deliverAs: "steer" | "followUp"): void =>
+		takeDraft(send, draft, () => write(""), deliverAs);
 	const empty = draft.trim() === "";
 	return h(
 		"div",
