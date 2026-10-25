@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import { findWebDir } from "../daemon/app.ts";
 import { Daemon } from "../daemon/server.ts";
-import { CLIENT_PORT, daemonDir, daemonPaths, settingsPath } from "../places.ts";
+import { CLIENT_PORT, daemonDir, daemonPaths, PORT_ID, portOf, settingsPath } from "../places.ts";
 import { VERSION } from "../version.ts";
 import { open } from "./open.ts";
 
@@ -97,10 +97,14 @@ export function portFromSettings(): number {
 		return CLIENT_PORT;
 	}
 	if (typeof data !== "object" || data === null) return CLIENT_PORT;
-	const value = (data as Record<string, unknown>)["remote.port"];
-	if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 65_535)
-		return CLIENT_PORT;
-	return value;
+	// The file is nested (`{ "remote": { "port": … } }`), the id is dotted: walking it is the same
+	// lookup the kit does, written here because the built command may import only Node's modules.
+	let node: unknown = data;
+	for (const key of PORT_ID.split(".")) {
+		if (typeof node !== "object" || node === null) return CLIENT_PORT;
+		node = (node as Record<string, unknown>)[key];
+	}
+	return portOf(node) ?? CLIENT_PORT;
 }
 
 /** The daemon from `src/`, restarted by Bun on every save. Only a checkout of the repository has it. */

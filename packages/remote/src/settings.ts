@@ -1,8 +1,8 @@
 // The remote's own settings: what the operator changes without reading code. They live beside the
 // extension because the daemon is the one that listens, and the bridge is the one that starts it.
-import { integer, setting } from "@adeildo/pi-kit";
+import { type Decoder, integer, setting } from "@adeildo/pi-kit";
 
-import { CLIENT_PORT } from "./places.ts";
+import { CLIENT_PORT, PORT_ID } from "./places.ts";
 
 export const REMOTE_SECTION = "Remote";
 
@@ -11,10 +11,12 @@ export const REMOTE_SECTION = "Remote";
  * an installed web app remembers has to stay the same across restarts, and because a port already
  * taken by another program is a fault the operator has to be able to fix without a shell.
  */
+const portRule: Decoder<number> = integer(1, 65_535);
+
 export const port = setting<number>({
-	id: "remote.port",
+	id: PORT_ID,
 	default: CLIENT_PORT,
-	decoder: integer(1, 65_535),
+	decoder: portRule,
 	ui: {
 		section: REMOTE_SECTION,
 		label: "Port for clients",
