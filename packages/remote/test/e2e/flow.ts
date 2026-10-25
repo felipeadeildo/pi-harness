@@ -402,7 +402,9 @@ async function sentWhileOffline(page: Page, rig: Rig): Promise<Result> {
 
 		await page.context().setOffline(false);
 		await page.reload({ waitUntil: "domcontentloaded" });
-		await page.getByTestId("composer").waitFor({ timeout: 60_000 });
+		// The command drains on the reload and starts a run, and the scripted model asks its question
+		// again, which takes the composer's place on screen: the composer is there, not shown.
+		await page.getByTestId("composer").waitFor({ state: "attached", timeout: 60_000 });
 
 		const arrived = Date.now() + 60_000;
 		while (rig.session.sessionManager.getBranch().length <= before && Date.now() < arrived)
@@ -437,10 +439,11 @@ async function sentWhileOffline(page: Page, rig: Rig): Promise<Result> {
  */
 async function survivesRestart(page: Page): Promise<Result> {
 	try {
-		const picker = page.getByRole("radio", { name: "edits", exact: true });
+		const dial = page.getByRole("button", { name: /^Permission mode: / });
 		const isEdits = async (): Promise<boolean> =>
-			(await picker.getAttribute("aria-checked")) === "true";
-		await picker.click({ timeout: 20_000 });
+			((await dial.getAttribute("aria-label")) ?? "").endsWith(": edits");
+		await dial.click({ timeout: 20_000 });
+		await page.getByRole("radio", { name: "edits", exact: true }).click({ timeout: 20_000 });
 		// The chip follows the state, so a mode that sticks is the state having taken it.
 		const chosen = Date.now() + 20_000;
 		while (!(await isEdits()) && Date.now() < chosen) await Bun.sleep(100);

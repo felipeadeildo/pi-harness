@@ -75,20 +75,56 @@ export function Action({ label, onPress, disabled }: ControlProps): ReactNode {
 }
 
 /**
- * One of a few values, exactly one of which is on. The chosen one is told by a heavier line and a
- * heavier weight as well as by color, and a screen reader hears it as a radio that is checked.
+ * A picker that shows what is chosen and opens the list: the value is the label, so the row reads as
+ * "Permission mode: edits" to a screen reader and as the value to the eye, and it keeps its width when
+ * the value changes.
  */
-export function Chip({
+export function Trigger({
+	title,
+	value,
+	onPress,
+}: {
+	title: string;
+	value: string;
+	onPress?: () => void;
+}): ReactNode {
+	return (
+		<Pressable
+			role="button"
+			aria-label={`${title}: ${value}`}
+			aria-disabled={onPress === undefined}
+			disabled={onPress === undefined}
+			onPress={onPress}
+			style={{
+				flexShrink: 1,
+				minHeight: theme.hit,
+				paddingHorizontal: theme.space(4),
+				borderRadius: theme.radius(2),
+				borderWidth: theme.line.hairline,
+				borderColor: theme.color.border,
+				alignItems: "center",
+				justifyContent: "center",
+			}}
+		>
+			<Text numberOfLines={1} style={{ ...theme.type.label, color: theme.color.text }}>
+				{value}
+				{onPress === undefined ? "" : " \u25BE"}
+			</Text>
+		</Pressable>
+	);
+}
+
+/** One row of a list where exactly one is on: a heavier weight and a mark say which, not color alone. */
+export function Option({
 	label,
+	hint,
 	chosen,
 	onPress,
-	hint,
 }: {
 	label: string;
+	hint?: string;
 	chosen: boolean;
 	onPress: () => void;
-	/** What the value means, read after the label by a screen reader. */
-	hint?: string;
 }): ReactNode {
 	return (
 		<Pressable
@@ -100,22 +136,27 @@ export function Chip({
 			style={{
 				minHeight: theme.hit,
 				paddingHorizontal: theme.space(4),
-				borderRadius: theme.radius(2),
-				borderWidth: chosen ? theme.line.thick : theme.line.hairline,
-				borderColor: chosen ? theme.color.text : theme.color.border,
+				flexDirection: "row",
 				alignItems: "center",
-				justifyContent: "center",
+				justifyContent: "space-between",
+				gap: theme.space(3),
 			}}
 		>
-			<Text
-				style={{
-					...theme.type.label,
-					fontWeight: chosen ? "600" : "500",
-					color: chosen ? theme.color.text : theme.color.muted,
-				}}
-			>
-				{label}
+			<Text style={{ flex: 1 }}>
+				<Text
+					style={{
+						...theme.type.body,
+						fontWeight: chosen ? "600" : "400",
+						color: theme.color.text,
+					}}
+				>
+					{label}
+				</Text>
+				{hint === undefined ? null : (
+					<Text style={{ ...theme.type.caption, color: theme.color.muted }}>{`  ${hint}`}</Text>
+				)}
 			</Text>
+			<Text style={{ ...theme.type.body, color: theme.color.text }}>{chosen ? "\u2713" : ""}</Text>
 		</Pressable>
 	);
 }

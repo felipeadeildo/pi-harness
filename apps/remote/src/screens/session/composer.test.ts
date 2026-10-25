@@ -10,8 +10,10 @@ import {
 	dropNow,
 	levelChoices,
 	modeChoices,
+	menuItems,
 	modelLabel,
 	outboxLine,
+	primaryAct,
 	sendNow,
 	stateOf,
 	takeDraft,
@@ -128,5 +130,34 @@ describe("the draft", () => {
 		takeDraft(send, "   ", () => (cleared += 1), "followUp");
 		expect(sent).toEqual([]);
 		expect(cleared).toBe(0);
+	});
+});
+
+describe("the field's row", () => {
+	test("the one filled button sends, and becomes Abort only for a run with nothing typed", () => {
+		expect(primaryAct(false, true)).toBe("send");
+		expect(primaryAct(false, false)).toBe("send");
+		expect(primaryAct(true, false)).toBe("send");
+		expect(primaryAct(true, true)).toBe("abort");
+	});
+
+	test("the overflow menu has the same rows every time, enabled when they can mean something", () => {
+		const idle = menuItems({ running: false, empty: true, canRename: true });
+		const going = menuItems({ running: true, empty: false, canRename: true });
+		expect(idle.map((one) => one.id)).toEqual(going.map((one) => one.id));
+		const enabled = (rows: typeof idle) => rows.filter((one) => one.enabled).map((one) => one.id);
+		expect(enabled(idle)).toEqual(["compact", "rename", "stop"]);
+		expect(enabled(going)).toEqual(["steer", "abort", "compact", "rename", "stop"]);
+	});
+
+	test("steering needs both a run and text, and renaming needs a screen that can ask", () => {
+		const only = (running: boolean, empty: boolean) =>
+			menuItems({ running, empty, canRename: false }).find((one) => one.id === "steer")?.enabled;
+		expect(only(true, true)).toBe(false);
+		expect(only(false, false)).toBe(false);
+		expect(only(true, false)).toBe(true);
+		expect(
+			menuItems({ running: false, empty: true, canRename: false }).map((one) => one.id),
+		).not.toContain("rename");
 	});
 });

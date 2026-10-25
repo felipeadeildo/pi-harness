@@ -40,7 +40,11 @@ export default function SessionRoute() {
 			</ScrollView>
 			{/* Everything from the live state, in one spread: naming a field here is how the snapshot's
 			    photograph got back into a picker. */}
-			<Composer client={client} {...composer} />
+			{/* A question takes the composer's place: two fields on a phone is one too many, and the
+			    composer stays mounted behind it, so the draft is there when the question closes. */}
+			<View style={{ display: asked === undefined ? "flex" : "none" }}>
+				<Composer client={client} {...composer} />
+			</View>
 			{asked === undefined ? null : <QuestionDialog ask={asked} client={client} />}
 		</View>
 	);

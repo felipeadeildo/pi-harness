@@ -1,7 +1,8 @@
-// The controls under the transcript, in the order a thumb reaches them: the field and the one filled
-// button on the first row, the session's pickers on the second, the quiet actions on the third. The
-// queues sit above them in a box of bounded height, so a message that arrives never pushes the
-// conversation. What each control decides lives in `composer-data.ts`; this file wires it.
+// The controls under the transcript, in the order a thumb reaches them: the lists above, then one strip
+// of pickers (mode, thinking, model), then the field with its one filled button. Two strips at rest.
+// Each picker shows its value and opens a sheet; the acts that do not belong to every moment sit behind
+// an overflow control, so the screen does not grow when a run starts. What each control decides lives
+// in `composer-data.ts`; this file wires it.
 import type { Client, Outgoing } from "@adeildo/pi-remote-client";
 import type {
 	CommandMap,
@@ -22,14 +23,18 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Action, Chip, Primary } from "../../ui/controls.tsx";
+import { Action, Option, Primary, Trigger } from "../../ui/controls.tsx";
+import { Sheet } from "../../ui/sheet.tsx";
 import { theme } from "../../ui/theme.ts";
 import {
 	dropNow,
 	levelChoices,
+	type MenuItem,
+	menuItems,
 	modeChoices,
 	modelLabel,
 	outboxLine,
+	primaryAct,
 	sendNow,
 	takeDraft,
 } from "./composer-data.ts";
@@ -53,6 +58,8 @@ export interface ComposerProps {
 	commands?: SessionCommand[];
 	/** Whether the session takes `mode.set`. */
 	serves?: boolean;
+	/** Whether a run is going, which is when Abort and Steer mean something. */
+	running?: boolean;
 	/** What the field starts with: a draft restored from the cache. */
 	initialDraft?: string;
 }
@@ -69,6 +76,7 @@ export function Composer({
 	waiting,
 	commands,
 	serves,
+	running = false,
 	initialDraft,
 }: ComposerProps): ReactNode {
 	// The queue changes without the session changing, so the composer hears the client itself.
@@ -94,6 +102,19 @@ export function Composer({
 	const lines = queuedLines(waiting ?? []);
 	const outbox = client.outbox().all();
 
+	const act = primaryAct(running, empty);
+	const menu = menuItems({ running, empty, canRename: ask !== undefined });
+	const runMenu = (id: (typeof menu)[number]["id"]): void => {
+		if (id === "steer") take("steer");
+		else if (id === "abort") send("run.abort", {});
+		else if (id === "compact") send("session.compact", {});
+		else if (id === "stop") send("session.stop", {});
+		else {
+			const name = ask?.("Name this session")?.trim();
+			if (name !== undefined && name !== "") send("session.rename", { name });
+		}
+	};
+
 	return (
 		<KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
 			<View
@@ -113,6 +134,7 @@ export function Composer({
 						<Held lines={lines} client={client} />
 					</ScrollView>
 				)}
+				<Pickers send={send} mode={mode} serves={serves} model={model} thinking={thinking} />
 				<View style={{ flexDirection: "row", gap: theme.space(3), alignItems: "center" }}>
 					<View style={{ flex: 1 }}>
 						<Suggestions offering={offering} write={write} />
@@ -136,28 +158,46 @@ export function Composer({
 							}}
 						/>
 					</View>
-					<Primary label="Send" disabled={empty} onPress={() => take("followUp")} />
+					<Overflow items={menu} onPick={runMenu} />
+					{act === "abort" ? (
+						<Primary label="Abort" onPress={() => send("run.abort", {})} />
+					) : (
+						<Primary label="Send" disabled={empty} onPress={() => take("followUp")} />
+					)}
 				</View>
-				<Pickers send={send} mode={mode} serves={serves} model={model} thinking={thinking} />
-				<ScrollView horizontal showsHorizontalScrollIndicator={false}>
-					<View style={{ flexDirection: "row", gap: theme.space(3) }}>
-						<Action label="Steer now" disabled={empty} onPress={() => take("steer")} />
-						<Action label="Abort" onPress={() => send("run.abort", {})} />
-						<Action label="Compact" onPress={() => send("session.compact", {})} />
-						<Action label="Stop" onPress={() => send("session.stop", {})} />
-						{ask === undefined ? null : (
-							<Action
-								label="Rename"
-								onPress={() => {
-									const name = ask("Name this session")?.trim();
-									if (name !== undefined && name !== "") send("session.rename", { name });
-								}}
-							/>
-						)}
-					</View>
-				</ScrollView>
 			</View>
 		</KeyboardAvoidingView>
+	);
+}
+
+/** The acts behind one control: the same rows every time, the ones that cannot mean anything dimmed. */
+function Overflow({
+	items,
+	onPick,
+}: {
+	items: readonly MenuItem[];
+	onPick: (id: MenuItem["id"]) => void;
+}): ReactNode {
+	const [open, setOpen] = useState(false);
+	return (
+		<>
+			<Action label="More" onPress={() => setOpen(true)} />
+			{open ? (
+				<Sheet title="More" onClose={() => setOpen(false)}>
+					{items.map((item) => (
+						<Action
+							key={item.id}
+							label={item.label}
+							disabled={!item.enabled}
+							onPress={() => {
+								setOpen(false);
+								onPick(item.id);
+							}}
+						/>
+					))}
+				</Sheet>
+			) : null}
+		</>
 	);
 }
 
@@ -244,49 +284,37 @@ function Pickers({
 	model: { provider: string; id: string } | undefined;
 	thinking: string | undefined;
 }): ReactNode {
+	const [open, setOpen] = useState<"mode" | "thinking" | undefined>(undefined);
 	const modes = modeChoices(mode, serves);
-	const named = model === undefined ? null : modelLabel(model);
+	const levels = levelChoices(thinking);
+	const current = (list: readonly { value: string; chosen: boolean }[]): string =>
+		list.find((one) => one.chosen)?.value ?? "";
 	return (
-		<View style={{ gap: theme.space(2) }}>
-			{/* One row for both pickers: the mode and the thinking are the two a person changes mid-run, and
-			    two rows of chips took a third of a phone's height from the conversation. */}
-			<ScrollView horizontal showsHorizontalScrollIndicator={false}>
-				<View style={{ flexDirection: "row", gap: theme.space(5) }}>
-					{modes.length === 0 ? null : (
-						<View
-							role="radiogroup"
-							aria-label="Permission mode"
-							style={{ flexDirection: "row", gap: theme.space(3) }}
-						>
-							{modes.map((one) => (
-								<Chip
-									key={one.value}
-									label={one.value}
-									hint={one.hint}
-									chosen={one.chosen}
-									onPress={() => send("mode.set", { mode: one.value })}
-								/>
-							))}
-						</View>
-					)}
-					<View
-						role="radiogroup"
-						aria-label="Thinking"
-						style={{ flexDirection: "row", gap: theme.space(3) }}
-					>
-						{levelChoices(thinking).map((one) => (
-							<Chip
-								key={one.value}
-								label={one.value}
-								chosen={one.chosen}
-								onPress={() => send("thinking.set", { level: one.value })}
-							/>
-						))}
-					</View>
-				</View>
-			</ScrollView>
-			{named === null ? null : (
-				<Text style={{ ...theme.type.caption, color: theme.color.muted }}>{named}</Text>
+		<View style={{ flexDirection: "row", gap: theme.space(3) }}>
+			{modes.length === 0 ? null : (
+				<Trigger title="Permission mode" value={current(modes)} onPress={() => setOpen("mode")} />
+			)}
+			<Trigger title="Thinking" value={current(levels)} onPress={() => setOpen("thinking")} />
+			<Trigger title="Model" value={modelLabel(model)} />
+			{open === undefined ? null : (
+				<Sheet
+					title={open === "mode" ? "Permission mode" : "Thinking"}
+					onClose={() => setOpen(undefined)}
+				>
+					{(open === "mode" ? modes : levels).map((one) => (
+						<Option
+							key={one.value}
+							label={one.value}
+							hint={"hint" in one ? one.hint : undefined}
+							chosen={one.chosen}
+							onPress={() => {
+								setOpen(undefined);
+								if (open === "mode") send("mode.set", { mode: one.value as PermissionMode });
+								else send("thinking.set", { level: one.value });
+							}}
+						/>
+					))}
+				</Sheet>
 			)}
 		</View>
 	);

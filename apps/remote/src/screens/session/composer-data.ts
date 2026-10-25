@@ -47,6 +47,42 @@ export function levelChoices(thinking: string | undefined): Choice<string>[] {
 	return THINKING_LEVELS.map((value) => ({ value, chosen: value === (thinking ?? "off") }));
 }
 
+/**
+ * What the one filled button does. Typing always sends. With nothing typed it is a dead button, except
+ * during a run, where it becomes Abort in the same place: the button keeps its footprint and the field
+ * does not move when a run starts.
+ */
+export function primaryAct(running: boolean, empty: boolean): "send" | "abort" {
+	return running && empty ? "abort" : "send";
+}
+
+/** An act the overflow menu offers, and whether it can run now. */
+export interface MenuItem {
+	id: "steer" | "abort" | "compact" | "rename" | "stop";
+	label: string;
+	enabled: boolean;
+}
+
+/**
+ * The acts behind the overflow control. Each is there always and enabled when it can mean something, so
+ * the menu has the same rows every time it opens: steering needs text and a run, aborting needs a run,
+ * and renaming needs a screen that can ask for a name.
+ */
+export function menuItems(state: {
+	running: boolean;
+	empty: boolean;
+	canRename: boolean;
+}): MenuItem[] {
+	const items: MenuItem[] = [
+		{ id: "steer", label: "Steer now", enabled: state.running && !state.empty },
+		{ id: "abort", label: "Abort the run", enabled: state.running },
+		{ id: "compact", label: "Compact", enabled: true },
+	];
+	if (state.canRename) items.push({ id: "rename", label: "Rename", enabled: true });
+	items.push({ id: "stop", label: "Stop the session", enabled: true });
+	return items;
+}
+
 /** The model the session is on, as the one line the picker shows. */
 export function modelLabel(model: { provider: string; id: string } | undefined): string {
 	return model === undefined ? "no model" : model.id;
