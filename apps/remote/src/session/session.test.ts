@@ -171,7 +171,7 @@ describe("the socket", () => {
 			seq: 1,
 			type: "state",
 			data: {
-				snapshot: { session: "s1", machine: "box", cwd: "/", kind: "terminal" },
+				summary: { session: "s1", machine: "box", cwd: "/", kind: "terminal" },
 				entries: [entry],
 			},
 			at: 0,

@@ -22,7 +22,7 @@ describe("a client of the daemon", () => {
 	test("opens a session from the snapshot and the events after it, then follows it live", async () => {
 		const { daemon, port, cookie } = await openDaemon();
 		const bridge = await bridgeOf("s1");
-		bridge.snapshot([entry("a", null)]);
+		bridge.state([entry("a", null)]);
 		bridge.send("entry", entry("b", "a"));
 		bridge.send("mode.changed", { mode: "judge" });
 		await until(() => daemon.sessions.get("s1")?.state.permissions.mode === "judge");
@@ -46,8 +46,8 @@ describe("a client of the daemon", () => {
 		const { port, cookie } = await openDaemon();
 		const first = await bridgeOf("s1");
 		const second = await bridgeOf("s2");
-		first.snapshot([entry("a", null)]);
-		second.snapshot([entry("x", null)]);
+		first.state([entry("a", null)]);
+		second.state([entry("x", null)]);
 		const open = (session: string) =>
 			connect({
 				key: { machine: "laptop", session },
@@ -70,7 +70,7 @@ describe("a client of the daemon", () => {
 	test("a cursor it can resume from gets only what it missed", async () => {
 		const { daemon, port, cookie } = await openDaemon();
 		const bridge = await bridgeOf("s1");
-		bridge.snapshot([entry("a", null)]);
+		bridge.state([entry("a", null)]);
 		for (const id of ["b", "c", "d"]) bridge.send("entry", entry(id, null));
 		await until(() => daemon.sessions.after("s1", { epoch: "e1", seq: 0 })?.length === 3);
 
@@ -97,7 +97,7 @@ describe("a client of the daemon", () => {
 		await client.load();
 		await until(() => daemon.watched().get("s1") === 1);
 		const bridge = await bridgeOf("s1");
-		bridge.snapshot([entry("a", null)]);
+		bridge.state([entry("a", null)]);
 		await until(() => client.session().entries.length === 1);
 		client.stop();
 		// Once nobody watches, the session leaves no entry behind.
@@ -107,8 +107,8 @@ describe("a client of the daemon", () => {
 	test("a queue that changed reaches a client that resumes, through the replay", async () => {
 		const { daemon } = await openDaemon();
 		const bridge = await bridgeOf("s1");
-		bridge.snapshot([]);
-		await until(() => daemon.sessions.get("s1")?.snapshot !== undefined);
+		bridge.state([]);
+		await until(() => daemon.sessions.get("s1")?.opening !== undefined);
 		const queued = {
 			id: "m1",
 			by: { kind: "client", name: "phone", machine: "laptop" },
@@ -140,7 +140,7 @@ describe("a client of the daemon", () => {
 		ws.send(JSON.stringify(envelope("hello", "hello", {}, { machine: "laptop", session: "s1" })));
 
 		const bridge = await bridgeOf("s1");
-		bridge.snapshot([entry("a", null)]);
+		bridge.state([entry("a", null)]);
 		await until(() => heard.some((one) => one.kind === "event" && one.type === "state"));
 		// The daemon keeps the answer, so it never asks the bridge for a second one.
 		expect(bridge.asked.some((one) => one.type === "state.get")).toBe(false);
@@ -155,17 +155,17 @@ describe("a client of the daemon", () => {
 		bridge.send("ask.opened", { id: "q1", source: "ask-questions", questions: [] });
 		bridge.send("ask.closed", { id: "q1", result: { answers: [], cancelled: true } });
 		bridge.send("mode.changed", { mode: "full" });
-		bridge.snapshot([]);
+		bridge.state([]);
 		await until(() => daemon.sessions.get("s1")?.state.permissions.mode === "full");
 
-		const response = await fetch(`http://127.0.0.1:${port}/sessions/laptop/s1/snapshot`, {
+		const response = await fetch(`http://127.0.0.1:${port}/sessions/laptop/s1/opening`, {
 			headers: { Cookie: cookie },
 		});
 		const snapshot = (await response.json()) as Envelope & {
-			data: { snapshot: { state: Record<string, unknown> } };
+			data: { summary: { state: Record<string, unknown> } };
 		};
 		// One shape for everyone: the mode the log ended on, and the question with its answer.
-		const state = snapshot.data.snapshot.state as {
+		const state = snapshot.data.summary.state as {
 			permissions: { mode?: string };
 			questions: Record<string, unknown>;
 		};
@@ -176,10 +176,10 @@ describe("a client of the daemon", () => {
 	test("the HTTP routes: health, the session list, and a snapshot only for a known machine", async () => {
 		const { daemon, port, cookie } = await openDaemon();
 		const bridge = await bridgeOf("s1");
-		bridge.snapshot([]);
+		bridge.state([]);
 		const get = (path: string) =>
 			fetch(`http://127.0.0.1:${port}${path}`, { headers: { Cookie: cookie } });
-		await until(() => daemon.sessions.get("s1")?.snapshot !== undefined);
+		await until(() => daemon.sessions.get("s1")?.opening !== undefined);
 
 		expect(await (await get("/health")).json()).toMatchObject({
 			version: "1.2.0",
@@ -187,11 +187,11 @@ describe("a client of the daemon", () => {
 		});
 		const list = (await (await get("/sessions")).json()) as unknown[];
 		expect(list).toMatchObject([{ machine: "laptop", session: "s1", connected: true }]);
-		expect((await get("/sessions/desktop/s1/snapshot")).status).toBe(404);
+		expect((await get("/sessions/desktop/s1/opening")).status).toBe(404);
 		expect((await get("/nowhere")).status).toBe(404);
 		// A segment that does not decode is refused, and the daemon goes on answering.
-		expect((await get("/sessions/laptop/%E0%A4%A/snapshot")).status).toBe(400);
-		expect((await get("/sessions/laptop/s%31/snapshot")).status).toBe(200);
+		expect((await get("/sessions/laptop/%E0%A4%A/opening")).status).toBe(400);
+		expect((await get("/sessions/laptop/s%31/opening")).status).toBe(200);
 		expect((await get("/health")).status).toBe(200);
 	});
 });
@@ -199,7 +199,7 @@ describe("a client of the daemon", () => {
 test("a client's command reaches the session's bridge, and the answer comes back to it alone", async () => {
 	const { daemon, port, cookie } = await openDaemon();
 	const bridge = await bridgeOf("s1");
-	bridge.snapshot([]);
+	bridge.state([]);
 	await until(() => daemon.sessions.get("s1") !== undefined);
 	const origin = `http://127.0.0.1:${port}`;
 	const open = async (): Promise<{ ws: WebSocket; heard: Envelope[] }> => {
@@ -243,7 +243,7 @@ test("a client's command reaches the session's bridge, and the answer comes back
 test("a second client asking with an id in flight is refused, and the first keeps its answer", async () => {
 	const { daemon, port, cookie } = await openDaemon();
 	const bridge = await bridgeOf("s1");
-	bridge.snapshot([]);
+	bridge.state([]);
 	await until(() => daemon.sessions.get("s1") !== undefined);
 	const origin = `http://127.0.0.1:${port}`;
 	const open = async (): Promise<{ ws: WebSocket; heard: Envelope[] }> => {
@@ -294,7 +294,7 @@ test("a second client asking with an id in flight is refused, and the first keep
 test("a session that ends forgets who was watching, so a relaunch starts clean", async () => {
 	const { daemon, port, cookie } = await openDaemon();
 	const bridge = await bridgeOf("s1");
-	bridge.snapshot([]);
+	bridge.state([]);
 	await until(() => daemon.sessions.get("s1") !== undefined);
 	// The terminal of the session typed, so it is a viewer and the active one.
 	bridge.send("presence.here", { by: { kind: "terminal", name: "otter", machine: "laptop" } });
@@ -304,7 +304,7 @@ test("a session that ends forgets who was watching, so a relaunch starts clean",
 
 	// The same session comes back under the same id, as `pi --continue` does.
 	const again = await bridgeOf("s1", "e2");
-	again.snapshot([]);
+	again.state([]);
 	const heard: Envelope[] = [];
 	const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
 		headers: { Origin: `http://127.0.0.1:${port}`, Cookie: cookie },
@@ -382,7 +382,7 @@ describe("a daemon that answers for itself", () => {
 	test("a session no bridge registered gets no answer, and the one that exists still does", async () => {
 		const { daemon, port, cookie } = await openDaemon();
 		const bridge = await bridgeOf("s1");
-		bridge.snapshot([entry("a", null)]);
+		bridge.state([entry("a", null)]);
 		await until(() => daemon.sessions.get("s1") !== undefined);
 
 		const heard: Envelope[] = [];
@@ -403,7 +403,7 @@ describe("a daemon that answers for itself", () => {
 	test("a session that ended keeps the answer it gave, and a socket back mid-stream finds the same message", async () => {
 		const { daemon, port, cookie } = await openDaemon();
 		const bridge = await bridgeOf("s1");
-		bridge.snapshot([entry("a", null)]);
+		bridge.state([entry("a", null)]);
 		bridge.send("stream.bound", { messages: [{ stream: 1, entry: "a" }] });
 		bridge.send("pi.message_update", {
 			type: "message_update",

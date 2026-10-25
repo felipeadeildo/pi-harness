@@ -77,7 +77,7 @@ const snapshot: Envelope = {
 	seq: 1,
 	type: "state",
 	data: {
-		snapshot: { session: key.session, machine: key.machine, cwd: "/work", kind: "terminal" },
+		summary: { session: key.session, machine: key.machine, cwd: "/work", kind: "terminal" },
 		entries: [],
 		state: emptySessionState(),
 	},

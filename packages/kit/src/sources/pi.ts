@@ -3,7 +3,7 @@
 // may have added one.
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import type { SessionSnapshot, SessionSource, SourceItem } from "../contracts/sources.ts";
+import type { SessionSummary, SessionSource, SourceItem } from "../contracts/sources.ts";
 import { HOST } from "../events/log.ts";
 
 interface Follower {
@@ -61,11 +61,11 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 		}
 		for (const entry of entries.slice(follower.seen)) follower.on({ kind: "entry", entry });
 		follower.seen = entries.length;
-		const snapshot = snapshotOf(current);
-		const text = JSON.stringify(snapshot);
+		const summary = snapshotOf(current);
+		const text = JSON.stringify(summary);
 		if (text === follower.sent) return;
 		follower.sent = text;
-		follower.on({ kind: "snapshot", snapshot });
+		follower.on({ kind: "summary", summary });
 	}
 
 	function changed(next: ExtensionContext): void {
@@ -99,7 +99,7 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 	pi.on("session_shutdown", finish);
 
 	return {
-		snapshot() {
+		open() {
 			if (ctx === undefined) return Promise.reject(new Error("the session has not started"));
 			return Promise.resolve(snapshotOf(ctx));
 		},
@@ -119,7 +119,7 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 	};
 }
 
-function snapshotOf(ctx: ExtensionContext): SessionSnapshot {
+function snapshotOf(ctx: ExtensionContext): SessionSummary {
 	const session = ctx.sessionManager;
 	const usage = ctx.getContextUsage();
 	return {

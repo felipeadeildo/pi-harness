@@ -31,8 +31,8 @@ function restarted(): Sessions {
 function opening(sessions: Sessions): SessionState | undefined {
 	const first = sessions.opening("s")?.[0];
 	if (first === undefined) return undefined;
-	const data = first.data as { snapshot: { state?: SessionState } };
-	return data.snapshot.state;
+	const data = first.data as { summary: { state?: SessionState } };
+	return data.summary.state;
 }
 
 describe("a daemon that restarts", () => {
@@ -49,7 +49,7 @@ describe("a daemon that restarts", () => {
 				"event",
 				"state",
 				{
-					snapshot: { session: "s", machine: "m", cwd: "/x", kind: "terminal", state: folded },
+					summary: { session: "s", machine: "m", cwd: "/x", kind: "terminal", state: folded },
 					entries: [],
 				},
 				around(1),
@@ -70,7 +70,7 @@ describe("a daemon that restarts", () => {
 				"event",
 				"state",
 				{
-					snapshot: {
+					summary: {
 						session: "s",
 						machine: "m",
 						cwd: "/x",

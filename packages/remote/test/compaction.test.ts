@@ -108,12 +108,12 @@ test("a follow-up sent while pi compacts reaches pi after the compaction", async
 	const { daemon, cookie } = await startDaemon();
 	rig = await openRig();
 	const session = rig.session.sessionId;
-	await until(() => daemon.sessions.get(session)?.snapshot !== undefined, SLOW);
+	await until(() => daemon.sessions.get(session)?.opening !== undefined, SLOW);
 
 	const opened = clientOf(session, () => daemon.clientPort ?? 0, cookie);
 	client = opened.client;
 	await client.load();
-	await until(() => opened.client.session().snapshot !== undefined, SLOW);
+	await until(() => opened.client.session().summary !== undefined, SLOW);
 
 	// Something to compact, and a run that ends before the compaction starts.
 	await rig.prompt("the first turn");

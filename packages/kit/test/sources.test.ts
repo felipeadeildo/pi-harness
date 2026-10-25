@@ -99,7 +99,7 @@ describe("a session file as a source", () => {
 			assistant(1200),
 		);
 		const last = JSON.parse(readFileSync(path, "utf8").trim().split("\n").at(-1) ?? "{}");
-		expect(await fileSource(path).snapshot()).toEqual({
+		expect(await fileSource(path).open()).toEqual({
 			session: "s1",
 			machine: HOST,
 			cwd: "/work",
@@ -114,7 +114,7 @@ describe("a session file as a source", () => {
 	test("an aborted answer and a compaction leave the context unknown until the next answer", async () => {
 		const aborted = await fileSource(
 			sessionFile(HEADER, assistant(500), assistant(0, "aborted")),
-		).snapshot();
+		).open();
 		expect(aborted.context).toEqual({ tokens: 500 });
 		const compacted = await fileSource(
 			sessionFile(
@@ -122,16 +122,16 @@ describe("a session file as a source", () => {
 				assistant(500),
 				entry({ type: "compaction", summary: "", firstKeptEntryId: "x", tokensBefore: 500 }),
 			),
-		).snapshot();
+		).open();
 		expect(compacted.context).toBeUndefined();
 	});
 
 	test("a file with no header yet has no snapshot", async () => {
 		const path = join(mkdtempSync(join(tmpdir(), "source-")), "missing.jsonl");
-		await expect(fileSource(path).snapshot()).rejects.toThrow("no session");
+		await expect(fileSource(path).open()).rejects.toThrow("no session");
 	});
 
-	test("follows the entries, with the snapshot first and again when it changes", async () => {
+	test("follows the entries, with the summary first and again when it changes", async () => {
 		const first = user("hi");
 		const path = sessionFile(HEADER, first);
 		const later = assistant(900);
@@ -141,8 +141,8 @@ describe("a session file as a source", () => {
 			(got) => got.length >= 4,
 			() => setTimeout(() => append(path, later), 20),
 		);
-		expect(kinds(items)).toEqual([first.id, "snapshot", later.id, "snapshot"]);
-		const snapshots = items.flatMap((item) => (item.kind === "snapshot" ? [item.snapshot] : []));
+		expect(kinds(items)).toEqual([first.id, "summary", later.id, "summary"]);
+		const snapshots = items.flatMap((item) => (item.kind === "summary" ? [item.summary] : []));
 		expect(snapshots.map((snapshot) => snapshot.leafId)).toEqual([first.id, later.id]);
 	});
 
@@ -154,7 +154,7 @@ describe("a session file as a source", () => {
 			{ entry: a.id },
 			(got) => got.length >= 2,
 		);
-		expect(kinds(items)).toEqual([b.id, "snapshot"]);
+		expect(kinds(items)).toEqual([b.id, "summary"]);
 	});
 
 	test("a cursor the file does not hold starts over, saying so", async () => {
@@ -164,13 +164,13 @@ describe("a session file as a source", () => {
 			{ entry: "gone" },
 			(got) => got.length >= 3,
 		);
-		expect(kinds(items)).toEqual(["reset", a.id, "snapshot"]);
+		expect(kinds(items)).toEqual(["reset", a.id, "summary"]);
 	});
 
 	test("a cursor with nothing it reads starts over, saying so", async () => {
 		const a = user("a");
 		const items = await collect(fileSource(sessionFile(HEADER, a)), {}, (got) => got.length >= 3);
-		expect(kinds(items)).toEqual(["reset", a.id, "snapshot"]);
+		expect(kinds(items)).toEqual(["reset", a.id, "summary"]);
 	});
 
 	test("goes on after its cursor without starting over again", async () => {
@@ -184,7 +184,7 @@ describe("a session file as a source", () => {
 			(got) => kinds(got).includes(c.id),
 			() => setTimeout(() => append(path, c), 20),
 		);
-		expect(kinds(items)).toEqual([b.id, "snapshot", c.id, "snapshot"]);
+		expect(kinds(items)).toEqual([b.id, "summary", c.id, "summary"]);
 	});
 
 	test("sends the snapshot again only when it changed", async () => {
@@ -201,7 +201,7 @@ describe("a session file as a source", () => {
 				setTimeout(() => append(path, b), 80);
 			},
 		);
-		expect(kinds(items)).toEqual([a.id, "snapshot", b.id, "snapshot"]);
+		expect(kinds(items)).toEqual([a.id, "summary", b.id, "summary"]);
 	});
 
 	test("a file rewritten as another session starts over, header and all", async () => {
@@ -214,10 +214,10 @@ describe("a session file as a source", () => {
 			(got) => got.length >= 5,
 			() => setTimeout(() => sessionRewrite(path, { ...HEADER, id: "s2", cwd: "/other" }, x), 20),
 		);
-		expect(kinds(items)).toEqual([a.id, "snapshot", "reset", x.id, "snapshot"]);
+		expect(kinds(items)).toEqual([a.id, "summary", "reset", x.id, "summary"]);
 		expect(items.at(-1)).toEqual({
-			kind: "snapshot",
-			snapshot: { session: "s2", machine: HOST, cwd: "/other", leafId: x.id },
+			kind: "summary",
+			summary: { session: "s2", machine: HOST, cwd: "/other", leafId: x.id },
 		});
 	});
 
@@ -235,7 +235,7 @@ describe("a session file as a source", () => {
 				}, 20),
 		);
 		await Bun.sleep(20);
-		expect(kinds(items)).toEqual([a.id, "snapshot", b.id, "snapshot"]);
+		expect(kinds(items)).toEqual([a.id, "summary", b.id, "summary"]);
 	});
 });
 
@@ -259,10 +259,10 @@ describe("this pi as a source", () => {
 	test("its snapshot comes from the session's context", async () => {
 		const fake = fakePi();
 		const source = piSource(fake.pi);
-		await expect(source.snapshot()).rejects.toThrow("not started");
+		await expect(source.open()).rejects.toThrow("not started");
 		const a = user("a");
 		await fake.fire("session_start", {}, session([a]));
-		expect(await source.snapshot()).toEqual({
+		expect(await source.open()).toEqual({
 			session: "s1",
 			machine: HOST,
 			cwd: "/work",
@@ -283,7 +283,7 @@ describe("this pi as a source", () => {
 		await fake.fire("session_start", {}, ctx);
 		const items: SourceItem[] = [];
 		source.follow(undefined, (item) => items.push(item));
-		expect(kinds(items)).toEqual([a.id, "snapshot"]);
+		expect(kinds(items)).toEqual([a.id, "summary"]);
 
 		// Pi writes the entry after the extensions hear of `message_end`.
 		await fake.fire("message_end", {}, ctx);
@@ -291,7 +291,7 @@ describe("this pi as a source", () => {
 		entries.push(b);
 		await fake.fire("turn_end", {}, ctx);
 		await Bun.sleep(5);
-		expect(kinds(items)).toEqual([a.id, "snapshot", b.id, "snapshot"]);
+		expect(kinds(items)).toEqual([a.id, "summary", b.id, "summary"]);
 
 		await fake.fire("session_shutdown", {}, ctx);
 		expect(items.at(-1)).toEqual({ kind: "ended" });
@@ -309,7 +309,7 @@ describe("this pi as a source", () => {
 		const b = assistant(10);
 		entries.push(b);
 		await Bun.sleep(5);
-		expect(kinds(items).slice(2)).toEqual([b.id, "snapshot"]);
+		expect(kinds(items).slice(2)).toEqual([b.id, "summary"]);
 	});
 
 	test("sends the snapshot again only when it changed", async () => {
@@ -321,7 +321,7 @@ describe("this pi as a source", () => {
 		source.follow(undefined, (item) => items.push(item));
 		await fake.fire("turn_end", {}, ctx);
 		await Bun.sleep(5);
-		expect(kinds(items).slice(1)).toEqual(["snapshot"]);
+		expect(kinds(items).slice(1)).toEqual(["summary"]);
 	});
 
 	test.each([
@@ -340,7 +340,7 @@ describe("this pi as a source", () => {
 		source.follow(undefined, (item) => items.push(item));
 		await fake.fire(event, {}, session(entries, { thinkingLevel: "high" }));
 		await Bun.sleep(5);
-		expect(items.at(-1)).toMatchObject({ kind: "snapshot", snapshot: { thinkingLevel: "high" } });
+		expect(items.at(-1)).toMatchObject({ kind: "summary", summary: { thinkingLevel: "high" } });
 	});
 
 	test("a follower that stopped hears nothing more", async () => {
@@ -357,7 +357,7 @@ describe("this pi as a source", () => {
 		await fake.fire("turn_end", {}, ctx);
 		await fake.fire("session_shutdown", {}, ctx);
 		await Bun.sleep(5);
-		expect(kinds(items)).toEqual([a.id, "snapshot"]);
+		expect(kinds(items)).toEqual([a.id, "summary"]);
 	});
 
 	test("a follower that comes after the session ended hears so at once", async () => {
@@ -379,14 +379,14 @@ describe("this pi as a source", () => {
 		await fake.fire("session_start", {}, session([a, b]));
 		const after: SourceItem[] = [];
 		source.follow({ entry: a.id }, (item) => after.push(item));
-		expect(kinds(after)).toEqual([b.id, "snapshot"]);
+		expect(kinds(after)).toEqual([b.id, "summary"]);
 		const unknown: SourceItem[] = [];
 		source.follow({ entry: "gone" }, (item) => unknown.push(item));
-		expect(kinds(unknown)).toEqual(["reset", a.id, b.id, "snapshot"]);
+		expect(kinds(unknown)).toEqual(["reset", a.id, b.id, "summary"]);
 		// What a newer cursor looks like to this source: none of the fields it reads.
 		const unread: SourceItem[] = [];
 		source.follow({}, (item) => unread.push(item));
-		expect(kinds(unread)).toEqual(["reset", a.id, b.id, "snapshot"]);
+		expect(kinds(unread)).toEqual(["reset", a.id, b.id, "summary"]);
 	});
 });
 

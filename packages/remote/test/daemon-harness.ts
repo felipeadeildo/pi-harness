@@ -74,9 +74,9 @@ export async function bridgeOf(session: string, epoch = "e1", file?: string) {
 		if (isStateChangeType(type)) harness = applyChange(harness, type, data);
 		client.write(line(envelope("event", type, data, { ...at, seq: seq++ })));
 	};
-	const snapshot = (entries: unknown[]) =>
+	const state = (entries: unknown[]) =>
 		send("state", {
-			snapshot: { session, machine: "laptop", cwd: "/repo", kind: "terminal", state: harness },
+			summary: { session, machine: "laptop", cwd: "/repo", kind: "terminal", state: harness },
 			entries,
 		});
 	client.setEncoding("utf8");
@@ -105,7 +105,7 @@ export async function bridgeOf(session: string, epoch = "e1", file?: string) {
 	);
 	const reply = (id: string, type: string, data: unknown) =>
 		client.write(line(envelope("reply", type, data, { ...at, id })));
-	return { send, snapshot, asked, reply, close: () => client.destroy() };
+	return { send, state, asked, reply, close: () => client.destroy() };
 }
 
 /** The P3 client over a real WebSocket, so the daemon is held to what the app will send. */

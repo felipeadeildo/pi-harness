@@ -40,8 +40,8 @@ describe("who reaches the daemon", () => {
 	test("a name the daemon does not answer to gets 421, so a rebound DNS name reads nothing", async () => {
 		const { daemon, port, cookie } = await openDaemon();
 		const bridge = await bridgeOf("s1");
-		bridge.snapshot([entry("a", null)]);
-		await until(() => daemon.sessions.get("s1")?.snapshot !== undefined);
+		bridge.state([entry("a", null)]);
+		await until(() => daemon.sessions.get("s1")?.opening !== undefined);
 		const status = (host: string) =>
 			new Promise<number>((resolve) => {
 				const raw = dial(port, "127.0.0.1");
@@ -50,7 +50,7 @@ describe("who reaches the daemon", () => {
 				raw.on("data", (chunk: string) => (answer += chunk));
 				raw.on("close", () => resolve(Number(answer.split(" ")[1])));
 				raw.write(
-					`GET /sessions/laptop/s1/snapshot HTTP/1.1\r\nHost: ${host}\r\nCookie: ${cookie}\r\nConnection: close\r\n\r\n`,
+					`GET /sessions/laptop/s1/opening HTTP/1.1\r\nHost: ${host}\r\nCookie: ${cookie}\r\nConnection: close\r\n\r\n`,
 				);
 			});
 		expect(await status(`attacker.example:${port}`)).toBe(421);

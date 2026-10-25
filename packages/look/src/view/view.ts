@@ -1,7 +1,7 @@
 // Another session over the whole screen: its transcript, then an editor box whose edges say its
 // folder, model and context as yours do, all inside one frame. A source that only reads, such as a
 // session file, has a line in place of the editor.
-import { entryFrame, type SessionSnapshot, type SessionSource } from "@adeildo/pi-kit";
+import { entryFrame, type SessionSummary, type SessionSource } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
 	type Component,
@@ -109,7 +109,7 @@ export class SessionView implements Component, Focusable {
 	}
 
 	/** The editor box, with your slots filled from the viewed session. */
-	#editor(width: number, session: SessionSnapshot | undefined): string[] {
+	#editor(width: number, session: SessionSummary | undefined): string[] {
 		const { screen, theme } = this.#options;
 		const style = screen.frameStyle();
 		const box = BOXES[style === "off" ? "rounded" : style];
@@ -133,7 +133,7 @@ export class SessionView implements Component, Focusable {
 }
 
 /** The viewed session's title and machine, or its id until its file says more. */
-function titleOf(snapshot: SessionSnapshot | undefined): string {
+function titleOf(snapshot: SessionSummary | undefined): string {
 	if (snapshot === undefined) return "Opening the session";
 	// With no title yet, the name a room gives a session it has no handle for.
 	const name = snapshot.name ?? `new-${snapshot.session.slice(-4)}`;
@@ -144,7 +144,7 @@ function titleOf(snapshot: SessionSnapshot | undefined): string {
  * What your slots read, filled from the viewed session. What it does not publish, such as its git
  * state, its account and its costs, stays empty, so those segments draw nothing.
  */
-export function lookSnapshot(yours: Snapshot, session: SessionSnapshot | undefined): Snapshot {
+export function lookSnapshot(yours: Snapshot, session: SessionSummary | undefined): Snapshot {
 	if (session === undefined) return { ...emptySnapshot(), now: yours.now, home: yours.home };
 	const window = session.context?.window;
 	return {

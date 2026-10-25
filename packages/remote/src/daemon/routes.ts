@@ -61,7 +61,7 @@ export class Routes {
 			return reply(response, 200, { version: this.#options.version, protocol: PROTOCOL, uptime });
 		}
 		if (path === "/sessions") return reply(response, 200, this.#list());
-		const route = /^\/sessions\/([^/]+)\/([^/]+)\/(snapshot|entries)$/.exec(path);
+		const route = /^\/sessions\/([^/]+)\/([^/]+)\/(opening|entries)$/.exec(path);
 		if (route !== null) {
 			const [machine, session] = route.slice(1, 3).map(decoded);
 			if (machine === undefined || session === undefined)
@@ -75,7 +75,7 @@ export class Routes {
 				return;
 			}
 			const opening = this.#options.sessions.opening(session);
-			if (opening === undefined) return reply(response, 404, { error: "no snapshot" });
+			if (opening === undefined) return reply(response, 404, { error: "no opening" });
 			return reply(response, 200, opening[0]);
 		}
 		// The app comes after every data route, so a file named like a route can never answer for it.
@@ -184,7 +184,7 @@ export class Routes {
 			connected: one.connected,
 			...(one.gone === undefined ? {} : { gone: one.gone }),
 			live: one.live,
-			...(one.snapshot === undefined ? {} : { snapshot: one.snapshot.snapshot }),
+			...(one.opening === undefined ? {} : { summary: one.opening.summary }),
 			state: one.state,
 		}));
 	}

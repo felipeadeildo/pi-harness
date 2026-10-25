@@ -43,10 +43,10 @@ draw.
 The list only grows. A field a later version adds is optional, so a daemon of a later version still reduces
 in a client of this one.
 
-## The snapshot
+## The opening
 
-`SessionSnapshot` is where a client starts: the session's name, handle, model, state, tasks, mode,
-cost, queue, and the entry its branch ends at. `isSnapshot` checks it, and checks the queue letter by
+`SessionSummary` is where a client starts: the session's name, handle, model, state, tasks, mode,
+cost, queue, and the entry its branch ends at. `isSummary` checks it, and checks the queue letter by
 letter.
 
 A reconnect says where it stopped — the last entry it holds and the last `seq` of the epoch — and the

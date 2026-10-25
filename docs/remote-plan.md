@@ -323,7 +323,7 @@ Owner: names. Needs: N2 and C2.
 
 Owner: view. Needs: nothing.
 
-The kit gets the `SessionSource` interface from [Sources and shells](remote.md#sources-and-shells). Its live state is named `SessionSnapshot`, because `SessionState` already names the state words. Two adapters come with it: this pi, from `pi.on` and `ctx`, and a session file, read and followed. `harness:sources` lets remote add its adapters later, and `harness:view.open` asks for a view.
+The kit gets the `SessionSource` interface from [Sources and shells](remote.md#sources-and-shells). Its live state is named `SessionSummary`, because `SessionState` already names the state words. Two adapters come with it: this pi, from `pi.on` and `ctx`, and a session file, read and followed. `harness:sources` lets remote add its adapters later, and `harness:view.open` asks for a view.
 
 - The file follower keeps `{ offset, lastId, ino, size }`. It reads from the start again when the file shrank, changed inode, or the line before the offset is no longer `lastId`. It imports only `node:*`, because the daemon bundles it in C5.
 - Tests: the follower keeps up with a file that the rig appends to; a rewritten file is read again with no entry twice; a file that does not exist yet is waited for.

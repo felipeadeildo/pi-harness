@@ -23,7 +23,7 @@ import {
 } from "@adeildo/pi-kit";
 import { type AnswerEvent, isAskResult } from "@adeildo/pi-kit";
 import type { Letter } from "@adeildo/pi-kit";
-import type { Envelope, SessionSnapshot } from "@adeildo/pi-remote-protocol";
+import type { Envelope, SessionSummary } from "@adeildo/pi-remote-protocol";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { OpenAsks } from "./asks.ts";
@@ -39,7 +39,7 @@ export const STATE_ENTRIES = 50;
 /** How often the terminal tells the daemon that someone typed there, in milliseconds. */
 export const TYPED_EVERY_MS = 2_000;
 
-export type SessionKind = SessionSnapshot["kind"];
+export type SessionKind = SessionSummary["kind"];
 
 /**
  * The extension API's side of the commands. The bridge has the session's context, which aborts,
@@ -323,7 +323,7 @@ export class Bridge {
 		const tasks = TASKS.current(scope)?.state;
 		const mode = MODE.current(scope);
 		this.connection.event("state", {
-			snapshot: {
+			summary: {
 				...snapshotOf(this.ctx, kind),
 				handle: tasks?.handle,
 				status: SESSION_STATUS.current(scope),
@@ -337,7 +337,7 @@ export class Bridge {
 }
 
 /** The live state pi knows of the session, in the protocol's shape. The bridge adds the harness's. */
-export function snapshotOf(ctx: ExtensionContext, kind: SessionKind): SessionSnapshot {
+export function snapshotOf(ctx: ExtensionContext, kind: SessionKind): SessionSummary {
 	const manager = ctx.sessionManager;
 	const usage = ctx.getContextUsage();
 	return {

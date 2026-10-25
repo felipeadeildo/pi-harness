@@ -1,61 +1,43 @@
-// What a client draws before the live stream reaches it: the session's tail, the entry it stopped at,
-// and the live state the daemon adds. A shape only grows, so every field past the cursor is optional.
+// What a client draws before the live stream reaches it. A shape only grows, so fields past the cursor are optional.
 
 import { isBy, isObject, type By } from "./by.ts";
 import type { SessionState } from "./reduce/state.ts";
 
-export interface SessionSnapshot {
-	/** pi's session id. */
+export interface SessionSummary {
 	session: string;
 	machine: string;
 	cwd: string;
-	/** The session's title: the word `/name` sets, and what the tasks feature writes. */
+	/** The word `/name` sets, and what the tasks feature writes. */
 	name?: string;
-	/** The handle the room shows, which is what others mention the session by. */
 	handle?: string;
-	/** The entry the branch ends at, which is the cursor older history pages back from. */
+	/** The cursor older history pages back from. */
 	leaf?: string;
 	context?: { tokens: number; window?: number };
 	kind: "terminal" | "background";
-	/** What the session is doing right now: the word the footer and the list show. */
+	/** The word the footer and the list show. */
 	status?: "working" | "blocked" | "done" | "error" | "idle";
-	/**
-	 * Who has the session open: the one with the latest input, and everyone watching it. They come
-	 * from the connection, not from the session, so they are replaced by `presence.changed` and never
-	 * reduced from a replay.
-	 */
+	/** The one whose input came last. From the connection, so a replay never sets it. */
 	active?: By;
 	viewers?: Viewer[];
-	/**
-	 * What the harness knows about this session, already folded: the tasks beside it, the questions it
-	 * asked, the ruling of each call, the mode and the handle. A reader needs no replay to draw it.
-	 */
+	/** The folded state, so a reader needs no replay to draw it. */
 	state?: SessionState;
 }
 
-/** One client watching a session: enough to tell two people apart, and nothing else. */
 export interface Viewer {
 	name: string;
 	machine: string;
 }
 
-/** The event that carries a `Presence`. It is of the moment and never kept in the log. */
 export const PRESENCE = "presence.changed";
 
-/** The event a session's terminal sends when someone types there, with the terminal's `by`. */
 export const PRESENCE_HERE = "presence.here";
 
-/** What a client is told when someone opens a session, closes it, or takes the latest input. */
 export interface Presence {
 	viewers: Viewer[];
 	/** The one whose input came last, which is the one the session answers. */
 	active?: By;
 }
 
-/**
- * Whether a presence this version reads. A viewer with no name or no machine would be a person
- * nobody can tell from another, so it is not one.
- */
 export function isPresence(value: unknown): value is Presence {
 	return (
 		isObject(value) &&
@@ -67,8 +49,7 @@ export function isPresence(value: unknown): value is Presence {
 	);
 }
 
-/** Whether a value is a snapshot this version reads. */
-export function isSnapshot(value: unknown): value is SessionSnapshot {
+export function isSummary(value: unknown): value is SessionSummary {
 	return (
 		isObject(value) &&
 		typeof value.session === "string" &&
@@ -85,27 +66,20 @@ export function isSnapshot(value: unknown): value is SessionSnapshot {
 	);
 }
 
-/** Where a command came from, so the terminal can show it as such and the log can say who asked. */
 export interface CommandBy {
 	by?: By;
 }
 
-/** Whether a command carries the cause it must. */
 export function isCommandBy(value: unknown): value is CommandBy {
 	return isObject(value) && (value.by === undefined || isBy(value.by));
 }
 
-/** Why a letter waits, when it waits for more than the run to settle. Absent is the ordinary case. */
+/** Absent when the letter waits only for the run to settle. */
 export type WaitingWhy = "asleep" | "quiet" | "full" | "stopped" | "not-started";
 
-/** What a message becomes on the way into a session: `steer` goes in between the agent's calls. */
 export type WaitingWant = "steer" | "followUp";
 
-/**
- * A message waiting in a session's queue, as the snapshot shows it. `when` is the writer's clock, taken from
- * the letter's `at`, and it is required here because the queue orders and ages by it: a letter the
- * kit allows without `at` gets one from the inbox before it reaches a client.
- */
+/** A letter waiting in the queue. `when` is the writer's clock, from the letter's `at`. */
 export interface QueuedMessage {
 	id: string;
 	by: By;

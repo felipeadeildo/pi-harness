@@ -329,16 +329,16 @@ describe("the replay buffer", () => {
 		sessions.live(event(0), live);
 		for (const seq of [1, 2]) sessions.event(event(seq));
 		const snapshot = {
-			snapshot: { session: "s1", machine: "laptop", cwd: "/", kind: "terminal" as const },
+			summary: { session: "s1", machine: "laptop", cwd: "/", kind: "terminal" as const },
 			entries: [],
 		};
 		sessions.event(envelope("event", "state", snapshot, { ...ORIGIN, seq: 3 }));
 		sessions.event(event(4));
-		expect(sessions.get("s1")?.snapshot).toEqual(snapshot);
+		expect(sessions.get("s1")?.opening).toEqual(snapshot);
 		expect(sessions.after("s1", { epoch: "e1", seq: 1 })).toBeUndefined();
 		expect(sessions.after("s1", { epoch: "e1", seq: 3 })?.map((e) => e.seq)).toEqual([4]);
 		sessions.event(envelope("event", "state", { entries: "no" }, { ...ORIGIN, seq: 5 }));
-		expect(sessions.get("s1")?.snapshot).toEqual(snapshot);
+		expect(sessions.get("s1")?.opening).toEqual(snapshot);
 	});
 
 	test("another epoch, or a gap the budget dropped, asks for a snapshot", () => {

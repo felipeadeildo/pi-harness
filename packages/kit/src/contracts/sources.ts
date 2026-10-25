@@ -11,7 +11,7 @@ import { isObject } from "../decode.ts";
 type Events = ExtensionAPI["events"];
 
 /** The live state of a session, what its entries do not say. It only grows. */
-export interface SessionSnapshot {
+export interface SessionSummary {
 	session: string;
 	/** The machine the session runs on: its hostname, until machines get ids. */
 	machine: string;
@@ -48,12 +48,12 @@ export interface SourceCursor {
  */
 export type SourceItem =
 	| { kind: "entry"; entry: SessionEntry }
-	| { kind: "snapshot"; snapshot: SessionSnapshot }
+	| { kind: "summary"; summary: SessionSummary }
 	| { kind: "reset" }
 	| { kind: "ended" };
 
 export interface SessionSource {
-	snapshot(): Promise<SessionSnapshot>;
+	open(): Promise<SessionSummary>;
 	/**
 	 * Calls `on` with what comes after `after`, or everything from the start without it, then with what
 	 * comes live, until the returned function is called. What the source already holds may come before

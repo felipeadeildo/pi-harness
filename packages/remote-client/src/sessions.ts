@@ -2,10 +2,10 @@
 // screen that draws it decides what to show, and the app can be read by anything that speaks fetch.
 import {
 	isObject,
-	isSnapshot,
+	isSummary,
 	openQuestions,
 	type SessionState,
-	type SessionSnapshot,
+	type SessionSummary,
 } from "@adeildo/pi-remote-protocol";
 
 /** What `session.live` said about a session, which is the bridge's word, not the daemon's. */
@@ -28,7 +28,7 @@ export interface ListedSession {
 	gone?: string;
 	live: LiveSession;
 	/** What a client draws before the replay, when the daemon holds one. */
-	snapshot?: SessionSnapshot;
+	snapshot?: SessionSummary;
 	state: SessionState;
 }
 
@@ -89,7 +89,7 @@ function isListed(value: unknown): value is ListedSession {
 		isObject(value.state.permissions) &&
 		isObject((value.state.permissions as Record<string, unknown>).rulings) &&
 		// The snapshot is the shape the rest of the package draws from, so it is the protocol's call.
-		(value.snapshot === undefined || isSnapshot(value.snapshot))
+		(value.snapshot === undefined || isSummary(value.snapshot))
 	);
 }
 

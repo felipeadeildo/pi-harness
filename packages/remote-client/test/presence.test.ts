@@ -83,7 +83,7 @@ describe("who has the session open", () => {
 			seq: 2,
 			type: "state",
 			data: {
-				snapshot: {
+				summary: {
 					session: "s",
 					machine: "here",
 					cwd: "/w",
