@@ -2,6 +2,8 @@
 // what it already delivered. It is a fold of operations, one writer per session, so a `/tree` or a
 // fork carries the board with it and no operation has to be merged.
 import type { By } from "../contracts/by.ts";
+import { isBy } from "../contracts/by.ts";
+import { isObject } from "../decode.ts";
 
 export type BoardColumn = "backlog" | "todo" | "doing" | "review" | "done" | "dropped";
 
@@ -271,4 +273,55 @@ export function foldBoard(ops: readonly BoardOp[], writer: BoardWriter = "agent"
 		if (result.ok) board = result.board;
 	}
 	return board;
+}
+
+const COLUMNS: ReadonlySet<string> = new Set([
+	"backlog",
+	"todo",
+	"doing",
+	"review",
+	"done",
+	"dropped",
+]);
+
+/** Whether a value is a board this version wrote. A shape it cannot read is skipped, never guessed. */
+export function isBoard(value: unknown): value is Board {
+	if (!isObject(value)) return false;
+	const { cards, decisions, next } = value;
+	if (typeof next !== "number" || !Array.isArray(cards) || !Array.isArray(decisions)) return false;
+	return cards.every(isCard) && decisions.every(isDecision);
+}
+
+function isCard(value: unknown): value is BoardCard {
+	if (!isObject(value)) return false;
+	if (
+		typeof value.id !== "string" ||
+		typeof value.title !== "string" ||
+		typeof value.at !== "number"
+	)
+		return false;
+	if (typeof value.column !== "string" || !COLUMNS.has(value.column)) return false;
+	if (value.pr !== undefined && typeof value.pr !== "number") return false;
+	if (value.now !== undefined && typeof value.now !== "string") return false;
+	if (value.reviewer !== undefined && typeof value.reviewer !== "string") return false;
+	if (value.result !== undefined && typeof value.result !== "string") return false;
+	if (value.why !== undefined && typeof value.why !== "string") return false;
+	return value.blocked === undefined || isBlocker(value.blocked);
+}
+
+function isBlocker(value: unknown): value is BoardBlocker {
+	if (!isObject(value) || typeof value.why !== "string") return false;
+	if (value.on === "operator" || value.on === "outside") return true;
+	return value.on === "agent" && typeof value.handle === "string";
+}
+
+function isDecision(value: unknown): value is BoardDecision {
+	if (!isObject(value)) return false;
+	if (
+		typeof value.id !== "string" ||
+		typeof value.text !== "string" ||
+		typeof value.at !== "number"
+	)
+		return false;
+	return value.by === undefined || isBy(value.by);
 }

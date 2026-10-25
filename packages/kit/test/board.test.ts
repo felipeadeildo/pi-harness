@@ -7,6 +7,7 @@ import {
 	emptyBoard,
 	findBoard,
 	foldBoard,
+	isBoard,
 	type Board,
 	type BoardOp,
 } from "../src/board/model.ts";
@@ -193,4 +194,18 @@ describe("what others read", () => {
 		const outside = { on: "outside", why: "the deploy" } as const;
 		expect(blockedText(outside, "operator")).toBe("fora: the deploy");
 	});
+});
+
+test("a board reads back only in the shape this version wrote", () => {
+	const board = applied([
+		added("Uma", { blocked: { on: "agent", handle: "quokka", why: "the review" } }),
+	]);
+	expect(isBoard(board)).toBe(true);
+	expect(isBoard({ ...board, cards: [{ ...board.cards[0], column: "wip" }] })).toBe(false);
+	expect(
+		isBoard({ ...board, cards: [{ ...board.cards[0], blocked: { on: "agent", why: "x" } }] }),
+	).toBe(false);
+	expect(
+		isBoard({ ...board, decisions: [{ id: "d1", text: "x", at: 1, by: { kind: "nobody" } }] }),
+	).toBe(false);
 });
