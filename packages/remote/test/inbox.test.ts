@@ -181,4 +181,20 @@ describe("a session's inbox", () => {
 		// The inbox stamps the letter on the way in, so what comes back carries the time it arrived.
 		expect(INBOX_PORT.current(scope)?.take()).toEqual([{ ...one, at: expect.any(Number) }]);
 	});
+
+	test("a message another feature put in the queue is taken back by its id, and not delivered", () => {
+		const { inbox, sent, scope } = wired();
+		const one = letter("from peers");
+		const other = letter("from the phone");
+		INBOX_PORT.current(scope)?.put(one);
+		INBOX_PORT.current(scope)?.put(other);
+
+		// The operator takes one back: it leaves the queue by its own id, and the other stays.
+		expect(inbox.take([one.id]).map((taken) => taken.id)).toEqual([one.id]);
+		expect(inbox.queue().map((letter) => letter.id)).toEqual([other.id]);
+		// Nothing of what was taken goes in when the agent settles.
+		inbox.settle();
+		expect(sent.map((one) => one.text)).not.toContain("from peers");
+		expect(sent.map((one) => one.text)).toContain("from the phone");
+	});
 });
