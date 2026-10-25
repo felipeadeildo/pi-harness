@@ -901,7 +901,7 @@ describe("the bridge", () => {
 		const snapshot = daemon.received.findLast((one) => one.type === "state")?.data as
 			| { summary: Record<string, unknown> }
 			| undefined;
-		// The snapshot keeps what is a photograph — the handle and the status — and nothing the state
+		// The opening keeps what is a photograph, the handle and the status, and nothing the state
 		// already carries: `tasks`, the questions and the mode are read from `state` below.
 		expect(snapshot?.summary).toMatchObject({ handle: "otter", status: "idle" });
 		const state = (snapshot?.summary as { state?: Record<string, unknown> } | undefined)?.state as
