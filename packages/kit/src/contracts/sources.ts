@@ -48,12 +48,12 @@ export interface SourceCursor {
  */
 export type SourceItem =
 	| { kind: "entry"; entry: SessionEntry }
-	| { kind: "snapshot"; snapshot: SessionSummary }
+	| { kind: "summary"; summary: SessionSummary }
 	| { kind: "reset" }
 	| { kind: "ended" };
 
 export interface SessionSource {
-	snapshot(): Promise<SessionSummary>;
+	open(): Promise<SessionSummary>;
 	/**
 	 * Calls `on` with what comes after `after`, or everything from the start without it, then with what
 	 * comes live, until the returned function is called. What the source already holds may come before

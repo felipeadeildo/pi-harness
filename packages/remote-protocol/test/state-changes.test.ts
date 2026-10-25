@@ -4,8 +4,8 @@ import { describe, expect, test } from "bun:test";
 
 import { CHANGES, type Entry, STATE_CHANGES, isStateChangeType } from "../src/reduce/entry.ts";
 import { applyChange, emptySessionState } from "../src/reduce/state.ts";
-import { isQueuedMessage, isSummary } from "../src/summary.ts";
 import type { StateChangeMap, StateChangeType } from "../src/state-changes.ts";
+import { isQueuedMessage, isSummary } from "../src/summary.ts";
 
 describe("a fact the daemon has to carry", () => {
 	test("a bound stream is the number pi numbered it with", () => {

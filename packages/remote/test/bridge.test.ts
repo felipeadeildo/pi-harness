@@ -1026,7 +1026,7 @@ describe("the bridge", () => {
 /** A session source that only calls `onFollow` when someone follows it. */
 function source(onFollow: (on: (item: SourceItem) => void) => void = () => {}): SessionSource {
 	return {
-		snapshot: () => Promise.reject(new Error("unused")),
+		open: () => Promise.reject(new Error("unused")),
 		follow: (_after, on) => {
 			onFollow(on);
 			return () => {};

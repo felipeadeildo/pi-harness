@@ -7,7 +7,7 @@ import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 export class ViewState {
 	readonly #entries: SessionEntry[] = [];
 	readonly #ids = new Set<string>();
-	#snapshot: SessionSummary | undefined;
+	#summary: SessionSummary | undefined;
 	#ended = false;
 	/** Bumped on every change, so a drawing can tell it is stale. */
 	#version = 0;
@@ -17,7 +17,7 @@ export class ViewState {
 	}
 
 	get snapshot(): SessionSummary | undefined {
-		return this.#snapshot;
+		return this.#summary;
 	}
 
 	get ended(): boolean {
@@ -41,8 +41,8 @@ export class ViewState {
 				this.#ids.add(item.entry.id);
 				this.#entries.push(item.entry);
 				break;
-			case "snapshot":
-				this.#snapshot = item.snapshot;
+			case "summary":
+				this.#summary = item.summary;
 				break;
 			case "reset":
 				this.#entries.length = 0;

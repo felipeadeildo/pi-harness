@@ -37,12 +37,12 @@ export function sourceFor(
 
 export function fileSource(path: string, options: FileSourceOptions = {}): SessionSource {
 	return {
-		snapshot() {
+		open() {
 			const fold = new Fold();
 			for (const item of new FileTail(path).poll()) fold.apply(item);
-			const snapshot = fold.snapshot();
-			if (snapshot === undefined) return Promise.reject(new Error(`no session in ${path} yet`));
-			return Promise.resolve(snapshot);
+			const summary = fold.snapshot();
+			if (summary === undefined) return Promise.reject(new Error(`no session in ${path} yet`));
+			return Promise.resolve(summary);
 		},
 		follow(after, on) {
 			const fold = new Fold();
@@ -67,11 +67,11 @@ export function fileSource(path: string, options: FileSourceOptions = {}): Sessi
 						waiting = undefined;
 					}
 					for (const entry of entries) on({ kind: "entry", entry });
-					const snapshot = fold.snapshot();
-					const text = JSON.stringify(snapshot);
-					if (snapshot === undefined || text === sent) return;
+					const summary = fold.snapshot();
+					const text = JSON.stringify(summary);
+					if (summary === undefined || text === sent) return;
 					sent = text;
-					on({ kind: "snapshot", snapshot });
+					on({ kind: "summary", summary });
 				},
 				{ every: options.every },
 			);

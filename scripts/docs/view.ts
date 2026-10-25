@@ -18,12 +18,12 @@ const RECORDING = join(
 function recording(): SessionSource {
 	const file = fileSource(RECORDING);
 	return {
-		snapshot: () => file.snapshot(),
+		open: () => file.open(),
 		follow: (after, on) =>
 			file.follow(after, (item) =>
 				on(
-					item.kind === "snapshot"
-						? { kind: "snapshot", snapshot: { ...item.snapshot, machine: "server" } }
+					item.kind === "summary"
+						? { kind: "summary", summary: { ...item.summary, machine: "server" } }
 						: item,
 				),
 			),

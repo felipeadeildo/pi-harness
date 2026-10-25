@@ -25,7 +25,7 @@ function handFed(): { source: SessionSource; send(item: SourceItem): void; stopp
 	let stopped = false;
 	return {
 		source: {
-			snapshot: () => Promise.reject(new Error("unused")),
+			open: () => Promise.reject(new Error("unused")),
 			follow(_after, listener) {
 				on = listener;
 				return () => {
@@ -65,8 +65,8 @@ describe("a session over the screen", () => {
 		const { fed, shown } = view();
 		fed.send({ kind: "entry", entry: user("a", "hello there", null) });
 		fed.send({
-			kind: "snapshot",
-			snapshot: { session: "s1", machine: "server", cwd: "/work", name: "Fix the release" },
+			kind: "summary",
+			summary: { session: "s1", machine: "server", cwd: "/work", name: "Fix the release" },
 		});
 		const lines = shown.render(60).map(plain);
 		expect(lines).toHaveLength(12);

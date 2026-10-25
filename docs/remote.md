@@ -60,7 +60,7 @@ Six things should work when this is done:
 
 ## The pieces
 
-A word on "snapshot": the HTTP route that serves what the daemon kept is still `/sessions/:machine/:id/snapshot`, and the box that carries a session's whole picture is still the `SessionSnapshot`. What travels on the wire for the live state is the `state` message, and the module that folds it is `applyEvent`.
+A word on "snapshot": what a client receives when it opens a session is an **opening** — the `SessionSummary`, the tail of the branch, and the message being written. It travels as the `state` message, the route that serves it is `GET /sessions/:machine/:id/opening`, and the module that folds the state is `applyEvent`.
 
 ```mermaid
 flowchart LR
@@ -347,7 +347,7 @@ source ─────────┼ a session file here     read and followed,
 ```ts
 interface SessionSource {
 	/** What the session is: its live state, its entries and where they end. */
-	snapshot(): Promise<SessionSnapshot>;
+	open(): Promise<SessionSummary>;
 	/** Entries and events after a cursor, then live ones until stopped. */
 	follow(after: Cursor, on: (item: SourceItem) => void): () => void;
 	/** Undefined on a source that only reads, such as a file. */
@@ -601,7 +601,7 @@ A terminal session cannot fork, clone or switch from outside: pi offers those on
 | `GET /machines`                                       | This machine and the linked ones, with their state and policy                    |
 | `GET /sessions`                                       | Sessions of every machine it sees, live first, sorted by who needs you           |
 | `POST /sessions`                                      | Starts a background session on a machine that accepts starts                     |
-| `GET /sessions/:machine/:id/snapshot`                 | The live state and the tail of the active branch                                 |
+| `GET /sessions/:machine/:id/opening`                  | The live state and the tail of the active branch                                 |
 | `GET /sessions/:machine/:id/entries`                  | Entries by cursor, in pages before or since an entry, read from the session file |
 | `GET /sessions/:machine/:id/calls/:toolCallId/output` | A call's whole output                                                            |
 | `POST /uploads`                                       | An image for a prompt, answered with the id `prompt.send` names                  |
