@@ -136,6 +136,35 @@ describe("a client of the daemon", () => {
 		expect(queuedAgain.map((one) => one.id)).toEqual(["m1"]);
 	});
 
+	test("a client that asked before the bridge came back is sent the state when it does", async () => {
+		const { port, cookie } = await openDaemon();
+		// A client opens the session while no bridge has registered it: it hears why, and waits.
+		const heard: Envelope[] = [];
+		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+			headers: { Origin: `http://127.0.0.1:${port}`, Cookie: cookie },
+		});
+		ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)) as Envelope);
+		await new Promise<void>((resolve) => (ws.onopen = () => resolve()));
+		ws.send(JSON.stringify(envelope("hello", "hello", {}, { machine: "laptop", session: "s1" })));
+		await until(() =>
+			heard.some(
+				(one) =>
+					one.kind === "error" &&
+					one.data &&
+					(one.data as { reason?: string }).reason === "waiting for the session",
+			),
+		);
+
+		// The bridge registers, which is the moment the daemon notices someone was already waiting.
+		const bridge = await bridgeOf("s1");
+		bridge.snapshot([]);
+		// The daemon asks for the state on its own, so the client does not have to ask again.
+		await until(() => bridge.asked.some((one) => one.type === "state.get"));
+		await until(() => heard.some((one) => one.kind === "event" && one.type === "state"));
+		ws.close();
+		bridge.close();
+	});
+
 	test("a snapshot carries the harness state folded, and the daemon seeds its own with it", async () => {
 		const { daemon, port, cookie } = await openDaemon();
 		const bridge = await bridgeOf("s1");

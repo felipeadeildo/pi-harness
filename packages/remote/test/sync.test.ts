@@ -148,10 +148,11 @@ test("a daemon that restarts mid-run hands the client the branch through a new s
 	expect(heldIds(opened.client)).toEqual(want);
 	expect(opened.opens()).toBeGreaterThan(1);
 	// A new daemon holds no replay of what came before it, so the client had to take a snapshot: the
-	// first one, the bridge's when it reconnected, and the daemon's answer to the client's hello. More
-	// than that is a client and a daemon asking each other in a loop.
+	// first one, the bridge's when it reconnected, the daemon's answer to the client's hello, and the
+	// state the daemon pushes to a client that was waiting when the bridge came back. More than that is
+	// a client and a daemon asking each other in a loop.
 	expect(opened.snapshots()).toBeGreaterThan(1);
-	expect(opened.snapshots()).toBeLessThanOrEqual(3);
+	expect(opened.snapshots()).toBeLessThanOrEqual(4);
 	// The new daemon learned the session from the bridge, which reconnected on its own.
 	expect(daemon.sessions.get(session)?.connected).toBe(true);
 });

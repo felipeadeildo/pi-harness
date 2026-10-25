@@ -37,6 +37,8 @@ export class Hub {
 	#opened = 0;
 	/** Who asked for each command in flight, by session and id, so the answer goes back to it alone. */
 	readonly #asked = new Map<string, Connection>();
+	/** Sessions a client asked about while no bridge was there to answer. */
+	readonly #told = new Set<string>();
 
 	constructor(options: HubOptions) {
 		this.#options = options;
@@ -71,6 +73,18 @@ export class Hub {
 		for (const ws of this.#sockets.values()) ws.close(1001);
 	}
 
+	/**
+	 * A session's bridge came back. A client that asked while it was away heard "no snapshot yet" and
+	 * nothing asks again, so the daemon asks now and sends the state to whoever is watching.
+	 */
+	refresh(session: string): void {
+		// Only the clients that asked and heard "no snapshot yet": a client that has not asked will
+		// ask for itself, and asking twice would put a second snapshot on the wire for nothing.
+		if (!this.#told.has(session)) return;
+		this.#told.delete(session);
+		this.#options.askSnapshot(session);
+	}
+
 	/** The sessions some client watches, each with how many. */
 	watched(): Map<string, number> {
 		return this.#presence.counts();
@@ -89,6 +103,7 @@ export class Hub {
 	 * that will never come.
 	 */
 	forget(session: string): number {
+		this.#told.delete(session);
 		const watching = this.#presence.counts().get(session) ?? 0;
 		this.#presence.forget(session);
 		for (const [wasAsked] of this.#asked) {
@@ -131,7 +146,8 @@ export class Hub {
 		const by = byOf(message.data);
 		if (by !== undefined) this.#presence.name(session, connection, by);
 		if (sessions.get(session) === undefined) {
-			// Not an end: the client keeps watching, and the bridge's first snapshot reaches it.
+			// Not an end: the client keeps watching, and the daemon asks the bridge when it registers.
+			this.#told.add(session);
 			this.#send(ws, envelope("error", "hello", { reason: "waiting for the session", session }));
 			return;
 		}
@@ -143,8 +159,11 @@ export class Hub {
 			for (const event of catchUp) this.#send(ws, event);
 			return;
 		}
-		if (!this.#options.askSnapshot(session))
+		if (!this.#options.askSnapshot(session)) {
+			// Nothing to give yet: the daemon asks again when the bridge registers, and sends it then.
+			this.#told.add(session);
 			this.#send(ws, envelope("error", "hello", { reason: "no snapshot yet", session }));
+		}
 	}
 
 	/**
