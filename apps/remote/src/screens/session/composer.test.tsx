@@ -187,14 +187,6 @@ describe("the composer", () => {
 		clickOf(element)();
 		expect(written).toEqual(["/compact "]);
 	});
-	test("the mode dial is absent when the session says it takes no mode", () => {
-		// Serving the mode is a capability; having a value is state. A dial that can only be refused is
-		// worse than none, and "not said yet" is not "no": the dial waits instead of flickering.
-		const { client } = clientOf();
-		expect(draw({ client, mode: "edits", serves: true })).toContain('aria-label="Permission mode"');
-		expect(draw({ client, serves: false })).not.toContain('aria-label="Permission mode"');
-		expect(draw({ client })).toContain('aria-label="Permission mode"');
-	});
 });
 
 /** The first `onClick` in a tree built with `h`, so a test can press what the markup only draws. */

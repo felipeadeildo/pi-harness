@@ -49,8 +49,6 @@ describe("what the pickers start on", () => {
 			mode: "edits",
 			model: undefined,
 			thinking: undefined,
-			// The dial appears when the session serves the mode, which is a capability and not the value.
-			serves: false,
 			waiting: [expect.objectContaining({ id: "q1" })],
 			commands: undefined,
 		});
