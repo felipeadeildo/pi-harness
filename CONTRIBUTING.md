@@ -88,6 +88,9 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
 - The author, before asking for a review, and the reviewer, before approving, check the head through
   the API: `gh pr view <n> --json headRefOid`. The review names the sha it measured, the command it
   ran and the number that came out, then one line per finding, and nothing more.
+- A hold lives on the pull request, not in the room: whoever stops a merge runs
+  `gh pr ready <n> --undo` and says why in a review. The author marks it ready when the point is in.
+  Every agent pushes from the same account, so a requested change cannot block a merge; a draft can.
 - A new test fails when the code it justifies is taken out, and the reviewer runs that removal
   instead of trusting the description: the one line, not the whole suite.
 - A test asserts what only the right path produces: the event, not the state left after the effect.
