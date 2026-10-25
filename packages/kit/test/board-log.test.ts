@@ -32,7 +32,8 @@ test("an entry that is not a board operation, or a shape this version cannot rea
 			data: { version: 2, op: { op: "add", title: "Duas", at } },
 		},
 		{ type: "custom", customType: BOARD_OP, data: { version: 1, op: "not an object" } },
+		entry({ op: "add", at }),
 	];
-	expect(opsOf(branch)).toHaveLength(1);
+	expect(opsOf(branch)).toHaveLength(1); // the add without a title is skipped too
 	expect(boardOf(branch).cards.map((card) => card.title)).toEqual(["Uma"]);
 });

@@ -12,14 +12,34 @@ export interface BoardEntry {
 	data: { version: 1; op: BoardOp };
 }
 
+/** Whether a value is an operation this version knows. An unknown or half-written one is skipped. */
+export function isBoardOp(value: unknown): value is BoardOp {
+	if (!isObject(value) || typeof value.op !== "string" || typeof value.at !== "number")
+		return false;
+	switch (value.op) {
+		case "add":
+			return typeof value.title === "string";
+		case "move":
+			return typeof value.id === "string" && typeof value.column === "string";
+		case "edit":
+			return typeof value.id === "string";
+		case "drop":
+			return typeof value.id === "string" && typeof value.why === "string";
+		case "decide":
+			return typeof value.text === "string";
+		default:
+			return false;
+	}
+}
+
 /** The board operations of a branch, in the order they were written. */
 export function opsOf(branch: readonly unknown[]): BoardOp[] {
 	const ops: BoardOp[] = [];
 	for (const entry of branch) {
 		if (!isObject(entry) || entry.type !== "custom" || entry.customType !== BOARD_OP) continue;
 		const data = entry.data;
-		if (!isObject(data) || data.version !== 1 || !isObject(data.op)) continue;
-		ops.push(data.op as BoardOp);
+		if (!isObject(data) || data.version !== 1 || !isBoardOp(data.op)) continue;
+		ops.push(data.op);
 	}
 	return ops;
 }
