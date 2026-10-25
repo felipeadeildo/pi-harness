@@ -20,11 +20,13 @@ export interface Live {
 export function composerOf(session: ClientSession): Live & {
 	waiting: ClientSession["state"]["queue"];
 	commands: ClientSession["state"]["commands"];
+	serves: boolean | undefined;
 } {
 	return {
 		...liveOf(session),
 		waiting: session.state.queue,
 		commands: session.state.commands,
+		serves: session.state.permissions.serves,
 	};
 }
 
