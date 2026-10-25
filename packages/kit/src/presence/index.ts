@@ -101,21 +101,32 @@ export function readPresence(reading: PresenceReading = {}): PresenceEntry[] {
 		.toSorted((a, b) => a.startedAt - b.startedAt || a.session.localeCompare(b.session));
 }
 
+/**
+ * Whether a file on disk is a presence entry. Every field the readers use is checked, including the
+ * one that is a union: an entry written by a version that knew another state is not an entry this one
+ * can draw, and reading it as one would put a word nobody typed into the room's list.
+ */
+function isPresenceEntry(value: unknown): value is PresenceEntry {
+	return (
+		isObject(value) &&
+		typeof value.session === "string" &&
+		typeof value.pid === "number" &&
+		typeof value.host === "string" &&
+		typeof value.cwd === "string" &&
+		(value.state === "running" || value.state === "idle") &&
+		typeof value.startedAt === "number" &&
+		typeof value.at === "number" &&
+		optionalString(value.start) &&
+		optionalString(value.file) &&
+		optionalString(value.handle) &&
+		optionalString(value.title)
+	);
+}
+
 function parsed(path: string): PresenceEntry | undefined {
 	try {
 		const value: unknown = JSON.parse(readFileSync(path, "utf8"));
-		const ok =
-			isObject(value) &&
-			typeof value.session === "string" &&
-			typeof value.pid === "number" &&
-			typeof value.host === "string" &&
-			typeof value.cwd === "string" &&
-			typeof value.state === "string" &&
-			typeof value.startedAt === "number" &&
-			typeof value.at === "number" &&
-			optionalString(value.start) &&
-			optionalString(value.file);
-		return ok ? (value as unknown as PresenceEntry) : undefined;
+		return isPresenceEntry(value) ? value : undefined;
 	} catch {
 		return undefined;
 	}
