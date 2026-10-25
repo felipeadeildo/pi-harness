@@ -64,4 +64,8 @@ jobs:
         with:
           bun-version: 1.4.4
       - run: bun install --frozen-lockfile
+      # The daemon serves the export it reads at startup, so the build comes first: without it the
+      # page does not exist and step 1 fails for the wrong reason — the failure this gate exists to
+      # tell apart from a broken screen.
+      - run: bun run --cwd packages/remote build
       - run: bun run gate

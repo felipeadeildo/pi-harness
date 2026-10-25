@@ -2,9 +2,8 @@
 // calls done. One line per step, so a step a fix turns green shows up here instead of staying hidden
 // behind the ones still failing. Run it with the package's `bun run gate`.
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
-import { existsSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
@@ -49,15 +48,24 @@ let browser: Browser | undefined;
 let page: Page | undefined;
 let root = "";
 
-/**
- * Two things the daemon does that make a run lie, both paid for once:
- * the export is read at startup, so a rebuild under a running daemon answers 404 on the new hash and
- * draws a blank page that looks like a broken app; and the login cookie's line carries an
- * `#HttpOnly_` prefix, so a filter that skips `#` lines skips the only cookie that matters.
- */
 function browserPath(): string | undefined {
 	if (process.env.CHROME_PATH !== undefined) return process.env.CHROME_PATH;
-	return BROWSERS.find((path) => existsSync(path));
+	const system = BROWSERS.find((path) => existsSync(path));
+	if (system !== undefined) return system;
+	// A machine that ran Playwright's own installer has a browser in its cache, under a versioned
+	// folder: take the newest, because the one the tests name may not be the one that is there.
+	const cache = join(homedir(), ".cache", "ms-playwright");
+	if (!existsSync(cache)) return undefined;
+	const builds = readdirSync(cache)
+		.filter((name) => name.startsWith("chromium-"))
+		.sort()
+		.at(-1);
+	if (builds === undefined) return undefined;
+	for (const binary of ["chrome-linux64/chrome", "chrome-linux/chrome"]) {
+		const at = join(cache, builds, binary);
+		if (existsSync(at)) return at;
+	}
+	return undefined;
 }
 
 async function main(): Promise<number> {
