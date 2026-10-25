@@ -127,7 +127,7 @@ export function hiddenCalls(branch: readonly unknown[]): Set<string> {
 	return calls;
 }
 
-export function outputsHidden(count: number): string {
+function outputsHidden(count: number): string {
 	return count === 1 ? "1 old tool output" : `${count} old tool outputs`;
 }
 
