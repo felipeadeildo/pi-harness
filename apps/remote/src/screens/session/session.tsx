@@ -14,7 +14,9 @@ export function SessionScreen({ session }: { session: ClientSession }): ReactNod
 		<Fragment>
 			<Tasks tasks={state.tasks} />
 			<OpenQuestions asks={openQuestions(state)} />
-			<SessionDocument session={session} />
+			{/* The document sizes itself, so the frame does not guess: a DOM component with no height
+			    draws nothing on a phone, and `matchContents` is what measures it. */}
+			<SessionDocument session={session} dom={{ matchContents: true }} />
 		</Fragment>
 	);
 }
