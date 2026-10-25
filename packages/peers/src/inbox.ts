@@ -1,7 +1,7 @@
 // What reaches this session's agent, from every room it is in. A session is one agent however many
 // rooms it reads, so the depth of its chain and the way a message reaches it belong here, and what
 // arrives from several rooms at once is one turn.
-import type { Delivery } from "@adeildo/pi-kit";
+import { Inbox as KitInbox, type By, type Delivery, type Letter } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import type { Posted } from "./folder.ts";
@@ -63,16 +63,24 @@ export interface InboxHooks {
 
 /** A room handing over what is due in it, and logging the receipts once the agent has it. */
 export interface Sender {
+	/** Who is writing, as the log and the wire name them. */
+	by: By;
 	details(message: Posted): PeerMessageDetails;
 	handed(messages: readonly Posted[], mode: Delivery): void;
 }
 
-interface Queued {
-	from: Sender;
-	message: Posted;
-	/** What the transcript keeps, and the same with how it was queued, for the screen. */
-	details: PeerMessageDetails;
-	waiting: Waiting;
+/**
+ * The same words as a letter of the kit, which is what the queue holds once it moves there. The kit
+ * reads `want`, the peers reads `mode`: one is how it goes in, the other is when.
+ */
+export function letterOf(message: Posted, by: By, mode: Waiting["mode"]): Letter {
+	return {
+		id: message.id,
+		by,
+		text: message.text,
+		want: mode === "steered" ? "steer" : "followUp",
+		at: message.at,
+	};
 }
 
 interface Arrival {
@@ -89,7 +97,13 @@ export class Inbox {
 	#holding = 0;
 	#waiting: Arrival[] = [];
 	/** Handed between calls or after the run, by id: in pi's queue until the model reads them. */
-	#queued = new Map<string, Queued>();
+	/** The queue itself, which is the kit's: it holds the letters and decides what goes in when. */
+	readonly #letters = new KitInbox();
+	/** What the room needs to draw a queued letter and to tell its writer it arrived, by letter id. */
+	#shown = new Map<
+		string,
+		{ details: PeerMessageDetails; from: Sender; message: Posted; waiting: Waiting }
+	>();
 	/** The operator has written to this session: before that, a colleague's message waits for it. */
 	#awake = false;
 	/**
@@ -128,6 +142,10 @@ export class Inbox {
 	 * for. Any other run took them too, so the room's receipts, the chain and the screen say so.
 	 */
 	started(): void {
+		// The run that starts now takes what waited, so the queue is emptied in the same place it is
+		// kept: the kit's, which is the one the screen and the receipts read.
+		this.#letters.settle();
+		this.#shown.clear();
 		const held = this.#held.flat();
 		const yours = this.#yours;
 		const by = this.#wokenBy;
@@ -155,7 +173,7 @@ export class Inbox {
 		this.#steers = 0;
 		this.#awake = false;
 		this.#waiting = [];
-		this.#queued.clear();
+		this.#shown.clear();
 		this.#held = [];
 		this.#yours = false;
 		this.#wokenBy = undefined;
@@ -163,12 +181,19 @@ export class Inbox {
 
 	/** Colleagues' messages the agent has and has not read yet, oldest first. */
 	queued(): Waiting[] {
-		return [...this.#queued.values()].map(({ waiting }) => waiting);
+		return [...this.#shown.values()].map(({ waiting }) => waiting);
+	}
+
+	/** What waits, as the kit's letters: the queue's own view of itself. */
+	letters(): Letter[] {
+		return this.#letters.queue();
 	}
 
 	/** The model read it, so it leaves the queue. Says whether it was there. */
 	read(id: string): boolean {
-		return this.#queued.delete(id);
+		const there = this.#shown.delete(id);
+		if (there) this.#letters.take([id]);
+		return there;
 	}
 
 	/**
@@ -179,7 +204,7 @@ export class Inbox {
 	 * your next prompt, shown with why, and the room's receipt says so.
 	 */
 	cleared(running: boolean): void {
-		const queued = [...this.#queued.values()];
+		const queued = [...this.#shown.values()];
 		if (queued.length === 0) return;
 		if (running) {
 			// Pi draws a queued message only when the agent takes it, so the copy that went was never
@@ -192,7 +217,8 @@ export class Inbox {
 			}
 			return;
 		}
-		this.#queued.clear();
+		this.#shown.clear();
+		this.#letters.take(queued.map(({ message }) => message.id));
 		const items = queued.map(({ details }) => details);
 		this.#hooks.held?.({ items }, "stopped");
 		this.#send(items, "next-turn", this.#hooks.held === undefined);
@@ -259,8 +285,15 @@ export class Inbox {
 		this.#send(items, mode, held === undefined || this.#hooks.held === undefined);
 		// Pi does not list what an extension queues, so the inbox keeps it until the model reads it.
 		if (mode === "steered" || mode === "after-run")
-			for (const one of ordered)
-				this.#queued.set(one.message.id, { ...one, waiting: { ...one.details, mode } });
+			for (const one of ordered) {
+				this.#shown.set(one.message.id, {
+					details: one.details,
+					from: one.from,
+					message: one.message,
+					waiting: { ...one.details, mode },
+				});
+				this.#letters.put(letterOf(one.message, one.from.by, mode));
+			}
 		this.#handed(arrivals, mode);
 	}
 

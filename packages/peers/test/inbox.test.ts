@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import type { Delivery } from "@adeildo/pi-kit";
 
 import type { Posted } from "../src/folder.ts";
-import { type Held, Inbox, type InboxHooks, type Sender } from "../src/inbox.ts";
+import { type Held, Inbox, type InboxHooks, type Sender, letterOf } from "../src/inbox.ts";
 import type { BusyDelivery } from "../src/rules.ts";
 
 function posted(id: string, text: string): Posted {
@@ -41,6 +41,7 @@ function busy(mode: BusyDelivery = "steered") {
 		idle: () => state.idle,
 	};
 	const from: Sender = {
+		by: { kind: "agent", name: "oauth", machine: "laptop" },
 		details: (message) => ({
 			id: message.id,
 			from: "oauth",
@@ -119,4 +120,41 @@ describe("a colleague's message the agent has not read", () => {
 		expect(sent).toEqual([]);
 		expect(held).toEqual([]);
 	});
+});
+
+describe("the letter a message becomes", () => {
+	test("carries who wrote it, the words, and when it goes in", () => {
+		const by = { kind: "agent", name: "oauth", machine: "laptop" } as const;
+		expect(letterOf(posted("m1", "are you in auth.ts?"), by, "steered")).toEqual({
+			id: "m1",
+			by,
+			text: "are you in auth.ts?",
+			want: "steer",
+			at: 1_000,
+		});
+		expect(letterOf(posted("m2", "later"), by, "after-run").want).toBe("followUp");
+	});
+});
+
+test("what waits is also a letter of the kit, ready for the queue to move there", () => {
+	const { inbox, from } = busy("after-run");
+	inbox.arrive(from, [posted("m1", "are you in auth.ts?"), posted("m2", "later")]);
+	const letters = inbox.letters();
+	expect(letters.map((one) => [one.id, one.want, one.text])).toEqual([
+		["m1", "followUp", "are you in auth.ts?"],
+		["m2", "followUp", "later"],
+	]);
+	expect(letters[0]?.by).toEqual({ kind: "agent", name: "oauth", machine: "laptop" });
+	// Reading one takes it out of the kit's queue too, so the two views cannot drift.
+	expect(inbox.read("m1")).toBe(true);
+	expect(inbox.letters().map((one) => one.id)).toEqual(["m2"]);
+});
+
+test("a run that starts takes the queue with it, and the kit's queue is the one that empties", () => {
+	const { inbox, from } = busy("after-run");
+	inbox.arrive(from, [posted("m1", "later")]);
+	expect(inbox.letters().map((one) => one.id)).toEqual(["m1"]);
+	inbox.started();
+	expect(inbox.letters()).toEqual([]);
+	expect(inbox.queued()).toEqual([]);
 });
