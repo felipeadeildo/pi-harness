@@ -26,6 +26,7 @@ export {
 	type PermissionMode,
 	type RulingTone,
 	SESSION_STATES,
+	type SessionCommand,
 	type SessionTasks,
 	type Task,
 	type TaskStatus,

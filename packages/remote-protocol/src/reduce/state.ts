@@ -10,6 +10,7 @@ import {
 	type AskResult,
 	type CallRuling,
 	type PermissionMode,
+	type SessionCommand,
 	type SessionTasks,
 } from "../facts.ts";
 import { type QueuedMessage } from "../snapshot.ts";
@@ -59,6 +60,11 @@ export interface SessionState {
 	model?: { provider: string; id: string };
 	thinkingLevel?: string;
 	name?: string;
+	/**
+	 * What a client may run by typing `/` into it. The host's list, not the client's: a name that is not
+	 * here is refused when it is sent, so the field and the refusal cannot disagree.
+	 */
+	commands?: SessionCommand[];
 }
 
 export function emptySessionState(): SessionState {
@@ -129,13 +135,19 @@ export function applyEvent(state: SessionState, type: string, data: unknown): Se
 			return { ...state, status };
 		}
 		case "session.live": {
-			const live = data as { name?: string; model?: SessionState["model"]; thinkingLevel?: string };
+			const live = data as {
+				name?: string;
+				model?: SessionState["model"];
+				thinkingLevel?: string;
+				commands?: SessionCommand[];
+			};
 			// Absence means "not said here", so a live event that names only the folder leaves the rest.
 			return {
 				...state,
 				...(live.name === undefined ? {} : { name: live.name }),
 				...(live.model === undefined ? {} : { model: live.model }),
 				...(live.thinkingLevel === undefined ? {} : { thinkingLevel: live.thinkingLevel }),
+				...(live.commands === undefined ? {} : { commands: live.commands }),
 			};
 		}
 		case "queue.changed": {

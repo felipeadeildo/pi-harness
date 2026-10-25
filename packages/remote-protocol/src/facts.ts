@@ -47,6 +47,22 @@ export const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhig
 /** One of the levels above. */
 export type ThinkingLevel = (typeof THINKING_LEVELS)[number];
 
+/**
+ * One slash command a client may use, and where it comes from. It lives here, with the other shapes the
+ * wire carries, and the reducer imports it from here: the state is a reading of these facts, not their
+ * owner.
+ */
+export interface SessionCommand {
+	/** The name as pi knows it, without the slash. */
+	name: string;
+	description?: string;
+	/**
+	 * `skill` and `prompt` reach the model expanded; `pi` is a command this harness answers itself, which
+	 * today is `compact`. An extension command never appears here: it runs only at the terminal.
+	 */
+	source: "skill" | "prompt" | "pi";
+}
+
 /** The session's tasks, as `tasks.changed` carries them. */
 export interface SessionTasks {
 	version: 1;
@@ -135,6 +151,8 @@ export interface FactMap {
 		 * `ENOENT` means no older entries yet. Absent only with `--no-session`.
 		 */
 		file?: string;
+		/** What a client may run by typing `/`, which this session offers at this instant. */
+		commands?: SessionCommand[];
 	};
 	"session.gone": { reason: "exit" | "crash" | "unanswered" | "replaced" };
 	/** The bridge numbers each message it streams, from 1 in each epoch; `pi.message_start` carries the same number. */
@@ -211,6 +229,19 @@ export function isFact(type: string, data: unknown): boolean {
 			return data.leaf === null || typeof data.leaf === "string";
 		case "queue.changed":
 			return Array.isArray(data.queue) && data.queue.every(isQueuedMessage);
+		case "session.live":
+			// The list is the contract the composer and the refusal both read: a `source` this version
+			// does not know would be drawn by the screen and misjudged by the wire, so it is refused here.
+			return (
+				data.commands === undefined ||
+				(Array.isArray(data.commands) &&
+					data.commands.every(
+						(one) =>
+							isObject(one) &&
+							typeof one.name === "string" &&
+							(one.source === "skill" || one.source === "prompt" || one.source === "pi"),
+					))
+			);
 		case "prompt.received":
 			// A prompt that reached the log names who sent it; anything else is not this fact.
 			return isBy(data.by);
