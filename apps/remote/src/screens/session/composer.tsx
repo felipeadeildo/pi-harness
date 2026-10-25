@@ -89,23 +89,43 @@ function promptRow(
 	return h(
 		"div",
 		{ className: "remote-composer-row" },
-		h("input", {
-			type: "text",
-			name: "prompt",
-			value: draft,
-			placeholder: "Write to the session",
-			"aria-label": "Prompt",
-			onChange: (event: { target: { value: string } }) => write(event.target.value),
-			// Enter sends, which is what a phone keyboard and every chat field do. Without it the field
-			// takes the text and the person has to find the button, and a keyboard-only reader is stuck
-			// with a draft nobody sent.
-			onKeyDown: (event: { key: string; shiftKey?: boolean; preventDefault: () => void }) => {
-				enterSends(event, () => take("followUp"));
-			},
+		promptInput({
+			draft,
+			empty,
+			write,
+			take: (deliverAs) => take(deliverAs),
 		}),
 		h("button", { type: "button", disabled: empty, onClick: () => take("followUp") }, "Send"),
 		h("button", { type: "button", disabled: empty, onClick: () => take("steer") }, "Steer now"),
 	);
+}
+
+/** What the prompt field needs: the draft, what to do with it, and how to know it is empty. */
+export interface PromptInput {
+	draft: string;
+	empty: boolean;
+	write: (text: string) => void;
+	take: (deliverAs: "steer" | "followUp") => void;
+}
+
+/**
+ * The prompt field, apart from the row that holds it, so a test can read the `onKeyDown` it carries.
+ * The wiring is the half that gets lost: the helper below can be perfect and the field never call it.
+ */
+export function promptInput(props: PromptInput): ReactNode {
+	return h("input", {
+		type: "text",
+		name: "prompt",
+		value: props.draft,
+		placeholder: "Write to the session",
+		"aria-label": "Prompt",
+		onChange: (event: { target: { value: string } }) => props.write(event.target.value),
+		// Enter sends, which is what a phone keyboard and every chat field do. Without it the field takes
+		// the text and the person has to find the button, and a keyboard-only reader keeps the draft.
+		onKeyDown: (event: { key: string; shiftKey?: boolean; preventDefault: () => void }) => {
+			enterSends(event, () => props.take("followUp"));
+		},
+	});
 }
 
 function controls(send: (type: CommandType, data: unknown) => void): ReactNode {

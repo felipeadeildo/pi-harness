@@ -7,7 +7,15 @@ import type { CommandType } from "@adeildo/pi-remote-protocol";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { CLIENT_MODES, Composer, dropNow, enterSends, sendNow, stateOf } from "./composer.tsx";
+import {
+	CLIENT_MODES,
+	Composer,
+	dropNow,
+	enterSends,
+	promptInput,
+	sendNow,
+	stateOf,
+} from "./composer.tsx";
 
 function clientOf(
 	queue: Outgoing[] = [],
@@ -131,5 +139,24 @@ describe("the composer", () => {
 		expect(enterSends({ key: "Enter", shiftKey: true }, () => (took += 1))).toBe(false);
 		expect(enterSends({ key: "a" }, () => (took += 1))).toBe(false);
 		expect(took).toBe(1);
+	});
+
+	test("the field itself sends on Enter, which is the half the helper cannot prove", () => {
+		const taken: string[] = [];
+		const element = promptInput({
+			draft: "ship it",
+			empty: false,
+			write: () => {},
+			take: (deliverAs) => void taken.push(deliverAs),
+		}) as { props: { onKeyDown: (event: unknown) => void; value: string } };
+		expect(element.props.value).toBe("ship it");
+		let prevented = 0;
+		element.props.onKeyDown({ key: "Enter", preventDefault: () => (prevented += 1) });
+		expect(taken).toEqual(["followUp"]);
+		expect(prevented).toBe(1);
+		// Shift+Enter leaves the draft alone, and so does any other key.
+		element.props.onKeyDown({ key: "Enter", shiftKey: true, preventDefault: () => {} });
+		element.props.onKeyDown({ key: "a", preventDefault: () => {} });
+		expect(taken).toEqual(["followUp"]);
 	});
 });
