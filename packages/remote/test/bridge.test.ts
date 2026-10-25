@@ -32,7 +32,7 @@ import { envelope } from "@adeildo/pi-remote-protocol";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import type { MessageStartEvent, MessageUpdateEvent } from "@earendil-works/pi-coding-agent";
 
-import { Bridge, STATE_ENTRIES, TYPED_EVERY_MS } from "../src/bridge/bridge.ts";
+import { Bridge, REMEMBERED_SENDERS, STATE_ENTRIES, TYPED_EVERY_MS } from "../src/bridge/bridge.ts";
 import { Commands } from "../src/bridge/commands.ts";
 import { letterOf, SessionInbox } from "../src/bridge/inbox.ts";
 import piRemote, { goneReason, remote, sessionKind } from "../src/index.ts";
@@ -1192,6 +1192,100 @@ describe("one bridge", () => {
 		await start(fake);
 		await until(() => types(serving).includes("state"));
 		expect(stateOf(serving).permissions.serves).toBe(true);
+	});
+
+	describe("whose prompt it was", () => {
+		const phone = { kind: "client" as const, name: "phone", machine: "box" };
+		const tablet = { kind: "client" as const, name: "tablet", machine: "box" };
+		const said = (id: string, text: string): SourceItem => ({
+			kind: "entry",
+			entry: { id, type: "message", message: { role: "user", content: text } } as never,
+		});
+		const marks = (socket: { written: { type: string; data?: unknown }[] }) =>
+			socket.written.filter((one) => one.type === "prompt.from").map((one) => one.data);
+
+		test("each entry is marked with the client whose words it holds, in whatever order they come", async () => {
+			// The entries come the other way round from the prompts, as a steer does past a follow-up. A bridge
+			// that gave the first entry to the first prompt would mark both wrong.
+			let feed: ((item: SourceItem) => void) | undefined;
+			const { bridge, socket } = bridged(source((on) => void (feed = on)));
+			bridge.sentBy("first, a follow-up", phone);
+			bridge.sentBy("second, a steer", tablet);
+			feed?.(said("e1", "second, a steer"));
+			feed?.(said("e2", "first, a follow-up"));
+			expect(marks(socket)).toEqual([
+				{ entry: "e1", by: tablet },
+				{ entry: "e2", by: phone },
+			]);
+			await bridge.stop(undefined);
+		});
+
+		test("a prompt typed at the terminal is not marked, and does not take a client's mark", async () => {
+			let feed: ((item: SourceItem) => void) | undefined;
+			const { bridge, socket } = bridged(source((on) => void (feed = on)));
+			bridge.sentBy("from the phone", phone);
+			feed?.(said("e1", "typed here"));
+			expect(marks(socket)).toEqual([]);
+			feed?.(said("e2", "from the phone"));
+			expect(marks(socket)).toEqual([{ entry: "e2", by: phone }]);
+			await bridge.stop(undefined);
+		});
+
+		test("a prompt with no words is not remembered, so it cannot mark an entry that has none", async () => {
+			let feed: ((item: SourceItem) => void) | undefined;
+			const { bridge, socket } = bridged(source((on) => void (feed = on)));
+			bridge.sentBy("   ", phone);
+			feed?.(said("e1", ""));
+			expect(marks(socket)).toEqual([]);
+			await bridge.stop(undefined);
+		});
+
+		test("two prompts with the same words are not marked, because the words cannot tell them apart", async () => {
+			let feed: ((item: SourceItem) => void) | undefined;
+			const { bridge, socket } = bridged(source((on) => void (feed = on)));
+			bridge.sentBy("ship it", phone);
+			bridge.sentBy("ship it", tablet);
+			feed?.(said("e1", "ship it"));
+			feed?.(said("e2", "ship it"));
+			expect(marks(socket)).toEqual([]);
+			await bridge.stop(undefined);
+		});
+
+		test("the mark goes out before the entry it names, so a client never draws the entry bare", async () => {
+			let feed: ((item: SourceItem) => void) | undefined;
+			const { bridge, socket } = bridged(source((on) => void (feed = on)));
+			bridge.sentBy("from the phone", phone);
+			feed?.(said("e1", "from the phone"));
+			const order = socket.written
+				.filter((one) => one.type === "prompt.from" || one.type === "entry")
+				.map((one) => one.type);
+			expect(order).toEqual(["prompt.from", "entry"]);
+			await bridge.stop(undefined);
+		});
+
+		test("the mark is part of the state a snapshot carries, so a client that opens later draws it", async () => {
+			let feed: ((item: SourceItem) => void) | undefined;
+			const { bridge, socket } = bridged(source((on) => void (feed = on)));
+			bridge.sentBy("from the phone", phone);
+			feed?.(said("e1", "from the phone"));
+			socket.emit("data", line(envelope("command", "state.get", {})));
+			await Bun.sleep(50);
+			const last = socket.written.findLast((one) => one.type === "state")?.data as
+				| { summary: { state: { promptFrom?: Record<string, unknown> } } }
+				| undefined;
+			expect(last?.summary.state.promptFrom).toEqual({ e1: phone });
+			await bridge.stop(undefined);
+		});
+
+		test("it remembers a bounded number of prompts, the oldest going first", async () => {
+			let feed: ((item: SourceItem) => void) | undefined;
+			const { bridge, socket } = bridged(source((on) => void (feed = on)));
+			for (let at = 0; at <= REMEMBERED_SENDERS; at++) bridge.sentBy(`prompt ${at}`, phone);
+			feed?.(said("e0", "prompt 0"));
+			feed?.(said("e1", "prompt 1"));
+			expect(marks(socket)).toEqual([{ entry: "e1", by: phone }]);
+			await bridge.stop(undefined);
+		});
 	});
 
 	test("a source that lost its place makes the bridge send a new snapshot", async () => {

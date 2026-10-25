@@ -107,7 +107,10 @@ export const remote = defineFeature({
 			inbox = new SessionInbox(scope, {
 				send: (text, deliverAs) => api.send(text, deliverAs),
 				busy: () => api.busy(),
-				arrived: (text, by) => api.arrived(text, by),
+				arrived: (text, by) => {
+					api.arrived(text, by);
+					bridge?.sentBy(text, by);
+				},
 				queued: (queue) => bridge?.queued(queue),
 			});
 			inbox.start();

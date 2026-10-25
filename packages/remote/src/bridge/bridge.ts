@@ -35,6 +35,13 @@ import { LiveStream } from "./stream.ts";
 /** How many entries of the branch a snapshot carries. A client pages through older ones over HTTP. */
 export const STATE_ENTRIES = 50;
 
+/**
+ * How many prompts from clients the bridge remembers while it waits for their entries. A run that
+ * lasts holds steers and follow-ups for as long as it lasts, so the number is a count and not a time:
+ * a time would let a legitimate prompt expire before its entry shows. A choice, not a measurement.
+ */
+export const REMEMBERED_SENDERS = 20;
+
 /** How often the terminal tells the daemon that someone typed there, in milliseconds. */
 export const TYPED_EVERY_MS = 2_000;
 
@@ -87,6 +94,8 @@ export class Bridge {
 	#unfollow: (() => void) | undefined;
 	#stopTyping: (() => void) | undefined;
 	#typedAt = 0;
+	/** Prompts a client sent that have no entry on the branch yet, oldest first. */
+	#senders: { text: string; by: By }[] = [];
 
 	constructor(
 		private readonly ctx: ExtensionContext,
@@ -138,6 +147,38 @@ export class Bridge {
 
 	request(type: string, data: unknown): Promise<Envelope | undefined> {
 		return this.connection.request(type, data);
+	}
+
+	/**
+	 * A client's prompt went to pi, and its entry is not on the branch yet: it shows a tick later, or
+	 * when pi consumes a steer or a follow-up. The bridge remembers who sent it until the entry shows.
+	 */
+	sentBy(text: string, by: By): void {
+		// A prompt with no words would match every entry with none, and says nothing about whose it is.
+		if (text.trim() === "") return;
+		this.#senders = [...this.#senders, { text: text.trim(), by }].slice(-REMEMBERED_SENDERS);
+	}
+
+	/**
+	 * Says whose a new entry is, only when it is sure. A user entry that is not a remembered prompt is
+	 * the terminal's, and gets no mark. Two remembered prompts with the same words cannot be told
+	 * apart by what they say, and a wrong mark is worse than none, so neither is marked.
+	 */
+	#whose(entry: {
+		id: string;
+		type: string;
+		message?: { role?: string; content?: unknown };
+	}): void {
+		if (entry.type !== "message" || entry.message?.role !== "user") return;
+		const text = userText(entry.message.content);
+		const same = this.#senders.filter((one) => one.text === text);
+		if (same.length === 0) return;
+		this.#senders = this.#senders.filter((one) => one.text !== text);
+		const only = same[0];
+		if (same.length !== 1 || only === undefined) return;
+		const change = { entry: entry.id, by: only.by };
+		this.#changes.saw("prompt.from", change);
+		this.connection.event("prompt.from", change);
 	}
 
 	/** Refuses a question that is no longer open. */
@@ -200,8 +241,12 @@ export class Bridge {
 		this.#unfollow = this.source.follow(
 			last === undefined ? undefined : { entry: last },
 			(item) => {
-				if (item.kind === "entry") this.connection.event("entry", item.entry);
-				else if (item.kind === "reset") this.#snapshot();
+				if (item.kind === "entry") {
+					// The mark goes first: it names an entry the client has not drawn yet, so the entry arrives
+					// already marked and is never drawn bare and then again.
+					this.#whose(item.entry as UserEntry);
+					this.connection.event("entry", item.entry);
+				} else if (item.kind === "reset") this.#snapshot();
 			},
 		);
 	}
@@ -296,4 +341,22 @@ function snapshotOf(ctx: ExtensionContext, kind: SessionKind): SessionSummary {
 				: { tokens: usage.tokens, window: usage.contextWindow },
 		kind,
 	};
+}
+
+/** The part of an entry the bridge reads to tell a prompt's sender: its id, kind and, for a message, its role and words. */
+interface UserEntry {
+	id: string;
+	type: string;
+	message?: { role?: string; content?: unknown };
+}
+
+/** The words of a user message: a string, or the text parts of a list. */
+function userText(content: unknown): string {
+	if (typeof content === "string") return content.trim();
+	if (!Array.isArray(content)) return "";
+	return content
+		.map((part) => (typeof part === "object" && part !== null && "text" in part ? part.text : ""))
+		.filter((text): text is string => typeof text === "string")
+		.join("")
+		.trim();
 }

@@ -166,6 +166,11 @@ export interface StateChangeMap {
 	"leaf.changed": { leaf: string | null };
 	/** Always written with who sent it, since that is the whole state change; read leniently, see `isStateChange`. */
 	"prompt.received": { by: By };
+	/**
+	 * Which client a prompt came from, by the entry it became. The bridge writes it when the entry shows
+	 * on the branch and it is sure whose it is: a prompt typed at the terminal never has one.
+	 */
+	"prompt.from": { entry: string; by: By };
 	/** The whole queue as it stands: it waits in the session, so every client sees the same list. */
 	"queue.changed": { queue: QueuedMessage[] };
 	/** The terminal waits on a dialog a client cannot answer, or stops waiting on it. */

@@ -125,6 +125,38 @@ const ROWS: Row[] = [
 		leaves: (state) => state.prompt,
 	},
 	{
+		name: "a prompt marked with the client that sent it is remembered by its entry",
+		events: [
+			{
+				type: "prompt.from",
+				data: { entry: "e1", by: { kind: "client", name: "phone", machine: "box" } },
+			},
+		],
+		expects: { e1: { kind: "client", name: "phone", machine: "box" } },
+		leaves: (state) => state.promptFrom,
+	},
+	{
+		name: "a mark with no entry, or with no sender, changes nothing",
+		events: [
+			{ type: "prompt.from", data: { by: { kind: "client", name: "phone", machine: "box" } } },
+			{ type: "prompt.from", data: { entry: "e1" } },
+		],
+		expects: undefined,
+		leaves: (state) => state.promptFrom,
+	},
+	{
+		name: "the state keeps the senders of the last hundred prompts and lets the older ones go",
+		events: Array.from({ length: 101 }, (_, at) => ({
+			type: "prompt.from" as const,
+			data: { entry: `e${at}`, by: { kind: "client", name: "phone", machine: "box" } },
+		})),
+		expects: { first: "e1", count: 100 },
+		leaves: (state) => ({
+			first: Object.keys(state.promptFrom ?? {})[0],
+			count: Object.keys(state.promptFrom ?? {}).length,
+		}),
+	},
+	{
 		name: "a dialog a client can answer is not a wait on the terminal",
 		events: [{ type: "terminal.prompted", data: { open: true, kind: "select", title: "Pick" } }],
 		expects: undefined,
