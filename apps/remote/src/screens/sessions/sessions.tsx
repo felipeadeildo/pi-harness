@@ -7,7 +7,7 @@
 // an array there becomes `{0: …, 1: …}` and the browser throws setting `style[0]` before drawing. The
 // browser check in `scripts/csp.ts` is what catches this family, since static markup applies no style.
 import type { ListedSession } from "@adeildo/pi-remote-client";
-import { Link } from "expo-router";
+import { type Href, Link } from "expo-router";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { rowStyle, rowsOf } from "./rows.ts";
@@ -17,7 +17,7 @@ export { nameOf, rowStyle, type Row, rowsOf } from "./rows.ts";
 export interface SessionsScreenProps {
 	sessions: readonly ListedSession[];
 	/** Where a row goes; the row is the link, so the whole line is tappable. */
-	hrefOf: (session: ListedSession) => string;
+	hrefOf: (session: ListedSession) => Href;
 	/** The order the list had when it opened; omitted, the list orders itself. */
 	kept?: readonly string[];
 }

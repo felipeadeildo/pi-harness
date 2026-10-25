@@ -1,6 +1,7 @@
 // The way in: every session the daemon knows, each row opening one. The link that `/remote` prints
 // lands here, so this is the first thing a phone shows after the login.
 import { type ListedSession, listSessions } from "@adeildo/pi-remote-client";
+import type { Href } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { AppState, Text, View } from "react-native";
 
@@ -12,7 +13,7 @@ import { browserSource } from "../session/browser.ts";
 export const REREAD_MS = 3_000;
 
 /** Where a row leads, in the app's own addresses. */
-export function sessionHref(session: ListedSession): string {
+export function sessionHref(session: ListedSession): Href {
 	return `/session/${encodeURIComponent(session.machine)}/${encodeURIComponent(session.session)}`;
 }
 
