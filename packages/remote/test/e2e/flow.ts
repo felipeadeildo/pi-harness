@@ -109,7 +109,7 @@ async function main(): Promise<number> {
 			answer: (context) =>
 				lastSaid(context).includes("slow answer")
 					? fauxAssistantMessage(`${"Answered, one word after another. ".repeat(60)}`.trim())
-					: lastSaid(context).includes("ask me")
+					: lastSaid(context).includes("ask me") && !answeredSince(context)
 						? fauxAssistantMessage([
 								fauxToolCall(TOOL_NAME, {
 									questions: [
@@ -382,6 +382,16 @@ async function answersQuestion(page: Page, rig: Rig): Promise<Result> {
 	}
 }
 
+/**
+ * Whether a tool already answered since the person last typed. The model asks the question once per
+ * prompt: without this it saw the same prompt as the last user message after every tool result and
+ * asked again, so the page always had an open question a second after the last one was answered.
+ */
+function answeredSince(context: { messages: readonly { role?: string }[] }): boolean {
+	const lastUser = context.messages.map((one) => one.role).lastIndexOf("user");
+	return context.messages.slice(lastUser + 1).some((one) => one.role === "toolResult");
+}
+
 /** What the person last typed, which is how the scripted model knows which turn it is answering. */
 function lastSaid(context: { messages: readonly { role?: string; content?: unknown }[] }): string {
 	const last = [...context.messages].reverse().find((one) => one.role === "user");
@@ -410,7 +420,7 @@ async function sentWhileOffline(page: Page, rig: Rig): Promise<Result> {
 			const shown = await page.getByTestId("composer").isVisible();
 			return {
 				ok: false,
-				why: `the prompt could not be clicked (question open: ${open > 0}, composer shown: ${shown})`,
+				why: `the prompt could not be clicked (question open: ${open > 0}, composer shown: ${shown}, ${await cachedState(page)})`,
 			};
 		}
 		await box.fill("typed while the wire was down");
@@ -421,9 +431,7 @@ async function sentWhileOffline(page: Page, rig: Rig): Promise<Result> {
 
 		await page.context().setOffline(false);
 		await page.reload({ waitUntil: "domcontentloaded" });
-		// The command drains on the reload and starts a run, and the scripted model asks its question
-		// again, which takes the composer's place on screen: the composer is there, not shown.
-		await page.getByTestId("composer").waitFor({ state: "attached", timeout: 60_000 });
+		await page.getByTestId("composer").waitFor({ timeout: 60_000 });
 
 		const arrived = Date.now() + 60_000;
 		while (rig.session.sessionManager.getBranch().length <= before && Date.now() < arrived)
@@ -476,6 +484,34 @@ async function sentWhileOffline(page: Page, rig: Rig): Promise<Result> {
 }
 
 /**
+ * What the page last kept of the session's state, read from the cache it writes after every change:
+ * the questions with whether each is closed, and what the state says of the permission mode. It is the
+ * state the page draws from, not what the daemon sent, which is the question a failing step cannot
+ * answer by itself.
+ */
+async function cachedState(page: Page): Promise<string> {
+	return page.evaluate(() => {
+		for (let at = 0; at < localStorage.length; at++) {
+			const key = localStorage.key(at) ?? "";
+			if (!key.startsWith("pi-remote:session:")) continue;
+			const state = (
+				JSON.parse(localStorage.getItem(key) ?? "{}") as {
+					state?: {
+						questions?: Record<string, { closed?: boolean }>;
+						permissions?: { serves?: boolean; mode?: string };
+					};
+				}
+			).state;
+			const questions = Object.entries(state?.questions ?? {}).map(
+				([id, one]) => `${id}${one.closed === true ? ":closed" : ":open"}`,
+			);
+			return `cache questions=[${questions.join(",")}] serves=${state?.permissions?.serves} mode=${state?.permissions?.mode}`;
+		}
+		return "no cached session";
+	});
+}
+
+/**
  * The daemon restarts and a reloaded page draws the session again, from the state the session sends:
  * the mode the person picked, and the question answered in step 5, which stays closed.
  */
@@ -504,10 +540,7 @@ async function survivesRestart(page: Page): Promise<Result> {
 		if (readCurrent(root)?.pid === holder) return { ok: false, why: "no daemon came back" };
 
 		await page.reload({ waitUntil: "domcontentloaded" });
-		// Attached, not shown: a question that is open takes the composer's place on screen, and the
-		// loop below is what measures the question, so a wait for the composer to show would time out
-		// and hide that it was the question.
-		await page.getByTestId("composer").waitFor({ state: "attached", timeout: 60_000 });
+		await page.getByTestId("composer").waitFor({ timeout: 60_000 });
 		// The page draws from the state the session sends, and that state arrives when the bridge
 		// registers with the new daemon: the daemon pushes it to whoever was waiting.
 		// Both halves wait the same way: the mode and the closed question arrive with the same state,
@@ -523,7 +556,7 @@ async function survivesRestart(page: Page): Promise<Result> {
 			? { ok: true }
 			: {
 					ok: false,
-					why: `mode back=${mode}, question closed=${closed}, dials on the page=${await dial.count()}, composers=${await page.getByTestId("composer").count()}`,
+					why: `mode back=${mode}, question closed=${closed}, dials on the page=${await dial.count()}, composers=${await page.getByTestId("composer").count()}, ${await cachedState(page)}`,
 				};
 	} catch (error) {
 		return { ok: false, why: short(error) };
