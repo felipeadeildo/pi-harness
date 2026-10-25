@@ -77,6 +77,7 @@ export const remote = defineFeature({
 		});
 		let bridge: Bridge | undefined;
 		let asks: ClientAsks | undefined;
+		let inbox: SessionInbox | undefined;
 
 		scope.on("session_start", (_event, ctx) => {
 			const kind = sessionKind(ctx.mode);
@@ -95,7 +96,7 @@ export const remote = defineFeature({
 			// The inbox is built here, where the wiring lives: its delivery goes through the same api the
 			// commands use, and what it announces comes back through the bridge, which folds the state.
 			const api = commandApi(scope, ctx);
-			const inbox = new SessionInbox(scope, {
+			inbox = new SessionInbox(scope, {
 				send: (text, deliverAs) => api.send(text, deliverAs),
 				busy: () => api.busy(),
 				arrived: (text, by) => api.arrived(text, by),
@@ -131,10 +132,10 @@ export const remote = defineFeature({
 			asks = undefined;
 		});
 		// A follow-up waits for this: the run is over, so what a client held goes in now.
-		scope.on("agent_settled", () => bridge?.settled());
+		scope.on("agent_settled", () => inbox?.settle());
 		// And a run that starts is the proof that the prompt which started it is in: until it arrives
 		// the letter stays in the queue, so a send pi drops is visible instead of lost.
-		scope.on("agent_start", () => bridge?.started());
+		scope.on("agent_start", () => inbox?.started());
 		/**
 		 * A compaction is the other moment a follow-up is held for, and it ends no run: pi emits this
 		 * before it clears the flag that makes a send throw, so the queue is drained on the next turn
@@ -143,7 +144,7 @@ export const remote = defineFeature({
 		 */
 		const afterCompaction = (_event: unknown, ctx: ExtensionContext): void => {
 			scope.defer(() => {
-				if (ctx.isIdle()) bridge?.settled();
+				if (ctx.isIdle()) inbox?.settle();
 			});
 		};
 		scope.on("session_compact", afterCompaction);
