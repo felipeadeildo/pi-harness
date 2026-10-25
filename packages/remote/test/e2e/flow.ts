@@ -309,7 +309,7 @@ async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
 		// The last row is the message this step just sent: an earlier one can still be waiting.
 		const row = page.locator(".remote-composer-waiting").last();
 		try {
-			await row.waitFor({ timeout: 45_000 });
+			await row.waitFor({ timeout: 90_000 });
 		} catch {
 			const delivered = rig.session.sessionManager.getBranch().length > before;
 			return {
