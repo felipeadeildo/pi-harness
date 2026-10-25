@@ -1,6 +1,4 @@
-// The state changes of one session, folded into what a client draws next to it: the tasks, the rulings of the
-// calls in view, the open questions, the permission mode and the handle. Folding is the whole
-// interface: a client that resumed from a cursor replays what it missed through the same function.
+// The state of one session, folded by the same function on the server and on every client.
 
 import type { By } from "../by.ts";
 import type { QueuedMessage } from "../summary.ts";
@@ -22,7 +20,6 @@ export interface OpenAsk {
 	source: string;
 	questions: AskQuestion[];
 	expiresAt?: number;
-	/** Nobody answered it yet. */
 	closed?: never;
 }
 
@@ -37,19 +34,15 @@ export interface ClosedAsk {
 export type Ask = OpenAsk | ClosedAsk;
 
 /**
- * What a session carries besides its conversation: the tasks beside it, the questions it asked and
- * who answered them, the ruling of each call, the permission mode, and the handle it is known by.
- * Written by the harness, and read the same way by every reader: one shape, one reducer.
+ * What a session carries besides its conversation. Written by the harness and read by every reader
+ * through one reducer.
  */
 export interface SessionState {
 	tasks?: SessionTasks;
-	/** Each question the log opened, closed once their answer arrived. */
 	questions: Record<string, Ask>;
 	/** What the permission gate decided, and in which mode it ran. */
 	permissions: {
-		/** The ruling of each call, by its tool call id. */
 		rulings: Record<string, { ruling: CallRuling; by?: By }>;
-		/** The last mode the log recorded. */
 		mode?: PermissionMode;
 	};
 	/** The last rename, for a mention of the older handle. */
@@ -67,15 +60,10 @@ export interface SessionState {
 	 * here is refused when it is sent, so the field and the refusal cannot disagree.
 	 */
 	commands?: SessionCommand[];
-	/**
-	 * What the session has cost so far, summed from the usage pi records per message. It changes during
-	 * the session, which is why it is state and not a photograph: a reader that opened the session at
-	 * the first turn would otherwise draw that turn's number for the rest of the day.
-	 */
+	/** Summed per turn from pi's usage. */
 	cost?: SessionCost;
 }
 
-/** One sum of a session's usage: tokens by kind, and the total in the provider's money. */
 export interface SessionCost {
 	input: number;
 	output: number;
@@ -88,7 +76,6 @@ export function emptySessionState(): SessionState {
 	return { questions: {}, permissions: { rulings: {} }, queue: [] };
 }
 
-/** The questions still waiting for an answer, in the order they were asked. */
 export function openQuestions(state: SessionState): OpenAsk[] {
 	return Object.values(state.questions).filter((ask): ask is OpenAsk => ask.closed !== true);
 }
@@ -105,7 +92,6 @@ export function applyChange(
 	return applyOne(state, type, data);
 }
 
-/** The state after every logged event that changes it, in the order the log wrote them. */
 export function foldLogged(events: readonly { type: string; data: unknown }[]): SessionState {
 	let state = emptySessionState();
 	for (const event of events) {
