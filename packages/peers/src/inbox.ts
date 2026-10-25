@@ -1,7 +1,7 @@
 // What reaches this session's agent, from every room it is in. A session is one agent however many
 // rooms it reads, so the depth of its chain and the way a message reaches it belong here, and what
 // arrives from several rooms at once is one turn.
-import type { By, Delivery, Letter } from "@adeildo/pi-kit";
+import { Inbox as KitInbox, type By, type Delivery, type Letter } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import type { Posted } from "./folder.ts";
@@ -83,16 +83,6 @@ export function letterOf(message: Posted, by: By, mode: Waiting["mode"]): Letter
 	};
 }
 
-interface Queued {
-	/** The same message as the kit's letter, so the queue can move there without translating again. */
-	letter?: Letter;
-	from: Sender;
-	message: Posted;
-	/** What the transcript keeps, and the same with how it was queued, for the screen. */
-	details: PeerMessageDetails;
-	waiting: Waiting;
-}
-
 interface Arrival {
 	from: Sender;
 	messages: readonly Posted[];
@@ -107,7 +97,13 @@ export class Inbox {
 	#holding = 0;
 	#waiting: Arrival[] = [];
 	/** Handed between calls or after the run, by id: in pi's queue until the model reads them. */
-	#queued = new Map<string, Queued>();
+	/** The queue itself, which is the kit's: it holds the letters and decides what goes in when. */
+	readonly #letters = new KitInbox();
+	/** What the room needs to draw a queued letter and to tell its writer it arrived, by letter id. */
+	#shown = new Map<
+		string,
+		{ details: PeerMessageDetails; from: Sender; message: Posted; waiting: Waiting }
+	>();
 	/** The operator has written to this session: before that, a colleague's message waits for it. */
 	#awake = false;
 	/**
@@ -173,7 +169,7 @@ export class Inbox {
 		this.#steers = 0;
 		this.#awake = false;
 		this.#waiting = [];
-		this.#queued.clear();
+		this.#shown.clear();
 		this.#held = [];
 		this.#yours = false;
 		this.#wokenBy = undefined;
@@ -181,19 +177,19 @@ export class Inbox {
 
 	/** Colleagues' messages the agent has and has not read yet, oldest first. */
 	queued(): Waiting[] {
-		return [...this.#queued.values()].map(({ waiting }) => waiting);
+		return [...this.#shown.values()].map(({ waiting }) => waiting);
 	}
 
-	/** What waits, as the kit's letters: the shape the queue takes when it moves there. */
+	/** What waits, as the kit's letters: the queue's own view of itself. */
 	letters(): Letter[] {
-		return [...this.#queued.values()].flatMap((one) =>
-			one.letter === undefined ? [] : [one.letter],
-		);
+		return this.#letters.queue();
 	}
 
 	/** The model read it, so it leaves the queue. Says whether it was there. */
 	read(id: string): boolean {
-		return this.#queued.delete(id);
+		const there = this.#shown.delete(id);
+		if (there) this.#letters.take([id]);
+		return there;
 	}
 
 	/**
@@ -204,7 +200,7 @@ export class Inbox {
 	 * your next prompt, shown with why, and the room's receipt says so.
 	 */
 	cleared(running: boolean): void {
-		const queued = [...this.#queued.values()];
+		const queued = [...this.#shown.values()];
 		if (queued.length === 0) return;
 		if (running) {
 			// Pi draws a queued message only when the agent takes it, so the copy that went was never
@@ -217,7 +213,8 @@ export class Inbox {
 			}
 			return;
 		}
-		this.#queued.clear();
+		this.#shown.clear();
+		this.#letters.take(queued.map(({ message }) => message.id));
 		const items = queued.map(({ details }) => details);
 		this.#hooks.held?.({ items }, "stopped");
 		this.#send(items, "next-turn", this.#hooks.held === undefined);
@@ -284,12 +281,15 @@ export class Inbox {
 		this.#send(items, mode, held === undefined || this.#hooks.held === undefined);
 		// Pi does not list what an extension queues, so the inbox keeps it until the model reads it.
 		if (mode === "steered" || mode === "after-run")
-			for (const one of ordered)
-				this.#queued.set(one.message.id, {
-					...one,
+			for (const one of ordered) {
+				this.#shown.set(one.message.id, {
+					details: one.details,
+					from: one.from,
+					message: one.message,
 					waiting: { ...one.details, mode },
-					letter: letterOf(one.message, one.from.by, mode),
 				});
+				this.#letters.put(letterOf(one.message, one.from.by, mode));
+			}
 		this.#handed(arrivals, mode);
 	}
 
