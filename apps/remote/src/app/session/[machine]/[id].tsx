@@ -6,7 +6,7 @@ import { Link, useLocalSearchParams } from "expo-router";
 import { Text, View } from "react-native";
 
 import { Composer } from "../../../screens/session/composer.tsx";
-import { liveOf } from "../../../screens/session/live.ts";
+import { composerOf } from "../../../screens/session/live.ts";
 import { QuestionDialog } from "../../../screens/session/questions.tsx";
 import { SessionScreen } from "../../../screens/session/session.tsx";
 import { browserSource } from "../../../session/browser.ts";
@@ -25,7 +25,7 @@ export default function SessionRoute() {
 	// The oldest comes first: whoever asked first has been waiting longest, and a question nobody can
 	// answer is worse than one answered in an order the person did not choose.
 	const waiting = session === undefined ? [] : openQuestions(harnessOf(session));
-	const live = session === undefined ? {} : liveOf(session);
+	const composer = session === undefined ? undefined : composerOf(session);
 	const asked = waiting[0];
 	return session === undefined || client === undefined ? null : (
 		<View style={{ flex: 1 }}>
@@ -34,19 +34,9 @@ export default function SessionRoute() {
 				All sessions
 			</Link>
 			<SessionScreen session={session} />
-			{/* What the session is on now: the state, not the photograph the snapshot took. A mode the
-			    person changes here comes back through the state, and reading the snapshot put the old
-			    value back on the next render. */}
-			<Composer
-				client={client}
-				mode={live.mode}
-				model={live.model}
-				thinking={live.thinking}
-				// What the session is holding for the agent to finish: it lives in the state, and a screen
-				// that does not pass it shows nothing while the queue is the thing the person waits on.
-				waiting={session.state.queue}
-				commands={session.state.commands}
-			/>
+			{/* Everything from the live state, in one spread: naming a field here is how the snapshot's
+			    photograph got back into a picker. */}
+			<Composer client={client} {...composer} />
 			{asked === undefined ? null : <QuestionDialog ask={asked} client={client} />}
 		</View>
 	);
