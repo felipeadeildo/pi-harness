@@ -372,6 +372,46 @@ describe("the bridge", () => {
 		expect(fake.userMessages).toEqual(["after the failed compaction"]);
 	});
 
+	test("a prompt leaves the queue when pi starts the run, and stays until then", async () => {
+		const daemon = await listening();
+		const fake = mounted();
+		const ctx = session();
+		await start(fake, ctx);
+		await until(() => types(daemon).includes("state"));
+		daemon.sockets[0]?.write(
+			line(
+				envelope(
+					"command",
+					"prompt.send",
+					{ text: "will pi take it" },
+					{
+						machine: HOST,
+						session: "s1",
+						epoch: "e1",
+						id: "p5",
+						by: { kind: "client", name: "phone", machine: HOST },
+					},
+				),
+			),
+		);
+		await until(() => fake.userMessages.length === 1);
+		// The send returned and pi has said nothing yet: the letter is still the client's to see.
+		const held = daemon.received.findLast((one) => one.type === "queue.changed")?.data as
+			| { queue: { text: string }[] }
+			| undefined;
+		expect(held?.queue.map((one) => one.text)).toEqual(["will pi take it"]);
+		// pi's own event is the proof, and it takes the letter out.
+		await fake.fire("agent_start", { type: "agent_start" }, ctx);
+		await until(
+			() =>
+				((
+					daemon.received.findLast((one) => one.type === "queue.changed")?.data as
+						| { queue: unknown[] }
+						| undefined
+				)?.queue.length ?? 1) === 0,
+		);
+	});
+
 	test("a prompt into an idle session goes in at once, since nothing can settle", async () => {
 		const daemon = await listening();
 		const fake = mounted();
