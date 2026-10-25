@@ -116,7 +116,7 @@ export function createScope(state: AppState, featureId: string): FeatureScope {
 const STALE = "stale after session replacement or reload";
 
 /** Whether the host refused a context, which is how a session that ended announces itself. */
-export function refusedByHost(error: unknown): boolean {
+function refusedByHost(error: unknown): boolean {
 	return error instanceof Error && error.message.includes(STALE);
 }
 

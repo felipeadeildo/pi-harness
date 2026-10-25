@@ -92,7 +92,7 @@ export function askQuestions(
 	});
 }
 
-export function asResult(value: unknown): AskResult {
+function asResult(value: unknown): AskResult {
 	if (!isAskResult(value))
 		return { answers: [], cancelled: true, error: "the answer did not decode" };
 	return value;
