@@ -968,7 +968,6 @@ describe("one bridge", () => {
 			typedEveryMs,
 			path: "/nowhere",
 			scope,
-			inbox,
 			letters: {
 				prompt: () => {},
 				clear: () => [],

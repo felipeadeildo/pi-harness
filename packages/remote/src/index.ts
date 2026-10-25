@@ -108,7 +108,6 @@ export const remote = defineFeature({
 				scope,
 				version: VERSION,
 				kind,
-				inbox,
 				// The two queue commands, decided here: the letter goes in through the inbox this file
 				// owns, so the bridge never holds the letters themselves.
 				letters: {
@@ -127,7 +126,7 @@ export const remote = defineFeature({
 			if (kind === "background") {
 				asks = new ClientAsks({
 					events: scope.events,
-					send: (event) => bridge?.event(event.type, event.data),
+					send: (event) => bridge?.connection.event(event.type, event.data),
 					warn: (message) => scope.warn(message),
 				});
 				asks.start();
@@ -164,27 +163,32 @@ export const remote = defineFeature({
 		scope.on("tool_execution_end", (event) => bridge?.stream.toolEnd(event));
 		scope.on("turn_end", (event) => bridge?.stream.turnEnd(event));
 		// A leaf of null is the root: the branch is empty, and a client drops what it drew.
-		scope.on("session_tree", (event) => bridge?.event("leaf.changed", { leaf: event.newLeafId }));
+		scope.on("session_tree", (event) => {
+			bridge?.connection.event("leaf.changed", { leaf: event.newLeafId });
+		});
 		// pi's JSON mode has no form for a model change, so this one keeps the style of the others.
-		scope.on("model_select", (event) =>
-			bridge?.event("pi.model_select", {
+		scope.on("model_select", (event) => {
+			bridge?.connection.event("pi.model_select", {
 				type: "model_select",
 				model: { provider: event.model.provider, id: event.model.id },
 				source: event.source,
-			}),
-		);
-		scope.on("thinking_level_select", (event) =>
-			bridge?.event("pi.thinking_level_select", {
+			});
+		});
+		scope.on("thinking_level_select", (event) => {
+			bridge?.connection.event("pi.thinking_level_select", {
 				type: "thinking_level_select",
 				level: event.level,
-			}),
-		);
-		scope.on("session_info_changed", (event) =>
-			bridge?.event("pi.session_info_changed", { type: "session_info_changed", name: event.name }),
-		);
+			});
+		});
+		scope.on("session_info_changed", (event) => {
+			bridge?.connection.event("pi.session_info_changed", {
+				type: "session_info_changed",
+				name: event.name,
+			});
+		});
 
 		SESSION_STATUS.onChanged(scope, (state) => {
-			if (state !== undefined) bridge?.status(state);
+			if (state !== undefined) bridge?.connection.event("session.status", { status: state });
 		});
 		// Every line the kit logs is published inside the process too, and the bridge keeps the facts.
 		scope.events.on(LOGGED_EVENT, (line: unknown) => {

@@ -17,7 +17,6 @@ import {
 	readTail,
 	SESSION_STATUS,
 	type SessionSource,
-	type SessionStatus,
 	TASKS,
 	targetOf,
 } from "@adeildo/pi-kit";
@@ -29,7 +28,6 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { OpenAsks } from "./asks.ts";
 import { Commands, Refused } from "./commands.ts";
 import { BridgeConnection, type ConnectionSeams, type GoneReason } from "./connection.ts";
-import { queuedOf, type SessionInbox } from "./inbox.ts";
 import { forward, type Logged, Harness } from "./logged.ts";
 import { commandsFor, type Offered } from "./slash.ts";
 import { LiveStream } from "./stream.ts";
@@ -66,8 +64,6 @@ export interface BridgeOptions {
 	path: string;
 	/** Where the bridge reads the harness's contracts: the tasks, the mode and the status. */
 	scope: EventScope;
-	/** The session's inbox, which `index.ts` builds: who it delivers through is a wiring decision. */
-	inbox: SessionInbox;
 	/** What a client's two queue commands do, decided where the inbox lives. */
 	letters: {
 		prompt(
@@ -102,9 +98,9 @@ export interface BridgeOptions {
 export class Bridge {
 	readonly stream: LiveStream;
 	readonly #facts = new Harness();
-	readonly #connection: BridgeConnection;
+	/** The wire to the daemon. The bridge owns its life; the wiring sends on it. */
+	readonly connection: BridgeConnection;
 	readonly #commands: Commands;
-	readonly #inbox: SessionInbox;
 	readonly #startedAt = Date.now();
 	#unfollow: (() => void) | undefined;
 	#stopTyping: (() => void) | undefined;
@@ -115,7 +111,7 @@ export class Bridge {
 		private readonly source: SessionSource,
 		private readonly options: BridgeOptions,
 	) {
-		this.#connection = new BridgeConnection(
+		this.connection = new BridgeConnection(
 			{
 				path: options.path,
 				machine: HOST,
@@ -133,9 +129,8 @@ export class Bridge {
 			},
 			options.seams,
 		);
-		this.stream = new LiveStream((type, data, send) => this.#connection.event(type, data, send));
+		this.stream = new LiveStream((type, data, send) => this.connection.event(type, data, send));
 		this.#asks.watch(options.scope.events);
-		this.#inbox = options.inbox;
 		// A key at the terminal is input, and it makes the terminal the session's active client. The
 		// daemon is told about it as it happens, and at most every couple of seconds, because a person
 		// types faster than the others need to know who is typing.
@@ -145,7 +140,7 @@ export class Bridge {
 			this.#typedAt = now;
 			// No sequence number: it is a keypress, and the next one says the same thing, so it must
 			// not take a place in the session's stream that a client would have to skip.
-			this.#connection.event(
+			this.connection.event(
 				"presence.here",
 				{ by: bySession("terminal", options.scope, ctx.sessionManager) },
 				{ droppable: true },
@@ -166,8 +161,8 @@ export class Bridge {
 				setMode: (mode, by) => options.api.setMode(mode, by),
 				// The queue's two commands are the inbox's, which `index.ts` owns: the bridge passes them
 				// through, so the letters are never a second time in its hands.
-				prompt: options.letters.prompt,
-				clearQueue: options.letters.clear,
+				prompt: (id, by, text, deliverAs) => options.letters.prompt(id, by, text, deliverAs),
+				clearQueue: (ids) => options.letters.clear(ids),
 				// A client's answer to a question it is looking at. Without an open question with that
 				// id, the answer is refused: the question was answered elsewhere or already closed.
 				// The answer goes on the bus, where whoever is holding the question is listening: the
@@ -204,7 +199,7 @@ export class Bridge {
 			},
 			history: this.#ran(),
 			answer: (kind, type, data, id) => {
-				this.#connection.answer(kind, type, data, id);
+				this.connection.answer(kind, type, data, id);
 			},
 			received: (id, command, by) => {
 				logFrom(ctx, options.scope.events, "command.received", { id, command, by });
@@ -216,31 +211,21 @@ export class Bridge {
 	}
 
 	start(): void {
-		this.#connection.start();
+		this.connection.start();
 	}
 
 	/** Asks the daemon something, as `/remote` asks for a token. Nothing comes back without a daemon. */
 	readonly #asks = new OpenAsks();
 
 	request(type: string, data: unknown): Promise<Envelope | undefined> {
-		return this.#connection.request(type, data);
-	}
-
-	/** Sends an event that needs no shaping, such as a model change. */
-	event(type: string, data: unknown): void {
-		this.#connection.event(type, data);
+		return this.connection.request(type, data);
 	}
 
 	/** Forwards a fact the kit logged for this session, and keeps what a snapshot needs of it. */
 	logged(line: Logged): void {
 		forward(line, this.ctx.sessionManager.getSessionId(), this.#facts, (type, data) =>
-			this.#connection.event(type, data),
+			this.connection.event(type, data),
 		);
-	}
-
-	/** The session's status changed, in pi's program status words. */
-	status(state: SessionStatus): void {
-		this.#connection.event("session.status", { status: state });
 	}
 
 	async stop(reason: GoneReason | undefined): Promise<void> {
@@ -249,12 +234,12 @@ export class Bridge {
 		this.#stopTyping?.();
 		this.#stopTyping = undefined;
 		this.stream.stop();
-		await this.#connection.close(reason);
+		await this.connection.close(reason);
 	}
 
 	#greet(): void {
 		const manager = this.ctx.sessionManager;
-		this.#connection.event("session.live", {
+		this.connection.event("session.live", {
 			pid: process.pid,
 			startedAt: this.#startedAt,
 			cwd: this.ctx.cwd,
@@ -277,7 +262,7 @@ export class Bridge {
 		this.#unfollow = this.source.follow(
 			last === undefined ? undefined : { entry: last },
 			(item) => {
-				if (item.kind === "entry") this.#connection.event("entry", item.entry);
+				if (item.kind === "entry") this.connection.event("entry", item.entry);
 				else if (item.kind === "reset") this.#snapshot();
 			},
 		);
@@ -286,7 +271,7 @@ export class Bridge {
 	/** The queue changed: it folds into the state and goes out numbered, as one list for every client. */
 	queued(queue: readonly Letter[]): void {
 		this.#facts.saw("queue.changed", { queue });
-		this.#connection.event("queue.changed", { queue });
+		this.connection.event("queue.changed", { queue });
 	}
 
 	#heard(message: Envelope): void {
@@ -315,7 +300,7 @@ export class Bridge {
 		const { scope, kind } = this.options;
 		const tasks = TASKS.current(scope)?.state;
 		const mode = MODE.current(scope);
-		this.#connection.event("state", {
+		this.connection.event("state", {
 			snapshot: {
 				...snapshotOf(this.ctx, kind),
 				handle: tasks?.handle,
@@ -323,7 +308,7 @@ export class Bridge {
 				tasks,
 				mode,
 				openAsks: this.#facts.openQuestions,
-				queue: this.#inbox.queue().map(queuedOf),
+				queue: this.#facts.snapshot(tasks, mode).queue,
 				// Already folded, so a reader draws the session's state without a replay.
 				state: this.#facts.snapshot(tasks, mode),
 			},
