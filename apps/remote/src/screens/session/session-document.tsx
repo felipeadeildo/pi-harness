@@ -9,11 +9,8 @@
 import { type ClientSession, harnessOf, transcriptOfSession } from "@adeildo/pi-remote-client";
 import {
 	type ChatMessage,
-	type OpenAsk,
-	openQuestions,
 	type SessionState,
 	type SessionTasks,
-	type Task,
 	type TranscriptItem,
 } from "@adeildo/pi-remote-protocol";
 import { type ReactNode, createElement as h } from "react";
@@ -27,9 +24,6 @@ export const LINE_CHARS = 160;
 /** How much of the first line of a thought names the fold. */
 const THOUGHT_CHARS = 80;
 
-/** The tasks the screen lists: what is going on and what waits, never what is done or dropped. */
-const OPEN: ReadonlySet<Task["status"]> = new Set(["doing", "waiting", "queued"]);
-
 export interface SessionScreenProps {
 	session: ClientSession;
 }
@@ -41,8 +35,6 @@ export function SessionDocument({ session }: SessionScreenProps): ReactNode {
 		{ className: "remote-session" },
 		header(session, state.tasks),
 		h("ol", { className: "remote-transcript" }, ...items.flatMap((item) => itemNodes(item))),
-		tasksNode(state.tasks),
-		...openQuestions(state).map(askNode),
 	);
 }
 
@@ -250,51 +242,4 @@ function line(key: string, label: string, text: string): ReactNode {
 	);
 }
 
-function tasksNode(tasks: SessionTasks | undefined): ReactNode {
-	const open = (tasks?.tasks ?? []).filter((task) => OPEN.has(task.status));
-	if (open.length === 0) return undefined;
-	return h(
-		"section",
-		{ className: "remote-tasks" },
-		h("h2", undefined, "Tasks"),
-		h(
-			"ul",
-			undefined,
-			...open.map((task) =>
-				h(
-					"li",
-					{ key: task.id, className: `remote-task-${task.status}` },
-					`${task.status} · ${plain(task.text)}`,
-				),
-			),
-		),
-	);
-}
-
 /** A question the session waits on. It is answered from the terminal or a later version of this app. */
-function askNode(ask: OpenAsk): ReactNode {
-	return h(
-		"section",
-		{ key: ask.id, className: "remote-ask" },
-		h("h2", undefined, "Waiting for an answer"),
-		...ask.questions.map((question, at) =>
-			h(
-				"div",
-				{ key: `${ask.id}:${at}` },
-				h(
-					"p",
-					undefined,
-					h("strong", undefined, plain(question.header)),
-					` ${plain(question.question)}`,
-				),
-				h(
-					"ul",
-					undefined,
-					...question.options.map((option, index) =>
-						h("li", { key: `${at}:${index}` }, plain(option.label)),
-					),
-				),
-			),
-		),
-	);
-}

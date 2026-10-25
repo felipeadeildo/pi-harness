@@ -7,9 +7,11 @@ import { join } from "node:path";
 
 import { type ClientSession, sessionOf } from "@adeildo/pi-remote-client";
 import { applyChange, emptySessionState, isStateChangeType } from "@adeildo/pi-remote-protocol";
+import { openQuestions } from "@adeildo/pi-remote-protocol";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { openTasksOf } from "./panel-data.ts";
 import { aboutOf, LINE_CHARS, OUTPUT_LINES, titleOf, viewOf } from "./session-document.tsx";
 import { SessionDocument } from "./session-document.tsx";
 
@@ -83,10 +85,6 @@ function custom(id: string, parentId: string | null, display: boolean, text: str
 		content,
 		display,
 	};
-}
-
-function task(id: string, status: string, text: string): unknown {
-	return { id, text, status, origin: "you", created: { at: 0 }, asks: [], updatedAt: 0 };
 }
 
 describe("the recording", () => {
@@ -175,21 +173,21 @@ describe("what the recording does not hold", () => {
 		expect(html).not.toContain("<details>");
 	});
 
-	test("lists the tasks going on and waiting, not those done", () => {
-		const state = {
-			version: 1,
-			tasks: [task("1", "doing", "Write the screen"), task("2", "done", "Read the plan")],
-			decisions: [],
-			nextTask: 3,
-			nextDecision: 1,
-			updatedAt: 0,
-		};
-		const html = draw(handmade([], [{ type: "tasks.changed", data: { state } }]));
-		expect(html).toContain("doing · Write the screen");
-		expect(html).not.toContain("Read the plan");
+	test("the tasks it lists are the ones going on and waiting, not those done", () => {
+		// The list is React Native now, so what is worth asserting is what it chooses to draw.
+		expect(
+			openTasksOf({
+				tasks: [
+					{ id: "1", status: "doing", text: "ship it" },
+					{ id: "2", status: "done", text: "written" },
+					{ id: "3", status: "waiting", text: "waiting on the review" },
+				],
+			} as never).map((one) => one.line),
+		).toEqual(["doing · ship it", "waiting · waiting on the review"]);
 	});
 
-	test("shows the question it waits on until it is answered", () => {
+	test("the question it waits on is the open one, and an answered one leaves the list", () => {
+		// The question is React Native now: what matters is that the state chooses the open ones.
 		const opened = {
 			id: "q1",
 			source: "ask_questions",
@@ -197,20 +195,22 @@ describe("what the recording does not hold", () => {
 				{ header: "Key", question: "Which key opens it?", options: [{ label: "Enter" }] },
 			],
 		};
-		const waiting = draw(handmade([], [{ type: "ask.opened", data: opened }]));
-		expect(waiting).toContain("Waiting for an answer");
-		expect(waiting).toContain("Which key opens it?");
-		expect(waiting).toContain("<li>Enter</li>");
-		const answered = draw(
-			handmade(
-				[],
-				[
-					{ type: "ask.opened", data: opened },
-					{ type: "ask.closed", data: { id: "q1", result: { answers: [] } } },
-				],
+		expect(
+			openQuestions(viewOf(handmade([], [{ type: "ask.opened", data: opened }])).state),
+		).toHaveLength(1);
+		expect(
+			openQuestions(
+				viewOf(
+					handmade(
+						[],
+						[
+							{ type: "ask.opened", data: opened },
+							{ type: "ask.closed", data: { id: "q1", result: { answers: [] } } },
+						],
+					),
+				).state,
 			),
-		);
-		expect(answered).not.toContain("Waiting for an answer");
+		).toHaveLength(0);
 	});
 
 	test("draws nothing of the conversation when the bridge says the branch is back at the root", () => {
