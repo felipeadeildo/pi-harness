@@ -36,7 +36,7 @@ The structure:
 - [x] Work deferred by a feature ends with its session (#221, #224)
 - [ ] The bridge keeps its lifecycle, and pi's events reach their owners through one table (#237)
 - [ ] The client's session is immutable, and commands are typed by their names
-- [ ] The session and composer screens in React Native, on the visual base
+- [ ] The session and composer screens in React Native, on the visual base. nearly: the list and the question panel are React Native; `session.tsx` and `composer.tsx` still draw the DOM, and the visual base (the theme's tokens) does not exist yet
 
 The other tracks of the cycle:
 
@@ -44,7 +44,7 @@ The other tracks of the cycle:
 - [x] The permission is asked above the editor, which stays usable (#214)
 - [ ] The questions are asked above the editor the same way
 - [ ] Skills, templates and `/compact` from the phone, and nothing else offered (#231)
-- [ ] The board each agent keeps: the model (#201), the contract and the tool, its readers, the small model removed
+- [ ] The board each agent keeps. nearly: the model is on `main` (#201); the contract, the tool, its readers and the small model removed are still coming
 - [x] The permission judge reads only the operator's words (#213)
 - [x] The port clients reach the daemon on is a setting (#197, #225)
 - [x] `main` takes no merge with `verify`, `app` or `gate` red
