@@ -40,6 +40,9 @@ export async function peersRoom(
 		changed() {},
 		now: () => now,
 		alive: () => true,
+		// A hook the cast used to hide: `#soon` calls it whenever the log changes, so a run without it
+		// throws on the first event and the pictures never get drawn.
+		defer: (run: () => void, ms: number) => void setTimeout(run, ms),
 	} as unknown as Hooks;
 
 	function session(id: string, fit: number, folder = "pi-harness"): Rooms {
