@@ -115,6 +115,9 @@ export class SessionInbox {
 		this.#inbox.take([this.#pending]);
 		this.#pending = undefined;
 		this.#settled();
+		// The queue changed, so the client is told: a take that says nothing leaves a line on screen
+		// for a message that already went.
+		this.#publish();
 	}
 
 	/**
