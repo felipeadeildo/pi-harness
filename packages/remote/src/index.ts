@@ -19,6 +19,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { ClientAsks } from "./bridge/asks.ts";
 import { Bridge, type SessionKind } from "./bridge/bridge.ts";
 import type { GoneReason } from "./bridge/connection.ts";
+import { letterOf, SessionInbox } from "./bridge/inbox.ts";
 import { openInBrowser } from "./browser.ts";
 import { linkOf } from "./cli/open.ts";
 import { commandApi } from "./commands-api.ts";
@@ -76,6 +77,7 @@ export const remote = defineFeature({
 		});
 		let bridge: Bridge | undefined;
 		let asks: ClientAsks | undefined;
+		let inbox: SessionInbox | undefined;
 
 		scope.on("session_start", (_event, ctx) => {
 			const kind = sessionKind(ctx.mode);
@@ -91,12 +93,29 @@ export const remote = defineFeature({
 			} catch (error) {
 				scope.warn(`could not write the pi-remote launcher: ${String(error)}`);
 			}
+			// The inbox is built here, where the wiring lives: its delivery goes through the same api the
+			// commands use, and what it announces comes back through the bridge, which folds the state.
+			const api = commandApi(scope, ctx);
+			inbox = new SessionInbox(scope, {
+				send: (text, deliverAs) => api.send(text, deliverAs),
+				busy: () => api.busy(),
+				arrived: (text, by) => api.arrived(text, by),
+				queued: (queue) => bridge?.queued(queue),
+			});
+			inbox.start();
 			bridge = new Bridge(ctx, source, {
 				path: daemonPaths(dir).socket,
 				scope,
 				version: VERSION,
 				kind,
-				api: commandApi(scope, ctx),
+				// The two queue commands, decided here: the letter goes in through the inbox this file
+				// owns, so the bridge never holds the letters themselves.
+				letters: {
+					prompt: (id, by, text, deliverAs) =>
+						inbox?.put(letterOf(id, by, text, deliverAs ?? "followUp")),
+					clear: (ids) => inbox?.take(ids) ?? [],
+				},
+				api,
 				// `FeatureScope` is the extension API, so the list of slash commands is asked here.
 				offered: () => scope.getCommands(),
 				startDaemon: () => startDaemon(dir, port.get(scope)),
@@ -107,7 +126,7 @@ export const remote = defineFeature({
 			if (kind === "background") {
 				asks = new ClientAsks({
 					events: scope.events,
-					send: (event) => bridge?.event(event.type, event.data),
+					send: (event) => bridge?.connection.event(event.type, event.data),
 					warn: (message) => scope.warn(message),
 				});
 				asks.start();
@@ -119,10 +138,10 @@ export const remote = defineFeature({
 			asks = undefined;
 		});
 		// A follow-up waits for this: the run is over, so what a client held goes in now.
-		scope.on("agent_settled", () => bridge?.settled());
+		scope.on("agent_settled", () => inbox?.settle());
 		// And a run that starts is the proof that the prompt which started it is in: until it arrives
 		// the letter stays in the queue, so a send pi drops is visible instead of lost.
-		scope.on("agent_start", () => bridge?.started());
+		scope.on("agent_start", () => inbox?.started());
 		/**
 		 * A compaction is the other moment a follow-up is held for, and it ends no run: pi emits this
 		 * before it clears the flag that makes a send throw, so the queue is drained on the next turn
@@ -131,7 +150,7 @@ export const remote = defineFeature({
 		 */
 		const afterCompaction = (_event: unknown, ctx: ExtensionContext): void => {
 			scope.defer(() => {
-				if (ctx.isIdle()) bridge?.settled();
+				if (ctx.isIdle()) inbox?.settle();
 			});
 		};
 		scope.on("session_compact", afterCompaction);
@@ -144,27 +163,32 @@ export const remote = defineFeature({
 		scope.on("tool_execution_end", (event) => bridge?.stream.toolEnd(event));
 		scope.on("turn_end", (event) => bridge?.stream.turnEnd(event));
 		// A leaf of null is the root: the branch is empty, and a client drops what it drew.
-		scope.on("session_tree", (event) => bridge?.event("leaf.changed", { leaf: event.newLeafId }));
+		scope.on("session_tree", (event) => {
+			bridge?.connection.event("leaf.changed", { leaf: event.newLeafId });
+		});
 		// pi's JSON mode has no form for a model change, so this one keeps the style of the others.
-		scope.on("model_select", (event) =>
-			bridge?.event("pi.model_select", {
+		scope.on("model_select", (event) => {
+			bridge?.connection.event("pi.model_select", {
 				type: "model_select",
 				model: { provider: event.model.provider, id: event.model.id },
 				source: event.source,
-			}),
-		);
-		scope.on("thinking_level_select", (event) =>
-			bridge?.event("pi.thinking_level_select", {
+			});
+		});
+		scope.on("thinking_level_select", (event) => {
+			bridge?.connection.event("pi.thinking_level_select", {
 				type: "thinking_level_select",
 				level: event.level,
-			}),
-		);
-		scope.on("session_info_changed", (event) =>
-			bridge?.event("pi.session_info_changed", { type: "session_info_changed", name: event.name }),
-		);
+			});
+		});
+		scope.on("session_info_changed", (event) => {
+			bridge?.connection.event("pi.session_info_changed", {
+				type: "session_info_changed",
+				name: event.name,
+			});
+		});
 
 		SESSION_STATUS.onChanged(scope, (state) => {
-			if (state !== undefined) bridge?.status(state);
+			if (state !== undefined) bridge?.connection.event("session.status", { status: state });
 		});
 		// Every line the kit logs is published inside the process too, and the bridge keeps the facts.
 		scope.events.on(LOGGED_EVENT, (line: unknown) => {
