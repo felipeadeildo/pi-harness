@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 
-import { openAboveEditor } from "../src/ui/above-editor.ts";
+import { openAboveEditor, watchEditor } from "../src/ui/above-editor.ts";
 
 interface Drawn {
 	render(width: number): string[];
@@ -17,7 +17,8 @@ interface Drawn {
  */
 function host(editor = "") {
 	let drawn: Drawn | undefined;
-	let input: (data: string) => { consume?: boolean; data?: string } | undefined = () => undefined;
+	// pi gives every key to every listener, and the answer that consumes it is the one that counts.
+	const listeners: ((data: string) => { consume?: boolean } | undefined)[] = [];
 	let text = editor;
 	let opened = 0;
 	let mostOpen = 0;
@@ -46,10 +47,11 @@ function host(editor = "") {
 			);
 			for (const resolve of built.splice(0)) resolve();
 		},
-		onTerminalInput: (handler: typeof input) => {
-			input = handler;
+		onTerminalInput: (handler: (data: string) => { consume?: boolean } | undefined) => {
+			listeners.push(handler);
 			return () => {
-				input = () => undefined;
+				const at = listeners.indexOf(handler);
+				if (at >= 0) listeners.splice(at, 1);
 			};
 		},
 	} as unknown as ExtensionUIContext;
@@ -63,7 +65,11 @@ function host(editor = "") {
 		get mostOpen(): number {
 			return mostOpen;
 		},
-		type: (data: string) => (input as (data: string) => unknown)(data),
+		type: (data: string) => {
+			let answer: { consume?: boolean } | undefined;
+			for (const listener of [...listeners]) answer = listener(data) ?? answer;
+			return answer;
+		},
 		get editor(): string {
 			return text;
 		},
@@ -176,14 +182,92 @@ describe("the row above the editor", () => {
 		expect([first, tallest, shorter]).toEqual([3, 7, 7]);
 	});
 
+	test("a dialog opened right after a key leaves the focus with the editor", async () => {
+		const rig = host();
+		// The extension watches the editor from the session's start, which is what makes the key count.
+		watchEditor(rig.ui);
+		// The reader is typing: the key goes to the editor, which is what makes the time count.
+		rig.type("h");
+		let focused: boolean | undefined;
+		const opened = openAboveEditor<string>(rig.ui, (tools) => ({
+			render: () => {
+				focused = tools.focused();
+				return [];
+			},
+			handleInput: () => {},
+		}));
+		await rig.ready(1);
+		rig.drawn.render(40);
+		expect(focused).toBe(false);
+		// The dialog does not have the keys, so this one is still the editor's.
+		expect(rig.type("i")).toBeUndefined();
+		opened.close();
+		await opened.result;
+	});
+
+	test("a dialog opened long after the last key takes the focus", async () => {
+		const rig = host();
+		rig.type("h");
+		let focused: boolean | undefined;
+		const opened = openAboveEditor<string>(
+			rig.ui,
+			(tools) => ({
+				render: () => {
+					focused = tools.focused();
+					return [];
+				},
+				handleInput: () => {},
+			}),
+			{ recentMs: 0 },
+		);
+		await rig.ready(1);
+		rig.drawn.render(40);
+		expect(focused).toBe(true);
+		expect(rig.type("i")).toEqual({ consume: true });
+		opened.close();
+		await opened.result;
+	});
+
+	test("a new host gets its own tracker, so the keystroke clock keeps moving", async () => {
+		const first = host();
+		watchEditor(first.ui);
+		first.type("h");
+		const one = openAboveEditor<string>(first.ui, (tools) => ({
+			render: () => (tools.focused() ? ["dialog"] : ["quiet"]),
+			handleInput: () => {},
+		}));
+		await first.ready(1);
+		one.close();
+		await one.result;
+
+		// Another context: the listener the old one installed no longer exists, and a tracker bound to
+		// it would never see a key again — every dialog after that would take the focus from a reader.
+		const second = host();
+		watchEditor(second.ui);
+		second.type("h");
+		let focused: boolean | undefined;
+		const two = openAboveEditor<string>(second.ui, (tools) => ({
+			render: () => {
+				focused = tools.focused();
+				return [];
+			},
+			handleInput: () => {},
+		}));
+		await second.ready(1);
+		second.drawn.render(40);
+		expect(focused).toBe(false);
+		two.close();
+		await two.result;
+	});
+
 	test("a second dialog waits for the first", async () => {
 		const rig = host();
 		const view = (tools: { done(value: string): void }) => ({
 			render: () => [],
 			handleInput: (data: string) => tools.done(data),
 		});
-		const first = openAboveEditor<string>(rig.ui, view);
-		const second = openAboveEditor<string>(rig.ui, view);
+		const first = openAboveEditor<string>(rig.ui, view, { recentMs: 0 });
+		const second = openAboveEditor<string>(rig.ui, view, { recentMs: 0 });
 		await rig.ready(1);
 		rig.type("1");
 		await rig.ready(2);

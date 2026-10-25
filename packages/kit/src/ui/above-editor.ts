@@ -56,13 +56,28 @@ export interface AboveEditorOptions {
 let queue: Promise<unknown> = Promise.resolve();
 /** When a key last went to the editor, so a dialog does not steal the focus from a reader typing. */
 let lastTypedAt = 0;
-let tracking: (() => void) | undefined;
+let tracked: { ui: ExtensionUIContext; stop: () => void } | undefined;
+/** The dialog that is open, if one is: a key it consumes never reached the editor. */
+let active: { focused(): boolean } | undefined;
 
-function track(ui: ExtensionUIContext): void {
-	tracking ??= ui.onTerminalInput(() => {
-		lastTypedAt = Date.now();
-		return undefined;
-	});
+/**
+ * Keeps the time of the last key the editor got. It belongs at session start, not at the first
+ * dialog: a reader already typing when a question arrives must keep the keys. A new host gets its own
+ * listener, because after a session change the old one is gone and a tracker bound to it would freeze
+ * the time at "nobody is typing".
+ */
+export function watchEditor(ui: ExtensionUIContext): void {
+	if (tracked?.ui === ui) return;
+	tracked?.stop();
+	tracked = {
+		ui,
+		stop: ui.onTerminalInput(() => {
+			// A key the open dialog takes never went to the editor, so it is not evidence that the
+			// reader is typing there.
+			if (active?.focused() !== true) lastTypedAt = Date.now();
+			return undefined;
+		}),
+	};
 }
 
 /**
@@ -80,11 +95,16 @@ export function openAboveEditor<T>(
 		settle = resolve;
 	});
 
+	let abandoned = false;
 	let stop = (): void => {};
 	let started = (): void => {};
+	/** The close of the dialog that is open, so a caller outside it takes the same path. */
+	let shut = (): void => {};
 
 	const run = (): void => {
-		track(ui);
+		// Closed before it opened: nothing is drawn, and the row is free for the next dialog.
+		if (abandoned) return;
+		watchEditor(ui);
 		const recent = Date.now() - lastTypedAt < (options.recentMs ?? RECENT_MS);
 		let focused = !recent;
 		let tallest = 0;
@@ -92,9 +112,11 @@ export function openAboveEditor<T>(
 		let view: AboveEditorView | undefined;
 		let redraw = (): void => {};
 
+		shut = () => close(undefined);
 		const close = (value: AboveEditorResult<T> | undefined): void => {
 			if (finished) return;
 			finished = true;
+			active = undefined;
 			ui.setWidget(KEY, undefined);
 			stop();
 			settle(value);
@@ -143,6 +165,7 @@ export function openAboveEditor<T>(
 			{ placement: "aboveEditor" },
 		);
 
+		active = { focused: () => focused };
 		stop = ui.onTerminalInput((data) => {
 			if (finished) return undefined;
 			if (matchesKey(data, ABOVE_EDITOR_FOCUS_KEY as KeyId)) {
@@ -178,9 +201,13 @@ export function openAboveEditor<T>(
 	return {
 		result,
 		close: () => {
+			// Before the dialog opened, closing it only settles the promise; after, it takes the same
+			// path as the dialog's own end, so the slot is released for the next one.
+			abandoned = true;
 			stop();
 			ui.setWidget(KEY, undefined);
 			settle(undefined);
+			shut();
 			started();
 		},
 	};
