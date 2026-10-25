@@ -55,7 +55,7 @@ The simplifications:
 - [x] The daemon answers a client from what it keeps; the opening packet has one name (#277, #280)
 - [x] The daemon speaks WebSocket through `ws`, with one clock (#290)
 - [ ] No export without a reader, and `knip` in `verify`. nearly: most packages are clean (#274, #281, #283, #301, #303, #307, #308, #319) and the config names what each package has (#313); the app, `compact` and `tasks` still export what nobody reads, and the step into `verify` is still coming
-- [x] Comments say only what the code cannot: the remote stack, the kit and peers are read line by line (#286, #292, #295, #304, #305, #311, #312, #315, #318, #320, #339)
+- [ ] Comments say only what the code cannot. nearly: the remote stack, the kit and peers are read line by line (#286, #292, #295, #304, #305, #311, #312, #315, #318, #320, #339); the app and the ask packages are still to read
 
 The app runs on iOS and Android as well as the web:
 
