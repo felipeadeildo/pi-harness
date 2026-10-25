@@ -155,6 +155,32 @@ describe("a daemon that restarts", () => {
 		expect(opening(sessions)).toEqual(sessions.get("s")?.state);
 	});
 
+	test("the opening is the last state a bridge sent, not the first of the epoch", () => {
+		const sessions = restarted();
+		const snapshot = (serves: boolean, seq: number) =>
+			sessions.event(
+				envelope(
+					"event",
+					"state",
+					{
+						summary: {
+							session: "s",
+							machine: "m",
+							cwd: "/x",
+							kind: "terminal",
+							state: { ...emptySessionState(), permissions: { rulings: {}, serves } },
+						},
+						entries: [],
+					},
+					around(seq),
+				),
+			);
+		// The first greet happened before the permissions feature was up, and the second one knows.
+		snapshot(false, 1);
+		snapshot(true, 2);
+		expect(opening(sessions)?.permissions.serves).toBe(true);
+	});
+
 	test("folds what comes after the snapshot on top of it", () => {
 		const sessions = restarted();
 		sessions.event(
