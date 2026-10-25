@@ -312,16 +312,19 @@ async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
 		await box.fill("wait for me");
 		await page.keyboard.press("Enter");
 		let fresh: string | undefined;
+		let mostRows = 0;
 		const appeared = Date.now() + 90_000;
 		while (fresh === undefined && Date.now() < appeared) {
-			fresh = (await heldIds()).find((id) => id !== "" && !known.has(id));
+			const ids = await heldIds();
+			mostRows = Math.max(mostRows, ids.length);
+			fresh = ids.find((id) => id !== "" && !known.has(id));
 			if (fresh === undefined) await Bun.sleep(100);
 		}
 		if (fresh === undefined) {
 			const delivered = rig.session.sessionManager.getBranch().length > before;
 			return {
 				ok: false,
-				why: `no queue row (rows before: ${known.size}, rows now: ${(await heldIds()).length}, run going at the send: ${sentWhileBusy}, message delivered: ${delivered})`,
+				why: `no queue row (rows before: ${known.size}, most rows seen: ${mostRows}, run going at the send: ${sentWhileBusy}, message delivered: ${delivered})`,
 			};
 		}
 		const row = page.locator(`[data-testid="held-row"][id="${fresh}"]`);
