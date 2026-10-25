@@ -16,7 +16,7 @@ export const PEER_COLORS = [
 	"syntaxType",
 ] as const;
 
-export type PeerColor = (typeof PEER_COLORS)[number];
+type PeerColor = (typeof PEER_COLORS)[number];
 
 export interface Named {
 	session: string;

@@ -28,13 +28,7 @@ import { type Names, namesOf } from "./names.ts";
 import { award, turnToTake } from "./rules.ts";
 
 export type BoardMark = PeerMark;
-export {
-	forModel,
-	PEER_HELD,
-	PEER_MESSAGE,
-	type PeerDelivery,
-	type PeerMessageDetails,
-} from "./inbox.ts";
+export { PEER_HELD, PEER_MESSAGE, type PeerDelivery, type PeerMessageDetails } from "./inbox.ts";
 
 /** How long the open sessions are taken as they were, between two changes of the folder. */
 const LIVE_FOR_MS = 1_000;

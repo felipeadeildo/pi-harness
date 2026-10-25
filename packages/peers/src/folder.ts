@@ -40,7 +40,7 @@ export interface Peer {
 	commits: { sha: string; subject: string; at: number }[];
 }
 
-export interface Bid {
+interface Bid {
 	fit: number;
 	reason: string;
 	idle: boolean;

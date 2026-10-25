@@ -391,7 +391,7 @@ function sendOptions(mode: Delivery): {
 }
 
 /** What the agent reads: everything that arrived together, one block each. A peer's words are never the operator's. */
-export function forModel(items: readonly PeerMessageDetails[]): string {
+function forModel(items: readonly PeerMessageDetails[]): string {
 	return items.map(oneForModel).join("\n\n");
 }
 

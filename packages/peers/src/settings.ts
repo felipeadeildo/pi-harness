@@ -14,7 +14,7 @@ import {
 
 import { BUSY_DELIVERIES, type BusyDelivery, CHAIN_LIMIT } from "./rules.ts";
 
-export const SETTINGS_SECTION = "Requests to everyone";
+const SETTINGS_SECTION = "Requests to everyone";
 
 export const model = setting({
 	id: "peers.model",
@@ -61,7 +61,7 @@ export const chainLimit = setting<number>({
 	},
 });
 
-export const ROOMS_SECTION = "Rooms";
+const ROOMS_SECTION = "Rooms";
 
 /** What happens when an agent asks to bring the sessions of another folder into a room. */
 export type LinkRule = "mode" | "ask" | "never";

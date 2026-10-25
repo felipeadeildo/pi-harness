@@ -27,7 +27,7 @@ const BID: Tool = {
 };
 
 /** Without a model, every session bids the same and the oldest idle one takes it. */
-export const NO_MODEL: Fit = { fit: 0.5, reason: "no model to judge the fit" };
+const NO_MODEL: Fit = { fit: 0.5, reason: "no model to judge the fit" };
 
 export async function fitFor(
 	registry: Pick<ExtensionContext["modelRegistry"], "streamSimple">,
@@ -65,7 +65,7 @@ export async function fitFor(
 }
 
 /** What the model reads of the session: its tasks, then the files and commits behind them. */
-export function aboutSession(me: Peer): string {
+function aboutSession(me: Peer): string {
 	const lines = [
 		me.tasks === undefined
 			? "The session has no tasks yet."

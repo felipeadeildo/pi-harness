@@ -50,7 +50,7 @@ export function heldBlock(
 	]);
 }
 
-export function heldLine(held: HeldDelivery, wentIn?: WentIn): string {
+function heldLine(held: HeldDelivery, wentIn?: WentIn): string {
 	const one = held.items.length === 1;
 	if (wentIn !== undefined) {
 		const went = one ? "It went in" : "They went in";
