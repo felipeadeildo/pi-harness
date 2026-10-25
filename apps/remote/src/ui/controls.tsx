@@ -12,8 +12,16 @@ interface ControlProps {
 	disabled?: boolean;
 }
 
-/** The one action a screen is for: filled, and the only filled thing on it. */
-export function Primary({ label, onPress, disabled }: ControlProps): ReactNode {
+/**
+ * The one action a screen is for: filled, and the only filled thing on it. A destructive one takes the
+ * danger color in the same place and size, so the person reads what it does before touching it.
+ */
+export function Primary({
+	label,
+	onPress,
+	disabled,
+	danger,
+}: ControlProps & { danger?: boolean }): ReactNode {
 	return (
 		<Pressable
 			role="button"
@@ -28,7 +36,12 @@ export function Primary({ label, onPress, disabled }: ControlProps): ReactNode {
 				borderRadius: theme.radius(1),
 				alignItems: "center",
 				justifyContent: "center",
-				backgroundColor: disabled === true ? theme.color.border : theme.color.accent,
+				backgroundColor:
+					disabled === true
+						? theme.color.border
+						: danger === true
+							? theme.color.danger
+							: theme.color.accent,
 			}}
 		>
 			<Text

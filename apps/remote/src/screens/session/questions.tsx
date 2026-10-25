@@ -6,6 +6,7 @@ import type { OpenAsk } from "@adeildo/pi-remote-protocol";
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 
+import { Primary } from "../../ui/controls.tsx";
 import { answerAsk, EMPTY, pick, ready, type, type Draft } from "./answers.ts";
 import { cap } from "./panel.ts";
 
@@ -72,13 +73,11 @@ export function QuestionDialog({ ask, client }: { ask: OpenAsk; client: Client }
 						</Pressable>
 					)}
 					{last ? (
-						<Pressable
-							accessibilityRole="button"
+						<Primary
+							label="Send answer"
 							disabled={!ready(ask, draft)}
 							onPress={() => answerAsk(client, ask, draft)}
-						>
-							<Text>Send answer</Text>
-						</Pressable>
+						/>
 					) : (
 						<Pressable accessibilityRole="button" onPress={() => setIndex(index + 1)}>
 							<Text>Next</Text>

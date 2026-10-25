@@ -160,7 +160,7 @@ export function Composer({
 					</View>
 					<Overflow items={menu} onPick={runMenu} />
 					{act === "abort" ? (
-						<Primary label="Abort" onPress={() => send("run.abort", {})} />
+						<Primary danger label="Abort" onPress={() => send("run.abort", {})} />
 					) : (
 						<Primary label="Send" disabled={empty} onPress={() => take("followUp")} />
 					)}
