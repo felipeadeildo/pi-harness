@@ -119,12 +119,25 @@ export const remote = defineFeature({
 		// A follow-up waits for this: the run is over, so what a client held goes in now.
 		scope.on("agent_settled", () => bridge?.settled());
 		/**
+		 * The turn a compaction asked for, and the handle to it: pi emits `session_shutdown` before
+		 * it tears the extension down, in quit, in reload and in a session replacement, and a context
+		 * it no longer owns refuses to answer. Cancelling the timer is what keeps the drain off a
+		 * session that is gone, instead of swallowing the refusal.
+		 */
+		let drain: ReturnType<typeof setTimeout> | undefined;
+		const cancelDrain = (): void => {
+			clearTimeout(drain);
+			drain = undefined;
+		};
+		/**
 		 * A compaction is the other moment a follow-up is held for, and it ends no run: pi emits this
 		 * before it clears the flag that makes a send throw, so the queue is drained on the next turn
 		 * of the loop, once the flag is gone, and only if pi would take a prompt then.
 		 */
 		const afterCompaction = (_event: unknown, ctx: ExtensionContext): void => {
-			setTimeout(() => {
+			cancelDrain();
+			drain = setTimeout(() => {
+				drain = undefined;
 				if (ctx.isIdle()) bridge?.settled();
 			}, 0);
 		};
@@ -181,6 +194,7 @@ export const remote = defineFeature({
 		});
 
 		scope.on("session_shutdown", async (event) => {
+			cancelDrain();
 			const ending = bridge;
 			bridge = undefined;
 			await ending?.stop(goneReason(event.reason));
