@@ -9,7 +9,9 @@ import { join } from "node:path";
 import permission from "@adeildo/pi-ask-permission";
 import piQuestions from "@adeildo/pi-ask-questions";
 import { TOOL_NAME } from "@adeildo/pi-ask-questions";
+import { logPath, readTail, targetOf } from "@adeildo/pi-kit";
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
+import { GOES_ALONE } from "@adeildo/pi-remote-client";
 import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import { type Browser, chromium, type Page } from "playwright-core";
 
@@ -401,7 +403,16 @@ async function sentWhileOffline(page: Page, rig: Rig): Promise<Result> {
 		const before = rig.session.sessionManager.getBranch().length;
 		const box = page.getByRole("textbox", { name: "Prompt" });
 		await page.context().setOffline(true);
-		await box.click({ timeout: 20_000 });
+		try {
+			await box.click({ timeout: 20_000 });
+		} catch {
+			const open = await page.getByRole("button", { name: /^Ship it/ }).count();
+			const shown = await page.getByTestId("composer").isVisible();
+			return {
+				ok: false,
+				why: `the prompt could not be clicked (question open: ${open > 0}, composer shown: ${shown})`,
+			};
+		}
 		await box.fill("typed while the wire was down");
 		await page.keyboard.press("Enter");
 		// The device keeps it: the outbox is drawn, and nothing reached the session.
@@ -420,21 +431,44 @@ async function sentWhileOffline(page: Page, rig: Rig): Promise<Result> {
 		if (rig.session.sessionManager.getBranch().length > before) return { ok: true };
 		// Where the command stopped tells the two failures apart: still in the device's storage means
 		// the reload did not drain the outbox, gone means the client sent it and the session lost it.
+		// Four numbers say where it stopped: `ready` and `held` are the queue's own reading of a waiting
+		// command (inside the window or past it), `sent` is the connection having taken it, and
+		// `received` is the session's log saying the daemon's command arrived. `sent` without
+		// `received` is a write that never got there; `received` without an applied command is the
+		// session not applying it.
 		const kept = await page.evaluate(() => {
-			const found: string[] = [];
+			const found: { key: string; id?: string; state?: string; at?: number }[] = [];
 			for (let at = 0; at < localStorage.length; at++) {
 				const key = localStorage.key(at) ?? "";
 				const value = localStorage.getItem(key) ?? "";
-				if (value.includes("typed while the wire was down")) found.push(key);
+				if (!value.includes("typed while the wire was down")) continue;
+				const outbox = (
+					JSON.parse(value) as {
+						outbox?: { id: string; state: string; at: number; data?: { text?: string } }[];
+					}
+				).outbox;
+				const one = outbox?.find(
+					(command) => command.data?.text === "typed while the wire was down",
+				);
+				found.push({ key, id: one?.id, state: one?.state, at: one?.at });
 			}
 			return found;
 		});
+		const first = kept[0];
+		if (first === undefined)
+			return { ok: false, why: "the command left the outbox and never reached the session" };
+		const age = first.at === undefined ? undefined : Date.now() - first.at;
+		const waiting = first.state === "waiting";
+		const manager = rig.session.sessionManager;
+		const received =
+			first.id !== undefined &&
+			readTail(logPath(targetOf(manager as never))).some(
+				(event) =>
+					event.type === "command.received" && (event.data as { id?: string }).id === first.id,
+			);
 		return {
 			ok: false,
-			why:
-				kept.length === 0
-					? "the command left the outbox and never reached the session"
-					: `the command is still in the outbox (${kept.join(", ")})`,
+			why: `the command is still in the outbox (state: ${first.state}, ready: ${waiting && age !== undefined && age <= GOES_ALONE}, held: ${waiting && age !== undefined && age > GOES_ALONE}, sent: ${first.state === "sent"}, received: ${received})`,
 		};
 	} catch (error) {
 		return { ok: false, why: short(error) };
@@ -448,8 +482,12 @@ async function sentWhileOffline(page: Page, rig: Rig): Promise<Result> {
 async function survivesRestart(page: Page): Promise<Result> {
 	try {
 		const dial = page.getByRole("button", { name: /^Permission mode: / });
+		// A dial that is not on the page yet reads as "not edits", so a slow page is a wait and not a
+		// 30-second error that says nothing about which part was missing.
 		const isEdits = async (): Promise<boolean> =>
-			((await dial.getAttribute("aria-label")) ?? "").endsWith(": edits");
+			(
+				(await dial.getAttribute("aria-label", { timeout: 1_000 }).catch(() => null)) ?? ""
+			).endsWith(": edits");
 		await dial.click({ timeout: 20_000 });
 		await page.getByRole("radio", { name: "edits", exact: true }).click({ timeout: 20_000 });
 		// The chip follows the state, so a mode that sticks is the state having taken it.
@@ -466,7 +504,10 @@ async function survivesRestart(page: Page): Promise<Result> {
 		if (readCurrent(root)?.pid === holder) return { ok: false, why: "no daemon came back" };
 
 		await page.reload({ waitUntil: "domcontentloaded" });
-		await page.getByTestId("composer").waitFor({ timeout: 60_000 });
+		// Attached, not shown: a question that is open takes the composer's place on screen, and the
+		// loop below is what measures the question, so a wait for the composer to show would time out
+		// and hide that it was the question.
+		await page.getByTestId("composer").waitFor({ state: "attached", timeout: 60_000 });
 		// The page draws from the state the session sends, and that state arrives when the bridge
 		// registers with the new daemon: the daemon pushes it to whoever was waiting.
 		// Both halves wait the same way: the mode and the closed question arrive with the same state,
@@ -480,7 +521,10 @@ async function survivesRestart(page: Page): Promise<Result> {
 		const closed = !(await stillOpen());
 		return mode && closed
 			? { ok: true }
-			: { ok: false, why: `mode back=${mode}, question closed=${closed}` };
+			: {
+					ok: false,
+					why: `mode back=${mode}, question closed=${closed}, dials on the page=${await dial.count()}, composers=${await page.getByTestId("composer").count()}`,
+				};
 	} catch (error) {
 		return { ok: false, why: short(error) };
 	}
