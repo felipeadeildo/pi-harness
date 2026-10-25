@@ -233,6 +233,11 @@ test("the dialog fits the row it is given, and what the reader typed under it st
 	expect(seen(term)).not.toContain("...");
 	for (const line of term.draw(SLOT, 80) ?? []) expect(visibleWidth(line)).toBeLessThanOrEqual(80);
 
+	// One frame around the dialog: the slot's, with the dialog's title and keys on it.
+	const top = (term.draw(SLOT, 80) ?? []).filter((line) => line.includes("\u256d"));
+	expect(top).toHaveLength(1);
+	expect(top[0]).toContain("Pick");
+
 	term.press(ENTER);
 	await running;
 	expect(term.text).toBe("a draft of my own");

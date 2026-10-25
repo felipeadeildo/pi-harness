@@ -322,12 +322,16 @@ async function draw(
 					complete: tools.done,
 				});
 				early?.attach(dialog);
+				let selected = -1;
 				return {
-					render: (width) => {
+					render: (inner) => {
 						dialog.focused = tools.focused();
-						return dialog.render(width);
+						const drawn = dialog.body(inner);
+						selected = drawn.selected;
+						return drawn.lines;
 					},
 					handleInput: (data) => dialog.handleInput(data),
+					chrome: () => ({ ...dialog.chrome(), selected }),
 				};
 			},
 			{ title: "Questions", escape: "view" },

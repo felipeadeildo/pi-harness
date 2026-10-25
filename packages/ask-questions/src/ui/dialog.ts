@@ -343,7 +343,25 @@ export class QuestionDialog implements Component, Focusable {
 	}
 
 	render(width: number): string[] {
-		const inner = frameInner(width);
+		const { lines, selected } = this.body(frameInner(width));
+		return frame(
+			this.theme,
+			width,
+			lines.map((text, index) => ({ text, selected: index === selected })),
+			this.chrome(),
+		);
+	}
+
+	/** What the frame around the dialog says, for a host that draws the frame. */
+	chrome(): { title: string; status: string; keys: KeyHint[] } {
+		const count = this.tabbed
+			? this.theme.fg("dim", `${this.answeredCount()}/${this.questions.length}`)
+			: "";
+		return { title: this.title(), status: count, keys: this.hint() };
+	}
+
+	/** The body lines for a host that draws the frame, and the one the pointer is on. */
+	body(inner: number): { lines: string[]; selected: number } {
 		const lines: string[] = [];
 		// The tabs, or a blank line, so the question does not touch the title.
 		lines.push(this.tabbed ? this.tabBar(inner) : "");
@@ -354,16 +372,7 @@ export class QuestionDialog implements Component, Focusable {
 				? this.submitLines(inner)
 				: this.questionLines(inner, this.tui.terminal.rows)),
 		);
-		const picked = this.pickedLine < 0 ? -1 : this.pickedLine + 1;
-		const count = this.tabbed
-			? this.theme.fg("dim", `${this.answeredCount()}/${this.questions.length}`)
-			: "";
-		return frame(
-			this.theme,
-			width,
-			lines.map((text, index) => ({ text, selected: index === picked })),
-			{ title: this.title(), status: count, keys: this.hint() },
-		);
+		return { lines, selected: this.pickedLine < 0 ? -1 : this.pickedLine + 1 };
 	}
 
 	private get onSubmitTab(): boolean {

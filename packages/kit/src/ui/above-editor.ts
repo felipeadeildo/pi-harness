@@ -13,7 +13,7 @@
 import type { ExtensionUIContext, Theme } from "@earendil-works/pi-coding-agent";
 import { type KeyId, matchesKey } from "@earendil-works/pi-tui";
 
-import { frame, frameInner } from "./frame.ts";
+import { frame, frameInner, type KeyHint } from "./frame.ts";
 
 /** The key that moves the focus between the dialog and the editor, as the bottom edge says. */
 export const ABOVE_EDITOR_FOCUS_KEY = "alt+e";
@@ -40,6 +40,16 @@ export interface AboveEditorView {
 	render(width: number): string[];
 	/** Reads a key. A key it does not read is dropped, never handed to the editor under it. */
 	handleInput(data: string): void;
+	/** What the frame around the view says. A view without it gets the title of the options. */
+	chrome?(): AboveEditorChrome;
+}
+
+export interface AboveEditorChrome {
+	title: string;
+	status?: string;
+	keys?: readonly KeyHint[];
+	/** The body line the pointer is on. */
+	selected?: number;
 }
 
 export interface AboveEditorResult<T> {
@@ -185,14 +195,25 @@ export function openAboveEditor<T>(
 						// so far, so the editor under it does not move.
 						tallest = Math.max(tallest, lines.length);
 						const body = [...lines, ...Array.from({ length: tallest - lines.length }, () => "")];
-						return frame(theme, width, body, {
-							title: options.title ?? "",
-							keys: [
-								...(options.escape === "view" ? [] : [["esc", "close"] as [string, string]]),
-								[ABOVE_EDITOR_FOCUS_KEY, "editor"],
-							],
-							border: focused ? "accent" : "border",
-						});
+						const chrome = drawn.chrome?.();
+						const own = chrome?.keys ?? [];
+						return frame(
+							theme,
+							width,
+							body.map((text, index) => ({ text, selected: index === chrome?.selected })),
+							{
+								title: chrome?.title ?? options.title ?? "",
+								status: chrome?.status,
+								keys: [
+									...own,
+									...(options.escape === "view" || own.length > 0
+										? []
+										: [["esc", "close"] as [string, string]]),
+									[ABOVE_EDITOR_FOCUS_KEY, "editor"],
+								],
+								border: focused ? "accent" : "border",
+							},
+						);
 					},
 					handleInput(data: string): void {
 						drawn.handleInput(data);
