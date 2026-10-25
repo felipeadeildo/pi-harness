@@ -110,6 +110,9 @@ describe("a daemon that restarts", () => {
 			),
 		);
 		const opening = sessions.opening("s") ?? [];
+		// The window is the opening plus what came after it, and it is not empty: an `after` with nothing
+		// in it would say the same about a session that never had a question.
+		expect(opening.map((one) => one.type)).toEqual(["state"]);
 		const state = (opening[0]?.data as { summary: { state?: SessionState } } | undefined)?.summary
 			.state;
 		expect(state?.questions.q1?.closed).toBe(true);
