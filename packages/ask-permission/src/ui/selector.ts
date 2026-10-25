@@ -1,4 +1,4 @@
-import { openAboveEditor } from "@adeildo/pi-kit";
+import { canOpenAboveEditor, openAboveEditor } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { type Scope, SCOPE_LABEL, SCOPES } from "#core/always-yes.ts";
@@ -18,7 +18,7 @@ export async function askViaSelector(
 	const choice =
 		// A host that can draw a component keeps the editor visible under the question, and one that
 		// cannot still has the plain selector. Both answer the same list.
-		drawsAboveEditor(ctx)
+		canOpenAboveEditor(ctx.ui)
 			? await overEditor(ctx, asked, target.summary, labels)
 			: await ctx.ui.select(`${asked}\n${target.summary}`, labels);
 	const option = choice ? choices[labels.indexOf(choice)] : undefined;
@@ -59,20 +59,6 @@ export async function askViaSelector(
 /** The keys the dialog reads, in the ones the terminal sends for them. */
 const ONE = "1".charCodeAt(0);
 const NINE = "9".charCodeAt(0);
-
-/** Whether this host can draw the question above the editor, keeping the editor under it. */
-function drawsAboveEditor(ctx: ExtensionContext): boolean {
-	const ui = ctx.ui as Partial<{
-		setWidget: unknown;
-		onTerminalInput: unknown;
-		getEditorText: unknown;
-	}>;
-	return (
-		typeof ui.setWidget === "function" &&
-		typeof ui.onTerminalInput === "function" &&
-		typeof ui.getEditorText === "function"
-	);
-}
 
 /**
  * The permission asked above the editor, where the reader is already typing: a dialog that took the

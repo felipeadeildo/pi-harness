@@ -85,8 +85,14 @@ interface Draft {
 	editor: Editor;
 }
 
+/** What the dialog asks of the screen it is drawn on. */
+export interface Screen {
+	requestRender(): void;
+	terminal: { rows: number };
+}
+
 export interface QuestionDialogOptions {
-	tui: Pick<TUI, "requestRender" | "terminal">;
+	tui: Screen;
 	theme: Theme;
 	markdownTheme: MarkdownTheme;
 	keybindings: KeybindingsManager;
@@ -118,7 +124,7 @@ export class QuestionDialog implements Component, Focusable {
 	private readonly newEditor: () => Editor;
 	private readonly previews: PreviewCache;
 	private readonly keybindings: KeybindingsManager;
-	private readonly tui: Pick<TUI, "requestRender" | "terminal">;
+	private readonly tui: Screen;
 	private readonly complete: (result: AskResult) => void;
 	private readonly now: () => number;
 	private ticks: ReturnType<typeof setInterval> | undefined;
@@ -168,7 +174,7 @@ export class QuestionDialog implements Component, Focusable {
 			selectList: getSelectListTheme(),
 		};
 		// The editor reads only requestRender and terminal.rows.
-		const tui = options.tui as TUI;
+		const tui = options.tui as unknown as TUI;
 		this.newEditor = () => {
 			const editor = new Editor(tui, editorTheme, { paddingX: 0 });
 			editor.onSubmit = (text) => this.submitTyped(text);

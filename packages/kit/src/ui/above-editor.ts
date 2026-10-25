@@ -13,7 +13,7 @@
 import type { ExtensionUIContext, Theme } from "@earendil-works/pi-coding-agent";
 import { type KeyId, matchesKey } from "@earendil-works/pi-tui";
 
-import { frame } from "./frame.ts";
+import { frame, frameInner } from "./frame.ts";
 
 /** The key that moves the focus between the dialog and the editor, as the bottom edge says. */
 export const ABOVE_EDITOR_FOCUS_KEY = "alt+e";
@@ -29,6 +29,10 @@ export interface AboveEditorTools<T> {
 	focused(): boolean;
 	/** The rows the dialog may use, so it can fit inside them instead of being cut. */
 	rows(): number;
+	/** Draws the view again, for a view that changes without a key. */
+	redraw(): void;
+	/** The theme the host draws with. */
+	theme: Theme;
 }
 
 /** What a feature draws. */
@@ -56,6 +60,11 @@ export interface AboveEditorOptions {
 	title?: string;
 	/** How recently the reader typed for the editor to keep the focus. */
 	recentMs?: number;
+	/**
+	 * Who reads Escape while the dialog has the keys. By default the slot closes the dialog; a view
+	 * that uses Escape to step back, and ends with what it has collected, asks to read it itself.
+	 */
+	escape?: "close" | "view";
 }
 
 /**
@@ -115,8 +124,10 @@ export function openAboveEditor<T>(
 	options: AboveEditorOptions = {},
 ): AboveEditor<T> {
 	let settle: (value: AboveEditorResult<T> | undefined) => void = () => {};
-	const result = new Promise<AboveEditorResult<T> | undefined>((resolve) => {
+	let fail: (error: unknown) => void = () => {};
+	const result = new Promise<AboveEditorResult<T> | undefined>((resolve, reject) => {
 		settle = resolve;
+		fail = reject;
 	});
 
 	let abandoned = false;
@@ -162,12 +173,14 @@ export function openAboveEditor<T>(
 					},
 					focused: () => focused,
 					rows,
+					redraw,
+					theme,
 				});
 				const drawn = view;
 				return {
 					invalidate(): void {},
 					render(width: number): string[] {
-						const lines = drawn.render(Math.max(1, width - 2));
+						const lines = drawn.render(Math.max(1, frameInner(width)));
 						// The row grows and never shrinks: a shorter step is padded to the tallest drawn
 						// so far, so the editor under it does not move.
 						tallest = Math.max(tallest, lines.length);
@@ -175,7 +188,7 @@ export function openAboveEditor<T>(
 						return frame(theme, width, body, {
 							title: options.title ?? "",
 							keys: [
-								["esc", "close"],
+								...(options.escape === "view" ? [] : [["esc", "close"] as [string, string]]),
 								[ABOVE_EDITOR_FOCUS_KEY, "editor"],
 							],
 							border: focused ? "accent" : "border",
@@ -203,7 +216,7 @@ export function openAboveEditor<T>(
 				host.lastTypedAt = Date.now();
 				return undefined;
 			}
-			if (matchesKey(data, "escape")) {
+			if (options.escape !== "view" && matchesKey(data, "escape")) {
 				close(undefined);
 				return { consume: true };
 			}
@@ -214,7 +227,12 @@ export function openAboveEditor<T>(
 	};
 
 	const host = hostOf(ui);
-	const turn = host.queue.then(run);
+	// A view that throws while it is built reaches the caller, and the row goes free for the next one.
+	const turn = host.queue.then(run).catch((error: unknown) => {
+		host.active = undefined;
+		stop();
+		fail(error);
+	});
 	host.queue = result.then(
 		() => undefined,
 		() => undefined,
@@ -236,6 +254,16 @@ export function openAboveEditor<T>(
 			started();
 		},
 	};
+}
+
+/** Whether this host can draw above the editor and keep the editor under the dialog. */
+export function canOpenAboveEditor(ui: ExtensionUIContext): boolean {
+	const parts = ui as Partial<ExtensionUIContext>;
+	return (
+		typeof parts.setWidget === "function" &&
+		typeof parts.onTerminalInput === "function" &&
+		typeof parts.getEditorText === "function"
+	);
 }
 
 const KEY = "pi-kit:above-editor";
