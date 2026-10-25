@@ -17,6 +17,8 @@ import { envelope, type Envelope, PROTOCOL } from "@adeildo/pi-remote-protocol";
 import { BridgeConnection } from "../src/bridge/connection.ts";
 import { Daemon, daemonDir, type ExitReason, newer } from "../src/daemon/server.ts";
 import { Sessions } from "../src/daemon/sessions.ts";
+import { readCurrent, writeLauncher } from "../src/launcher.ts";
+import { VERSION } from "../src/version.ts";
 import { envelopeOf, line, Lines } from "../src/wire/lines.ts";
 import { until } from "./fakes.ts";
 
@@ -266,6 +268,32 @@ describe("the daemon on its socket", () => {
 		await until(() => busy.daemon?.sessions.connected() === 1);
 		await Bun.sleep(250);
 		expect(busy.exits).toEqual([]);
+	});
+
+	test("the daemon says who holds the socket, so a test can stop it by pid", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "pi-remote-holder-"));
+		try {
+			writeLauncher(dir, {
+				node: process.execPath,
+				cli: "/nowhere/cli.js",
+				daemon: "/nowhere/daemon.js",
+				version: VERSION,
+			});
+			const daemon = await Daemon.start({
+				socket: join(dir, "daemon.sock"),
+				version: VERSION,
+				clientPort: 0,
+			});
+			expect(daemon?.clientPort).toBeNumber();
+			// The socket is bound to a temporary name and renamed, so the path cannot name the process:
+			// the file says it instead, and says the port it took.
+			const written = readCurrent(dir);
+			expect(written?.pid).toBe(process.pid);
+			expect(written?.port).toBe(daemon?.clientPort);
+			daemon?.stop();
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
 	});
 
 	test("a newer bridge, or a newer version in current.json, makes it exit for the upgrade", async () => {

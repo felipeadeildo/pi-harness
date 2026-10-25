@@ -20,6 +20,7 @@ import { dirname, join } from "node:path";
 
 import { envelope, type Envelope, isBy, isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
+import { writeHolder } from "../launcher.ts";
 import { envelopeOf, line, Lines } from "../wire/lines.ts";
 import { loadWebApp } from "./app.ts";
 import { Logins } from "./auth.ts";
@@ -296,6 +297,14 @@ export class Daemon {
 		} else {
 			this.clientPort = listened.port;
 			this.#clients = clients;
+			// The socket is bound to a temporary name and renamed, so the only way to say who holds
+			// it is to write it down: the gate stops this process by pid.
+			try {
+				writeHolder(dirname(this.#options.socket), { pid: process.pid, port: listened.port });
+			} catch {
+				// A folder that cannot be written is a folder the launcher could not be written to
+				// either, and the daemon still serves.
+			}
 		}
 	}
 

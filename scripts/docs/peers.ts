@@ -40,6 +40,8 @@ export async function peersRoom(
 		changed() {},
 		now: () => now,
 		alive: () => true,
+		// The pictures are drawn in one turn, so a read waiting for the log runs before the next one.
+		defer: (run: () => void) => void run(),
 	} as unknown as Hooks;
 
 	function session(id: string, fit: number, folder = "pi-harness"): Rooms {
