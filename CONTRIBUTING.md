@@ -88,6 +88,10 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
 - The author, before asking for a review, and the reviewer, before approving, check the head through
   the API: `gh pr view <n> --json headRefOid`. The review names the sha it measured, the command it
   ran and the number that came out, then one line per finding, and nothing more.
+- A state comes from the object, never from a sentence: `gh pr view <n> --json state,isDraft` for a
+  pull request and `git show origin/main:<path>` for what `main` has. Approved is not merged, and a
+  held branch is not a held merge. A `nearly:` that claims a merge which did not happen is worse than
+  an empty box: the box asks for work, and the wrong sentence reports progress that is not there.
 - A hold lives on the pull request, not in the room: whoever stops a merge runs
   `gh pr ready <n> --undo` and says why in a review. The author marks it ready when the point is in.
   Every agent pushes from the same account, so a requested change cannot block a merge; a draft can.
@@ -116,7 +120,7 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
 - Work happens in a worktree, never in `~/Projects/pi-harness`: that is the checkout the operator's
   `pi` loads the harness from, and it stays on `main` and clean. The rule starts at `git switch`,
   which is the first step of the mistake, and it holds for `git switch <branch>` as much as for `git
-switch -c`: a branch is never checked out there, only repaired back to `main`. A tree there that
+  switch -c`: a branch is never checked out there, only repaired back to `main`. A tree there that
   does not compile does not break a pull request, it breaks the session the operator is about to
   start, and `pi` says nothing more than a load that failed.
 - A review worktree under `/tmp` installs with `bun install --frozen-lockfile --ignore-scripts`, and
