@@ -393,7 +393,7 @@ Owner: core. Needs: C5.
 
 Owner: core. Needs: C5.
 
-The daemon serves the three cursors of [Sync](remote.md#sync): entries by id, facts by their position in the log, and the live stream by `(epoch, seq)`. A client's first load takes the snapshot and the latest entries, and a reconnect resumes from its cursors.
+The daemon was to serve the three cursors of [Sync](remote.md#sync): entries by id, facts by their position in the log, and the live stream by `(epoch, seq)`. It serves two. A client's first load takes the snapshot and the latest entries, and a reconnect resumes from its cursors.
 
 **Done:** entries by id and the live stream, which is what a reconnect and a page of older entries read today.
 
