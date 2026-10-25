@@ -1212,7 +1212,8 @@ describe("one bridge", () => {
 		const bare = await listening();
 		await start(mounted());
 		await until(() => types(bare).includes("state"));
-		expect(stateOf(bare).permissions.serves).toBe(false);
+		// A session whose scope has no permission feature says nothing, which is not the same as refusing.
+		expect(stateOf(bare).permissions.serves).toBeUndefined();
 	});
 
 	test("a session that takes mode.set says so, before any mode was chosen", async () => {
