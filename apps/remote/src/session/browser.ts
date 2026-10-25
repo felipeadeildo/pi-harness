@@ -2,6 +2,7 @@
 // origin. The login happens once per page, because the token in the link works once.
 import { pageCache } from "./cache.ts";
 import { fetchLogin, logIn } from "./login.ts";
+import { appStorage } from "./store";
 import { openSocket, socketUrl } from "./transport.ts";
 import type { SessionSource } from "./use-session.ts";
 
@@ -17,7 +18,7 @@ export function browserSource(): Promise<SessionSource> {
 			hash: globalThis.location.hash,
 			replaceState: (url) => globalThis.history.replaceState(null, "", url),
 		},
-		{ exchange: fetchLogin, cache: pageCache(() => globalThis.localStorage) },
+		{ exchange: fetchLogin, cache: pageCache(appStorage) },
 	).then((logged) => ({
 		cache: logged.cache,
 		// The page knows it is a browser; which device it is arrives with the marks C9 draws.
