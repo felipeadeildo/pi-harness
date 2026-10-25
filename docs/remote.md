@@ -555,20 +555,21 @@ Ephemeral events never reach the disk or the replay buffer beyond the message be
 
 **Session and machine state changes**, from the bridge and the daemon:
 
-| Event               | Data                                                                                              |
-| ------------------- | ------------------------------------------------------------------------------------------------- |
-| `session.live`      | `{ pid, startedAt, cwd, name, kind: "terminal" \| "background", runner? }`                        |
-| `session.state`     | `{ state: "working" \| "blocked" \| "done" \| "error" \| "idle" }`                                |
-| `session.gone`      | `{ reason: "exit" \| "crash" \| "unanswered" \| "replaced" }`                                     |
-| `stream.bound`      | `{ messages: { stream, entry }[] }`, at `turn_end`                                                |
-| `leaf.changed`      | `{ leaf }`, when the operator moves in the tree                                                   |
-| `session.renamed`   | `{ from, to, by }`, logged                                                                        |
-| `machine.renamed`   | `{ machine, from, to }`                                                                           |
-| `policy.changed`    | `{ machine, policy }`, see [A machine's policy](#a-machines-policy)                               |
-| `terminal.prompted` | `{ open, kind, title }` for `custom()` and the editor, from `ui_prompt_start` and `ui_prompt_end` |
-| `machine.online`    | `{ machine, name, version }`                                                                      |
-| `machine.offline`   | `{ machine, since }`                                                                              |
-| `presence.changed`  | `{ clients: { name, machine, active }[], terminal: boolean }`                                     |
+| Event               | Data                                                                                                |
+| ------------------- | --------------------------------------------------------------------------------------------------- |
+| `session.live`      | `{ pid, startedAt, cwd, name, kind: "terminal" \| "background", runner? }`                          |
+| `session.state`     | `{ state: "working" \| "blocked" \| "done" \| "error" \| "idle" }`                                  |
+| `session.gone`      | `{ reason: "exit" \| "crash" \| "unanswered" \| "replaced" }`                                       |
+| `stream.bound`      | `{ messages: { stream, entry }[] }`, at `turn_end`                                                  |
+| `leaf.changed`      | `{ leaf }`, when the operator moves in the tree                                                     |
+| `session.renamed`   | `{ from, to, by }`, logged                                                                          |
+| `machine.renamed`   | `{ machine, from, to }`                                                                             |
+| `policy.changed`    | `{ machine, policy }`, see [A machine's policy](#a-machines-policy)                                 |
+| `terminal.prompted` | `{ open, kind, title }` for `custom()` and the editor, from `ui_prompt_start` and `ui_prompt_end`   |
+| `prompt.from`       | `{ entry, by }`, once a prompt from a client shows on the branch and the bridge is sure whose it is |
+| `machine.online`    | `{ machine, name, version }`                                                                        |
+| `machine.offline`   | `{ machine, since }`                                                                                |
+| `presence.changed`  | `{ clients: { name, machine, active }[], terminal: boolean }`                                       |
 
 ### Commands
 

@@ -66,6 +66,8 @@ export interface SessionState {
 	 * here is refused when it is sent, so the field and the refusal cannot disagree.
 	 */
 	commands?: SessionCommand[];
+	/** Who sent the prompts that came from a client, by entry id: the transcript says where they came from. */
+	promptFrom?: Record<string, By>;
 	/** The dialog the terminal waits on that no client can answer, while it is open. */
 	prompt?: { kind: PromptKind; title?: string };
 	/** Changes every turn, so it lives in the state. */

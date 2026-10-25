@@ -25,6 +25,9 @@ const unchanged = (state: SessionState): SessionState => state;
  */
 export const KEPT_CLOSED = 100;
 
+/** How many prompts' senders the state keeps. The number is a choice, not a measurement. */
+const KEPT_PROMPTS = 100;
+
 function bound(state: SessionState): SessionState {
 	const closed = Object.values(state.questions).filter((ask) => ask.closed === true);
 	const open = Object.values(state.questions).filter((ask) => ask.closed !== true);
@@ -180,6 +183,16 @@ export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 		// A prompt that reached the log names who sent it; anything else is not this state change.
 		check: (data): data is StateChangeMap["prompt.received"] => isObject(data) && isBy(data.by),
 		apply: unchanged,
+	},
+	"prompt.from": {
+		check: (data): data is StateChangeMap["prompt.from"] =>
+			isObject(data) && typeof data.entry === "string" && isBy(data.by),
+		apply: (state, data) => ({
+			...state,
+			promptFrom: Object.fromEntries(
+				Object.entries({ ...state.promptFrom, [data.entry]: data.by }).slice(-KEPT_PROMPTS),
+			),
+		}),
 	},
 	"queue.changed": {
 		check: (data): data is StateChangeMap["queue.changed"] =>
