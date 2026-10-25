@@ -4,6 +4,11 @@
 //
 // Each feature brings its own view. This owns the slot: who has the keys, the frame that says so, the
 // text the reader had typed, and that only one dialog is open at a time.
+//
+// What it cannot give a view is the host's `KeybindingsManager`: pi hands that to `ui.custom` and to
+// `setEditorComponent`, and the widget factory a row like this is drawn by only receives the terminal
+// and the theme. So a dialog that owns an editor and answers to the application's own keys stays on
+// `ui.custom`; a row that reads its own keys and needs the editor kept in sight belongs here.
 import type { ExtensionUIContext, Theme } from "@earendil-works/pi-coding-agent";
 import { type KeyId, matchesKey } from "@earendil-works/pi-tui";
 
