@@ -7,6 +7,7 @@ import {
 	ASK,
 	ANSWER,
 	type AskRequest,
+	askQuestions,
 	CANCEL,
 	canAsk,
 	createApp,
@@ -277,6 +278,42 @@ test("another package asks through the same dialog", async () => {
 	// The dialog in this terminal answered it, under the session's name.
 	const by = { kind: "terminal", name: "new-cdef", machine: expect.any(String) };
 	expect(await answered).toEqual({ id: "ask-1", by, result: PICKED_A });
+});
+
+test("a dialog a phone answered first closes, and says where it was answered", async () => {
+	const bus = createEventBus();
+	const fake = fakePi(bus);
+	const notes: string[] = [];
+	const ctx = context(notes, true);
+	const term = fakeTerminal(ctx);
+	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
+	await fake.fire("session_start", {}, ctx);
+
+	const closed = new Promise((resolve) => bus.on(CANCEL, resolve));
+	const asker = askQuestions(bus, PARAMS.questions, { id: "ask-1" });
+	await drawn(term);
+	const phone = { kind: "client", name: "phone", machine: "m" } as const;
+	bus.emit(ANSWER, { id: "ask-1", by: phone, result: PICKED_A });
+	await asker;
+	await closed;
+	expect(notes).toEqual(["answered on phone"]);
+	expect(term.draw(SLOT)).toBeUndefined();
+});
+
+test("a dialog the terminal answered itself says nothing about where", async () => {
+	const bus = createEventBus();
+	const fake = fakePi(bus);
+	const notes: string[] = [];
+	const ctx = context(notes, true);
+	const term = fakeTerminal(ctx);
+	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
+	await fake.fire("session_start", {}, ctx);
+
+	const asker = askQuestions(bus, PARAMS.questions);
+	await drawn(term);
+	term.press(ENTER);
+	await asker;
+	expect(notes).toEqual([]);
 });
 
 test("the terminal answers under the handle the tasks gave the session", async () => {

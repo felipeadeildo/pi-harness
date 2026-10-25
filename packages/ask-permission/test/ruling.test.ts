@@ -25,6 +25,20 @@ describe("settle", () => {
 		});
 	});
 
+	test("an answer from a phone says where it was given", () => {
+		const phone = { kind: "client", name: "phone", machine: "m" } as const;
+		expect(settle({ action: "allow", by: "you", answeredBy: phone }, undefined)?.head).toBe(
+			"approved on phone",
+		);
+		expect(settle({ action: "block", by: "you", answeredBy: phone }, undefined)?.head).toBe(
+			"denied on phone",
+		);
+		const here = { ...phone, kind: "terminal" } as const;
+		expect(settle({ action: "allow", by: "you", answeredBy: here }, undefined)?.head).toBe(
+			"you approved",
+		);
+	});
+
 	test("a deniable answer says the call is blocked, so its body adds nothing", () => {
 		expect(settle({ action: "block", by: "judge", reason: "92% sure" }, undefined)).toMatchObject({
 			head: "judge denied",

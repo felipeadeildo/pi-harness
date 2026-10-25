@@ -452,6 +452,23 @@ describe("workspace scope", () => {
 		});
 	});
 
+	test("an always yes from a phone lasts for the session, whatever scope it picked", async () => {
+		const phone: By = { kind: "client", name: "phone", machine: "m" };
+		const { bus } = questionsProvider(
+			[answerTo("always yes"), answerTo("git push"), answerTo("this project")],
+			phone,
+		);
+		const { toolCall, state, entries } = harness("judge", "ask", bus);
+
+		await toolCall(judgeCall("call-1", "git push origin main"), fakeContext());
+
+		expect(state.alwaysYes.has("bash", ["git push"])).toBe(true);
+		expect(entries).toContainEqual({
+			customType: "pi-ask-permission:session",
+			data: { kind: "always-yes", toolName: "bash", level: "git push" },
+		});
+	});
+
 	test("every decision is announced, and the dialog's answer is kept in the session", async () => {
 		const { entries, decided, toolCall } = harness("manual");
 
@@ -512,6 +529,23 @@ describe("workspace scope", () => {
 		);
 		expect(result).toBeUndefined();
 		expect(opened).toBe(false);
+	});
+
+	test("a folder opened from a phone lasts for the session, whatever scope it picked", async () => {
+		const phone: By = { kind: "client", name: "phone", machine: "m" };
+		const { bus } = questionsProvider(
+			[answerTo("yes, and allow reads in /etc"), answerTo("everywhere")],
+			phone,
+		);
+		const { entries, state, toolCall } = harness("manual", "ask", bus);
+
+		await toolCall(judgeCall("call-1", "cat /etc/hostname"), fakeContext());
+
+		expect(state.folders.covers("/etc/passwd", "read")).toBe(true);
+		expect(entries).toContainEqual({
+			customType: "pi-ask-permission:session",
+			data: { kind: "folder", path: "/etc", access: "read" },
+		});
 	});
 
 	test("the folder is offered only when the workspace is what asks", async () => {

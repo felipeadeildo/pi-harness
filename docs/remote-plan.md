@@ -86,7 +86,7 @@ A slice is ticked in the commit that lands it. A slice whose parts are on `main`
 - [x] W3. The Sessions and Session screens (client, F1)
 - [ ] I1. The inbox (names, before F2) — nearly: wired to pi; the peers' modes wait on N4
 - [x] C8. Commands through the bridge (core, F2)
-- [ ] A5. Clients in the race for the harness's dialogs (ask, F2)
+- [x] A5. Clients in the race for the harness's dialogs (ask, F2)
 - [ ] A6. pi's own dialogs in the race (ask, F2)
 - [x] P4. Commands and the outbox in the client library (protocol, F2)
 - [x] C9. Presence and its marks (core, F2)

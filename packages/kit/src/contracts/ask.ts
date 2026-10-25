@@ -75,6 +75,8 @@ export interface AnswerEvent {
 export interface AskCancel {
 	id: string;
 	reason: "answered" | "aborted";
+	/** Who answered, when the question closed on an answer that said. */
+	by?: By;
 }
 
 export function isAskResult(value: unknown): value is AskResult {
