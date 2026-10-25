@@ -5,7 +5,7 @@
 	"main": "expo-router/entry",
 	"scripts": {
 		"export": "expo export -p web",
-		"check": "tsc --noEmit",
+		"check": "expo customize tsconfig.json > /dev/null && tsc --noEmit",
 		"csp": "bun scripts/csp.ts"
 	},
 	"dependencies": {},
@@ -16,6 +16,7 @@
 		"@expo/metro-runtime": "~58.0.15",
 		"@types/react": "^19.3.0",
 		"@types/react-dom": "^19.3.0",
+		"babel-plugin-react-compiler": "^1.0.0",
 		"expo": "^58.0.19",
 		"expo-constants": "~58.0.13",
 		"expo-linking": "~58.0.14",
