@@ -8,11 +8,12 @@ import { commandApi } from "../src/commands-api.ts";
  * what was asked of them, so a `send` that stops deciding fails here.
  */
 function apiWith(offered: { name: string; source: string; description?: string }[]) {
-	const sent: string[] = [];
+	const sent: { text: string; options?: Record<string, unknown> }[] = [];
 	const compacts: (string | undefined)[] = [];
 	const scope = {
 		getCommands: () => offered,
-		sendUserMessage: (text: string) => void sent.push(text),
+		sendUserMessage: (text: string, options?: Record<string, unknown>) =>
+			void sent.push({ text, options }),
 		events: { emit: () => {} },
 		warn: () => {},
 	} as never;
@@ -33,7 +34,7 @@ describe("the send decides before pi sees the text", () => {
 	test("a command the session offers goes out expanded", () => {
 		const { api, sent } = apiWith(offered);
 		api.send("/review", undefined);
-		expect(sent).toEqual(["/review"]);
+		expect(sent).toEqual([{ text: "/review", options: { expandPromptTemplates: true } }]);
 	});
 
 	test("a command the session does not offer is refused, not sent as words", () => {
@@ -53,6 +54,8 @@ describe("the send decides before pi sees the text", () => {
 	test("a plain prompt is still a prompt", () => {
 		const { api, sent } = apiWith(offered);
 		api.send("ship it", "steer");
-		expect(sent).toEqual(["ship it"]);
+		// The other half of the decision: everything that is not a command goes out as it is, and the flag
+		// that expands skills is not set — otherwise a change that always sets it would pass unnoticed.
+		expect(sent).toEqual([{ text: "ship it", options: { deliverAs: "steer" } }]);
 	});
 });

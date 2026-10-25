@@ -69,9 +69,10 @@ export function commandApi(scope: FeatureScope, ctx: ExtensionContext): SessionA
 			}
 			scope.sendUserMessage(text, {
 				...(deliverAs === undefined ? {} : { deliverAs }),
-				// Skills and prompt templates expand, which is what makes `/skill:x` work from the phone.
-				// Extension commands are not in the list above, so they never reach this flag.
-				expandPromptTemplates: true,
+				// Only a slash text expands: it is what makes `/skill:x` and a template work from the
+				// phone, and a plain prompt must keep going out exactly as typed. Extension commands never
+				// reach this flag — the list above does not carry them.
+				...(text.startsWith("/") ? { expandPromptTemplates: true } : {}),
 			});
 		},
 		arrived: (text, by) => {
