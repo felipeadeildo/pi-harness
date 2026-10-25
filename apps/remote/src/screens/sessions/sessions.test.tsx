@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { ListedSession } from "@adeildo/pi-remote-client";
 
-import { nameOf, rowStyle, rowsOf } from "./rows.ts";
+import { keyOf, nameOf, rowStyle, rowsOf } from "./rows.ts";
 
 const live = { pid: 1, startedAt: 1, cwd: "/work", kind: "terminal" as const };
 
@@ -65,5 +65,28 @@ describe("the list of sessions", () => {
 		expect(Array.isArray(rowStyle(true))).toBe(false);
 		expect(Array.isArray(rowStyle(false))).toBe(false);
 		expect(rowStyle(true)).not.toEqual(rowStyle(false));
+	});
+
+	test("a kept order holds its places when one of them starts waiting, and a fresh list sorts", () => {
+		const calm = row({ machine: "box", session: "aaaa", snapshot: { status: "working" } as never });
+		const other = row({
+			machine: "box",
+			session: "bbbb",
+			snapshot: { status: "working" } as never,
+		});
+		const kept = [keyOf(other), keyOf(calm)];
+
+		// The same session now waits on the person: with the kept order it stays second and the mark
+		// changes; a list drawn for the first time puts it first, which is what the person expects.
+		const blocked = row({
+			machine: "box",
+			session: "aaaa",
+			snapshot: { status: "blocked" } as never,
+		});
+		const held = rowsOf([blocked, other], kept);
+		expect(held.map((one) => one.session)).toEqual(["bbbb", "aaaa"]);
+		expect(held[1]?.waits).toBe(true);
+
+		expect(rowsOf([blocked, other])[0]?.session).toBe("aaaa");
 	});
 });
