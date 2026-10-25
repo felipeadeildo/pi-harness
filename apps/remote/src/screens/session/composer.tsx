@@ -3,6 +3,7 @@ import {
 	type CommandType,
 	type PermissionMode,
 	type QueuedMessage,
+	type SessionCommand,
 	THINKING_LEVELS,
 } from "@adeildo/pi-remote-protocol";
 // The controls under the transcript: send a prompt, steer or follow up, abort, pick the model and the
@@ -15,6 +16,7 @@ import {
 import { type ReactNode, createElement as h, useEffect, useState } from "react";
 
 import { queuedLines, type QueuedLine, withdraw } from "./pending.ts";
+import { chosen, suggested, type Suggestion } from "./suggestions.ts";
 
 export interface ComposerProps {
 	/** The connection this session is drawn from, which is also where commands go. */
@@ -28,6 +30,8 @@ export interface ComposerProps {
 	ask?: (question: string) => string | undefined;
 	/** What the session is holding for the agent to finish, which every client sees the same way. */
 	waiting?: readonly QueuedMessage[];
+	/** What a phone may run by typing `/`, as the session last said. Nothing here, nothing offered. */
+	commands?: SessionCommand[];
 }
 
 /** The three modes a client may set: `full` runs everything unasked, so only a terminal may choose it. */
@@ -40,6 +44,7 @@ export function Composer({
 	thinking,
 	ask,
 	waiting,
+	commands,
 }: ComposerProps): ReactNode {
 	// The queue changes without the session changing, so the composer hears the client itself.
 	// Reading `outbox()` once per render makes "drawn by state" true at the mount and a lie after.
@@ -53,6 +58,9 @@ export function Composer({
 	// The session's own queue is drawn beside the outbox and never merged with it: what this device
 	// sent and what the session holds are different lists, and each has its own act.
 	const queued = queuedLines(waiting ?? []);
+	// The suggestions come from the session, not from a list in the app: what is offered here is what
+	// the bridge will accept, and a command that appears later stays absent until the session says so.
+	const offering = suggested(draft, commands ?? []);
 	// A command past the window waits for the person, and one inside it goes out on its own: the
 	// screen has to say which, or a prompt typed offline three minutes ago looks like one in flight.
 	const held = new Set(
@@ -67,7 +75,7 @@ export function Composer({
 	return h(
 		"section",
 		{ className: "remote-composer" },
-		promptRow(send, draft, write),
+		promptRow(send, draft, write, offering),
 		controls(send),
 		pickers(send, mode, model, thinking),
 		ask === undefined ? null : naming(send, ask),
@@ -94,6 +102,7 @@ function promptRow(
 	send: (type: CommandType, data: unknown) => void,
 	draft: string,
 	write: (text: string) => void,
+	offering: readonly Suggestion[],
 ): ReactNode {
 	const take = (deliverAs: "steer" | "followUp"): void => {
 		const text = draft.trim();
@@ -113,6 +122,33 @@ function promptRow(
 		}),
 		h("button", { type: "button", disabled: empty, onClick: () => take("followUp") }, "Send"),
 		h("button", { type: "button", disabled: empty, onClick: () => take("steer") }, "Steer now"),
+		suggestionList(offering, write),
+	);
+}
+
+/**
+ * What `/` offers: the session's own list, filtered by what was typed. Choosing one writes the command
+ * and keeps the cursor in the field, because the instruction beside it is what the person still types.
+ */
+function suggestionList(offering: readonly Suggestion[], write: (text: string) => void): ReactNode {
+	if (offering.length === 0) return null;
+	return h(
+		"ul",
+		{ className: "remote-composer-suggestions" },
+		...offering.map((one) =>
+			h(
+				"li",
+				{ key: one.name },
+				h(
+					"button",
+					{ type: "button", onClick: () => write(chosen(one.name)) },
+					h("span", { className: "remote-composer-command" }, one.name),
+					one.description === undefined
+						? null
+						: h("span", { className: "remote-composer-hint" }, one.description),
+				),
+			),
+		),
 	);
 }
 
