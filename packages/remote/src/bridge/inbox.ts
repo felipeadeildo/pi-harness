@@ -108,7 +108,7 @@ export class SessionInbox {
 
 	/**
 	 * The deadline passed without a run: the letter stays where it is and gains the reason, which is
-	 * the fact and not a guess — pi never said it started. `started()` clears it by taking the letter.
+	 * the fact and not a guess, because pi never said it started. `started()` clears it by taking the letter.
 	 */
 	#expire(): void {
 		// A start that arrived first took the letter, and there is nothing left to say about it.
