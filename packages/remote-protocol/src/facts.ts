@@ -126,6 +126,9 @@ export interface FactMap {
 		cwd?: string;
 		name?: string;
 		kind: "terminal" | "background";
+		/** The model this session answers with, and how hard it thinks, as pi reports them live. */
+		model?: { provider: string; id: string };
+		thinkingLevel?: string;
 		/**
 		 * pi's session file, which the daemon pages older entries from. pi knows the path from the
 		 * start, but writes the file only with the first message, so until then a page finds nothing:

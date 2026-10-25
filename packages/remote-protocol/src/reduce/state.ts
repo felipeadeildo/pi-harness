@@ -5,6 +5,7 @@
 import type { By } from "../by.ts";
 import {
 	isFact,
+	SESSION_STATES,
 	type AskQuestion,
 	type AskResult,
 	type CallRuling,
@@ -52,6 +53,12 @@ export interface SessionState {
 	renamed?: { from: string; to: string; by?: By };
 	/** What waits to be delivered, in the order it will go in. Empty when nothing waits. */
 	queue: QueuedMessage[];
+	/** What the session is doing, in pi's program status words. */
+	status?: (typeof SESSION_STATES)[number];
+	/** The model it answers with, how hard it thinks, and the word it is called by. */
+	model?: { provider: string; id: string };
+	thinkingLevel?: string;
+	name?: string;
 }
 
 export function emptySessionState(): SessionState {
@@ -116,6 +123,20 @@ export function applyEvent(state: SessionState, type: string, data: unknown): Se
 					},
 				},
 			});
+		}
+		case "session.status": {
+			const { status } = data as { status: SessionState["status"] };
+			return { ...state, status };
+		}
+		case "session.live": {
+			const live = data as { name?: string; model?: SessionState["model"]; thinkingLevel?: string };
+			// Absence means "not said here", so a live event that names only the folder leaves the rest.
+			return {
+				...state,
+				...(live.name === undefined ? {} : { name: live.name }),
+				...(live.model === undefined ? {} : { model: live.model }),
+				...(live.thinkingLevel === undefined ? {} : { thinkingLevel: live.thinkingLevel }),
+			};
 		}
 		case "queue.changed": {
 			const { queue } = data as { queue: QueuedMessage[] };

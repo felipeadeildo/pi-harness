@@ -260,6 +260,11 @@ export class Bridge {
 			name: manager.getSessionName(),
 			kind: this.options.kind,
 			file: manager.getSessionFile(),
+			model:
+				this.ctx.model === undefined
+					? undefined
+					: { provider: this.ctx.model.provider, id: this.ctx.model.id },
+			thinkingLevel: this.ctx.thinkingLevel,
 		});
 		this.#snapshot();
 		// What the snapshot does not carry is older than its tail or off the branch, and a client reads
