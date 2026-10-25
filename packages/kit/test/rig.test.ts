@@ -132,4 +132,24 @@ describe("what the terminal is told", () => {
 			{ message: "no daemon answered", level: "warning" },
 		]);
 	});
+
+	test("what an extension throws where pi swallows it is kept, not hidden", async () => {
+		// A handler that fails reaches `emitError` in pi and never reaches the test: that is how a
+		// feature goes silent in a run and breaks in a terminal.
+		const rig = await createRig({
+			extensions: [
+				(pi) => {
+					pi.on("session_start", () => {
+						throw new Error("the handler broke");
+					});
+				},
+			],
+		});
+		try {
+			await Bun.sleep(50);
+			expect(rig.errors.map((one) => one.error)).toContain("the handler broke");
+		} finally {
+			rig.dispose();
+		}
+	});
 });

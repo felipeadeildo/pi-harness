@@ -118,6 +118,13 @@ export interface Rig {
 	sessions: string;
 	/** What the features told the terminal, in the order they said it: `ctx.ui.notify`, as it reads. */
 	notified: { message: string; level: string }[];
+	/**
+	 * What an extension threw where pi could not show it: a handler that failed, or a promise it never
+	 * awaited — both go through the same channel, `runner.emitError`. Without this the run looks like
+	 * nothing happened, which is what a swallowed rejection is: the reason a feature can be silent in a
+	 * test and loud in a terminal. `error` is the message as pi formatted it, not an `Error`.
+	 */
+	errors: { event: string; error: string; stack?: string }[];
 	/** Sends a prompt and waits for the run it starts to settle. */
 	prompt(text: string): Promise<void>;
 	/**
@@ -299,6 +306,9 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 
 	// What the features said to the terminal, kept for a test that reads it instead of the screen.
 	const notified: { message: string; level: string }[] = [];
+	// What an extension threw where pi swallows it, kept for the same reason: an error a test cannot
+	// see is an error that looks like nothing happening.
+	const errors: { event: string; error: string; stack?: string }[] = [];
 	let session: AgentSession;
 	try {
 		({ session } = await createAgentSession({
@@ -317,6 +327,13 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 		await session.bindExtensions({
 			mode: "rpc",
 			uiContext: scriptedUI(options.says ?? {}, notified),
+			onError: (error) =>
+				errors.push({
+					event: error.event,
+					error: String(error.error),
+					// The line, not just the message: an error a test reads is worth more with where.
+					...(error.stack === undefined ? {} : { stack: error.stack }),
+				}),
 		});
 	} catch (error) {
 		// A session that never opened leaves nothing behind for the next rig in this file to trip on.
@@ -334,6 +351,7 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 		events,
 		sessions,
 		notified,
+		errors,
 		prompt: async (text) => {
 			await session.prompt(text);
 			await session.waitForIdle();
