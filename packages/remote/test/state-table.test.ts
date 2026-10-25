@@ -48,7 +48,7 @@ const ROWS: Row[] = [
 	{
 		name: "nothing at all is an empty state, not a missing one",
 		events: [],
-		expects: { questions: {}, permissions: { rulings: {}, serves: false }, queue: [] },
+		expects: { questions: {}, permissions: { rulings: {} }, queue: [] },
 		leaves: (state) => state,
 	},
 	{
@@ -148,7 +148,7 @@ const ROWS: Row[] = [
 			{ type: "leaf.changed", data: { leaf: null } },
 			{ type: "stream.bound", data: { messages: [] } },
 		],
-		expects: { questions: {}, permissions: { rulings: {}, serves: false }, queue: [] },
+		expects: { questions: {}, permissions: { rulings: {} }, queue: [] },
 		leaves: (state) => ({ ...state }),
 	},
 ];
@@ -157,7 +157,7 @@ const ROWS: Row[] = [
 function heldByBridge(events: Logged[]): SessionState {
 	const harness = new Harness();
 	for (const one of events) harness.saw(one.type, one.data);
-	return harness.snapshot(undefined, undefined, false);
+	return harness.snapshot(undefined, undefined, undefined);
 }
 
 /** The daemon keeps its own copy, seeded by the snapshot and folded on every event it forwards. */

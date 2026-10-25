@@ -45,7 +45,10 @@ export interface SessionState {
 	permissions: {
 		rulings: Record<string, { ruling: CallRuling; by?: By }>;
 		mode?: PermissionMode;
-		/** Whether this session takes `mode.set` at all, which a client needs before it offers a dial. */
+		/**
+		 * Whether this session takes `mode.set`, which a client needs before it offers a dial. Absent
+		 * until a bridge said, because "not said yet" is not "cannot".
+		 */
 		serves?: boolean;
 	};
 	/** The last rename, for a mention of the older handle. */
@@ -78,7 +81,7 @@ export interface SessionCost {
 }
 
 export function emptySessionState(): SessionState {
-	return { questions: {}, permissions: { rulings: {}, serves: false }, queue: [] };
+	return { questions: {}, permissions: { rulings: {} }, queue: [] };
 }
 
 export function openQuestions(state: SessionState): OpenAsk[] {
