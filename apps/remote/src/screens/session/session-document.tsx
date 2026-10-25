@@ -1,5 +1,8 @@
 "use dom";
 
+// One default export, nothing else: the native bundler refuses a DOM component module that exports more
+// than that, and no web test sees it. A second `export` here breaks Android and green stays green.
+
 // The document half of a session: the transcript, the tasks and the question it waits on. Everything
 // here is text from elsewhere, so it goes through the W2 renderer and never through raw HTML. It is a
 // DOM component because a phone has no `main`, `ol` or `details`, and text is what this draws.
