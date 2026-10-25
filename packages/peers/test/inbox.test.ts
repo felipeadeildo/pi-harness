@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import type { Delivery } from "@adeildo/pi-kit";
 
 import type { Posted } from "../src/folder.ts";
-import { type Held, Inbox, type InboxHooks, type Sender } from "../src/inbox.ts";
+import { type Held, Inbox, type InboxHooks, type Sender, letterOf } from "../src/inbox.ts";
 import type { BusyDelivery } from "../src/rules.ts";
 
 function posted(id: string, text: string): Posted {
@@ -41,6 +41,7 @@ function busy(mode: BusyDelivery = "steered") {
 		idle: () => state.idle,
 	};
 	const from: Sender = {
+		by: { kind: "agent", name: "oauth", machine: "laptop" },
 		details: (message) => ({
 			id: message.id,
 			from: "oauth",
@@ -118,5 +119,19 @@ describe("a colleague's message the agent has not read", () => {
 		inbox.cleared(false);
 		expect(sent).toEqual([]);
 		expect(held).toEqual([]);
+	});
+});
+
+describe("the letter a message becomes", () => {
+	test("carries who wrote it, the words, and when it goes in", () => {
+		const by = { kind: "agent", name: "oauth", machine: "laptop" } as const;
+		expect(letterOf(posted("m1", "are you in auth.ts?"), by, "steered")).toEqual({
+			id: "m1",
+			by,
+			text: "are you in auth.ts?",
+			want: "steer",
+			at: 1_000,
+		});
+		expect(letterOf(posted("m2", "later"), by, "after-run").want).toBe("followUp");
 	});
 });

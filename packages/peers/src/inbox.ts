@@ -1,7 +1,7 @@
 // What reaches this session's agent, from every room it is in. A session is one agent however many
 // rooms it reads, so the depth of its chain and the way a message reaches it belong here, and what
 // arrives from several rooms at once is one turn.
-import type { Delivery } from "@adeildo/pi-kit";
+import type { By, Delivery, Letter } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import type { Posted } from "./folder.ts";
@@ -63,8 +63,24 @@ export interface InboxHooks {
 
 /** A room handing over what is due in it, and logging the receipts once the agent has it. */
 export interface Sender {
+	/** Who is writing, as the log and the wire name them. */
+	by: By;
 	details(message: Posted): PeerMessageDetails;
 	handed(messages: readonly Posted[], mode: Delivery): void;
+}
+
+/**
+ * The same words as a letter of the kit, which is what the queue holds once it moves there. The kit
+ * reads `want`, the peers reads `mode`: one is how it goes in, the other is when.
+ */
+export function letterOf(message: Posted, by: By, mode: Waiting["mode"]): Letter {
+	return {
+		id: message.id,
+		by,
+		text: message.text,
+		want: mode === "steered" ? "steer" : "followUp",
+		at: message.at,
+	};
 }
 
 interface Queued {

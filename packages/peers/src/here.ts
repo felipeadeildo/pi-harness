@@ -18,7 +18,7 @@ import {
 	tasksWith,
 	tildify,
 } from "@adeildo/pi-kit";
-import type { PeerMark, RoomMode } from "@adeildo/pi-kit";
+import type { By, PeerMark, RoomMode } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import type { Fit } from "./bid.ts";
@@ -107,6 +107,12 @@ interface SessionSource {
 
 export class Here implements Sender {
 	readonly #hooks: Hooks;
+	/** Who this session is, as the log names it: the handle it drew and the machine it runs on. */
+	get by(): By {
+		const handle =
+			this.names().bySession.get(this.session ?? "")?.handle ?? this.session ?? "an agent";
+		return { kind: "agent", name: handle, machine: HOST };
+	}
 	readonly #inbox: Inbox;
 	#live: { key: string; peers: Peer[]; names: Names | undefined } | undefined;
 	/** A room alone owns its inbox and tells it when a run starts; the session's rooms tell theirs once. */
