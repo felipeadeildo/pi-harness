@@ -2,18 +2,31 @@
 	"$schema": "https://unpkg.com/knip@5/schema.json",
 	"workspaces": {
 		"packages/*": {
-			"entry": [
-				"src/index.ts",
-				"src/main.ts",
-				"eval/**/*.ts",
-				"test/**/*.test.ts",
-				"test/**/*.test.tsx",
-				"test/helpers.ts",
-				"test/*worker.ts"
-			]
+			"entry": ["test/**/*.test.ts"]
+		},
+		"packages/kit": {
+			"entry": ["test/**/*.test.ts", "test/*worker.ts"]
+		},
+		"packages/look": {
+			"entry": ["test/**/*.test.ts", "test/helpers.ts"]
+		},
+		"packages/providers": {
+			"entry": ["test/**/*.test.ts", "test/helpers.ts", "eval/**/*.ts"]
+		},
+		"packages/compact": {
+			"entry": ["test/**/*.test.ts", "eval/**/*.ts"]
+		},
+		"packages/peers": {
+			"entry": ["test/**/*.test.ts", "eval/**/*.ts"]
+		},
+		"packages/tasks": {
+			"entry": ["test/**/*.test.ts", "eval/**/*.ts"]
 		},
 		"packages/harness": {
-			"entry": ["src/*.ts"]
+			"entry": ["src/*.ts", "test/**/*.test.ts"]
+		},
+		"packages/remote": {
+			"entry": ["src/daemon/main.ts", "src/cli/main.ts", "test/**/*.ts"]
 		},
 		"apps/remote": {
 			"entry": ["src/app/**/*.tsx", "src/session/browser.ts", "scripts/*.ts"]
@@ -22,7 +35,6 @@
 			"entry": ["scripts/**/*.ts"]
 		}
 	},
-	"ignore": ["**/dist/**"],
 	"ignoreDependencies": [],
 	"ignoreBinaries": ["script"]
 }
