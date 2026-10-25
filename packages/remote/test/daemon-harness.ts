@@ -16,6 +16,7 @@ import {
 } from "@adeildo/pi-remote-protocol";
 
 import { Daemon } from "../src/daemon/server.ts";
+import type { Cursor } from "../src/daemon/sessions.ts";
 import { envelopeOf, line, Lines } from "../src/wire/lines.ts";
 import { logIn } from "./login.ts";
 
@@ -41,6 +42,17 @@ export async function openDaemon(): Promise<{ daemon: Daemon; port: number; cook
 	running.push(daemon);
 	const port = daemon.clientPort;
 	return { daemon, port, cookie: await logIn(daemon, port) };
+}
+
+/**
+ * The events after a cursor, refusing the gap the replay cannot fill: `after` answers `undefined`
+ * for it, which no amount of waiting turns into a page, so waiting on it hangs instead of failing.
+ */
+export function missed(daemon: Daemon, session: string, cursor: Cursor): Envelope[] {
+	const events = daemon.sessions.after(session, cursor);
+	if (events === undefined)
+		throw new Error(`the replay dropped what followed seq ${cursor.seq}, so it never arrives`);
+	return events;
 }
 
 /**

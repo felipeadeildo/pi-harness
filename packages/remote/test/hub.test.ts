@@ -5,7 +5,15 @@ import { connect, memoryCache } from "@adeildo/pi-remote-client";
 import { envelope, type Envelope, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
 import { envelopeOf, line, Lines } from "../src/wire/lines.ts";
-import { bridgeOf, entry, openDaemon, socket, transportTo, useDaemon } from "./daemon-harness.ts";
+import {
+	bridgeOf,
+	entry,
+	missed,
+	openDaemon,
+	socket,
+	transportTo,
+	useDaemon,
+} from "./daemon-harness.ts";
 import { until } from "./fakes.ts";
 
 useDaemon();
@@ -394,4 +402,80 @@ test("a bridge gets a link for token.issue, answered on the same id", async () =
 	const data = replies[0]?.data as { url?: unknown } | undefined;
 	expect(data?.url).toStartWith(`http://127.0.0.1:${port}/#token=`);
 	client.destroy();
+});
+
+describe("a daemon that answers for itself", () => {
+	test("a session it never saw is not offered, and the client is not told a session is coming", async () => {
+		const { daemon, port, cookie } = await openDaemon();
+		const bridge = await bridgeOf("s1");
+		bridge.snapshot([entry("a", null)]);
+		await until(() => daemon.sessions.get("s1") !== undefined);
+		bridge.close();
+		await until(() => daemon.sessions.get("s1")?.connected === false);
+
+		expect(daemon.sessions.list().map((one) => one.session)).toEqual(["s1"]);
+		expect(daemon.sessions.get("s2")).toBeUndefined();
+
+		const heard: Envelope[] = [];
+		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+			headers: { Origin: `http://127.0.0.1:${port}`, Cookie: cookie },
+		});
+		ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)));
+		await new Promise((resolve) => (ws.onopen = resolve));
+		ws.send(JSON.stringify(envelope("hello", "hello", {}, { machine: "laptop", session: "s2" })));
+		await until(() => heard.length > 0);
+		expect(heard.every((one) => one.kind !== "error")).toBe(true);
+		ws.close();
+	});
+
+	test("a session that ended keeps the answer it gave, and a socket back mid-stream finds the same message", async () => {
+		const { daemon, port, cookie } = await openDaemon();
+		const bridge = await bridgeOf("s1");
+		bridge.snapshot([entry("a", null)]);
+		bridge.send("stream.bound", { messages: [{ stream: 1, entry: "a" }] });
+		bridge.send("pi.message_update", {
+			type: "message_update",
+			usage: undefined,
+			assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: "he" },
+		});
+		const open = () => {
+			const heard: Envelope[] = [];
+			const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+				headers: { Origin: `http://127.0.0.1:${port}`, Cookie: cookie },
+			});
+			ws.onmessage = (event) => heard.push(JSON.parse(String(event.data)));
+			return { ws, heard };
+		};
+		const first = open();
+		await new Promise((resolve) => (first.ws.onopen = resolve));
+		first.ws.send(
+			JSON.stringify(envelope("hello", "hello", {}, { machine: "laptop", session: "s1" })),
+		);
+		await until(() => first.heard.some((one) => one.type === "stream.bound"));
+		first.ws.close();
+
+		const second = open();
+		await new Promise((resolve) => (second.ws.onopen = resolve));
+		second.ws.send(
+			JSON.stringify(envelope("hello", "hello", {}, { machine: "laptop", session: "s1" })),
+		);
+		await until(() => second.heard.some((one) => one.type === "stream.bound"));
+		const bounds = second.heard.filter((one) => one.type === "stream.bound");
+		expect(bounds.map((one) => one.data)).toEqual([{ messages: [{ stream: 1, entry: "a" }] }]);
+		expect(missed(daemon, "s1", { epoch: "e1", seq: bounds[0]?.seq ?? -1 })).toEqual([]);
+		expect(second.heard.some((one) => one.type === "pi.message_update")).toBe(false);
+
+		bridge.send("pi.message_update", {
+			type: "message_update",
+			usage: undefined,
+			assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: "llo" },
+		});
+		await until(() => second.heard.some((one) => one.type === "pi.message_update"));
+		const update = second.heard.find((one) => one.type === "pi.message_update")?.data as {
+			assistantMessageEvent?: { delta?: string };
+		};
+		expect(update.assistantMessageEvent?.delta).toBe("llo");
+		second.ws.close();
+		bridge.close();
+	});
 });
