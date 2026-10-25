@@ -3,7 +3,7 @@
 // stay what they are in a folder. This holds them together for one session: it watches them, joins
 // and leaves as the `room.*` lines say, writes what the session does into each, and hands what
 // arrives from all of them to the agent at once.
-import { readdirSync, realpathSync } from "node:fs";
+import { realpathSync } from "node:fs";
 import { basename, isAbsolute, resolve } from "node:path";
 
 import {
@@ -31,7 +31,7 @@ import {
 	writePresence,
 } from "@adeildo/pi-kit";
 
-import { Folder } from "./folder.ts";
+import { RoomFeeds, type RoomOnDisk } from "./feeds.ts";
 import { Here, type Hooks, PEER_NOTE } from "./here.ts";
 import { Inbox, type Waiting } from "./inbox.ts";
 import type { Addition, Membership } from "./membership.ts";
@@ -60,16 +60,6 @@ interface SessionSource {
 }
 
 /** A shared room's logs, read whether or not this session is in it: that is how it learns it was added. */
-interface Shared {
-	id: string;
-	feed: FolderFeed;
-	folder: Folder;
-	stop: () => void;
-	here?: Here;
-	/** Closed and left: nothing more to read in it. */
-	done?: boolean;
-}
-
 /** Where a message goes: the room, and the sessions in it. */
 export interface Post {
 	here: Here;
@@ -90,7 +80,9 @@ export class Rooms implements RoomsView {
 	readonly #hooks: Hooks;
 	readonly #inbox: Inbox;
 	#home: Here | undefined;
-	readonly #shared = new Map<string, Shared>();
+	readonly #feeds = new RoomFeeds(() => this.#soon());
+	/** The rooms this session is inside, by room id. A room on disk with no entry here is one it left. */
+	readonly #inside = new Map<string, Here>();
 	#session: string | undefined;
 	#cwd = "";
 	#file: string | undefined;
@@ -126,7 +118,7 @@ export class Rooms implements RoomsView {
 
 	/** Every room this session is in, the folder's first. */
 	joined(): Here[] {
-		const shared = this.#joinedShared().map((room) => room.here);
+		const shared = this.#joinedShared().map((room) => this.#inside.get(room.id));
 		return [
 			...(this.#home === undefined ? [] : [this.#home]),
 			...shared.flatMap((here) => (here === undefined ? [] : [here])),
@@ -173,11 +165,9 @@ export class Rooms implements RoomsView {
 		clearTimeout(this.#wake?.timer);
 		this.#wake = undefined;
 		this.#stale = new Map();
-		for (const room of this.#shared.values()) {
-			room.here?.close();
-			room.stop();
-		}
-		this.#shared.clear();
+		for (const here of this.#inside.values()) here.close();
+		this.#inside.clear();
+		this.#feeds.stop();
 		this.#steppedOut.clear();
 		this.#home?.close();
 		this.#home = undefined;
@@ -191,10 +181,11 @@ export class Rooms implements RoomsView {
 		if (this.#session === undefined) return;
 		this.#inbox.hold(() => {
 			this.#home?.sync();
-			this.#scan();
-			for (const room of this.#shared.values()) {
-				if (room.here !== undefined) room.here.sync();
-				else if (room.done !== true) room.folder.apply(room.feed.read());
+			this.#feeds.scan();
+			for (const room of this.#feeds.values()) {
+				const here = this.#inside.get(room.id);
+				if (here !== undefined) here.sync();
+				else if (room.done !== true) this.#feeds.read(room);
 			}
 			this.#reconcile();
 		});
@@ -204,7 +195,7 @@ export class Rooms implements RoomsView {
 
 	// Closes a room left with one folder and drops members with no open agent, after the grace.
 	#prune(): void {
-		const rooms = [...this.#shared.values()].filter((room) => !room.folder.membership.closed);
+		const rooms = [...this.#feeds.values()].filter((room) => !room.folder.membership.closed);
 		const live = rooms.length === 0 ? [] : this.live();
 		const now = this.#now();
 		const grace = this.#hooks.roomGrace?.() ?? ROOM_GRACE_MS;
@@ -307,7 +298,7 @@ export class Rooms implements RoomsView {
 	}
 
 	here(room: string | undefined): Here | undefined {
-		return room === undefined ? this.#home : this.#shared.get(room)?.here;
+		return room === undefined ? this.#home : this.#inside.get(room);
 	}
 
 	live(): LiveSession[] {
@@ -639,38 +630,21 @@ export class Rooms implements RoomsView {
 	// Joining and leaving.
 
 	/** Starts reading the shared rooms that appeared since the last look, and drops the closed ones. */
-	#scan(): void {
-		let ids: string[];
-		try {
-			ids = readdirSync(roomsDir());
-		} catch {
-			return;
-		}
-		for (const id of ids) {
-			if (this.#shared.has(id)) continue;
-			const feed = new FolderFeed(roomDir(id));
-			const folder = new Folder();
-			folder.apply(feed.read());
-			this.#shared.set(id, { id, feed, folder, stop: feed.watch(() => this.#soon()) });
-		}
-	}
-
 	#reconcile(): void {
 		const me = this.#session;
 		if (me === undefined) return;
-		for (const room of this.#shared.values()) {
+		for (const room of this.#feeds.values()) {
+			const here = this.#inside.get(room.id);
 			const member = room.folder.membership.includes(me, this.#cwd);
-			if (member && room.here === undefined) this.#join(room);
-			else if (!member && room.here !== undefined) this.#leave(room);
+			if (member && here === undefined) this.#join(room);
+			else if (!member && here !== undefined) this.#leave(room);
 			// A closed room never opens again, so there is nothing more to watch in it.
-			if (room.folder.membership.closed && room.here === undefined && room.done !== true) {
-				room.stop();
-				room.done = true;
-			}
+			if (room.folder.membership.closed && here === undefined && room.done !== true)
+				this.#feeds.close(room);
 		}
 	}
 
-	#join(room: Shared): void {
+	#join(room: RoomOnDisk): void {
 		const me = this.#session;
 		if (me === undefined) return;
 		// A session that only listens says so itself when it becomes a member, whether a folder
@@ -681,7 +655,7 @@ export class Rooms implements RoomsView {
 			room.folder.apply(room.feed.read());
 		}
 		const here = new Here(this.#hooksFor(room));
-		room.here = here;
+		this.#inside.set(room.id, here);
 		here.join({
 			target: { dir: roomDir(room.id), session: me },
 			cwd: this.#cwd,
@@ -707,10 +681,10 @@ export class Rooms implements RoomsView {
 		});
 	}
 
-	#leave(room: Shared): void {
+	#leave(room: RoomOnDisk): void {
 		const info = this.#info(room);
-		room.here?.close();
-		room.here = undefined;
+		this.#inside.get(room.id)?.close();
+		this.#inside.delete(room.id);
 		const reason = room.folder.membership.closed ? "closed" : "removed";
 		this.#note(
 			reason === "closed"
@@ -740,9 +714,10 @@ export class Rooms implements RoomsView {
 	/** The tasks package logs into the folder's room only; what the shared rooms need follows here. */
 	#mirror(event: LoggedEvent): void {
 		if (event.session !== this.#session) return;
-		const shared = this.#joinedShared().flatMap((room) =>
-			room.here === undefined ? [] : [room.here],
-		);
+		const shared = this.#joinedShared().flatMap((room) => {
+			const here = this.#inside.get(room.id);
+			return here === undefined ? [] : [here];
+		});
 		if (event.type === "session.named") {
 			const data = event.data as LogEventMap["session.named"];
 			for (const here of shared) here.log("session.named", data);
@@ -805,7 +780,7 @@ export class Rooms implements RoomsView {
 	}
 
 	/** The addition that brought this session in last. */
-	#addedMe(room: Shared): Addition | undefined {
+	#addedMe(room: RoomOnDisk): Addition | undefined {
 		return room.folder.membership.additions.findLast((addition) =>
 			"folder" in addition.member
 				? addition.member.folder === this.#cwd
@@ -813,10 +788,11 @@ export class Rooms implements RoomsView {
 		);
 	}
 
-	#info(room: Shared): Room {
+	#info(room: RoomOnDisk): Room {
 		const membership = room.folder.membership;
-		const live = room.here?.live() ?? [];
-		const names: ReadonlyMap<string, Named> = room.here?.names().bySession ?? new Map();
+		const live = this.#inside.get(room.id)?.live() ?? [];
+		const names: ReadonlyMap<string, Named> =
+			this.#inside.get(room.id)?.names().bySession ?? new Map();
 		const sessions: RoomSession[] = [...membership.sessions].map(([session, cwd]) => {
 			const peer = live.find((one) => one.session === session) ?? room.folder.peers.get(session);
 			const open = live.some((one) => one.session === session);
@@ -829,7 +805,7 @@ export class Rooms implements RoomsView {
 		const origin = originOf(membership.additions, (session) => this.#handleIn(room, session));
 		return {
 			id: room.id,
-			mode: room.here?.mode() ?? membership.modeOf(this.#session ?? "", this.#cwd),
+			mode: this.#inside.get(room.id)?.mode() ?? membership.modeOf(this.#session ?? "", this.#cwd),
 			name: membership.name ?? room.id,
 			folders: [...membership.folders.keys()].map((path) => ({
 				path,
@@ -840,20 +816,20 @@ export class Rooms implements RoomsView {
 		};
 	}
 
-	#handleIn(room: Shared, session: string): string {
+	#handleIn(room: RoomOnDisk, session: string): string {
 		return (
-			room.here?.names().bySession.get(session)?.handle ??
+			this.#inside.get(room.id)?.names().bySession.get(session)?.handle ??
 			room.folder.peers.get(session)?.handle ??
 			"an agent"
 		);
 	}
 
 	/** The shared rooms this session is in, oldest first. */
-	#joinedShared(): Shared[] {
+	#joinedShared(): RoomOnDisk[] {
 		// The only exception to "out is not in the list": a room this session stepped out of keeps
 		// its row, so `m` has a way back. A session removed by someone else simply is not here.
-		return [...this.#shared.values()]
-			.filter((room) => room.here !== undefined || this.#steppedOut.has(room.id))
+		return [...this.#feeds.values()]
+			.filter((room) => this.#inside.has(room.id) || this.#steppedOut.has(room.id))
 			.toSorted(
 				(a, b) =>
 					(a.folder.membership.createdAt ?? 0) - (b.folder.membership.createdAt ?? 0) ||
@@ -861,7 +837,7 @@ export class Rooms implements RoomsView {
 			);
 	}
 
-	#hooksFor(room: Shared | undefined): Hooks {
+	#hooksFor(room: RoomOnDisk | undefined): Hooks {
 		return {
 			...this.#hooks,
 			inbox: this.#inbox,
