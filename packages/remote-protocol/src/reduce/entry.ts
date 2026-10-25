@@ -7,7 +7,6 @@ import { SESSION_STATES, type StateChangeMap, type StateChangeType } from "../st
 import { type QueuedMessage } from "../summary.ts";
 import type { SessionState } from "./state.ts";
 
-/** One state change: what it must carry, and what it leaves behind. */
 export interface Entry<T> {
 	check(data: unknown): data is T;
 	apply(state: SessionState, data: T): SessionState;
@@ -16,14 +15,11 @@ export interface Entry<T> {
 const unchanged = (state: SessionState): SessionState => state;
 
 /**
- * How many closed questions and rulings a state keeps. It bounds the memory of a long session: a state
- * lives in a daemon for the whole life of a session and travels in every snapshot, so what is already
- * answered must not accumulate. Open questions are never dropped, because they are what a client still
- * has to answer. The number is a choice, not a measurement.
+ * The state lives in the daemon for the whole life of a session, so what is already answered must not
+ * accumulate. Open questions never leave. The number is a choice, not a measurement.
  */
 export const KEPT_CLOSED = 100;
 
-/** The state with the oldest closed questions and rulings dropped, leaving the open ones alone. */
 function bound(state: SessionState): SessionState {
 	const closed = Object.values(state.questions).filter((ask) => ask.closed === true);
 	const open = Object.values(state.questions).filter((ask) => ask.closed !== true);
@@ -37,7 +33,6 @@ function bound(state: SessionState): SessionState {
 	};
 }
 
-/** Every state change the protocol knows, each with its check and its effect. */
 export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 	"tasks.changed": {
 		check: (data): data is StateChangeMap["tasks.changed"] => isObject(data) && isTasks(data.state),
@@ -193,7 +188,6 @@ export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 	},
 };
 
-/** Every state change this version folds, derived from the table so the two cannot drift. */
 export const STATE_CHANGES: readonly StateChangeType[] = Object.keys(CHANGES) as StateChangeType[];
 
 /** Whether a string names a state change this version folds. */
@@ -201,7 +195,6 @@ export function isStateChangeType(type: string): type is StateChangeType {
 	return Object.hasOwn(CHANGES, type);
 }
 
-/** Folds one state change, through the entry that owns it. One a check refuses leaves the state alone. */
 export function applyOne<K extends StateChangeType>(
 	state: SessionState,
 	type: K,

@@ -1,5 +1,5 @@
-// The envelope every message crosses a process in, and the one number that says which shapes a peer
-// speaks. A shape only grows: a field that changes meaning gets a new name, and a break gets v: 2.
+// The envelope every message crosses a process in. A shape only grows: a field that changes meaning
+// gets a new name, and a break gets v: 2.
 
 import { isBy, isObject, type By } from "./by.ts";
 
