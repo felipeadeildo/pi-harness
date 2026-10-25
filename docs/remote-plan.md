@@ -35,7 +35,6 @@ The structure:
 - [x] The WebSocket refuses what it never negotiated, and finds a dead peer (#205)
 - [x] Work deferred by a feature ends with its session (#221, #224)
 - [x] The bridge keeps its lifecycle, and pi's events reach their owners (#237)
-- [ ] pi's events are wired in one typed table, where a new event of pi names an owner or an ignore before it compiles
 - [ ] The client's session is immutable, and commands are typed by their names
 - [ ] The session and composer screens in React Native, on the visual base. nearly: the list and the question panel are React Native; `session.tsx` and `composer.tsx` still draw the DOM, and the visual base (the theme's tokens) does not exist yet
 
