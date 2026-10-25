@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { sessionOf } from "@adeildo/pi-remote-client";
 import { applyChange } from "@adeildo/pi-remote-protocol";
 
-import { composerOf, liveOf } from "./live.ts";
+import { composerOf, liveOf, runningOf } from "./live.ts";
 
 describe("what the pickers start on", () => {
 	test("the live state wins over the photograph the snapshot took", () => {
@@ -52,6 +52,15 @@ describe("what the pickers start on", () => {
 			waiting: [expect.objectContaining({ id: "q1" })],
 			commands: undefined,
 			serves: undefined,
+			running: false,
 		});
+	});
+});
+
+describe("when a run is going", () => {
+	test("a session that works or waits on a person is running, and the rest are not", () => {
+		for (const status of ["working", "blocked"] as const) expect(runningOf(status)).toBe(true);
+		for (const status of ["idle", "done", "error", undefined] as const)
+			expect(runningOf(status)).toBe(false);
 	});
 });

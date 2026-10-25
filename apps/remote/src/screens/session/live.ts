@@ -21,13 +21,20 @@ export function composerOf(session: ClientSession): Live & {
 	waiting: ClientSession["state"]["queue"];
 	commands: ClientSession["state"]["commands"];
 	serves: boolean | undefined;
+	running: boolean;
 } {
 	return {
 		...liveOf(session),
 		waiting: session.state.queue,
 		commands: session.state.commands,
 		serves: session.state.permissions.serves,
+		running: runningOf(session.state.status),
 	};
+}
+
+/** A run is going while the session works or waits on a person: both can be aborted. */
+export function runningOf(status: SessionState["status"]): boolean {
+	return status === "working" || status === "blocked";
 }
 
 export function liveOf(session: ClientSession): Live {
