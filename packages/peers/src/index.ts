@@ -8,6 +8,9 @@ import {
 	isObject,
 	modelRef,
 	modelsFor,
+	BOARD,
+	boardText as boardOfKit,
+	boardView,
 	openView,
 	PEERS,
 } from "@adeildo/pi-kit";
@@ -288,6 +291,9 @@ export const peers = defineFeature({
 					input.action === "link" && link.get(scope) === "ask",
 			});
 			rooms.open(ctx.sessionManager, ctx.model === undefined ? undefined : modelRef(ctx.model));
+			// What this session's board holds, for the other sessions in the room to read.
+			const board = BOARD.current(scope);
+			if (board !== undefined) rooms.board(boardView(board));
 			if (ctx.mode === "tui")
 				ctx.ui.addAutocompleteProvider((current) =>
 					completeMentions(current, () => rooms.others()),
@@ -449,7 +455,18 @@ export const peers = defineFeature({
 			execute: async (toolCallId, params, _signal, _onUpdate, ctx) => {
 				const me = rooms.session;
 				if (me === undefined) return reply("Not in a session.");
-				if (params.action === "board") return reply(boardText(rooms.joined(), me));
+				if (params.action === "board") {
+					// The board this session folded, drawn the way the panel draws it, plus who else is
+					// in the room and what they are on.
+					// The model reads text, not the panel's drawing: the kit writes this one, and it is the
+					// same the board tool answers with.
+					const board = BOARD.current(scope);
+					const lines = [
+						...(board === undefined ? [] : [boardOfKit(board)]),
+						boardText(rooms.joined(), me),
+					];
+					return reply(lines.filter((line) => line !== "").join("\n"));
+				}
 				if (params.action === "link") return linkFor(toolCallId, params, ctx);
 				const text = params.text?.trim() ?? "";
 				if (text === "") return reply("Nothing to send: write the message in text.");
