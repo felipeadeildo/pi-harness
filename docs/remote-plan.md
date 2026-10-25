@@ -36,7 +36,7 @@ The structure:
 - [x] Work deferred by a feature ends with its session (#221, #224)
 - [x] The bridge keeps its lifecycle, and pi's events reach their owners (#237)
 - [x] The client's session is immutable, and commands are typed by their names (#270, #282)
-- [ ] The session and composer screens in React Native, on the visual base. nearly: the list and the question panel are React Native, and the theme's steps exist (#258); `session.tsx` and `composer.tsx` still draw the DOM, and no screen reads the theme yet
+- [ ] The session and composer screens in React Native, on the visual base. nearly: the list, the question panel and the session frame are React Native, with the document as a DOM component (#258, #296); `composer.tsx` still draws the DOM, and no screen reads the theme yet
 
 The other tracks of the cycle:
 
@@ -54,7 +54,7 @@ The simplifications:
 - [x] One entry per state change, and a state change the table lacks does not compile (#275, #278)
 - [x] The daemon answers a client from what it keeps; the opening packet has one name (#277, #280)
 - [x] The daemon speaks WebSocket through `ws`, with one clock (#290)
-- [ ] No export without a reader, and `knip` in `verify`. nearly: every package but the app and tasks is clean (#274, #281, #283, #301, #303, #307, #308) and the config names what each package has (#313); the app's exports, the tasks package and the step into `verify` are still coming
+- [ ] No export without a reader, and `knip` in `verify`. nearly: most packages are clean (#274, #281, #283, #301, #303, #307, #308, #319) and the config names what each package has (#313); the app, `compact` and `tasks` still export what nobody reads, and the step into `verify` is still coming
 - [ ] Comments say only what the code cannot. nearly: the protocol, the client library, the daemon modules, the kit's contracts and peers are cut (#286, #292, #295, #304, #305, #311, #312); the kit's last files and the app are still coming
 
 The app runs on iOS and Android as well as the web:
