@@ -12,6 +12,7 @@
 import type { ClientSession } from "@adeildo/pi-remote-client";
 import {
 	type ChatMessage,
+	type SessionState,
 	type SessionTasks,
 	type TranscriptItem,
 } from "@adeildo/pi-remote-protocol";
