@@ -1,5 +1,6 @@
 import type { Client, Outgoing } from "@adeildo/pi-remote-client";
 import {
+	type CommandMap,
 	type CommandType,
 	type PermissionMode,
 	type QueuedMessage,
@@ -75,7 +76,9 @@ export function Composer({
 			.held()
 			.map((command) => command.id),
 	);
-	const send = (type: CommandType, data: unknown): void => {
+	// Typed by the command, like `Client.send`: a payload that does not match the command it names is a
+	// compile error here instead of a refusal from the daemon.
+	const send = <K extends CommandType>(type: K, data: CommandMap[K]): void => {
 		client.send(type, data);
 	};
 	return h(
@@ -105,7 +108,7 @@ export function enterSends(
 }
 
 function promptRow(
-	send: (type: CommandType, data: unknown) => void,
+	send: <K extends CommandType>(type: K, data: CommandMap[K]) => void,
 	draft: string,
 	write: (text: string) => void,
 	offering: readonly Suggestion[],
@@ -189,20 +192,20 @@ export function promptInput(props: PromptInput): ReactNode {
 	});
 }
 
-function controls(send: (type: CommandType, data: unknown) => void): ReactNode {
-	const button = (label: string, type: CommandType, data: unknown = {}): ReactNode =>
+function controls(send: <K extends CommandType>(type: K, data: CommandMap[K]) => void): ReactNode {
+	const button = <K extends CommandType>(label: string, type: K, data: CommandMap[K]): ReactNode =>
 		h("button", { key: type, type: "button", onClick: () => send(type, data) }, label);
 	return h(
 		"div",
 		{ className: "remote-composer-row" },
-		button("Abort", "run.abort"),
-		button("Compact", "session.compact"),
-		button("Stop", "session.stop"),
+		button("Abort", "run.abort", {}),
+		button("Compact", "session.compact", {}),
+		button("Stop", "session.stop", {}),
 	);
 }
 
 function pickers(
-	send: (type: CommandType, data: unknown) => void,
+	send: <K extends CommandType>(type: K, data: CommandMap[K]) => void,
 	mode: PermissionMode | undefined,
 	model: { provider: string; id: string } | undefined,
 	thinking: string | undefined,
@@ -249,7 +252,7 @@ function pickers(
 }
 
 function naming(
-	send: (type: CommandType, data: unknown) => void,
+	send: <K extends CommandType>(type: K, data: CommandMap[K]) => void,
 	ask: (question: string) => string | undefined,
 ): ReactNode {
 	return h(
