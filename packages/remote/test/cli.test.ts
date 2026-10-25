@@ -118,3 +118,18 @@ test("the port comes from the settings, and a value the decoder refuses falls ba
 		else process.env.PI_CODING_AGENT_DIR = before;
 	}
 });
+
+test("the export a setting names wins over the one beside the daemon, which is what the gate checks", () => {
+	// The gate asks this function before starting anything, so the candidate order it relies on is
+	// worth a test: a checkout with `PI_REMOTE_WEB` set must pass with no `dist/web` beside the daemon.
+	const beside = join(dir, "dist");
+	mkdirSync(join(beside, "web"), { recursive: true });
+	writeFileSync(join(beside, "web", "files.json"), JSON.stringify(["/index.html"]));
+	const elsewhere = join(dir, "elsewhere");
+	mkdirSync(elsewhere, { recursive: true });
+	writeFileSync(join(elsewhere, "files.json"), JSON.stringify(["/index.html"]));
+	expect(findWebDir(beside, {})).toBe(join(beside, "web"));
+	expect(findWebDir(beside, { PI_REMOTE_WEB: elsewhere })).toBe(elsewhere);
+	// A folder with no list of its own is not an export, whatever the setting says.
+	expect(findWebDir(beside, { PI_REMOTE_WEB: dir })).toBe(join(beside, "web"));
+});
