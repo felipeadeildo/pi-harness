@@ -142,6 +142,10 @@ export class Inbox {
 	 * for. Any other run took them too, so the room's receipts, the chain and the screen say so.
 	 */
 	started(): void {
+		// The run that starts now takes what waited, so the queue is emptied in the same place it is
+		// kept: the kit's, which is the one the screen and the receipts read.
+		this.#letters.settle();
+		this.#shown.clear();
 		const held = this.#held.flat();
 		const yours = this.#yours;
 		const by = this.#wokenBy;

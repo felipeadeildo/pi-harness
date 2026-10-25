@@ -149,3 +149,12 @@ test("what waits is also a letter of the kit, ready for the queue to move there"
 	expect(inbox.read("m1")).toBe(true);
 	expect(inbox.letters().map((one) => one.id)).toEqual(["m2"]);
 });
+
+test("a run that starts takes the queue with it, and the kit's queue is the one that empties", () => {
+	const { inbox, from } = busy("after-run");
+	inbox.arrive(from, [posted("m1", "later")]);
+	expect(inbox.letters().map((one) => one.id)).toEqual(["m1"]);
+	inbox.started();
+	expect(inbox.letters()).toEqual([]);
+	expect(inbox.queued()).toEqual([]);
+});
