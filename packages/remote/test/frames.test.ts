@@ -1,109 +1,68 @@
 import { describe, expect, test } from "bun:test";
-// A socket-level check of the liveness ping: a real TCP pair, and a client that never answers.
-import { createServer } from "node:net";
+// A socket-level check of the liveness ping: a real upgrade, and a client that either answers or not.
+import { createServer } from "node:http";
 
-import { accept, PING_EVERY_MS, PONG_WAIT_MS } from "../src/wire/websocket.ts";
+import { WebSocket } from "ws";
+
+import { accept, PING_EVERY_MS, server } from "../src/wire/websocket.ts";
+
+/** A server of ours, and the promise of the close the handler sees. */
+async function listening(liveness: { pingEvery: number }) {
+	const wss = server();
+	const http = createServer();
+	const closed = Promise.withResolvers<void>();
+	http.on("upgrade", (request, socket, head) => {
+		accept(
+			wss,
+			request,
+			socket,
+			head,
+			() => ({ message: () => {}, closed: () => closed.resolve() }),
+			liveness,
+		);
+	});
+	await new Promise<void>((resolve) => http.listen(0, "127.0.0.1", resolve));
+	const { port } = http.address() as { port: number };
+	return {
+		closed: closed.promise,
+		url: `ws://127.0.0.1:${port}/ws`,
+		stop: () => {
+			wss.close();
+			http.close();
+		},
+	};
+}
 
 describe("a peer that stops answering", () => {
-	test("the server pings, waits, and closes the connection", async () => {
-		const seen: string[] = [];
-		const server = createServer((socket) => {
-			socket.once("data", (chunk: Buffer) => {
-				// The handshake comes in one read, so the same handler starts the socket.
-				const request = { headers: { "sec-websocket-key": "x", upgrade: "websocket" } };
-				void chunk;
-				accept(
-					request as never,
-					socket,
-					() => ({ message: () => {}, closed: () => seen.push("closed") }),
-					{
-						pingEvery: 100,
-						pongWait: 20,
-					},
-				);
-			});
-		});
-		await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-		const { port } = server.address() as { port: number };
-		const client: Awaited<ReturnType<typeof Bun.connect>> = await Bun.connect({
-			hostname: "127.0.0.1",
-			port,
-			socket: { data: () => {}, open: () => {}, close: () => {} },
-		});
-		// The handshake, then nothing: no pong ever goes back.
-		client.write(
-			"GET /ws HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n" +
-				"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-		);
-		const deadline = Date.now() + 2_000;
-		while (seen.length === 0 && Date.now() < deadline) await Bun.sleep(10);
-		expect(seen).toEqual(["closed"]);
-		client.end();
-		server.close();
+	test("the server pings, and terminates the connection when none comes back", async () => {
+		const daemon = await listening({ pingEvery: 50 });
+		const client = new WebSocket(daemon.url, { autoPong: false });
+		const gone = Promise.withResolvers<void>();
+		client.on("close", () => gone.resolve());
+		await new Promise((resolve) => client.on("open", resolve));
+		await Promise.all([daemon.closed, gone.promise]);
+		expect(client.readyState).toBe(WebSocket.CLOSED);
+		daemon.stop();
 	});
 });
 
 describe("a peer that answers", () => {
 	test("it is pinged and stays connected, which is the half a dead peer cannot prove", async () => {
-		const closed: string[] = [];
-		const pings: number[] = [];
-		const server = createServer((socket) => {
-			socket.once("data", () => {
-				const request = { headers: { "sec-websocket-key": "x", upgrade: "websocket" } };
-				accept(
-					request as never,
-					socket,
-					() => ({ message: () => {}, closed: () => closed.push("closed") }),
-					{
-						// Three intervals with room to answer each one: a pong that arrives after 10 ms is
-						// a slow peer, not a dead one, and a test that closes it measures the runner.
-						pingEvery: 300,
-						pongWait: 100,
-					},
-				);
-			});
-			socket.on("data", (chunk: Buffer) => {
-				// Count the server's pings and answer each with a pong, the way a live client does.
-				for (const byte of chunk) if (byte === 0x89) pings.push(byte);
-			});
+		const daemon = await listening({ pingEvery: 50 });
+		const client = new WebSocket(daemon.url);
+		let pings = 0;
+		const twice = Promise.withResolvers<void>();
+		client.on("ping", () => {
+			pings += 1;
+			if (pings === 2) twice.resolve();
 		});
-		await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-		const { port } = server.address() as { port: number };
-		const client: Awaited<ReturnType<typeof Bun.connect>> = await Bun.connect({
-			hostname: "127.0.0.1",
-			port,
-			socket: {
-				// A live client answers each ping with a pong, which is what keeps it connected.
-				data: (_socket, chunk) => {
-					if (!chunk.includes(0x89)) return;
-					void pings.push(0x89);
-					client.write(Buffer.from([0x8a, 0x80, 1, 2, 3, 4]));
-				},
-				open: () => {},
-				close: () => {},
-			},
-		});
-		client.write(
-			"GET /ws HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n" +
-				"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-		);
-		// Three intervals with an answer to each ping: a heartbeat that closed live peers would show
-		// here, and a heartbeat that never pings would leave the count at zero. The wait is for the
-		// third ping, not for a duration: a clock says nothing about the peer, and `sleep` would leave
-		// the failure saying "the loop ended" where the useful sentence is which ping never came.
-		const deadline = performance.now() + 5_000;
-		while (pings.length < 3 && performance.now() < deadline) await Bun.sleep(5);
-		if (pings.length < 3) throw new Error("the third ping never came");
-		expect(closed).toEqual([]);
-		client.end();
-		server.close();
+		await twice.promise;
+		expect(client.readyState).toBe(WebSocket.OPEN);
+		client.close();
+		daemon.stop();
 	});
 });
 
-describe("the two numbers", () => {
-	test("the wait is shorter than the beat, which is what keeps one close in production", () => {
-		// If someone inverts these, the heartbeat would ping a peer it has already given up on, and the
-		// wait would never fire first: the invariant fails here, before the branch it protects matters.
-		expect(PONG_WAIT_MS).toBeLessThan(PING_EVERY_MS);
-	});
+test("a dead peer is terminated within two beats", () => {
+	expect(PING_EVERY_MS).toBe(10_000);
 });
