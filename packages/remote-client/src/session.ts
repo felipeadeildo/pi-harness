@@ -22,8 +22,7 @@ import type { CachedSession, SessionKey } from "./cache.ts";
 import { advance, decide, type Cursor } from "./cursor.ts";
 import type { Outbox } from "./outbox.ts";
 
-export const CHANGES = "entry";
-export const ENTRY = CHANGES;
+export const ENTRY = "entry";
 export const STATE = "state";
 
 export interface SnapshotData {
