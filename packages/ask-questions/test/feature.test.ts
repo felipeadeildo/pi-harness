@@ -316,6 +316,18 @@ test("a dialog the terminal answered itself says nothing about where", async () 
 	expect(notes).toEqual([]);
 });
 
+test("a question the asker draws in its own terminal is not drawn twice", async () => {
+	const bus = createEventBus();
+	const fake = fakePi(bus);
+	const { ctx, term } = terminalContext();
+	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
+	await fake.fire("session_start", {}, ctx);
+
+	bus.emit(ASK, { id: "ask-1", questions: PARAMS.questions, drawn: true });
+	for (let wait = 0; wait < 20; wait++) await tick();
+	expect(term.built).toBe(0);
+});
+
 test("the terminal answers under the handle the tasks gave the session", async () => {
 	const bus = createEventBus();
 	const fake = fakePi(bus);

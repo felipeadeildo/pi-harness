@@ -13,6 +13,7 @@ import {
 	type AskCancel,
 	type AskRequest,
 	type AskResult,
+	decodeAskRequest,
 	CANCEL,
 } from "../src/contracts/ask.ts";
 import type { By } from "../src/contracts/by.ts";
@@ -109,6 +110,21 @@ describe("closing a question", () => {
 		if (saved === undefined) delete process.env.PI_HARNESS_EVENTS;
 		else process.env.PI_HARNESS_EVENTS = saved;
 		rmSync(root, { recursive: true, force: true });
+	});
+
+	test("a question the asker draws itself says so, and a plain one does not", () => {
+		const { bus, asks } = rig();
+		void askQuestions(bus, [QUESTION], { drawn: true });
+		void askQuestions(bus, [QUESTION]);
+		expect(asks[0]?.drawn).toBe(true);
+		expect(asks[1]?.drawn).toBeUndefined();
+	});
+
+	test("a question may have no options when it has a row for words", () => {
+		const bare = { id: "a", questions: [{ header: "h", question: "q", options: [] }] };
+		expect(decodeAskRequest(bare)).toBeUndefined();
+		const closed = { ...bare, questions: [{ ...bare.questions[0], typed: false }] };
+		expect(decodeAskRequest(closed)).toContain("no options and no typed row");
 	});
 
 	test("an abort resolves the call as cancelled, and tells the provider to close", async () => {

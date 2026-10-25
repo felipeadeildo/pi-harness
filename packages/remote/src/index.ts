@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import {
 	createApp,
 	defineFeature,
+	bySession,
 	followSessionStatus,
 	isObject,
 	LOGGED_EVENT,
@@ -21,6 +22,7 @@ import { ClientAsks } from "./bridge/asks.ts";
 import { Bridge, type SessionKind } from "./bridge/bridge.ts";
 import { Commands, Refused } from "./bridge/commands.ts";
 import type { GoneReason } from "./bridge/connection.ts";
+import { forwardDialogs } from "./bridge/dialogs.ts";
 import { letterOf, SessionInbox } from "./bridge/inbox.ts";
 import { commandsFor } from "./bridge/slash.ts";
 import { openInBrowser } from "./browser.ts";
@@ -28,7 +30,7 @@ import { linkOf } from "./cli/open.ts";
 import { commandApi } from "./commands-api.ts";
 import { startDaemon, writeLauncher } from "./launcher.ts";
 import { CLIENT_PORT, daemonDir, daemonPaths } from "./places.ts";
-import { port } from "./settings.ts";
+import { forwardOtherDialogs, port } from "./settings.ts";
 import { VERSION } from "./version.ts";
 
 /** The built daemon and command, next to this package's sources. */
@@ -63,7 +65,7 @@ export function goneReason(
 export const remote = defineFeature({
 	id: "remote",
 	description: "Reach your sessions from a phone, a browser or another machine",
-	settings: [port],
+	settings: [port, forwardOtherDialogs],
 	setup(scope) {
 		// The source registers its own handlers, so it is made while the extension loads.
 		const source = piSource(scope);
@@ -82,6 +84,7 @@ export const remote = defineFeature({
 		let asks: ClientAsks | undefined;
 		let inbox: SessionInbox | undefined;
 		let commands: Commands | undefined;
+		let restoreDialogs: (() => void) | undefined;
 
 		scope.on("session_start", (_event, ctx) => {
 			const kind = sessionKind(ctx.mode);
@@ -166,11 +169,23 @@ export const remote = defineFeature({
 				});
 				asks.start();
 			}
+			// A terminal session has a dialog to race: the clients answer pi's and other extensions' too.
+			if (kind === "terminal") {
+				restoreDialogs?.();
+				restoreDialogs = forwardDialogs(ctx.ui, {
+					events: scope.events,
+					ctx,
+					terminal: () => bySession("terminal", scope, ctx.sessionManager),
+					enabled: () => forwardOtherDialogs.get(scope),
+				});
+			}
 		});
 
 		scope.onShutdown(() => {
 			asks?.stop();
 			asks = undefined;
+			restoreDialogs?.();
+			restoreDialogs = undefined;
 		});
 		// A follow-up waits for this: the run is over, so what a client held goes in now.
 		scope.on("agent_settled", () => inbox?.settle());

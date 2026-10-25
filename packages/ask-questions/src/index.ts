@@ -178,7 +178,7 @@ export const questions = defineFeature({
 		scope.events.on(ASK, (data: unknown) => {
 			const id = isObject(data) && typeof data.id === "string" ? data.id : undefined;
 			const ctx = session;
-			if (id === undefined || !canDraw(ctx)) return;
+			if (id === undefined || !canDraw(ctx) || (isObject(data) && data.drawn === true)) return;
 			const stop = new AbortController();
 			pending.set(id, stop);
 			const early = live.get(id);

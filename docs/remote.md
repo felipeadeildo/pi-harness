@@ -787,7 +787,7 @@ flowchart TD
 
 - **The harness's own dialogs** go through `harness:ask`: the permission feature and the `ask_questions` tool ask through the kit's client in every mode, so the bridge only listens and sends `ask.opened`. The first answer wins. When a client wins, the bridge emits the answer and `harness:ask.cancel` for the drawing feature to close its dialog. In a background session there is no terminal, so the bridge alone provides `harness:ask` and clients draw the full dialog.
 - **Pi's own dialogs and other extensions'** `select`, `confirm`, `input` and `editor`:
-  - in a terminal session, the bridge wraps those methods on the shared `ctx.ui` and races the terminal against the clients, passing an `AbortSignal` that closes the terminal dialog when a client answers. The `forwardOtherDialogs` setting turns this off;
+  - in a terminal session, the bridge wraps `select`, `confirm` and `input` on the shared `ctx.ui` and races the terminal against the clients, passing an `AbortSignal` that closes the terminal dialog when a client answers. Pi gives `editor` no signal, so a client could not close the terminal's editor, and it stays in the terminal. The `forwardOtherDialogs` setting turns the wrapping off;
   - in a background session, pi sends them as `extension_ui_request` and the runner answers them, so nothing is wrapped.
 - **`custom()` components** of other extensions cannot be described as questions. Clients show that the terminal waits on one, with its title. In a background session `custom()` returns `undefined`, as pi's RPC mode defines.
 - **Expiry.** A permission question or an `ask_questions` call stays open until someone answers. A dialog with a `timeout` shows its deadline and closes with its default.
