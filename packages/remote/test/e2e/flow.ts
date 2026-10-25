@@ -30,7 +30,7 @@ const BROWSERS = [
  * still red are reported and do not hold a merge, which is what keeps this file useful before the
  * last fix lands.
  */
-const MANDATORY: ReadonlySet<number> = new Set([1, 2, 3]);
+const MANDATORY: ReadonlySet<number> = new Set([1, 2, 3, 4]);
 
 /** The steps with a body. The rest are named and not written: a report that says `fail` for them
  * claims a measurement nobody made, and a reader cannot tell that from a step that ran and broke. */
@@ -243,6 +243,10 @@ async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
 async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
 	try {
 		const box = page.locator("textarea, [contenteditable='true'], input[type='text']").first();
+		// The step before left a run going; this one needs its own, or its first message is the one
+		// that waits and the queue row is about the wrong prompt.
+		const idle = Date.now() + 20_000;
+		while (!rig.session.isIdle && Date.now() < idle) await Bun.sleep(50);
 		await box.click({ timeout: 20_000 });
 		await box.fill("first, a slow answer please");
 		await page.keyboard.press("Enter");
@@ -255,9 +259,8 @@ async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
 
 		await box.fill("wait for me");
 		await page.keyboard.press("Enter");
-		const row = page.locator(".remote-composer-waiting").first();
-		// The session's queue is drawn by the composer from `state.queue`; the screen has to hand it
-		// over, and until it does the row never appears.
+		// The last row is the message this step just sent: an earlier one can still be waiting.
+		const row = page.locator(".remote-composer-waiting").last();
 		await row.waitFor({ timeout: 20_000 });
 		const said = (await row.locator(".remote-composer-text").innerText()).trim();
 
