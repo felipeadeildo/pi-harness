@@ -194,16 +194,30 @@ export function readTail(path: string, bytes = TAIL_BYTES): LoggedEvent[] {
 /** Enough of a log's tail for the last commands of a long session, at a few hundred bytes each. */
 const TAIL_BYTES = 512 * 1024;
 
+/**
+ * Whether a line of the log is an event. It is written by whichever version was running, so the reader
+ * checks the shape instead of trusting the version number alone.
+ */
+function isLoggedEvent(value: unknown): value is LoggedEvent {
+	return (
+		isObject(value) &&
+		value.v === EVENTS_VERSION &&
+		typeof value.id === "string" &&
+		typeof value.type === "string" &&
+		typeof value.session === "string" &&
+		typeof value.at === "number" &&
+		isObject(value.data) &&
+		(value.entry === undefined || typeof value.entry === "string")
+	);
+}
+
 function parsed(line: string): LoggedEvent[] {
 	try {
 		const value: unknown = JSON.parse(line);
-		const ok =
-			isObject(value) &&
-			value.v === EVENTS_VERSION &&
-			typeof value.type === "string" &&
-			typeof value.session === "string" &&
-			typeof value.at === "number";
-		return ok ? [value as unknown as LoggedEvent] : [];
+		// Every field the readers use, including the one that carries the event's payload: a line that
+		// lost its `data` is not an event, and reading it as one hands `undefined` to whatever folds it.
+		if (!isLoggedEvent(value)) return [];
+		return [value];
 	} catch {
 		return [];
 	}

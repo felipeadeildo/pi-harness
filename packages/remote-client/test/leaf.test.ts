@@ -109,3 +109,16 @@ describe("the leaf the bridge names", () => {
 		expect(transcriptOfSession(warm).items).toHaveLength(1);
 	});
 });
+
+test("a state envelope whose snapshot is not a snapshot is skipped, so half a swap never lands", () => {
+	// The whole state is replaced at once. A `state` whose `snapshot` is a string would swap in an
+	// object nobody checked, and the screen would draw it as if it were the session's truth.
+	const session = sessionOf({ machine: "m", session: "s" });
+	const before = session.state;
+	const read = readEnvelope(
+		session,
+		envelope("state", { snapshot: "not a snapshot", entries: [] }, 1),
+	);
+	expect(read).toEqual({ read: "skip" });
+	expect(session.state).toBe(before);
+});
