@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { portFromSettings, run } from "../src/cli/run.ts";
 import { findWebDir } from "../src/daemon/app.ts";
 import { Daemon } from "../src/daemon/server.ts";
+import { CLIENT_PORT } from "../src/places.ts";
 import { until } from "./fakes.ts";
 
 let dir: string;
@@ -108,10 +109,10 @@ test("the port comes from the settings, and a value the decoder refuses falls ba
 	try {
 		process.env.PI_CODING_AGENT_DIR = agent;
 		expect(portFromSettings()).toBe(7878);
-		writeFileSync(file, JSON.stringify({ "remote.port": 8123 }));
+		writeFileSync(file, JSON.stringify({ remote: { port: 8123 } }));
 		expect(portFromSettings()).toBe(8123);
 		// A number the setting does not accept is not a port the daemon may listen on.
-		writeFileSync(file, JSON.stringify({ "remote.port": 70_000 }));
+		writeFileSync(file, JSON.stringify({ remote: { port: 70_000 } }));
 		expect(portFromSettings()).toBe(7878);
 	} finally {
 		if (before === undefined) delete process.env.PI_CODING_AGENT_DIR;
@@ -132,4 +133,23 @@ test("the export a setting names wins over the one beside the daemon, which is w
 	expect(findWebDir(beside, { PI_REMOTE_WEB: elsewhere })).toBe(elsewhere);
 	// A folder with no list of its own is not an export, whatever the setting says.
 	expect(findWebDir(beside, { PI_REMOTE_WEB: dir })).toBe(join(beside, "web"));
+});
+
+test("the setting is nested in the file, and a flat key is not the same thing", () => {
+	// The file groups by first segment (`{"remote": {"port": …}}`); the id is dotted. This is the
+	// shape the command reads and pi writes, and a flat key silently answers the default.
+	const agent = join(dir, "agent2");
+	const file = join(agent, "extensions", "pi-harness", "settings.json");
+	mkdirSync(join(agent, "extensions", "pi-harness"), { recursive: true });
+	const before = process.env.PI_CODING_AGENT_DIR;
+	try {
+		process.env.PI_CODING_AGENT_DIR = agent;
+		writeFileSync(file, JSON.stringify({ remote: { port: 8123 } }));
+		expect(portFromSettings()).toBe(8123);
+		writeFileSync(file, JSON.stringify({ "remote.port": 8123 }));
+		expect(portFromSettings()).toBe(CLIENT_PORT);
+	} finally {
+		if (before === undefined) delete process.env.PI_CODING_AGENT_DIR;
+		else process.env.PI_CODING_AGENT_DIR = before;
+	}
 });
