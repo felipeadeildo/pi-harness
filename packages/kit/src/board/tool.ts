@@ -2,7 +2,7 @@
 // third can check; steps of a day's work are not cards, and neither is another agent's work.
 import { Type } from "@earendil-works/pi-ai";
 
-import { applyBoard, findBoard, type Board, type BoardOp } from "./model.ts";
+import { applyBoard, blockedText, findBoard, type Board, type BoardOp } from "./model.ts";
 
 const TITLE = Type.String({
 	description: "The result, up to eight words, in the operator's language.",
@@ -54,12 +54,12 @@ export const BOARD_DESCRIPTION = `Keeps the session's board: what it is doing no
 
 A card is a deliverable another can ask "how is it going?" about and whose end a third can check: a merged PR, a report, a review with a verdict, an answered question. One card per PR, with its number. Steps of the work (running tests, a rebase, reading a file) are not cards, and another agent's work belongs on their board.
 
-Writes return the open board, with the ids to use next.`;
+Writes return the open board, with the ids to use next. A write that breaks a rule answers with the reason, in place of the board.`;
 
 export function boardText(board: Board): string {
 	if (board.cards.length === 0 && board.decisions.length === 0) return "The board is empty.";
 	const lines = board.cards.map((card) => {
-		const wait = card.blocked === undefined ? "" : ` (waiting: ${card.blocked.why})`;
+		const wait = card.blocked === undefined ? "" : ` (${blockedText(card.blocked, "agent")})`;
 		const now = card.now === undefined ? "" : ` — ${card.now}`;
 		return `${card.id} [${card.column}] ${card.title}${now}${wait}`;
 	});
