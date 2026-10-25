@@ -58,10 +58,11 @@ export function recipientsOf(
 	names: ReadonlyMap<string, Named>,
 	me: string | undefined,
 	text: string,
+	aliases?: ReadonlyMap<string, string>,
 ): Named[] | "all" | "any" | undefined {
 	const group = groupIn(mentionedNames(text));
 	if (group !== undefined) return group;
-	const named = mentionsIn(names, text).filter((one) => one.session !== me);
+	const named = mentionsIn(names, text, aliases).filter((one) => one.session !== me);
 	return named.length === 0 ? undefined : named;
 }
 

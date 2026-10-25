@@ -109,6 +109,9 @@ function session(id: string, folder: string, extra: Partial<Hooks> = {}) {
 	function name(handle: string) {
 		logEvent(targetOf(source), events, "session.named", { handle, title: handle }, undefined, now);
 	}
+	function renamed(from: string, to: string) {
+		logEvent(targetOf(source), events, "session.renamed", { from, to, by: "you" }, undefined, now);
+	}
 	return {
 		rooms,
 		dir: targetOf(source).dir,
@@ -119,6 +122,7 @@ function session(id: string, folder: string, extra: Partial<Hooks> = {}) {
 		cwd,
 		tasks,
 		name,
+		renamed,
 		peers: () => sent.filter((one) => one.kind === "custom"),
 	};
 }

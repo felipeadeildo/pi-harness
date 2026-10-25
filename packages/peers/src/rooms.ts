@@ -337,7 +337,7 @@ export class Rooms implements RoomsView {
 	send(room: string | undefined, text: string): void {
 		const here = this.here(room);
 		if (here === undefined) return;
-		const to = recipientsOf(here.names(), undefined, text);
+		const to = recipientsOf(here.names(), undefined, text, here.aliases());
 		if (to === undefined) here.post("all", text, "you");
 		else here.post(typeof to === "string" ? to : to.map((named) => named.session), text, "you");
 	}
@@ -447,7 +447,7 @@ export class Rooms implements RoomsView {
 		const missing: string[] = [];
 		for (const name of names) {
 			const found = (rooms as Here[]).flatMap((here) => {
-				const named = byHandle(here.names(), name);
+				const named = byHandle(here.names(), name, here.aliases());
 				return named === undefined || named.session === this.#session ? [] : [{ here, named }];
 			});
 			const sessions = new Set(found.map(({ named }) => named.session));
@@ -477,7 +477,7 @@ export class Rooms implements RoomsView {
 		if (group === "any") return this.#anyone();
 		const agents = mentioned.filter((name) =>
 			this.joined().some((here) => {
-				const named = byHandle(here.names(), name);
+				const named = byHandle(here.names(), name, here.aliases());
 				return named !== undefined && named.session !== this.#session;
 			}),
 		);

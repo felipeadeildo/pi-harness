@@ -89,11 +89,15 @@ export function mentionedNames(text: string): string[] {
 	return [...text.matchAll(MENTION)].map((match) => (match[1] ?? "").toLowerCase());
 }
 
-/** Every @name in a text that points at an open session. */
-export function mentionsIn(names: ReadonlyMap<string, Named>, text: string): Named[] {
+/** Every @name in a text that points at an open session, by its word or by one it used to have. */
+export function mentionsIn(
+	names: ReadonlyMap<string, Named>,
+	text: string,
+	aliases?: ReadonlyMap<string, string>,
+): Named[] {
 	const found = new Map<string, Named>();
 	for (const name of mentionedNames(text)) {
-		const named = byHandle(names, name);
+		const named = byHandle(names, name, aliases);
 		if (named !== undefined) found.set(named.session, named);
 	}
 	return [...found.values()];
