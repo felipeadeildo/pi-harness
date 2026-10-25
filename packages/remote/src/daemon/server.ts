@@ -260,8 +260,11 @@ export class Daemon {
 			case "session.live":
 				// A session.live that does not read never counts as connected, and the daemon would
 				// then exit as idle and be started again, so it says why.
-				if (isLive(message.data)) this.sessions.live(message, message.data);
-				else this.#warn("a session.live that does not read");
+				if (isLive(message.data)) {
+					this.sessions.live(message, message.data);
+					// A client watching since before the restart asked a bridge that was not there.
+					this.#clients?.hub.refresh(bridge.session);
+				} else this.#warn("a session.live that does not read");
 				break;
 			case "session.gone":
 				this.sessions.gone(bridge.session, bridge.epoch, goneReason(message.data));
