@@ -7,6 +7,7 @@ import {
 	isObject,
 	isSnapshot,
 	applyEvent,
+	isFactType,
 	type SessionState,
 	type SessionSnapshot,
 } from "@adeildo/pi-remote-protocol";
@@ -150,7 +151,10 @@ export class Sessions {
 			this.#rebase(entry, envelope, envelope.data);
 			return undefined;
 		}
-		entry.state.state = applyEvent(entry.state.state, envelope.type, envelope.data);
+		// Only facts fold: a delta or a stream bound travels for the client, and folding it would ask the
+		// reducer to return the state it was given.
+		if (isFactType(envelope.type))
+			entry.state.state = applyEvent(entry.state.state, envelope.type, envelope.data);
 		if (EPHEMERAL.has(envelope.type) || envelope.seq === undefined) return undefined;
 		const bytes = JSON.stringify(envelope).length;
 		entry.replay.push({ envelope, bytes });

@@ -17,7 +17,6 @@ import type {
 
 import type { By } from "../src/by.ts";
 import {
-	FACT_TYPES,
 	type AskQuestion,
 	type AskResult,
 	type CallRuling,
@@ -25,6 +24,7 @@ import {
 	type FactType,
 	type SessionTasks,
 } from "../src/facts.ts";
+import { FACT_TYPES } from "../src/reduce/entry.ts";
 import { type QueuedMessage, isQueuedMessage } from "../src/snapshot.ts";
 
 /** A value of the kit's shape must always be readable as our copy, never the other way round. */
