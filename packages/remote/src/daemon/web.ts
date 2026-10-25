@@ -1,11 +1,9 @@
-// What the daemon serves the web app with: the policy, and the hash of every script a page inlines.
-// The browser check that proves it lives in `apps/remote/scripts/csp.ts` and imports from here, so
-// the CI job tests the same code the daemon runs instead of a copy of it.
+// `apps/remote/scripts/csp.ts` imports from here, so the CI job tests what the daemon runs.
 import { createHash } from "node:crypto";
 
 /**
- * Every request the app makes to its own origin, plus the daemon's socket. The export writes one
- * inline script, so the page is served with that script's hash rather than with `unsafe-inline`.
+ * Every request the app makes to its own origin, plus the daemon's socket. The export writes an
+ * inline script, and the page is served with its hash instead of `unsafe-inline`.
  */
 export const POLICY = [
 	"default-src 'self'",
@@ -20,15 +18,15 @@ export const POLICY = [
 	"object-src 'none'",
 ].join("; ");
 
-/** The hash of every inline script the page carries, as the policy spells them. */
+/** Every inline script the page carries. */
 export function inlineHashes(html: string): string[] {
-	// `data-src` is not a source: a script tag with one is inline, and the browser hashes its text.
+	// A tag with `data-src` is still inline, and the browser hashes its text.
 	return [...html.matchAll(/<script(?![^>]*(?<![\w-])src=)[^>]*>([\s\S]*?)<\/script>/g)].map(
 		([, body = ""]) => `'sha256-${createHash("sha256").update(body).digest("base64")}'`,
 	);
 }
 
-/** The policy for one page: the base rules, plus the hashes of what it inlines. */
+/** The base rules, plus the hashes of what it inlines. */
 export function policyFor(html: string): string {
 	const hashes = inlineHashes(html);
 	if (hashes.length === 0) return POLICY;
