@@ -287,7 +287,9 @@ describe("drawing again on every envelope", () => {
 		const before = draw(handmade([first, second]));
 		const after = draw(handmade([first, second, ...later]));
 
-		const lines = (html: string): string[] => html.match(/<li[^>]*>/g) ?? [];
+		// The text of each line, not the tag: a `<li>` carries a class per kind, so the sequence of tags
+		// can match while the content underneath changed.
+		const lines = (html: string): string[] => html.match(/<li[^>]*>[\s\S]*?<\/li>/g) ?? [];
 		const held = lines(before);
 		expect(held.length).toBeGreaterThan(0);
 		// Every line that was on screen is still there, in the same order, at the same index.
