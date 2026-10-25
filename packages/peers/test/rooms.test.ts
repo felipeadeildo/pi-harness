@@ -415,6 +415,33 @@ describe("a shared room", () => {
 		expect(board).toContain(`edited: ${join(client.cwd, "src/api.ts")}`);
 		expect(board).toContain('send with room: "backend+frontend"');
 	});
+
+	test("the board shows the other sessions' cards, each under its own name and merged with nothing", () => {
+		const api = session("api", "backend");
+		const client = session("client", "frontend");
+		api.name("api");
+		client.name("client");
+		const id = api.rooms.create("backend+frontend", [{ folder: api.cwd }, { folder: client.cwd }]);
+		// Three rounds: the membership has to be read before `here()` answers for the client.
+		for (let round = 0; round < 3; round++) sync(api, client);
+		client.rooms.here(id)?.log("board.changed", {
+			view: {
+				open: [
+					{ id: "c1", title: "ship the parser", column: "doing", at: 10 },
+					{ id: "c2", title: "review the docs", column: "review", at: 5 },
+				] as never,
+				backlog: 2,
+				done: [],
+			},
+		} as never);
+		sync(api, client);
+		const board = boardText(api.rooms.joined(), "api");
+		expect(board).toContain("@client has on its board:");
+		expect(board).toContain("- doing: ship the parser");
+		expect(board).toContain("- review: review the docs");
+		// The order is the writer's: this reader sorts nothing.
+		expect(board.indexOf("ship the parser")).toBeLessThan(board.indexOf("review the docs"));
+	});
 });
 
 describe("an agent asking for a room", () => {

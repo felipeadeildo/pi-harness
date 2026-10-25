@@ -46,7 +46,24 @@ function section(room: BoardRoom, me: string, shown: Set<string>): string {
 		);
 	if (room.room !== undefined)
 		lines.push("", `To write to everyone there, send with room: "${room.room.name}".`);
-	return lines.join("\n");
+	return [...lines, ...boardsOf(room, names, me)].join("\n");
+}
+
+/**
+ * What the other sessions of a room have on their boards, each under its own name. Nothing is merged:
+ * a card belongs to the session that wrote it, and two sessions may work on different boards.
+ */
+function boardsOf(room: BoardRoom, names: ReadonlyMap<string, Named>, me: string): string[] {
+	const lines: string[] = [];
+	for (const [session, view] of room.folder.boards) {
+		if (session === me) continue;
+		const open = view.open.filter((card) => card.column !== "done");
+		if (open.length === 0) continue;
+		const handle = names.get(session)?.handle ?? session;
+		lines.push("", `@${handle} has on its board:`);
+		for (const card of open) lines.push(`- ${card.column}: ${card.title}`);
+	}
+	return lines;
 }
 
 function heading(room: BoardRoom, others: number): string {
