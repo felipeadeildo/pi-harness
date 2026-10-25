@@ -36,13 +36,13 @@ The structure:
 - [x] Work deferred by a feature ends with its session (#221, #224)
 - [x] The bridge keeps its lifecycle, and pi's events reach their owners (#237)
 - [ ] The client's session is immutable, and commands are typed by their names
-- [ ] The session and composer screens in React Native, on the visual base. nearly: the list and the question panel are React Native; `session.tsx` and `composer.tsx` still draw the DOM, and the visual base (the theme's tokens) does not exist yet
+- [ ] The session and composer screens in React Native, on the visual base. nearly: the list and the question panel are React Native, and the theme's steps exist (#258); `session.tsx` and `composer.tsx` still draw the DOM, and no screen reads the theme yet
 
 The other tracks of the cycle:
 
 - [x] Rooms: taking part, listening or out, and a frame that never pushes the editor (#198, #206, #212, #220)
 - [x] The permission is asked above the editor, which stays usable (#214)
-- [ ] The questions are asked above the editor the same way. nearly: the slot can hand the dialog the user's key bindings (`KeybindingsManager.create`); the move itself is still coming
+- [ ] The questions are asked above the editor the same way. nearly: the slot hands the dialog the reader's own key bindings through `getKeybindings()` (#254); the move itself is still coming
 - [ ] Skills, templates and `/compact` from the phone, and nothing else offered. nearly: the session says what a client may run (#231) and the composer offers it (#245); the send does not decide yet, so a `/skill:` from the phone still reaches the model as plain text
 - [ ] The board each agent keeps. nearly: the model is on `main` (#201); the contract, the tool, its readers and the small model removed are still coming
 - [x] The permission judge reads only the operator's words (#213)
