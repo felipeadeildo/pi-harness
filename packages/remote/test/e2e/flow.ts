@@ -101,12 +101,14 @@ async function main(): Promise<number> {
 			// follow-up while something else runs. The one prompt that says "a task" gets the tool call
 			// that leaves a card behind, which is what the reloaded page has to draw again.
 			answer: (context) =>
-				lastSaid(context).includes("a task")
+				// The tasks feature asks the same model with a prompt of its own, and proposes its
+				// change through a tool the agent itself never calls.
+				aboutTasks(context)
 					? fauxAssistantMessage(
 							[
 								fauxToolCall("update_tasks", {
 									language: "English",
-									ops: [{ op: "ask", text: "the gate sets a task" }],
+									ops: [{ op: "new_task", text: "the gate sets a task", proof: "a card" }],
 								}),
 							],
 							{ stopReason: "toolUse" },
@@ -286,6 +288,13 @@ async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
 	}
 }
 
+/** Whether the request is the tasks feature keeping the list, which it asks with a prompt of its own. */
+function aboutTasks(context: {
+	messages: readonly { role?: string; content?: unknown }[];
+}): boolean {
+	return lastSaid(context).includes("<tasks>");
+}
+
 /** What the person last typed, which is how the scripted model knows which turn it is answering. */
 function lastSaid(context: { messages: readonly { role?: string; content?: unknown }[] }): string {
 	const last = [...context.messages].reverse().find((one) => one.role === "user");
@@ -309,11 +318,23 @@ async function survivesRestart(page: Page, rig: Rig): Promise<Result> {
 		const idle = Date.now() + 20_000;
 		while (!rig.session.isIdle && Date.now() < idle) await Bun.sleep(50);
 		await box.click({ timeout: 20_000 });
-		await box.fill("leave a task for the gate");
+		await box.fill("the gate leaves a task");
 		await page.keyboard.press("Enter");
 
 		const card = page.locator(".remote-task-queued, .remote-task-doing, .remote-task-waiting");
-		await card.first().waitFor({ timeout: 20_000 });
+		try {
+			await card.first().waitFor({ timeout: 20_000 });
+		} catch {
+			const errors = rig.errors.map((one) => `${one.event}: ${one.error}`).join(" | ");
+			const body = await page
+				.locator("body")
+				.innerText()
+				.catch(() => "");
+			return {
+				ok: false,
+				why: `no card; errors=[${errors}] page=${JSON.stringify(body.slice(0, 700))}`,
+			};
+		}
 		const drawn = (await card.first().innerText()).trim();
 		const mode = (await page.locator(".remote-composer").innerText()).includes("manual")
 			? "manual"
