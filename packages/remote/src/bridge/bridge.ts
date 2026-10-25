@@ -30,6 +30,7 @@ import { Commands, Refused } from "./commands.ts";
 import { BridgeConnection, type ConnectionSeams, type GoneReason } from "./connection.ts";
 import { letterOf, queuedOf, SessionInbox } from "./inbox.ts";
 import { FORWARDED, Harness } from "./logged.ts";
+import { commandsFor, type Offered } from "./slash.ts";
 import { LiveStream } from "./stream.ts";
 
 /** How many entries of the branch a snapshot carries. A client pages through older ones over HTTP. */
@@ -71,6 +72,11 @@ export interface BridgeOptions {
 	typedEveryMs?: number;
 	/** What the commands need from pi's extension API, which the bridge itself does not hold. */
 	api: SessionApi;
+	/**
+	 * The slash commands this session knows, asked when the session is announced. A command that appears
+	 * later is not offered until the next announcement, and the send refuses it until then.
+	 */
+	offered: () => readonly Offered[];
 	version: string;
 	kind: SessionKind;
 	startDaemon(): void;
@@ -270,6 +276,8 @@ export class Bridge {
 					? undefined
 					: { provider: this.ctx.model.provider, id: this.ctx.model.id },
 			thinkingLevel: this.ctx.thinkingLevel,
+			// What a phone may run: the same list the screen shows, so the field and the refusal agree.
+			commands: commandsFor(this.options.offered()),
 		});
 		this.#snapshot();
 		// What the snapshot does not carry is older than its tail or off the branch, and a client reads

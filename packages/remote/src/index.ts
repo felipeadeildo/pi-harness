@@ -97,6 +97,8 @@ export const remote = defineFeature({
 				version: VERSION,
 				kind,
 				api: commandApi(scope, ctx),
+				// `FeatureScope` is the extension API, so the list of slash commands is asked here.
+				offered: () => scope.getCommands(),
 				startDaemon: () => startDaemon(dir, port.get(scope)),
 				warn: (message) => scope.warn(message),
 			});

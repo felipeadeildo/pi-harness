@@ -959,6 +959,7 @@ describe("one bridge", () => {
 				arrived: () => {},
 				busy: () => false,
 			},
+			offered: () => [],
 			startDaemon: () => {},
 			warn: () => {},
 			seams: { dial, backoff: [5] },
