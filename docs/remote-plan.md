@@ -43,7 +43,7 @@ The other tracks of the cycle:
 - [x] Rooms: taking part, listening or out, and a frame that never pushes the editor (#198, #206, #212, #220)
 - [x] The permission is asked above the editor, which stays usable (#214)
 - [ ] The questions are asked above the editor the same way. nearly: the slot can hand the dialog the user's key bindings (`KeybindingsManager.create`); the move itself is still coming
-- [ ] Skills, templates and `/compact` from the phone, and nothing else offered. nearly: the session says what a client may run, and the bridge refuses the rest (#231); the composer offering it is #245
+- [x] Skills, templates and `/compact` from the phone, and nothing else offered (#231, #245)
 - [ ] The board each agent keeps. nearly: the model is on `main` (#201); the contract, the tool, its readers and the small model removed are still coming
 - [x] The permission judge reads only the operator's words (#213)
 - [x] The port clients reach the daemon on is a setting (#197, #225)
@@ -52,7 +52,7 @@ The other tracks of the cycle:
 Before 6.0.0:
 
 - [x] No test fails one run in ten (#241)
-- [ ] The `as unknown as` casts outside test fakes, and the patched pi prototypes, have a test or are gone. nearly: the kit's decoders are guards now (#243), and 20 casts are left in `src`; the presence guard is #249, the prototype tests are #250, and issue #251 asks pi for the hooks
+- [x] The `as unknown as` casts outside test fakes, and the patched pi prototypes, have a test or are gone: the casts that covered a check are guards now, and the ones left each say why they stay (#243, #249, #250, #260; issue #251 asks pi for the hooks)
 - [ ] [The remote design](remote.md) speaks the new names
 - [ ] The release notes, and 6.0.0
 
