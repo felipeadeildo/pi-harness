@@ -373,6 +373,8 @@ describe("the bridge", () => {
 	});
 
 	test("a prompt leaves the queue when pi starts the run, and stays until then", async () => {
+		// The session is idle, so the letter is sent straight away and waits only for the proof.
+		running = false;
 		const daemon = await listening();
 		const fake = mounted();
 		const ctx = session();
@@ -395,6 +397,9 @@ describe("the bridge", () => {
 			),
 		);
 		await until(() => fake.userMessages.length === 1);
+		// The queue reaches the daemon on its own envelope, so the test waits for it rather than for
+		// the send: the two are written in that order, and not in the same tick.
+		await until(() => daemon.received.some((one) => one.type === "queue.changed"));
 		// The send returned and pi has said nothing yet: the letter is still the client's to see.
 		const held = daemon.received.findLast((one) => one.type === "queue.changed")?.data as
 			| { queue: { text: string }[] }

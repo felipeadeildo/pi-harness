@@ -19,13 +19,17 @@ function wired() {
 	const notes: string[] = [];
 	// A run in flight: the default, because most of what the inbox does is what it does while busy.
 	const state = { running: true };
-	const inbox = new SessionInbox(scope, {
-		send: (text, deliverAs) =>
-			void sent.push(deliverAs === undefined ? { text } : { text, deliverAs }),
-		arrived: (text, by) => void notes.push(`${by.name}: ${text}`),
-		busy: () => state.running,
-		queued: (queue) => void notes.push(`queue:${queue.length}`),
-	});
+	const inbox = new SessionInbox(
+		scope,
+		{
+			send: (text, deliverAs) =>
+				void sent.push(deliverAs === undefined ? { text } : { text, deliverAs }),
+			arrived: (text, by) => void notes.push(`${by.name}: ${text}`),
+			busy: () => state.running,
+			queued: (queue) => void notes.push(`queue:${queue.length}`),
+		},
+		10,
+	);
 	const stop = inbox.start();
 	return { inbox, sent, notes, scope, stop, state };
 }
@@ -44,7 +48,12 @@ describe("a session's inbox", () => {
 		// The send happened, and nothing proves a run started: the letter must still be drawn.
 		expect(sent).toHaveLength(1);
 		expect(inbox.queue().map((one) => one.text)).toEqual(["pi will not take this"]);
-		// The proof is pi's own event: when it arrives, the letter leaves the queue.
+		// The deadline passes with no proof, so the letter gains the reason and stays where it is.
+		await Bun.sleep(30);
+		expect(inbox.queue()[0]?.why).toBe("not-started");
+		// The proof is pi's own event, and a run that starts afterwards clears the mark with the letter.
+		inbox.started();
+		expect(inbox.queue()).toEqual([]);
 		const { inbox: started, sent: went, state: later } = wired();
 		later.running = false;
 		started.put(letter("pi takes this one", "followUp"));

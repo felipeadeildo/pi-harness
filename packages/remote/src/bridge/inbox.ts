@@ -36,7 +36,12 @@ export class SessionInbox {
 	readonly #scope: EventScope;
 	readonly #session: InboxSession;
 
-	constructor(scope: EventScope, session: InboxSession) {
+	constructor(
+		scope: EventScope,
+		session: InboxSession,
+		/** How long a send waits for pi to prove the run, for a test that does not wait half a second. */
+		private readonly proofMs = PROOF_MS,
+	) {
 		this.#scope = scope;
 		this.#session = session;
 	}
@@ -69,7 +74,7 @@ export class SessionInbox {
 			// message in silence — it stayed in the queue, which is what a client draws.
 			this.#pending = letter.id;
 			this.#session.send(letter.text, undefined);
-			this.#deadline = setTimeout(() => this.#expire(), PROOF_MS);
+			this.#deadline = setTimeout(() => this.#expire(), this.proofMs);
 		}
 		this.#publish();
 	}
@@ -106,20 +111,35 @@ export class SessionInbox {
 	 */
 	started(): void {
 		if (this.#pending === undefined) return;
+		// The letter leaves the queue, and the reason the deadline may have written goes with it.
 		this.#inbox.take([this.#pending]);
-		this.#settled();
-	}
-
-	/** The deadline passed without a run: the letter stays in the queue, where a client sees it. */
-	#expire(): void {
-		this.#settled();
-	}
-
-	#settled(): void {
 		this.#pending = undefined;
+		this.#settled();
+		// The queue changed, so the client is told: a take that says nothing leaves a line on screen
+		// for a message that already went.
+		this.#publish();
+	}
+
+	/**
+	 * The deadline passed without a run: the letter stays where it is and gains the reason, which is
+	 * the fact and not a guess — pi never said it started. `started()` clears it by taking the letter.
+	 */
+	#expire(): void {
+		// A start that arrived first took the letter, and there is nothing left to say about it.
+		const pending = this.#pending;
+		this.#settled();
+		if (pending === undefined) return;
+		const letter = this.#inbox.queue().find((one) => one.id === pending);
+		// Nothing changed means nothing to announce: a redundant event reads as a lost order.
+		if (letter === undefined || letter.why === "not-started") return;
+		this.#inbox.holdFor(letter, "not-started");
+		this.#publish();
+	}
+
+	/** Ends the wait for the proof. The id stays, so a run that starts late still takes the letter. */
+	#settled(): void {
 		if (this.#deadline !== undefined) clearTimeout(this.#deadline);
 		this.#deadline = undefined;
-		this.#publish();
 	}
 
 	/** A new prompt from the terminal ends the run, so nothing it carried is a repeat any more. */

@@ -106,7 +106,7 @@ export function isCommandBy(value: unknown): value is CommandBy {
 }
 
 /** Why a letter waits, when it waits for more than the run to settle. Absent is the ordinary case. */
-export type WaitingWhy = "asleep" | "quiet" | "full" | "stopped";
+export type WaitingWhy = "asleep" | "quiet" | "full" | "stopped" | "not-started";
 
 /** What a message becomes on the way into a session: `steer` goes in between the agent's calls. */
 export type WaitingWant = "steer" | "followUp";
@@ -125,7 +125,7 @@ export interface QueuedMessage {
 	why?: WaitingWhy;
 }
 
-const WHY: readonly WaitingWhy[] = ["asleep", "quiet", "full", "stopped"];
+const WHY: readonly WaitingWhy[] = ["asleep", "quiet", "full", "stopped", "not-started"];
 
 export function isQueuedMessage(value: unknown): value is QueuedMessage {
 	if (!isObject(value)) return false;
