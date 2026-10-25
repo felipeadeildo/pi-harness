@@ -28,6 +28,28 @@ export interface Fact {
 	data: unknown;
 }
 
+export interface Logged {
+	session: string;
+	type: string;
+	data: unknown;
+}
+
+/**
+ * Forwards a fact the kit logged for this session, and keeps what a snapshot needs of it. Only this
+ * session's events cross, and only the ones in `FORWARDED`: the log carries facts of other sessions
+ * and types that are peers' business, and both would be wrong on the wire.
+ */
+export function forward(
+	logged: Logged,
+	session: string,
+	facts: Harness,
+	send: (type: string, data: unknown) => void,
+): void {
+	if (logged.session !== session || !FORWARDED.has(logged.type)) return;
+	facts.saw(logged.type, logged.data);
+	send(logged.type, logged.data);
+}
+
 export class Harness {
 	/**
 	 * The state as the log has written it so far. It is the same shape a client reduces and the same

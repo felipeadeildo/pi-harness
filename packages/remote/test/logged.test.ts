@@ -2,11 +2,35 @@ import { describe, expect, test } from "bun:test";
 
 import { KEPT_CLOSED } from "@adeildo/pi-remote-protocol";
 
-import { Harness } from "../src/bridge/logged.ts";
+import { forward, Harness } from "../src/bridge/logged.ts";
 
 function ruled(toolCallId: string, head = "ok") {
 	return { toolCallId, ruling: { head, tone: "success" } };
 }
+
+describe("what the bridge forwards from the log", () => {
+	const line = (type: string, data: unknown, session = "s1") => ({ session, type, data });
+
+	test("a fact of this session crosses, and is kept for the snapshot", () => {
+		const facts = new Harness();
+		const sent: { type: string; data: unknown }[] = [];
+		forward(line("mode.changed", { mode: "edits" }), "s1", facts, (type, data) =>
+			sent.push({ type, data }),
+		);
+		expect(sent).toEqual([{ type: "mode.changed", data: { mode: "edits" } }]);
+		expect(facts.snapshot(undefined, undefined).permissions.mode).toBe("edits");
+	});
+
+	test("another session's event and a type nobody forwards stay where they are", () => {
+		const facts = new Harness();
+		const sent: unknown[] = [];
+		const send = (type: string, data: unknown) => void sent.push({ type, data });
+		// A shared room carries facts of other sessions, and `stream.bound` is the stream's business.
+		forward(line("mode.changed", { mode: "full" }, "s2"), "s1", facts, send);
+		forward(line("stream.bound", { messages: [] }), "s1", facts, send);
+		expect(sent).toEqual([]);
+	});
+});
 
 describe("the facts a snapshot carries", () => {
 	test("a question stays open until it closes", () => {

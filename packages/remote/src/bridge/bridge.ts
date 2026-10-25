@@ -29,7 +29,7 @@ import { OpenAsks } from "./asks.ts";
 import { Commands, Refused } from "./commands.ts";
 import { BridgeConnection, type ConnectionSeams, type GoneReason } from "./connection.ts";
 import { letterOf, queuedOf, SessionInbox } from "./inbox.ts";
-import { FORWARDED, Harness } from "./logged.ts";
+import { forward, type Logged, Harness } from "./logged.ts";
 import { commandsFor, type Offered } from "./slash.ts";
 import { LiveStream } from "./stream.ts";
 
@@ -85,11 +85,6 @@ export interface BridgeOptions {
 }
 
 /** A line the kit logged, as far as the bridge reads it. */
-export interface Logged {
-	session: string;
-	type: string;
-	data: unknown;
-}
 
 export class Bridge {
 	readonly stream: LiveStream;
@@ -231,11 +226,9 @@ export class Bridge {
 
 	/** Forwards a fact the kit logged for this session, and keeps what a snapshot needs of it. */
 	logged(line: Logged): void {
-		if (line.session !== this.ctx.sessionManager.getSessionId() || !FORWARDED.has(line.type)) {
-			return;
-		}
-		this.#facts.saw(line.type, line.data);
-		this.#connection.event(line.type, line.data);
+		forward(line, this.ctx.sessionManager.getSessionId(), this.#facts, (type, data) =>
+			this.#connection.event(type, data),
+		);
 	}
 
 	/** The agent settled, so a follow-up that waited goes in now, if there is one. */
