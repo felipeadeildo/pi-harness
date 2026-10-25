@@ -10,6 +10,7 @@ import type {
 	AskQuestion,
 	AskResult,
 	CallRuling,
+	ModelOption,
 	PermissionMode,
 	PromptKind,
 	SessionCommand,
@@ -71,6 +72,11 @@ export interface SessionState {
 	commands?: SessionCommand[];
 	/** Who sent the prompts that came from a client, by entry id: the transcript says where they came from. */
 	promptFrom?: Record<string, By>;
+	/**
+	 * The models the session could switch to. Absent until a bridge said, because "not said yet" is not
+	 * "none": a picker that finds the list absent waits, and one that finds it empty says so.
+	 */
+	models?: ModelOption[];
 	/** The dialog the terminal waits on that no client can answer, while it is open. */
 	prompt?: { kind: PromptKind; title?: string };
 	/** Changes every turn, so it lives in the state. */

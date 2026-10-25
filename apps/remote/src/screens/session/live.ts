@@ -22,6 +22,7 @@ export function composerOf(session: ClientSession): Live & {
 	commands: ClientSession["state"]["commands"];
 	serves: boolean | undefined;
 	running: boolean;
+	models: ClientSession["state"]["models"];
 } {
 	return {
 		...liveOf(session),
@@ -29,6 +30,7 @@ export function composerOf(session: ClientSession): Live & {
 		commands: session.state.commands,
 		serves: session.state.permissions.serves,
 		running: runningOf(session.state.status),
+		models: session.state.models,
 	};
 }
 

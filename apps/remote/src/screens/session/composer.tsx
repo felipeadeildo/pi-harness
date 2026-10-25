@@ -7,6 +7,7 @@ import type { Client, Outgoing } from "@adeildo/pi-remote-client";
 import type {
 	CommandMap,
 	CommandType,
+	ModelOption,
 	PermissionMode,
 	QueuedMessage,
 	SessionCommand,
@@ -32,6 +33,8 @@ import {
 	type MenuItem,
 	menuItems,
 	modeChoices,
+	isCurrentModel,
+	matchModels,
 	modelLabel,
 	outboxLine,
 	primaryAct,
@@ -60,6 +63,8 @@ export interface ComposerProps {
 	serves?: boolean;
 	/** Whether a run is going, which is when Abort and Steer mean something. */
 	running?: boolean;
+	/** The models the session could switch to. Absent until the bridge says: the chip then stays a label. */
+	models?: readonly ModelOption[];
 	/** What the field starts with: a draft restored from the cache. */
 	initialDraft?: string;
 }
@@ -77,6 +82,7 @@ export function Composer({
 	commands,
 	serves,
 	running = false,
+	models,
 	initialDraft,
 }: ComposerProps): ReactNode {
 	// The queue changes without the session changing, so the composer hears the client itself.
@@ -134,7 +140,14 @@ export function Composer({
 						<Held lines={lines} client={client} />
 					</ScrollView>
 				)}
-				<Pickers send={send} mode={mode} serves={serves} model={model} thinking={thinking} />
+				<Pickers
+					send={send}
+					mode={mode}
+					serves={serves}
+					model={model}
+					models={models}
+					thinking={thinking}
+				/>
 				<View style={{ flexDirection: "row", gap: theme.space(3), alignItems: "center" }}>
 					<View style={{ flex: 1 }}>
 						<Suggestions offering={offering} write={write} />
@@ -276,15 +289,17 @@ function Pickers({
 	mode,
 	serves,
 	model,
+	models,
 	thinking,
 }: {
 	send: Send;
 	mode: PermissionMode | undefined;
 	serves: boolean | undefined;
 	model: { provider: string; id: string } | undefined;
+	models: readonly ModelOption[] | undefined;
 	thinking: string | undefined;
 }): ReactNode {
-	const [open, setOpen] = useState<"mode" | "thinking" | undefined>(undefined);
+	const [open, setOpen] = useState<"mode" | "thinking" | "model" | undefined>(undefined);
 	const modes = modeChoices(mode, serves);
 	const levels = levelChoices(thinking);
 	const current = (list: readonly { value: string; chosen: boolean }[]): string =>
@@ -295,8 +310,25 @@ function Pickers({
 				<Trigger title="Permission mode" value={current(modes)} onPress={() => setOpen("mode")} />
 			)}
 			<Trigger title="Thinking" value={current(levels)} onPress={() => setOpen("thinking")} />
-			<Trigger title="Model" value={modelLabel(model)} />
-			{open === undefined ? null : (
+			<Trigger
+				title="Model"
+				value={modelLabel(model)}
+				// Only a list that has something to pick opens: an absent list is not said yet, and an
+				// empty one has nothing to offer, so neither is a button that opens an empty sheet.
+				onPress={models === undefined || models.length === 0 ? undefined : () => setOpen("model")}
+			/>
+			{open === "model" && models !== undefined ? (
+				<ModelSheet
+					models={models}
+					current={model}
+					onClose={() => setOpen(undefined)}
+					onPick={(picked) => {
+						setOpen(undefined);
+						send("model.set", { provider: picked.provider, id: picked.id });
+					}}
+				/>
+			) : null}
+			{open === undefined || open === "model" ? null : (
 				<Sheet
 					title={open === "mode" ? "Permission mode" : "Thinking"}
 					onClose={() => setOpen(undefined)}
@@ -375,5 +407,56 @@ function Held({ lines, client }: { lines: readonly QueuedLine[]; client: Client 
 				</View>
 			))}
 		</>
+	);
+}
+
+/** The models the session could switch to, with a search: a registry is long, and a row each is a scroll. */
+function ModelSheet({
+	models,
+	current,
+	onClose,
+	onPick,
+}: {
+	models: readonly ModelOption[];
+	current: { provider: string; id: string } | undefined;
+	onClose: () => void;
+	onPick: (model: ModelOption) => void;
+}): ReactNode {
+	const [query, setQuery] = useState("");
+	const shown = matchModels(models, query);
+	return (
+		<Sheet title="Model" onClose={onClose}>
+			<TextInput
+				aria-label="Search models"
+				placeholder="Search models"
+				placeholderTextColor={theme.color.faint}
+				value={query}
+				onChangeText={setQuery}
+				style={{
+					...theme.type.body,
+					minHeight: theme.hit,
+					paddingHorizontal: theme.space(4),
+					borderWidth: theme.line.hairline,
+					borderColor: theme.color.border,
+					borderRadius: theme.radius(1),
+					color: theme.color.text,
+				}}
+			/>
+			{shown.length === 0 ? (
+				<Text style={{ ...theme.type.body, color: theme.color.muted, padding: theme.space(4) }}>
+					No model matches
+				</Text>
+			) : (
+				shown.map((model) => (
+					<Option
+						key={`${model.provider}/${model.id}`}
+						label={model.name}
+						hint={`${model.provider}/${model.id}`}
+						chosen={isCurrentModel(model, current)}
+						onPress={() => onPick(model)}
+					/>
+				))
+			)}
+		</Sheet>
 	);
 }

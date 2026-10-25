@@ -27,6 +27,7 @@ export {
 	type StateChangeMap,
 	type StateChangeType,
 	type Mark,
+	type ModelOption,
 	type Origin,
 	type PermissionMode,
 	PROMPT_KINDS,
