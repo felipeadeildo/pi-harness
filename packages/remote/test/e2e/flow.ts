@@ -179,15 +179,29 @@ async function opensSession(page: Page): Promise<Result> {
  */
 async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
 	try {
-		const box = page.locator("textarea, [contenteditable='true'], input[type='text']").first();
+		// The composer sends with its button; there is no key handler on the input, so Enter would
+		// type a newline and prove nothing.
+		const box = page.locator("input[name='prompt']").first();
 		await box.click({ timeout: 20_000 });
 		await box.fill("say hello from the gate");
-		await page.keyboard.press("Enter");
+		await page.getByRole("button", { name: "Send", exact: true }).click({ timeout: 20_000 });
 		const entries = (): number => rig.session.sessionManager.getBranch().length;
 		const before = entries();
 		const deadline = Date.now() + 20_000;
 		while (entries() <= before && Date.now() < deadline) await Bun.sleep(100);
-		return entries() > before ? { ok: true } : { ok: false, why: "the branch did not grow" };
+		if (entries() > before) return { ok: true };
+		// Which half lost it: the bridge logging the prompt says the wire and the daemon did their
+		// part, so what is left is the inbox. No line means it never left the browser.
+		const seen = await rig
+			.until((line) => line.type === "prompt.received", 2_000)
+			.then(() => true)
+			.catch(() => false);
+		return {
+			ok: false,
+			why: seen
+				? "the bridge logged the prompt and pi never started: the inbox or the delivery"
+				: "the prompt never reached the bridge: the screen, the outbox or the wire",
+		};
 	} catch (error) {
 		return { ok: false, why: short(error) };
 	}
