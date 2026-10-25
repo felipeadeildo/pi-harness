@@ -20,7 +20,7 @@ import { type ReactNode, createElement as h } from "react";
 
 import { Markdown, plain } from "../../render/index.ts";
 import { theme } from "../../ui/theme.ts";
-import { aboutOf, titleOf, viewOf, whoSaid } from "./session-view.ts";
+import { aboutOf, originOf, titleOf, viewOf } from "./session-view.ts";
 
 /** How many lines of a tool's output show before the rest folds. */
 const OUTPUT_LINES = 8;
@@ -116,7 +116,7 @@ function messageNodes(
 	switch (message.role) {
 		case "user":
 			return [
-				block(entry, "you", h(Markdown, { text: textOf(parts) }), whoSaid(promptFrom, entry)),
+				block(entry, "you", h(Markdown, { text: textOf(parts) }), originOf(promptFrom, entry)),
 			];
 		case "assistant": {
 			const nodes = parts.map((part, at) => assistantPart(`${entry}:${at}`, part));
@@ -219,11 +219,21 @@ function argsOf(args: unknown): string {
 		.join(" ");
 }
 
-function block(key: string, who: string, body: ReactNode, said: string = who): ReactNode {
+function block(key: string, who: string, body: ReactNode, origin?: string): ReactNode {
 	return h(
 		"li",
 		{ key, className: `remote-${who}` },
-		h("span", { className: "remote-who" }, said),
+		h("span", { className: "remote-who" }, who),
+		origin === undefined
+			? null
+			: h(
+					"span",
+					{
+						className: "remote-from",
+						style: { ...theme.type.caption, color: theme.color.muted, marginLeft: theme.space(3) },
+					},
+					origin,
+				),
 		body,
 	);
 }

@@ -264,16 +264,17 @@ async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
 		const deadline = Date.now() + 20_000;
 		while (entries() <= before && Date.now() < deadline) await Bun.sleep(100);
 		if (entries() > before) {
-			// The prompt came from the browser, so the screen says where it came from: the mark is on the
-			// message that holds these words, and a message typed at the terminal would say "you".
-			const who = page
+			// The prompt came from the browser, so the message says "you" and, beside it, where it was typed:
+			// the origin is on the message that holds these words, and a message the bridge could not
+			// attribute would carry no origin at all.
+			const origin = page
 				.locator("li.remote-you", { hasText: "say hello from the gate" })
-				.locator(".remote-who");
+				.locator(".remote-from");
 			const marked = Date.now() + 20_000;
 			let said = "";
 			while (!said.startsWith("from ") && Date.now() < marked) {
 				said = (
-					(await who
+					(await origin
 						.first()
 						.textContent({ timeout: 1_000 })
 						.catch(() => "")) ?? ""
@@ -282,10 +283,7 @@ async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
 			}
 			return said.startsWith("from ")
 				? { ok: true }
-				: {
-						ok: false,
-						why: `the prompt the browser sent says "${said}" and not where it came from`,
-					};
+				: { ok: false, why: `the prompt the browser sent says no origin (read "${said}")` };
 		}
 		const seen = await rig
 			.until((line) => line.type === "prompt.received", 2_000)
