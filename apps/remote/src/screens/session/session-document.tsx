@@ -16,6 +16,7 @@ import {
 import { type ReactNode, createElement as h } from "react";
 
 import { Markdown, plain } from "../../render/index.ts";
+import { theme } from "../../ui/theme.ts";
 
 /** How many lines of a tool's output show before the rest folds. */
 export const OUTPUT_LINES = 8;
@@ -26,15 +27,35 @@ const THOUGHT_CHARS = 80;
 
 export interface SessionScreenProps {
 	session: ClientSession;
+	/** What the DOM host needs on a phone, where the document has no page to size itself by. */
+	dom?: { matchContents?: boolean };
 }
 
 export function SessionDocument({ session }: SessionScreenProps): ReactNode {
 	const { state, items } = viewOf(session);
 	return h(
 		"main",
-		{ className: "remote-session" },
+		{
+			className: "remote-session",
+			// The document is text, so it takes the theme's type and colours instead of the browser's
+			// defaults: a serif title and a numbered list are what the page looks like without them.
+			style: {
+				background: theme.color.background,
+				color: theme.color.text,
+				fontSize: theme.type.body.fontSize,
+				lineHeight: theme.type.body.fontSize * 1.5,
+			},
+		},
 		header(session, state.tasks),
-		h("ol", { className: "remote-transcript" }, ...items.flatMap((item) => itemNodes(item))),
+		h(
+			"ol",
+			{
+				className: "remote-transcript",
+				// A transcript is a sequence of messages, not a numbered procedure: the index says nothing.
+				style: { listStyle: "none", margin: 0, padding: 0, display: "grid", gap: theme.space(3) },
+			},
+			...items.flatMap((item) => itemNodes(item)),
+		),
 	);
 }
 
@@ -99,8 +120,19 @@ function header(session: ClientSession, tasks: SessionTasks | undefined): ReactN
 	return h(
 		"header",
 		undefined,
-		h("h1", undefined, plain(titleOf(session, tasks))),
-		h("p", { className: "remote-about" }, plain(about.join(" · "))),
+		h(
+			"h1",
+			{ style: { ...theme.type.title, margin: 0, color: theme.color.text } },
+			plain(titleOf(session, tasks)),
+		),
+		h(
+			"p",
+			{
+				className: "remote-about",
+				style: { ...theme.type.caption, margin: 0, color: theme.color.muted },
+			},
+			plain(about.join(" · ")),
+		),
 	);
 }
 

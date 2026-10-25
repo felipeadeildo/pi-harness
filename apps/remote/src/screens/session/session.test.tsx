@@ -92,7 +92,7 @@ describe("the recording", () => {
 		const session = recorded();
 		const html = draw(session);
 		expect(titleOf(session, undefined)).toBe("new-eac1");
-		expect(html).toContain("<h1>Read the rig log</h1>");
+		expect(html).toContain(">Read the rig log</h1>");
 		const you = html.indexOf("remote-you");
 		const pi = html.indexOf("remote-pi");
 		expect(you).toBeGreaterThan(-1);
