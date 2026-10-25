@@ -348,6 +348,43 @@ describe("a client of a session", () => {
 		client.stop();
 	});
 
+	test("a command the transport took and never answered goes out again on the next connection", async () => {
+		const sent: { attempt: number; id: string | undefined }[] = [];
+		let attempts = 0;
+		const client = connect({
+			key,
+			cache: memoryCache(),
+			open: (onMessage, onClose) => {
+				attempts += 1;
+				const attempt = attempts;
+				return {
+					send: (envelope) => {
+						if (envelope.kind !== "command") return;
+						sent.push({ attempt, id: envelope.id });
+						// The first attempt takes the command, never answers it, and loses the link:
+						// the write is in a socket that is gone, and only the id came back with it.
+						if (attempt === 1) queueMicrotask(() => onClose());
+					},
+					close: () => {},
+				};
+			},
+			wait: (_ms, run) => {
+				queueMicrotask(run);
+				return () => {};
+			},
+		});
+
+		await client.load();
+		client.send("prompt.send", { text: "are you there" } as never);
+		await new Promise((resolve) => setTimeout(resolve, 30));
+
+		// The same command, with the same id, on the second connection: the far side reads it as a
+		// repeat and not as a second effect.
+		expect(sent.map((one) => one.attempt)).toEqual([1, 2]);
+		expect(sent[1]?.id).toBe(sent[0]?.id);
+		client.stop();
+	});
+
 	test("a duplicate is skipped, so a daemon may send an envelope twice", async () => {
 		const envelopes = [snapshot, ...stream(1)];
 		let asked = 0;
