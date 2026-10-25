@@ -1,34 +1,16 @@
-// A diff, drawn by what each line does: added, removed, or the header that says which file and
-// where. Nothing here decides what is a change in a language; it reads the marks a diff already
-// carries, so it draws the same for a tool, a model or a patch from another machine.
-import { type ReactNode, createElement as h } from "react";
+"use dom";
 
-import { plain } from "./plain.ts";
+import { createElement as h, type ReactNode } from "react";
 
-export type DiffLineKind = "added" | "removed" | "hunk" | "file" | "context";
+import { diffLines } from "./diff-lines.ts";
 
-export interface DiffLine {
-	kind: DiffLineKind;
+interface DiffProps {
 	text: string;
-}
-
-/** The kind of a line of unified diff, which is what its first characters say. */
-export function kindOf(line: string): DiffLineKind {
-	if (line.startsWith("+++") || line.startsWith("---")) return "file";
-	if (line.startsWith("@@")) return "hunk";
-	if (line.startsWith("+")) return "added";
-	if (line.startsWith("-")) return "removed";
-	return "context";
-}
-
-export function diffLines(text: string): DiffLine[] {
-	return plain(text)
-		.split("\n")
-		.map((line) => ({ kind: kindOf(line), text: line }));
+	dom?: import("expo/dom").DOMProps;
 }
 
 /** Draws a unified diff, one line per row, keeping the mark that says what the line does. */
-export function Diff({ text }: { text: string }): ReactNode {
+export default function Diff({ text }: DiffProps): ReactNode {
 	const lines = diffLines(text);
 	return h(
 		"pre",

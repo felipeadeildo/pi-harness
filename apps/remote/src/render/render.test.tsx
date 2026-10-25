@@ -6,8 +6,9 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { Diff, diffLines, kindOf } from "./diff.tsx";
-import { Markdown } from "./markdown.tsx";
+import { diffLines, kindOf } from "./diff-lines.ts";
+import Diff from "./diff.tsx";
+import Markdown from "./markdown.tsx";
 import { plain, siteOf } from "./plain.ts";
 
 const draw = (text: string): string => renderToStaticMarkup(createElement(Markdown, { text }));
