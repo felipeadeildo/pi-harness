@@ -104,7 +104,6 @@ export function openAboveEditor<T>(
 	const run = (): void => {
 		// Closed before it opened: nothing is drawn, and the row is free for the next dialog.
 		if (abandoned) return;
-		watchEditor(ui);
 		const recent = Date.now() - lastTypedAt < (options.recentMs ?? RECENT_MS);
 		let focused = !recent;
 		let tallest = 0;

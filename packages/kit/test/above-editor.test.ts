@@ -185,7 +185,8 @@ describe("the row above the editor", () => {
 
 	test("a dialog opened right after a key leaves the focus with the editor", async () => {
 		const rig = host();
-		// The extension watches the editor from the session's start, which is what makes the key count.
+		// The session start is where the extension watches the editor, and it is the only place: the
+		// dialog does not install the clock itself, so this is the production order.
 		watchEditor(rig.ui);
 		// The reader is typing: the key goes to the editor, which is what makes the time count.
 		rig.type("h");

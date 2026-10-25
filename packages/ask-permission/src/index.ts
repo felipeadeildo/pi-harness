@@ -1,5 +1,12 @@
 import { questions } from "@adeildo/pi-ask-questions";
-import { createApp, defineFeature, MODE, MODE_SET, protectedList } from "@adeildo/pi-kit";
+import {
+	createApp,
+	defineFeature,
+	MODE,
+	MODE_SET,
+	protectedList,
+	watchEditor,
+} from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { PERMISSION_SETTINGS, readConfig, SECTIONS } from "#core/config/settings.ts";
@@ -21,6 +28,9 @@ export const permission = defineFeature({
 	sections: SECTIONS,
 	settings: PERMISSION_SETTINGS,
 	setup(scope) {
+		// The clock of the last keystroke starts with the session, not with the first question: a reader
+		// already typing when the question arrives keeps the editor, and the dialog does not take it.
+		scope.onSessionStart((ctx) => watchEditor(ctx.ui));
 		registerBashTimer(scope);
 		registerJudgeEntry(scope);
 		registerNoteMessage(scope);
