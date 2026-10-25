@@ -88,6 +88,10 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
 - The author, before asking for a review, and the reviewer, before approving, check the head through
   the API: `gh pr view <n> --json headRefOid`. The review names the sha it measured, the command it
   ran and the number that came out, then one line per finding, and nothing more.
+- A test that compares two outputs also states the value. The comparison proves both derive from the
+  same source; the value proves the source is right, and equality alone passes with both sides empty:
+  `undefined === undefined` is green and says nothing. The two lines together are the test, and the
+  mutant that empties the source only falls on the second one.
 - A state comes from the object, never from a sentence: `gh pr view <n> --json state,isDraft` for a
   pull request and `git show origin/main:<path>` for what `main` has. Approved is not merged, and a
   held branch is not a held merge. A `nearly:` that claims a merge which did not happen is worse than
