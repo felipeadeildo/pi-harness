@@ -48,8 +48,15 @@ export interface Transcript {
 	leaf?: string;
 }
 
+/**
+ * One field of an entry, read by name. `Reflect.get` reads the same property `entry.x` would, without
+ * the cast to a record the protocol never promised. Every caller reaches it from a branch that already
+ * read `entry.type`, so the value is an object by then: the transcript's defence against a malformed
+ * line is at the boundary, where the entry is taken for what it says it is.
+ */
 function field<T>(entry: Entry, name: string): T | undefined {
-	return (entry as unknown as Record<string, unknown>)[name] as T | undefined;
+	const value: unknown = Reflect.get(entry, name);
+	return value === undefined ? undefined : (value as T);
 }
 
 /**
