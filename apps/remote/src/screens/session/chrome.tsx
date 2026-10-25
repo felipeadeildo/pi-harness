@@ -11,10 +11,12 @@ export function Tasks({ tasks }: { tasks: SessionTasks | undefined }): React.Rea
 	const open = openTasksOf(tasks);
 	if (open.length === 0) return null;
 	return (
-		<View style={{ gap: 4, paddingVertical: 8 }}>
-			<Text style={{ fontWeight: "600" }}>Tasks</Text>
+		<View style={{ gap: theme.space(2), paddingVertical: theme.space(3) }}>
+			<Text style={{ ...theme.type.label, color: theme.color.text }}>Tasks</Text>
 			{open.map((task) => (
-				<Text key={task.id}>{task.line}</Text>
+				<Text key={task.id} style={{ ...theme.type.body, color: theme.color.text }}>
+					{task.line}
+				</Text>
 			))}
 		</View>
 	);
@@ -24,18 +26,25 @@ export function Tasks({ tasks }: { tasks: SessionTasks | undefined }): React.Rea
 export function OpenQuestions({ asks }: { asks: readonly OpenAsk[] }): React.ReactNode {
 	if (asks.length === 0) return null;
 	return (
-		<View style={{ gap: 8, paddingVertical: 8 }}>
+		<View style={{ gap: theme.space(3), paddingVertical: theme.space(3) }}>
 			{asks.map((ask) => (
-				<View key={ask.id} style={{ gap: 2 }}>
-					<Text style={{ fontWeight: "600" }}>Waiting for an answer</Text>
+				<View key={ask.id} style={{ gap: theme.space(1) }}>
+					<Text style={{ ...theme.type.label, color: theme.color.text }}>
+						Waiting for an answer
+					</Text>
 					{ask.questions.map((question, at) => (
 						<View key={`${ask.id}:${at}`}>
-							<Text>
-								<Text style={{ fontWeight: "600" }}>{plain(question.header)}</Text>
+							<Text style={{ ...theme.type.body, color: theme.color.text }}>
+								<Text style={{ ...theme.type.label, color: theme.color.text }}>
+									{plain(question.header)}
+								</Text>
 								{` ${plain(question.question)}`}
 							</Text>
 							{question.options.map((option, index) => (
-								<Text key={`${at}:${index}`} style={{ opacity: 0.8 }}>
+								<Text
+									key={`${at}:${index}`}
+									style={{ ...theme.type.caption, color: theme.color.muted }}
+								>
 									{plain(option.label)}
 								</Text>
 							))}
