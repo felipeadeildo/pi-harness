@@ -227,6 +227,19 @@ test("the view takes the first open cards by arrival, then shows them oldest fir
 	const view = boardView(board);
 	expect(view.open).toHaveLength(15);
 	expect(view.open.map((card) => card.title)).not.toContain("Card 15");
-	const byAt = applied([added("Nova", { at: 20 }), added("Velha", { at: 10 })]);
-	expect(boardView(byAt).open.map((card) => card.title)).toEqual(["Velha", "Nova"]);
+	// Arrival order is the only order: the ids and the dates both run another way on purpose.
+	const hand: Board = {
+		next: 4,
+		cards: [
+			{ id: "c3", title: "Primeira", column: "todo", at: 30 },
+			{ id: "c1", title: "Segunda", column: "todo", at: 10 },
+			{ id: "c2", title: "Terceira", column: "todo", at: 20 },
+		],
+		decisions: [],
+	};
+	expect(boardView(hand).open.map((card) => card.title)).toEqual([
+		"Primeira",
+		"Segunda",
+		"Terceira",
+	]);
 });

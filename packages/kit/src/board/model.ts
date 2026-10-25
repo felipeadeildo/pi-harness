@@ -232,10 +232,7 @@ export interface BoardView {
 }
 
 export function boardView(board: Board): BoardView {
-	const open = board.cards
-		.filter((card) => OPEN_COLUMNS.has(card.column))
-		.slice(0, OPEN)
-		.toSorted((a, b) => a.at - b.at || a.id.localeCompare(b.id));
+	const open = board.cards.filter((card) => OPEN_COLUMNS.has(card.column)).slice(0, OPEN);
 	const backlog = board.cards.filter((card) => card.column === "backlog").length;
 	const done = board.cards.filter((card) => card.column === "done").slice(-3);
 	return { open, backlog, done };
