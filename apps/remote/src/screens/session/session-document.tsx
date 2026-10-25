@@ -6,10 +6,9 @@
 //
 // A model's thinking folds into one line, a `<details>` the reader opens, so a long chain of thought
 // does not push the answer off the screen. A tool's output shows its first lines and folds the rest.
-import { type ClientSession, harnessOf, transcriptOfSession } from "@adeildo/pi-remote-client";
+import type { ClientSession } from "@adeildo/pi-remote-client";
 import {
 	type ChatMessage,
-	type SessionState,
 	type SessionTasks,
 	type TranscriptItem,
 } from "@adeildo/pi-remote-protocol";
@@ -17,21 +16,22 @@ import { type ReactNode, createElement as h } from "react";
 
 import { Markdown, plain } from "../../render/index.ts";
 import { theme } from "../../ui/theme.ts";
+import { aboutOf, titleOf, viewOf } from "./session-view.ts";
 
 /** How many lines of a tool's output show before the rest folds. */
-export const OUTPUT_LINES = 8;
+const OUTPUT_LINES = 8;
 /** How wide a shown line of a tool's output gets before it is cut. */
-export const LINE_CHARS = 160;
+const LINE_CHARS = 160;
 /** How much of the first line of a thought names the fold. */
 const THOUGHT_CHARS = 80;
 
-export interface SessionScreenProps {
+interface SessionScreenProps {
 	session: ClientSession;
 	/** What the DOM host needs on a phone, where the document has no page to size itself by. */
 	dom?: { matchContents?: boolean };
 }
 
-export function SessionDocument({ session }: SessionScreenProps): ReactNode {
+export default function SessionDocument({ session }: SessionScreenProps): ReactNode {
 	const { state, items } = viewOf(session);
 	return h(
 		"main",
@@ -56,62 +56,6 @@ export function SessionDocument({ session }: SessionScreenProps): ReactNode {
 			},
 			...items.flatMap((item) => itemNodes(item)),
 		),
-	);
-}
-
-interface View {
-	state: SessionState;
-	items: TranscriptItem[];
-}
-
-const views = new WeakMap<ClientSession, { key: readonly unknown[]; view: View }>();
-
-/**
- * The transcript and the state, worked out again only when what they come from changed. A client
- * changes its session in place: an entry or a state change is pushed onto its list, a snapshot swaps the
- * list, and a `/tree` move changes the leaf. So the lists, their lengths and the leaf say whether
- * anything moved, and a screen that draws on every envelope does not fold the whole log each time.
- * An entry changed where it stands would go unseen: the client never does that today, and one that
- * starts to has to swap the list or bump what this compares.
- */
-export function viewOf(session: ClientSession): View {
-	const key = [
-		session.entries,
-		session.entries.length,
-		session.leaf,
-		session.state,
-		Object.keys(session.state.questions).length +
-			Object.keys(session.state.permissions.rulings).length,
-	];
-	const held = views.get(session);
-	if (held !== undefined && held.key.every((part, at) => part === key[at])) return held.view;
-	const view = { state: harnessOf(session), items: transcriptOfSession(session).items };
-	views.set(session, { key, view });
-	return view;
-}
-
-/** What the session is called: the title pi or the tasks gave it, else the handle a room uses. */
-export function titleOf(session: ClientSession, tasks?: SessionTasks): string {
-	const snapshot = session.summary;
-	return (
-		snapshot?.name ??
-		tasks?.title ??
-		snapshot?.handle ??
-		tasks?.handle ??
-		`new-${session.key.session.slice(-4)}`
-	);
-}
-
-/**
- * What the header says about the session beside its name: the machine, what it is doing and the model it
- * answers with. It is text, and typed as text on purpose: this array goes to a `join`, and an
- * `unknown[]` let the folded state object through to become `[object Object]` without a word from the
- * compiler. The status is the field for "what it is doing"; the folded `state` is the whole picture.
- */
-export function aboutOf(session: ClientSession): string[] {
-	const { state } = session;
-	return [session.key.machine, state.status, state.model?.id].filter(
-		(part): part is string => part !== undefined,
 	);
 }
 

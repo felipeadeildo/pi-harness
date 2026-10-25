@@ -9,7 +9,8 @@
 		"csp": "bun scripts/csp.ts"
 	},
 	"dependencies": {
-		"expo-sqlite": "~58.0.14"
+		"expo-sqlite": "~58.0.14",
+		"react-native-webview": "14.0.1"
 	},
 	"devDependencies": {
 		"@adeildo/pi-remote": "workspace:*",

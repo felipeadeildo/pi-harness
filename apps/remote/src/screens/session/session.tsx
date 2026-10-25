@@ -6,7 +6,8 @@ import { openQuestions } from "@adeildo/pi-remote-protocol";
 import { Fragment, type ReactNode } from "react";
 
 import { OpenQuestions, Tasks, TerminalWait } from "./chrome.tsx";
-import { SessionDocument, viewOf } from "./session-document.tsx";
+import SessionDocument from "./session-document.tsx";
+import { viewOf } from "./session-view.ts";
 
 export function SessionScreen({ session }: { session: ClientSession }): ReactNode {
 	const { state } = viewOf(session);
