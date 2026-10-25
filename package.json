@@ -39,7 +39,8 @@
 		"peers:live": "bun packages/peers/eval/live.ts",
 		"app:check": "bun run --cwd=apps/remote check",
 		"app:export": "bun run --cwd=apps/remote export",
-		"csp:check": "bun run --cwd=apps/remote csp"
+		"csp:check": "bun run --cwd=apps/remote csp",
+		"gate": "bun run --cwd packages/remote gate"
 	},
 	"devDependencies": {
 		"@earendil-works/pi-ai": "1.4.0",
