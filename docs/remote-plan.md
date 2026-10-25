@@ -36,7 +36,7 @@ The structure:
 - [x] Work deferred by a feature ends with its session (#221, #224)
 - [x] The bridge keeps its lifecycle, and pi's events reach their owners (#237)
 - [x] The client's session is immutable, and commands are typed by their names (#270, #282)
-- [ ] The session and composer screens in React Native, on the visual base. nearly: the list, the question panel and the session frame are React Native, with the document as a DOM component (#258, #296); `composer.tsx` still draws the DOM, and no screen reads the theme yet
+- [ ] The session and composer screens in React Native, on the visual base. nearly: the list and the question panel are React Native and the theme's steps exist (#258); the session frame is in review (#296), and `composer.tsx` still draws the DOM
 
 The other tracks of the cycle:
 
