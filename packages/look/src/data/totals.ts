@@ -1,21 +1,15 @@
-import { tasksUsageOf } from "@adeildo/pi-kit";
+import { type UsageLike } from "@adeildo/pi-kit";
+
+// The sum itself lives in the kit, where the phone's list reads it too: one owner for one number.
+export {
+	emptyTotals,
+	promptOf,
+	tokensOf,
+	totalsOf,
+	type Totals,
+	usageTotals,
+} from "@adeildo/pi-kit";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
-
-export interface Totals {
-	input: number;
-	output: number;
-	cacheRead: number;
-	cacheWrite: number;
-	cost: number;
-}
-
-interface UsageLike {
-	input: number;
-	output: number;
-	cacheRead: number;
-	cacheWrite: number;
-	cost: { total: number };
-}
 
 export interface RequestRecord {
 	output: number;
@@ -31,41 +25,6 @@ const LEGACY_ENTRY = "pi-statusline:turn";
 export interface Averages {
 	decode: number | undefined;
 	prefill: number | undefined;
-}
-
-export function emptyTotals(): Totals {
-	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
-}
-
-export function promptOf(totals: Totals): number {
-	return totals.input + totals.cacheRead + totals.cacheWrite;
-}
-
-export function tokensOf(totals: Totals): number {
-	return promptOf(totals) + totals.output;
-}
-
-export function usageTotals(usage: UsageLike): Totals {
-	const totals = emptyTotals();
-	add(totals, usage);
-	return totals;
-}
-
-export function totalsOf(entries: readonly SessionEntry[]): Totals {
-	const totals = emptyTotals();
-
-	for (const entry of entries) {
-		if (entry.type === "usage") add(totals, entry.usage);
-		else if (entry.type === "message" && entry.message.role === "assistant")
-			add(totals, entry.message.usage);
-		else if (entry.type === "message" && entry.message.role === "toolResult" && entry.message.usage)
-			add(totals, entry.message.usage);
-		else if ((entry.type === "branch_summary" || entry.type === "compaction") && entry.usage)
-			add(totals, entry.usage);
-		else if (entry.type === "custom") addTasks(totals, tasksUsageOf(entry));
-	}
-
-	return totals;
 }
 
 /** The usage of the last answer the model gave, which is what the cache lines talk about. */
@@ -127,20 +86,4 @@ function isRecord(
 		typeof record.firstTokenMs === "number" &&
 		typeof record.generationMs === "number"
 	);
-}
-
-// The tasks package's model calls are not pi's, so pi does not count them. They count here.
-function addTasks(totals: Totals, usage: ReturnType<typeof tasksUsageOf>): void {
-	if (usage === undefined) return;
-	totals.input += usage.input;
-	totals.output += usage.output;
-	totals.cost += usage.cost;
-}
-
-function add(totals: Totals, usage: UsageLike): void {
-	totals.input += usage.input;
-	totals.output += usage.output;
-	totals.cacheRead += usage.cacheRead;
-	totals.cacheWrite += usage.cacheWrite;
-	totals.cost += usage.cost.total;
 }
