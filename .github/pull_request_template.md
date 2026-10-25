@@ -17,7 +17,6 @@ The rules behind these are in [`CONTRIBUTING.md`](https://github.com/felipeadeil
 [`docs/remote-plan.md`](https://github.com/felipeadeildo/pi-harness/blob/main/docs/remote-plan.md); this list is only the part that gets forgotten
 at the moment a pull request opens.
 
-## What was wrong, what changes, and how to see it
+## What changes, and how to see it
 
-One paragraph each: what was broken or missing, what this does about it, and the command or the run
-that shows it working, followed by its output.
+A few lines: what changes, and the command that shows it working with its result.

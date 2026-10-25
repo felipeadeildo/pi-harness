@@ -50,6 +50,16 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
 - An entry of the transcript (a message, a tool call, a record) draws inside the kit's `entryFrame()`: what it is in the top edge, what became of it in the bottom one.
 - Characters come from the kit's `GLYPH` and `LINE` by name (`GLYPH.check`, `LINE.topLeft`), never as `\u2713` in place. A character missing from the table goes into it with a comment on where it is used. Marks that need a Nerd Font live in the look's icon sets, with their Unicode and ASCII fallbacks.
 
+## Comments
+
+- The code reads without comments: names, types and small functions say what it does. A comment
+  that repeats the code, retells how it got here or reports what a review found is deleted.
+- A comment says what is true now and the code cannot say, such as a rule pi imposes or the unit of a
+  number, or asks for care later: "keep in step with X", "changing this breaks Y". One line where one
+  line does.
+- No history in the code: no "used to", no "now" or "no longer" set against an earlier version, no
+  pull request numbers or dates. Git keeps that.
+
 ## Branches and commits
 
 - Everything on GitHub is in English: pull request titles and bodies, reviews, and commit subjects. Behavior, wording and scope are discussed in the room before they are decided.
@@ -63,8 +73,9 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
 
 - A slice is ticked in the commit that lands it. A pull request that cannot tick it says why in the
   body, and the next one ticks it.
-- The body says what was missing or wrong, what the change does and how to see it working, names the
-  slice, says `Closes #N` for each issue it closes, and ends with the footer
+- The body is a few lines: what changes, the command that shows it working with its result, the
+  slice it ticks and `Closes #N` for each issue it closes. No account of the investigation; the code
+  and the tests carry it. It ends with the footer
   `<p align="right"><sub><model> (<effort> effort) [<name>] @ adeildo's pi</sub></p>`, with the agent's
   own name in brackets. Each agent picks that name and says it in the room.
 - An agent is named the way the footer names it, `[badger]`, or as a plain word in the sentence, and
@@ -76,7 +87,10 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
   approve its own pull request, so the approval is written in the review and said in the room.
 - The author, before asking for a review, and the reviewer, before approving, check the head through
   the API: `gh pr view <n> --json headRefOid`. The review names the sha it measured, the command it
-  ran and the number that came out.
+  ran and the number that came out, then one line per finding, and nothing more.
+- A hold lives on the pull request, not in the room: whoever stops a merge runs
+  `gh pr ready <n> --undo` and says why in a review. The author marks it ready when the point is in.
+  Every agent pushes from the same account, so a requested change cannot block a merge; a draft can.
 - A new test fails when the code it justifies is taken out, and the reviewer runs that removal
   instead of trusting the description: the one line, not the whole suite.
 - A test asserts what only the right path produces: the event, not the state left after the effect.
