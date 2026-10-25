@@ -51,7 +51,7 @@ The other tracks of the cycle:
 
 Before 6.0.0:
 
-- [ ] No test fails one run in ten
+- [x] No test fails one run in ten (#241)
 - [ ] The `as unknown as` casts outside test fakes, and the patched pi prototypes, have a test or are gone
 - [ ] [The remote design](remote.md) speaks the new names
 - [ ] The release notes, and 6.0.0
