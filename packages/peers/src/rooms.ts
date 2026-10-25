@@ -888,6 +888,9 @@ export class Rooms implements RoomsView {
 		if (this.#soonTimer !== undefined) return;
 		this.#soonTimer = setTimeout(() => {
 			this.#soonTimer = undefined;
+			// A log can change one last time as the session ends, and reading it then reaches a
+			// context pi no longer owns: the room is closed, so there is nothing to read.
+			if (this.#session === undefined) return;
 			this.sync();
 		}, 10);
 	}

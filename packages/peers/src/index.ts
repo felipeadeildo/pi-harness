@@ -158,8 +158,15 @@ export const peers = defineFeature({
 			},
 			changed: () => {
 				for (const redraw of rows.values()) redraw();
-				showStatus();
-				showTyping();
+				// This runs from a log change read a moment later, and pi takes the context away before
+				// it announces the shutdown: drawing then throws from inside a timer, where nothing
+				// catches it. The first refusal is the notice that the session is over.
+				try {
+					showStatus();
+					showTyping();
+				} catch {
+					uiGone = true;
+				}
 			},
 			show: (details) => scope.appendEntry(PEER_BROADCAST, details),
 			held: (waiting, why) => {
@@ -186,11 +193,14 @@ export const peers = defineFeature({
 			opening: () => opening.get(scope),
 		});
 		let typingShown = false;
+		/** pi refused the session's context, so nothing more is drawn for it. */
+		let uiGone = false;
 		/** What let each call of the tool through, from the permission gate, by call id. */
 		const allowed = new Map<string, string>();
 
 		/** Over the editor while another agent writes to a room, and after, until the agent reads it. */
 		function showTyping(): void {
+			if (uiGone) return;
 			const ctx = session;
 			if (ctx === undefined || ctx.mode !== "tui") return;
 			// Only what waits for this session takes a frame over the editor. Another agent's draft is
@@ -217,6 +227,7 @@ export const peers = defineFeature({
 		 */
 		let announced: string | undefined;
 		function showStatus(): void {
+			if (uiGone) return;
 			const summary = rooms.summary();
 			const writing = writingMarks(rooms.othersTyping(), rooms);
 			const state = {
@@ -273,6 +284,7 @@ export const peers = defineFeature({
 
 		scope.onSessionStart((ctx) => {
 			session = ctx;
+			uiGone = false;
 			wentIn.clear();
 			for (const entry of ctx.sessionManager.getEntries())
 				if (entry.type === "custom" && entry.customType === PEER_WENT_IN && isWentIn(entry.data))
@@ -295,9 +307,18 @@ export const peers = defineFeature({
 		scope.onShutdown(() => {
 			stopClearing?.();
 			stopClearing = undefined;
-			session?.ui.setStatus(PEERS_STATUS, undefined);
+			// Everything that reads the log stops first: a room still open during the shutdown reads
+			// a context pi no longer owns, and that throw would skip the rest of this handler.
 			rooms.end();
+			const ui = session?.ui;
 			session = undefined;
+			// Clearing the mark on the footer is a courtesy, and pi is allowed to have taken the
+			// context away already.
+			try {
+				ui?.setStatus(PEERS_STATUS, undefined);
+			} catch {
+				// The session the mark belonged to is gone.
+			}
 		});
 
 		scope.on("agent_start", () => rooms.started());

@@ -93,6 +93,23 @@ test("each session opens in the mode its own setting names, and only one says so
 	expect(loud).not.toBe(quiet);
 });
 
+test("a session that ends leaves nothing reading its log", async () => {
+	const uncaught: unknown[] = [];
+	const catchIt = (error: unknown): void => {
+		uncaught.push(error);
+	};
+	process.on("uncaughtException", catchIt);
+	try {
+		await session("listening");
+		// The room reads its logs a moment after they change; that moment can land after the session
+		// is gone, and reading it then reaches a context pi refuses.
+		await Bun.sleep(60);
+		expect(uncaught).toEqual([]);
+	} finally {
+		process.off("uncaughtException", catchIt);
+	}
+});
+
 test("a session that opens again in the same mode does not write the line again", async () => {
 	const quiet = await session("listening");
 	const again = await session("listening");
