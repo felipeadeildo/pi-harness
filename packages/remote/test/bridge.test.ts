@@ -32,7 +32,7 @@ import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import type { MessageStartEvent, MessageUpdateEvent } from "@earendil-works/pi-coding-agent";
 
 import { Bridge, STATE_ENTRIES, TYPED_EVERY_MS } from "../src/bridge/bridge.ts";
-import { SessionInbox } from "../src/bridge/inbox.ts";
+import { letterOf, SessionInbox } from "../src/bridge/inbox.ts";
 import piRemote, { goneReason, remote, sessionKind } from "../src/index.ts";
 import { CLIENT_PORT, daemonPaths } from "../src/places.ts";
 import { VERSION } from "../src/version.ts";
@@ -665,6 +665,48 @@ describe("the bridge", () => {
 		}
 	});
 
+	test("a snapshot carries the queue the state folded, letter and all", async () => {
+		// The snapshot builds its queue from the folded state: the fold in `queued` is the only path, so
+		// a held letter has to be in it, and removing the fold empties the snapshot.
+		running = true;
+		const daemon = await listening();
+		const fake = mounted();
+		await start(fake, session());
+		await until(() => types(daemon).includes("state"));
+		daemon.sockets[0]?.write(
+			line(
+				envelope(
+					"command",
+					"prompt.send",
+					{ text: "wait for the run" },
+					{
+						machine: HOST,
+						session: "s1",
+						epoch: "e1",
+						id: "p9",
+						by: { kind: "client", name: "phone", machine: HOST },
+					},
+				),
+			),
+		);
+		// A busy session holds the letter, so it is in the queue and not in pi: that is the one the
+		// snapshot has to carry.
+		await until(
+			() =>
+				((
+					daemon.received.findLast((one) => one.type === "queue.changed")?.data as
+						| { queue: unknown[] }
+						| undefined
+				)?.queue.length ?? 0) === 1,
+		);
+		daemon.sockets[0]?.write(line(envelope("command", "state.get", {}, { session: "s1" })));
+		await until(() => daemon.received.filter((one) => one.type === "state").length === 2);
+		const snapshot = daemon.received.filter((one) => one.type === "state").at(-1)?.data as
+			| { snapshot: { state: { queue: { text: string }[] } } }
+			| undefined;
+		expect(snapshot?.snapshot.state.queue.map((one) => one.text)).toEqual(["wait for the run"]);
+	});
+
 	test("a move in the tree names the new leaf, the root included", async () => {
 		const daemon = await listening();
 		const fake = mounted();
@@ -948,18 +990,9 @@ describe("one bridge", () => {
 	function bridged(from: SessionSource = source(), typedEveryMs = 2_000) {
 		const { sockets, dial } = held();
 		const scope = { events: fakePi().pi.events, warn: () => {} };
-		const api = {
-			rename: () => {},
-			setModel: () => Promise.resolve(),
-			setThinking: () => {},
-			setMode: () => {},
-			send: () => {},
-			arrived: () => {},
-			busy: () => false,
-		};
 		const inbox = new SessionInbox(scope, {
 			send: () => {},
-			busy: () => api.busy(),
+			busy: () => !running,
 			arrived: () => {},
 			queued: (queue) => bridge.queued(queue),
 		});
@@ -968,9 +1001,12 @@ describe("one bridge", () => {
 			typedEveryMs,
 			path: "/nowhere",
 			scope,
+			// The real inbox decides the queue's two commands here: the tests of the queue read what
+			// the bridge builds from it, not a stub that says nothing.
 			letters: {
-				prompt: () => {},
-				clear: () => [],
+				prompt: (id, by, text, deliverAs) =>
+					inbox.put(letterOf(id, by, text, deliverAs ?? "followUp")),
+				clear: (ids) => inbox.take(ids),
 			},
 			version: VERSION,
 			kind: "terminal",
