@@ -19,6 +19,7 @@ import {
 	logEvent,
 	logPath,
 	MODE,
+	MODE_SET,
 	protectedList,
 	TASKS,
 	targetOf,
@@ -122,6 +123,14 @@ async function start(fake: FakePi, ctx = session()): Promise<void> {
 
 async function stop(fake: FakePi, reason: string): Promise<void> {
 	await fake.fire("session_shutdown", { type: "session_shutdown", reason }, session());
+}
+
+/** The state the daemon was last sent, as a client reads it. */
+function stateOf(daemon: FakeDaemon): { permissions: { serves?: boolean } } {
+	const data = daemon.received.findLast((one) => one.type === "state")?.data as
+		| { summary?: { state?: { permissions: { serves?: boolean } } } }
+		| undefined;
+	return data?.summary?.state ?? { permissions: {} };
 }
 
 function types(daemon: FakeDaemon): string[] {
@@ -1139,6 +1148,22 @@ describe("one bridge", () => {
 		// The key itself is still pi's: the handler reads it and hands it on unchanged.
 		expect(press("d")).toBeUndefined();
 		await bridge.stop(undefined);
+	});
+
+	test("the opening says whether the session takes a mode, which is a capability and not a value", async () => {
+		const bare = await listening();
+		await start(mounted());
+		await until(() => types(bare).includes("state"));
+		expect(stateOf(bare).permissions.serves).toBe(false);
+	});
+
+	test("a session that takes mode.set says so, before any mode was chosen", async () => {
+		const serving = await listening();
+		const fake = mounted();
+		MODE_SET.provide({ events: fake.pi.events, warn: () => {} }, () => ({ set: () => {} }));
+		await start(fake);
+		await until(() => types(serving).includes("state"));
+		expect(stateOf(serving).permissions.serves).toBe(true);
 	});
 
 	test("a source that lost its place makes the bridge send a new snapshot", async () => {

@@ -68,14 +68,16 @@ export class Harness {
 		return openQuestions(this.#state).map((ask) => ask.id);
 	}
 
-	/** The state as it stands, with the two things pi knows and the log does not. */
-	snapshot(tasks: unknown, mode: unknown): SessionState {
+	/** The state as it stands, with what pi knows and the log does not. */
+	snapshot(tasks: unknown, mode: unknown, serves: boolean): SessionState {
 		return {
 			...this.#state,
 			...(tasks === undefined ? {} : { tasks: tasks as SessionState["tasks"] }),
-			...(mode === undefined
-				? {}
-				: { permissions: { ...this.#state.permissions, mode: mode as PermissionMode } }),
+			permissions: {
+				...this.#state.permissions,
+				...(mode === undefined ? {} : { mode: mode as PermissionMode }),
+				serves,
+			},
 		};
 	}
 }
