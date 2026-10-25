@@ -6,3 +6,6 @@ lefthook-local.*
 
 # Expo writes its cache here.
 apps/remote/.expo/
+
+*.orig
+*.rej
