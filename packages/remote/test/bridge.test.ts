@@ -32,6 +32,7 @@ import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import type { MessageStartEvent, MessageUpdateEvent } from "@earendil-works/pi-coding-agent";
 
 import { Bridge, STATE_ENTRIES, TYPED_EVERY_MS } from "../src/bridge/bridge.ts";
+import { SessionInbox } from "../src/bridge/inbox.ts";
 import piRemote, { goneReason, remote, sessionKind } from "../src/index.ts";
 import { CLIENT_PORT, daemonPaths } from "../src/places.ts";
 import { VERSION } from "../src/version.ts";
@@ -946,10 +947,28 @@ function source(onFollow: (on: (item: SourceItem) => void) => void = () => {}): 
 describe("one bridge", () => {
 	function bridged(from: SessionSource = source(), typedEveryMs = 2_000) {
 		const { sockets, dial } = held();
+		const scope = { events: fakePi().pi.events, warn: () => {} };
+		const api = {
+			rename: () => {},
+			setModel: () => Promise.resolve(),
+			setThinking: () => {},
+			setMode: () => {},
+			send: () => {},
+			arrived: () => {},
+			busy: () => false,
+		};
+		const inbox = new SessionInbox(scope, {
+			send: () => {},
+			busy: () => api.busy(),
+			arrived: () => {},
+			queued: (queue) => bridge.queued(queue),
+		});
+		inbox.start();
 		const bridge = new Bridge(session(), from, {
 			typedEveryMs,
 			path: "/nowhere",
-			scope: { events: fakePi().pi.events, warn: () => {} },
+			scope,
+			inbox,
 			version: VERSION,
 			kind: "terminal",
 			api: {

@@ -19,6 +19,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { ClientAsks } from "./bridge/asks.ts";
 import { Bridge, type SessionKind } from "./bridge/bridge.ts";
 import type { GoneReason } from "./bridge/connection.ts";
+import { SessionInbox } from "./bridge/inbox.ts";
 import { openInBrowser } from "./browser.ts";
 import { linkOf } from "./cli/open.ts";
 import { commandApi } from "./commands-api.ts";
@@ -91,12 +92,23 @@ export const remote = defineFeature({
 			} catch (error) {
 				scope.warn(`could not write the pi-remote launcher: ${String(error)}`);
 			}
+			// The inbox is built here, where the wiring lives: its delivery goes through the same api the
+			// commands use, and what it announces comes back through the bridge, which folds the state.
+			const api = commandApi(scope, ctx);
+			const inbox = new SessionInbox(scope, {
+				send: (text, deliverAs) => api.send(text, deliverAs),
+				busy: () => api.busy(),
+				arrived: (text, by) => api.arrived(text, by),
+				queued: (queue) => bridge?.queued(queue),
+			});
+			inbox.start();
 			bridge = new Bridge(ctx, source, {
 				path: daemonPaths(dir).socket,
 				scope,
 				version: VERSION,
 				kind,
-				api: commandApi(scope, ctx),
+				inbox,
+				api,
 				// `FeatureScope` is the extension API, so the list of slash commands is asked here.
 				offered: () => scope.getCommands(),
 				startDaemon: () => startDaemon(dir, port.get(scope)),

@@ -22,13 +22,14 @@ import {
 	targetOf,
 } from "@adeildo/pi-kit";
 import { type AnswerEvent, isAskResult } from "@adeildo/pi-kit";
+import type { Letter } from "@adeildo/pi-kit";
 import type { Envelope, SessionSnapshot } from "@adeildo/pi-remote-protocol";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { OpenAsks } from "./asks.ts";
 import { Commands, Refused } from "./commands.ts";
 import { BridgeConnection, type ConnectionSeams, type GoneReason } from "./connection.ts";
-import { letterOf, queuedOf, SessionInbox } from "./inbox.ts";
+import { letterOf, queuedOf, type SessionInbox } from "./inbox.ts";
 import { forward, type Logged, Harness } from "./logged.ts";
 import { commandsFor, type Offered } from "./slash.ts";
 import { LiveStream } from "./stream.ts";
@@ -65,6 +66,8 @@ export interface BridgeOptions {
 	path: string;
 	/** Where the bridge reads the harness's contracts: the tasks, the mode and the status. */
 	scope: EventScope;
+	/** The session's inbox, which `index.ts` builds: who it delivers through is a wiring decision. */
+	inbox: SessionInbox;
 	/**
 	 * How often the terminal tells the daemon that someone typed there, in milliseconds. A test sets
 	 * it short, which is the only way to pin that the window closes as well as opens.
@@ -122,15 +125,7 @@ export class Bridge {
 		);
 		this.stream = new LiveStream((type, data, send) => this.#connection.event(type, data, send));
 		this.#asks.watch(options.scope.events);
-		this.#inbox = new SessionInbox(options.scope, {
-			send: (text, deliverAs) => options.api.send(text, deliverAs),
-			busy: () => options.api.busy(),
-			arrived: (text, by) => options.api.arrived(text, by),
-			// A queue that waits in the session is one list for every client, so it travels numbered:
-			// a client that missed an event recovers it from the replay, and a hole asks for the state.
-			queued: (queue) => this.#connection.event("queue.changed", { queue }),
-		});
-		this.#inbox.start();
+		this.#inbox = options.inbox;
 		// A key at the terminal is input, and it makes the terminal the session's active client. The
 		// daemon is told about it as it happens, and at most every couple of seconds, because a person
 		// types faster than the others need to know who is typing.
@@ -284,6 +279,12 @@ export class Bridge {
 				else if (item.kind === "reset") this.#snapshot();
 			},
 		);
+	}
+
+	/** The queue changed: it folds into the state and goes out numbered, as one list for every client. */
+	queued(queue: readonly Letter[]): void {
+		this.#facts.saw("queue.changed", { queue });
+		this.#connection.event("queue.changed", { queue });
 	}
 
 	#heard(message: Envelope): void {
