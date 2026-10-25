@@ -229,8 +229,9 @@ test("the view takes the first open cards by arrival, then shows them oldest fir
 	expect(view.open.map((card) => card.title)).not.toContain("Card 15");
 	// Arrival order is the only order. A card with a date older than the ones already on the board
 	// is a state the product does not make: one writer per session appends, and no operation merges
-	// (the model header says so). The ids and the dates run another way here on purpose, so sorting
-	// by either would show.
+	// (the model header says so). A board written through `applyBoard` cannot have ids out of arrival
+	// order, since it numbers them `c${next}` as it appends; the ids and the dates run another way here
+	// on purpose, so sorting by either would show.
 	const hand: Board = {
 		next: 4,
 		cards: [
