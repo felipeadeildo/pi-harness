@@ -121,6 +121,40 @@ describe("a daemon that restarts", () => {
 		expect(opening.slice(1).map((one) => one.type)).not.toContain("ask.opened");
 	});
 
+	test("a snapshot without a state keeps the one the session already had", () => {
+		const sessions = restarted();
+		const folded: SessionState = {
+			...emptySessionState(),
+			questions: { q1: { id: "q1", source: "agent", questions: [] } },
+		};
+		const snapshot = (state: SessionState | undefined) =>
+			sessions.event(
+				envelope(
+					"event",
+					"state",
+					{
+						summary: {
+							session: "s",
+							machine: "m",
+							cwd: "/x",
+							kind: "terminal",
+							...(state === undefined ? {} : { state }),
+						},
+						entries: [],
+					},
+					around(1),
+				),
+			);
+		snapshot(folded);
+		// A bridge that does not know the session sends a snapshot without a state, and absence means
+		// unchanged: the fold the daemon already has stands.
+		snapshot(undefined);
+		// The fold survived, and the packet a client opens with is that same fold: equality alone
+		// would pass with both sides empty.
+		expect(opening(sessions)?.questions).toEqual(folded.questions);
+		expect(opening(sessions)).toEqual(sessions.get("s")?.state);
+	});
+
 	test("folds what comes after the snapshot on top of it", () => {
 		const sessions = restarted();
 		sessions.event(

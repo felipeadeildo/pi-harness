@@ -182,7 +182,7 @@ export class Sessions {
 		if (entry === undefined || snapshot === undefined) return undefined;
 		const after = this.after(session, { epoch: snapshot.epoch ?? "", seq: snapshot.seq ?? -1 });
 		if (after === undefined) return undefined;
-		return [snapshot, ...after];
+		return [this.#foldedInto(entry, snapshot), ...after];
 	}
 
 	/** An opening is the new base: a cursor older than it takes the opening instead of a replay. */
@@ -196,6 +196,20 @@ export class Sessions {
 		entry.opening = envelope;
 		this.#drop(entry);
 		entry.evicted = Math.max(entry.evicted, envelope.seq ?? -1);
+	}
+
+	/**
+	 * The snapshot as a client reads it, with the fold this daemon holds. A bridge that does not know
+	 * the session sends a snapshot without a state, and the daemon knows more than it does.
+	 */
+	#foldedInto(entry: Entry, snapshot: Envelope): Envelope {
+		const data = snapshot.data;
+		if (!isObject(data) || !isObject(data.summary) || data.summary.state !== undefined)
+			return snapshot;
+		return {
+			...snapshot,
+			data: { ...data, summary: { ...data.summary, state: entry.state.state } },
+		};
 	}
 
 	#drop(entry: Entry | undefined): void {
