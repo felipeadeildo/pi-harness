@@ -60,6 +60,8 @@ Six things should work when this is done:
 
 ## The pieces
 
+A word on "snapshot": the HTTP route that serves what the daemon kept is still `/sessions/:machine/:id/snapshot`, and the box that carries a session's whole picture is still the `SessionSnapshot`. What travels on the wire for the live state is the `state` message, and the module that folds it is `applyEvent`.
+
 ```mermaid
 flowchart LR
   subgraph laptop["machine: laptop"]
@@ -344,8 +346,8 @@ source ─────────┼ a session file here     read and followed,
 
 ```ts
 interface SessionSource {
-	/** The live state: the Snapshot, open questions, the queue, the mode. */
-	snapshot(): Promise<SessionState>;
+	/** What the session is: its live state, its entries and where they end. */
+	snapshot(): Promise<SessionSnapshot>;
 	/** Entries and events after a cursor, then live ones until stopped. */
 	follow(after: Cursor, on: (item: SourceItem) => void): () => void;
 	/** Undefined on a source that only reads, such as a file. */
