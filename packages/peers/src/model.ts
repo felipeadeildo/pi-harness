@@ -1,12 +1,12 @@
-// What the screen reads of the rooms this session is in. The rooms are directories of logs, folded
-// the same way by every session; this is one session's view of them.
+// What the screen reads of the rooms this session is in, and what it can change. The rooms are
+// directories of logs, folded the same way by every session; this is one session's view of them.
 import type { Member, PeerMark, PresenceEntry, RoomActivity, RoomMode } from "@adeildo/pi-kit";
 
 import type { Here, Typing } from "./here.ts";
 
 /** The folder's room, or a shared one. */
 export interface Room {
-	/** Undefined for the folder's room, which cannot be left. */
+	/** Undefined for the folder's room, which cannot be left or closed. */
 	id: string | undefined;
 	/** Taking part, listening, or out. */
 	mode: RoomMode;
@@ -15,7 +15,7 @@ export interface Room {
 	folders: { path: string; open: number }[];
 	/** Added by name. */
 	sessions: RoomSession[];
-	/** Who asked for it, why, and what let it through. */
+	/** When an agent asked for it: who asked, why, and what let it through. */
 	origin?: string;
 }
 
@@ -28,7 +28,7 @@ export interface RoomSession {
 	state: RoomActivity | "closed";
 }
 
-/** From the index, so finding one reads no logs. */
+/** A session open on this machine, from the index, so finding one reads no logs. */
 export type LiveSession = PresenceEntry;
 
 /** This session joined or left a shared room. */

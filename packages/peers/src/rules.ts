@@ -11,8 +11,8 @@ export const TAKE_MS = 8_000;
 /**
  * Agent replies in a chain, each waking the next. That many without you is a loop, not a
  * conversation, and `peers.chainLimit` changes the number. It holds only messages sent to an agent:
- * a message to the whole room always goes through, so agents that only talk to everyone are not
- * stopped by it.
+ * a message to the whole room always goes through, by the operator's choice, so agents that only
+ * talk to everyone are not stopped by it.
  */
 export const CHAIN_LIMIT = 20;
 /** Colleagues' messages one run takes while it works; past that, they wait for the next prompt. */
