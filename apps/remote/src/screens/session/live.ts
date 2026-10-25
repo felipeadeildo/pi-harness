@@ -12,6 +12,22 @@ export interface Live {
 	thinking?: string;
 }
 
+/**
+ * Everything the composer takes from the session, in one place. The route spreads this instead of
+ * naming each field: a route that names `mode` by hand is a route that can name the snapshot's `mode`
+ * again, and no test would notice because the screen would still draw.
+ */
+export function composerOf(session: ClientSession): Live & {
+	waiting: ClientSession["state"]["queue"];
+	commands: ClientSession["state"]["commands"];
+} {
+	return {
+		...liveOf(session),
+		waiting: session.state.queue,
+		commands: session.state.commands,
+	};
+}
+
 export function liveOf(session: ClientSession): Live {
 	const { state } = session;
 	return {
