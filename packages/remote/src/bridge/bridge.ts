@@ -29,7 +29,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { OpenAsks } from "./asks.ts";
 import { Commands, Refused } from "./commands.ts";
 import { BridgeConnection, type ConnectionSeams, type GoneReason } from "./connection.ts";
-import { letterOf, queuedOf, type SessionInbox } from "./inbox.ts";
+import { queuedOf, type SessionInbox } from "./inbox.ts";
 import { forward, type Logged, Harness } from "./logged.ts";
 import { commandsFor, type Offered } from "./slash.ts";
 import { LiveStream } from "./stream.ts";
@@ -68,6 +68,16 @@ export interface BridgeOptions {
 	scope: EventScope;
 	/** The session's inbox, which `index.ts` builds: who it delivers through is a wiring decision. */
 	inbox: SessionInbox;
+	/** What a client's two queue commands do, decided where the inbox lives. */
+	letters: {
+		prompt(
+			id: string,
+			by: By | undefined,
+			text: string,
+			deliverAs: "steer" | "followUp" | undefined,
+		): void;
+		clear(ids: readonly string[] | undefined): Letter[];
+	};
 	/**
 	 * How often the terminal tells the daemon that someone typed there, in milliseconds. A test sets
 	 * it short, which is the only way to pin that the window closes as well as opens.
@@ -154,8 +164,10 @@ export class Bridge {
 				setModel: (provider, id) => options.api.setModel(provider, id),
 				setThinking: (level) => options.api.setThinking(level),
 				setMode: (mode, by) => options.api.setMode(mode, by),
-				prompt: (id, by, text, deliverAs) => this.#inbox.put(letterOf(id, by, text, deliverAs)),
-				clearQueue: (ids) => this.#inbox.take(ids),
+				// The queue's two commands are the inbox's, which `index.ts` owns: the bridge passes them
+				// through, so the letters are never a second time in its hands.
+				prompt: options.letters.prompt,
+				clearQueue: options.letters.clear,
 				// A client's answer to a question it is looking at. Without an open question with that
 				// id, the answer is refused: the question was answered elsewhere or already closed.
 				// The answer goes on the bus, where whoever is holding the question is listening: the

@@ -19,7 +19,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { ClientAsks } from "./bridge/asks.ts";
 import { Bridge, type SessionKind } from "./bridge/bridge.ts";
 import type { GoneReason } from "./bridge/connection.ts";
-import { SessionInbox } from "./bridge/inbox.ts";
+import { letterOf, SessionInbox } from "./bridge/inbox.ts";
 import { openInBrowser } from "./browser.ts";
 import { linkOf } from "./cli/open.ts";
 import { commandApi } from "./commands-api.ts";
@@ -109,6 +109,13 @@ export const remote = defineFeature({
 				version: VERSION,
 				kind,
 				inbox,
+				// The two queue commands, decided here: the letter goes in through the inbox this file
+				// owns, so the bridge never holds the letters themselves.
+				letters: {
+					prompt: (id, by, text, deliverAs) =>
+						inbox?.put(letterOf(id, by, text, deliverAs ?? "followUp")),
+					clear: (ids) => inbox?.take(ids) ?? [],
+				},
 				api,
 				// `FeatureScope` is the extension API, so the list of slash commands is asked here.
 				offered: () => scope.getCommands(),

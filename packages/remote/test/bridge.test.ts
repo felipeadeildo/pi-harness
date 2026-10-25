@@ -969,6 +969,10 @@ describe("one bridge", () => {
 			path: "/nowhere",
 			scope,
 			inbox,
+			letters: {
+				prompt: () => {},
+				clear: () => [],
+			},
 			version: VERSION,
 			kind: "terminal",
 			api: {
