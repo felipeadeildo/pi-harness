@@ -48,7 +48,7 @@ class KeptDrawing {
 	}
 }
 
-export function indentOf(screen: Screen): number {
+function indentOf(screen: Screen): number {
 	const style = screen.frameStyle();
 	return style === "off" || style === "line" ? 1 : 2;
 }

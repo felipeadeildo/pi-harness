@@ -22,7 +22,7 @@ export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 	};
 }
 
-export const SLOTS: Record<SlotName, SegmentId[]> = {
+const SLOTS: Record<SlotName, SegmentId[]> = {
 	strip: ["speed", "wait", "elapsed"],
 	stripRight: [],
 	topLeft: ["branch"],

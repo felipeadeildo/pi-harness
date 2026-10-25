@@ -16,7 +16,7 @@ export interface Stream {
 	progress: string[];
 }
 
-export interface StreamContext {
+interface StreamContext {
 	cwd: string;
 	expanded: boolean;
 	/** The model is still writing the call, so the cursor shows and the last key may be cut short. */
@@ -47,11 +47,7 @@ interface Target {
 	exists: boolean;
 }
 
-export function writeStream(
-	args: unknown,
-	theme: Theme,
-	context: StreamContext,
-): Stream | undefined {
+function writeStream(args: unknown, theme: Theme, context: StreamContext): Stream | undefined {
 	// The model may write the content before the path, so the stream does not wait for the path.
 	const content = field(args, "content");
 	if (content === undefined) return undefined;
@@ -83,11 +79,7 @@ export function writeStream(
 	};
 }
 
-export function editStream(
-	args: unknown,
-	theme: Theme,
-	context: StreamContext,
-): Stream | undefined {
+function editStream(args: unknown, theme: Theme, context: StreamContext): Stream | undefined {
 	const path = pathOf(args);
 	const edits = editsOf(args);
 	if (edits.length === 0) return undefined;

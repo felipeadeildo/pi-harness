@@ -10,7 +10,7 @@ const FAILED = new Set(["failure", "startup_failure", "timed_out"]);
 /** What gh is asked about a pull request: enough to tell a new comment from an old one. */
 const PR_FIELDS = "number,title,author,reviewDecision,comments";
 
-export interface CiFailure {
+interface CiFailure {
 	branch: string;
 	/** The failing commit, short enough to read. */
 	sha: string;
@@ -18,7 +18,7 @@ export interface CiFailure {
 	name: string;
 }
 
-export interface OpenPullRequest {
+interface OpenPullRequest {
 	number: number;
 	title: string;
 	/** What waits on you there. */
