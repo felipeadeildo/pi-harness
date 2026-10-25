@@ -16,7 +16,7 @@ export interface InboxSession {
 }
 
 /** How long a send waits for pi to start the run before the letter is left in the queue. */
-export const PROOF_MS = 500;
+const PROOF_MS = 500;
 
 export class SessionInbox {
 	readonly #inbox = new Inbox();
@@ -142,7 +142,7 @@ export class SessionInbox {
 }
 
 /** A letter as the wire shows it: the same queue, in the shape every client draws. */
-export function queuedOf(letter: Letter): QueuedMessage {
+function queuedOf(letter: Letter): QueuedMessage {
 	return {
 		id: letter.id,
 		by: letter.by,

@@ -20,6 +20,9 @@
 		},
 		".": {
 			"entry": ["scripts/**/*.ts"]
+		},
+		"packages/remote": {
+			"entry": ["src/cli/main.ts", "src/daemon/main.ts", "test/**/*.test.ts", "test/**/*.ts"]
 		}
 	},
 	"ignore": ["**/dist/**"],

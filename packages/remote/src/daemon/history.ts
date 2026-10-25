@@ -18,7 +18,7 @@ export const FILES = 16;
 const CHUNK = 256 * 1024;
 
 /** An entry of a session file: everything pi wrote, with the two fields a page walks. */
-export interface FileEntry {
+interface FileEntry {
 	id: string;
 	parentId?: string | null;
 	[field: string]: unknown;

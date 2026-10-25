@@ -26,7 +26,7 @@ export interface Current {
  * reads its values by sourcing a file of quoted assignments, because a path may hold any character
  * and shell cannot parse JSON.
  */
-export function launcherScript(currentSh: string): string {
+function launcherScript(currentSh: string): string {
 	return `#!/bin/sh
 # pi-remote: runs the command of the version the last pi wrote down.
 current=${shellQuoted(currentSh)}
@@ -44,7 +44,7 @@ exec "$node" "$cli" "$@"
 }
 
 /** The same values as `current.json`, as shell assignments the launcher sources. */
-export function currentScript(current: Current): string {
+function currentScript(current: Current): string {
 	const lines = Object.entries(current).map(([key, value]) => `${key}=${shellQuoted(value)}`);
 	return `# Written by pi at every start, for bin/pi-remote. current.json holds the same values.\n${lines.join("\n")}\n`;
 }

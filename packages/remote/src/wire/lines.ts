@@ -4,7 +4,7 @@
 import { type Envelope, isEnvelope } from "@adeildo/pi-remote-protocol";
 
 /** A line longer than this is a bug on the other side, and is dropped instead of held. */
-export const MAX_LINE = 32 * 1024 * 1024;
+const MAX_LINE = 32 * 1024 * 1024;
 
 export function line(envelope: Envelope): string {
 	return `${JSON.stringify(envelope)}\n`;

@@ -273,7 +273,7 @@ export class Bridge {
 }
 
 /** The live state pi knows of the session, in the protocol's shape. The bridge adds the harness's. */
-export function snapshotOf(ctx: ExtensionContext, kind: SessionKind): SessionSummary {
+function snapshotOf(ctx: ExtensionContext, kind: SessionKind): SessionSummary {
 	const manager = ctx.sessionManager;
 	const usage = ctx.getContextUsage();
 	return {

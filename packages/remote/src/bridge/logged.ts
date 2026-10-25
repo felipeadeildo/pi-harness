@@ -14,7 +14,7 @@ import {
  * The log's own `session.state` is peers' running or idle — a `RoomActivity`, from another package —
  * and it never crosses: the wire's `session.status` is pi's program status, written by the bridge.
  */
-export const FORWARDED: ReadonlySet<string> = new Set([
+const FORWARDED: ReadonlySet<string> = new Set([
 	"tasks.changed",
 	"ask.opened",
 	"ask.closed",
@@ -23,11 +23,6 @@ export const FORWARDED: ReadonlySet<string> = new Set([
 	"prompt.received",
 	"session.renamed",
 ]);
-
-export interface LoggedChange {
-	type: string;
-	data: unknown;
-}
 
 export interface Logged {
 	session: string;
