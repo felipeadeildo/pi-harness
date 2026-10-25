@@ -45,14 +45,13 @@ export function settle(settled: Settled, current: Ruling | undefined): Ruling | 
 	// What you answered reads on its own, and why it was asked stays for the expanded call.
 	if (by === "you") {
 		const approved = action === "allow";
-		const head =
-			answeredBy?.kind === "client"
-				? `${approved ? "approved" : "denied"} on ${answeredBy.name}`
-				: approved
-					? "you approved"
-					: "you said no";
+		let head = approved ? "you approved" : "you said no";
+		if (answeredBy?.kind === "client") {
+			const verdict = approved ? "approved" : "denied";
+			head = `${verdict} on ${answeredBy.name}`;
+		}
 		return {
-			tone: action === "allow" ? "success" : "error",
+			tone: approved ? "success" : "error",
 			head,
 			note,
 			detail: asked(current),
