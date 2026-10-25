@@ -1,7 +1,6 @@
-// The daemon's side of the unix socket. A bridge says hello as `bridge` first, and only then does
-// the daemon read its events. Binding the socket is the lock: of two daemons started at once, the
-// second finds the first answering and leaves. The daemon bundles this file, so it imports only
-// Node and the protocol package.
+// The daemon's side of the unix socket. A bridge says hello as `bridge` first, and only then does the
+// daemon read its events. Binding the socket is the lock: of two daemons started at once, the second
+// finds the first answering and leaves.
 import {
 	chmodSync,
 	closeSync,
@@ -27,25 +26,25 @@ import { Logins } from "./auth.ts";
 import { Clients } from "./clients.ts";
 import { type GoneReason, type SessionLive, Sessions } from "./sessions.ts";
 
-/** With no session connected for this long, a daemon a pi started exits. */
+/** A daemon a pi started exits after this long with no session. */
 const IDLE_EXIT_MS = 5 * 60_000;
-/** How often the daemon looks at `current.json` for a newer version. */
+/** How often `current.json` is read for a newer version. */
 const CURRENT_POLL_MS = 2_000;
 
 /** Why the daemon stopped, for its exit and for the tests. */
 export type ExitReason = "idle" | "upgrade" | "stopped";
 
 export interface DaemonOptions {
-	/** The socket the daemon listens on, with mode 0600, in a folder of mode 0700. */
+	/** Mode 0600, in a folder of mode 0700. */
 	socket: string;
-	/** This daemon's version, which a hello and `current.json` are compared with. */
+	/** What a hello and `current.json` are compared with. */
 	version: string;
-	/** The launcher's `current.json`, watched for a newer version. Unwatched when absent. */
+	/** Watched for a newer version, and unwatched when absent. */
 	current?: string;
-	/** Where the logins are kept, `logins.json` beside the socket unless a test says otherwise. */
+	/** `logins.json` beside the socket, unless a test says otherwise. */
 	logins?: string;
 	idleExitMs?: number;
-	/** Never exits for being idle: `pi-remote serve` keeps the daemon up until it is stopped. */
+	/** `pi-remote serve` never exits for being idle. */
 	stayUp?: boolean;
 	/**
 	 * Where clients reach the daemon over HTTP and WebSocket. Always on loopback until login exists.

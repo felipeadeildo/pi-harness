@@ -1,6 +1,5 @@
-// The web app the daemon serves: the files the build exported, and nothing else. The build writes
-// `files.json` next to them, and a request is answered only from that list, so a path a client makes
-// up never reaches the filesystem, and the login check (C6) asks the same list what is public.
+// The app the daemon serves: the files the build exported and nothing else. A request is answered
+// only from the list the build wrote, so a path a client makes up never reaches the filesystem.
 import { cpSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { extname, join, relative, sep } from "node:path";
 
@@ -24,9 +23,9 @@ const TYPES: Record<string, string> = {
 };
 
 export interface WebApp {
-	/** The folder of the export. */
+	/** The export's folder. */
 	dir: string;
-	/** Every file of the export, as a path from `/`. */
+	/** As a path from `/`. */
 	files: ReadonlySet<string>;
 	/** The pages of routes with a parameter, such as `/session/[machine]/[id].html`, to match against. */
 	dynamic: readonly { page: string; pattern: RegExp }[];
@@ -40,9 +39,8 @@ export interface Served {
 }
 
 /**
- * Where the web app's export is, for code that lives in `from`: next to a built file (`dist/web`, the
- * folder `dist/daemon.js` and `dist/cli.js` both sit in), or, for code run from `src/<folder>/`, the
- * package's last build. `PI_REMOTE_WEB` points elsewhere. Undefined when none holds a list.
+ * Where the export is, for code that lives in `from`: `dist/web` next to a built file, the package's
+ * last build for code run from `src/<folder>/`, or `PI_REMOTE_WEB`. Undefined when none holds a list.
  */
 export function findWebDir(from: string, env: NodeJS.ProcessEnv = process.env): string | undefined {
 	const candidates = [env.PI_REMOTE_WEB, join(from, "web"), join(from, "..", "..", "dist", "web")];
@@ -50,8 +48,8 @@ export function findWebDir(from: string, env: NodeJS.ProcessEnv = process.env): 
 }
 
 /**
- * The app in `dir`, or undefined when the folder holds no export the build listed, or a list that
- * does not read. A broken list costs the app and never the daemon: the data routes still answer.
+ * The app in `dir`, or undefined when no export the build listed is there. A broken list costs the
+ * app and never the daemon: the data routes still answer.
  */
 export function loadWebApp(dir: string): WebApp | undefined {
 	const list = join(dir, FILES);

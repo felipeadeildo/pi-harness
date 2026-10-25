@@ -23,10 +23,7 @@ export class Presence {
 		this.#listen = listen;
 	}
 
-	/**
-	 * A connection opened a session. A client can watch a session whose bridge is not registered yet:
-	 * after a restart it can come back first, and it is still watching.
-	 */
+	/** A client can watch a session whose bridge is not registered yet: after a restart it comes first. */
 	watch(session: string, connection: Connection): void {
 		const watching = this.#watching.get(session);
 		if (watching === undefined) this.#watching.set(session, [connection]);
@@ -34,10 +31,7 @@ export class Presence {
 		this.#announce(session);
 	}
 
-	/**
-	 * A connection left a session, or closed. What it claimed does not outlive its watching: the maps
-	 * drop it rather than keep a name nobody can reach.
-	 */
+	/** What it claimed does not outlive its watching, so the maps drop it. */
 	leave(session: string, connection: Connection): void {
 		const watching = this.#watching.get(session);
 		if (watching === undefined) return;
