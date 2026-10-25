@@ -52,13 +52,32 @@ export interface AboveEditorOptions {
 	recentMs?: number;
 }
 
-/** Only one dialog holds the row: a second one waits for the first to finish. */
-let queue: Promise<unknown> = Promise.resolve();
-/** When a key last went to the editor, so a dialog does not steal the focus from a reader typing. */
-let lastTypedAt = 0;
-let tracked: { ui: ExtensionUIContext; stop: () => void } | undefined;
-/** The dialog that is open, if one is: a key it consumes never reached the editor. */
-let active: { focused(): boolean } | undefined;
+/**
+ * What belongs to one host: the row it holds, the dialog open in it, and when a key last went to its
+ * editor. It is per host, not per module, so a host that is gone cannot decide anything for the next
+ * one — and a dialog left unfinished in one suite cannot block the queue of another.
+ */
+interface Host {
+	/** Only one dialog holds the row: a second one waits for the first to finish. */
+	queue: Promise<unknown>;
+	/** The dialog that is open, if one is: a key it consumes never reached the editor. */
+	active?: { focused(): boolean };
+	/** When a key last went to the editor, so a dialog does not steal the focus from a typing reader. */
+	lastTypedAt: number;
+	/** The listener that keeps that time, one per host. */
+	tracked?: () => void;
+}
+
+const HOSTS = new WeakMap<ExtensionUIContext, Host>();
+
+function hostOf(ui: ExtensionUIContext): Host {
+	let host = HOSTS.get(ui);
+	if (host === undefined) {
+		host = { queue: Promise.resolve(), lastTypedAt: 0 };
+		HOSTS.set(ui, host);
+	}
+	return host;
+}
 
 /**
  * Keeps the time of the last key the editor got. It belongs at session start, not at the first
@@ -67,17 +86,14 @@ let active: { focused(): boolean } | undefined;
  * the time at "nobody is typing".
  */
 export function watchEditor(ui: ExtensionUIContext): void {
-	if (tracked?.ui === ui) return;
-	tracked?.stop();
-	tracked = {
-		ui,
-		stop: ui.onTerminalInput(() => {
-			// A key the open dialog takes never went to the editor, so it is not evidence that the
-			// reader is typing there.
-			if (active?.focused() !== true) lastTypedAt = Date.now();
-			return undefined;
-		}),
-	};
+	const host = hostOf(ui);
+	if (host.tracked !== undefined) return;
+	host.tracked = ui.onTerminalInput(() => {
+		// A key the open dialog takes never went to the editor, so it is not evidence that the
+		// reader is typing there.
+		if (host.active?.focused() !== true) host.lastTypedAt = Date.now();
+		return undefined;
+	});
 }
 
 /**
@@ -104,7 +120,8 @@ export function openAboveEditor<T>(
 	const run = (): void => {
 		// Closed before it opened: nothing is drawn, and the row is free for the next dialog.
 		if (abandoned) return;
-		const recent = Date.now() - lastTypedAt < (options.recentMs ?? RECENT_MS);
+		const host = hostOf(ui);
+		const recent = Date.now() - host.lastTypedAt < (options.recentMs ?? RECENT_MS);
 		let focused = !recent;
 		let tallest = 0;
 		let finished = false;
@@ -115,7 +132,7 @@ export function openAboveEditor<T>(
 		const close = (value: AboveEditorResult<T> | undefined): void => {
 			if (finished) return;
 			finished = true;
-			active = undefined;
+			host.active = undefined;
 			ui.setWidget(KEY, undefined);
 			stop();
 			settle(value);
@@ -164,18 +181,18 @@ export function openAboveEditor<T>(
 			{ placement: "aboveEditor" },
 		);
 
-		active = { focused: () => focused };
+		host.active = { focused: () => focused };
 		stop = ui.onTerminalInput((data) => {
 			if (finished) return undefined;
 			if (matchesKey(data, ABOVE_EDITOR_FOCUS_KEY as KeyId)) {
 				focused = !focused;
-				lastTypedAt = focused ? 0 : Date.now();
+				host.lastTypedAt = focused ? 0 : Date.now();
 				redraw();
 				return { consume: true };
 			}
 			// The key never reaches the editor without the editor having the focus.
 			if (!focused) {
-				lastTypedAt = Date.now();
+				host.lastTypedAt = Date.now();
 				return undefined;
 			}
 			if (matchesKey(data, "escape")) {
@@ -188,8 +205,9 @@ export function openAboveEditor<T>(
 		});
 	};
 
-	const turn = queue.then(run);
-	queue = result.then(
+	const host = hostOf(ui);
+	const turn = host.queue.then(run);
+	host.queue = result.then(
 		() => undefined,
 		() => undefined,
 	);
