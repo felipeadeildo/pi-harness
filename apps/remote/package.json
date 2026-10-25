@@ -5,7 +5,7 @@
 	"main": "expo-router/entry",
 	"scripts": {
 		"export": "expo export -p web",
-		"check": "tsc --noEmit",
+		"check": "expo customize tsconfig.json > /dev/null && tsc --noEmit",
 		"csp": "bun scripts/csp.ts"
 	},
 	"dependencies": {},
