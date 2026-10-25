@@ -88,11 +88,13 @@ export class Hub {
 	 * The session ended, so nothing of its presence is kept, and no command of it waits for an answer
 	 * that will never come.
 	 */
-	forget(session: string): void {
+	forget(session: string): number {
+		const watching = this.#presence.counts().get(session) ?? 0;
 		this.#presence.forget(session);
 		for (const [wasAsked] of this.#asked) {
 			if (wasAsked.startsWith(`${session}\n`)) this.#asked.delete(wasAsked);
 		}
+		return watching;
 	}
 
 	/**

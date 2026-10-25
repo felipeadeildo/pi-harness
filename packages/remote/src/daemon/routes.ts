@@ -90,9 +90,10 @@ export class Routes {
 	 * The session ended, so the index of its paged file goes with it: a relaunch under the same id
 	 * would otherwise page through what the session before it wrote.
 	 */
-	forget(session: string): void {
+	forget(session: string): string | undefined {
 		const file = this.#options.sessions.get(session)?.live.file;
 		if (file !== undefined) this.#history.forget(file);
+		return file;
 	}
 
 	/** What `authorize` checks a request against. */

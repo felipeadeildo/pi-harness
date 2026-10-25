@@ -117,9 +117,11 @@ export class Clients {
 	 * The session ended: the one place that clears what the daemon kept of it, in both halves. The
 	 * sockets and the commands in flight are the hub's; the index of the session's file is the routes'.
 	 */
-	forget(session: string): void {
-		this.hub.forget(session);
-		this.routes.forget(session);
+	forget(session: string): { watching: number; file: string | undefined } {
+		// Both halves, and what each of them let go of, so a test can say a relaunch starts clean.
+		const watching = this.hub.forget(session);
+		const file = this.routes.forget(session);
+		return { watching, file };
 	}
 
 	/** What `authorize` checks an upgrade against. */
