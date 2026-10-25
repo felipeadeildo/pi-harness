@@ -71,6 +71,17 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
   may be in the middle of an edit. They read the code with the `simplify` and `unslop` skills, and
   answer with `gh pr review --comment`, ending with the same footer. The account is shared and cannot
   approve its own pull request, so the approval is written in the review and said in the room.
+- The author, before asking for a review, and the reviewer, before approving, check the head through
+  the API: `gh pr view <n> --json headRefOid`. The review names the sha it measured, the command it
+  ran and the number that came out.
+- A new test fails when the code it justifies is taken out, and the reviewer runs that removal
+  instead of trusting the description: the one line, not the whole suite.
+- A test asserts what only the right path produces: the event, not the state left after the effect.
+  "It is idle now" does not say a run started, and a count read after the click does not say what
+  the click did. The healthy path has its own test, not only the failure path: a heartbeat tested
+  against the pair that never answers passes while closing every connection that does.
+- A screen change is proved in a browser. The author names the gate step that covers it or shows the
+  screen, and the reviewer opens the screen before approving.
 - Before reviewing, read `gh pr view <n> --json reviews` and its comments. A pull request that already
   has a review waits for the merge, not for a second one: a second read is welcome, and it goes in the
   same thread as a comment, which is how two of today's findings were caught. Whoever reviews claims
