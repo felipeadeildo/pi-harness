@@ -11,8 +11,8 @@ The gate:
 - [x] 1. The daemon's link opens the app, and the session list is there (required)
 - [x] 2. The list leads to the session's screen (required)
 - [x] 3. A prompt sent to an idle session runs (required)
-- [ ] 4. A follow-up sent during a run waits in the queue, and can be taken back. nearly: passes on the step 5 branch, its own PR comes first
-- [ ] 5. A question the model asks is answered in the browser. Red: in a session with no terminal, the question never reaches the client
+- [x] 4. A follow-up sent during a run waits in the queue, and can be taken back (required, #240)
+- [ ] 5. A question the model asks is answered in the browser. nearly: the question reaches the browser; the step waits too little for the scripted model and names the button wrong
 - [ ] 6. After the daemon restarts, a reloaded page still draws tasks and mode. Not written yet
 - [ ] 7. A command typed offline goes out after the reload. Not written yet
 
