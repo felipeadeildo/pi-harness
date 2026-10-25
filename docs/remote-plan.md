@@ -2,6 +2,60 @@
 
 This plan splits [the remote design](remote.md) into slices that land on `main` one at a time. F0 and F1 are split down to files, tests and an owner. F2 to F6 have one row each in [F2 to F6](#f2-to-f6), and get split the same way when F1 is done.
 
+## The cycle: the whole flow in a browser
+
+Before F2 goes on, the flow has to work end to end in a browser, against a real daemon and a real pi session. The browser gate (`packages/remote/test/e2e/flow.ts`, the `gate` job) is the scoreboard: a step joins its required list the day it passes three times in a row, and a box here is ticked in the merge that makes its step or its fix true.
+
+The gate:
+
+- [x] 1. The daemon's link opens the app, and the session list is there (required)
+- [x] 2. The list leads to the session's screen (required)
+- [x] 3. A prompt sent to an idle session runs (required)
+- [x] 4. A follow-up sent during a run waits in the queue, and can be taken back (required, #240)
+- [x] 5. A question the model asks is answered in the browser (required, #244)
+- [ ] 6. After the daemon restarts, a reloaded page still draws tasks and mode. Not written yet
+- [ ] 7. A command typed offline goes out after the reload. Not written yet
+
+What the review of the work since v5.15.0 found broken, all fixed:
+
+- [x] A restarted daemon keeps the session's state (#195)
+- [x] A client's answer in a session with no terminal closes the question, with its author (#187)
+- [x] Send now sends a held command (#190)
+- [x] A follow-up to an idle session runs, after a compaction too (#188, #203, #215, #218)
+- [x] The session's queue reaches the client and the composer (#216, #235)
+- [x] The app opens on the session list, and the list draws (#194, #211)
+- [x] What a tab typed survives a reload (#204)
+- [x] A session is called by its handle (#189)
+- [x] The list shows the session's live status (#216)
+
+The structure:
+
+- [x] The session's state has one owner: `SessionState`, one `applyEvent`, the `state` message (#195, #200, #216)
+- [x] The daemon's client side is three modules: presence, the WebSocket hub, the HTTP routes (#207, #227)
+- [x] The WebSocket refuses what it never negotiated, and finds a dead peer (#205)
+- [x] Work deferred by a feature ends with its session (#221, #224)
+- [ ] The bridge keeps its lifecycle, and pi's events reach their owners through one table (#237)
+- [ ] The client's session is immutable, and commands are typed by their names
+- [ ] The session and composer screens in React Native, on the visual base. nearly: the list and the question panel are React Native; `session.tsx` and `composer.tsx` still draw the DOM, and the visual base (the theme's tokens) does not exist yet
+
+The other tracks of the cycle:
+
+- [x] Rooms: taking part, listening or out, and a frame that never pushes the editor (#198, #206, #212, #220)
+- [x] The permission is asked above the editor, which stays usable (#214)
+- [ ] The questions are asked above the editor the same way
+- [ ] Skills, templates and `/compact` from the phone, and nothing else offered (#231)
+- [ ] The board each agent keeps. nearly: the model is on `main` (#201); the contract, the tool, its readers and the small model removed are still coming
+- [x] The permission judge reads only the operator's words (#213)
+- [x] The port clients reach the daemon on is a setting (#197, #225)
+- [x] `main` takes no merge with `verify`, `app` or `gate` red
+
+Before 6.0.0:
+
+- [x] No test fails one run in ten (#241)
+- [ ] The `as unknown as` casts outside test fakes, and the patched pi prototypes, have a test or are gone
+- [ ] [The remote design](remote.md) speaks the new names
+- [ ] The release notes, and 6.0.0
+
 ## Status
 
 A slice is ticked in the commit that lands it. A slice whose parts are on `main` and whose last part is still coming keeps its box empty and says `nearly:` with what it waits on, because a task list counts boxes and that is where the progress is read.
