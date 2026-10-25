@@ -1,23 +1,22 @@
-// A session's history before its snapshot, read from the session file. The snapshot carries the
-// tail of the branch; a client scrolling up asks for the page before the oldest entry it holds, and
-// a client back from a while away asks for what was appended after the newest.
+// A session's history from its file. The opening carries the tail of the branch; a client scrolling
+// up asks for the page before the oldest entry it holds, and one back from a while away asks for what
+// was appended after the newest.
 //
-// The daemon keeps an index of each file a client paged: where each entry's line is and its parent,
-// never the entries. The first page of a file builds it, a later one reads only what the file gained,
-// and a page then reads its own lines. It reads in chunks of 256 KB and yields after each, so a long
-// session neither holds up the bridges and the other clients nor costs memory the size of its file.
+// The daemon indexes each file it paged: the line and parent of every entry, never the entries. It
+// reads in chunks and yields after each, so a long session holds nobody up and costs no memory the
+// size of its file.
 import { type FileHandle, open } from "node:fs/promises";
 
-/** A page is at most this many entries, and a client asks for fewer when it needs fewer. */
+/** A page is at most this many entries. */
 export const PAGE = 200;
 
-/** The files indexed at once. Past it, the one paged longest ago is dropped and built again if asked. */
+/** Past this many files, the one paged longest ago is dropped and built again if asked. */
 export const FILES = 16;
 
-/** Bytes read and parsed between two yields to the event loop while an index is built. */
+/** Bytes read and parsed between two yields while an index is built. */
 const CHUNK = 256 * 1024;
 
-/** An entry of a session file: everything pi wrote, with the two fields a page walks. */
+/** An entry of a session file, with the two fields a page walks. */
 interface FileEntry {
 	id: string;
 	parentId?: string | null;
@@ -25,18 +24,18 @@ interface FileEntry {
 }
 
 export interface PageRequest {
-	/** The entries of the branch before this one, walking each entry's `parentId`. */
+	/** Walking each entry's `parentId`. */
 	before?: string;
-	/** The entries appended after this one, in the order pi wrote them. */
+	/** In the order pi wrote them. */
 	since?: string;
 	limit?: number;
 }
 
 export type Page =
 	| { entries: FileEntry[]; more: boolean }
-	/** The cursor is not in the file, so the client drops what it holds of the session. */
+	/** The client drops what it holds of the session. */
 	| { unknown: string }
-	/** The file is not this session's: its header names another, or it cannot be read as one. */
+	/** Its header names another session, or it cannot be read as one. */
 	| { foreign: true };
 
 interface Line {
