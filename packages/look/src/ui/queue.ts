@@ -31,6 +31,10 @@ export function frameQueue(source: QueuePaint): void {
 		updatePendingMessagesDisplay(): void;
 	};
 	const own = prototype.updatePendingMessagesDisplay;
+	// The same guard as `peers/src/cleared.ts`, for the same reason: pi has no hook for drawing the
+	// queued messages, so a pi that renames this method leaves the frame silently uninstalled.
+	if (typeof own !== "function")
+		throw new Error("pi has no InteractiveMode.updatePendingMessagesDisplay: write to the pi");
 	prototype.updatePendingMessagesDisplay = function update(this: Host) {
 		const theme = paint();
 		if (theme === undefined) return own.call(this);

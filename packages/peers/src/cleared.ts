@@ -22,6 +22,11 @@ function install(): void {
 		clearQueue(this: { sessionId: string }): unknown;
 	};
 	const own = prototype.clearQueue;
+	// pi drawing the queue itself is the only notice an extension gets, so a pi without this method is
+	// a pi where a colleague's message disappears without a word. Fail at startup, loudly, instead of
+	// wrapping `undefined` and finding out on the first Esc.
+	if (typeof own !== "function")
+		throw new Error("pi has no AgentSession.clearQueue: write to the pi");
 	prototype.clearQueue = function clearQueue(this: { sessionId: string }) {
 		const result = own.call(this);
 		for (const listener of listeners) listener(this.sessionId);
