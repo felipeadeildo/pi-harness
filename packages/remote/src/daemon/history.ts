@@ -7,7 +7,7 @@
 // size of its file.
 import { type FileHandle, open } from "node:fs/promises";
 
-/** A page is at most this many entries. */
+/** A page is at most this many entries, and a client asks for fewer when it needs fewer. */
 export const PAGE = 200;
 
 /** Past this many files, the one paged longest ago is dropped and built again if asked. */
