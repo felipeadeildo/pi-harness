@@ -2,8 +2,6 @@
 // the message being written. So a reader puts the branch back together by `parentId` and draws it in
 // the order pi wrote it, which is what makes a reconnect show nothing twice.
 
-import { isObject } from "../by.ts";
-
 /** An entry, read by the fields the tree needs. The rest travels untouched. */
 export interface Entry {
 	id: string;
@@ -50,11 +48,14 @@ export interface Transcript {
 	leaf?: string;
 }
 
+/**
+ * One field of an entry, read by name. `Reflect.get` reads the same property `entry.x` would, without
+ * the cast to a record the protocol never promised. Every caller reaches it from a branch that already
+ * read `entry.type`, so the value is an object by then: the transcript's defence against a malformed
+ * line is at the boundary, where the entry is taken for what it says it is.
+ */
 function field<T>(entry: Entry, name: string): T | undefined {
-	// Read by name through `Reflect`: the entry is a shape the protocol keeps rather than one it owns,
-	// so no cast to a record it never promised. The guard keeps the old behaviour on a value that is
-	// not an object, where `Reflect.get` would throw and the cast read `undefined`.
-	const value: unknown = isObject(entry) ? Reflect.get(entry, name) : undefined;
+	const value: unknown = Reflect.get(entry, name);
 	return value === undefined ? undefined : (value as T);
 }
 
