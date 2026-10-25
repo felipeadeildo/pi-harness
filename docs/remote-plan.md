@@ -35,19 +35,32 @@ The structure:
 - [x] The WebSocket refuses what it never negotiated, and finds a dead peer (#205)
 - [x] Work deferred by a feature ends with its session (#221, #224)
 - [x] The bridge keeps its lifecycle, and pi's events reach their owners (#237)
-- [ ] The client's session is immutable, and commands are typed by their names
+- [x] The client's session is immutable, and commands are typed by their names (#270, #282)
 - [ ] The session and composer screens in React Native, on the visual base. nearly: the list and the question panel are React Native, and the theme's steps exist (#258); `session.tsx` and `composer.tsx` still draw the DOM, and no screen reads the theme yet
 
 The other tracks of the cycle:
 
 - [x] Rooms: taking part, listening or out, and a frame that never pushes the editor (#198, #206, #212, #220)
 - [x] The permission is asked above the editor, which stays usable (#214)
-- [x] The questions are asked above the editor the same way
-- [ ] Skills, templates and `/compact` from the phone, and nothing else offered. nearly: the session says what a client may run (#231) and the composer offers it (#245); the send does not decide yet, so a `/skill:` from the phone still reaches the model as plain text
-- [ ] The board each agent keeps. nearly: the model is on `main` (#201); the contract, the tool, its readers and the small model removed are still coming
+- [x] The questions are asked above the editor the same way (#254, #298)
+- [x] Skills, templates and `/compact` from the phone, and nothing else offered (#231, #245, #261)
+- [ ] The board each agent keeps. nearly: the model, the contract, the tool (#201, #256) and the room's reader (#279) are on `main`; the Alt+T panel and the small model's removal are still coming
 - [x] The permission judge reads only the operator's words (#213)
 - [x] The port clients reach the daemon on is a setting (#197, #225)
 - [x] `main` takes no merge with `verify`, `app` or `gate` red
+
+The simplifications:
+
+- [x] One entry per state change, and a state change the table lacks does not compile (#275, #278)
+- [x] The daemon answers a client from what it keeps; the opening packet has one name (#277, #280)
+- [ ] The daemon speaks WebSocket through `ws`. nearly: #290 in review
+- [ ] No export without a reader, and `knip` in `verify`. nearly: providers, look and ask-permission are clean (#274, #281, #283); kit, remote, peers and the app are still coming
+- [ ] Comments say only what the code cannot. nearly: the protocol is at 14% (#286) and two daemon modules are cut (#292); the rest of the remote stack is still coming
+
+The app runs on iOS and Android as well as the web:
+
+- [ ] Markdown and diff as DOM components, the React Compiler and typed routes, and a native cache. nearly: #284, #287 and #288 are approved
+- [ ] A phone learns the daemon's address from the link that opened it. nearly: #291 in review
 
 Before 6.0.0:
 
@@ -70,8 +83,8 @@ A slice is ticked in the commit that lands it. A slice whose parts are on `main`
 - [x] A4. The protected list (ask, F0)
 - [x] N1. The word list (names, F0)
 - [x] N2. The draw (names, F0)
-- [ ] N3. Renames, aliases and the identity section (names, F0)
-- [ ] N4. Peers reads names from the kit (names, F0)
+- [x] N3. Renames, aliases and the identity section (names, F0) (#272)
+- [x] N4. Peers reads names from the kit (names, F0) (#272)
 - [x] V1. The sources seam (view, F1)
 - [x] V2. The view (view, F1)
 - [x] V3. The panel opens a view (view, F1)
