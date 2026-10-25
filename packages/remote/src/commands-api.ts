@@ -14,6 +14,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import type { SessionApi } from "./bridge/bridge.ts";
 import { Refused } from "./bridge/commands.ts";
+import { commandsFor, compactInstructions, slashOf } from "./bridge/slash.ts";
 
 export { THINKING_LEVELS };
 
@@ -52,7 +53,27 @@ export function commandApi(scope: FeatureScope, ctx: ExtensionContext): SessionA
 		},
 		busy: () => !ctx.isIdle(),
 		send: (text, deliverAs) => {
-			scope.sendUserMessage(text, deliverAs === undefined ? {} : { deliverAs });
+			// A text that starts with `/` is decided here, against the same list the phone shows: a name
+			// the session does not offer is refused instead of reaching the model as the words "/foo".
+			const slash = slashOf(text, commandsFor(scope.getCommands()));
+			if (slash === "refused") {
+				throw new Refused(`${firstLine(text)} is not a command this session offers`);
+			}
+			if (slash === "compact") {
+				// The same effect the `session.compact` command has, so the two paths cannot drift.
+				const instructions = compactInstructions(text);
+				void ctx.compact(
+					instructions === undefined ? undefined : { customInstructions: instructions },
+				);
+				return;
+			}
+			scope.sendUserMessage(text, {
+				...(deliverAs === undefined ? {} : { deliverAs }),
+				// Only a slash text expands: it is what makes `/skill:x` and a template work from the
+				// phone, and a plain prompt must keep going out exactly as typed. Extension commands never
+				// reach this flag — the list above does not carry them.
+				...(text.startsWith("/") ? { expandPromptTemplates: true } : {}),
+			});
 		},
 		arrived: (text, by) => {
 			// The fact is what a reader of the log needs; the line is what the person at the terminal
