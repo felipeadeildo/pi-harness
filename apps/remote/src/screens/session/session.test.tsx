@@ -276,4 +276,25 @@ describe("drawing again on every envelope", () => {
 		expect(html).toContain("working");
 		expect(html).not.toContain("[object Object]");
 	});
+
+	test("what is already drawn keeps its place when more arrives", () => {
+		// "The interface does not dance": a message that arrives appends below what the person is
+		// reading. The index of every line held stays, and the block above them does not grow.
+		const first = message("a", null, "user", "first");
+		const second = message("b", "a", "assistant", "second");
+		const later = [message("c", "b", "user", "third"), message("d", "c", "assistant", "fourth")];
+
+		const before = draw(handmade([first, second]));
+		const after = draw(handmade([first, second, ...later]));
+
+		const lines = (html: string): string[] => html.match(/<li[^>]*>/g) ?? [];
+		const held = lines(before);
+		expect(held.length).toBeGreaterThan(0);
+		// Every line that was on screen is still there, in the same order, at the same index.
+		expect(lines(after).slice(0, held.length)).toEqual(held);
+
+		// And the header above them is the same height: one line of title and one of what the session is.
+		const headerOf = (html: string): string => html.slice(0, html.indexOf("<ol"));
+		expect(headerOf(after)).toBe(headerOf(before));
+	});
 });
