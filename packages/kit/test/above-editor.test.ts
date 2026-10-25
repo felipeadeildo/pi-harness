@@ -278,6 +278,42 @@ describe("the row above the editor", () => {
 		expect((await second.result)?.value).toBe("2");
 		expect(rig.mostOpen).toBe(1);
 	});
+
+	test("a view that cannot be built rejects its dialog, and the next one still opens", async () => {
+		const rig = host();
+		const broken = openAboveEditor<string>(
+			rig.ui,
+			() => {
+				throw new Error("boom");
+			},
+			{ recentMs: 0 },
+		);
+		const next = openAboveEditor<string>(
+			rig.ui,
+			(tools) => ({ render: () => [], handleInput: (data) => tools.done(data) }),
+			{ recentMs: 0 },
+		);
+		const built = rig.ready(1);
+		await expect(broken.result).rejects.toThrow("boom");
+		await built;
+		rig.type("1");
+		expect((await next.result)?.value).toBe("1");
+	});
+
+	test("a view that reads Escape itself decides what it ends with", async () => {
+		const rig = host();
+		const opened = openAboveEditor<string>(
+			rig.ui,
+			(tools) => ({
+				render: () => [],
+				handleInput: (data) => tools.done(data === "\u001b" ? "cancelled" : data),
+			}),
+			{ recentMs: 0, escape: "view" },
+		);
+		await rig.ready(1);
+		rig.type("\u001b");
+		expect((await opened.result)?.value).toBe("cancelled");
+	});
 });
 
 describe("a host with nothing to listen to", () => {

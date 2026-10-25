@@ -18,6 +18,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 
 import type { FeatureScope, ScreenEntry, ScreenGroup } from "./app/feature.ts";
+import { darkTheme } from "./dark-theme.ts";
 import { SettingsStore } from "./settings/store.ts";
 
 /** A tool as `getAllTools` reports it, with the fields the callers read. */
@@ -211,4 +212,70 @@ export function fakeContext(
 			...(extra.ui as Record<string, unknown> | undefined),
 		},
 	} as unknown as ExtensionContext;
+}
+
+/** A terminal's side of a context: what the dialogs drew in it, and the keys the reader presses. */
+export interface FakeTerminal {
+	/** Sends each key to the terminal's input listeners, the way pi hands a key to every one. */
+	press(...keys: string[]): void;
+	/** What the widget in this slot draws now, or nothing when no dialog is open. */
+	draw(key: string, width?: number): string[] | undefined;
+	/** The editor's text. */
+	text: string;
+	/** How many widgets were built, so a test can tell one dialog from two. */
+	built: number;
+}
+
+/**
+ * Gives a context the parts of a terminal that draw above the editor: `setWidget` builds the view
+ * and keeps it, `onTerminalInput` keeps the listener, and the editor holds a text. A test answers
+ * a dialog by pressing the keys a reader would.
+ */
+export function fakeTerminal(ctx: ExtensionContext): FakeTerminal {
+	const ui = ctx.ui as unknown as Record<string, unknown>;
+	const listen = ui.onTerminalInput as (handler: (data: string) => unknown) => () => void;
+	const listeners: ((data: string) => unknown)[] = [];
+	const widgets = new Map<
+		string,
+		{ render(width: number): string[]; handleInput(data: string): void }
+	>();
+	const terminal: FakeTerminal = {
+		text: "",
+		built: 0,
+		press: (...keys) => {
+			for (const key of keys) {
+				for (const listener of listeners.slice()) {
+					const taken = listener(key) as { consume?: boolean } | undefined;
+					if (taken?.consume === true) break;
+				}
+			}
+		},
+		draw: (key, width = 100) => widgets.get(key)?.render(width),
+	};
+	ui.onTerminalInput = (handler: (data: string) => unknown) => {
+		listeners.push(handler);
+		const stop = listen(handler);
+		return () => {
+			stop();
+			const at = listeners.indexOf(handler);
+			if (at !== -1) listeners.splice(at, 1);
+		};
+	};
+	ui.setWidget = (key: string, content: unknown) => {
+		if (content === undefined) {
+			widgets.delete(key);
+			return;
+		}
+		const make = content as (
+			tui: unknown,
+			theme: unknown,
+		) => { render(width: number): string[]; handleInput(data: string): void };
+		terminal.built += 1;
+		widgets.set(key, make({ terminal: { rows: 40 }, requestRender: () => {} }, darkTheme()));
+	};
+	ui.getEditorText = () => terminal.text;
+	ui.setEditorText = (text: string) => {
+		terminal.text = text;
+	};
+	return terminal;
 }

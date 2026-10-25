@@ -5,6 +5,7 @@ import {
 	AVAILABLE,
 	askQuestions,
 	bySession,
+	canOpenAboveEditor,
 	type AskQuestion,
 	type AskResult,
 	CANCEL,
@@ -15,6 +16,7 @@ import {
 	type FeatureScope,
 	isObject,
 	oneAtATime,
+	openAboveEditor,
 	TYPING_STATUS,
 	TypingMonitor,
 } from "@adeildo/pi-kit";
@@ -24,6 +26,7 @@ import {
 	type ExtensionContext,
 	getMarkdownTheme,
 } from "@earendil-works/pi-coding-agent";
+import { getKeybindings } from "@earendil-works/pi-tui";
 
 import { answerText } from "./answers.ts";
 import { LiveAsk, opensEarly, streamedQuestions } from "./early.ts";
@@ -284,6 +287,10 @@ async function adopt(early: LiveAsk, raw: unknown, signal: AbortSignal): Promise
 	}
 }
 
+/** The rows the editor, its frame and the footer keep under the dialog. */
+const EDITOR_ROWS = 8;
+const MIN_ROWS = 8;
+
 const NO_RENDER =
 	"This host cannot render the questions. The user never saw them, so this is not a decline";
 
@@ -293,25 +300,49 @@ async function draw(
 	signal: AbortSignal | undefined,
 	early?: LiveAsk,
 ): Promise<AskResult> {
-	if (ctx.mode === "tui") {
-		const result = await ctx.ui.custom<AskResult>((tui, theme, keybindings, done) => {
-			// An early dialog opens on what the stream has by now, which is more than when it queued.
-			const dialog = new QuestionDialog({
-				tui,
-				theme,
-				markdownTheme: getMarkdownTheme(),
-				keybindings,
-				questions: early?.questions ?? asked,
-				writing: early?.writing ?? false,
-				complete: done,
-			});
-			early?.attach(dialog);
-			// Someone else answered, or the asker gave up: the dialog closes as cancelled.
-			if (signal?.aborted) dialog.close();
-			else signal?.addEventListener("abort", () => dialog.close(), { once: true });
-			return dialog;
-		});
-		if (result !== undefined) return result;
+	if (ctx.mode === "tui" && canOpenAboveEditor(ctx.ui)) {
+		const opened = openAboveEditor<AskResult>(
+			ctx.ui,
+			(tools) => {
+				// An early dialog opens on what the stream has by now, which is more than when it queued.
+				const dialog = new QuestionDialog({
+					tui: {
+						requestRender: tools.redraw,
+						terminal: {
+							get rows() {
+								return Math.max(MIN_ROWS, tools.rows() - EDITOR_ROWS);
+							},
+						},
+					},
+					theme: tools.theme,
+					markdownTheme: getMarkdownTheme(),
+					keybindings: getKeybindings(),
+					questions: early?.questions ?? asked,
+					writing: early?.writing ?? false,
+					complete: tools.done,
+				});
+				early?.attach(dialog);
+				let selected = -1;
+				return {
+					render: (inner) => {
+						dialog.focused = tools.focused();
+						const drawn = dialog.body(inner);
+						selected = drawn.selected;
+						return drawn.lines;
+					},
+					handleInput: (data) => dialog.handleInput(data),
+					chrome: () => ({ ...dialog.chrome(), selected }),
+				};
+			},
+			{ title: "Questions", escape: "view" },
+		);
+		// Someone else answered, or the asker gave up: the dialog closes as cancelled.
+		if (signal?.aborted) opened.close();
+		else signal?.addEventListener("abort", () => opened.close(), { once: true });
+		const result = await opened.result;
+		// What the reader typed for the editor while the dialog was open is theirs, not the answer's.
+		if (result !== undefined && result.typed !== "") ctx.ui.setEditorText(result.typed);
+		return result?.value ?? { answers: [], cancelled: true };
 	}
 	// A host that cannot draw a component may still have the select and input dialogs.
 	const overDialogs = await askOverDialogs(ctx, asked);

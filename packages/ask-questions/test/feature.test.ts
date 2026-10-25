@@ -18,13 +18,14 @@ import {
 	TASKS,
 	targetOf,
 } from "@adeildo/pi-kit";
-import { type FakePi, fakeContext, fakePi } from "@adeildo/pi-kit/testing";
+import { type FakePi, fakeContext, fakePi, fakeTerminal } from "@adeildo/pi-kit/testing";
 import { createEventBus, initTheme } from "@earendil-works/pi-coding-agent";
 import type {
 	ExtensionContext,
 	ExtensionToolContext,
 	ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
+import { visibleWidth } from "@earendil-works/pi-tui";
 
 import { questions } from "../src/index.ts";
 import { TOOL_NAME } from "../src/schema.ts";
@@ -52,6 +53,38 @@ const SESSION = {
 /** A session with a log, since the tool's questions are logged. */
 function context(...[notes, hasUI, extra = {}]: Parameters<typeof fakeContext>): ExtensionContext {
 	return fakeContext(notes, hasUI, { sessionManager: SESSION, ...extra });
+}
+
+const SLOT = "pi-kit:above-editor";
+const ENTER = "\r";
+const DOWN = "\u001b[B";
+const ESC = "\u001b";
+
+const PICKED_A = {
+	cancelled: false,
+	answers: [{ question: "Which?", header: "Pick", picked: ["A"], notes: [] }],
+};
+
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+/** A context with a terminal, whose dialogs a test answers by pressing the keys a reader would. */
+function terminalContext(extra: Record<string, unknown> = {}) {
+	const ctx = context([], true, extra);
+	return { ctx, term: fakeTerminal(ctx) };
+}
+
+type Term = ReturnType<typeof fakeTerminal>;
+
+/** Waits until the terminal has drawn the dialog, which opens once the reader stops typing. */
+async function drawn(term: Term, count = 1): Promise<void> {
+	for (let wait = 0; term.built < count && wait < 200; wait++) await tick();
+	if (term.built < count) throw new Error("the dialog was not drawn");
+}
+
+/** What the dialog above the editor shows, without the colors. */
+function seen(term: Term): string {
+	// oxlint-disable-next-line no-control-regex
+	return (term.draw(SLOT) ?? []).join("\n").replace(/\u001b\[[0-9;]*m/g, "");
 }
 
 // The dialog draws its editor with pi's theme.
@@ -170,15 +203,15 @@ test("questions that cannot be asked fail the call", async () => {
 
 test("the answer from the dialog is the result's details", async () => {
 	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
-	const answer = {
+	const { ctx, term } = terminalContext();
+	const { tool } = await mounted(ctx);
+	const running = run(tool, PARAMS, ctx);
+	await drawn(term);
+	term.press(DOWN, ENTER);
+	const result = await running;
+	expect(result.details).toEqual({
 		cancelled: false,
 		answers: [{ question: "Which?", header: "Pick", picked: ["B"], notes: [] }],
-	};
-	const ctx = context([], true, { ui: { custom: async () => answer } });
-	const { tool } = await mounted(ctx);
-	const result = await run(tool, PARAMS, ctx);
-	expect(result.details).toEqual({
-		...answer,
 		by: { kind: "terminal", name: "new-cdef", machine: expect.any(String) },
 	});
 	expect(result.content).toEqual([
@@ -189,14 +222,44 @@ test("the answer from the dialog is the result's details", async () => {
 	]);
 });
 
+test("the dialog fits the row it is given, and what the reader typed under it stays", async () => {
+	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
+	const { ctx, term } = terminalContext();
+	const { tool } = await mounted(ctx);
+	term.text = "a draft of my own";
+	const running = run(tool, PARAMS, ctx);
+	await drawn(term);
+	// A line wider than the row is cut with dots, and a question this short has nothing to cut.
+	expect(seen(term)).not.toContain("...");
+	for (const line of term.draw(SLOT, 80) ?? []) expect(visibleWidth(line)).toBeLessThanOrEqual(80);
+
+	// One frame around the dialog: the slot's, with the dialog's title and keys on it.
+	const top = (term.draw(SLOT, 80) ?? []).filter((line) => line.includes("\u256d"));
+	expect(top).toHaveLength(1);
+	expect(top[0]).toContain("Pick");
+
+	term.press(ENTER);
+	await running;
+	expect(term.text).toBe("a draft of my own");
+});
+
+test("Escape reaches the dialog, which cancels with the answers it already has", async () => {
+	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
+	const { ctx, term } = terminalContext();
+	const { tool } = await mounted(ctx);
+	const first = PARAMS.questions[0]!;
+	const running = run(tool, { questions: [first, { ...first, question: "Again?" }] }, ctx);
+	await drawn(term);
+	term.press(ENTER, ESC);
+	const result = await running;
+	expect(result.details).toMatchObject({ cancelled: true });
+	expect((result.details as { answers: { picked: string[] }[] }).answers[0]?.picked).toEqual(["A"]);
+});
+
 test("another package asks through the same dialog", async () => {
-	const answer = {
-		answers: [{ question: "Which?", header: "Pick", picked: ["A"], notes: [] }],
-		cancelled: false,
-	};
 	const bus = createEventBus();
 	const fake = fakePi(bus);
-	const ctx = context([], true, { ui: { custom: async () => answer } });
+	const { ctx, term } = terminalContext();
 	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
 	await fake.fire("session_start", {}, ctx);
 
@@ -209,9 +272,11 @@ test("another package asks through the same dialog", async () => {
 		bus.on(ANSWER, (data: unknown) => resolve(data));
 	});
 	bus.emit(ASK, request);
+	await drawn(term);
+	term.press(ENTER);
 	// The dialog in this terminal answered it, under the session's name.
 	const by = { kind: "terminal", name: "new-cdef", machine: expect.any(String) };
-	expect(await answered).toEqual({ id: "ask-1", by, result: answer });
+	expect(await answered).toEqual({ id: "ask-1", by, result: PICKED_A });
 });
 
 test("the terminal answers under the handle the tasks gave the session", async () => {
@@ -219,10 +284,7 @@ test("the terminal answers under the handle the tasks gave the session", async (
 	const fake = fakePi(bus);
 	// Pi's session name holds the title, which is not what the room calls the session.
 	const titled = { ...SESSION, getSessionName: () => "Streaming response screen" };
-	const ctx = context([], true, {
-		sessionManager: titled,
-		ui: { custom: async () => PICKED_A },
-	});
+	const { ctx, term } = terminalContext({ sessionManager: titled });
 	const scope = { events: bus, warn: () => {} } as unknown as EventScope;
 	TASKS.provide(scope, () => ({ state: { ...emptyTasks(), handle: "otter" } }));
 	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
@@ -230,6 +292,8 @@ test("the terminal answers under the handle the tasks gave the session", async (
 
 	const answered = new Promise<unknown>((resolve) => bus.on(ANSWER, resolve));
 	bus.emit(ASK, { id: "ask-1", questions: PARAMS.questions });
+	await drawn(term);
+	term.press(ENTER);
 	expect(await answered).toMatchObject({ by: { kind: "terminal", name: "otter" } });
 });
 
@@ -260,14 +324,15 @@ test("a request that does not decode is answered with the reason", async () => {
 	expect(result.error).toContain("did not decode");
 });
 
-test("a dialog that throws still answers the asker", async () => {
+test("a dialog that cannot be drawn still answers the asker", async () => {
 	const bus = createEventBus();
 	const fake = fakePi(bus);
 	const ctx = context([], true, {
 		ui: {
-			custom: async () => {
+			setWidget: () => {
 				throw new Error("boom");
 			},
+			getEditorText: () => "",
 		},
 	});
 	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
@@ -294,15 +359,10 @@ test("over RPC the questions go through the host's own dialogs", async () => {
 	expect(result.details).toMatchObject({ cancelled: false, answers: [{ picked: ["A"] }] });
 });
 
-const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
-
 test("two asks at once draw one after the other, since pi strands a replaced dialog", async () => {
 	const bus = createEventBus();
 	const fake = fakePi(bus);
-	const open: ((result: unknown) => void)[] = [];
-	const ctx = context([], true, {
-		ui: { custom: () => new Promise((resolve) => open.push(resolve)) },
-	});
+	const { ctx, term } = terminalContext();
 	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
 	await fake.fire("session_start", {}, ctx);
 
@@ -316,15 +376,15 @@ test("two asks at once draw one after the other, since pi strands a replaced dia
 
 	ask("ask-1");
 	ask("ask-2");
+	await drawn(term);
 	await tick();
-	expect(open).toHaveLength(1);
+	expect(term.built).toBe(1);
 
-	open[0]!({ answers: [], cancelled: true });
-	await tick();
+	term.press(ESC);
+	await drawn(term, 2);
 	expect(answered).toEqual(["ask-1"]);
-	expect(open).toHaveLength(2);
 
-	open[1]!({ answers: [], cancelled: true });
+	term.press(ESC);
 	await tick();
 	expect(answered).toEqual(["ask-1", "ask-2"]);
 });
@@ -334,27 +394,19 @@ test("the model's questions open once you stop typing in the editor", async () =
 		settingsPath,
 		JSON.stringify({ questions: { bell: false, typing: { pause: 40 } } }),
 	);
-	let type: ((data: string) => void) | undefined;
 	const statuses: (string | undefined)[] = [];
-	let openedAt = 0;
-	const ctx = context([], true, {
-		ui: {
-			onTerminalInput: (handler: (data: string) => void) => {
-				type = handler;
-				return () => {};
-			},
-			setStatus: (_key: string, text: string | undefined) => statuses.push(text),
-			custom: async () => {
-				openedAt = Date.now();
-				return { answers: [], cancelled: true };
-			},
-		},
+	const { ctx, term } = terminalContext({
+		ui: { setStatus: (_key: string, text: string | undefined) => statuses.push(text) },
 	});
 	const { tool } = await mounted(ctx);
 
-	type?.("a");
+	term.press("a");
 	const typedAt = Date.now();
-	await run(tool, PARAMS, ctx);
+	const running = run(tool, PARAMS, ctx);
+	await drawn(term);
+	const openedAt = Date.now();
+	term.press(ESC);
+	await running;
 
 	expect(openedAt - typedAt).toBeGreaterThanOrEqual(35);
 	expect(statuses).toEqual(["waiting for you to finish typing", undefined]);
@@ -368,157 +420,107 @@ function streaming(id: string, args: unknown, done = false) {
 	return { type: "message_update", message: { role: "assistant" }, assistantMessageEvent };
 }
 
-interface Opened {
-	update: (questions: unknown[], writing: boolean) => void;
-	close: () => void;
-}
+/** The spinner the tab of a question still being written turns. */
+const WRITING = /[\u2800-\u28ff]/;
 
-/** A ctx whose dialog records what the stream fed it, and answers when told to. */
-function liveContext() {
-	const seen: { questions: number; writing: boolean }[] = [];
-	const results: unknown[] = [];
-	let answer: ((result: unknown) => void) | undefined;
-	let opened = 0;
-	const ctx = context([], true, {
-		ui: {
-			custom: (factory: (...args: unknown[]) => Opened) =>
-				new Promise((resolve) => {
-					opened++;
-					const done = (result: unknown) => {
-						results.push(result);
-						resolve(result);
-					};
-					answer = done;
-					const dialog = factory(
-						{ requestRender: () => {}, terminal: { rows: 40, columns: 100 } },
-						{ fg: (_: string, text: string) => text, bg: (_: string, text: string) => text },
-						{ matches: () => false },
-						done,
-					);
-					const update = dialog.update.bind(dialog);
-					dialog.update = (asked, writing) => {
-						seen.push({ questions: asked.length, writing });
-						update(asked, writing);
-					};
-				}),
-		},
-	});
-	return {
-		ctx,
-		seen,
-		results,
-		opened: () => opened,
-		answer: (result: unknown) => answer?.(result),
-	};
-}
+const closed = (term: Term) => term.draw(SLOT) === undefined;
 
 test("the dialog opens while the model writes, and the tool waits on the same answer", async () => {
 	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
-	const live = liveContext();
-	const { fake, tool } = await mounted(live.ctx);
+	const { ctx, term } = terminalContext();
+	const { fake, tool } = await mounted(ctx);
 	const first = PARAMS.questions[0]!;
 	const params = { questions: [first, { ...first, question: "Again?" }] };
 
-	await fake.fire(
-		"message_update",
-		streaming("call", { questions: [{ question: "Wh" }] }),
-		live.ctx,
-	);
-	await tick();
-	expect(live.opened()).toBe(1);
+	await fake.fire("message_update", streaming("call", { questions: [{ question: "Wh" }] }), ctx);
+	await drawn(term);
+	expect(seen(term)).toContain("Wh");
 
 	await fake.fire(
 		"message_update",
 		streaming("call", { questions: [first, { question: "And" }] }),
-		live.ctx,
+		ctx,
 	);
-	await fake.fire("message_update", streaming("call", params, true), live.ctx);
-	expect(live.seen).toEqual([
-		{ questions: 2, writing: true },
-		{ questions: 2, writing: false },
-	]);
+	expect(seen(term)).toMatch(WRITING);
+	await fake.fire("message_update", streaming("call", params, true), ctx);
+	expect(seen(term)).not.toMatch(WRITING);
 
-	const running = tool.execute(
-		"call",
-		params,
-		undefined,
-		undefined,
-		live.ctx as ExtensionToolContext,
-	);
-	const answer = {
+	const running = tool.execute("call", params, undefined, undefined, ctx as ExtensionToolContext);
+	term.press(ENTER, ENTER, ENTER);
+	const result = await running;
+	expect(result.details).toEqual({
 		cancelled: false,
-		answers: [{ question: "Which?", header: "Pick", picked: ["A"], notes: [] }],
-	};
-	live.answer(answer);
-	expect((await running).details).toEqual({
-		...answer,
+		answers: [
+			{ question: "Which?", header: "Pick", picked: ["A"], notes: [] },
+			{ question: "Again?", header: "Pick", picked: ["A"], notes: [] },
+		],
 		by: { kind: "terminal", name: "new-cdef", machine: expect.any(String) },
 	});
-	expect(live.opened()).toBe(1);
+	expect(term.built).toBe(1);
 });
 
 test("a call that never runs closes the dialog it opened", async () => {
 	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
-	const live = liveContext();
-	const { fake } = await mounted(live.ctx);
+	const { ctx, term } = terminalContext();
+	const { fake } = await mounted(ctx);
 
 	await fake.fire(
 		"message_update",
 		streaming("call", { questions: [{ question: "Which?" }] }),
-		live.ctx,
+		ctx,
 	);
-	await tick();
-	await fake.fire(
-		"tool_execution_end",
-		{ type: "tool_execution_end", toolCallId: "call" },
-		live.ctx,
-	);
-	expect(live.results).toEqual([{ answers: [], cancelled: true }]);
+	await drawn(term);
+	await fake.fire("tool_execution_end", { type: "tool_execution_end", toolCallId: "call" }, ctx);
+	expect(closed(term)).toBe(true);
 	await fake.fire(
 		"message_update",
 		streaming("call", { questions: [{ question: "Which?" }] }, true),
-		live.ctx,
+		ctx,
 	);
-	expect(live.seen).toEqual([]);
+	await tick();
+	expect(term.built).toBe(1);
 });
 
 test("a stream that breaks mid-call never takes back a question or leaves the dialog open", async () => {
 	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
-	const live = liveContext();
-	const { fake } = await mounted(live.ctx);
+	const { ctx, term } = terminalContext();
+	const { fake } = await mounted(ctx);
 	const first = PARAMS.questions[0]!;
 	const fire = (args: unknown, done = false) =>
-		fake.fire("message_update", streaming("call", args, done), live.ctx);
+		fake.fire("message_update", streaming("call", args, done), ctx);
 
 	await fire({ questions: [first, { question: "Next?" }] });
-	await tick();
+	await drawn(term);
+	const before = seen(term);
 	// A delta that no longer parses comes back as `{}`, or with fewer questions: both are skipped.
 	await fire({});
 	await fire({ questions: [first] });
 	await fire("not an object");
 	await fire({ questions: [first, { question: "Next?", options: [{ label: 7 }, null] }] });
-	expect(live.seen).toEqual([{ questions: 2, writing: true }]);
-	expect(live.results).toEqual([]);
+	expect(seen(term)).toContain("Which?");
+	expect(seen(term)).toMatch(WRITING);
+	expect(closed(term)).toBe(false);
+	expect(before).toMatch(WRITING);
 
 	// The reply ends without finishing the call, as on an abort, an error or the token limit.
-	await fake.fire("turn_end", { type: "turn_end", toolResults: [] }, live.ctx);
-	expect(live.results).toEqual([{ answers: [], cancelled: true }]);
+	await fake.fire("turn_end", { type: "turn_end", toolResults: [] }, ctx);
+	expect(closed(term)).toBe(true);
 });
 
 test("arguments that never parse close the dialog when the call ends", async () => {
 	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
-	const live = liveContext();
-	const { fake } = await mounted(live.ctx);
+	const { ctx, term } = terminalContext();
+	const { fake } = await mounted(ctx);
 
 	await fake.fire(
 		"message_update",
 		streaming("call", { questions: [{ question: "Which?" }] }),
-		live.ctx,
+		ctx,
 	);
-	await tick();
+	await drawn(term);
 	// Pi hands malformed JSON over as `{}` once the call is finished.
-	await fake.fire("message_update", streaming("call", {}, true), live.ctx);
-	expect(live.results).toEqual([{ answers: [], cancelled: true }]);
+	await fake.fire("message_update", streaming("call", {}, true), ctx);
+	expect(closed(term)).toBe(true);
 });
 
 /** What this session's log holds, by type. */
@@ -526,16 +528,14 @@ function logged(): LoggedEvent[] {
 	return readFrom(logPath(targetOf(SESSION)), 0).events;
 }
 
-const PICKED_A = {
-	cancelled: false,
-	answers: [{ question: "Which?", header: "Pick", picked: ["A"], notes: [] }],
-};
-
 test("an ask_questions call goes through the bus, so its question and its answer are logged", async () => {
 	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
-	const ctx = context([], true, { ui: { custom: async () => PICKED_A } });
+	const { ctx, term } = terminalContext();
 	const { tool } = await mounted(ctx);
-	await tool.execute("call-1", PARAMS, undefined, undefined, ctx as ExtensionToolContext);
+	const running = tool.execute("call-1", PARAMS, undefined, undefined, ctx as ExtensionToolContext);
+	await drawn(term);
+	term.press(ENTER);
+	await running;
 
 	const events = logged();
 	expect(events.map((event) => event.type)).toEqual(["ask.opened", "ask.closed"]);
@@ -549,52 +549,39 @@ test("an ask_questions call goes through the bus, so its question and its answer
 
 test("the dialog that opened early is the one the call's question uses, logged once", async () => {
 	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
-	const live = liveContext();
-	const { fake, tool } = await mounted(live.ctx);
-	await fake.fire("message_update", streaming("call", PARAMS), live.ctx);
-	await fake.fire("message_update", streaming("call", PARAMS, true), live.ctx);
-	await tick();
-	const running = tool.execute(
-		"call",
-		PARAMS,
-		undefined,
-		undefined,
-		live.ctx as ExtensionToolContext,
-	);
-	live.answer(PICKED_A);
+	const { ctx, term } = terminalContext();
+	const { fake, tool } = await mounted(ctx);
+	await fake.fire("message_update", streaming("call", PARAMS), ctx);
+	await fake.fire("message_update", streaming("call", PARAMS, true), ctx);
+	await drawn(term);
+	const running = tool.execute("call", PARAMS, undefined, undefined, ctx as ExtensionToolContext);
+	term.press(ENTER);
 
 	expect((await running).details).toEqual({
 		...PICKED_A,
 		by: { kind: "terminal", name: "new-cdef", machine: expect.any(String) },
 	});
-	expect(live.opened()).toBe(1);
+	expect(term.built).toBe(1);
 	expect(logged().filter((event) => event.type === "ask.opened")).toHaveLength(1);
 });
 
 test("when someone else answers first, the dialog here closes and the call takes their answer", async () => {
 	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
 	const bus = createEventBus();
-	const live = liveContext();
-	const { tool } = await mounted(live.ctx, [TOOL_NAME], bus);
+	const { ctx, term } = terminalContext();
+	const { tool } = await mounted(ctx, [TOOL_NAME], bus);
 	const answers: unknown[] = [];
 	bus.on(ANSWER, (data: unknown) => void answers.push(data));
 
-	const running = tool.execute(
-		"call",
-		PARAMS,
-		undefined,
-		undefined,
-		live.ctx as ExtensionToolContext,
-	);
-	await tick();
-	expect(live.opened()).toBe(1);
+	const running = tool.execute("call", PARAMS, undefined, undefined, ctx as ExtensionToolContext);
+	await drawn(term);
 	const phone = { kind: "client", name: "phone", machine: "laptop" };
 	bus.emit(ANSWER, { id: "call", by: phone, result: PICKED_A });
 
 	expect((await running).details).toEqual({ ...PICKED_A, by: phone });
 	await tick();
-	// The dialog closed as cancelled, and this terminal never answered over the phone.
-	expect(live.results).toEqual([{ answers: [], cancelled: true }]);
+	// The dialog closed, and this terminal never answered over the phone.
+	expect(closed(term)).toBe(true);
 	expect(answers).toHaveLength(1);
 	expect(logged().at(-1)?.data).toMatchObject({ by: phone });
 });
@@ -602,10 +589,7 @@ test("when someone else answers first, the dialog here closes and the call takes
 test("a cancel closes a drawn dialog, and drops a queued one before it draws", async () => {
 	const bus = createEventBus();
 	const fake = fakePi(bus);
-	const open: ((result: unknown) => void)[] = [];
-	const ctx = context([], true, {
-		ui: { custom: () => new Promise((resolve) => open.push(resolve)) },
-	});
+	const { ctx, term } = terminalContext();
 	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
 	await fake.fire("session_start", {}, ctx);
 	const answered: string[] = [];
@@ -618,39 +602,37 @@ test("a cancel closes a drawn dialog, and drops a queued one before it draws", a
 
 	ask("ask-1");
 	ask("ask-2");
-	await tick();
+	await drawn(term);
 	bus.emit(CANCEL, { id: "ask-2", reason: "answered" });
-	open[0]!(PICKED_A);
+	term.press(ENTER);
 	await tick();
 	await tick();
-	expect(open).toHaveLength(1);
+	expect(term.built).toBe(1);
 	expect(answered).toEqual(["ask-1"]);
 });
 
 test("a cancel closes the dialog on screen as cancelled, with no answer from here", async () => {
 	const bus = createEventBus();
-	const live = liveContext();
-	await mounted(live.ctx, [TOOL_NAME], bus);
+	const { ctx, term } = terminalContext();
+	await mounted(ctx, [TOOL_NAME], bus);
 	const answered: unknown[] = [];
 	bus.on(ANSWER, (data: unknown) => void answered.push(data));
 	bus.emit(ASK, { id: "ask-1", questions: PARAMS.questions });
-	await tick();
-	expect(live.opened()).toBe(1);
+	await drawn(term);
 
 	bus.emit(CANCEL, { id: "ask-1", reason: "aborted" });
 	await tick();
-	expect(live.results).toEqual([{ answers: [], cancelled: true }]);
+	expect(closed(term)).toBe(true);
 	expect(answered).toEqual([]);
 });
 
 test("a request that does not decode closes the dialog the stream opened, with the reason", async () => {
 	writeFileSync(settingsPath, JSON.stringify({ questions: { bell: false } }));
 	const bus = createEventBus();
-	const live = liveContext();
-	const { fake } = await mounted(live.ctx, [TOOL_NAME], bus);
-	await fake.fire("message_update", streaming("call", PARAMS), live.ctx);
-	await tick();
-	expect(live.opened()).toBe(1);
+	const { ctx, term } = terminalContext();
+	const { fake } = await mounted(ctx, [TOOL_NAME], bus);
+	await fake.fire("message_update", streaming("call", PARAMS), ctx);
+	await drawn(term);
 
 	const answered = new Promise<unknown>((resolve) => bus.on(ANSWER, resolve));
 	bus.emit(ASK, { id: "call", questions: [{ header: "Pick" }] });
@@ -658,5 +640,5 @@ test("a request that does not decode closes the dialog the stream opened, with t
 		id: "call",
 		result: { cancelled: true, error: expect.stringContaining("the request did not decode") },
 	});
-	expect(live.results).toEqual([{ answers: [], cancelled: true }]);
+	expect(closed(term)).toBe(true);
 });
