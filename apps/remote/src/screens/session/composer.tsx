@@ -16,6 +16,7 @@ import {
 // the session were on it.
 import { type ReactNode, createElement as h, useEffect, useState } from "react";
 
+import { dropNow, enterSends, sendNow, stateOf, takeDraft } from "./composer-data.ts";
 import { queuedLines, type QueuedLine, withdraw } from "./pending.ts";
 import { chosen, suggested, type Suggestion } from "./suggestions.ts";
 
@@ -93,32 +94,14 @@ export function Composer({
 	);
 }
 
-/**
- * Whether a key press is "send this draft". Enter is, Shift+Enter is not: the second is how a person
- * writes a second line in a one-line field that some hosts give them, and swallowing it loses the line.
- */
-export function enterSends(
-	event: { key: string; shiftKey?: boolean; preventDefault?: () => void },
-	take: () => void,
-): boolean {
-	if (event.key !== "Enter" || event.shiftKey === true) return false;
-	event.preventDefault?.();
-	take();
-	return true;
-}
-
 function promptRow(
 	send: <K extends CommandType>(type: K, data: CommandMap[K]) => void,
 	draft: string,
 	write: (text: string) => void,
 	offering: readonly Suggestion[],
 ): ReactNode {
-	const take = (deliverAs: "steer" | "followUp"): void => {
-		const text = draft.trim();
-		if (text === "") return;
-		send("prompt.send", { text, deliverAs });
-		write("");
-	};
+	const take = (deliverAs: "steer" | "followUp"): void =>
+		takeDraft(send, draft, () => write(""), deliverAs);
 	const empty = draft.trim() === "";
 	return h(
 		"div",
@@ -316,30 +299,10 @@ function queueNode(
 }
 
 /** What a command's state reads as, which is what tells the person to wait, retry or give up. */
-export function stateOf(command: Outgoing): string {
-	switch (command.state) {
-		case "waiting":
-			// A waiting command reaches this function only when it waited past the window: one inside
-			// it is said as "goes out when the daemon answers" by the caller.
-			return "waiting for you";
-		case "sent":
-			return "sent, no answer yet";
-		case "applied":
-			return "done";
-		case "refused":
-			return `refused: ${command.why ?? "the daemon said no"}`;
-	}
-}
 
 /** Sends a held command now: it keeps its id, so the far side still reads it as the same one. */
-export function sendNow(client: Client, id: string): void {
-	client.release(id);
-}
 
 /** Gives up on a held command: it leaves the queue and nothing goes out. */
-export function dropNow(client: Client, id: string): void {
-	client.drop(id);
-}
 
 /**
  * The session's queue, in the order it will run, with the act that takes a message back. It says

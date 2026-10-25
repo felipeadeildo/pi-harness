@@ -7,16 +7,8 @@ import type { CommandType } from "@adeildo/pi-remote-protocol";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import {
-	CLIENT_MODES,
-	Composer,
-	dropNow,
-	enterSends,
-	promptInput,
-	sendNow,
-	suggestionList,
-	stateOf,
-} from "./composer.tsx";
+import { dropNow, enterSends, sendNow, stateOf } from "./composer-data.ts";
+import { Composer, CLIENT_MODES, promptInput, suggestionList } from "./composer.tsx";
 
 function clientOf(
 	queue: Outgoing[] = [],
