@@ -10,7 +10,8 @@ import { applyChange, emptySessionState, isStateChangeType } from "@adeildo/pi-r
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { aboutOf, LINE_CHARS, OUTPUT_LINES, SessionScreen, titleOf, viewOf } from "./session.tsx";
+import { aboutOf, LINE_CHARS, OUTPUT_LINES, titleOf, viewOf } from "./session-document.tsx";
+import { SessionDocument } from "./session-document.tsx";
 
 const RECORDING = join(
 	import.meta.dir,
@@ -50,7 +51,7 @@ function firstBranch(): ClientSession {
 }
 
 const draw = (session: ClientSession): string =>
-	renderToStaticMarkup(createElement(SessionScreen, { session }));
+	renderToStaticMarkup(createElement(SessionDocument, { session }));
 
 /** A session made by hand, for what the recording does not hold. */
 function handmade(
