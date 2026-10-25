@@ -24,7 +24,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Fit } from "./bid.ts";
 import { Folder, livePeers, type Peer, type Posted, reaches, receivesFor } from "./folder.ts";
 import { Inbox, type InboxHooks, type PeerMessageDetails, type Sender } from "./inbox.ts";
-import { type Named, namesOf } from "./names.ts";
+import { type Names, namesOf } from "./names.ts";
 import { award, turnToTake } from "./rules.ts";
 
 export type BoardMark = PeerMark;
@@ -108,7 +108,7 @@ interface SessionSource {
 export class Here implements Sender {
 	readonly #hooks: Hooks;
 	readonly #inbox: Inbox;
-	#live: { key: string; peers: Peer[]; names: Map<string, Named> | undefined } | undefined;
+	#live: { key: string; peers: Peer[]; names: Names | undefined } | undefined;
 	/** A room alone owns its inbox and tells it when a run starts; the session's rooms tell theirs once. */
 	readonly #ownInbox: boolean;
 	#target: LogTarget | undefined;
@@ -179,7 +179,7 @@ export class Here implements Sender {
 		return this.#live.peers;
 	}
 
-	names(): Map<string, Named> {
+	names(): Names {
 		const peers = this.live();
 		const cached = this.#live;
 		if (cached === undefined) return namesOf(peers);
@@ -211,7 +211,7 @@ export class Here implements Sender {
 	/** One mark per other open session, by session, oldest first. */
 	marks(): Map<string, BoardMark> {
 		const live = this.live();
-		const named = namesOf(live);
+		const named = namesOf(live).bySession;
 		const marks = new Map<string, BoardMark>();
 		for (const peer of live) {
 			if (peer.session === this.session) continue;
@@ -434,7 +434,7 @@ export class Here implements Sender {
 	}
 
 	details(message: Posted): PeerMessageDetails {
-		const names = this.names();
+		const names = this.names().bySession;
 		const sender = names.get(message.session);
 		const writer = this.#folder.peers.get(message.session);
 		const where = writer?.cwd === undefined || writer.cwd === this.#cwd ? undefined : writer.cwd;
@@ -457,7 +457,7 @@ export class Here implements Sender {
 	 * message. The note waits for the next prompt: it never starts a run and never interrupts one.
 	 */
 	#announce(): void {
-		const names = this.names();
+		const names = this.names().bySession;
 		const live = this.live().filter((peer) => peer.session !== this.session);
 		const at = this.#now();
 		const handles = new Map(
@@ -540,7 +540,9 @@ export class Here implements Sender {
 		if (message.at < this.#openedAt || this.#shown.has(message.id)) return;
 		this.#shown.add(message.id);
 		const handle =
-			this.names().get(taker)?.handle ?? this.#folder.peers.get(taker)?.handle ?? "an agent";
+			this.names().bySession.get(taker)?.handle ??
+			this.#folder.peers.get(taker)?.handle ??
+			"an agent";
 		this.#hooks.show?.({ ...this.details(message), takenBy: handle });
 	}
 

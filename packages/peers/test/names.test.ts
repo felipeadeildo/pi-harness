@@ -22,8 +22,7 @@ function peer(session: string, handle: string | undefined, rest: Partial<Peer> =
 describe("a word a session used to have", () => {
 	test("reaches it, and the new word does too", () => {
 		const names = namesOf([peer("s1", "auth", { aliases: ["oauth"] })]);
-		const aliases = new Map([["oauth", "s1"]]);
-		expect(byHandle(names, "@oauth", aliases)?.handle).toBe("auth");
+		expect(byHandle(names, "@oauth")?.handle).toBe("auth");
 		expect(byHandle(names, "auth")?.handle).toBe("auth");
 	});
 
@@ -33,7 +32,7 @@ describe("a word a session used to have", () => {
 			peer("s1", "auth", { aliases: ["oauth"] }),
 			peer("s2", "oauth", { startedAt: 2 }),
 		]);
-		expect(names.get("s2")?.handle).toBe("oauth");
-		expect(names.get("s1")?.handle).toBe("auth");
+		expect(names.bySession.get("s2")?.handle).toBe("oauth");
+		expect(names.bySession.get("s1")?.handle).toBe("auth");
 	});
 });

@@ -251,7 +251,7 @@ export class PeersPanel implements Component, Focusable {
 			if (here === undefined) continue;
 			const live = inOrder(here.live(), here.session);
 			const selected = live.findIndex((peer) => peer.session === this.#cursor);
-			const agents = agentLines(live, here.names(), {
+			const agents = agentLines(live, here.names().bySession, {
 				theme,
 				now: this.#now(),
 				me: here.session,
@@ -427,7 +427,10 @@ export class PeersPanel implements Component, Focusable {
 
 	/** The agent's handle at the start of the line you write in, and the cursor there. */
 	#writeTo(entry: Entry & { kind: "agent" }): void {
-		const handle = this.#options.view.here(entry.room.id)?.names().get(entry.peer.session)?.handle;
+		const handle = this.#options.view
+			.here(entry.room.id)
+			?.names()
+			.bySession.get(entry.peer.session)?.handle;
 		if (handle !== undefined) this.#roomView(entry.room)?.mention(handle);
 		this.#focus("write");
 	}

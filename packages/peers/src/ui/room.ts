@@ -8,7 +8,7 @@ import { Input, Key, matchesKey, visibleWidth, wrapTextWithAnsi } from "@earendi
 import type { Peer } from "../folder.ts";
 import type { Here } from "../here.ts";
 import { ANYONE_MENTION, EVERYONE_MENTION, isGroupMention, typingMention } from "../mention.ts";
-import { byHandle, mentionedNames, mentionsIn, type Named } from "../names.ts";
+import { byHandle, mentionedNames, mentionsIn, type Named, type Names } from "../names.ts";
 import { markOf, stateText } from "./agents.ts";
 import { feedMoving, feedView } from "./feed.ts";
 
@@ -142,7 +142,7 @@ export class RoomView {
 			now: this.#now(),
 			width,
 			me: here.session,
-			names,
+			names: names.bySession,
 			live,
 			clock: this.#options.clock ?? formatClock,
 			only: this.#only,
@@ -153,7 +153,7 @@ export class RoomView {
 			...origin.map(() => undefined),
 			...feed.heads.map((at) => (at === undefined ? undefined : at + origin.length)),
 		];
-		const picker = this.#picker(this.#candidates(), names, width, live);
+		const picker = this.#picker(this.#candidates(), names.bySession, width, live);
 		this.#height = Math.max(1, height - COMPOSER_ROWS - picker.length);
 		this.#followRoom(lines.length);
 		const shown = lines.slice(this.#offset, this.#offset + this.#height);
@@ -214,7 +214,7 @@ export class RoomView {
 	}
 
 	/** The line you write in, and who it goes to on its right once there is something to send. */
-	#composerLine(width: number, names: ReadonlyMap<string, Named>, writing: boolean): string {
+	#composerLine(width: number, names: Names, writing: boolean): string {
 		const { theme } = this.#options;
 		const prompt = pointer(theme, true, writing);
 		const value = this.#composer.getValue();
@@ -233,7 +233,7 @@ export class RoomView {
 	 * Who the words are for. Reads the mentions the way the send path does, so a group mention is not
 	 * drawn as a mistake and a file after the `@` is not read as an agent.
 	 */
-	#destination(text: string, names: ReadonlyMap<string, Named>): string {
+	#destination(text: string, names: Names): string {
 		const { theme } = this.#options;
 		const mentioned = mentionedNames(text);
 		// A name still being written is not a mistake yet.
@@ -252,7 +252,7 @@ export class RoomView {
 	}
 
 	#nameOf(session: string): string {
-		const named = this.#options.here.names().get(session);
+		const named = this.#options.here.names().bySession.get(session);
 		return this.#options.theme.fg((named?.color ?? "muted") as ThemeColor, named?.handle ?? "gone");
 	}
 
@@ -281,7 +281,9 @@ export class RoomView {
 		const prefix = typingMention(value);
 		if (prefix === undefined) return [];
 		const { here } = this.#options;
-		const others = [...here.names().values()].filter((named) => named.session !== here.session);
+		const others = [...here.names().bySession.values()].filter(
+			(named) => named.session !== here.session,
+		);
 		if (isGroupMention(prefix) || others.some((named) => named.handle === prefix)) return [];
 		return [
 			...others.filter((named) => named.handle.startsWith(prefix)),

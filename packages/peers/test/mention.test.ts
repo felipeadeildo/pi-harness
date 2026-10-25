@@ -30,18 +30,38 @@ const files: AutocompleteProvider = {
 
 describe("who a message goes to", () => {
 	test("the agents it mentions, never you", () => {
-		expect(recipientsOf(names, "m", "@claude-probe and @oauth, run the tests")).toEqual([probe]);
-		expect(recipientsOf(names, "m", "only @oauth here")).toBeUndefined();
+		expect(
+			recipientsOf(
+				{ bySession: names, aliases: new Map() },
+				"m",
+				"@claude-probe and @oauth, run the tests",
+			),
+		).toEqual([probe]);
+		expect(
+			recipientsOf({ bySession: names, aliases: new Map() }, "m", "only @oauth here"),
+		).toBeUndefined();
 	});
 
 	test("everyone, when it says @everyone", () => {
-		expect(recipientsOf(names, "m", "@everyone who takes the deploy?")).toBe("all");
-		expect(recipientsOf(names, "m", "read @everyone.md")).toBeUndefined();
+		expect(
+			recipientsOf(
+				{ bySession: names, aliases: new Map() },
+				"m",
+				"@everyone who takes the deploy?",
+			),
+		).toBe("all");
+		expect(
+			recipientsOf({ bySession: names, aliases: new Map() }, "m", "read @everyone.md"),
+		).toBeUndefined();
 	});
 
 	test("yours, when the @ is a file", () => {
 		expect(
-			recipientsOf(names, "m", "read @claude-probe/notes.md and @claude-probe.ts"),
+			recipientsOf(
+				{ bySession: names, aliases: new Map() },
+				"m",
+				"read @claude-probe/notes.md and @claude-probe.ts",
+			),
 		).toBeUndefined();
 	});
 });

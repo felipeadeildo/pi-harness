@@ -9,7 +9,7 @@ import {
 	fuzzyFilter,
 } from "@earendil-works/pi-tui";
 
-import { mentionedNames, mentionsIn, type Named } from "./names.ts";
+import { mentionedNames, mentionsIn, type Named, type Names } from "./names.ts";
 
 export const EVERYONE_MENTION = "everyone";
 export const ANYONE_MENTION = "anyone";
@@ -55,14 +55,13 @@ export function groupIn(mentioned: readonly string[]): "all" | "any" | undefined
  * mentions no other agent, so it goes to yours.
  */
 export function recipientsOf(
-	names: ReadonlyMap<string, Named>,
+	names: Names,
 	me: string | undefined,
 	text: string,
-	aliases?: ReadonlyMap<string, string>,
 ): Named[] | "all" | "any" | undefined {
 	const group = groupIn(mentionedNames(text));
 	if (group !== undefined) return group;
-	const named = mentionsIn(names, text, aliases).filter((one) => one.session !== me);
+	const named = mentionsIn(names, text).filter((one) => one.session !== me);
 	return named.length === 0 ? undefined : named;
 }
 

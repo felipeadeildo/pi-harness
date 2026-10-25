@@ -21,7 +21,7 @@ export function boardText(rooms: readonly BoardRoom[], me: string): string {
 }
 
 function section(room: BoardRoom, me: string, shown: Set<string>): string {
-	const names = room.names();
+	const names = room.names().bySession;
 	const others = room.live().filter((peer) => peer.session !== me);
 	const fresh = others.filter((peer) => !shown.has(peer.session));
 	for (const peer of fresh) shown.add(peer.session);

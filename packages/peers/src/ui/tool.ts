@@ -254,7 +254,7 @@ function addressLine(here: Source | undefined, to: "all" | "any" | string[], the
 				.length ?? 0;
 		return `${group}  ${theme.fg("dim", audienceNote(to, others))}`;
 	}
-	const names = [...(here?.names().values() ?? [])];
+	const names = [...(here?.names().bySession.values() ?? [])];
 	return to
 		.map((name) => {
 			const named = names.find((candidate) => candidate.handle === name.replace(/^@/, ""));
@@ -417,7 +417,7 @@ class Receipts {
 			.map(([session, bid]) => {
 				const who = this.#name(session);
 				if (!bid.idle) return `${who} ${theme.fg("dim", "busy")}`;
-				const color = (this.#here.names().get(session)?.color ?? "muted") as ThemeColor;
+				const color = (this.#here.names().bySession.get(session)?.color ?? "muted") as ThemeColor;
 				return `${who} ${bar(bid.fit, color, theme)} ${theme.fg("dim", fit(bid.fit))}`;
 			});
 		// While the window is open, the agents still thinking about their bid show as waiting.
@@ -475,7 +475,7 @@ class Receipts {
 	}
 
 	#name(session: string): string {
-		const named = this.#here.names().get(session);
+		const named = this.#here.names().bySession.get(session);
 		const handle = named?.handle ?? this.#here.folder.peers.get(session)?.handle ?? "gone";
 		return this.#theme.fg((named?.color ?? "muted") as ThemeColor, handle);
 	}
