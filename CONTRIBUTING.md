@@ -72,7 +72,8 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
   answer with `gh pr review --comment`, ending with the same footer. The account is shared and cannot
   approve its own pull request, so the approval is written in the review and said in the room.
 - The reviewer measures the `headRefOid` that `gh pr view <n> --json headRefOid` returns, never a sha read in the room, and the approval names the sha it measured. Before asking for a review, the author checks that same field, because a sha quoted in a message proves nothing about what the branch holds now.
-- A new test has to fail when the code it justifies is taken out, and the reviewer takes it out rather than trusting the description: removing that one line, not the whole suite. Keeping the healthy path only in the code and testing only the failure is how a heartbeat that closes every live connection passed 38 tests.
+- A new test has to fail when the code it justifies is taken out, and the reviewer takes it out rather than trusting the description: removing that one line, not the whole suite. The number in the review is the one measured on that head.
+- The healthy path has a test of its own, not only the failure path. A heartbeat tested with the pair that never answers passes while closing every connection that does: 38 green tests, and every live one dropped.
 - A test asserts the event, not the state read after the effect. "It is idle now" does not say a run started: `agent_start` does. A count read after the click does not say what the click did. A double that re-evaluates what the host evaluates once measures the double. When the event is not available, the test reads the property that carries it, such as the queue in `state`, and not the announcement.
 - Before reviewing, read `gh pr view <n> --json reviews` and its comments. A pull request that already
   has a review waits for the merge, not for a second one: a second read is welcome, and it goes in the
