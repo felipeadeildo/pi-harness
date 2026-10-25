@@ -1,26 +1,24 @@
-// Who may talk to the daemon over TCP. A pi, or `pi-remote open`, asks the daemon for a token good
-// once and for 60 seconds, and opens the web app with it in the URL's fragment, which no request
-// carries. The app trades it for an HttpOnly cookie, and every request after that needs the cookie,
-// on loopback too, because any process of this machine can reach 127.0.0.1. The daemon bundles this
-// file, so it imports only Node.
+// Who may talk to the daemon over TCP. A pi asks for a token good once and for 60 seconds, opens the
+// app with it in the fragment, which no request carries, and the app trades it for an HttpOnly
+// cookie that every request needs. Loopback is no exception: any process here reaches 127.0.0.1.
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 
-/** How long a token stays good, unused. */
+/** How long an unused token stays good. */
 export const TOKEN_MS = 60_000;
 /** The cookie's name. */
 export const COOKIE = "pi_remote";
-/** A login lasts a year from its last use, so a phone that comes back weekly stays in. */
+/** A login lasts a year from its last use. */
 const LOGIN_MS = 365 * 24 * 60 * 60_000;
 
 interface Login {
-	/** The cookie's SHA-256, so the file never holds a usable cookie. */
+	/** The file never holds a usable cookie. */
 	hash: string;
 	createdAt: number;
 	seenAt: number;
 }
 
-/** The tokens handed out and the logins they became. Only hashes are kept, in memory and on disk. */
+/** The tokens handed out and the logins they became, as hashes only. */
 export class Logins {
 	/** A token's hash and when it stops being good. */
 	readonly #tokens = new Map<string, number>();
@@ -38,7 +36,7 @@ export class Logins {
 		this.#logins = readLogins(file);
 	}
 
-	/** A token good once, until `expiresAt`. */
+	/** Good once, until `expiresAt`. */
 	issue(): { token: string; expiresAt: number } {
 		const token = randomBytes(32).toString("base64url");
 		const expiresAt = this.#now() + TOKEN_MS;
@@ -46,7 +44,7 @@ export class Logins {
 		return { token, expiresAt };
 	}
 
-	/** Trades a token for a login cookie. A token used before, unknown or late gets nothing. */
+	/** A token used before, unknown or late gets nothing. */
 	exchange(token: string): string | undefined {
 		const key = sha256(token);
 		const expiresAt = this.#tokens.get(key);
