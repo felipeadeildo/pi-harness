@@ -14,6 +14,7 @@ import {
 	enterSends,
 	promptInput,
 	sendNow,
+	suggestionList,
 	stateOf,
 } from "./composer.tsx";
 
@@ -175,4 +176,33 @@ describe("the composer", () => {
 		const plain = draw({ client, initialDraft: "/re" } as never);
 		expect(plain).not.toContain("/review");
 	});
+
+	test("choosing a suggestion writes the command into the field, which markup cannot show", () => {
+		// The rendered list proves what is offered; only the click proves what a person gets.
+		const written: string[] = [];
+		const element = suggestionList(
+			[{ name: "/compact", description: "Ask pi to compact", source: "pi" }],
+			(text) => void written.push(text),
+		);
+		clickOf(element)();
+		expect(written).toEqual(["/compact "]);
+	});
 });
+
+/** The first `onClick` in a tree built with `h`, so a test can press what the markup only draws. */
+function clickOf(node: unknown): () => void {
+	let found: (() => void) | undefined;
+	const walk = (value: unknown): void => {
+		if (found !== undefined || value === null || typeof value !== "object") return;
+		const element = value as { props?: { onClick?: () => void; children?: unknown } };
+		if (element.props?.onClick !== undefined) {
+			found = element.props.onClick;
+			return;
+		}
+		const children = element.props?.children;
+		for (const child of Array.isArray(children) ? children : [children]) walk(child);
+	};
+	walk(node);
+	if (found === undefined) throw new Error("no click in the tree");
+	return found;
+}

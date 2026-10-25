@@ -136,7 +136,10 @@ function promptRow(
  * What `/` offers: the session's own list, filtered by what was typed. Choosing one writes the command
  * and keeps the cursor in the field, because the instruction beside it is what the person still types.
  */
-function suggestionList(offering: readonly Suggestion[], write: (text: string) => void): ReactNode {
+export function suggestionList(
+	offering: readonly Suggestion[],
+	write: (text: string) => void,
+): ReactNode {
 	if (offering.length === 0) return null;
 	return h(
 		"ul",
