@@ -11,12 +11,11 @@ export type { WebSocket };
 export const MAX_MESSAGE = 1024 * 1024;
 
 /**
- * How long a connection may be quiet before the server asks whether the other end is there, and how
- * long it waits for any answer. A socket whose peer died holds what it was watching until TCP notices,
- * which can be never on a phone that lost signal: the ping is what turns that into a close.
+ * How often the server asks whether the other end is there. A socket whose peer died holds what it was
+ * watching until TCP notices, which can be never on a phone that lost signal: a beat with no pong is
+ * what turns that into a close, and the beat after it terminates.
  */
-export const PING_EVERY_MS = 30_000;
-export const PONG_WAIT_MS = 10_000;
+export const PING_EVERY_MS = 10_000;
 
 export interface WebSocketHandlers {
 	message(text: string): void;
@@ -38,16 +37,18 @@ export function accept(
 	socket: Duplex,
 	head: Buffer,
 	open: (ws: WebSocket) => WebSocketHandlers,
-	liveness: { pingEvery?: number; pongWait?: number } = {},
+	liveness: { pingEvery?: number } = {},
 ): void {
 	wss.handleUpgrade(request, socket, head, (ws) => {
 		const handlers = open(ws);
-		let answered = true;
 		ws.on("message", (data) => handlers.message(String(data)));
+		ws.on("error", () => ws.terminate());
+		// A beat asks whether the peer is there, and the pong that answers is what lets the next one
+		// through: a peer that missed a beat is terminated by the one after it.
+		let answered = true;
 		ws.on("pong", () => {
 			answered = true;
 		});
-		ws.on("error", () => ws.terminate());
 		const beat = setInterval(() => {
 			if (!answered) return ws.terminate();
 			answered = false;

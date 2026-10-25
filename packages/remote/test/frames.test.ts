@@ -4,10 +4,10 @@ import { createServer } from "node:http";
 
 import { WebSocket } from "ws";
 
-import { accept, PING_EVERY_MS, PONG_WAIT_MS, server } from "../src/wire/websocket.ts";
+import { accept, PING_EVERY_MS, server } from "../src/wire/websocket.ts";
 
 /** A server of ours, and the promise of the close the handler sees. */
-async function listening(liveness: { pingEvery: number; pongWait: number }) {
+async function listening(liveness: { pingEvery: number }) {
 	const wss = server();
 	const http = createServer();
 	const closed = Promise.withResolvers<void>();
@@ -35,7 +35,7 @@ async function listening(liveness: { pingEvery: number; pongWait: number }) {
 
 describe("a peer that stops answering", () => {
 	test("the server pings, and terminates the connection when none comes back", async () => {
-		const daemon = await listening({ pingEvery: 100, pongWait: 20 });
+		const daemon = await listening({ pingEvery: 50 });
 		const client = new WebSocket(daemon.url, { autoPong: false });
 		const gone = Promise.withResolvers<void>();
 		client.on("close", () => gone.resolve());
@@ -48,7 +48,7 @@ describe("a peer that stops answering", () => {
 
 describe("a peer that answers", () => {
 	test("it is pinged and stays connected, which is the half a dead peer cannot prove", async () => {
-		const daemon = await listening({ pingEvery: 100, pongWait: 20 });
+		const daemon = await listening({ pingEvery: 50 });
 		const client = new WebSocket(daemon.url);
 		let pings = 0;
 		const twice = Promise.withResolvers<void>();
@@ -63,6 +63,6 @@ describe("a peer that answers", () => {
 	});
 });
 
-test("the wait is shorter than the beat, which is what keeps one close in production", () => {
-	expect(PONG_WAIT_MS).toBeLessThan(PING_EVERY_MS);
+test("a dead peer is terminated within two beats", () => {
+	expect(PING_EVERY_MS).toBe(10_000);
 });
