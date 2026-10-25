@@ -12,10 +12,10 @@ import {
 	type SessionSummary,
 } from "@adeildo/pi-remote-protocol";
 
-/** The replay buffers of every session together hold at most this many bytes of JSON. */
+/** Every session's replay together holds at most this many bytes of JSON. */
 const REPLAY_BYTES = 8 * 1024 * 1024;
 
-/** Events that only matter while they happen, so they never reach the replay buffer. */
+/** Events that only matter while they happen. */
 const EPHEMERAL: ReadonlySet<string> = new Set([
 	"pi.message_update",
 	"pi.tool_execution_update",
@@ -32,26 +32,26 @@ export interface SessionLive {
 	cwd: string;
 	name?: string;
 	kind: "terminal" | "background";
-	/** The session file, once pi wrote one. The daemon reads older entries from it. */
+	/** Once pi wrote one, where older entries come from. */
 	file?: string;
 }
 
 export interface LiveSession {
 	machine: string;
 	session: string;
-	/** The life of the bridge that registered it last. */
+	/** The life of the last bridge that registered it. */
 	epoch: string;
 	live: SessionLive;
 	/** A lost bridge reconnects, so the session stays listed. */
 	connected: boolean;
-	/** Why it ended, once its bridge said so. */
+	/** Why it ended, once a bridge said so. */
 	gone?: GoneReason;
 	state: SessionState;
-	/** The last opening its bridge sent. */
+	/** The last opening a bridge sent. */
 	opening?: Opening;
 }
 
-/** What a bridge's `snapshot` event carries. */
+/** What the bridge's `state` event carries. */
 export interface Opening {
 	summary: SessionSummary;
 	/** The tail of the branch, oldest first. */
@@ -60,7 +60,7 @@ export interface Opening {
 	streaming?: unknown;
 }
 
-/** Where a client stopped reading the live stream. */
+/** Where a client stopped reading. */
 export interface Cursor {
 	epoch: string;
 	seq: number;
