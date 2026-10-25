@@ -6,13 +6,13 @@ import { formatCost, formatTokens, PRUNE_CHANGES } from "@adeildo/pi-kit";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 
 /** A request that wrote at least this much again counts as a miss: a turn only writes its tail. */
-export const MISS_TOKENS = 30_000;
+const MISS_TOKENS = 30_000;
 /** How long Anthropic keeps a prompt cached when nothing reads it. */
-export const CACHE_LIFE_MS = 5 * 60_000;
+const CACHE_LIFE_MS = 5 * 60_000;
 /** A context smaller than the request before by this much was cut, by a prune or a server clear. */
 const SHRANK = 5_000;
 
-export type MissCause =
+type MissCause =
 	| "first request"
 	| "model changed"
 	| "compaction"
@@ -115,10 +115,7 @@ function isSystemMessage(entry: SessionEntry): boolean {
 }
 
 /** What writing `tokens` again cost over reading them, in dollars, at prices per million. */
-export function extraCost(
-	tokens: number,
-	prices: { cacheRead: number; cacheWrite: number },
-): number {
+function extraCost(tokens: number, prices: { cacheRead: number; cacheWrite: number }): number {
 	return (tokens * Math.max(0, prices.cacheWrite - prices.cacheRead)) / 1_000_000;
 }
 

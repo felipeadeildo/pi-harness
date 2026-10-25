@@ -8,14 +8,14 @@ const PERCENT_WIDTH = 4;
 const RESET_WIDTH = 13;
 
 /** The color a window's usage reads in: healthy, getting full, or spent. */
-export function quotaTone(used: number): "success" | "warning" | "error" {
+function quotaTone(used: number): "success" | "warning" | "error" {
 	if (used >= 90) return "error";
 	if (used >= 70) return "warning";
 	return "success";
 }
 
 /** One window: `5h    62% resets in 2h `. */
-export function quotaWindow(theme: Theme, window: UsageWindow): string {
+function quotaWindow(theme: Theme, window: UsageWindow): string {
 	const percent = theme.bold(
 		theme.fg(quotaTone(window.used), `${window.used}%`.padStart(PERCENT_WIDTH)),
 	);

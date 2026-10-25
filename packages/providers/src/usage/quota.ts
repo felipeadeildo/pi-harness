@@ -4,7 +4,7 @@ import type { AccountUsage, QuotaReader, UsageRequest } from "./types.ts";
 
 const RETRY_AFTER_FAILURE_MS = 15 * 60 * 1000;
 
-export function quotaKey(providerId: string, accountId: string): string {
+function quotaKey(providerId: string, accountId: string): string {
 	return `${providerId}/${accountId}`;
 }
 

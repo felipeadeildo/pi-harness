@@ -10,7 +10,7 @@ import { FAILURE_KINDS, type FailureKind } from "../errors.ts";
 import { reason } from "./describe.ts";
 import type { Account, AccountHealth, AccountsFile, ProviderAccounts } from "./types.ts";
 
-export const ACCOUNTS_FILE = "accounts.json";
+const ACCOUNTS_FILE = "accounts.json";
 
 export function accountsPath(): string {
 	return join(dirname(globalSettingsPath()), ACCOUNTS_FILE);

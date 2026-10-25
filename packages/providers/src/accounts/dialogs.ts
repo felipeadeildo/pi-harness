@@ -204,7 +204,7 @@ function emptyText(providerId: string, provider: string): string {
  * Names a new credential and runs the provider's own login. The first account makes the provider
  * ours, so pi's own login comes along under a name of its own: from then on only accounts are read.
  */
-export async function addAccount(
+async function addAccount(
 	accounts: Accounts,
 	providerId: string,
 	ctx: ExtensionContext,

@@ -8,7 +8,7 @@ import { SESSION_CHANGES } from "./names.ts";
 /** The account pinned for a provider. */
 export type Pins = Map<string, string>;
 
-export interface PinEntry {
+interface PinEntry {
 	kind: "account";
 	provider: string;
 	account: string;

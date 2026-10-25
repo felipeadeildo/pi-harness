@@ -2,7 +2,7 @@ import { isObject } from "@adeildo/pi-kit";
 
 import { billingAttribution, CLAUDE_CODE_IDENTITY } from "./billing.ts";
 
-export interface TextBlock {
+interface TextBlock {
 	type: "text";
 	text: string;
 	cache_control?: unknown;
