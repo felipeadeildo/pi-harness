@@ -1,21 +1,17 @@
+export { boardPanel } from "./panel.ts";
 import {
 	modelsFor,
 	createApp,
 	defineFeature,
 	TASKS_SETTLED,
-	BOARD,
-	emptyBoard,
 	TASKS,
 	tasksWith,
 	logFrom,
-	hideImagesUnderOverlays,
 	GLYPH,
 	type TasksValue,
 } from "@adeildo/pi-kit";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { Key } from "@earendil-works/pi-tui";
 
-import { BoardPanel } from "./board-panel.ts";
 import { Keeper } from "./keeper.ts";
 import { registerScreen, sessionSection } from "./screen.ts";
 import { model, nameSession, SETTINGS_SECTION, TASKS_SETTINGS } from "./settings.ts";
@@ -133,33 +129,6 @@ export const tasks = defineFeature({
 		});
 
 		registerScreen(scope, keeper);
-
-		scope.registerShortcut(Key.alt("t"), {
-			description: "The session's board: what it is doing, what waits and what it delivered",
-			handler: (ctx) => openTasks(ctx),
-		});
-
-		async function openTasks(ctx: ExtensionContext): Promise<void> {
-			if (ctx.mode !== "tui") return;
-			let stopWatching: (() => void) | undefined;
-			await ctx.ui.custom<void>(
-				(tui, theme, _keybindings, done) => {
-					hideImagesUnderOverlays(tui);
-					stopWatching = BOARD.onChanged(scope, () => tui.requestRender());
-					return new BoardPanel({
-						theme,
-						close: () => done(),
-						requestRender: () => tui.requestRender(),
-						read: () => BOARD.current(scope) ?? emptyBoard(),
-					});
-				},
-				{
-					overlay: true,
-					overlayOptions: { anchor: "center", width: "70%", minWidth: 60, maxHeight: "80%" },
-				},
-			);
-			stopWatching?.();
-		}
 	},
 });
 
