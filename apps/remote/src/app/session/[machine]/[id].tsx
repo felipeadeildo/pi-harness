@@ -41,6 +41,7 @@ export default function SessionRoute() {
 				// What the session is holding for the agent to finish: it lives in the state, and a screen
 				// that does not pass it shows nothing while the queue is the thing the person waits on.
 				waiting={session.state.queue}
+				commands={session.state.commands}
 			/>
 			{asked === undefined ? null : <QuestionDialog ask={asked} client={client} />}
 		</View>
