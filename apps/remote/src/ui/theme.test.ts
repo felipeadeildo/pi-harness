@@ -26,6 +26,10 @@ describe("the app's theme", () => {
 		}
 	});
 
+	test("a thumb has at least 44 points to press, which no control may undercut", () => {
+		expect(theme.hit).toBeGreaterThanOrEqual(44);
+	});
+
 	test("the type scale is ordered, so a title is never smaller than the body", () => {
 		expect(theme.type.title.fontSize).toBeGreaterThan(theme.type.body.fontSize);
 		expect(theme.type.heading.fontSize).toBeGreaterThanOrEqual(theme.type.body.fontSize);

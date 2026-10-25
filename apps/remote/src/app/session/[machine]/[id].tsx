@@ -3,7 +3,7 @@ import { openQuestions } from "@adeildo/pi-remote-protocol";
 // The route of one session: it reads which one from the address and hands the screen what the client
 // holds. Everything else lives under `src/session` and `src/screens/session`.
 import { Link, useLocalSearchParams } from "expo-router";
-import { Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 
 import { Composer } from "../../../screens/session/composer.tsx";
 import { composerOf } from "../../../screens/session/live.ts";
@@ -33,7 +33,11 @@ export default function SessionRoute() {
 			<Link href="/" style={{ paddingHorizontal: 24, paddingVertical: 12 }}>
 				All sessions
 			</Link>
-			<SessionScreen session={session} />
+			{/* The conversation scrolls and the composer does not: a long transcript used to push the
+			    field off the screen, and the field is where the thumb is. */}
+			<ScrollView style={{ flex: 1 }}>
+				<SessionScreen session={session} />
+			</ScrollView>
 			{/* Everything from the live state, in one spread: naming a field here is how the snapshot's
 			    photograph got back into a picker. */}
 			<Composer client={client} {...composer} />

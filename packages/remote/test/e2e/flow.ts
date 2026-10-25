@@ -225,7 +225,7 @@ async function opensSession(page: Page): Promise<Result> {
 		const href = await row.getAttribute("href");
 		await row.click();
 		if (href !== null) await page.waitForURL(`**${href}`, { timeout: 30_000 });
-		await page.locator(".remote-composer").first().waitFor({ timeout: 30_000 });
+		await page.getByTestId("composer").waitFor({ timeout: 30_000 });
 		return { ok: true };
 	} catch (error) {
 		return { ok: false, why: short(error) };
@@ -248,7 +248,7 @@ async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
 		// and ends between the click and the first read looks like no run at all.
 		const entries = (): number => rig.session.sessionManager.getBranch().length;
 		const before = entries();
-		const box = page.locator("input[name='prompt']").first();
+		const box = page.getByRole("textbox", { name: "Prompt" });
 		await box.click({ timeout: 20_000 });
 		await box.fill("say hello from the gate");
 		if ((await box.inputValue()) !== "say hello from the gate")
@@ -284,7 +284,7 @@ async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
  */
 async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
 	try {
-		const box = page.locator("textarea, [contenteditable='true'], input[type='text']").first();
+		const box = page.getByRole("textbox", { name: "Prompt" });
 		// The step before left a run going; this one needs its own, or its first message is the one
 		// that waits and the queue row is about the wrong prompt.
 		const idle = Date.now() + 20_000;
@@ -308,7 +308,7 @@ async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
 		await page.keyboard.press("Enter");
 		// The row is chosen by what it holds: an earlier message can still be waiting, and a wait on
 		// "the last row" is satisfied by that one.
-		const row = page.locator(".remote-composer-waiting", { hasText: "wait for me" });
+		const row = page.getByTestId("held-row").filter({ hasText: "wait for me" });
 		try {
 			await row.waitFor({ timeout: 90_000 });
 		} catch {
@@ -320,7 +320,7 @@ async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
 		}
 		const rows = await row.count();
 		if (rows !== 1) return { ok: false, why: `${rows} queue rows say "wait for me", expected 1` };
-		const said = (await row.locator(".remote-composer-text").innerText()).trim();
+		const said = (await row.getByTestId("held-text").innerText()).trim();
 
 		await row.getByRole("button", { name: "Withdraw", exact: true }).click();
 		await row.waitFor({ state: "detached", timeout: 20_000 });
@@ -337,7 +337,7 @@ async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
  */
 async function answersQuestion(page: Page, rig: Rig): Promise<Result> {
 	try {
-		const box = page.locator("textarea, [contenteditable='true'], input[type='text']").first();
+		const box = page.getByRole("textbox", { name: "Prompt" });
 		await box.click({ timeout: 20_000 });
 		await box.fill("ask me before you ship");
 		await page.keyboard.press("Enter");
@@ -391,18 +391,18 @@ function lastSaid(context: { messages: readonly { role?: string; content?: unkno
 async function sentWhileOffline(page: Page, rig: Rig): Promise<Result> {
 	try {
 		const before = rig.session.sessionManager.getBranch().length;
-		const box = page.locator("textarea, [contenteditable='true'], input[type='text']").first();
+		const box = page.getByRole("textbox", { name: "Prompt" });
 		await page.context().setOffline(true);
 		await box.click({ timeout: 20_000 });
 		await box.fill("typed while the wire was down");
 		await page.keyboard.press("Enter");
 		// The device keeps it: the outbox is drawn, and nothing reached the session.
-		await page.locator(".remote-composer-row").first().waitFor({ timeout: 20_000 });
+		await page.getByTestId("composer").waitFor({ timeout: 20_000 });
 		await Bun.sleep(500);
 
 		await page.context().setOffline(false);
 		await page.reload({ waitUntil: "domcontentloaded" });
-		await page.locator(".remote-composer").waitFor({ timeout: 60_000 });
+		await page.getByTestId("composer").waitFor({ timeout: 60_000 });
 
 		const arrived = Date.now() + 60_000;
 		while (rig.session.sessionManager.getBranch().length <= before && Date.now() < arrived)
@@ -437,13 +437,14 @@ async function sentWhileOffline(page: Page, rig: Rig): Promise<Result> {
  */
 async function survivesRestart(page: Page): Promise<Result> {
 	try {
-		const picker = page.locator("select[name='mode']");
-		await picker.selectOption("edits", { timeout: 20_000 });
-		// The select follows the state, so a mode that sticks is the state having taken it.
+		const picker = page.getByRole("radio", { name: "edits", exact: true });
+		const isEdits = async (): Promise<boolean> =>
+			(await picker.getAttribute("aria-checked")) === "true";
+		await picker.click({ timeout: 20_000 });
+		// The chip follows the state, so a mode that sticks is the state having taken it.
 		const chosen = Date.now() + 20_000;
-		while ((await picker.inputValue()) !== "edits" && Date.now() < chosen) await Bun.sleep(100);
-		if ((await picker.inputValue()) !== "edits")
-			return { ok: false, why: "the mode never stuck, before any restart" };
+		while (!(await isEdits()) && Date.now() < chosen) await Bun.sleep(100);
+		if (!(await isEdits())) return { ok: false, why: "the mode never stuck, before any restart" };
 
 		// The daemon goes away, as a restart does.
 		const holder = readCurrent(root)?.pid;
@@ -454,7 +455,7 @@ async function survivesRestart(page: Page): Promise<Result> {
 		if (readCurrent(root)?.pid === holder) return { ok: false, why: "no daemon came back" };
 
 		await page.reload({ waitUntil: "domcontentloaded" });
-		await page.locator(".remote-composer").waitFor({ timeout: 60_000 });
+		await page.getByTestId("composer").waitFor({ timeout: 60_000 });
 		// The page draws from the state the session sends, and that state arrives when the bridge
 		// registers with the new daemon: the daemon pushes it to whoever was waiting.
 		// Both halves wait the same way: the mode and the closed question arrive with the same state,
@@ -462,9 +463,9 @@ async function survivesRestart(page: Page): Promise<Result> {
 		const settled = Date.now() + 60_000;
 		const stillOpen = async (): Promise<boolean> =>
 			(await page.getByRole("button", { name: /^Ship it/ }).count()) > 0;
-		while (((await picker.inputValue()) !== "edits" || (await stillOpen())) && Date.now() < settled)
+		while ((!(await isEdits()) || (await stillOpen())) && Date.now() < settled)
 			await Bun.sleep(200);
-		const mode = (await picker.inputValue()) === "edits";
+		const mode = await isEdits();
 		const closed = !(await stillOpen());
 		return mode && closed
 			? { ok: true }

@@ -1,7 +1,56 @@
 // What the composer decides, apart from the views that show it: a phone draws with views, and a test
 // cannot load them. The rules stay here, and the screen only wires them.
 import type { Client, Outgoing } from "@adeildo/pi-remote-client";
-import type { CommandMap, CommandType } from "@adeildo/pi-remote-protocol";
+import {
+	type CommandMap,
+	type CommandType,
+	type PermissionMode,
+	THINKING_LEVELS,
+} from "@adeildo/pi-remote-protocol";
+
+/** The three modes a client may set: `full` runs everything unasked, so only a terminal may choose it. */
+export const CLIENT_MODES: readonly PermissionMode[] = ["manual", "edits", "judge"];
+
+const MODE_HINT: Partial<Record<PermissionMode, string>> = {
+	manual: "asks before every action",
+	edits: "runs edits without asking",
+	judge: "a judge decides what runs",
+};
+
+/** One value of a picker, ready to draw and to read in a test. */
+export interface Choice<T extends string> {
+	value: T;
+	hint?: string;
+	chosen: boolean;
+}
+
+/**
+ * The modes the dial offers, with the session's own on. Serving the mode is a capability and having a
+ * value is state: a session that says it takes none gets no dial, because one that can only be refused
+ * is worse than none, and one that has not said yet gets the dial, so it does not blink in.
+ */
+export function modeChoices(
+	mode: PermissionMode | undefined,
+	serves: boolean | undefined,
+): Choice<PermissionMode>[] {
+	if (serves === false) return [];
+	return CLIENT_MODES.map((value) => ({
+		value,
+		hint: MODE_HINT[value],
+		// Without a mode the session has not said which it is on, and the first is the one pi starts in.
+		chosen: value === (mode ?? "manual"),
+	}));
+}
+
+/** Every thinking level pi offers, with the session's on, so a session on `max` is not drawn blank. */
+export function levelChoices(thinking: string | undefined): Choice<string>[] {
+	return THINKING_LEVELS.map((value) => ({ value, chosen: value === (thinking ?? "off") }));
+}
+
+/** The model the session is on, as the one line the picker shows. */
+export function modelLabel(model: { provider: string; id: string } | undefined): string {
+	return model === undefined ? "no model" : model.id;
+}
 
 /** Sends a held command now: it keeps its id, so the far side reads it as the same one. */
 export function sendNow(client: Client, id: string): void {
@@ -30,17 +79,18 @@ export function stateOf(command: Outgoing): string {
 }
 
 /**
- * Whether a key press sends the draft. Enter is, Shift+Enter is not: the second is how a person writes
- * a second line in a field that has one, and swallowing it loses the line.
+ * What the outbox says of one command, and whether the person can act on it. Only a command that
+ * waited past the window is theirs to send or drop: one inside it goes out on its own, and the line
+ * has to say which, or a prompt typed offline three minutes ago looks like one in flight.
  */
-export function enterSends(
-	event: { key: string; shiftKey?: boolean; preventDefault?: () => void },
-	take: () => void,
-): boolean {
-	if (event.key !== "Enter" || event.shiftKey === true) return false;
-	event.preventDefault?.();
-	take();
-	return true;
+export function outboxLine(
+	command: Outgoing,
+	held: ReadonlySet<string>,
+): { text: string; actionable: boolean } {
+	const waiting = command.state === "waiting";
+	if (waiting && !held.has(command.id))
+		return { text: "goes out when the daemon answers", actionable: false };
+	return { text: stateOf(command), actionable: waiting };
 }
 
 /** Sends the draft and clears it, which is what both the button and Enter do. */

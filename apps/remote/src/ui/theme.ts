@@ -37,6 +37,8 @@ export interface Theme {
 		mono: { fontSize: number; fontFamily: string };
 	};
 	line: { hairline: number; thick: number };
+	/** The smallest side of anything a thumb presses, in points. */
+	hit: number;
 }
 
 export const theme: Theme = {
@@ -65,4 +67,5 @@ export const theme: Theme = {
 	},
 	// The thinnest line a screen may draw. A device rounds it to its own pixel grid.
 	line: { hairline: 0.5, thick: 2 },
+	hit: 44,
 };
