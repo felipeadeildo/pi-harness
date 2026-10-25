@@ -6,6 +6,7 @@ import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
+import permission from "@adeildo/pi-ask-permission";
 import piQuestions from "@adeildo/pi-ask-questions";
 import { TOOL_NAME } from "@adeildo/pi-ask-questions";
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
@@ -32,11 +33,11 @@ const BROWSERS = [
  * still red are reported and do not hold a merge, which is what keeps this file useful before the
  * last fix lands.
  */
-const MANDATORY: ReadonlySet<number> = new Set([1, 2, 3, 4, 5, 7]);
+const MANDATORY: ReadonlySet<number> = new Set([1, 2, 3, 4, 5, 6, 7]);
 
 /** The steps with a body. The rest are named and not written: a report that says `fail` for them
  * claims a measurement nobody made, and a reader cannot tell that from a step that ran and broke. */
-const WRITTEN: ReadonlySet<number> = new Set([1, 2, 3, 4, 5, 7]);
+const WRITTEN: ReadonlySet<number> = new Set([1, 2, 3, 4, 5, 6, 7]);
 
 const STEPS = [
 	"the daemon's link opens the app, and the session list is there",
@@ -97,7 +98,9 @@ async function main(): Promise<number> {
 		}
 		// The bridge starts the daemon when none answers, which is the path a user takes.
 		rig = await createRig({
-			extensions: [piRemote, piQuestions],
+			// The permission feature owns the session mode, and the composer offers it: without it the picker
+			// would promise a change the session cannot make.
+			extensions: [piRemote, piQuestions, permission],
 			// A prompt that says "ask me" gets a question back, and its answer goes on as words. Every
 			// other prompt is words, and slow enough that a run is still going when the next step types:
 			// a follow-up is only a follow-up while something else runs.
@@ -143,6 +146,7 @@ async function main(): Promise<number> {
 			reports.push({ step: 3, ...(await sendsPrompt(page, rig)) });
 			reports.push({ step: 4, ...(await queuesFollowUp(page, rig)) });
 			reports.push({ step: 5, ...(await answersQuestion(page, rig)) });
+			reports.push({ step: 6, ...(await survivesRestart(page)) });
 			reports.push({ step: 7, ...(await sentWhileOffline(page, rig)) });
 		} else {
 			reports.push({ step: 1, ok: false, why: link.why });
@@ -390,6 +394,44 @@ async function sentWhileOffline(page: Page, rig: Rig): Promise<Result> {
 		return rig.session.sessionManager.getBranch().length > before
 			? { ok: true }
 			: { ok: false, why: "the command typed offline never reached the session" };
+	} catch (error) {
+		return { ok: false, why: short(error) };
+	}
+}
+
+/**
+ * The daemon restarts and a reloaded page draws the session again, from the state the session sends:
+ * the mode the person picked, and the question answered in step 5, which stays closed.
+ */
+async function survivesRestart(page: Page): Promise<Result> {
+	try {
+		const picker = page.locator("select[name='mode']");
+		await picker.selectOption("edits", { timeout: 20_000 });
+		// The select follows the state, so a mode that sticks is the state having taken it.
+		const chosen = Date.now() + 20_000;
+		while ((await picker.inputValue()) !== "edits" && Date.now() < chosen) await Bun.sleep(100);
+		if ((await picker.inputValue()) !== "edits")
+			return { ok: false, why: "the mode never stuck, before any restart" };
+
+		// The daemon goes away, as a restart does.
+		const holder = readCurrent(root)?.pid;
+		if (holder === undefined) return { ok: false, why: "no daemon to restart" };
+		process.kill(holder, "SIGTERM");
+		const back = Date.now() + 45_000;
+		while (readCurrent(root)?.pid === holder && Date.now() < back) await Bun.sleep(200);
+		if (readCurrent(root)?.pid === holder) return { ok: false, why: "no daemon came back" };
+
+		await page.reload({ waitUntil: "domcontentloaded" });
+		await page.locator(".remote-composer").waitFor({ timeout: 60_000 });
+		// The page draws from the state the session sends, and that state arrives when the bridge
+		// registers with the new daemon: the daemon pushes it to whoever was waiting.
+		const settled = Date.now() + 60_000;
+		while ((await picker.inputValue()) !== "edits" && Date.now() < settled) await Bun.sleep(200);
+		const mode = (await picker.inputValue()) === "edits";
+		const closed = (await page.getByRole("button", { name: /^Ship it/ }).count()) === 0;
+		return mode && closed
+			? { ok: true }
+			: { ok: false, why: `mode back=${mode}, question closed=${closed}` };
 	} catch (error) {
 		return { ok: false, why: short(error) };
 	}
