@@ -81,24 +81,22 @@ export function accept(
 		else if (opcode === PING) socket.write(frame(PONG, payload));
 		else if (opcode === CLOSE) ws.close();
 	});
-	// The peer answered something, so it is alive: every frame counts, because a pong is only one of
-	// the ways a live client speaks.
-	let alive = true;
+	// One mechanism, not two: the beat asks and arms a wait, and any frame the peer sends cancels that
+	// wait. There is no separate "is it alive" flag, because a flag would be a second copy of what the
+	// armed wait already says, and one of the two would be free to rot unnoticed.
 	let waiting: ReturnType<typeof setTimeout> | undefined;
 	const beat = setInterval(() => {
-		// The wait is always shorter than the beat (`PONG_WAIT_MS < PING_EVERY_MS`), so a peer that
-		// never answers is closed by the wait below, never here: this branch only asks again.
-		alive = false;
 		socket.write(frame(PING, Buffer.alloc(0)));
-		waiting = setTimeout(() => {
-			if (!alive) ws.close(1001);
-		}, liveness.pongWait ?? PONG_WAIT_MS);
+		// The wait is always shorter than the beat (`PONG_WAIT_MS < PING_EVERY_MS`), so the close that
+		// lands here belongs to this ping and not to a later one.
+		waiting = setTimeout(() => ws.close(1001), liveness.pongWait ?? PONG_WAIT_MS);
 		waiting.unref?.();
 	}, liveness.pingEvery ?? PING_EVERY_MS);
 	// A timer that keeps the process alive would keep a daemon that nobody watches from exiting.
 	beat.unref?.();
 	socket.on("data", (chunk: Buffer) => {
-		alive = true;
+		// Any frame is the peer being there: a pong, a command, half of one. The wait above is what
+		// closes a peer that says nothing, and this is what keeps a peer that says anything.
 		if (waiting !== undefined) {
 			clearTimeout(waiting);
 			waiting = undefined;

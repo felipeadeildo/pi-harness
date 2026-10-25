@@ -55,8 +55,10 @@ describe("a peer that answers", () => {
 					socket,
 					() => ({ message: () => {}, closed: () => closed.push("closed") }),
 					{
-						pingEvery: 30,
-						pongWait: 10,
+						// Three intervals with room to answer each one: a pong that arrives after 10 ms is
+						// a slow peer, not a dead one, and a test that closes it measures the runner.
+						pingEvery: 300,
+						pongWait: 100,
 					},
 				);
 			});
@@ -86,8 +88,12 @@ describe("a peer that answers", () => {
 				"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
 		);
 		// Three intervals with an answer to each ping: a heartbeat that closed live peers would show
-		// here, and a heartbeat that never pings would leave the count at zero.
-		await Bun.sleep(110);
+		// here, and a heartbeat that never pings would leave the count at zero. The wait is for the
+		// third ping, not for a duration: a clock says nothing about the peer, and `sleep` would leave
+		// the failure saying "the loop ended" where the useful sentence is which ping never came.
+		const deadline = performance.now() + 5_000;
+		while (pings.length < 3 && performance.now() < deadline) await Bun.sleep(5);
+		if (pings.length < 3) throw new Error("the third ping never came");
 		expect(closed).toEqual([]);
 		client.end();
 		server.close();
