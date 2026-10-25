@@ -42,3 +42,26 @@ test("the board a session starts with is the fold of its branch, offered to read
 	]);
 	expect(value?.decisions.map((decision) => decision.text)).toEqual(["a palavra é board"]);
 });
+
+test("the board tool writes one operation, and the readers see the card", async () => {
+	const fake = fakePi();
+	createApp(fake.pi, { name: "test", settingsPath: join(root, "settings.json") })
+		.use(board)
+		.build();
+	const ctx = fakeContext([], true, {
+		sessionManager: { getCwd: () => "/repo", getSessionId: () => "s1", getBranch: () => [] },
+	});
+	await fake.fire("session_start", {}, ctx);
+	const tool = fake.tools.find((one) => one.name === "board");
+	expect(tool).toBeDefined();
+	const result = await tool?.execute(
+		"call-1",
+		{ op: "add", title: "Uma" },
+		undefined,
+		undefined,
+		ctx as never,
+	);
+	expect(JSON.stringify(result)).toContain("Uma");
+	const value = BOARD.current({ events: fake.pi.events, warn: () => {} });
+	expect(value?.cards.map((card) => card.title)).toEqual(["Uma"]);
+});

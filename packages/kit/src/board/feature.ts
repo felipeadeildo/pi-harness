@@ -3,8 +3,19 @@
 // the same process, so an operation needs no merge.
 import type { Feature } from "../app/feature.ts";
 import { BOARD } from "../contracts/board.ts";
-import { boardOf } from "./log.ts";
-import { emptyBoard, type Board } from "./model.ts";
+import { BOARD_OP, boardOf } from "./log.ts";
+import { applyBoard, emptyBoard, type Board } from "./model.ts";
+import {
+	BOARD_DESCRIPTION,
+	BOARD_PARAMETERS,
+	boardCall,
+	boardText,
+	type BoardCallParams,
+} from "./tool.ts";
+
+function text(value: string) {
+	return { content: [{ type: "text" as const, text: value }], details: value };
+}
 
 export const board: Feature = {
 	id: "board",
@@ -15,6 +26,26 @@ export const board: Feature = {
 		scope.onSessionStart((ctx) => {
 			current = boardOf(ctx.sessionManager.getBranch());
 			BOARD.changed(scope, current);
+		});
+		scope.registerTool<typeof BOARD_PARAMETERS, string>({
+			name: "board",
+			label: "Board",
+			description: BOARD_DESCRIPTION,
+			parameters: BOARD_PARAMETERS,
+			execute: async (_id, params) => {
+				const op = params as BoardCallParams;
+				if (op.op === "find") {
+					const found = boardCall(current, op);
+					return text(found.ok ? found.text : found.why);
+				}
+				const at = Date.now();
+				const result = applyBoard(current, { ...op, at }, "agent");
+				if (!result.ok) return text(result.why);
+				scope.appendEntry(BOARD_OP, { version: 1, op: { ...op, at } });
+				current = result.board;
+				BOARD.changed(scope, current);
+				return text(boardText(current));
+			},
 		});
 	},
 };
