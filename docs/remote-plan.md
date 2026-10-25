@@ -79,7 +79,7 @@ A slice is ticked in the commit that lands it. A slice whose parts are on `main`
 - [x] C4. The bridge (core, F1)
 - [x] C5. The daemon (core, F1)
 - [x] C6. Login and the Host check (core, F1)
-- [ ] C7. Sync by cursors (core, F1)
+- [x] C7. Sync by cursors (core, F1) — entries by id and the stream by `(epoch, seq)`, from #103 and #118
 - [x] P3. The client library (protocol, F1)
 - [x] W1. The Expo app and the CSP (client, F1)
 - [x] W2. Text from elsewhere (client, F1)
@@ -395,7 +395,9 @@ Owner: core. Needs: C5.
 
 The daemon serves the three cursors of [Sync](remote.md#sync): entries by id, facts by their position in the log, and the live stream by `(epoch, seq)`. A client's first load takes the snapshot and the latest entries, and a reconnect resumes from its cursors.
 
-**Done so far:** entries by id and the live stream, which is what a reconnect and a page of older entries read today. The facts by their position in the log come with F2, with the log reader the daemon gains there.
+**Done:** entries by id and the live stream, which is what a reconnect and a page of older entries read today.
+
+**The third cursor does not come.** A client reads the session's state from the daemon; facts by their position in the log come back when there is someone to read a log. The case that would need it — a daemon restarted while a session is already over — does not reach anyone today: the list is built from what the bridges register (`Sessions.live` is the only writer of it), and a session with no bridge is not offered. A session that ends while the daemon is up stays in the list, with the state the daemon kept. A cursor nobody reads is not a slice, so it leaves with the reason written; it comes back with the log reader the F2 needs.
 
 - Tests with the rig and a scripted client: a disconnect mid-run resumes with no gap and nothing twice, and a daemon restart mid-run does the same through the snapshot.
 
