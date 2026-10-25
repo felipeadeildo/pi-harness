@@ -3,6 +3,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { CHANGES, type Entry, STATE_CHANGES, isStateChangeType } from "../src/reduce/entry.ts";
+import { applyChange, emptySessionState } from "../src/reduce/state.ts";
 import { isQueuedMessage, isSnapshot } from "../src/snapshot.ts";
 import type { StateChangeMap, StateChangeType } from "../src/state-changes.ts";
 
@@ -112,5 +113,18 @@ describe("a snapshot without a queue, and one with an empty queue", () => {
 	test("a queue with a letter that does not decode is not a snapshot", () => {
 		const bad = { ...base, queue: [{ id: "l1", text: "hold on", when: 1 }] };
 		expect(isSnapshot(bad)).toBe(false);
+	});
+});
+
+describe("a change whose data does not fit", () => {
+	test("leaves the state as it was, because the entry checks before it applies", () => {
+		// `applyChange` does not check the type — the caller does, and its signature proves it. The data
+		// is another matter: it comes off the wire, and the entry's `check` is the only thing between a
+		// malformed payload and a state somebody draws.
+		const before = emptySessionState();
+		const after = applyChange(before, "mode.changed", { mode: "not a mode" });
+		expect(after).toBe(before);
+		const queued = applyChange(before, "queue.changed", { queue: "not a list" });
+		expect(queued).toBe(before);
 	});
 });
