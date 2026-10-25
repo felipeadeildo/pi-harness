@@ -149,7 +149,10 @@ describe("a daemon that restarts", () => {
 		// A bridge that does not know the session sends a snapshot without a state, and absence means
 		// unchanged: the fold the daemon already has stands.
 		snapshot(undefined);
+		// The fold survived, and the packet a client opens with is that same fold: equality alone
+		// would pass with both sides empty.
 		expect(opening(sessions)?.questions).toEqual(folded.questions);
+		expect(opening(sessions)).toEqual(sessions.get("s")?.state);
 	});
 
 	test("folds what comes after the snapshot on top of it", () => {
