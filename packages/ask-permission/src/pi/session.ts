@@ -29,7 +29,7 @@ import { record } from "#pi/session-entries.ts";
 const JUDGE_FAILURE_LIMIT = 2;
 const JUDGE_RETRY_MS = 60_000;
 
-export interface JudgeHealth {
+interface JudgeHealth {
 	failures: number;
 	retryAt: number;
 }
@@ -60,7 +60,7 @@ export interface SessionState {
 	asking: Turns;
 }
 
-export interface Prejudged {
+interface Prejudged {
 	/** What was judged. A call that no longer matches is judged again. */
 	summary: string;
 	verdict: Promise<Verdict | undefined>;

@@ -26,14 +26,14 @@ const ALWAYS: Omit<Choice, "key"> = {
 };
 const DENY: Omit<Choice, "key"> = { decision: "deny", always: false, label: "deny", tone: "error" };
 
-export const CHOICES: Choice[] = [
+const CHOICES: Choice[] = [
 	{ ...YES, key: "1" },
 	{ ...ALWAYS, key: "2" },
 	{ ...DENY, key: "3" },
 ];
 
 // Second, right under the plain yes: the answer the call most likely wants.
-export function choicesFor(offer?: FolderOffer): Choice[] {
+function choicesFor(offer?: FolderOffer): Choice[] {
 	if (offer === undefined) return CHOICES;
 	const tone = offer.access === "read" ? "success" : "warning";
 	return [

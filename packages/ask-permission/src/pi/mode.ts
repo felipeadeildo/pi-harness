@@ -9,7 +9,7 @@ import { NAME } from "#identity";
 import { record } from "#pi/session-entries.ts";
 import type { SessionState } from "#pi/session.ts";
 
-export const MODE_STATUS = `${NAME}:mode`;
+const MODE_STATUS = `${NAME}:mode`;
 
 const ARROW: Record<PermissionMode, string> = {
 	manual: "",

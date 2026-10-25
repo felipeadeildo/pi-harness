@@ -21,7 +21,7 @@ export function judgeRisk(answers: JudgeAnswers): number | undefined {
 	);
 }
 
-export type JudgeDecision = "allow" | "deny" | "uncertain";
+type JudgeDecision = "allow" | "deny" | "uncertain";
 
 export interface ComposedVerdict {
 	decision: JudgeDecision;

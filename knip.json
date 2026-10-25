@@ -1,0 +1,28 @@
+{
+	"$schema": "https://unpkg.com/knip@5/schema.json",
+	"workspaces": {
+		"packages/*": {
+			"entry": [
+				"src/index.ts",
+				"src/main.ts",
+				"eval/**/*.ts",
+				"test/**/*.test.ts",
+				"test/**/*.test.tsx",
+				"test/helpers.ts",
+				"test/*worker.ts"
+			]
+		},
+		"packages/harness": {
+			"entry": ["src/*.ts"]
+		},
+		"apps/remote": {
+			"entry": ["src/app/**/*.tsx", "src/session/browser.ts", "scripts/*.ts"]
+		},
+		".": {
+			"entry": ["scripts/**/*.ts"]
+		}
+	},
+	"ignore": ["**/dist/**"],
+	"ignoreDependencies": [],
+	"ignoreBinaries": ["script"]
+}

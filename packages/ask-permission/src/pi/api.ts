@@ -7,7 +7,7 @@ import { isRecord } from "#util/primitives.ts";
 
 export const DECIDED_EVENT = `${NAME}:decided`;
 export const TOOL_EVENT = `${NAME}:tool`;
-export const ANSWER_CHANGES = `${NAME}:answer`;
+const ANSWER_CHANGES = `${NAME}:answer`;
 
 export interface Decided {
 	toolCallId: string;
