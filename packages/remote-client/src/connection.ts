@@ -1,7 +1,13 @@
 // The connection: a warm cache drawn before the network answers, a hello that carries the cursors,
 // and a reconnect that resumes where the client stopped instead of asking for everything again.
 
-import { isObject, type By, type CommandType, type Envelope } from "@adeildo/pi-remote-protocol";
+import {
+	isObject,
+	type By,
+	type CommandMap,
+	type CommandType,
+	type Envelope,
+} from "@adeildo/pi-remote-protocol";
 
 import type { Cache, SessionKey } from "./cache.ts";
 import { Outbox, type Outgoing } from "./outbox.ts";
@@ -48,7 +54,12 @@ export interface Client {
 	 * Sends a command. It keeps the time it was typed, waits in the outbox while the daemon is out of
 	 * reach, and its reply moves it from sent to applied or refused.
 	 */
-	send(type: CommandType, data: unknown): Outgoing;
+	/**
+	 * Queues a command for the session. The payload is typed by the command, so a caller cannot send
+	 * `mode.set` with a level or `ask.answer` without a result: the protocol already says which fields
+	 * each command carries, and this is the place a screen meets it.
+	 */
+	send<K extends CommandType>(type: K, data: CommandMap[K]): Outgoing;
 	/** The commands that have not been answered yet, in the order they were typed. */
 	outbox(): Outbox;
 	/**
@@ -180,8 +191,8 @@ export function connect(options: ConnectionOptions): Client {
 
 	return {
 		session: () => session,
-		send: (type, data) => {
-			const command = outbox.add(type, data);
+		send: <K extends CommandType>(type: K, data: CommandMap[K]) => {
+			const command = outbox.add(type, data as CommandMap[K]);
 			flush();
 			save();
 			tell();
