@@ -10,7 +10,7 @@ import { isObject } from "../decode.ts";
 
 type Events = ExtensionAPI["events"];
 
-/** The live state of a session, what its entries do not say. It only grows. */
+/** What a session's entries do not say, which only grows. */
 export interface SessionSummary {
 	session: string;
 	/** The machine the session runs on: its hostname, until machines get ids. */
@@ -32,7 +32,6 @@ export interface SessionSummary {
 	context?: { tokens: number; window?: number };
 }
 
-/** Where a follower stands. It only grows, as sources learn to resume more than the entries. */
 export interface SourceCursor {
 	/** The last pi session entry it holds. */
 	entry?: string;

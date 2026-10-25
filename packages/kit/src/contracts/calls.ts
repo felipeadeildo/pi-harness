@@ -12,9 +12,7 @@ export interface CallRuling {
 	/** Who decided, like `judge approved` or `asking you`. */
 	head: string;
 	why?: string;
-	/** What you wrote on your answer. */
 	note?: string;
-	/** Detail for an expanded call. */
 	detail?: string;
 	/** The call was blocked, so its result is only the reason the line already gives. */
 	blocked?: boolean;

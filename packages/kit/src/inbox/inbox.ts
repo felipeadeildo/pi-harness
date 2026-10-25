@@ -5,13 +5,13 @@
 import type { Letter } from "./letter.ts";
 
 export class Inbox {
-	/** The clock, injected so a test can hold it. */
+	/** Injected, so a test can hold it. */
 	readonly #now: () => number;
 	constructor(now: () => number = Date.now) {
 		this.#now = now;
 	}
 
-	/** Every held follow-up, in the order it arrived. `queue` is the order it goes in. */
+	/** `queue` is the order it goes in, which is not the order it arrived in. */
 	readonly #held: Letter[] = [];
 	readonly #sent: Letter[] = [];
 	/**
@@ -33,15 +33,11 @@ export class Inbox {
 		return [...this.#sent];
 	}
 
-	/** Whether this letter was already taken, which makes a resend a repeat instead of a second one. */
+	/** What makes a resend a repeat instead of a second one. */
 	seen(id: string): boolean {
 		return this.#done.has(id);
 	}
 
-	/**
-	 * Adds a letter. An id the inbox already had, or one a run carried, is a repeat and changes
-	 * nothing: a client that retries a steer must not steer twice.
-	 */
 	/**
 	 * Takes a letter in and answers whether it did: one already carried or held is not taken twice. The
 	 * inbox is what tells when a letter arrived, since a writer need not carry a clock, and a client

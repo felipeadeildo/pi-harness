@@ -31,11 +31,9 @@ export interface AboveEditorTools<T> {
 	rows(): number;
 	/** Draws the view again, for a view that changes without a key. */
 	redraw(): void;
-	/** The theme the host draws with. */
 	theme: Theme;
 }
 
-/** What a feature draws. */
 export interface AboveEditorView {
 	render(width: number): string[];
 	/** Reads a key. A key it does not read is dropped, never handed to the editor under it. */
