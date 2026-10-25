@@ -1,18 +1,16 @@
-// The way into the built command that survives updates. Every pi start writes down the Node binary
-// and the built files of its version, and `bin/pi-remote` runs them. The launcher's text never
-// changes, so a service or a link that points at it keeps working when pi updates and the package
-// moves on disk.
+// Every pi start writes down the Node binary and the built files of its version, and `bin/pi-remote`
+// runs them. The launcher's text never changes, so a service that points at it survives an update.
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 /** What the last pi that started with the remote wrote down. */
 export interface Current {
-	/** The Node binary that ran pi, which runs the built files too. */
+	/** The Node binary that ran pi. */
 	node: string;
-	/** The built command, `dist/cli.js`. */
+	/** `dist/cli.js`. */
 	cli: string;
-	/** The built daemon, `dist/daemon.js`. */
+	/** `dist/daemon.js`. */
 	daemon: string;
 	/** The package's version. */
 	version: string;
