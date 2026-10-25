@@ -308,8 +308,8 @@ export class Bridge {
 	}
 
 	/**
-	 * The opening, and nothing swallowed: a snapshot that throws leaves a client with nothing to draw,
-	 * and a failure that only disappears is the hardest kind to find.
+	 * The opening a client draws first. If this throws, the client draws nothing, and the throw becomes a
+	 * warning two frames up: the failure has to name itself, and today it does not.
 	 */
 	#snapshot(): void {
 		this.stream.flush();
