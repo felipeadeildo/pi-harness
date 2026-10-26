@@ -108,6 +108,26 @@ export type RoomItem =
 	| { kind: "message"; message: Posted }
 	| { kind: "happening"; happening: Happening };
 
+const FOLDED = new Set([
+	"session.started",
+	"session.ended",
+	"session.named",
+	"session.state",
+	"session.prompted",
+	"board.changed",
+	"activity",
+	"message.posted",
+	"message.received",
+	"message.read",
+	"request.bid",
+	"request.taken",
+]);
+
+/** Whether a room folds an event of this type; its feeds skip the others unparsed. */
+export function folds(type: string): boolean {
+	return type.startsWith("room.") || FOLDED.has(type);
+}
+
 export class Folder {
 	readonly peers = new Map<string, Peer>();
 	readonly messages = new Map<string, Posted>();

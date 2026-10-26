@@ -179,3 +179,27 @@ describe("the room", () => {
 		expect(feedMoving(room, live, 1_000 + FRESH_MS + 1)).toBe(false);
 	});
 });
+
+describe("a long room", () => {
+	const room = Array.from({ length: 1_000 }, (_, at) =>
+		said(String(at), "a", ["b"], `message ${at}`, at),
+	);
+
+	test("lays out only the newest items asked for, and says older ones were left out", () => {
+		const view = feedView(room, [], {
+			theme: plain,
+			now: 1_000_000,
+			width: 70,
+			me: "c",
+			names,
+			live,
+			clock: () => "12:00",
+			last: 10,
+		});
+		const text = view.lines.join("\n");
+		expect(text).toContain("message 999");
+		expect(text).toContain("message 990");
+		expect(text).not.toContain("message 989");
+		expect(view.older).toBe(true);
+	});
+});

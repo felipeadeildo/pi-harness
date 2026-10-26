@@ -9,6 +9,7 @@ import { basename, isAbsolute, resolve } from "node:path";
 import {
 	expandHome,
 	FolderFeed,
+	pruneLogs,
 	HOST,
 	LOGGED_EVENT,
 	type LogEventMap,
@@ -30,6 +31,7 @@ import {
 } from "@adeildo/pi-kit";
 
 import { RoomFeeds, type RoomOnDisk } from "./feeds.ts";
+import { folds } from "./folder.ts";
 import { Here, type Hooks, PEER_NOTE } from "./here.ts";
 import { Inbox, type Waiting } from "./inbox.ts";
 import type { Addition, Membership } from "./membership.ts";
@@ -128,7 +130,8 @@ export class Rooms implements RoomsView {
 		this.#model = model;
 		this.#startedAt = this.#now();
 		const target = targetOf(session);
-		const feed = new FolderFeed(target.dir);
+		pruneLogs(target.dir);
+		const feed = new FolderFeed(target.dir, folds);
 		this.#home = new Here(this.#hooksFor(undefined));
 		this.#home.join({
 			target,

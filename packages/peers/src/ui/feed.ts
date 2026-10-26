@@ -20,6 +20,17 @@ export const ON_ITS_WAY_MS = 60_000;
 /** A long message shows this many lines, unless it is the newest or the room is narrowed. */
 const BODY_SHOWN = 4;
 
+/** Wrapping is most of a frame, and a message's words never change. */
+const bodies = new WeakMap<Posted, { width: number; lines: string[] }>();
+
+function wrappedBody(message: Posted, width: number): string[] {
+	const known = bodies.get(message);
+	if (known?.width === width) return known.lines;
+	const lines = wrapTextWithAnsi(message.text.trim(), width);
+	bodies.set(message, { width, lines });
+	return lines;
+}
+
 const ARRIVED: Record<Delivery, string> = {
 	woke: "woke it",
 	"after-run": "after its run",
@@ -36,14 +47,16 @@ export interface FeedOptions {
 	live: readonly Peer[];
 	clock: (at: number) => string;
 	only?: string;
+	/** How many of the newest items to lay out; all of them when absent. */
+	last?: number;
 }
 
-/** The room's lines, and for each line the index of its message's header. */
+/** The room's lines, the index of each line's message header, and whether older items were left out. */
 export function feedView(
 	room: readonly RoomItem[],
 	typing: readonly Typing[],
 	options: FeedOptions,
-): { lines: string[]; heads: (number | undefined)[] } {
+): { lines: string[]; heads: (number | undefined)[]; older: boolean } {
 	const { theme } = options;
 	const shown =
 		options.only === undefined ? room : room.filter((item) => involves(item, options.only ?? ""));
@@ -60,8 +73,10 @@ export function feedView(
 	const gap = () => add([""]);
 	const replies = answers(shown);
 	const newest = shown.findLast((item) => item.kind === "message");
-	let lastMessage: Posted | undefined;
-	for (let index = 0; index < shown.length; index++) {
+	const first = options.last === undefined ? 0 : Math.max(0, shown.length - options.last);
+	const before = shown.slice(0, first).findLast((item) => item.kind === "message");
+	let lastMessage: Posted | undefined = before?.kind === "message" ? before.message : undefined;
+	for (let index = first; index < shown.length; index++) {
 		const item = shown[index];
 		if (item === undefined) continue;
 		if (item.kind === "happening") {
@@ -98,13 +113,14 @@ export function feedView(
 		if (lines.length > 0) gap();
 		add(typingLines(one, options), true);
 	}
-	if (lines.length > 0) return { lines, heads };
+	const older = first > 0;
+	if (lines.length > 0) return { lines, heads, older };
 	const narrowed = options.only === undefined ? undefined : options.names.get(options.only)?.handle;
 	const empty =
 		narrowed === undefined
 			? "Nothing said yet. Write below, or @ to mention one agent."
 			: `Nothing from or to ${narrowed} yet.`;
-	return { lines: [theme.fg("dim", empty)], heads: [undefined] };
+	return { lines: [theme.fg("dim", empty)], heads: [undefined], older };
 }
 
 /**
@@ -130,7 +146,7 @@ function messageLines(
 
 	// Only a message that just arrived keeps its rail lit, in its writer's color.
 	const lead = fresh ? `${theme.fg(color, "\u258e")} ` : " ".repeat(INDENT);
-	let wrapped = wrapTextWithAnsi(message.text.trim(), room);
+	let wrapped = wrappedBody(message, room);
 	if (!full) {
 		// A preview skips blank lines, so its few lines carry words.
 		const words = wrapped.filter((line) => line.trim() !== "");

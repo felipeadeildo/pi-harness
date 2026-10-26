@@ -15,6 +15,8 @@ import { feedMoving, feedView } from "./feed.ts";
 /** The rule over the line you write in, and that line. */
 const COMPOSER_ROWS = 2;
 const PICKER_ROWS = 4;
+/** The newest items laid out, and how many more each scroll to the oldest adds. */
+const HISTORY = 200;
 
 export interface RoomOptions {
 	theme: Theme;
@@ -38,6 +40,7 @@ export class RoomView {
 	#height = 0;
 	#follow = true;
 	#unread = 0;
+	#window = HISTORY;
 	#pick = 0;
 	/** The text the @ list was closed on: it stays closed until the text changes. */
 	#dismissed: string | undefined;
@@ -137,17 +140,28 @@ export class RoomView {
 		const live = here.live();
 		if (this.#only !== undefined && !live.some((peer) => peer.session === this.#only))
 			this.#only = undefined;
-		const feed = feedView(here.folder.room, here.othersTyping(), {
-			theme,
-			now: this.#now(),
-			width,
-			me: here.session,
-			names: names.bySession,
-			live,
-			clock: this.#options.clock ?? formatClock,
-			only: this.#only,
-		});
-		const origin = this.#originLines(width);
+		if (this.#follow) this.#window = HISTORY;
+		const layout = () =>
+			feedView(here.folder.room, here.othersTyping(), {
+				theme,
+				now: this.#now(),
+				width,
+				me: here.session,
+				names: names.bySession,
+				live,
+				clock: this.#options.clock ?? formatClock,
+				only: this.#only,
+				last: this.#window,
+			});
+		let feed = layout();
+		// At the oldest line laid out, lay out more and keep the view still.
+		if (!this.#follow && this.#offset === 0 && feed.older) {
+			const before = feed.lines.length;
+			this.#window += HISTORY;
+			feed = layout();
+			this.#offset += feed.lines.length - before;
+		}
+		const origin = feed.older ? [] : this.#originLines(width);
 		const lines = [...origin, ...feed.lines];
 		const heads = [
 			...origin.map(() => undefined),
