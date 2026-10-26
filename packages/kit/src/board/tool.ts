@@ -4,51 +4,60 @@ import { Type } from "@earendil-works/pi-ai";
 
 import { applyBoard, blockedText, findBoard, type Board, type BoardOp } from "./model.ts";
 
-const TITLE = Type.String({
-	description: "The result, up to eight words, in the operator's language.",
-});
-const ID = Type.String({ description: "A card id from the last answer, like c3." });
-const COLUMN = Type.Union([
-	Type.Literal("backlog"),
-	Type.Literal("todo"),
-	Type.Literal("doing"),
-	Type.Literal("review"),
-	Type.Literal("done"),
-	Type.Literal("dropped"),
-]);
-const WHY = Type.String({ description: "Why the card waits, in a few words." });
-const BLOCKED = Type.Object({
-	on: Type.Union([Type.Literal("operator"), Type.Literal("outside"), Type.Literal("agent")]),
-	handle: Type.Optional(Type.String({ description: "The agent's handle, when on is agent." })),
-	why: WHY,
-});
-
-function shape(
-	name: string,
-	fields: Record<string, unknown>,
-	optional: Record<string, unknown> = {},
-) {
-	return Type.Object({
-		op: Type.Literal(name),
-		...fields,
-		...Object.fromEntries(
-			Object.entries(optional).map(([key, schema]) => [key, Type.Optional(schema as never)]),
-		),
+/** A string that is one of these words: an `enum`, which every provider reads, and no `anyOf`. */
+function oneOf<const T extends string>(values: readonly T[], description?: string) {
+	return Type.Unsafe<T>({
+		type: "string",
+		enum: [...values],
+		...(description ? { description } : {}),
 	});
 }
 
-export const BOARD_PARAMETERS = Type.Union([
-	shape("add", { title: TITLE }, { column: COLUMN, pr: Type.Number(), blocked: BLOCKED }),
-	shape("move", { id: ID, column: COLUMN }, { reviewer: Type.String(), result: Type.String() }),
-	shape(
-		"edit",
-		{ id: ID },
-		{ title: TITLE, pr: Type.Number(), now: Type.String(), blocked: BLOCKED },
+const TITLE = Type.String({
+	description: "The result, up to eight words, in the operator's language. For add and edit.",
+});
+const COLUMN = oneOf(
+	["backlog", "todo", "doing", "review", "done", "dropped"],
+	"For add and move.",
+);
+const BLOCKED = Type.Object(
+	{
+		on: oneOf(["operator", "outside", "agent"]),
+		handle: Type.Optional(Type.String({ description: "The agent's handle, when on is agent." })),
+		why: Type.String({ description: "Why the card waits, in a few words." }),
+	},
+	{ description: "Who the card waits on. For add and edit." },
+);
+
+/**
+ * One object whose `op` says which operation, and whose other fields each name the operations that read
+ * them. It is not a union of one shape per operation: a tool's schema has to be an object at the top, and
+ * a provider that gets `anyOf` there refuses the tool, so the session fails on its first call. What each
+ * operation needs is checked by `missingFor`, before the board changes.
+ */
+export const BOARD_PARAMETERS = Type.Object({
+	op: oneOf(["add", "move", "edit", "drop", "decide", "find"], "What to do."),
+	title: Type.Optional(TITLE),
+	id: Type.Optional(
+		Type.String({
+			description: "A card id from the last answer, like c3. For move, edit and drop.",
+		}),
 	),
-	shape("drop", { id: ID, why: WHY }),
-	shape("decide", { text: Type.String({ description: "The decision, in one sentence." }) }),
-	shape("find", { text: Type.String({ description: "What to look for." }) }),
-]);
+	column: Type.Optional(COLUMN),
+	pr: Type.Optional(Type.Number({ description: "The pull request number. For add and edit." })),
+	blocked: Type.Optional(BLOCKED),
+	reviewer: Type.Optional(Type.String({ description: "Who reviewed it. For move." })),
+	result: Type.Optional(Type.String({ description: "How it ended. For move." })),
+	now: Type.Optional(Type.String({ description: "What is being done now. For edit." })),
+	why: Type.Optional(
+		Type.String({ description: "Why the card is dropped, in a few words. For drop." }),
+	),
+	text: Type.Optional(
+		Type.String({
+			description: "The decision, in one sentence (decide), or what to look for (find).",
+		}),
+	),
+});
 
 export const BOARD_DESCRIPTION = `Keeps the session's board: what it is doing now, what waits for whom, and what it already delivered.
 
@@ -68,6 +77,24 @@ export function boardText(board: Board): string {
 
 export type BoardCallParams = BoardOp | { op: "find"; text: string };
 export type BoardToolResult = { ok: true; text: string } | { ok: false; why: string };
+
+/** What each operation needs, so a call that leaves one out is answered with which, not applied. */
+const NEEDS: Record<BoardCallParams["op"], readonly string[]> = {
+	add: ["title"],
+	move: ["id", "column"],
+	edit: ["id"],
+	drop: ["id", "why"],
+	decide: ["text"],
+	find: ["text"],
+};
+
+/** The reason a call cannot run: an operation this board does not have, or a field it needs and lacks. */
+export function missingFor(params: Record<string, unknown>): string | undefined {
+	const needs = NEEDS[params.op as BoardCallParams["op"]];
+	if (needs === undefined) return `There is no operation ${JSON.stringify(params.op)}.`;
+	const lacking = needs.filter((field) => params[field] === undefined);
+	return lacking.length === 0 ? undefined : `${params.op} needs ${lacking.join(" and ")}.`;
+}
 
 export function boardCall(board: Board, params: BoardCallParams): BoardToolResult {
 	if (params.op === "find") {
