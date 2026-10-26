@@ -57,8 +57,7 @@ async function openScreen(scope: FeatureScope, ctx: ExtensionContext, tab: strin
 		if (text !== undefined && text !== current) {
 			const error = applyRow(scope.events, row, "set", text);
 			const shown = row.control === undefined ? "" : formatValue(row.control, text);
-			const level = error === undefined ? "info" : "error";
-			ctx.ui.notify(error ?? `${row.label}: ${shown}`, level);
+			ctx.ui.notify(error ?? `${row.label}: ${shown}`, error === undefined ? "info" : "error");
 		}
 		model.refresh(listTabs(scope.events));
 	}
