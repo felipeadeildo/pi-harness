@@ -1,9 +1,8 @@
-// The envelope every message crosses a process in. A shape only grows: a field that changes meaning
-// gets a new name, and a break gets v: 2.
+// Every message crosses a process in one. Shapes only grow: a changed meaning gets a new name, a break gets v: 2.
 
 import { isBy, isObject, type By } from "./by.ts";
 
-/** The protocol version. A peer that speaks another one is refused in the hello, not half read. */
+/** A peer that speaks another version is refused in the hello. */
 export const PROTOCOL = 1;
 
 export type EnvelopeKind = "hello" | "event" | "state" | "command" | "reply" | "error";
@@ -11,20 +10,17 @@ export type EnvelopeKind = "hello" | "event" | "state" | "command" | "reply" | "
 export interface Envelope {
 	v: typeof PROTOCOL;
 	kind: EnvelopeKind;
-	/** The machine that owns the session. Absent for messages about the connection itself. */
+	/** Absent for messages about the connection itself. */
 	machine?: string;
-	/** pi's session id. */
 	session?: string;
-	/** The life of the pi process that sent it. */
 	epoch?: string;
-	/** Per epoch, increasing, assigned by the bridge. A delta has none: it only matters live. */
+	/** Per epoch, increasing, from the bridge. A delta has none: it only matters live. */
 	seq?: number;
-	/** Pairs a command with its reply, and makes a resent command a repeat. */
+	/** Pairs a command with its reply, and makes a resend a repeat. */
 	id?: string;
 	type: string;
 	data: unknown;
 	at: number;
-	/** Who caused it. */
 	by?: By;
 }
 
@@ -55,7 +51,6 @@ export function isEnvelope(value: unknown): value is Envelope {
 	);
 }
 
-/** Builds an envelope, so a sender cannot forget the version or the time. */
 export function envelope(
 	kind: EnvelopeKind,
 	type: string,

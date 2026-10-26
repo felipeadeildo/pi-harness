@@ -1,40 +1,33 @@
-// Where a client stopped reading: entries by pi's entry id, and the live stream by (epoch, seq). A
-// cursor is what a reconnect sends.
+// Entries by pi's entry id, the live stream by (epoch, seq). A reconnect sends it.
 import type { Envelope } from "../index.ts";
 
 export interface Cursor {
-	/** The life of the pi process the client was reading. */
+	/** The pi process's epoch. */
 	epoch?: string;
-	/** The last live envelope the client read, in that epoch. */
+	/** The last live envelope read in that epoch. */
 	seq?: number;
-	/** The last entry of the branch the client holds. */
 	entry?: string;
 }
 
 export type Next =
-	/** Read it: it comes after the cursor. */
 	| { read: "now" }
-	/** Already read, so nothing changes: a daemon is free to send an envelope twice. */
+	/** A daemon may send an envelope twice. */
 	| { read: "skip" }
-	/** Read the opening first: the stream restarted, or the client is new. */
 	| { read: "state"; why: "new" | "epoch" | "gap" };
 
-/** A new epoch or a hole in the numbering needs an opening. */
 export function decide(cursor: Cursor, envelope: Envelope): Next {
 	if (cursor.epoch === undefined) return { read: "state", why: "new" };
 	if (envelope.epoch !== undefined && envelope.epoch !== cursor.epoch) {
 		return { read: "state", why: "epoch" };
 	}
 	if (envelope.seq !== undefined && cursor.seq !== undefined) {
-		// At or behind the cursor is a repeat, which changes nothing; past the next number is a hole,
-		// which nothing but the opening can put back.
+		// A repeat changes nothing; a hole only the opening can fill.
 		if (envelope.seq <= cursor.seq) return { read: "skip" };
 		if (envelope.seq > cursor.seq + 1) return { read: "state", why: "gap" };
 	}
 	return { read: "now" };
 }
 
-/** What the next reconnect sends. */
 export function advance(cursor: Cursor, envelope: Envelope): Cursor {
 	return {
 		...cursor,

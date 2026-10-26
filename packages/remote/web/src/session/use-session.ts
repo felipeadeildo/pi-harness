@@ -11,24 +11,21 @@ import { useEffect, useState } from "react";
 
 export interface SessionSource {
 	cache: Cache;
-	/** How to reach one session, which can be on another machine than the page's. */
+	/** May be on another machine than the page's. */
 	open: (key: SessionKey) => ConnectionOptions["open"];
-	/** What to call this client in the log. The machine is the session's, until a device brings its own. */
+	/** The machine is the session's until a device brings its own. */
 	clientName?: string;
-	/** Set when the page cannot open the socket at all, as a refused login leaves it. */
+	/** Set when the socket cannot open at all, as after a refused login. */
 	why?: string;
 }
 
-/** What a screen gets: the session, and why it has none when something stopped it. */
 export interface OpenSession {
 	session: ClientSession | undefined;
-	/** The connection itself, which is what a composer sends through and what its queue comes from. */
 	client: Client | undefined;
 	changes: number;
 	why?: string;
 }
 
-/** The session as the client holds it, and how many changes it has seen, which keys a redraw. */
 export function useSession(key: SessionKey, source: () => Promise<SessionSource>): OpenSession {
 	const [opened, setOpened] = useState<OpenSession>({
 		session: undefined,
@@ -52,8 +49,7 @@ export function useSession(key: SessionKey, source: () => Promise<SessionSource>
 				stop = opened.stop;
 				setOpened((before) => ({ ...before, client: opened.client }));
 			})
-			// A screen with nothing to draw and nothing to say is a blank page, so a failure to even ask
-			// is a sentence too.
+			// A failure to even ask is a sentence too, not a blank page.
 			.catch(() =>
 				setOpened({
 					session: undefined,

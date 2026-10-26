@@ -1,12 +1,10 @@
-// The connection: a warm cache drawn before the network answers, a hello that carries the cursors,
-// and a reconnect that resumes where the client stopped instead of asking for everything again.
+// A warm cache drawn before the network answers, and a reconnect that resumes from the cursor.
 
 import { isObject, type By, type CommandMap, type CommandType, type Envelope } from "../index.ts";
 import type { Cache, SessionKey } from "./cache.ts";
 import { Outbox, type Outgoing } from "./outbox.ts";
 import { cachedOf, hello, readEnvelope, sessionOf, type ClientSession } from "./session.ts";
 
-/** One attempt at talking to the daemon. A reconnect asks for a new one. */
 export interface Transport {
 	send(envelope: Envelope): void;
 	close(): void;
@@ -17,29 +15,26 @@ export interface ConnectionOptions {
 	cache: Cache;
 	/** A client that is not a browser must send the daemon's `Origin` itself, or the socket is refused. */
 	open(onMessage: (envelope: unknown) => void, onClose: () => void): Transport;
-	/** How long to wait before the next attempt, growing to a cap. */
+	/** Grows to a cap. */
 	backoff?: { first: number; max: number };
-	/** Runs a callback after a delay, and cancels it. Injected so a test does not wait. */
+	/** Injected so a test does not wait. */
 	wait?: (ms: number, run: () => void) => () => void;
-	/** The queue of commands typed while the daemon was away, so a test can read it. */
+	/** So a test can read it. */
 	outbox?: Outbox;
 	/** Sent with every command, so the session can say where an answer came from. */
 	by?: By;
 }
 
 export interface Client {
-	/** The session as it stands, which the cache carries between visits. */
 	session(): ClientSession;
-	/** Called after every change, so a screen draws once per envelope. */
+	/** Once per envelope. */
 	on(handle: (session: ClientSession) => void): () => void;
-	/** Draws the cache, then connects and catches up. */
 	load(): Promise<void>;
 	/** Kept with the time it was typed; waits in the outbox while the daemon is out of reach. */
 	send<K extends CommandType>(type: K, data: CommandMap[K]): Outgoing;
 	outbox(): Outbox;
 	/** Sends a command that waited past the window. Only the connection can put it on the wire. */
 	release(id: string): boolean;
-	/** Drops a command that never went out, so it leaves the queue and nothing is sent. */
 	drop(id: string): boolean;
 	stop(): void;
 }
@@ -60,10 +55,9 @@ export function connect(options: ConnectionOptions): Client {
 	const outbox = options.outbox ?? new Outbox();
 	let retryDelay = backoff.first;
 	let stopped = false;
-	/** The tail was asked for and has not come, so a chatty daemon cannot make the client ask twice. */
+	// So a chatty daemon cannot make the client ask twice.
 	let askedForTail = false;
 
-	/** What a screen needs, plus the queue: the visit after this one draws both. */
 	const save = (): void => {
 		void options.cache.write(cachedOf(session, outbox));
 	};
@@ -72,21 +66,17 @@ export function connect(options: ConnectionOptions): Client {
 		for (const handle of listeners) handle(session);
 	};
 
-	/** Something changed that a screen draws or the cache keeps: write it down, then tell the screens. */
 	const changed = (): void => {
 		save();
 		tell();
 	};
 
-	/** A reply ends a command's wait: applied, or refused with the reason the daemon gave. */
 	const reply = (envelope: unknown): boolean => {
-		// A reply is not an event of the session, with or without an id: it never reaches the reader,
-		// because a malformed reply must not move the cursor.
+		// A reply never reaches the reader, so a malformed one cannot move the cursor.
 		if (!isObject(envelope) || (envelope.kind !== "reply" && envelope.kind !== "error"))
 			return false;
 		if (typeof envelope.id !== "string") {
-			// The daemon answered without saying what: with one command in flight, that answer is its
-			// own, and leaving it waiting is what makes a command look sent forever.
+			// With one command in flight, an answer that names none is its own.
 			const flight = outbox.all().filter((command) => command.state === "sent");
 			if (flight.length === 1 && flight[0] !== undefined) {
 				outbox.refused(flight[0].id, "the daemon answered without an id");
@@ -107,8 +97,7 @@ export function connect(options: ConnectionOptions): Client {
 		return true;
 	};
 
-	/** Sends what may go now, in the order it was typed. Without a transport nothing is sent, and a
-	 * command marked sent that never left would sit in a state the queue cannot draw. */
+	// Without a transport nothing is sent or marked sent.
 	const flush = (): void => {
 		if (transport === undefined) return;
 		for (const command of outbox.ready()) {
@@ -127,16 +116,13 @@ export function connect(options: ConnectionOptions): Client {
 				if (answer.read === "state") {
 					if (askedForTail) return;
 					askedForTail = true;
-					// A hole or a new epoch cannot be put back, so the client asks for the whole tail:
-					// without `seq` the hello is that request.
+					// A hello without `seq` asks for the whole tail.
 					const { seq: _seq, ...rest } = session.cursor;
 					session = { ...session, cursor: rest };
-					// Inside a message the transport may not be assigned yet, so the hello goes out
-					// after the attempt is in place.
+					// The transport may not be assigned yet inside a message.
 					queueMicrotask(() => transport?.send(hello(session)));
 					return;
 				}
-				// Reading is pure: the session it returns is the one everything else draws.
 				session = answer.session;
 				askedForTail = false;
 				retryDelay = backoff.first;
@@ -151,7 +137,7 @@ export function connect(options: ConnectionOptions): Client {
 			},
 		);
 		transport.send(hello(session));
-		// A new attempt is the moment to resend what was never answered, and then what waited.
+		// A new attempt resends what was never answered, then what waited.
 		outbox.resume();
 		flush();
 	};
@@ -183,12 +169,10 @@ export function connect(options: ConnectionOptions): Client {
 			return () => listeners.delete(handle);
 		},
 		load: async () => {
-			// A cache that fails is a cold open, never a client that goes quiet: the network still
-			// has to be asked.
+			// A cache that fails is a cold open; the network is still asked.
 			const cached = await options.cache.read(options.key).catch(() => undefined);
 			if (cached !== undefined) {
 				session = sessionOf(options.key, cached);
-				// What was typed before the tab died goes back in the queue, in the order it was typed.
 				outbox.restore(cached.outbox);
 				tell();
 			}
@@ -204,7 +188,6 @@ export function connect(options: ConnectionOptions): Client {
 	};
 }
 
-/** A command as it crosses: the envelope's `id` is what its reply comes back on. */
 function commandOf(session: ClientSession, command: Outgoing, by: By | undefined): Envelope {
 	return {
 		v: 1,

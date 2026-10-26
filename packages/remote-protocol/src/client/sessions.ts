@@ -1,5 +1,4 @@
-// The daemon's list of sessions, as a client reads it. One request, one shape, and no React: the
-// screen that draws it decides what to show, and the app can be read by anything that speaks fetch.
+// The daemon's list of sessions, as a client reads it.
 import {
 	isObject,
 	isSummary,
@@ -8,7 +7,7 @@ import {
 	type SessionSummary,
 } from "../index.ts";
 
-/** What `session.live` said about a session, which is the bridge's word, not the daemon's. */
+/** The bridge's word, not the daemon's. */
 export interface LiveSession {
 	pid: number;
 	startedAt: number;
@@ -21,12 +20,10 @@ export interface ListedSession {
 	machine: string;
 	session: string;
 	epoch: string;
-	/** Whether its bridge is connected now. A lost bridge reconnects, so the session stays listed. */
+	/** A lost bridge reconnects, so the session stays listed. */
 	connected: boolean;
-	/** Why it ended, once its bridge said so. */
 	gone?: string;
 	live: LiveSession;
-	/** What a client draws before the replay, when the daemon holds one. */
 	summary?: SessionSummary;
 	state: SessionState;
 }
@@ -52,7 +49,7 @@ export async function listSessions(
 	return kept;
 }
 
-/** A refusal that keeps the code, so a screen can say "not logged in" without matching text. */
+/** Keeps the code, so a screen can say "not logged in" without matching text. */
 export class DaemonAnswer extends Error {
 	readonly status: number;
 
@@ -76,30 +73,25 @@ function isListed(value: unknown): value is ListedSession {
 		typeof live.startedAt === "number" &&
 		typeof live.cwd === "string" &&
 		(live.kind === "terminal" || live.kind === "background") &&
-		// The state is typed with both collections, so a row that omits one is not this shape.
 		isObject(value.state) &&
 		isObject(value.state.questions) &&
 		isObject(value.state.permissions) &&
 		isObject((value.state.permissions as Record<string, unknown>).rulings) &&
-		// The summary is the shape the rest of the package draws from, so it is the protocol's call.
 		(value.summary === undefined || isSummary(value.summary))
 	);
 }
 
-/** Empty until the session has said something. */
 export function stateOf(session: ListedSession): string {
 	if (session.gone !== undefined) return session.gone;
 	if (!session.connected) return "reconnecting";
 	return session.state.status ?? session.summary?.status ?? "";
 }
 
-/** An unanswered question; the permission mode alone does not mean it waits. */
 export function wantsYou(session: ListedSession): boolean {
 	const state = stateOf(session);
 	return state === "blocked" || state === "error" || openQuestions(session.state).length > 0;
 }
 
-/** The ones that need you, then the running ones, then what ended. Ties broken by identity. */
 export function inOrder(sessions: readonly ListedSession[]): ListedSession[] {
 	const rank = (session: ListedSession): number => {
 		if (wantsYou(session)) return 0;
@@ -109,8 +101,7 @@ export function inOrder(sessions: readonly ListedSession[]): ListedSession[] {
 	return [...sessions].sort((left, right) => {
 		const byRank = rank(left) - rank(right);
 		if (byRank !== 0) return byRank;
-		// Two sessions with the same title are still two rows, and the list must not dance between
-		// refreshes because the daemon answered in another order.
+		// The list must not reorder between refreshes when the daemon answers in another order.
 		return `${left.machine}/${left.session}`.localeCompare(`${right.machine}/${right.session}`);
 	});
 }

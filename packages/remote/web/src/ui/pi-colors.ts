@@ -1,6 +1,6 @@
 // Pi's theme colors by name, for dark and light. A name not in the table gets no color.
 // `pi-colors.test.ts` fails when pi's theme files change.
-/** The two schemes of the system, which the page follows with `prefers-color-scheme`. */
+/** Followed with `prefers-color-scheme`. */
 export type Scheme = "light" | "dark";
 
 const PI_COLORS: Record<Scheme, Record<string, string>> = {
@@ -20,10 +20,9 @@ const PI_COLORS: Record<Scheme, Record<string, string>> = {
 	},
 };
 
-/** The color pi's theme gives a name in a scheme, or nothing when the name is not one the app holds. */
 export function piColor(scheme: Scheme, name: string | undefined): string | undefined {
 	return name === undefined ? undefined : PI_COLORS[scheme][name];
 }
 
-/** The names the table holds, which is what the conformity test reads back from pi's themes. */
+/** What the conformity test reads back from pi's themes. */
 export const PI_COLOR_NAMES = Object.keys(PI_COLORS.dark);

@@ -5,11 +5,10 @@ import {
 	type PermissionMode,
 	THINKING_LEVELS,
 } from "@adeildo/pi-remote-protocol";
-// What the composer decides, apart from the views that show it: a phone draws with views, and a test
-// cannot load them. The rules stay here, and the screen only wires them.
+// What the composer decides, apart from the views, so a test can read it.
 import type { Client, Outgoing } from "@adeildo/pi-remote-protocol/client";
 
-/** The three modes a client may set: `full` runs everything unasked, so only a terminal may choose it. */
+/** `full` runs everything unasked, so only a terminal may choose it. */
 export const CLIENT_MODES: readonly PermissionMode[] = ["manual", "edits", "judge"];
 
 const MODE_HINT: Partial<Record<PermissionMode, string>> = {
@@ -18,7 +17,6 @@ const MODE_HINT: Partial<Record<PermissionMode, string>> = {
 	judge: "a judge decides what runs",
 };
 
-/** One value of a picker, ready to draw and to read in a test. */
 export interface Choice<T extends string> {
 	value: T;
 	hint?: string;
@@ -34,12 +32,12 @@ export function modeChoices(
 	return CLIENT_MODES.map((value) => ({
 		value,
 		hint: MODE_HINT[value],
-		// Without a mode the session has not said which it is on, and the first is the one pi starts in.
+		// Without a mode the session has not said; pi starts in the first.
 		chosen: value === (mode ?? "manual"),
 	}));
 }
 
-/** Every thinking level pi offers, with the session's on, so a session on `max` is not drawn blank. */
+/** Includes the session's level, so `max` is not drawn blank. */
 export function levelChoices(thinking: string | undefined): Choice<string>[] {
 	return THINKING_LEVELS.map((value) => ({ value, chosen: value === (thinking ?? "off") }));
 }
@@ -49,7 +47,6 @@ export function primaryAct(running: boolean, empty: boolean): "send" | "abort" {
 	return running && empty ? "abort" : "send";
 }
 
-/** An act the overflow menu offers, and whether it can run now. */
 export interface MenuItem {
 	id: "steer" | "abort" | "compact" | "rename" | "stop";
 	label: string;
@@ -83,22 +80,18 @@ export function modelsNote(held: number, total: number | undefined): string | un
 		: undefined;
 }
 
-/** Sends a held command now: it keeps its id, so the far side reads it as the same one. */
 export function sendNow(client: Client, id: string): void {
 	client.release(id);
 }
 
-/** Gives up on a held command: it leaves the queue and nothing goes out. */
 export function dropNow(client: Client, id: string): void {
 	client.drop(id);
 }
 
-/** What a command's state says to the person: to wait, to retry, or that it is done. */
 export function stateOf(command: Outgoing): string {
 	switch (command.state) {
 		case "waiting":
-			// Only a command that waited past the window reaches here: one inside it is said as
-			// "goes out when the daemon answers" by the caller.
+			// Only a command past the window reaches here.
 			return "waiting for you";
 		case "sent":
 			return "sent, no answer yet";
@@ -120,7 +113,6 @@ export function outboxLine(
 	return { text: stateOf(command), actionable: waiting };
 }
 
-/** Sends the draft and clears it, which is what both the button and Enter do. */
 export function takeDraft(
 	send: <K extends CommandType>(type: K, data: CommandMap[K]) => void,
 	draft: string,
@@ -145,7 +137,6 @@ export function matchModels(models: readonly ModelOption[], query: string): Mode
 	});
 }
 
-/** Whether a listed model is the one the session is on. */
 export function isCurrentModel(
 	model: ModelOption,
 	current: { provider: string; id: string } | undefined,

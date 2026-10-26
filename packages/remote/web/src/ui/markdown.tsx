@@ -3,7 +3,7 @@ import { type ReactNode } from "react";
 
 import { plain, siteOf } from "../session/plain.ts";
 
-/** Draws the subset of markdown a session writes: paragraphs, headings, lists and code. */
+/** Paragraphs, headings, lists and code. */
 export function Markdown({ text }: { text: string }): ReactNode {
 	const lines = plain(text).split("\n");
 	const blocks: ReactNode[] = [];
@@ -64,7 +64,6 @@ export function Markdown({ text }: { text: string }): ReactNode {
 	return <div className="remote-markdown">{blocks}</div>;
 }
 
-/** The inline marks: code, bold, italic, links and images, in the order they open. */
 function inline(text: string): ReactNode[] {
 	const nodes: ReactNode[] = [];
 	const pattern =
@@ -83,7 +82,7 @@ function inline(text: string): ReactNode[] {
 		else if (whole.startsWith("**")) nodes.push(<strong key={key}>{whole.slice(2, -2)}</strong>);
 		else if (whole.startsWith("*")) nodes.push(<em key={key}>{whole.slice(1, -1)}</em>);
 		else if (whole.startsWith("![")) {
-			// A remote picture is not loaded: the page says where it is, and nothing else happens.
+			// A remote picture is not loaded; the page names where it is.
 			const site = siteOf(whole.slice(whole.indexOf("](") + 2, -1));
 			nodes.push(
 				<span key={key} className="remote-image">
@@ -96,7 +95,7 @@ function inline(text: string): ReactNode[] {
 	return nodes;
 }
 
-/** `[label](url)` as the words, and the address only when it is a site a browser may open. */
+/** The address shows only for a site a browser may open. */
 function link(text: string, key: number): ReactNode {
 	const [label = "", url = ""] = text.slice(1, -1).split("](");
 	const site = siteOf(url);

@@ -8,14 +8,12 @@ import { countOf, groupsOf, keyOf, type Mark, type Row, rowsOf } from "../sessio
 import { piColor, type Scheme } from "../ui/pi-colors.ts";
 import { useScheme } from "../ui/use-scheme.ts";
 
-/** How often the list asks the daemon again while it is on screen. Loopback and a tunnel both take it. */
 export const REREAD_MS = 3_000;
 
 export function Component() {
 	const [sessions, setSessions] = useState<readonly ListedSession[]>();
 	const [why, setWhy] = useState<string>();
-	// The order the list had when it opened: a session that starts waiting changes its mark, never its
-	// place, so a refresh cannot move a row under the thumb that was reaching for it.
+	// A row's place never changes on refresh, only its mark.
 	const kept = useRef<readonly string[] | undefined>(undefined);
 	const scheme = useScheme();
 
@@ -34,15 +32,13 @@ export function Component() {
 					setWhy(undefined);
 				})
 				.catch((error: unknown) => {
-					// A later failure does not erase a list the person is reading: it would replace rows that
-					// are still true with an apology. Only the first read decides whether there is a list.
+					// A later failure keeps the rows; only the first read decides whether there is a list.
 					if (!open || sessions !== undefined) return;
 					setWhy(error instanceof Error ? error.message : "The sessions could not be read.");
 				});
 		};
 		read();
-		// The status of a session changes without the list changing, and there is no socket here: the list
-		// asks again. Coming back to the tab asks at once, so a phone that slept does not show the past.
+		// There is no socket here, so the list polls; coming back to the tab asks at once.
 		const every = setInterval(read, REREAD_MS);
 		const back = (): void => {
 			if (document.visibilityState === "visible") read();
@@ -55,8 +51,7 @@ export function Component() {
 		};
 	}, [sessions]);
 
-	// A blank frame while the daemon answers, and never an empty screen that says there is nothing:
-	// "no session is open" is a state change only the daemon can make.
+	// Blank while the daemon answers: only the daemon can say no session is open.
 	if (why !== undefined)
 		return (
 			<main className="page">
@@ -93,10 +88,9 @@ export function Component() {
 	);
 }
 
-/** The terminal's marks for how a session is doing, which the footer and the room use too. */
+/** The terminal's marks, as the footer and the room use them. */
 const MARKS: Record<Mark, string> = { working: "●", idle: "○", waits: "⚑" };
 
-/** One session: its mark and name, then where it works, how it is doing and with what. */
 function SessionRow({ row, scheme }: { row: Row; scheme: Scheme }): ReactNode {
 	const color = piColor(scheme, row.color);
 	return (

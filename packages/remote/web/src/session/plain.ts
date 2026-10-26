@@ -4,7 +4,6 @@
 // eslint-disable-next-line no-control-regex -- the control characters are the thing being removed.
 const ESCAPES = /\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007\u001b]*(?:\u0007|\u001b\\)|[@-Z\\-_])/g;
 
-/** The text with the terminal's escape sequences and control characters taken out. */
 export function plain(text: string): string {
 	return (
 		text
@@ -15,7 +14,6 @@ export function plain(text: string): string {
 	);
 }
 
-/** Where a link or an image points, as the line under it names it. */
 export function siteOf(url: string): string | undefined {
 	try {
 		const parsed = new URL(url);

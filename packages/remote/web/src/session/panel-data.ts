@@ -1,4 +1,4 @@
-// What the chrome lists, apart from the views that draw it: a phone draws with views, and a test cannot.
+// What the chrome lists, apart from the views, so a test can read it.
 import {
 	type BoardCard,
 	type BoardView,
@@ -12,7 +12,6 @@ import { plain } from "./plain.ts";
 export function boardCards(
 	board: BoardView | undefined,
 ): { id: string; line: string }[] | undefined {
-	// Absent is not empty: a session that never said what its board holds is not a session with no cards.
 	if (board === undefined) return undefined;
 	return board.open.map((card) => ({
 		id: card.id,
@@ -20,7 +19,6 @@ export function boardCards(
 	}));
 }
 
-/** The one fact that goes with the card's column: what it waits on, or who reviews it. */
 function factOf(card: BoardCard): string {
 	if (card.blocked !== undefined) return blockedOf(card.blocked, "operator");
 	if (card.reviewer !== undefined) return `review: ${card.reviewer}`;

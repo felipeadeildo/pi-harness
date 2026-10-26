@@ -1,11 +1,9 @@
-// What a session's board holds, as it travels: the shape the kit draws and the wire carries. A copy,
-// because the wire may not assume the kit is on the other side.
+// A copy of the kit's board view, since the wire may not assume the kit is on the other side.
 import { isObject } from "./by.ts";
 
-/** A column of the board, as the writer named it. A reader draws the word it received. */
 export type BoardColumn = "backlog" | "todo" | "doing" | "review" | "done" | "dropped";
 
-/** Why a card waits, and for whom. The value names the thing, never the reader. */
+/** Names the thing, never the reader. */
 export type BoardBlocker = { why: string } & (
 	| { on: "operator" }
 	| { on: "outside" }
@@ -26,7 +24,6 @@ export interface BoardCard {
 }
 
 export interface BoardView {
-	/** The cards a panel shows, in the order their writer cut and ordered them. */
 	open: BoardCard[];
 	backlog: number;
 	done: BoardCard[];
@@ -41,7 +38,7 @@ export function blockedOf(blocked: BoardBlocker, reader: "operator" | "agent"): 
 	return `${handle}: ${blocked.why}`;
 }
 
-/** Whether a value is a board view this version reads. A card without its four fields is not one. */
+/** A card without its four fields is not one. */
 export function isBoardView(value: unknown): value is BoardView {
 	return (
 		isObject(value) &&

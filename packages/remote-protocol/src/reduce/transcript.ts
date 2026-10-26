@@ -1,6 +1,6 @@
 // The branch is rebuilt from pi's entries by `parentId`, so a reconnect shows nothing twice.
 
-/** An entry, read by the fields the tree needs. The rest travels untouched. */
+/** The fields the tree needs; the rest travels untouched. */
 export interface Entry {
 	id: string;
 	parentId: string | null;
@@ -8,7 +8,6 @@ export interface Entry {
 	timestamp?: string;
 }
 
-/** A message as pi stores it, with only the fields a screen reads. */
 export interface ChatMessage {
 	role: string;
 	content: unknown;
@@ -25,7 +24,7 @@ export type TranscriptItem =
 			at?: string;
 			customType: string;
 			data: unknown;
-			/** A message an extension put in the session says whether pi shows it in the chat. */
+			/** Whether pi shows it in the chat. */
 			display?: boolean;
 	  }
 	| { kind: "compaction"; entry: string; at?: string; summary: string; firstKept?: string }
@@ -36,13 +35,11 @@ export type TranscriptItem =
 	| { kind: "label"; entry: string; at?: string; target: string; label?: string }
 	| { kind: "usage"; entry: string; at?: string }
 	| { kind: "edit"; entry: string; at?: string; target: string }
-	/** An entry a newer pi writes, kept so the transcript shows it happened without inventing a shape. */
+	/** A newer pi's entry, kept so the transcript shows it happened. */
 	| { kind: "other"; entry: string; at?: string; type: string };
 
-/** What a reader holds of one session: the branch, and where it ends. */
 export interface Transcript {
 	items: TranscriptItem[];
-	/** The entry the branch starts from, which is what a moved leaf changed. */
 	leaf?: string;
 }
 
@@ -66,7 +63,6 @@ export function branchOf(entries: readonly Entry[], leaf?: string): Entry[] {
 	return walked.reverse();
 }
 
-/** One entry as the screen draws it. */
 export function itemOf(entry: Entry): TranscriptItem {
 	const base = { entry: entry.id, at: entry.timestamp };
 	switch (entry.type) {
@@ -144,7 +140,6 @@ export function itemOf(entry: Entry): TranscriptItem {
 	}
 }
 
-/** The branch, drawn. */
 export function transcriptOf(entries: readonly Entry[], leaf?: string): Transcript {
 	const branch = branchOf(entries, leaf);
 	const last = branch.at(-1);

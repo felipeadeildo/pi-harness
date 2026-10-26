@@ -3,18 +3,15 @@
 import type { AskResult, OpenAsk } from "@adeildo/pi-remote-protocol";
 import type { Client } from "@adeildo/pi-remote-protocol/client";
 
-/** What the person has chosen so far, by question index. */
 export interface Draft {
-	/** The options picked, in the order they were picked. */
 	picks: Record<number, string[]>;
-	/** What the person typed, when they typed instead of picking. */
+	/** When they typed instead of picking. */
 	typed: Record<number, string>;
 }
 
-/** Nobody has chosen anything yet. */
 export const EMPTY: Draft = { picks: {}, typed: {} };
 
-/** Picks or unpicks an option. A question that takes one answer replaces what was there. */
+/** A single-answer question replaces what was there. */
 export function pick(
 	draft: Draft,
 	index: number,
@@ -29,12 +26,11 @@ export function pick(
 	return { ...draft, picks: { ...draft.picks, [index]: picked } };
 }
 
-/** Types an answer. Typing and picking are alternatives for the same question, not both at once. */
+/** Typing and picking are alternatives for the same question. */
 export function type(draft: Draft, index: number, text: string): Draft {
 	return { ...draft, typed: { ...draft.typed, [index]: text } };
 }
 
-/** Whether every question has an answer, which is what the send button waits for. */
 export function ready(ask: OpenAsk, draft: Draft): boolean {
 	return ask.questions.every((_, index) => {
 		const typed = draft.typed[index]?.trim() ?? "";
@@ -42,7 +38,6 @@ export function ready(ask: OpenAsk, draft: Draft): boolean {
 	});
 }
 
-/** One entry per question, in the order asked. */
 export function answerOf(ask: OpenAsk, draft: Draft): AskResult {
 	return {
 		answers: ask.questions.map((one, index) => {
@@ -59,7 +54,6 @@ export function answerOf(ask: OpenAsk, draft: Draft): AskResult {
 	};
 }
 
-/** The outcome arrives as an event. */
 export function answerAsk(client: Client, ask: OpenAsk, draft: Draft): void {
 	client.send("ask.answer", { ask: ask.id, result: answerOf(ask, draft) });
 }

@@ -21,7 +21,6 @@ export interface Entry<T> {
 	apply(state: SessionState, data: T): SessionState;
 }
 
-/** Writes an entry whose shape is the one its check names, so the shape is written once, in the check. */
 function entry<T>(written: Entry<T>): Entry<T> {
 	return written;
 }
@@ -31,10 +30,9 @@ const unchanged = (state: SessionState): SessionState => state;
 /** The daemon holds the state for the session's life, so answered questions must not pile up. */
 export const KEPT_CLOSED = 100;
 
-/** How many models the state keeps of what a registry lists. A registry is a third party's data. */
+/** A registry is a third party's data. */
 const KEPT_MODELS = 300;
 
-/** How many prompts' senders the state keeps. The number is a choice, not a measurement. */
 const KEPT_PROMPTS = 100;
 
 function bound(state: SessionState): SessionState {
@@ -64,8 +62,7 @@ export const CHANGES = {
 				permissions: {
 					...state.permissions,
 					rulings: {
-						// A call ruled again moves to the end, so "the newest" is the last one the state
-						// keeps, which is also the order the bound drops from. Object order is insertion.
+						// A call ruled again moves to the end, which is also the order the bound drops from.
 						...Object.fromEntries(
 							Object.entries(state.permissions.rulings).filter(([id]) => id !== data.toolCallId),
 						),
@@ -92,7 +89,7 @@ export const CHANGES = {
 			isObject(data) && typeof data.id === "string" && isObject(data.result),
 		apply: (state, data) => {
 			const before = state.questions[data.id];
-			// A second answer does not erase who gave the first one: only a named one wins.
+			// Only a named second answer replaces who gave the first.
 			const earlier = before?.closed === true ? before.by : undefined;
 			const by = data.by !== undefined ? data.by : earlier;
 			return bound({
@@ -122,15 +119,13 @@ export const CHANGES = {
 		}),
 	}),
 	"session.status": entry({
-		// pi's program status words only: the log's own `session.state` is peers' running or idle, and a
-		// line of it must never read as a status.
+		// Pi's status words only: the log's `session.state` is peers' running or idle.
 		check: (data): data is { status: (typeof SESSION_STATES)[number] } =>
 			isObject(data) && SESSION_STATES.some((status) => status === data.status),
 		apply: (state, data) => ({ ...state, status: data.status }),
 	}),
 	"session.live": entry({
-		// The list is the contract the composer and the refusal both read: a `source` this version does
-		// not know would be drawn by the screen and misjudged by the wire, so it is refused here.
+		// A `source` this version does not know would be drawn by the screen and misjudged by the wire.
 		check: (
 			data,
 		): data is {
@@ -139,12 +134,10 @@ export const CHANGES = {
 			cwd?: string;
 			name?: string;
 			kind: "terminal" | "background";
-			/** The model this session answers with, and how hard it thinks, as pi reports them live. */
 			model?: { provider: string; id: string };
 			thinkingLevel?: string;
 			/** Pi writes the file only at the first message, so `ENOENT` means no older entries yet. Absent with `--no-session`. */
 			file?: string;
-			/** What a client may run by typing `/`, which this session offers at this instant. */
 			commands?: SessionCommand[];
 		} =>
 			isObject(data) &&
@@ -158,7 +151,7 @@ export const CHANGES = {
 					))),
 		apply: (state, data) => ({
 			...state,
-			// Absence means "not said here", so a live event that names only the folder leaves the rest.
+			// Absent means unchanged.
 			...(data.name === undefined ? {} : { name: data.name }),
 			...(data.model === undefined ? {} : { model: data.model }),
 			...(data.thinkingLevel === undefined ? {} : { thinkingLevel: data.thinkingLevel }),
@@ -172,12 +165,10 @@ export const CHANGES = {
 				data.reason === "crash" ||
 				data.reason === "unanswered" ||
 				data.reason === "replaced"),
-		// A session that ended is news to the daemon and to the screen; the state it left stays.
 		apply: unchanged,
 	}),
-	/** The bridge numbers each message it streams, from 1 in each epoch; `pi.message_start` carries the same number. */
+	// From 1 in each epoch; `pi.message_start` carries the same number.
 	"stream.bound": entry({
-		// The number matters: a stream that is not pi's number cannot be matched to a transcript.
 		check: (data): data is { messages: { stream: number; entry: string }[] } =>
 			isObject(data) &&
 			Array.isArray(data.messages) &&
@@ -189,16 +180,15 @@ export const CHANGES = {
 			),
 		apply: unchanged,
 	}),
-	/** The entry the branch ends at, or null when a `/tree` move goes back to the root. */
+	// Null when a `/tree` move goes back to the root.
 	"leaf.changed": entry({
 		check: (data): data is { leaf: string | null } =>
 			isObject(data) && (data.leaf === null || typeof data.leaf === "string"),
-		// Where the branch ends is the stream's cursor, not the state's: the entries carry the leaf.
+		// The entries carry the leaf.
 		apply: unchanged,
 	}),
-	/** Always written with who sent it, since that is the whole state change; read leniently, see `isStateChange`. */
+	// Read leniently; see `isStateChange`.
 	"prompt.received": entry({
-		// A prompt that reached the log names who sent it; anything else is not this state change.
 		check: (data): data is { by: By } => isObject(data) && isBy(data.by),
 		apply: unchanged,
 	}),
@@ -213,10 +203,8 @@ export const CHANGES = {
 			),
 		}),
 	}),
-	/** The models the session could switch to, from pi's registry when the bridge built its opening. */
 	"models.listed": entry({
-		// One entry without a provider, an id or a name makes the whole list unreadable: a list that
-		// names a model a client cannot pick, or cannot read, is worse than the list not arriving.
+		// One unreadable entry makes the whole list unreadable.
 		check: (data): data is { models: ModelOption[] } =>
 			isObject(data) &&
 			Array.isArray(data.models) &&
@@ -236,13 +224,12 @@ export const CHANGES = {
 			modelsTotal: data.models.length,
 		}),
 	}),
-	/** The whole queue as it stands: it waits in the session, so every client sees the same list. */
+	// Every client sees the same list.
 	"queue.changed": entry({
 		check: (data): data is { queue: QueuedMessage[] } =>
 			isObject(data) && Array.isArray(data.queue) && data.queue.every(isQueuedMessage),
 		apply: (state, data) => ({ ...state, queue: data.queue }),
 	}),
-	/** The terminal waits on a dialog a client cannot answer, or stops waiting on it. */
 	"terminal.prompted": entry({
 		check: (data): data is { open: boolean; kind: PromptKind; title?: string } =>
 			isObject(data) &&
@@ -254,15 +241,13 @@ export const CHANGES = {
 			return data.open ? { ...rest, prompt: { kind: data.kind, title: data.title } } : rest;
 		},
 	}),
-	/** What the session has cost so far, summed by the bridge from pi's per-message usage. */
 	"cost.changed": entry({
-		// Every number a reader sums: a `NaN` here would be drawn as `$NaN` and kept for the day.
+		// A `NaN` would be drawn as `$NaN`.
 		check: (data): data is { cost: SessionCost } => isObject(data) && isCost(data.cost),
 		apply: (state, data) => ({ ...state, cost: data.cost }),
 	}),
 };
 
-/** Every state change the client reduces, with the shape each carries: the one its entry's check names. */
 export type StateChangeMap = { [K in keyof typeof CHANGES]: DataOf<(typeof CHANGES)[K]> };
 
 export type StateChangeType = keyof StateChangeMap;
@@ -271,12 +256,10 @@ type DataOf<E> = E extends Entry<infer T> ? T : never;
 
 export const STATE_CHANGES: readonly StateChangeType[] = Object.keys(CHANGES) as StateChangeType[];
 
-/** Whether a string names a state change this version folds. */
 export function isStateChangeType(type: string): type is StateChangeType {
 	return Object.hasOwn(CHANGES, type);
 }
 
-/** The same table, read by type: each entry's check and apply agree on one shape, which `applyOne` needs. */
 const BY_TYPE: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = CHANGES;
 
 export function applyOne<K extends StateChangeType>(
@@ -288,7 +271,6 @@ export function applyOne<K extends StateChangeType>(
 	return entry.check(data) ? entry.apply(state, data) : state;
 }
 
-/** Whether a value is one sum of usage: five finite numbers, which is what the screens draw. */
 function isCost(value: unknown): value is NonNullable<SessionState["cost"]> {
 	if (!isObject(value)) return false;
 	return (

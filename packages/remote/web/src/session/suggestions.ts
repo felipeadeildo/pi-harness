@@ -1,18 +1,15 @@
-// Typing `/` in the composer offers what the session says it can run, and nothing else. The list is the
-// host's, so a command the bridge would refuse never appears; a text that only looks like one stays text.
+// `/` offers what the session says it can run, and nothing else.
 
 import type { SessionCommand } from "@adeildo/pi-remote-protocol";
 
-/** What the field shows while the person types a slash command. */
 export interface Suggestion {
-	/** What goes into the draft when it is chosen, always with the leading slash. */
+	/** With the leading slash. */
 	name: string;
 	description?: string;
-	/** Which group it belongs to, so the list can say "skills" and "templates" instead of one heap. */
+	/** So the list can group skills and templates. */
 	source: SessionCommand["source"];
 }
 
-/** Whether the draft is a slash command being typed: it starts with `/` and holds one word. */
 export function typingCommand(draft: string): boolean {
 	return /^\/[^\s]*$/.test(draft);
 }

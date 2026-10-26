@@ -2,10 +2,9 @@
 // address so it stays out of history and screenshots. The socket opens after that.
 import { type Cache, memoryCache } from "@adeildo/pi-remote-protocol/client";
 
-/** Where the token rides in the link: after `#`, so no request ever carries it. */
+/** After `#`, so no request ever carries it. */
 const TOKEN_KEY = "token";
 
-/** The token in a location's hash, or undefined when the link carries none. */
 export function tokenOf(hash: string): string | undefined {
 	const params = new URLSearchParams(hash.replace(/^#/, ""));
 	const token = params.get(TOKEN_KEY);
@@ -18,22 +17,18 @@ export function withoutFragment(url: string): string {
 	return at === -1 ? url : url.slice(0, at);
 }
 
-/** The address without the token: the fragment goes, and so does the login it carried. */
 export function withoutToken(location: { pathname: string; search: string; hash: string }): string {
 	return withoutFragment(`${location.pathname}${location.search}${location.hash}`);
 }
 
 export interface LoggedIn {
-	/** Whether the page may open the socket, and the cache it should draw from. */
 	ok: boolean;
 	cache: Cache;
-	/** What went wrong, for a page that cannot draw anything yet. */
 	why?: string;
 }
 
-/** How the page talks to the daemon. Injected so a test does not need a server. */
+/** Injected so a test needs no server. */
 export interface Exchange {
-	/** Answers 204 with the login cookie, or a refusal the page shows. */
 	login(token: string): Promise<{ ok: boolean; status: number }>;
 }
 
@@ -56,14 +51,13 @@ export async function logIn(
 ): Promise<LoggedIn> {
 	const token = tokenOf(location.hash);
 	if (token === undefined) return { ok: true, cache: options.cache };
-	// Gone from the address before the request goes out: a screenshot or a shared tab must not carry it.
+	// Gone from the address before the request goes out.
 	location.replaceState(withoutToken(location));
 	let answer: { ok: boolean; status: number };
 	try {
 		answer = await options.exchange.login(token);
 	} catch {
-		// The daemon may be restarting, or the network gone. The token is spent either way, because it
-		// left the address, so this is a sentence and not a retry: asking for a new link is the way back.
+		// The token left the address, so it is spent either way: say so rather than retry.
 		return {
 			ok: false,
 			cache: memoryCache(),
@@ -71,8 +65,7 @@ export async function logIn(
 		};
 	}
 	if (answer.ok) return { ok: true, cache: options.cache };
-	// The two refusals are different to the person reading them: a spent or late link, or the request
-	// itself going wrong. Telling them apart is what stops someone asking for a link that was fine.
+	// A spent link and a failed request read differently to the person.
 	const why =
 		answer.status === 401
 			? "This link was used or has expired. Ask pi for a new one with /remote."

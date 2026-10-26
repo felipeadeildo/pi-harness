@@ -12,14 +12,10 @@ import { type Scheme, piColor } from "../ui/pi-colors.ts";
 import { plain } from "./plain.ts";
 import { originOf, viewOf } from "./session-view.ts";
 
-/** How many lines of a tool's output show before the rest folds. */
 const OUTPUT_LINES = 8;
-/** How wide a shown line of a tool's output gets before it is cut. */
 const LINE_CHARS = 160;
-/** How much of the first line of a thought names the fold. */
 const THOUGHT_CHARS = 80;
 
-/** The colors the session wears when it has said which: the person's accent, and the agent's own. */
 interface Worn {
 	accent?: string;
 	agent?: string;
@@ -60,18 +56,16 @@ function itemNodes(item: TranscriptItem, promptFrom: SessionState["promptFrom"])
 		case "model":
 			return [line(item.entry, "model", `${item.provider}/${item.model}`)];
 		case "custom":
-			// What an extension put in the chat, like a colleague's message: the terminal shows it, so
-			// does the page, or the agent's answer would reply to nothing.
+			// What an extension put in the chat shows too, or the agent's answer would reply to nothing.
 			return item.display === true
 				? [line(item.entry, item.customType, textOf(partsOf(item.data)))]
 				: [];
 		default:
-			// Labels, usage, extensions' state and what a newer pi writes are not the conversation.
+			// Labels, usage, extension state and newer entry types are not the conversation.
 			return [];
 	}
 }
 
-/** A message, one node per part: what you wrote, what the model thought, said and called. */
 function messageNodes(
 	entry: string,
 	message: ChatMessage,
@@ -137,8 +131,7 @@ function assistantPart(key: string, part: Part): ReactNode {
 		case "thinking":
 			return thought(key, part.thinking ?? "");
 		case "toolCall":
-			// A question is drawn by the panel above the composer, where it can be answered: showing its
-			// call here would draw the same question twice, and the raw arguments are not the question.
+			// The panel above the composer draws questions, so the transcript does not.
 			return isQuestion(part.name)
 				? undefined
 				: line(key, part.name ?? "tool", argsOf(part.arguments));
@@ -147,16 +140,14 @@ function assistantPart(key: string, part: Part): ReactNode {
 	}
 }
 
-/** The two tools a session asks a person with, which the panel draws instead of the transcript. */
 function isQuestion(name: string | undefined): boolean {
 	return name === "ask_questions" || name === "ask_permission";
 }
 
-/** A thought, folded into its first line. */
 function thought(key: string, text: string): ReactNode {
 	const first = plain(text).trim().split("\n")[0] ?? "";
 	const named = first.length > THOUGHT_CHARS ? `${first.slice(0, THOUGHT_CHARS - 1)}…` : first;
-	// A redacted thought carries no text, so its fold is named by the word alone.
+	// A redacted thought carries no text.
 	const summary = named === "" ? "thinking" : `thinking · ${named}`;
 	return (
 		<li key={key} className="remote-thinking">
@@ -171,7 +162,7 @@ function thought(key: string, text: string): ReactNode {
 /** The first lines, each cut, with the rest in a fold. */
 function output(text: string): ReactNode {
 	const lines = plain(text).split("\n");
-	// Nearly every output ends with a newline, which is no line of its own.
+	// A trailing newline is no line of its own.
 	if (lines.length > 1 && lines.at(-1) === "") lines.pop();
 	const first = lines.slice(0, OUTPUT_LINES);
 	const cut = first.map((one) =>
@@ -182,7 +173,7 @@ function output(text: string): ReactNode {
 	const shown = <pre>{cut.join("\n")}</pre>;
 	if (rest === 0 && !wide) return shown;
 	const more = rest === 0 ? "the whole output" : `${rest} more line${rest === 1 ? "" : "s"}`;
-	// The fold holds everything when a line was cut, and only the rest when none was.
+	// Everything folds when a line was cut, only the rest when none was.
 	const folded = wide ? lines : lines.slice(OUTPUT_LINES);
 	return (
 		<div>
@@ -195,7 +186,6 @@ function output(text: string): ReactNode {
 	);
 }
 
-/** The arguments of a call on one line, the way the terminal shows them folded. */
 function argsOf(args: unknown): string {
 	if (typeof args !== "object" || args === null) return "";
 	return Object.entries(args)

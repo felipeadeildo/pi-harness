@@ -1,12 +1,10 @@
-// Who caused a state change. The kit has the same type; `test/conformance.test.ts` holds the two
-// together, so they cannot drift.
+// The kit has the same type; `test/conformance.test.ts` keeps the two together.
 
 export interface By {
-	/** The operator at a pi's terminal, the operator at a client such as a phone, or an agent. */
 	kind: "terminal" | "client" | "agent";
-	/** The session's handle for a terminal or an agent, and the device's name for a client. */
+	/** The handle for a terminal or an agent; the device's name for a client. */
 	name: string;
-	/** Where it happened: the hostname, until machines have ids. */
+	/** The hostname. */
 	machine: string;
 }
 

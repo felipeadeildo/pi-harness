@@ -1,5 +1,4 @@
-// The shapes that cross a process, and the reducers that turn a recording back into what a screen
-// draws. Nothing here imports pi, the kit or node: the page and the daemon both use it.
+// Imports nothing from pi, the kit or node: the page and the daemon both use it.
 export { BY_KINDS, isBy, isObject, type By } from "./by.ts";
 export {
 	type BoardBlocker,

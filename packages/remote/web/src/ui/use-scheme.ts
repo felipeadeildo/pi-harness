@@ -10,7 +10,7 @@ function subscribe(changed: () => void): () => void {
 	return () => query.removeEventListener("change", changed);
 }
 
-/** The system's scheme, which the CSS follows by itself and the colors a session names need in JS. */
+/** CSS follows it by itself; session colors need it in JS. */
 export function useScheme(): Scheme {
 	return useSyncExternalStore(
 		subscribe,

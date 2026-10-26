@@ -1,4 +1,3 @@
-// What a session screen derives from a session: the cached view, the title and the about line.
 import type { SessionState, TranscriptItem } from "@adeildo/pi-remote-protocol";
 import {
 	type ClientSession,
@@ -32,7 +31,7 @@ export function viewOf(session: ClientSession): View {
 	return view;
 }
 
-/** What the session is called: the name pi has for it, else the handle a room uses. */
+/** Pi's name for it, else the room's handle. */
 export function titleOf(session: ClientSession): string {
 	const summary = session.summary;
 	return summary?.name ?? summary?.handle ?? `new-${session.key.session.slice(-4)}`;
@@ -53,7 +52,7 @@ export function originOf(
 ): string | undefined {
 	const by = promptFrom?.[entry];
 	if (by === undefined) return undefined;
-	// A sender with no name is still known to be a client, and the line does not invent one.
+	// A sender with no name is still a client, and the line invents none.
 	const name = plain(by.name).trim();
 	return name === "" ? "from a client" : `from ${name}`;
 }

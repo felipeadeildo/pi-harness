@@ -16,7 +16,6 @@ import { useSession } from "../session/use-session.ts";
 import { piColor } from "../ui/pi-colors.ts";
 import { useScheme } from "../ui/use-scheme.ts";
 
-/** How close to the end the reader is still counted as being at it, in pixels. */
 const AT_END = 80;
 
 export function Component(): ReactNode {
@@ -26,7 +25,7 @@ export function Component(): ReactNode {
 	const scroller = useRef<HTMLDivElement>(null);
 	const following = useRef(true);
 
-	// A reader who scrolled up to read is left where they are; one at the end keeps seeing the end.
+	// A reader who scrolled up stays put; one at the end keeps seeing the end.
 	useEffect(() => {
 		const box = scroller.current;
 		if (box !== null && following.current) box.scrollTop = box.scrollHeight;
@@ -39,8 +38,7 @@ export function Component(): ReactNode {
 			</main>
 		);
 	if (session === undefined || client === undefined) return <main className="page" />;
-	// One question at a time, and it sits above the composer: it is the thing the agent is waiting on.
-	// The oldest comes first: whoever asked first has been waiting longest.
+	// One question at a time, above the composer, oldest first.
 	const asked = openQuestions(harnessOf(session))[0];
 	const { state } = viewOf(session);
 	const agent = piColor(scheme, state.theme?.color);

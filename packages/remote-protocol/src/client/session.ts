@@ -1,5 +1,3 @@
-// A session as the client holds it: the branch, the state beside it, and the cursor a reconnect sends.
-
 import {
 	applyChange,
 	emptySessionState,
@@ -33,14 +31,12 @@ export interface ClientSession {
 	key: SessionKey;
 	cursor: Cursor;
 	entries: Entry[];
-	/** The folded state, read the way the daemon reads it, so both hold the same. */
 	state: SessionState;
 	summary?: SessionSummary;
-	/** Who opens the session and who typed last, as the daemon last said. */
 	presence?: Presence;
-	/** `null` is the root; `undefined` means no opening said yet and the last entry stands. */
+	/** `null` is the root; `undefined` means no opening said it yet and the last entry stands. */
 	leaf?: string | null;
-	/** The messages being written, by the number the bridge gives the stream. */
+	/** By the bridge's stream number. */
 	streamed: Record<string, unknown>;
 }
 
@@ -51,25 +47,22 @@ export function sessionOf(key: SessionKey, cached?: CachedSession): ClientSessio
 		entries: (cached?.entries ?? []) as Entry[],
 		state: cached?.state ?? emptySessionState(),
 		leaf: cached?.leaf,
-		// A cache can be days old, so a stored `active` is dropped on the way in.
+		// A cache can be days old, so a stored `active` is dropped.
 		presence: cached?.presence === undefined ? undefined : { viewers: cached.presence.viewers },
 		streamed: {},
 	};
 }
 
-/** The branch as the protocol reduces it, from the leaf the bridge named. */
 export function transcriptOfSession(session: ClientSession): Transcript {
-	// At the root there is no branch to walk: the entries the client holds came after the move.
+	// At the root, the entries the client holds came after the move.
 	if (session.leaf === null) return { items: [] };
 	return transcriptOf(session.entries, session.leaf ?? session.cursor.entry);
 }
 
-/** The rulings, questions, mode and rename, as the client holds them. */
 export function harnessOf(session: ClientSession): SessionState {
 	return session.state;
 }
 
-/** What the next visit draws at once, with the commands nobody answered. */
 export function cachedOf(session: ClientSession, outbox: Outbox): CachedSession {
 	return {
 		key: session.key,
@@ -136,7 +129,7 @@ export function readEnvelope(session: ClientSession, value: unknown): Read {
 			},
 		};
 	}
-	// Presence is not a state change: reducing it from a replay would draw who was watching ten minutes ago.
+	// Reducing presence from a replay would draw who was watching ten minutes ago.
 	if (value.type === PRESENCE) {
 		if (!isPresence(value.data)) return { read: "skip" };
 		return {
@@ -147,7 +140,7 @@ export function readEnvelope(session: ClientSession, value: unknown): Read {
 	if (isStateChangeType(value.type)) {
 		const leaf =
 			value.type === "leaf.changed" ? (value.data as { leaf: string | null }).leaf : null;
-		// A leaf the client does not hold is a branch it never read: only the whole state can put it back.
+		// A leaf the client does not hold is a branch it never read.
 		if (leaf !== null && !session.entries.some((held) => held.id === leaf))
 			return { read: "state", why: "gap" };
 		return {
@@ -166,7 +159,6 @@ export function readEnvelope(session: ClientSession, value: unknown): Read {
 	return { read: "now", session: { ...session, cursor: advance(session.cursor, value) } };
 }
 
-/** The hello a client sends, which is what tells the bridge where the client stopped reading. */
 export function hello(session: ClientSession): Envelope {
 	return {
 		v: 1,

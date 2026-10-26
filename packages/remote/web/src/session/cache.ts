@@ -7,7 +7,6 @@ import {
 	type SessionKey,
 } from "@adeildo/pi-remote-protocol/client";
 
-/** The part of the Web Storage API the cache uses. */
 export interface StorageLike {
 	getItem(key: string): string | null;
 	setItem(key: string, value: string): void;
@@ -15,9 +14,7 @@ export interface StorageLike {
 }
 
 const PREFIX = "pi-remote:session:";
-/** The keys of the sessions kept, the one written last at the end. */
 const ORDER = "pi-remote:sessions";
-/** How many sessions the store keeps. */
 export const KEPT = 20;
 
 function itemOf(key: SessionKey): string {
@@ -54,8 +51,7 @@ export function storageCache(storage: StorageLike, kept = KEPT): Cache {
 				storage.setItem(item, JSON.stringify(value));
 				storage.setItem(ORDER, JSON.stringify(order));
 			} catch {
-				// A full store keeps the page working. The item it held is older than the session now,
-				// so it goes: the next visit opens cold instead of drawing what is no longer true.
+				// A full store drops this item, so the next visit opens cold instead of drawing stale state.
 				storage.removeItem(item);
 			}
 		},

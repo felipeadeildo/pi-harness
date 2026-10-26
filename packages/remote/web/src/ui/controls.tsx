@@ -1,5 +1,5 @@
-// The controls a page is made of: each is at least `--hit` on its short side, says what it is to a
-// screen reader, and shows its state in more than color.
+// Every control is at least `--hit` on its short side, names itself to a screen reader, and shows
+// its state in more than color.
 import { type ReactNode } from "react";
 
 interface ControlProps {
@@ -8,7 +8,7 @@ interface ControlProps {
 	disabled?: boolean;
 }
 
-/** The one action a screen is for: filled. A destructive one takes the danger color in the same place. */
+/** A destructive one takes the danger color in the same place. */
 export function Primary({
 	label,
 	onPress,
@@ -28,7 +28,7 @@ export function Primary({
 	);
 }
 
-/** A quiet action: a line around it, no fill. `mark` replaces the visible label, never the name. */
+/** `mark` replaces the visible label, never the accessible name. */
 export function Action({
 	label,
 	onPress,
@@ -48,7 +48,7 @@ export function Action({
 	);
 }
 
-/** A picker that shows what is chosen and opens the list: "Permission mode: edits" to a screen reader. */
+/** Reads "Permission mode: edits" to a screen reader. */
 export function Trigger({
 	title,
 	word,
@@ -56,7 +56,7 @@ export function Trigger({
 	onPress,
 }: {
 	title: string;
-	/** The quiet word before the value that says what the value is: `mode` before `manual`. */
+	/** `mode` before `manual`. */
 	word: string;
 	value: string;
 	onPress?: () => void;
