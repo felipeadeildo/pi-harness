@@ -36,7 +36,6 @@ import { signInAgain } from "./policy.ts";
 import type { AccountStore } from "./store.ts";
 import type { Account } from "./types.ts";
 
-/** Everything the dialogs share. */
 export interface Accounts {
 	scope: FeatureScope;
 	store: AccountStore;
@@ -46,7 +45,7 @@ export interface Accounts {
 
 type Registry = ExtensionContext["modelRegistry"];
 
-/** Alt+A: the account of the current provider, pinned for the session. */
+/** Alt+A: pins the current provider's account for the session. */
 export async function pickAccount(accounts: Accounts, ctx: ExtensionContext): Promise<void> {
 	const { scope, store, pins, watch } = accounts;
 	if (!ctx.hasUI) {
@@ -142,7 +141,7 @@ export async function manageAccounts(
 	ctx.ui.notify(`${NAME}: ${provider} uses ${account.label}`, "info");
 }
 
-/** A host without our frame gets the list as a plain select: use one, or add one. */
+/** A host without our frame gets a plain select. */
 async function plainList(
 	ctx: ExtensionContext,
 	listing: AccountsListing,
@@ -156,7 +155,6 @@ async function plainList(
 	return row === undefined ? undefined : { kind: "use", id: row.id };
 }
 
-/** One account as the list draws it. */
 function rowOf(
 	accounts: Accounts,
 	providerId: string,
@@ -175,7 +173,7 @@ function rowOf(
 	};
 }
 
-/** What a row says: the account's own trouble first, else how its plan stands. */
+/** The account's own trouble first, else how its plan stands. */
 function stateOf(
 	account: Account,
 	usage: AccountUsage | undefined,
@@ -189,7 +187,7 @@ function stateOf(
 	return left === undefined ? { kind: "quiet" } : { kind: "spent", resetsIn: left };
 }
 
-/** What an empty list says, which mentions pi's own login when there is one to bring along. */
+/** Mentions pi's own login when there is one to bring along. */
 function emptyText(providerId: string, provider: string): string {
 	const existing = piLogin(providerId);
 	if (existing === undefined) return `No ${provider} accounts yet.`;
@@ -210,8 +208,7 @@ async function addAccount(
 		return;
 	}
 	const provider = ctx.modelRegistry.getProviderDisplayName(providerId);
-	// This flow keeps the credential itself, so the login runs on the provider underneath: the lifted
-	// one adopts what its login returns, which would name and add the account a second time.
+	// The login runs on the provider underneath, since this flow keeps the credential itself.
 	const method = await pickMethod(ctx, nativeOf(registered), provider);
 	if (method === undefined) return;
 
@@ -230,7 +227,7 @@ async function addAccount(
 		const added = saveAccount(ctx, store, providerId, label, credential);
 		if (added === undefined) return;
 		useAccount({ pi: scope, store, pins, providerId }, ctx, added.id);
-		// The first account of a provider was not attached at session start, so attach it now.
+		// The first account was not attached at session start.
 		if (first) attachProvider(scope, store, pins, watch, ctx, providerId);
 		ctx.ui.notify(`${NAME}: ${provider} now uses ${label}`, "info");
 		void showPlans(store, pins, watch, ctx, providerId);
@@ -242,7 +239,6 @@ async function addAccount(
 	}
 }
 
-/** Pi's own login of a provider, with the name it keeps as an account, when there is one. */
 async function namePiLogin(
 	ctx: ExtensionContext,
 	providerId: string,
@@ -254,7 +250,6 @@ async function namePiLogin(
 	return { label: await askName(ctx, title, provider), credential };
 }
 
-/** The provider's name for its first account, then the same name numbered. */
 function suggestName(
 	store: AccountStore,
 	providerId: string,
@@ -268,7 +263,6 @@ function suggestName(
 	return candidate;
 }
 
-/** The providers a login can add an account to, those with accounts first. */
 export function loginProviders(registry: Registry, store: AccountStore): string[] {
 	const ids = new Set(registry.getAll().map((model) => model.provider));
 	return [...ids]
@@ -283,12 +277,10 @@ export function loginProviders(registry: Registry, store: AccountStore): string[
 		);
 }
 
-/** How many accounts a provider has, as a picker says it. */
 export function accountCount(count: number): string {
 	return `${count} account${count === 1 ? "" : "s"}`;
 }
 
-/** The provider to manage, each with what it has. */
 async function pickProvider(
 	store: AccountStore,
 	ctx: ExtensionContext,

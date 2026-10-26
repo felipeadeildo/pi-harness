@@ -1,4 +1,3 @@
-// The one place that answers which account a request uses.
 import type { Pins } from "./pins.ts";
 import type { AccountStore } from "./store.ts";
 import type { Account } from "./types.ts";

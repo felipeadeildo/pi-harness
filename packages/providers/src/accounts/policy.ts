@@ -1,4 +1,3 @@
-// What the accounts do when the provider refuses a request, by the settings the user chose.
 import type { FeatureScope } from "@adeildo/pi-kit";
 import type { Credential } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -71,7 +70,6 @@ export async function afterLimit(
 	return switchTo(scope, store, pins, ctx, providerId, chosen, detail);
 }
 
-/** Follows the `accounts.onAuthFailure` policy: sign in again, switch, or stop. */
 export async function afterAuthFailure(
 	scope: FeatureScope,
 	store: AccountStore,
@@ -116,7 +114,6 @@ export async function afterAuthFailure(
 	return undefined;
 }
 
-/** Runs the provider's own login again, keeping the account's name and its pin. */
 export async function signInAgain(
 	store: AccountStore,
 	ctx: ExtensionContext,
@@ -125,7 +122,7 @@ export async function signInAgain(
 	detail?: string,
 ): Promise<{ id: string; credential: Credential } | undefined> {
 	const registered = ctx.modelRegistry.getProvider(providerId);
-	// The native provider, so the login does not pass through the lift and ask for a name again.
+	// The native provider, so the login does not ask for a name again.
 	const provider = registered === undefined ? undefined : nativeOf(registered);
 	if (provider === undefined) return undefined;
 	const method = loginMethods(provider).find(
@@ -175,7 +172,6 @@ function switchTo(
 	return { id: next.id, credential: next.credential };
 }
 
-/** Remembers the accounts that refused in this session, so a switch does not try them again. */
 function markLimited(
 	limited: Map<string, Set<string>>,
 	providerId: string,
@@ -200,7 +196,6 @@ function limitCandidates(
 	return [...ready, ...open.filter((account) => !ready.includes(account))];
 }
 
-/** How long until a spent account's plan resets, or undefined when it is not known to be spent. */
 function resetsIn(account: Account): string | undefined {
 	return timeLeft(account.health?.limitedUntil ?? 0);
 }
@@ -212,7 +207,6 @@ function switchLabel(account: Account): string {
 		: `Switch to ${account.label} (limited, resets in ${left})`;
 }
 
-/** The account after this one that has not refused yet. */
 function nextAccount(
 	list: readonly Account[],
 	currentId: string,
@@ -220,7 +214,7 @@ function nextAccount(
 ): Account | undefined {
 	if (list.length === 0) return undefined;
 	const index = list.findIndex((account) => account.id === currentId);
-	// An account removed while it served is no longer in the list, so every account is a candidate.
+	// An account removed while it served is not in the list.
 	if (index < 0) return list.find((account) => !refused.has(account.id));
 	if (list.length < 2) return undefined;
 	for (let step = 1; step < list.length; step++) {

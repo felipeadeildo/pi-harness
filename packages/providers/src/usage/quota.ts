@@ -1,5 +1,4 @@
-// Reads a plan once per account and keeps the answer for the process. The record the caller gives
-// decides the reader of each provider, so another provider is another entry.
+// Reads a plan once per account and keeps the answer for the process.
 import type { AccountUsage, QuotaReader, UsageRequest } from "./types.ts";
 
 const RETRY_AFTER_FAILURE_MS = 15 * 60 * 1000;
@@ -15,7 +14,6 @@ export class Quota {
 
 	constructor(private readonly readers: Record<string, QuotaReader | undefined>) {}
 
-	/** Whether this provider's plan can be read at all. */
 	reads(providerId: string): boolean {
 		return this.readers[providerId] !== undefined;
 	}
@@ -24,7 +22,6 @@ export class Quota {
 		return this.readings.get(quotaKey(providerId, accountId));
 	}
 
-	/** The windows a response of this provider carries, when its reader knows them. */
 	fromHeaders(providerId: string, headers: Record<string, string>): AccountUsage | undefined {
 		return this.readers[providerId]?.headers?.(headers);
 	}
@@ -52,7 +49,7 @@ export class Quota {
 		}
 	}
 
-	/** The reader first; when it refuses, its fallback still carries the windows. */
+	// When the reader refuses, its fallback still carries the windows.
 	private async fill(
 		key: string,
 		reader: QuotaReader,
@@ -66,7 +63,6 @@ export class Quota {
 	}
 }
 
-/** A window that already rolled over makes the reading stale. */
 function rolled(usage: AccountUsage, now: number): boolean {
 	const seconds = Math.floor(now / 1000);
 	return (

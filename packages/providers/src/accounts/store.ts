@@ -1,5 +1,4 @@
-// The extra accounts live beside the settings, one file for every provider. Pi's own credential is
-// not copied here: it stays in pi's store, and is what a request uses when no account is chosen.
+// One file beside the settings for every provider's accounts. Pi's own credential stays in pi's store.
 import { randomUUID } from "node:crypto";
 import { dirname, join } from "node:path";
 
@@ -16,12 +15,11 @@ export function accountsPath(): string {
 	return join(dirname(globalSettingsPath()), ACCOUNTS_FILE);
 }
 
-/** The file two pi processes take while they refresh the same accounts. */
+/** Taken by two pi processes refreshing the same accounts. */
 export function accountsLockPath(): string {
 	return join(dirname(globalSettingsPath()), "accounts.lock");
 }
 
-/** What an add produced: the account it wrote, or why it did not. */
 export interface Added {
 	account?: Account;
 	problem?: string;
@@ -35,14 +33,12 @@ export class AccountStore {
 		this.path = path;
 	}
 
-	/** Reads the file again, for another pi's write or a hand edit. */
 	reload(): string[] {
 		const read = readAccounts(this.path);
 		this.data = { version: 1, providers: read.providers };
 		return read.warnings;
 	}
 
-	/** The providers with at least one account. */
 	providerIds(): string[] {
 		return Object.keys(this.file().providers);
 	}
@@ -55,7 +51,7 @@ export class AccountStore {
 		return this.accounts(providerId).length > 0;
 	}
 
-	/** The account the store prefers. Without one the feature keeps pi's own credential. */
+	/** Without one the feature keeps pi's own credential. */
 	active(providerId: string): Account | undefined {
 		const entry = this.file().providers[providerId];
 		if (entry?.active === undefined) return undefined;
@@ -89,7 +85,6 @@ export class AccountStore {
 		});
 	}
 
-	/** Sets the account the store prefers, or clears the choice with undefined. */
 	setActive(providerId: string, id: string | undefined): string | undefined {
 		return this.edit((providers) => {
 			const entry = providers[providerId];
@@ -99,7 +94,6 @@ export class AccountStore {
 		});
 	}
 
-	/** Keeps the credential a refresh produced. */
 	setCredential(providerId: string, id: string, credential: Credential): string | undefined {
 		return this.edit((providers) => {
 			const account = find(providers, providerId, id);
@@ -107,7 +101,6 @@ export class AccountStore {
 		});
 	}
 
-	/** Remembers the last refusal of an account, which the picker shows. */
 	markError(
 		providerId: string,
 		id: string,
@@ -119,14 +112,12 @@ export class AccountStore {
 		});
 	}
 
-	/** Forgets the last refusal, after a sign-in or a request that worked. */
 	clearError(providerId: string, id: string): string | undefined {
 		return this.editHealth(providerId, id, (health) => {
 			delete health.lastError;
 		});
 	}
 
-	/** Remembers that the plan is spent until a time, or forgets it with undefined. */
 	markLimited(providerId: string, id: string, until: number | undefined): string | undefined {
 		return this.editHealth(providerId, id, (health) => {
 			if (until === undefined) delete health.limitedUntil;
@@ -155,7 +146,7 @@ export class AccountStore {
 		return this.data ?? { version: 1, providers: {} };
 	}
 
-	/** Reads, changes and writes, so another pi's write since the last read is not lost. */
+	/** Reads, changes and writes, so another pi's write is not lost. */
 	private edit(change: (providers: Record<string, ProviderAccounts>) => void): string | undefined {
 		const read = readAccounts(this.path);
 		const warning = read.warnings[0];
@@ -226,7 +217,7 @@ function asAccount(input: unknown): Account | undefined {
 	};
 }
 
-/** Keeps the health fields that decode, so a hand edit cannot break the account. */
+/** So a hand edit cannot break the account. */
 function readHealth(input: unknown): AccountHealth | undefined {
 	if (!isObject(input)) return undefined;
 	const health: AccountHealth = {};

@@ -1,5 +1,4 @@
-// What happens after a provider login: the credential gets a name, either replacing an account or
-// becoming a new one, and the session moves to it.
+// After a provider login the credential gets a name, replacing an account or becoming a new one.
 import type { FeatureScope } from "@adeildo/pi-kit";
 import type { Credential } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -52,14 +51,13 @@ export async function adoptAccount(
 		return;
 	}
 
-	// A closed dialog asks nothing more, and the login keeps the provider's name.
+	// A closed dialog keeps the provider's name.
 	let label = provider;
 	if (choice !== undefined) label = await askName(ctx, `Name this ${provider} account`, provider);
 	const added = saveAccount(ctx, store, providerId, label, credential);
 	if (added !== undefined) keep(of, ctx, provider, added);
 }
 
-/** Moves the session to the account the login belongs to. */
 function keep(of: AccountsOf, ctx: ExtensionContext, provider: string, account: Account): void {
 	useAccount(of, ctx, account.id);
 	ctx.ui.notify(`${NAME}: ${provider} now uses ${account.label}`, "info");

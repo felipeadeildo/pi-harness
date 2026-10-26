@@ -1,5 +1,4 @@
-// A framed screen for a provider login: what it is doing, the URL or the code to use, and the answer
-// it waits for. The provider drives it through the interaction pi would hand it.
+// A framed screen for a provider login, driven through the interaction.
 import { spawn } from "node:child_process";
 
 import { frame, frameInner, type KeyHint } from "@adeildo/pi-kit";
@@ -24,12 +23,11 @@ import {
 
 const MAX_LOG = 5;
 
-/** Pi's own Text wraps the URL and the instructions into the rows the frame draws. */
 function wrap(text: string, width: number): string[] {
 	return new Text(text, 0, 0).render(width);
 }
 
-/** The opener pi uses, so the sign-in page opens on its own and the URL stays for the rest. */
+/** Opens the sign-in page; the URL stays shown for the rest. */
 function openBrowser(target: string): void {
 	const opener: [string, string[]] =
 		process.platform === "darwin"
@@ -44,11 +42,9 @@ function openBrowser(target: string): void {
 
 export interface LoginSession {
 	interaction: ProviderAuthInteraction;
-	/** Ends the screen once the login finished one way or another. */
 	close(): void;
 }
 
-/** Opens the framed login, or undefined when this host cannot draw it. */
 export function loginScreen(
 	ctx: ExtensionContext,
 	label: string,
@@ -72,7 +68,6 @@ interface Pending {
 	reject: (error: Error) => void;
 }
 
-/** What the screen does outside itself: open the sign-in page and copy the URL out. */
 export interface LoginActions {
 	keybindings?: KeybindingsManager;
 	open?: (url: string) => void;
@@ -145,7 +140,6 @@ export class LoginView implements Component, Focusable {
 		});
 	}
 
-	/** Ends the screen; the login it was drawing ended one way or another. */
 	finish(): void {
 		if (this.closed) return;
 		this.closed = true;
@@ -177,7 +171,7 @@ export class LoginView implements Component, Focusable {
 		this.tui.requestRender();
 	}
 
-	/** The copy key on a shown URL, which is what a session without a browser needs. */
+	/** What a session without a browser needs. */
 	private copyLink(data: string): boolean {
 		const link = this.link;
 		if (link === undefined) return false;

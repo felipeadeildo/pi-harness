@@ -16,7 +16,7 @@ export interface Endpoint {
 	id: string;
 	name: string;
 	baseUrl: string;
-	/** A literal key, `$NAME` for an environment variable, or empty for a server without one. */
+	/** `$NAME` reads an environment variable; empty for a server without one. */
 	key: string;
 }
 
@@ -31,7 +31,7 @@ export function endpointsOf(credential: unknown): Endpoint[] {
 	return endpoints;
 }
 
-// Read from the file on every call, so a change from another pi counts at once.
+/** Read on every call, so another pi's change counts at once. */
 export function storedEndpoints(): Endpoint[] {
 	return endpointsOf(readStoredCredential(COMPATIBLE_ID));
 }

@@ -1,4 +1,3 @@
-// The accounts feature and its two entry points.
 import { ACCOUNT, type AccountState, defineFeature } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type AutocompleteItem, Key } from "@earendil-works/pi-tui";
@@ -45,8 +44,7 @@ export const accounts = defineFeature({
 		let registry: ExtensionContext["modelRegistry"] | undefined;
 
 		scope.screen.rows((ctx) => accountRows(scope, store, pins, ctx));
-		// A model of another provider brings that provider's plans, so its quota shows before the first
-		// answer instead of after it.
+		// Another provider's model brings its plans, so its quota shows before the first answer.
 		scope.on("model_select", (event, ctx) => {
 			refreshStatus(store, pins, ctx);
 			void showPlans(store, pins, watch, ctx, event.model.provider).then(announce);
@@ -54,7 +52,7 @@ export const accounts = defineFeature({
 		});
 		scope.on("session_shutdown", (_event, ctx) => ctx.ui.setStatus(STATUS_KEY, undefined));
 
-		// Whoever draws the account in use asks for it on the spot, so it is never a frame old.
+		// Asked on the spot, so it is never a frame old.
 		ACCOUNT.provide(scope, (provider) => inUse(watch, store, pins, provider));
 
 		// The bridge follows changes instead. A switch, a sign-in, a limit and a new reading all happen
@@ -114,7 +112,6 @@ export const accounts = defineFeature({
 	},
 });
 
-/** The providers `/accounts` can take, those with accounts first. */
 function providerCompletions(
 	registry: ExtensionContext["modelRegistry"] | undefined,
 	store: AccountStore,
@@ -136,7 +133,6 @@ function providerCompletions(
 	return items.length === 0 ? null : items;
 }
 
-/** The account in use for a provider, with the windows it is spending. */
 function inUse(
 	watch: Watch,
 	store: AccountStore,

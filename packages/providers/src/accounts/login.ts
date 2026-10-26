@@ -6,24 +6,20 @@ import type {
 } from "@earendil-works/pi-ai";
 import { readStoredCredential } from "@earendil-works/pi-coding-agent";
 
-/** Read once, when the provider gets its first account. */
 export function piLogin(providerId: string): Credential | undefined {
 	return readStoredCredential(providerId);
 }
 
-/** The word a person reads for a credential type. */
 export function kindText(type: Credential["type"]): string {
 	return type === "oauth" ? "subscription" : "api key";
 }
 
-/** One way a provider can log in, named the way its own login dialog names it. */
 export interface LoginMethod {
 	provider: Provider;
 	authType: AuthType;
 	label: string;
 }
 
-/** Every way this provider logs in, OAuth first. */
 export function loginMethods(provider: Provider): LoginMethod[] {
 	const methods: LoginMethod[] = [];
 	const oauth = provider.auth.oauth;
@@ -36,7 +32,7 @@ export function loginMethods(provider: Provider): LoginMethod[] {
 	return methods;
 }
 
-/** Runs the provider's own login, so the OAuth flow and the key prompt both stay pi's. */
+/** The OAuth flow and the key prompt both stay pi's. */
 export async function login(
 	method: LoginMethod,
 	interaction: ProviderAuthInteraction,

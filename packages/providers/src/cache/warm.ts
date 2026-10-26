@@ -8,19 +8,15 @@ import type {
 
 import { returnChance, type Returns } from "./returns.ts";
 
-/** The model's prices and cache lifetime, which is all the decision reads from it. */
 export type CacheModel = Pick<Model<string>, "cost" | "promptCache">;
 
 export const STRATEGIES = ["learned", "pi", "minutes", "off"] as const;
-/** The learned strategy never keeps a cache warm longer than this. */
 const MAX_WARM_MINUTES = 120;
 export type Strategy = (typeof STRATEGIES)[number];
 
 export interface Away {
 	minutes: number;
-	/** The run ended on a question to you. */
 	asked: boolean;
-	/** Minutes between pi's refreshes. */
 	window: number;
 }
 
@@ -51,7 +47,7 @@ export function warmAction(
 	}
 }
 
-/** Pi refreshes at 90% of the cache's lifetime, keeping at least ten seconds of margin. */
+/** At 90% of the cache's lifetime, with at least ten seconds of margin. */
 export function refreshWindow(model: CacheModel | undefined): number {
 	const retention = process.env.PI_CACHE_RETENTION === "long" ? "long" : "short";
 	const seconds = model?.promptCache?.[retention] ?? 300;

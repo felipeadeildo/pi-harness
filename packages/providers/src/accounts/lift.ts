@@ -26,51 +26,42 @@ import {
 import { classifyFailure, type Failure } from "../errors.ts";
 import { needsRefresh, refreshAccount, type Renewal } from "./refresh.ts";
 
-/** An account as a request sees it. */
 export interface AccountCredential {
 	id: string;
 	credential: Credential;
 }
 
-/** The account the next request uses, and where a refreshed token is kept. */
 export interface AccountSession {
-	/** The account in use, or undefined once the provider has none left. */
 	resolve(): AccountCredential | undefined;
-	/** A subscription account, for when pi's copy needs a refresh and the one in use is a key. */
+	/** For when pi's copy needs a refresh and the account in use is a key. */
 	subscription?(): AccountCredential | undefined;
 	save(id: string, credential: Credential): void;
-	/** The account to try after this one hit a limit, or undefined to surface the error. */
+	/** Undefined surfaces the error. */
 	afterLimit(currentId: string, detail: string): Promise<AccountCredential | undefined>;
-	/** The credential was refused, so sign in again or try another account. */
 	afterAuthFailure?(currentId: string, detail: string): Promise<AccountCredential | undefined>;
-	/** Pi's own login just produced a credential; the feature keeps it under a name. */
+	/** Pi's own login produced a credential; the feature keeps it under a name. */
 	adopt?(credential: Credential): Promise<void>;
-	/** A framed screen for a login, when the caller can draw one. */
 	loginScreen?(
 		label: string,
 		signal: AbortSignal,
 	): Promise<{ interaction: ProviderAuthInteraction; close(): void } | undefined>;
-	/** The credential on disk now, in case another pi refreshed it since we read ours. */
+	/** Another pi may have refreshed it since we read ours. */
 	freshen?(id: string): Credential | undefined;
-	/** The file the refresh takes across processes, when the caller shares one. */
+	/** Shared across processes for the refresh. */
 	lockPath?(): string;
-	/** The quota headers of a response, kept for the account that served it. */
 	noteUsage?(id: string, headers: Record<string, string>): void;
-	/** The account served a request, so a limit it had is over. */
+	/** A limit it had is over. */
 	served?(id: string): void;
 }
 
-/** The native provider behind a lifted one, so lifting twice wraps the same object. */
 const NATIVE = Symbol.for("pi-providers.accounts.native");
 
-/** The provider a lifted one came from, or the provider itself. */
 export function nativeOf(provider: Provider): Provider {
 	return (provider as { [NATIVE]?: Provider })[NATIVE] ?? provider;
 }
 
 export function liftProvider(provider: Provider, session: AccountSession): Provider {
-	// Every method is delegated by hand, not by spread: the native may keep methods on a prototype,
-	// and a copied method would lose its `this`. One refresh runs per account at a time.
+	// Delegated by hand, not by spread: a method on the native's prototype would lose its `this`.
 	const refreshing = new Map<string, Promise<OAuthCredential>>();
 	const getAllModels = provider.getAllModels;
 	const refreshModels = provider.refreshModels;
@@ -157,8 +148,7 @@ async function* attempts(
 	let account = first;
 
 	for (let attempt = 1; ;) {
-		// Hold the events until something is visible: a retry on another account must not repeat a
-		// message the caller already saw.
+		// A retry on another account must not repeat a message the caller already saw.
 		const buffered: AssistantMessageEvent[] = [];
 		let output = false;
 		let failure: AssistantMessage | undefined;
@@ -211,7 +201,6 @@ async function* attempts(
 	}
 }
 
-/** The classified failure behind an attempt: the provider's own error, or what it threw. */
 function failureOf(
 	failed: AssistantMessage | undefined,
 	thrown: unknown,
@@ -221,13 +210,11 @@ function failureOf(
 	return thrown === undefined ? undefined : classifyFailure(thrown, provider);
 }
 
-/** What the policy says after a failure: another account, a sign-in, or nothing. */
 async function moveOn(
 	session: AccountSession,
 	accountId: string | undefined,
 	failure: Failure,
 ): Promise<AccountCredential | undefined> {
-	// Without an account there is nothing to move from, and the error is the provider's to show.
 	if (accountId === undefined) return undefined;
 	if (failure.kind === "usage") return await session.afterLimit(accountId, failure.message);
 	if (failure.kind === "auth") return await session.afterAuthFailure?.(accountId, failure.message);
@@ -238,7 +225,6 @@ function isContent(event: AssistantMessageEvent): boolean {
 	return event.type !== "start" && event.type !== "done" && event.type !== "error";
 }
 
-/** Pi hands the response headers here, so the account that served it keeps its quota current. */
 function noteUsage(
 	next: Options["onResponse"],
 	session: AccountSession,
@@ -250,7 +236,6 @@ function noteUsage(
 	};
 }
 
-/** The request auth for an attempt: the account's, or untouched once the provider has none. */
 async function authFor(
 	provider: Provider,
 	session: AccountSession,
@@ -313,7 +298,7 @@ async function resolveAuth(
 	return resolved === undefined ? { auth: {} } : { auth: resolved.auth, env: resolved.env };
 }
 
-// One refresh per account is shared, so two requests cannot rotate the token twice.
+/** Shared per account, so two requests cannot rotate the token twice. */
 async function refreshToken(
 	oauth: OAuthAuth,
 	session: AccountSession,
@@ -395,7 +380,7 @@ function liftedAuth(
 			...(login === undefined
 				? {}
 				: { login: (interaction) => adopted(login, interaction, session, provider.name) }),
-			// Reporting the account's own type keeps `isUsingOAuth` honest, which bills a subscription.
+			// The account's own type keeps `isUsingOAuth` honest, which bills a subscription.
 			async check(input) {
 				const account = session.resolve();
 				if (account !== undefined) return { type: account.credential.type, source: "account" };
@@ -437,7 +422,6 @@ function liftedAuth(
 	return auth;
 }
 
-/** The auth of the account in use, or undefined once the provider has none. */
 async function authInUse(
 	provider: Provider,
 	session: AccountSession,
@@ -449,7 +433,7 @@ async function authInUse(
 	return await resolveAuth(provider, session, refreshing, account, signal);
 }
 
-/** The OAuth account pi's copy is renewed from: the one in use, else any subscription. */
+/** The one in use, else any subscription. */
 function subscriptionOf(
 	session: AccountSession,
 ): { id: string; credential: OAuthCredential } | undefined {
@@ -461,7 +445,6 @@ function subscriptionOf(
 	return undefined;
 }
 
-/** Runs a login on our framed screen when there is one, then lets the feature keep the credential. */
 async function adopted<T extends Credential>(
 	login: (interaction: ProviderAuthInteraction) => Promise<T>,
 	interaction: ProviderAuthInteraction,

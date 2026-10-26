@@ -16,7 +16,6 @@ import type { Pins } from "./pins.ts";
 import type { AccountStore } from "./store.ts";
 import type { Account } from "./types.ts";
 
-/** Everything a provider's rows share. The label is the section header. */
 interface ProviderGroup extends AccountsOf {
 	label: string;
 }
@@ -42,7 +41,6 @@ export function accountRows(
 		});
 }
 
-/** One account, and its actions, one level deeper. */
 function accountBlock(group: ProviderGroup, account: Account): ScreenEntry[] {
 	const kind = kindText(account.credential.type);
 	const last = group.store.accounts(group.providerId).length === 1;

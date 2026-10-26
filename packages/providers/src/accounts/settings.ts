@@ -1,6 +1,5 @@
 import { literal, setting } from "@adeildo/pi-kit";
 
-/** What a policy does when the provider will not serve an account. */
 export const WHEN_LIMITED = ["ask", "switch", "stop"] as const;
 export type WhenLimited = (typeof WHEN_LIMITED)[number];
 

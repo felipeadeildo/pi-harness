@@ -1,12 +1,11 @@
-// Serializes the refresh across pi processes. A lock older than its deadline belonged to a process
-// that died, and is taken over.
+// Serializes the refresh across pi processes. A lock past its deadline belonged to a dead process.
 import { statSync, unlinkSync, writeFileSync } from "node:fs";
 
 const STALE_MS = 60_000;
 const RETRY_MS = 50;
 const WAIT_MS = 5_000;
 
-/** Runs `work` holding the lock, or without it when it cannot be taken in time. */
+/** Runs without it when it cannot be taken in time. */
 export async function withLock<T>(
 	path: string,
 	work: () => Promise<T>,
@@ -27,8 +26,7 @@ export async function withLock<T>(
 
 function take(path: string): boolean {
 	try {
-		// Opens, writes and closes in one call: handing writeSync's return value to closeSync closed
-		// the byte count, and for a 5 or 6 digit pid that count is a descriptor libuv owns.
+		// One call, so no descriptor is closed by mistake.
 		writeFileSync(path, String(process.pid), { flag: "wx" });
 		return true;
 	} catch {
