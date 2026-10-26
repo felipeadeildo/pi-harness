@@ -103,6 +103,12 @@ export function connect(options: ConnectionOptions): Client {
 		for (const handle of listeners) handle(session);
 	};
 
+	/** Something changed that a screen draws or the cache keeps: write it down, then tell the screens. */
+	const changed = (): void => {
+		save();
+		tell();
+	};
+
 	/** A reply ends a command's wait: applied, or refused with the reason the daemon gave. */
 	const reply = (envelope: unknown): boolean => {
 		// A reply is not an event of the session, with or without an id: it never reaches the reader,
@@ -115,28 +121,21 @@ export function connect(options: ConnectionOptions): Client {
 			const flight = outbox.all().filter((command) => command.state === "sent");
 			if (flight.length === 1 && flight[0] !== undefined) {
 				outbox.refused(flight[0].id, "the daemon answered without an id");
-				save();
-				tell();
+				changed();
 			}
 			return true;
 		}
 		if (envelope.kind === "reply") {
 			outbox.applied(envelope.id);
-			save();
-			tell();
-			return true;
-		}
-		if (envelope.kind === "error") {
+		} else {
 			const reason =
 				isObject(envelope.data) && typeof envelope.data.reason === "string"
 					? envelope.data.reason
 					: "the daemon refused it";
 			outbox.refused(envelope.id, reason);
-			save();
-			tell();
-			return true;
 		}
-		return false;
+		changed();
+		return true;
 	};
 
 	/** Sends what may go now, in the order it was typed. Without a transport nothing is sent, and a
@@ -155,10 +154,9 @@ export function connect(options: ConnectionOptions): Client {
 			(envelope) => {
 				if (reply(envelope)) return;
 				const answer = readEnvelope(session, envelope);
-				// Reading is pure: the session it returns is the one everything else draws.
-				if (answer.read === "now") session = answer.session;
-				if (answer.read === "now") asking = false;
-				if (answer.read === "state" && !asking) {
+				if (answer.read === "skip") return;
+				if (answer.read === "state") {
+					if (asking) return;
 					asking = true;
 					// A hole or a new epoch cannot be put back, so the client asks for the whole tail:
 					// without `seq` the hello is that request.
@@ -169,11 +167,11 @@ export function connect(options: ConnectionOptions): Client {
 					queueMicrotask(() => transport?.send(hello(session)));
 					return;
 				}
-				if (answer.read === "state") return;
-				if (answer.read === "skip") return;
+				// Reading is pure: the session it returns is the one everything else draws.
+				session = answer.session;
+				asking = false;
 				waiting = backoff.first;
-				save();
-				tell();
+				changed();
 			},
 			() => {
 				transport = undefined;
@@ -194,8 +192,7 @@ export function connect(options: ConnectionOptions): Client {
 		send: <K extends CommandType>(type: K, data: CommandMap[K]) => {
 			const command = outbox.add(type, data as CommandMap[K]);
 			flush();
-			save();
-			tell();
+			changed();
 			return command;
 		},
 		outbox: () => outbox,
@@ -203,17 +200,13 @@ export function connect(options: ConnectionOptions): Client {
 			const released = outbox.release(id);
 			if (released) {
 				flush();
-				save();
-				tell();
+				changed();
 			}
 			return released;
 		},
 		drop: (id) => {
 			const dropped = outbox.drop(id);
-			if (dropped) {
-				save();
-				tell();
-			}
+			if (dropped) changed();
 			return dropped;
 		},
 		on: (handle) => {
