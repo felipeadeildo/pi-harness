@@ -505,8 +505,8 @@ export class Here implements Sender {
 			peer.cwd === undefined || peer.cwd === this.#cwd ? "this folder" : tildify(peer.cwd);
 		const room = this.#room === undefined ? "" : `, in the room ${this.#room.name}`;
 		const lines = [`${who} is working in ${works}${room}.`];
-		if (doing(peer).length > 0) lines.push(`  doing: ${titles(doing(peer))}`);
-		if (waiting(peer).length > 0) lines.push(`  waiting: ${titles(waiting(peer))}`);
+		if (doing(peer).length > 0) lines.push(`  doing: ${cardTitles(doing(peer))}`);
+		if (waiting(peer).length > 0) lines.push(`  waiting: ${cardTitles(waiting(peer))}`);
 		if (edited.length > 0) lines.push(`  edited: ${edited.join(", ")}`);
 		return lines;
 	}
@@ -670,6 +670,6 @@ function worthTelling(peer: Peer): boolean {
 	);
 }
 
-function titles(cards: readonly BoardCard[]): string {
+function cardTitles(cards: readonly BoardCard[]): string {
 	return cards.map((card) => card.title).join("; ");
 }
