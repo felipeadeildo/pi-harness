@@ -6,6 +6,10 @@ The destination is one install where several agents work at once and I stay the 
 
 An item earns its place by saving something I do ten times a day, and it says how much. If the reason is that it is more elegant, it goes.
 
+## Where the items stand
+
+The rows below are a record: each one says what was decided and built at the time it was written, and none of them is rewritten when a later release replaces it. The tasks feature left in 6.0.0 (#358) and the board took its place, so a row that says the tasks read the state describes the release that shipped it, not this one. The board carries what a session keeps, its operation log and the `Alt+T` panel, and a session is known by its handle and by the name a person gives it, since nothing writes a name on its own. A row may also name a command the release removed: the rows say what was built, not how to run it today.
+
 ## Rules for every item
 
 - Pi first. Before an item starts, check that pi does not ship it. Every pi release gets a pass over this file, logged at the end.
