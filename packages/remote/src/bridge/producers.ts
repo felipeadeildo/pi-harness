@@ -16,6 +16,9 @@ export interface Producer {
 /**
  * What the bridge reads from pi. Adding a field means adding an entry here; absent stays absent, because
  * a producer that does not know a value returns the state untouched.
+ *
+ * This list is the reads. `promptFrom` is not one: it is a fold the bridge keeps as prompts and entries
+ * arrive, so it stays in `bridge.ts` until a second fold exists to share the shape with.
  */
 export const PRODUCERS: readonly Producer[] = [
 	{
