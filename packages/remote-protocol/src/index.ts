@@ -7,6 +7,7 @@ export {
 	type BoardColumn,
 	type BoardView,
 	isBoardView,
+	blockedOf,
 } from "./board-view.ts";
 export {
 	type Envelope,

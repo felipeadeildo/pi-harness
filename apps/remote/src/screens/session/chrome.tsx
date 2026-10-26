@@ -30,7 +30,7 @@ export function Tasks({ tasks }: { tasks: SessionTasks | undefined }): React.Rea
 /** The board the session keeps, as cards: absent means nothing is drawn, not an empty board. */
 export function Board({ board }: { board: BoardView | undefined }): React.ReactNode {
 	const cards = boardCards(board);
-	if (cards.length === 0) return null;
+	if (cards === undefined) return null;
 	return (
 		<View style={{ gap: theme.space(2), paddingVertical: theme.space(3) }}>
 			<Text style={{ ...theme.type.label, color: theme.color.text }}>Board</Text>

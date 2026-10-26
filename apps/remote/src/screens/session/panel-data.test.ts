@@ -40,8 +40,28 @@ describe("the board as cards", () => {
 		]);
 	});
 
-	test("a session that has no board draws nothing, which is not an empty board", () => {
-		expect(boardCards(undefined)).toEqual([]);
+	test("a session that has no board says so with nothing, which is not an empty board", () => {
+		expect(boardCards(undefined)).toBeUndefined();
+		// A board that exists and has no open card is a different thing, and it is a list.
+		expect(boardCards({ open: [], backlog: 0, done: [] } as never)).toEqual([]);
+	});
+
+	test("a blocker reads in the words of the person holding the phone, whoever it waits on", () => {
+		const blocked = {
+			open: [
+				{ ...card("c1", "waiting on you", 1), blocked: { on: "operator", why: "say go" } },
+				{
+					...card("c2", "waiting on a colleague", 2),
+					blocked: { on: "agent", handle: "otter", why: "review" },
+				},
+			],
+			backlog: 0,
+			done: [],
+		};
+		expect(boardCards(blocked as never)?.[0]?.line).toBe("doing · waiting on you · você: say go");
+		expect(boardCards(blocked as never)?.[1]?.line).toBe(
+			"doing · waiting on a colleague · @otter: review",
+		);
 	});
 
 	test("a blocked card says it as the person holding the phone reads it", () => {
@@ -50,6 +70,6 @@ describe("the board as cards", () => {
 			backlog: 0,
 			done: [],
 		};
-		expect(boardCards(blocked as never)[0]?.line).toBe("doing · wait · you: the key");
+		expect(boardCards(blocked as never)[0]?.line).toBe("doing · wait · você: the key");
 	});
 });

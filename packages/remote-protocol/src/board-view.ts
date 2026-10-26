@@ -32,6 +32,18 @@ export interface BoardView {
 	done: BoardCard[];
 }
 
+/**
+ * Why a card waits, in the words of the reader. `operator` reads as "you" only where the reader is the
+ * operator, which is why the reader is a parameter and not a property of the card.
+ */
+export function blockedOf(blocked: BoardBlocker, reader: "operator" | "agent"): string {
+	if (blocked.on === "operator")
+		return `${reader === "operator" ? "você" : "o operador"}: ${blocked.why}`;
+	if (blocked.on === "outside") return `fora: ${blocked.why}`;
+	const handle = blocked.handle.startsWith("@") ? blocked.handle : `@${blocked.handle}`;
+	return `${handle}: ${blocked.why}`;
+}
+
 /** Whether a value is a board view this version reads. A card without its four fields is not one. */
 export function isBoardView(value: unknown): value is BoardView {
 	return (
