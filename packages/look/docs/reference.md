@@ -35,39 +35,39 @@ They live in the file every piece shares, `~/.pi/agent/extensions/pi-harness/set
 | `frame.style` | `"rounded"` | `rounded`, `square`, `heavy` or `line` (pi's two rules, written into)                                                                  |
 | `userFrame`   | `true`      | Your messages in a frame named `you`. Off, pi draws them its own way                                                                   |
 
-The rest is fixed. The line above the editor shows `elapsed` and `last`, with `tasks` on its right. The frame shows `branch` and `session` at the top left, `path` and `host` at the top right, the permission mode, `model` and `effort` at the bottom left, and `context` at the bottom right. The line below the editor shows `cost`, `tokens`, `cache`, `average` and `statuses`, with `quota` on its right. Every number has its word.
+The rest is fixed. The line above the editor shows `elapsed` and `last`, with `board` on its right. The frame shows `branch` and `session` at the top left, `path` and `host` at the top right, the permission mode, `model` and `effort` at the bottom left, and `context` at the bottom right. The line below the editor shows `cost`, `tokens`, `cache`, `average` and `statuses`, with `quota` on its right. Every number has its word.
 
 ### Segments
 
 What each piece of the screen shows.
 
-| Id             | Shows                                                                                                                                                                |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `path`         | The working folder, with home as `~`                                                                                                                                 |
-| `branch`       | The branch, ahead `↑` and behind `↓`, staged `+`, modified `~`, untracked `?`, conflicts `!`, stashes                                                                |
-| `host`         | The machine, so a pasted line says where it came from                                                                                                                |
-| `session`      | The session name, once it has one                                                                                                                                    |
-| `tasks`        | What the agent is doing (`+1` when it does more), then how many wait (`⚑ 1`, in yellow), are queued (`⧗ 3`) and are done (`✓ 2`, in green), from `@adeildo/pi-board` |
-| `version`      | The pi version                                                                                                                                                       |
-| `clock`        | The time                                                                                                                                                             |
-| `model`        | `provider/model`, with the account in parentheses when one is in use                                                                                                 |
-| `provider`     | The provider on its own                                                                                                                                              |
-| `quota`        | Every window of the plan, with its percent and its reset                                                                                                             |
-| `effort`       | The effort meter and level. Hidden for models that do not reason                                                                                                     |
-| `context`      | Context used, the gauge, tokens over the window                                                                                                                      |
-| `speed`        | This answer's speeds, received `↓` and sent `↑`                                                                                                                      |
-| `wait`         | Time to the first token                                                                                                                                              |
-| `server`       | The last call's time from the request leaving to the response headers                                                                                                |
-| `elapsed`      | The agent's working time, as a stopwatch, and its calls                                                                                                              |
-| `last`         | The last finished call: its wait, its thought time and its writing speed                                                                                             |
-| `request`      | This answer's tokens, with the cache                                                                                                                                 |
-| `costRate`     | This answer's cost per million tokens                                                                                                                                |
-| `cost`         | The session's cost                                                                                                                                                   |
-| `tokens`       | The session's tokens, with the cache                                                                                                                                 |
-| `cache`        | The cache hit of the last prompt                                                                                                                                     |
-| `average`      | The session's average speeds, both ways                                                                                                                              |
-| `statuses`     | What other packages report through `setStatus`, minus the ones placed on their own                                                                                   |
-| `status:<key>` | One package's status, by the key it passes to `setStatus`                                                                                                            |
+| Id             | Shows                                                                                                                                                                               |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `path`         | The working folder, with home as `~`                                                                                                                                                |
+| `branch`       | The branch, ahead `↑` and behind `↓`, staged `+`, modified `~`, untracked `?`, conflicts `!`, stashes                                                                               |
+| `host`         | The machine, so a pasted line says where it came from                                                                                                                               |
+| `session`      | The session name, once it has one                                                                                                                                                   |
+| `board`        | The card being done (`+1` when there are more), then how many open cards are blocked (`⚑ 1`, in yellow), are to do (`⧗ 3`) and are done (`✓ 2`, in green), from the session's board |
+| `version`      | The pi version                                                                                                                                                                      |
+| `clock`        | The time                                                                                                                                                                            |
+| `model`        | `provider/model`, with the account in parentheses when one is in use                                                                                                                |
+| `provider`     | The provider on its own                                                                                                                                                             |
+| `quota`        | Every window of the plan, with its percent and its reset                                                                                                                            |
+| `effort`       | The effort meter and level. Hidden for models that do not reason                                                                                                                    |
+| `context`      | Context used, the gauge, tokens over the window                                                                                                                                     |
+| `speed`        | This answer's speeds, received `↓` and sent `↑`                                                                                                                                     |
+| `wait`         | Time to the first token                                                                                                                                                             |
+| `server`       | The last call's time from the request leaving to the response headers                                                                                                               |
+| `elapsed`      | The agent's working time, as a stopwatch, and its calls                                                                                                                             |
+| `last`         | The last finished call: its wait, its thought time and its writing speed                                                                                                            |
+| `request`      | This answer's tokens, with the cache                                                                                                                                                |
+| `costRate`     | This answer's cost per million tokens                                                                                                                                               |
+| `cost`         | The session's cost                                                                                                                                                                  |
+| `tokens`       | The session's tokens, with the cache                                                                                                                                                |
+| `cache`        | The cache hit of the last prompt                                                                                                                                                    |
+| `average`      | The session's average speeds, both ways                                                                                                                                             |
+| `statuses`     | What other packages report through `setStatus`, minus the ones placed on their own                                                                                                  |
+| `status:<key>` | One package's status, by the key it passes to `setStatus`                                                                                                                           |
 
 A `status:<key>` segment is how a package gets a place of its own. [`@adeildo/pi-ask-permission`](../ask-permission) reports its mode as `pi-ask-permission:mode`, and the mode says what happens to what you type, so by default it sits in the frame next to the model instead of in the footer with everything else. `@adeildo/pi-providers` still reports its account as `pi-providers:account`, but the `model` segment draws it in parentheses, so the statuses segment skips it.
 
