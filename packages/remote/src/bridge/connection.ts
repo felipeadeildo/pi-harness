@@ -10,7 +10,7 @@ import { envelopeOf, line, Lines } from "../wire/lines.ts";
 
 /** Past this much waiting on the socket, deltas are dropped and a resync is owed. */
 export const DROP_DELTAS_AT = 1024 * 1024;
-/** Past this much, the socket is closed and opened again, and the bridge sends a snapshot. */
+/** Past this much, the socket is closed and opened again, and the bridge sends an opening. */
 export const RECONNECT_AT = 8 * 1024 * 1024;
 /** The waits between attempts to connect. The last one repeats for as long as nothing answers. */
 const BACKOFF_MS: readonly number[] = [100, 200, 400, 800, 1_600, 3_200, 5_000];
@@ -33,7 +33,7 @@ export interface Origin {
 }
 
 export interface ConnectionHooks {
-	/** The daemon was just greeted: send what it must know first, such as the session and a snapshot. */
+	/** The daemon was just greeted: send what it must know first, such as the session and an opening. */
 	connected(): void;
 	/** Deltas were dropped while the socket was full, and it has drained: send the current message. */
 	resync?(): void;

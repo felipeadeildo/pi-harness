@@ -1,5 +1,5 @@
 // The session's harness state as this bridge knows it: what the kit logs for this session, folded the
-// same way every reader folds it, so the snapshot it sends needs no replay behind it.
+// same way every reader folds it, so the opening it sends needs no replay behind it.
 import {
 	applyChange,
 	isStateChangeType,
@@ -29,7 +29,7 @@ export interface Logged {
 }
 
 /**
- * Forwards a state change the kit logged for this session, and keeps what a snapshot needs of it. Only this
+ * Forwards a state change the kit logged for this session, and keeps what an opening needs of it. Only this
  * session's events cross, and only the ones in `FORWARDED`: the log carries state changes of other sessions
  * and types that are peers' business, and both would be wrong on the wire.
  */
@@ -51,7 +51,7 @@ export class Harness {
 	 */
 	#state: SessionState = emptySessionState();
 
-	/** Folds one event the session logged into the state a snapshot carries. */
+	/** Folds one event the session logged into the state an opening carries. */
 	saw(type: string, data: unknown): void {
 		// The forwarder hands whatever the log wrote; only a state change has an effect to fold.
 		if (isStateChangeType(type)) this.#state = applyChange(this.#state, type, data);
@@ -62,7 +62,7 @@ export class Harness {
 	}
 
 	/** The state as it stands, with what pi knows and the log does not. */
-	snapshot(mode: unknown): SessionState {
+	state(mode: unknown): SessionState {
 		return {
 			...this.#state,
 			permissions: {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 // A client against a fake daemon: the cursor it sends in its hello, the cache it draws before the
-// network answers, the reconnect after a drop, and the snapshot it asks for when it lost a number.
+// network answers, the reconnect after a drop, and the opening it asks for when it lost a number.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -10,7 +10,7 @@ import { applyChange, emptySessionState, isStateChangeType } from "@adeildo/pi-r
 import { memoryCache } from "../../src/client/cache.ts";
 import { connect } from "../../src/client/connection.ts";
 import { Outbox } from "../../src/client/outbox.ts";
-import { harnessOf, type SnapshotData, transcriptOfSession } from "../../src/client/session.ts";
+import { harnessOf, type OpeningData, transcriptOfSession } from "../../src/client/session.ts";
 
 const FIXTURE = join(import.meta.dir, "..", "fixtures", "recording");
 const key = { machine: "here", session: "01a16b15" };
@@ -35,7 +35,7 @@ const folded = (list: { type: string; data: unknown }[]) =>
 		emptySessionState(),
 	);
 
-/** The envelopes the bridge sends after a snapshot: the log's facts, then the entries, numbered. */
+/** The envelopes the bridge sends after an opening: the log's facts, then the entries, numbered. */
 function stream(first: number): Envelope[] {
 	let seq = first;
 	const one = (type: string, data: unknown): Envelope => {
@@ -61,7 +61,7 @@ function stream(first: number): Envelope[] {
 }
 
 /** An opening as the bridge sends it: typed, so a field the product does not write does not compile. */
-const opening: SnapshotData = {
+const opening: OpeningData = {
 	summary: {
 		session: key.session,
 		machine: key.machine,
@@ -72,7 +72,7 @@ const opening: SnapshotData = {
 	entries: [],
 };
 
-const snapshot: Envelope = {
+const sentOpening: Envelope = {
 	v: 1,
 	kind: "event",
 	machine: key.machine,
@@ -149,8 +149,8 @@ describe("a client of a session", () => {
 			open: (onMessage) => ({
 				send: (sent) => {
 					hello = sent;
-					// The daemon answers a client that lost its place with a snapshot, then streams.
-					for (const envelope of [snapshot, ...stream(1)]) onMessage(envelope);
+					// The daemon answers a client that lost its place with an opening, then streams.
+					for (const envelope of [sentOpening, ...stream(1)]) onMessage(envelope);
 				},
 				close: () => {},
 			}),
@@ -199,7 +199,7 @@ describe("a client of a session", () => {
 		client.stop();
 	});
 
-	test("a snapshot alone is enough: the state arrives folded, not as facts to fold", async () => {
+	test("an opening alone is enough: the state arrives folded, not as facts to fold", async () => {
 		// The restart case, and the reason the wire changed: the client opens and the daemon answers
 		// with one message carrying the state the bridge held. Nothing follows it — if the client only
 		// read a list of facts, this session would draw with no tasks, no mode and no question.
@@ -211,7 +211,7 @@ describe("a client of a session", () => {
 				send: (sent) => {
 					hello = sent;
 					onMessage({
-						...snapshot,
+						...sentOpening,
 						data: {
 							...opening,
 							summary: {
@@ -229,7 +229,7 @@ describe("a client of a session", () => {
 									cost: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, total: 3 },
 								},
 							},
-						} satisfies SnapshotData,
+						} satisfies OpeningData,
 					});
 				},
 				close: () => {},
@@ -308,7 +308,7 @@ describe("a client of a session", () => {
 	});
 
 	test("a drop reconnects with the cursor of the last envelope it read", async () => {
-		const envelopes = [snapshot, ...stream(1)];
+		const envelopes = [sentOpening, ...stream(1)];
 		const hellos: Envelope[] = [];
 		let attempts = 0;
 
@@ -390,7 +390,7 @@ describe("a client of a session", () => {
 	});
 
 	test("a duplicate is skipped, so a daemon may send an envelope twice", async () => {
-		const envelopes = [snapshot, ...stream(1)];
+		const envelopes = [sentOpening, ...stream(1)];
 		let asked = 0;
 
 		const cache = memoryCache();
@@ -409,7 +409,7 @@ describe("a client of a session", () => {
 					if (cursorOf(hello).seq === undefined) asked += 1;
 					queueMicrotask(() => {
 						// The same envelope twice, and then the next one: only the next one is read,
-						// and nothing asks for a snapshot.
+						// and nothing asks for an opening.
 						const first = envelopes.find((envelope) => envelope.seq === 2) as Envelope;
 						onMessage(first);
 						onMessage(first);
@@ -447,7 +447,7 @@ describe("a client of a session", () => {
 			state: emptySessionState(),
 		});
 		const hellos: Envelope[] = [];
-		const { seq: _seq, ...unnumbered } = snapshot;
+		const { seq: _seq, ...unnumbered } = sentOpening;
 
 		const client = connect({
 			key,
@@ -457,9 +457,9 @@ describe("a client of a session", () => {
 					hellos.push(hello);
 					if (hellos.length > 1) return;
 					// The bridge numbers what a replay can give back, and a delta only matters live.
-					onMessage({ ...snapshot, seq: 2, type: "mode.changed", data: { mode: "edits" } });
+					onMessage({ ...sentOpening, seq: 2, type: "mode.changed", data: { mode: "edits" } });
 					onMessage({ ...unnumbered, type: "pi.message_update", data: { delta: "Hel" } });
-					onMessage({ ...snapshot, seq: 3, type: "mode.changed", data: { mode: "manual" } });
+					onMessage({ ...sentOpening, seq: 3, type: "mode.changed", data: { mode: "manual" } });
 				},
 				close: () => {},
 			}),
@@ -474,7 +474,7 @@ describe("a client of a session", () => {
 		client.stop();
 	});
 
-	test("a hole in the numbering asks for a snapshot instead of drawing what comes next", async () => {
+	test("a hole in the numbering asks for an opening instead of drawing what comes next", async () => {
 		const cache = memoryCache();
 		await cache.write({
 			key,
@@ -492,8 +492,8 @@ describe("a client of a session", () => {
 					hellos.push(hello);
 					if (hellos.length > 1) return;
 					// Two when one was expected, and then five: the client missed three numbers.
-					onMessage({ ...snapshot, seq: 2, type: "mode.changed", data: { mode: "edits" } });
-					onMessage({ ...snapshot, seq: 5, type: "mode.changed", data: { mode: "manual" } });
+					onMessage({ ...sentOpening, seq: 2, type: "mode.changed", data: { mode: "edits" } });
+					onMessage({ ...sentOpening, seq: 5, type: "mode.changed", data: { mode: "manual" } });
 				},
 				close: () => {},
 			}),

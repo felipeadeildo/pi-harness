@@ -262,14 +262,14 @@ const ROWS: Row[] = [
 	},
 ];
 
-/** The bridge holds the state it sends: it folds what the log wrote and hands the snapshot the result. */
+/** The bridge holds the state it sends: it folds what the log wrote and hands the opening the result. */
 function heldByBridge(events: Logged[]): SessionState {
 	const harness = new Harness();
 	for (const one of events) harness.saw(one.type, one.data);
-	return harness.snapshot(undefined);
+	return harness.state(undefined);
 }
 
-/** The daemon keeps its own copy, seeded by the snapshot and folded on every event it forwards. */
+/** The daemon keeps its own copy, seeded by the opening and folded on every event it forwards. */
 function heldByDaemon(events: Logged[]): SessionState | undefined {
 	const sessions = new Sessions();
 	sessions.live(

@@ -11,14 +11,14 @@ function ruled(toolCallId: string, head = "ok") {
 describe("what the bridge forwards from the log", () => {
 	const line = (type: string, data: unknown, session = "s1") => ({ session, type, data });
 
-	test("a fact of this session crosses, and is kept for the snapshot", () => {
+	test("a fact of this session crosses, and is kept for the opening", () => {
 		const facts = new Harness();
 		const sent: { type: string; data: unknown }[] = [];
 		forward(line("mode.changed", { mode: "edits" }), "s1", facts, (type, data) =>
 			sent.push({ type, data }),
 		);
 		expect(sent).toEqual([{ type: "mode.changed", data: { mode: "edits" } }]);
-		expect(facts.snapshot(undefined).permissions.mode).toBe("edits");
+		expect(facts.state(undefined).permissions.mode).toBe("edits");
 	});
 
 	test("another session's event and a type nobody forwards stay where they are", () => {
@@ -32,7 +32,7 @@ describe("what the bridge forwards from the log", () => {
 	});
 });
 
-describe("the facts a snapshot carries", () => {
+describe("the facts an opening carries", () => {
 	test("a question stays open until it closes", () => {
 		const facts = new Harness();
 		facts.saw("ask.opened", { id: "q1", source: "agent", questions: [] });
@@ -46,7 +46,7 @@ describe("the facts a snapshot carries", () => {
 		facts.saw("call.ruled", ruled("c1", "asked"));
 		facts.saw("ask.opened", { id: "q1", source: "agent", questions: [] });
 		facts.saw("call.ruled", ruled("c1", "allowed"));
-		const state = facts.snapshot("edits");
+		const state = facts.state("edits");
 		expect(state.permissions.mode).toBe("edits");
 		expect(Object.keys(state.questions)).toEqual(["q1"]);
 		expect(state.permissions.rulings["c1"]).toEqual({
@@ -59,7 +59,7 @@ describe("the facts a snapshot carries", () => {
 		for (let at = 0; at <= KEPT_CLOSED; at += 1) facts.saw("call.ruled", ruled(`c${at}`));
 		facts.saw("call.ruled", ruled("c1", "again"));
 		facts.saw("call.ruled", ruled("late"));
-		const calls = Object.keys(facts.snapshot(undefined).permissions.rulings);
+		const calls = Object.keys(facts.state(undefined).permissions.rulings);
 		expect(calls).toHaveLength(KEPT_CLOSED);
 		expect(calls).not.toContain("c0");
 		// One over the bound went in, and the call ruled again moved to the end, so the bound dropped
@@ -73,7 +73,7 @@ describe("the facts a snapshot carries", () => {
 		facts.saw("ask.opened", "q1");
 		facts.saw("ask.opened", { questions: [] });
 		facts.saw("call.ruled", { ruling: {} });
-		expect(facts.snapshot(undefined)).toEqual({
+		expect(facts.state(undefined)).toEqual({
 			questions: {},
 			permissions: { rulings: {} },
 			queue: [],

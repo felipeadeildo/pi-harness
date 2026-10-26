@@ -132,15 +132,15 @@ function stateOf(daemon: FakeDaemon): { permissions: { serves?: boolean } } {
 	return data?.summary?.state ?? { permissions: {} };
 }
 
-/** The state the last snapshot carried, whole. */
-function snapshotState(daemon: FakeDaemon): Record<string, unknown> {
+/** The state the last opening carried, whole. */
+function openingState(daemon: FakeDaemon): Record<string, unknown> {
 	const data = daemon.received.findLast((one) => one.type === "state")?.data as
 		| { summary?: { state?: Record<string, unknown> } }
 		| undefined;
 	return data?.summary?.state ?? {};
 }
 
-/** The models the last snapshot carried in its state, or nothing when it carried none. */
+/** The models the last opening carried in its state, or nothing when it carried none. */
 function modelsOf(daemon: FakeDaemon): unknown[] | undefined {
 	const data = daemon.received.findLast((one) => one.type === "state")?.data as
 		| { summary?: { state?: { models?: unknown[] } } }
@@ -153,13 +153,13 @@ function types(daemon: FakeDaemon): string[] {
 }
 
 describe("the bridge", () => {
-	test("a session in a terminal writes the launcher, says it is live, then sends a snapshot", async () => {
+	test("a session in a terminal writes the launcher, says it is live, then sends an opening", async () => {
 		const daemon = await listening();
 		const fake = mounted();
 		await start(fake);
 		await until(() => daemon.received.length === 3);
 		expect(JSON.parse(readFileSync(join(root, "current.json"), "utf8")).version).toBe(VERSION);
-		const [hello, live, snapshot] = daemon.received;
+		const [hello, live, opening] = daemon.received;
 		expect(hello).toMatchObject({ kind: "hello", machine: HOST, session: "s1" });
 		expect(live).toMatchObject({
 			type: "session.live",
@@ -172,7 +172,7 @@ describe("the bridge", () => {
 				file: "/sessions/s1.jsonl",
 			},
 		});
-		expect(snapshot).toMatchObject({
+		expect(opening).toMatchObject({
 			type: "state",
 			seq: 1,
 			data: {
@@ -662,7 +662,7 @@ describe("the bridge", () => {
 		delete process.env.PI_HARNESS_EVENTS;
 	});
 
-	test("after the snapshot, each entry pi appends goes out once", async () => {
+	test("after the opening, each entry pi appends goes out once", async () => {
 		const daemon = await listening();
 		const kept = entries(2);
 		const fake = mounted();
@@ -689,23 +689,23 @@ describe("the bridge", () => {
 		]);
 	});
 
-	test("a snapshot carries the end of the branch, and goes out again when the daemon asks", async () => {
+	test("an opening carries the end of the branch, and goes out again when the daemon asks", async () => {
 		const daemon = await listening();
 		await start(mounted(), session(entries(STATE_ENTRIES + 10)));
 		await until(() => types(daemon).includes("state"));
 		daemon.sockets[0]?.write(line(envelope("command", "state.get", {})));
 		await until(() => types(daemon).filter((type) => type === "state").length === 2);
-		const snapshots = daemon.received.filter((one) => one.type === "state");
-		for (const one of snapshots) {
+		const openings = daemon.received.filter((one) => one.type === "state");
+		for (const one of openings) {
 			const tail = (one.data as { entries: Entry[] }).entries;
 			expect(tail).toHaveLength(STATE_ENTRIES);
 			expect(tail.at(-1)?.id).toBe(`e${STATE_ENTRIES + 10}`);
 		}
 	});
 
-	test("a snapshot carries the queue the state folded, letter and all", async () => {
-		// The snapshot builds its queue from the folded state: the fold in `queued` is the only path, so
-		// a held letter has to be in it, and removing the fold empties the snapshot.
+	test("an opening carries the queue the state folded, letter and all", async () => {
+		// The opening builds its queue from the folded state: the fold in `queued` is the only path, so
+		// a held letter has to be in it, and removing the fold empties the opening.
 		running = true;
 		const daemon = await listening();
 		const fake = mounted();
@@ -728,7 +728,7 @@ describe("the bridge", () => {
 			),
 		);
 		// A busy session holds the letter, so it is in the queue and not in pi: that is the one the
-		// snapshot has to carry.
+		// opening has to carry.
 		await until(
 			() =>
 				((
@@ -739,10 +739,10 @@ describe("the bridge", () => {
 		);
 		daemon.sockets[0]?.write(line(envelope("command", "state.get", {}, { session: "s1" })));
 		await until(() => daemon.received.filter((one) => one.type === "state").length === 2);
-		const snapshot = daemon.received.filter((one) => one.type === "state").at(-1)?.data as
+		const opening = daemon.received.filter((one) => one.type === "state").at(-1)?.data as
 			| { summary: { state: { queue: { text: string }[] } } }
 			| undefined;
-		expect(snapshot?.summary.state.queue.map((one) => one.text)).toEqual(["wait for the run"]);
+		expect(opening?.summary.state.queue.map((one) => one.text)).toEqual(["wait for the run"]);
 	});
 
 	test("a move in the tree names the new leaf, the root included", async () => {
@@ -788,7 +788,7 @@ describe("the bridge", () => {
 		expect(types(daemon).filter((type) => type === "entry")).toHaveLength(1);
 	});
 
-	test("the snapshot carries the branch, not every entry the session holds", async () => {
+	test("the opening carries the branch, not every entry the session holds", async () => {
 		const daemon = await listening();
 		const all = [
 			...entries(2),
@@ -796,10 +796,10 @@ describe("the bridge", () => {
 		];
 		await start(mounted(), session(all, "tui", entries(2)));
 		await until(() => types(daemon).includes("state"));
-		const snapshot = daemon.received.find((one) => one.type === "state")?.data as
+		const opening = daemon.received.find((one) => one.type === "state")?.data as
 			| { entries: Entry[] }
 			| undefined;
-		expect(snapshot?.entries).toEqual(entries(2));
+		expect(opening?.entries).toEqual(entries(2));
 	});
 
 	test("the opening carries what the session spent, so a reconnect does not lose it", async () => {
@@ -954,7 +954,7 @@ describe("the bridge", () => {
 		]);
 	});
 
-	test("a snapshot carries the handle, the status, the mode and the open questions, as facts too", async () => {
+	test("an opening carries the handle, the status, the mode and the open questions, as facts too", async () => {
 		const daemon = await listening();
 		const fake = mounted();
 		const scope = { events: fake.pi.events, warn: () => {} };
@@ -970,13 +970,13 @@ describe("the bridge", () => {
 		log("call.ruled", { toolCallId: "c1", ruling: { head: "allowed", tone: "success" } });
 		daemon.sockets[0]?.write(line(envelope("command", "state.get", {})));
 		await until(() => types(daemon).filter((type) => type === "state").length === 2);
-		const snapshot = daemon.received.findLast((one) => one.type === "state")?.data as
+		const opening = daemon.received.findLast((one) => one.type === "state")?.data as
 			| { summary: Record<string, unknown> }
 			| undefined;
 		// The opening keeps what is a photograph, the handle and the status, and nothing the state
 		// already carries: the questions and the mode are read from `state` below.
-		expect(snapshot?.summary).toMatchObject({ handle: "otter", status: "idle" });
-		const state = (snapshot?.summary as { state?: Record<string, unknown> } | undefined)?.state as
+		expect(opening?.summary).toMatchObject({ handle: "otter", status: "idle" });
+		const state = (opening?.summary as { state?: Record<string, unknown> } | undefined)?.state as
 			| {
 					permissions: { mode?: string; rulings: Record<string, unknown> };
 					questions: Record<string, unknown>;
@@ -1187,7 +1187,7 @@ describe("one bridge", () => {
 		assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: "Hel" },
 	};
 
-	test("a snapshot asked for while deltas wait comes after them, and they never go out again", async () => {
+	test("an opening asked for while deltas wait comes after them, and they never go out again", async () => {
 		const { bridge, socket } = bridged();
 		bridge.stream.messageStart(writing as unknown as MessageStartEvent);
 		bridge.stream.messageUpdate(hel as unknown as MessageUpdateEvent);
@@ -1273,7 +1273,7 @@ describe("one bridge", () => {
 		const daemon = await listening();
 		await start(mounted(), session());
 		await until(() => types(daemon).includes("state"));
-		const state = snapshotState(daemon);
+		const state = openingState(daemon);
 		expect(state.model).toEqual({ provider: "rig", id: "scripted" });
 		expect(state.thinkingLevel).toBe("high");
 	});
@@ -1283,7 +1283,7 @@ describe("one bridge", () => {
 		const ctx = Object.assign(session(), { model: undefined });
 		await start(mounted(), ctx);
 		await until(() => types(daemon).includes("state"));
-		expect("model" in snapshotState(daemon)).toBe(false);
+		expect("model" in openingState(daemon)).toBe(false);
 	});
 
 	describe("whose prompt it was", () => {
@@ -1355,7 +1355,7 @@ describe("one bridge", () => {
 			await bridge.stop(undefined);
 		});
 
-		test("the mark is part of the state a snapshot carries, so a client that opens later draws it", async () => {
+		test("the mark is part of the state an opening carries, so a client that opens later draws it", async () => {
 			let feed: ((item: SourceItem) => void) | undefined;
 			const { bridge, socket } = bridged(source((on) => void (feed = on)));
 			bridge.sentBy("from the phone", phone);
@@ -1380,7 +1380,7 @@ describe("one bridge", () => {
 		});
 	});
 
-	test("a source that lost its place makes the bridge send a new snapshot", async () => {
+	test("a source that lost its place makes the bridge send a new opening", async () => {
 		const { bridge, socket } = bridged(source((on) => on({ kind: "reset" })));
 		expect(socket.written.map((one) => one.type)).toEqual([
 			"bridge",

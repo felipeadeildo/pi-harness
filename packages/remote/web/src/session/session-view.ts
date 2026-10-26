@@ -17,7 +17,7 @@ const views = new WeakMap<ClientSession, { key: readonly unknown[]; view: View }
 
 /**
  * The transcript and the state, worked out again only when what they come from changed. A client
- * changes its session in place: an entry or a state change is pushed onto its list, a snapshot swaps the
+ * changes its session in place: an entry or a state change is pushed onto its list, an opening swaps the
  * list, and a `/tree` move changes the leaf. So the lists, their lengths and the leaf say whether
  * anything moved, and a screen that draws on every envelope does not fold the whole log each time.
  * An entry changed where it stands would go unseen: the client never does that today, and one that
@@ -41,8 +41,8 @@ export function viewOf(session: ClientSession): View {
 
 /** What the session is called: the name pi has for it, else the handle a room uses. */
 export function titleOf(session: ClientSession): string {
-	const snapshot = session.summary;
-	return snapshot?.name ?? snapshot?.handle ?? `new-${session.key.session.slice(-4)}`;
+	const summary = session.summary;
+	return summary?.name ?? summary?.handle ?? `new-${session.key.session.slice(-4)}`;
 }
 
 /**

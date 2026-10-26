@@ -30,7 +30,7 @@ interface WireUpdate {
 	assistantMessageEvent: WireInner;
 }
 
-/** The message being written, as the snapshot and a resync carry it. */
+/** The message being written, as the opening and a resync carry it. */
 export interface Streaming {
 	/** Numbers the message among those this runtime streamed, as `stream.bound` refers to it. */
 	stream: number;
@@ -215,7 +215,7 @@ export class LiveStream {
 	}
 
 	/**
-	 * Sends what the window holds now. Whatever copies the message being written, such as a snapshot,
+	 * Sends what the window holds now. Whatever copies the message being written, such as an opening,
 	 * flushes first, since the copy already holds those deltas and the window would send them again.
 	 */
 	flush(): void {

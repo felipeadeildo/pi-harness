@@ -73,7 +73,7 @@ describe("who has the session open", () => {
 		expect(presence.viewers).toHaveLength(1);
 	});
 
-	test("a snapshot may carry it, so the first draw is who is watching now", () => {
+	test("an opening may carry it, so the first draw is who is watching now", () => {
 		let session = sessionOf(key, {
 			key,
 			cursor: { epoch: "e1", seq: 1 },
@@ -117,7 +117,7 @@ describe("who has the session open", () => {
 
 	test("the cache keeps who was watching and not who was typing", async () => {
 		// `active` says someone is typing now, and a cache can be days old: it comes back from the
-		// snapshot or the next event, never from a file.
+		// opening or the next event, never from a file.
 		let session = started();
 		session = read(
 			session,

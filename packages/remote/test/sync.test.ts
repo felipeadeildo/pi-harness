@@ -98,7 +98,7 @@ test("a client that loses its connection mid-run ends with the branch, every ent
 	await until(() => opened.client.session().summary !== undefined, SLOW);
 
 	// One turn goes by untouched, so the client holds a cursor in this life of the session. Without
-	// one, any reconnect asks for a snapshot and the test would pass in either world.
+	// one, any reconnect asks for an opening and the test would pass in either world.
 	await rig.prompt("first");
 	await until(() => opened.client.session().cursor.seq !== undefined, SLOW);
 
@@ -119,15 +119,15 @@ test("a client that loses its connection mid-run ends with the branch, every ent
 	expect(opened.opens()).toBeGreaterThan(1);
 	// The model really did write for a while, so the drop had a stream to land in.
 	expect(opened.deltas()).toBeGreaterThan(1);
-	// It came back from its cursor: the replay filled the gap, and no second snapshot was needed.
+	// It came back from its cursor: the replay filled the gap, and no second opening was needed.
 	// That rule is guarded deterministically where it is produced and where it is read,
 	// `connection.test.ts` ("a delta takes no number") and `client.test.ts` ("a delta with no number
 	// between two numbered events asks for nothing and moves no cursor"). Here it is the whole path,
 	// a real pi included, which no unit test covers.
-	expect(opened.snapshots()).toBe(1);
+	expect(opened.openings()).toBe(1);
 });
 
-test("a daemon that restarts mid-run hands the client the branch through a new snapshot", async () => {
+test("a daemon that restarts mid-run hands the client the branch through a new opening", async () => {
 	let { daemon, cookie } = await startDaemon();
 	rig = await openRig();
 	const session = rig.session.sessionId;
@@ -147,12 +147,12 @@ test("a daemon that restarts mid-run hands the client the branch through a new s
 	await until(() => heldIds(opened.client).join(" ") === want.join(" "), SLOW);
 	expect(heldIds(opened.client)).toEqual(want);
 	expect(opened.opens()).toBeGreaterThan(1);
-	// A new daemon holds no replay of what came before it, so the client had to take a snapshot: the
+	// A new daemon holds no replay of what came before it, so the client had to take an opening: the
 	// first one, the bridge's when it reconnected, the daemon's answer to the client's hello, and the
 	// state the daemon pushes to a client that was waiting when the bridge came back. More than that is
 	// a client and a daemon asking each other in a loop.
-	expect(opened.snapshots()).toBeGreaterThan(1);
-	expect(opened.snapshots()).toBeLessThanOrEqual(4);
+	expect(opened.openings()).toBeGreaterThan(1);
+	expect(opened.openings()).toBeLessThanOrEqual(4);
 	// The new daemon learned the session from the bridge, which reconnected on its own.
 	expect(daemon.sessions.get(session)?.connected).toBe(true);
 });

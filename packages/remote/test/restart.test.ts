@@ -27,7 +27,7 @@ function opening(sessions: Sessions): SessionState | undefined {
 }
 
 describe("a daemon that restarts", () => {
-	test("seeds itself with the state the bridge's snapshot carries", () => {
+	test("seeds itself with the state the bridge's opening carries", () => {
 		const sessions = restarted();
 		const folded: SessionState = {
 			...emptySessionState(),
@@ -110,13 +110,13 @@ describe("a daemon that restarts", () => {
 		expect(opening.slice(1).map((one) => one.type)).not.toContain("ask.opened");
 	});
 
-	test("a snapshot without a state keeps the one the session already had", () => {
+	test("an opening without a state keeps the one the session already had", () => {
 		const sessions = restarted();
 		const folded: SessionState = {
 			...emptySessionState(),
 			questions: { q1: { id: "q1", source: "agent", questions: [] } },
 		};
-		const snapshot = (state: SessionState | undefined) =>
+		const sendOpening = (state: SessionState | undefined) =>
 			sessions.event(
 				envelope(
 					"event",
@@ -134,10 +134,10 @@ describe("a daemon that restarts", () => {
 					around(1),
 				),
 			);
-		snapshot(folded);
-		// A bridge that does not know the session sends a snapshot without a state, and absence means
+		sendOpening(folded);
+		// A bridge that does not know the session sends an opening without a state, and absence means
 		// unchanged: the fold the daemon already has stands.
-		snapshot(undefined);
+		sendOpening(undefined);
 		// The fold survived, and the packet a client opens with is that same fold: equality alone
 		// would pass with both sides empty.
 		expect(opening(sessions)?.questions).toEqual(folded.questions);
@@ -146,7 +146,7 @@ describe("a daemon that restarts", () => {
 
 	test("the opening is the last state a bridge sent, not the first of the epoch", () => {
 		const sessions = restarted();
-		const snapshot = (serves: boolean, seq: number) =>
+		const sendOpening = (serves: boolean, seq: number) =>
 			sessions.event(
 				envelope(
 					"event",
@@ -165,12 +165,12 @@ describe("a daemon that restarts", () => {
 				),
 			);
 		// The first greet happened before the permissions feature was up, and the second one knows.
-		snapshot(false, 1);
-		snapshot(true, 2);
+		sendOpening(false, 1);
+		sendOpening(true, 2);
 		expect(opening(sessions)?.permissions.serves).toBe(true);
 	});
 
-	test("folds what comes after the snapshot on top of it", () => {
+	test("folds what comes after the opening on top of it", () => {
 		const sessions = restarted();
 		sessions.event(
 			envelope(

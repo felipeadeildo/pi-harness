@@ -97,10 +97,10 @@ describe("a prompt that arrived from elsewhere", () => {
 	});
 });
 
-describe("a snapshot without a queue, and one with an empty queue", () => {
+describe("an opening without a queue, and one with an empty queue", () => {
 	const base = { session: "s1", machine: "here", cwd: "/work", kind: "terminal" as const };
 
-	test("both are a snapshot, and they stay different", () => {
+	test("both are an opening, and they stay different", () => {
 		// The screen draws "no queue" and "an empty queue" differently, so the protocol keeps both.
 		const without = { ...base };
 		const empty = { ...base, queue: [] };
@@ -110,7 +110,7 @@ describe("a snapshot without a queue, and one with an empty queue", () => {
 		expect("queue" in empty).toBe(true);
 	});
 
-	test("a queue with a letter that does not decode is not a snapshot", () => {
+	test("a queue with a letter that does not decode is not an opening", () => {
 		const bad = { ...base, queue: [{ id: "l1", text: "hold on", when: 1 }] };
 		expect(isSummary(bad)).toBe(false);
 	});

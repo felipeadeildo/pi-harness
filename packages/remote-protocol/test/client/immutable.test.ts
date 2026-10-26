@@ -82,7 +82,7 @@ describe("reading never mutates the session it was given", () => {
 	});
 
 	test("an opening that does not carry the state keeps the one the client had", () => {
-		// The snapshot may arrive without the folded state; replacing it with nothing would draw an
+		// The opening may arrive without the folded state; replacing it with nothing would draw an
 		// empty session beside a branch full of entries.
 		const before = readEnvelope(started(), envelope("mode.changed", { mode: "judge" }, 2));
 		if (before.read !== "now") throw new Error("expected a read");

@@ -21,7 +21,7 @@ export {
 	hello,
 	readEnvelope,
 	STATE,
-	type SnapshotData,
+	type OpeningData,
 	sessionOf,
 	transcriptOfSession,
 } from "./session.ts";

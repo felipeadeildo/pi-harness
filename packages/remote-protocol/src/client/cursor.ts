@@ -16,12 +16,12 @@ export type Next =
 	| { read: "now" }
 	/** Already read, so nothing changes: a daemon is free to send an envelope twice. */
 	| { read: "skip" }
-	/** Read the snapshot first: the stream restarted, or the client is new. */
+	/** Read the opening first: the stream restarted, or the client is new. */
 	| { read: "state"; why: "new" | "epoch" | "gap" };
 
 /**
  * What to do with an envelope of a session the client already has. A new epoch always means a
- * snapshot, because the seq numbering started over. A hole in the numbering means the same, since
+ * opening, because the seq numbering started over. A hole in the numbering means the same, since
  * nothing else can put back what was dropped.
  */
 export function decide(cursor: Cursor, envelope: Envelope): Next {
@@ -31,7 +31,7 @@ export function decide(cursor: Cursor, envelope: Envelope): Next {
 	}
 	if (envelope.seq !== undefined && cursor.seq !== undefined) {
 		// At or behind the cursor is a repeat, which changes nothing; past the next number is a hole,
-		// which nothing but the snapshot can put back.
+		// which nothing but the opening can put back.
 		if (envelope.seq <= cursor.seq) return { read: "skip" };
 		if (envelope.seq > cursor.seq + 1) return { read: "state", why: "gap" };
 	}

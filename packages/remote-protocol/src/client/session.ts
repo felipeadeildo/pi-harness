@@ -24,7 +24,7 @@ import type { Outbox } from "./outbox.ts";
 export const ENTRY = "entry";
 export const STATE = "state";
 
-export interface SnapshotData {
+export interface OpeningData {
 	summary: SessionSummary;
 	entries: Entry[];
 }
@@ -84,9 +84,9 @@ export function cachedOf(session: ClientSession, outbox: Outbox): CachedSession 
 
 /**
  * Reads one envelope. The answer says whether the client can draw it now or has to ask for a
- * snapshot first, and the session is only changed in the first case.
+ * opening first, and the session is only changed in the first case.
  */
-function isSummaryData(value: unknown): value is SnapshotData {
+function isSummaryData(value: unknown): value is OpeningData {
 	return isObject(value) && isSummary(value.summary) && Array.isArray(value.entries);
 }
 
