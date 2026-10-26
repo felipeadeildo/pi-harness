@@ -20,7 +20,7 @@ import { listedOf } from "@/session/listed.ts";
 import { composerOf } from "@/session/live.ts";
 import { terminalWait } from "@/session/panel-data.ts";
 import { plain } from "@/session/plain.ts";
-import type { Mark } from "@/session/rows.ts";
+import { type Mark, markFor } from "@/session/rows.ts";
 import { statusOf, titleOf, viewOf } from "@/session/session-view.ts";
 import { useSession } from "@/session/use-session.ts";
 import { piColor } from "@/ui/pi-colors.ts";
@@ -63,7 +63,7 @@ export function Component(): ReactNode {
 	const waits = asked !== undefined || status === "blocked";
 	const activity = state.activity ?? listed?.state.activity;
 	const doing = doingOf(activity, status, waits);
-	const mark = markOf(waits, status);
+	const mark = markFor(status, waits);
 	const cards = openCards(state.board);
 	const wait = terminalWait(state.prompt);
 	const cwd = session.summary?.cwd ?? listed?.summary?.cwd ?? listed?.live.cwd;
@@ -201,12 +201,6 @@ export function Component(): ReactNode {
 			</Panel>
 		</div>
 	);
-}
-
-function markOf(waits: boolean, status: string | undefined): Mark {
-	if (waits) return "waits";
-	if (status === "error") return "error";
-	return status === "working" ? "working" : "idle";
 }
 
 /**

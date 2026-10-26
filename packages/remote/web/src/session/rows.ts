@@ -137,10 +137,14 @@ function groupOf(mark: Mark): Group["id"] {
 
 function markOf(session: ListedSession): Mark {
 	if (session.gone !== undefined) return "closed";
-	const state = stateOf(session);
-	if (state === "error") return "error";
-	if (wantsYou(session)) return "waits";
-	return state === "working" ? "working" : "idle";
+	return markFor(stateOf(session), wantsYou(session));
+}
+
+/** One rule for the list's row and the session's header: an error first, then a wait on you. */
+export function markFor(status: string | undefined, waits: boolean): Mark {
+	if (status === "error") return "error";
+	if (waits) return "waits";
+	return status === "working" ? "working" : "idle";
 }
 
 function wordOf(session: ListedSession, mark: Mark): string {

@@ -131,7 +131,10 @@ export { HOST } from "../host.ts";
 /** Which event types a reader folds; the others are skipped before they are parsed. */
 export type Wanted = (type: string) => boolean;
 
-/** The events written after `offset`; a line still being written waits for the next read. */
+/**
+ * The events written after `offset`; a line still being written waits for the next read. Lines are
+ * found and their types read in the bytes, so a line the reader does not want is never decoded.
+ */
 export function readFrom(
 	path: string,
 	offset: number,
@@ -146,19 +149,35 @@ export function readFrom(
 	try {
 		const size = fstatSync(fd).size;
 		if (size <= offset) return { events: [], offset: size < offset ? 0 : offset };
-		const buffer = Buffer.alloc(size - offset);
+		const buffer = Buffer.allocUnsafe(size - offset);
 		readSync(fd, buffer, 0, buffer.length, offset);
-		const text = buffer.toString("utf8");
-		const end = text.lastIndexOf("\n");
+		const end = buffer.lastIndexOf(NEWLINE);
 		if (end === -1) return { events: [], offset };
-		const events = text
-			.slice(0, end)
-			.split("\n")
-			.flatMap((line) => (wanted === undefined || wanted(typeOf(line)) ? parsed(line) : []));
-		return { events, offset: offset + Buffer.byteLength(text.slice(0, end + 1)) };
+		const events: LoggedEvent[] = [];
+		for (let start = 0; start < end;) {
+			const stop = buffer.indexOf(NEWLINE, start);
+			if (wanted === undefined || wanted(typeIn(buffer, start, stop)))
+				events.push(...parsed(buffer.toString("utf8", start, stop)));
+			start = stop + 1;
+		}
+		return { events, offset: offset + end + 1 };
 	} finally {
 		closeSync(fd);
 	}
+}
+
+const NEWLINE = 0x0a;
+const QUOTE = 0x22;
+const TYPE_BYTES = Buffer.from('"type":"');
+
+/** `logEvent` writes `type` before `data`, so the first `"type":"` in a line is the event's. */
+function typeIn(buffer: Buffer, start: number, stop: number): string {
+	const line = buffer.subarray(start, stop);
+	const at = line.indexOf(TYPE_BYTES);
+	if (at === -1) return "";
+	const from = at + TYPE_BYTES.length;
+	const close = line.indexOf(QUOTE, from);
+	return close === -1 ? "" : line.toString("latin1", from, close);
 }
 
 export const KEEP_LOGS_MS = 7 * 24 * 60 * 60_000;
@@ -222,16 +241,6 @@ function isLoggedEvent(value: unknown): value is LoggedEvent {
 		isObject(value.data) &&
 		(value.entry === undefined || typeof value.entry === "string")
 	);
-}
-
-const TYPE_KEY = '"type":"';
-
-/** `logEvent` writes `type` before `data`. */
-function typeOf(line: string): string {
-	const at = line.indexOf(TYPE_KEY);
-	if (at === -1) return "";
-	const from = at + TYPE_KEY.length;
-	return line.slice(from, line.indexOf('"', from));
 }
 
 function parsed(line: string): LoggedEvent[] {

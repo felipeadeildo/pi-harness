@@ -438,8 +438,9 @@ function inside(lines: readonly string[], width: number, theme: Theme): string[]
 	const paint = (text: string) => theme.fg("border", text);
 	const inner = room(width);
 	return trim(lines).map((line) => {
-		const text = visibleWidth(line) > inner ? truncateToWidth(line, inner, CUT, true) : line;
-		const pad = " ".repeat(Math.max(0, inner - visibleWidth(text)));
+		const wide = visibleWidth(line);
+		const text = wide > inner ? truncateToWidth(line, inner, CUT, true) : line;
+		const pad = " ".repeat(Math.max(0, inner - (wide > inner ? visibleWidth(text) : wide)));
 		return `${paint(LINE.v)} ${text}${pad} ${paint(LINE.v)}`;
 	});
 }
@@ -469,6 +470,7 @@ function room(width: number): number {
 const HIDDEN = /^\.\.\. \((\d+) (earlier|more) lines, (.+?) to expand\)$/u;
 
 export function hidden(line: string, theme: Theme): string {
+	if (!line.includes(" to expand)")) return line;
 	const match = HIDDEN.exec(stripTerminalSequences(line).trim());
 	if (match === null) return line;
 	const [, count, side, key] = match;
@@ -536,8 +538,9 @@ function withoutBlanks(lines: readonly string[]): string[] {
 }
 
 export function isBlank(line: string | undefined): boolean {
-	// A line of only color codes reads as blank.
-	return stripTerminalSequences(line ?? "").trim() === "";
+	if (line === undefined) return true;
+	// A line of only color codes reads as blank; one without escapes needs no stripping.
+	return (line.includes("\u001b") ? stripTerminalSequences(line) : line).trim() === "";
 }
 
 function rulingText(ruling: CallRuling, theme: Theme, expanded: boolean): string {
