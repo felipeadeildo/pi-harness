@@ -12,7 +12,7 @@ import {
 	type Board,
 	type BoardOp,
 } from "../src/board/model.ts";
-import { boardCall, boardText } from "../src/board/tool.ts";
+import { BOARD_PARAMETERS, boardCall, boardText, missingFor } from "../src/board/tool.ts";
 
 const at = 1;
 const blocker = { on: "operator", why: "which name?" } as const;
@@ -290,5 +290,36 @@ describe("the columns a board has", () => {
 			"review",
 			"todo",
 		]);
+	});
+});
+
+describe("the board tool as a provider reads it", () => {
+	test("its schema is an object at the top, because a provider refuses a tool that is not", () => {
+		// `Invalid schema for function 'board': schema must be a JSON Schema of 'type: "object"', got
+		// 'type: null'` is what OpenAI answers to a union at the top, on the first call of the session.
+		const schema = JSON.parse(JSON.stringify(BOARD_PARAMETERS)) as Record<string, unknown>;
+		expect(schema.type).toBe("object");
+		expect(schema).not.toHaveProperty("anyOf");
+		expect(schema).not.toHaveProperty("oneOf");
+		expect(schema.required).toEqual(["op"]);
+	});
+
+	test("every operation the model may name is in the enum, and nothing else", () => {
+		const props = (BOARD_PARAMETERS as unknown as { properties: { op: { enum: string[] } } })
+			.properties;
+		expect(props.op.enum).toEqual(["add", "move", "edit", "drop", "decide", "find"]);
+	});
+
+	test("a call that leaves out what its operation needs is answered with which field", () => {
+		expect(missingFor({ op: "add" })).toBe("add needs title.");
+		expect(missingFor({ op: "move", id: "c1" })).toBe("move needs column.");
+		expect(missingFor({ op: "drop" })).toBe("drop needs id and why.");
+		expect(missingFor({ op: "find" })).toBe("find needs text.");
+		expect(missingFor({ op: "decide", text: "ship it" })).toBeUndefined();
+		expect(missingFor({ op: "add", title: "ship the parser" })).toBeUndefined();
+	});
+
+	test("an operation the board does not have is named, not applied", () => {
+		expect(missingFor({ op: "rename", id: "c1" })).toBe('There is no operation "rename".');
 	});
 });

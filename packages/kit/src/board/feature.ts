@@ -11,6 +11,7 @@ import {
 	boardCall,
 	boardText,
 	type BoardCallParams,
+	missingFor,
 } from "./tool.ts";
 
 function text(value: string) {
@@ -33,6 +34,8 @@ export const board: Feature = {
 			description: BOARD_DESCRIPTION,
 			parameters: BOARD_PARAMETERS,
 			execute: async (_id, params) => {
+				const lacking = missingFor(params);
+				if (lacking !== undefined) return text(lacking);
 				const op = params as BoardCallParams;
 				if (op.op === "find") {
 					const found = boardCall(current, op);
