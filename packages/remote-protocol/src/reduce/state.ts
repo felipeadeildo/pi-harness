@@ -57,6 +57,11 @@ export interface SessionState {
 	renamed?: { from: string; to: string; by?: By };
 	/** What the session's board holds. Absent when no feature provides one, which is not an empty board. */
 	board?: BoardView;
+	/**
+	 * What the session wears on a screen: the theme's accent, and the color the room gave it. The wire
+	 * carries the names, so a client resolves them in a palette of its own.
+	 */
+	theme?: { accent: string; color?: string };
 	/** What waits to be delivered, in the order it will go in. Empty when nothing waits. */
 	queue: QueuedMessage[];
 	/** What the session is doing, in pi's program status words. */
