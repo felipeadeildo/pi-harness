@@ -109,8 +109,7 @@ function CodeBlockCopyButton({
 				className={cn(className)}
 				onClick={(event) => {
 					onClick?.(event);
-					navigator.clipboard
-						.writeText(value)
+					copyText(value)
 						.then(() => setCopied(true))
 						.catch(() => {});
 				}}
@@ -238,3 +237,21 @@ export {
 	CodeBlockLine,
 	CodeBlockFooter,
 };
+
+/**
+ * The clipboard API exists only in a secure context; over plain http on the tailnet the page copies
+ * through a selected field instead.
+ */
+async function copyText(value: string): Promise<void> {
+	if (navigator.clipboard !== undefined) return navigator.clipboard.writeText(value);
+	const field = document.createElement("textarea");
+	field.value = value;
+	field.setAttribute("readonly", "");
+	field.style.position = "fixed";
+	field.style.opacity = "0";
+	document.body.append(field);
+	field.select();
+	const copied = document.execCommand("copy");
+	field.remove();
+	if (!copied) throw new Error("the browser refused to copy");
+}

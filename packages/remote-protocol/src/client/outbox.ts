@@ -24,6 +24,24 @@ export interface OutboxOptions {
 	window?: number;
 }
 
+interface RandomSource {
+	getRandomValues(array: Uint8Array): Uint8Array;
+	randomUUID?: () => string;
+}
+
+/**
+ * A version 4 UUID. `crypto.randomUUID` exists only in a secure context, and a phone reaches the daemon
+ * over plain http on the tailnet; `getRandomValues` exists in both.
+ */
+export function randomId(random: RandomSource = crypto): string {
+	if (typeof random.randomUUID === "function") return random.randomUUID();
+	const bytes = random.getRandomValues(new Uint8Array(16));
+	bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x40;
+	bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
+	const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 export class Outbox {
 	readonly #now: () => number;
 	readonly #newId: () => string;
@@ -33,7 +51,7 @@ export class Outbox {
 	constructor(options: OutboxOptions = {}) {
 		this.#now = options.now ?? Date.now;
 		// Unique across clients: two tabs share a millisecond, and a repeated id would swallow the second command.
-		this.#newId = options.id ?? (() => crypto.randomUUID());
+		this.#newId = options.id ?? randomId;
 		this.#window = options.window ?? GOES_ALONE;
 	}
 

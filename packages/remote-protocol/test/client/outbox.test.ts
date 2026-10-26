@@ -2,7 +2,7 @@
 // out by themselves after the reconnect, and older ones wait for the person to decide.
 import { describe, expect, test } from "bun:test";
 
-import { GOES_ALONE, Outbox } from "../../src/client/outbox.ts";
+import { GOES_ALONE, Outbox, randomId } from "../../src/client/outbox.ts";
 
 function clock(start = 0) {
 	let now = start;
@@ -109,5 +109,17 @@ describe("the outbox", () => {
 		time.at(1000);
 		outbox.add("prompt.send", { text: "second" });
 		expect(outbox.ready().map((one) => one.id)).toEqual(["c1", "c2"]);
+	});
+});
+
+describe("a command's id", () => {
+	test("is a v4 UUID even where the page is not a secure context and randomUUID is missing", () => {
+		const insecure = {
+			getRandomValues: (array: Uint8Array) => crypto.getRandomValues(array),
+		};
+		const ids = new Set(Array.from({ length: 50 }, () => randomId(insecure)));
+		expect(ids.size).toBe(50);
+		for (const id of ids)
+			expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 	});
 });
