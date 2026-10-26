@@ -17,28 +17,12 @@ import {
 } from "@earendil-works/pi-ai";
 
 import { createApp } from "../packages/kit/src/app/builder.ts";
-import { eventsDir, logPath } from "../packages/kit/src/index.ts";
-import { createRig, SCRIPTED } from "../packages/kit/src/rig.ts";
-import { tasks } from "../packages/tasks/src/index.ts";
+import { board, eventsDir, logPath, names } from "../packages/kit/src/index.ts";
+import { createRig } from "../packages/kit/src/rig.ts";
 
 const out =
 	process.argv[2] ??
 	join(import.meta.dir, "..", "packages", "remote-protocol", "test", "fixtures", "recording");
-
-/** Whether this request is the tasks feature keeping the list, which it asks with its own prompt. */
-function aboutTasks(messages: { content: unknown }[]): boolean {
-	const asked = messages.at(-1)?.content;
-	const text =
-		typeof asked === "string"
-			? asked
-			: Array.isArray(asked)
-				? asked
-						.filter((part) => (part as { type?: string }).type === "text")
-						.map((part) => (part as { text?: string }).text ?? "")
-						.join(" ")
-				: "";
-	return text.includes("<tasks>");
-}
 
 let runs = 0;
 
@@ -70,25 +54,15 @@ export const PRIVATE = [
 	"/tmp/",
 ] as const;
 
-/** What the scripted model answers: the tasks list, the run itself, and pi's summaries. */
-function answer(context: { messages: { role: string; content: unknown }[] }): AssistantMessage {
-	if (aboutTasks(context.messages)) {
-		return fauxAssistantMessage(
-			[
-				fauxToolCall("update_tasks", {
-					language: "English",
-					ops: runs === 0 ? [{ op: "title", text: "Read the rig log", handle: "rig" }] : [],
-				}),
-			],
-			{ stopReason: "toolUse" },
-		);
-	}
+/** What the scripted model answers: the run itself, with one card on the board, and pi's summaries. */
+function answer(): AssistantMessage {
 	runs++;
 	if (runs === 1) {
 		return fauxAssistantMessage(
 			[
 				fauxThinking("The log is in the events folder, one JSON line per fact."),
 				fauxText("I will list the folder."),
+				fauxToolCall("board", { op: "add", title: "Read the rig log", column: "doing" }),
 				fauxToolCall("bash", { command: "ls" }),
 			],
 			{ stopReason: "toolUse" },
@@ -102,19 +76,16 @@ async function record(): Promise<void> {
 		answer,
 		extensions: [
 			(pi) => {
-				createApp(pi, { name: "pi-harness" }).use(tasks).build();
+				createApp(pi, { name: "pi-harness" }).use(names()).use(board).build();
 			},
 		],
-		// The tasks feature asks a model of its own, and the catalogue holds every provider. Without
-		// this it would reach for a real one.
-		settings: { tasks: { model: SCRIPTED } },
 	});
 
 	try {
-		// A turn with thinking, a tool call, and the tasks feature reading it.
+		// A turn with thinking, a card on the board and a tool call.
 		await rig.prompt("List what is in this folder.");
 		const first = rig.session.sessionManager.getBranch()[0];
-		// A second turn, which the tasks feature reads too.
+		// A second turn, plain.
 		await rig.prompt("Now read the log.");
 		// A move in the tree and a turn after it. `branch` only moves the leaf, so without the third
 		// turn nothing in the file says the tree moved: the entries written next hang from the older
@@ -123,7 +94,6 @@ async function record(): Promise<void> {
 		await rig.prompt("What did the first turn leave?");
 		// An aborted turn and a compaction need timing the scripted model does not control. They are
 		// written by hand in the protocol's reducer tests, from lines captured out of a real run.
-		await rig.until((line) => line.type === "tasks.changed");
 	} finally {
 		mkdirSync(out, { recursive: true });
 		const private_ = [rig.root, process.cwd(), dirname(process.cwd()), homedir()];
@@ -136,7 +106,7 @@ async function record(): Promise<void> {
 		);
 		writeFileSync(
 			join(out, "README.md"),
-			`# A recorded session\n\nWritten by \`bun scripts/record-session.ts\`. A scripted model ran three\nturns: the first with thinking and a tool call, the other two plain. The tasks feature kept the list\nafter each one. Between the second and the third, the tree moved back to the first entry, so the\nthird turn hangs from an older entry than the one before it. \`session.jsonl\` is pi's file and\n\`harness.jsonl\` is the harness's log. The reducers in \`test/transcript.test.ts\` rebuild both.\n\nAn aborted turn and a compaction are not here: the scripted model cannot be stopped mid answer,\nand pi refuses to compact a session this short. \`test/edges.test.ts\` covers them with lines\ncaptured from a real run.\n`,
+			`# A recorded session\n\nWritten by \`bun scripts/record-session.ts\`. A scripted model ran three\nturns: the first with thinking, a card on the board and a tool call, the other two plain. Between the second and the third, the tree moved back to the first entry, so the\nthird turn hangs from an older entry than the one before it. \`session.jsonl\` is pi's file and\n\`harness.jsonl\` is the harness's log. The reducers in \`test/transcript.test.ts\` rebuild both.\n\nAn aborted turn and a compaction are not here: the scripted model cannot be stopped mid answer,\nand pi refuses to compact a session this short. \`test/edges.test.ts\` covers them with lines\ncaptured from a real run.\n`,
 		);
 		console.log(`wrote ${out}`);
 		rig.dispose();

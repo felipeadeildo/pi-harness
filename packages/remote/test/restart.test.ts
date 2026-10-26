@@ -11,15 +11,6 @@ import { Sessions } from "../src/daemon/sessions.ts";
 
 const around = (seq: number) => ({ machine: "m", session: "s", epoch: "e", seq });
 const live = { pid: 1, startedAt: 1, cwd: "/x", kind: "terminal" as const };
-const tasks = {
-	version: 1 as const,
-	tasks: [],
-	decisions: [],
-	nextTask: 1,
-	nextDecision: 1,
-	updatedAt: 1,
-};
-
 /** A daemon that just started, hearing from a bridge that never went away. */
 function restarted(): Sessions {
 	const sessions = new Sessions();
@@ -40,7 +31,6 @@ describe("a daemon that restarts", () => {
 		const sessions = restarted();
 		const folded: SessionState = {
 			...emptySessionState(),
-			tasks,
 			questions: { q1: { id: "q1", source: "agent", questions: [] } },
 			permissions: { mode: "edits", rulings: {} },
 		};
@@ -59,7 +49,6 @@ describe("a daemon that restarts", () => {
 		expect(sessions.get("s")?.state).toEqual(folded);
 		const state = opening(sessions);
 		expect(state?.permissions.mode).toBe("edits");
-		expect(state?.tasks).toEqual(tasks);
 		expect(Object.keys(state?.questions ?? {})).toEqual(["q1"]);
 	});
 

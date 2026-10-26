@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { TASKS_CHANGES, TASKS_USAGE_CHANGES, totalsOf as totalsInKit } from "@adeildo/pi-kit";
+import { totalsOf as totalsInKit } from "@adeildo/pi-kit";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 
 import { readGit } from "../src/data/git.ts";
@@ -260,11 +260,11 @@ describe("totals", () => {
 		expect(cacheHitPercent(entries.slice(0, 1))).toBe(90);
 	});
 
-	test("the tasks' model calls count in the session's cost", () => {
+	test("an older session's tasks model calls still count in its cost, since they were paid", () => {
 		const entries = [
 			assistant({ input: 10, output: 5, cost: 0.1 }),
-			custom(TASKS_CHANGES, { usage: { input: 100, output: 20, cost: 0.002 } }),
-			custom(TASKS_USAGE_CHANGES, { usage: { input: 80, output: 10, cost: 0.001 } }),
+			custom("pi-tasks:update", { usage: { input: 100, output: 20, cost: 0.002 } }),
+			custom("pi-tasks:usage", { usage: { input: 80, output: 10, cost: 0.001 } }),
 		];
 		const totals = totalsOf(entries);
 		expect(totals).toMatchObject({ input: 190, output: 35 });

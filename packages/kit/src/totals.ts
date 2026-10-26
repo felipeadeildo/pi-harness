@@ -3,7 +3,7 @@
 // would be two owners of one sum, which is how the two of them came to disagree.
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 
-import { tasksUsageOf } from "./tasks/entries.ts";
+import { tasksUsageOf } from "./legacy-tasks.ts";
 
 export interface Totals {
 	input: number;
@@ -66,7 +66,7 @@ function add(totals: Totals, usage: UsageLike): void {
 	totals.cost += usage.cost.total;
 }
 
-// The tasks package's model calls are not pi's, so pi does not count them. They count here.
+// The tasks' model calls, in sessions written while they existed, are not pi's, so pi does not count them. They count here.
 function addTasks(totals: Totals, usage: ReturnType<typeof tasksUsageOf>): void {
 	if (usage === undefined) return;
 	totals.input += usage.input;

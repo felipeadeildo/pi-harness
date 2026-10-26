@@ -3,19 +3,15 @@ import { describe, expect, test } from "bun:test";
 import { bySession, handleOf } from "../src/by-session.ts";
 import { isBy } from "../src/contracts/by.ts";
 import { NAMES } from "../src/contracts/names.ts";
-import { TASKS } from "../src/contracts/tasks.ts";
 import { HOST } from "../src/host.ts";
-import { emptyTasks } from "../src/tasks/state.ts";
 import { fakeScope } from "../src/testing.ts";
 
 const SESSION = { getSessionId: () => "01a16a75-d3d6" };
 
-/** A scope whose tasks feature gave the session this handle and title. */
-function tasksScope(handle: string | undefined, title = "Fix the release workflow") {
+/** A scope whose names feature gave the session this handle. */
+function named(handle: string | undefined) {
 	const scope = fakeScope();
-	TASKS.provide(scope, () => ({
-		state: { ...emptyTasks(), title, ...(handle === undefined ? {} : { handle }) },
-	}));
+	if (handle !== undefined) NAMES.provide(scope, () => ({ handle }));
 	return scope;
 }
 
@@ -36,32 +32,23 @@ describe("who caused a fact", () => {
 });
 
 describe("the handle of a session", () => {
-	test("after a rename the drawn word wins over the tasks' old one, and there is none without either", () => {
-		const both = tasksScope("release");
-		NAMES.provide(both, () => ({ handle: "kestrel" }));
-		expect(handleOf(both)).toBe("kestrel");
-		expect(handleOf(tasksScope("release"))).toBe("release");
+	test("is the word the names feature holds, and there is none without it", () => {
+		expect(handleOf(named("kestrel"))).toBe("kestrel");
 		expect(handleOf(fakeScope())).toBeUndefined();
 	});
 });
 
 describe("a session as the cause", () => {
-	test("is named by the handle the room knows it by, never by its title", () => {
-		expect(bySession("terminal", tasksScope("release"), SESSION, { machine: "laptop" })).toEqual({
+	test("is named by the handle the room knows it by", () => {
+		expect(bySession("terminal", named("release"), SESSION, { machine: "laptop" })).toEqual({
 			kind: "terminal",
 			name: "release",
 			machine: "laptop",
 		});
 	});
 
-	test("is named by the handle the names feature drew, before the tasks'", () => {
-		const scope = tasksScope("release");
-		NAMES.provide(scope, () => ({ handle: "kestrel" }));
-		expect(bySession("agent", scope, SESSION).name).toBe("kestrel");
-	});
-
 	test("is new- and the end of its id while it has no handle", () => {
-		expect(bySession("agent", tasksScope(undefined), SESSION)).toEqual({
+		expect(bySession("agent", named(undefined), SESSION)).toEqual({
 			kind: "agent",
 			name: "new-d3d6",
 			machine: HOST,
@@ -71,11 +58,11 @@ describe("a session as the cause", () => {
 
 	test("is never a client, which only its device can name", () => {
 		// @ts-expect-error A session cannot name a phone.
-		expect(bySession("client", tasksScope("release"), SESSION).kind).toBe("client");
+		expect(bySession("client", named("release"), SESSION).kind).toBe("client");
 	});
 
 	test("happened on this machine unless the caller says otherwise", () => {
-		const by = bySession("terminal", tasksScope("release"), SESSION);
+		const by = bySession("terminal", named("release"), SESSION);
 		expect(by.machine).toBe(HOST);
 		expect(isBy(by)).toBe(true);
 	});

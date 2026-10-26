@@ -5,40 +5,6 @@ import { type By } from "./by.ts";
 import type { SessionCost } from "./reduce/state.ts";
 import type { QueuedMessage } from "./summary.ts";
 
-export type TaskStatus = "doing" | "queued" | "waiting" | "deferred" | "done" | "dropped";
-export type Origin = "you" | "agent";
-export type WaitingOn = "you" | "outside";
-
-export interface Mark {
-	at: number;
-	entry?: string;
-}
-
-export interface Task {
-	id: string;
-	text: string;
-	status: TaskStatus;
-	origin: Origin;
-	created: Mark;
-	asks: string[];
-	started?: Mark;
-	finished?: Mark;
-	updatedAt: number;
-	result?: string;
-	left?: string;
-	why?: string;
-	waitingOn?: WaitingOn;
-	idleRuns?: number;
-}
-
-export interface Decision {
-	id: string;
-	text: string;
-	origin: Origin;
-	made: Mark;
-	tasks?: string[];
-}
-
 /**
  * How hard pi is asked to think, in pi's own order and words. One list, because the screen that offers
  * the choice and the bridge that validates it must not drift apart.
@@ -62,20 +28,6 @@ export interface SessionCommand {
 	 * today is `compact`. An extension command never appears here: it runs only at the terminal.
 	 */
 	source: "skill" | "prompt" | "pi";
-}
-
-/** The session's tasks, as `tasks.changed` carries them. */
-export interface SessionTasks {
-	version: 1;
-	title?: string;
-	titleOrigin?: Origin;
-	handle?: string;
-	language?: string;
-	tasks: Task[];
-	decisions: Decision[];
-	nextTask: number;
-	nextDecision: number;
-	updatedAt: number;
 }
 
 export interface AskOption {
@@ -145,7 +97,6 @@ export interface ModelOption {
 
 /** Every state change the client reduces, with the shape each carries. */
 export interface StateChangeMap {
-	"tasks.changed": { state: SessionTasks };
 	"ask.opened": { id: string; source: string; questions: AskQuestion[]; expiresAt?: number };
 	"ask.closed": { id: string; by?: By; result: AskResult };
 	"call.ruled": { toolCallId: string; ruling: CallRuling; by?: By };

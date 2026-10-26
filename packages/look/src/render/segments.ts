@@ -67,8 +67,6 @@ export function isSegmentId(value: string): value is SegmentId {
 /** Status keys a builtin segment already draws, so the statuses segment skips them. */
 const CLAIMED_BY_SEGMENT: Partial<Record<BuiltinSegment, string>> = {
 	model: "pi-providers:account",
-	// The tasks feature draws its own status until it is gone; the board's segment stands in for it.
-	board: "pi-tasks",
 	peers: "pi-peers",
 };
 

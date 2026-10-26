@@ -13,15 +13,14 @@ import { join } from "node:path";
 
 import {
 	createApp,
-	emptyTasks,
 	HOST,
 	LOGGED_EVENT,
 	logEvent,
 	logPath,
 	MODE,
+	NAMES,
 	MODE_SET,
 	protectedList,
-	TASKS,
 	targetOf,
 } from "@adeildo/pi-kit";
 import { ANSWER, ASK, CANCEL, totalsOf } from "@adeildo/pi-kit";
@@ -955,12 +954,11 @@ describe("the bridge", () => {
 		]);
 	});
 
-	test("a snapshot carries the handle, the status, the tasks, the mode and the open questions, as facts too", async () => {
+	test("a snapshot carries the handle, the status, the mode and the open questions, as facts too", async () => {
 		const daemon = await listening();
 		const fake = mounted();
 		const scope = { events: fake.pi.events, warn: () => {} };
-		const tasks = { ...emptyTasks(), handle: "otter" };
-		TASKS.provide(scope, () => ({ state: tasks }));
+		NAMES.provide(scope, () => ({ handle: "otter" }));
 		MODE.provide(scope, () => "edits");
 		await start(fake);
 		await until(() => types(daemon).includes("state"));
@@ -976,7 +974,7 @@ describe("the bridge", () => {
 			| { summary: Record<string, unknown> }
 			| undefined;
 		// The opening keeps what is a photograph, the handle and the status, and nothing the state
-		// already carries: `tasks`, the questions and the mode are read from `state` below.
+		// already carries: the questions and the mode are read from `state` below.
 		expect(snapshot?.summary).toMatchObject({ handle: "otter", status: "idle" });
 		const state = (snapshot?.summary as { state?: Record<string, unknown> } | undefined)?.state as
 			| {

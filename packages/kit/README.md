@@ -71,7 +71,7 @@ Besides the app and the settings, the kit holds what every package would otherwi
 | `events/log.ts`                                              | The folder log every session appends to and reads                                                                                          |
 | `sources/`                                                   | A session to show, read from this pi or from its file, followed as it grows                                                                |
 | `app/renderers.ts`                                           | The tool and message renderers the features register, resolved as pi resolves them, so a view draws another session's entries the same way |
-| `contracts/`, `tasks/`                                       | The names this suite writes into a pi session and the events that cross packages, plus the task list's own types                           |
+| `contracts/`, `board/`                                       | The names this suite writes into a pi session and the events that cross packages, plus the board's own types                               |
 
 ## Settings
 

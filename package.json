@@ -27,7 +27,6 @@
 		"test": "bun test",
 		"perf": "bun test packages/*/test/perf.test.ts",
 		"bench:typing": "bun scripts/bench/typing.ts",
-		"tasks:eval": "bun packages/tasks/eval/run.ts",
 		"verify": "bun run check && bun run lint && bun run fmt:check && bun run test && bun run knip && bun run app:check && bun run docs:check && bun run pi:defaults",
 		"docs": "bun scripts/docs/index.ts",
 		"docs:check": "bun scripts/docs/index.ts --check",

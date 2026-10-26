@@ -1,6 +1,6 @@
 // The Session screen drawn from a real recording: the rig's pi session and its harness log, read as
 // a client holds them after the wire. These pin what the screen promises: the conversation in order,
-// thinking folded, a long output folded, the tasks still open, the question waited on, read only.
+// thinking folded, a long output folded, the question waited on.
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -13,7 +13,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { piColor } from "../../ui/pi-colors.ts";
 import { themeFor } from "../../ui/theme.ts";
-import { openTasksOf } from "./panel-data.ts";
 import SessionDocument from "./session-document.tsx";
 import { aboutOf, titleOf, viewOf } from "./session-view.ts";
 
@@ -94,11 +93,12 @@ function custom(id: string, parentId: string | null, display: boolean, text: str
 }
 
 describe("the recording", () => {
-	test("is drawn along the branch it ended on, with the title the tasks gave it", () => {
+	test("is drawn along the branch it ended on, under the name it has while nobody gave one", () => {
 		const session = recorded();
 		const html = draw(session);
-		expect(titleOf(session, undefined)).toBe("new-eac1");
-		expect(html).toContain("Read the rig log</h1>");
+		const title = titleOf(session);
+		expect(title).toMatch(/^new-[0-9a-f]{4}$/);
+		expect(html).toContain(`${title}</h1>`);
 		const you = html.indexOf("remote-you");
 		const pi = html.indexOf("remote-pi");
 		expect(you).toBeGreaterThan(-1);
@@ -245,19 +245,6 @@ describe("what the recording does not hold", () => {
 	test("a short output is not folded", () => {
 		const html = draw(handmade([message("a", null, "toolResult", [{ type: "text", text: "ok" }])]));
 		expect(html).not.toContain("<details>");
-	});
-
-	test("the tasks it lists are the ones going on and waiting, not those done", () => {
-		// The list is React Native now, so what is worth asserting is what it chooses to draw.
-		expect(
-			openTasksOf({
-				tasks: [
-					{ id: "1", status: "doing", text: "ship it" },
-					{ id: "2", status: "done", text: "written" },
-					{ id: "3", status: "waiting", text: "waiting on the review" },
-				],
-			} as never).map((one) => one.line),
-		).toEqual(["doing · ship it", "waiting · waiting on the review"]);
 	});
 
 	test("the question it waits on is the open one, and an answered one leaves the list", () => {

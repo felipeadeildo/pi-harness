@@ -2,8 +2,8 @@
 // money to make. Method: factory.ai/news/evaluating-compression
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
-import type { signedIn } from "../../tasks/eval/signin.ts";
-import { modelNamed } from "../../tasks/eval/signin.ts";
+import type { signedIn } from "./signin.ts";
+import { modelNamed } from "./signin.ts";
 
 export interface Probe {
 	kind: string;

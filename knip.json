@@ -19,9 +19,6 @@
 		"packages/peers": {
 			"entry": ["test/**/*.test.ts", "eval/**/*.ts"]
 		},
-		"packages/tasks": {
-			"entry": ["test/**/*.test.ts", "eval/**/*.ts"]
-		},
 		"packages/harness": {
 			"entry": ["src/*.ts", "test/**/*.test.ts"]
 		},
@@ -36,6 +33,5 @@
 		}
 	},
 	"ignoreDependencies": ["babel-plugin-react-compiler", "expo-updates"],
-	"ignoreBinaries": ["script", "rsvg-convert"],
-	"ignoreWorkspaces": ["packages/tasks"]
+	"ignoreBinaries": ["script", "rsvg-convert"]
 }

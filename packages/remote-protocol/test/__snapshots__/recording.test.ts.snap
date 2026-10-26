@@ -4,8 +4,6 @@ exports[`the recording, read back the branch ends where the last turn left it 1`
 [
   "model rig/scripted",
   "message user  [{"type":"text","text":"What did the first turn leave?"}]",
-  "custom pi-tasks:usage",
-  "custom pi-tasks:usage",
   "message assistant stop [{"type":"text","text":"Done."}]",
 ]
 `;

@@ -10,7 +10,7 @@ use it, and `remote-client` reads it.
 import { isEnvelope, reduceFacts, transcriptOf } from "@adeildo/pi-remote-protocol";
 
 const transcript = transcriptOf(entries, leaf); // the branch, from the leaf the bridge names
-const facts = reduceFacts(logged); // tasks, questions, rulings, mode, rename
+const facts = reduceFacts(logged); // questions, rulings, mode, rename
 ```
 
 ## The envelope
@@ -31,12 +31,12 @@ sides check in the hello.
 
 ## Facts
 
-A fact is one thing the harness did, written to the session's log and sent as an event: the tasks, a
+A fact is one thing the harness did, written to the session's log and sent as an event: a
 question opened or closed, a ruling on a call, the permission mode, the session's state, a rename, the
 number of a streamed message bound to its entry, a move in the tree.
 
 `StateChangeMap` is the shape of each and `STATE_CHANGES` is the closed list. `isStateChange` checks a fact against its
-type, and `reduceFact` folds that list into `SessionFacts`: the tasks as they stand, the questions still
+type, and `reduceFact` folds that list into `SessionFacts`: the questions still
 open, the ruling of each call, the mode and the rename. `openAsks` is the questions a screen should
 draw.
 
@@ -45,7 +45,7 @@ in a client of this one.
 
 ## The opening
 
-`SessionSummary` is where a client starts: the session's name, handle, model, state, tasks, mode,
+`SessionSummary` is where a client starts: the session's name, handle, model, state, board, mode,
 cost, queue, and the entry its branch ends at. `isSummary` checks it, and checks the queue letter by
 letter.
 

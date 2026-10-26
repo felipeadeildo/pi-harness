@@ -32,8 +32,8 @@ export interface RigOptions {
 	replies?: readonly FauxResponseStep[];
 	/**
 	 * What the model answers to every request, read from the request itself. A run asks more than
-	 * once: the tasks feature asks the same model with a prompt of its own, and a compaction asks for
-	 * a summary. A script that only lists replies runs out in the middle of one.
+	 * once: a tool call asks again with the result, and a compaction asks for a summary. A script that
+	 * only lists replies runs out in the middle of one.
 	 */
 	answer?: FauxResponseFactory;
 	/**

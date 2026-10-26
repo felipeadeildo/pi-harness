@@ -11,12 +11,11 @@ import {
 	CANCEL,
 	canAsk,
 	createApp,
-	emptyTasks,
 	type EventScope,
 	type LoggedEvent,
 	logPath,
 	readFrom,
-	TASKS,
+	NAMES,
 	targetOf,
 } from "@adeildo/pi-kit";
 import { type FakePi, fakeContext, fakePi, fakeTerminal } from "@adeildo/pi-kit/testing";
@@ -328,14 +327,14 @@ test("a question the asker draws in its own terminal is not drawn twice", async 
 	expect(term.built).toBe(0);
 });
 
-test("the terminal answers under the handle the tasks gave the session", async () => {
+test("the terminal answers under the handle the names gave the session", async () => {
 	const bus = createEventBus();
 	const fake = fakePi(bus);
 	// Pi's session name holds the title, which is not what the room calls the session.
 	const titled = { ...SESSION, getSessionName: () => "Streaming response screen" };
 	const { ctx, term } = terminalContext({ sessionManager: titled });
 	const scope = { events: bus, warn: () => {} } as unknown as EventScope;
-	TASKS.provide(scope, () => ({ state: { ...emptyTasks(), handle: "otter" } }));
+	NAMES.provide(scope, () => ({ handle: "otter" }));
 	createApp(fake.pi, { name: "test", settingsPath }).use(questions).build();
 	await fake.fire("session_start", {}, ctx);
 

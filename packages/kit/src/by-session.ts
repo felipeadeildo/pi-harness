@@ -3,21 +3,14 @@
 import type { EventScope } from "./contract.ts";
 import type { By } from "./contracts/by.ts";
 import { NAMES } from "./contracts/names.ts";
-import { TASKS } from "./contracts/tasks.ts";
 import { HOST } from "./host.ts";
 
 /**
- * The handle the room calls the session by: the word the names feature drew from the list, or the
- * handle the tasks logged before the list existed, and `undefined` while it has none. Never the
- * title: it changes with the work, and a name must not. Every reader of the handle asks here, so the
- * order between the two sources lives in one place.
- *
- * The tasks' handle is a copy from when the session started, and it answers until a rename arrives.
- * When `names.rename` lands, either the tasks learn to follow it or this fallback goes: otherwise a
- * renamed session would answer with the old word once its `NAMES` value is rebuilt from the log.
+ * The handle the room calls the session by, which the names feature holds, and `undefined` while it
+ * has none. Every reader of the handle asks here.
  */
 export function handleOf(scope: EventScope): string | undefined {
-	return NAMES.current(scope)?.handle ?? TASKS.current(scope)?.state.handle;
+	return NAMES.current(scope)?.handle;
 }
 
 /**

@@ -20,6 +20,7 @@ import {
 	type AskResult,
 	AVAILABLE,
 } from "../../packages/kit/src/index.ts";
+import { boardPanel } from "./board.ts";
 import { drawCalls, type CallSpec } from "./calls.ts";
 import { pruneLine } from "./compact.ts";
 import { KEYS, openDialog, press, type, WIDTH } from "./drive.ts";
@@ -27,7 +28,6 @@ import { drawLook, lookParts } from "./look.ts";
 import { assistantText, userMessage } from "./messages.ts";
 import { peersRoom, SHARED_ROOM } from "./peers.ts";
 import { settingsLines } from "./settings.ts";
-import { tasksPanel } from "./tasks.ts";
 import { drawView } from "./view.ts";
 
 export interface Scene {
@@ -390,20 +390,20 @@ export const SCENES: readonly Scene[] = [
 	{
 		name: "look/preview",
 		caption: "The start card, then a prompt halfway through its answer.",
-		alt: "Pi with the look: the start card, then the strip with the stopwatch and the last call, the task under way with how many wait, are queued and are done, the framed editor with the branch, the model and the context, and below it the cost, the tokens, the cache and the average speeds.",
+		alt: "Pi with the look: the start card, then the strip with the stopwatch and the last call, the card under way with how many wait, are to do and are done, the framed editor with the branch, the model and the context, and below it the cost, the tokens, the cache and the average speeds.",
 		draw: drawLook,
 	},
 	{
 		name: "look/view",
 		caption: "Another session over the screen, read from its file as it grows.",
-		alt: "A session titled Read the rig log, on the machine server, drawn over the whole screen in one frame with live on the right of its top edge. Its last question and the answer sit above an editor box whose edges carry the session's title, its folder, its machine and its model, and whose only line says the session is read only. The bottom edge says alt+g goes back.",
+		alt: "A session with no name yet, shown as new and the end of its id, on the machine server, drawn over the whole screen in one frame with live on the right of its top edge. Its last question and the answer sit above an editor box whose edges carry the session's title, its folder, its machine and its model, and whose only line says the session is read only. The bottom edge says alt+g goes back.",
 		draw: drawView,
 	},
 	{
-		name: "tasks/panel",
-		caption: "Alt+T: the agent's work as a list you can steer, and what waits on you.",
-		alt: "The session's tasks over the chat: the session as the title, one task under way, one waiting on you with the cursor on it, two queued, four done with the time each finished, one decision, and a pane with the selected task's reason.",
-		draw: tasksPanel,
+		name: "board/panel",
+		caption: "Alt+T: the session's board, and what waits on you.",
+		alt: "The session's board over the chat: a line saying three cards are open, one is in the backlog and one is done, then one card per line with its column first: one being done with what it is on now, one in review with its reviewer, and one to do that waits on you, with the reason.",
+		draw: boardPanel,
 	},
 	{
 		name: "compact/prune",
@@ -428,7 +428,7 @@ export const SCENES: readonly Scene[] = [
 	{
 		name: "harness/conversation",
 		caption: "A session: the start card, what you asked, what the model ran, and what it cost.",
-		alt: "A session with the look: the start card, a request, the model running the tests, committing and pushing, then the stopwatch, the task under way, the editor and the cost.",
+		alt: "A session with the look: the start card, a request, the model running the tests, committing and pushing, then the stopwatch, the card under way, the editor and the cost.",
 		draw: conversation,
 	},
 	// Last, because the settings screen loads a settings file of its own, which would change the look

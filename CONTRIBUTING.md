@@ -30,7 +30,7 @@ packages/
   providers/        # @adeildo/pi-providers: Claude plan billing and accounts
   ask-questions/    # @adeildo/pi-ask-questions: the ask_questions tool and its dialog
   skills/           # @adeildo/pi-skills: /skill: references anywhere in a message
-  tasks/            # @adeildo/pi-board: what the session is doing, did, waits on and decided
+  board/            # @adeildo/pi-board: the Alt+T panel over the kit's board
   compact/          # @adeildo/pi-compact: hides old tool output, writes the compaction summary
   peers/            # @adeildo/pi-peers: agents in one folder, board and room
   harness/          # @adeildo/pi-harness: every piece above, one extension each

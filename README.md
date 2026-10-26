@@ -16,7 +16,7 @@
 <!-- docs:harness/conversation -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/conversation.png" alt="A session with the look: the start card, a request, the model running the tests, committing and pushing, then the stopwatch, the task under way, the editor and the cost." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/conversation.png" alt="A session with the look: the start card, a request, the model running the tests, committing and pushing, then the stopwatch, the card under way, the editor and the cost." width="860">
   <br>
   <em>A session: the start card, what you asked, what the model ran, and what it cost.</em>
 </p>
@@ -37,9 +37,9 @@
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [Permission](packages/ask-permission) | Asks before a command runs. A model answers the easy ones for you, with the reason on the command, and the ones it is not sure about come to you                                                                                                           |
 | [Questions](packages/ask-questions)   | The model asks instead of guessing, with options, a preview of what each one leads to, and a note on any of them                                                                                                                                           |
-| [Tasks](packages/tasks)               | Keeps what the session is doing, what it did and with what result, what waits on you, and what was decided. The judge reads it as your intent                                                                                                              |
-| [Compact](packages/compact)           | Hides old tool output once the context passes 150k tokens, which cut a week of real sessions' cost by a third. pi's compaction summary comes from the tasks                                                                                                |
-| [Peers](packages/peers)               | Agents in the same folder see each other's tasks and what they ran, talk in a room, hear what you tell everyone, and split what you ask anyone                                                                                                             |
+| [Board](packages/board)               | The session's board: what the agent is doing, what waits on you and what it delivered, written by the agent with a tool. `Alt+T` opens it                                                                                                                  |
+| [Compact](packages/compact)           | Hides old tool output once the context passes 150k tokens, which cut a week of real sessions' cost by a third. pi's compaction summary carries the board                                                                                                   |
+| [Peers](packages/peers)               | Agents in the same folder see each other's boards and what they ran, talk in a room, hear what you tell everyone, and split what you ask anyone                                                                                                            |
 | [Skill calls](packages/skills)        | Call the skills you already have from anywhere in a message, several at once. The model reads each in full, and the chat shows a chip                                                                                                                      |
 | [Look](packages/look)                 | The start screen, the editor with the branch and the model on its borders, and a box around each command with its output and how long it took                                                                                                              |
 | [Providers](packages/providers)       | Bills Anthropic requests to the Claude plan you already pay for, keeps several accounts with a switch to the next one when a limit hits, keeps the prompt cache warm while you are likely to come back, and adds OpenAI-compatible endpoints from `/login` |

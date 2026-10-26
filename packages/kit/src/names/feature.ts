@@ -1,16 +1,16 @@
 // A session that has no name yet draws one from the list the first time it starts, and the room
 // calls it by that word from then on. The claim is a file, so a resumed session gets its word back
 // even after a restart; a session that started before the list existed keeps the handle the tasks
-// gave it, which `bySession` still reads.
+// wrote in its file.
 import { join } from "node:path";
 
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 
 import type { Feature } from "../app/feature.ts";
 import { NAMES } from "../contracts/names.ts";
-import { TASKS } from "../contracts/tasks.ts";
 import { logFrom } from "../events/log.ts";
 import { HOST } from "../host.ts";
+import { tasksHandleOf } from "../legacy-tasks.ts";
 import { readPresence } from "../presence/index.ts";
 import { claimWord, drawWord } from "./claim.ts";
 import { WORDS } from "./words.ts";
@@ -33,9 +33,9 @@ export function names(options: NamesOptions = {}): Feature {
 			scope.onSessionStart((ctx) => {
 				const session = ctx.sessionManager.getSessionId();
 				const dir = options.dir ?? join(getAgentDir(), "harness", "names");
-				// An older session keeps the handle the tasks logged. Claim it here so the next start,
-				// after the tasks feature is gone, reads it back from the names folder.
-				const previous = TASKS.current(scope)?.state.handle;
+				// An older session keeps the handle the tasks wrote in its file, and claims it in the names
+				// folder like any other word.
+				const previous = tasksHandleOf(ctx.sessionManager.getBranch());
 				if (previous !== undefined) {
 					held = { handle: previous };
 					NAMES.changed(scope, held);

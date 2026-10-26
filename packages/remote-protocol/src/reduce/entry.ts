@@ -45,10 +45,6 @@ function bound(state: SessionState): SessionState {
 }
 
 export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
-	"tasks.changed": {
-		check: (data): data is StateChangeMap["tasks.changed"] => isObject(data) && isTasks(data.state),
-		apply: (state, data) => ({ ...state, tasks: data.state }),
-	},
 	"call.ruled": {
 		check: (data): data is StateChangeMap["call.ruled"] =>
 			isObject(data) &&
@@ -254,15 +250,6 @@ export function applyOne<K extends StateChangeType>(
 ): SessionState {
 	const entry = CHANGES[type];
 	return entry.check(data) ? entry.apply(state, data) : state;
-}
-
-function isTasks(value: unknown): value is StateChangeMap["tasks.changed"]["state"] {
-	return (
-		isObject(value) &&
-		value.version === 1 &&
-		Array.isArray(value.tasks) &&
-		Array.isArray(value.decisions)
-	);
 }
 
 /** Whether a value is one sum of usage: five finite numbers, which is what the screens draw. */
