@@ -228,10 +228,30 @@ async function opensSession(page: Page): Promise<Result> {
 		await row.click();
 		if (href !== null) await page.waitForURL(`**${href}`, { timeout: 30_000 });
 		await page.getByTestId("composer").waitFor({ timeout: 30_000 });
-		return { ok: true };
+		return await carriesTheOpeningsState(page);
 	} catch (error) {
 		return { ok: false, why: short(error) };
 	}
+}
+
+/**
+ * The page has what the opening computed, before any turn has ended: the session's cost is in the
+ * state it keeps. No `cost.changed` has been sent yet (that waits for a turn), so only the opening can
+ * have put it there, and a client that does not read the opening's state never has it.
+ */
+async function carriesTheOpeningsState(page: Page): Promise<Result> {
+	const deadline = Date.now() + 20_000;
+	let seen = "no cached state";
+	while (Date.now() < deadline) {
+		seen = await page.evaluate(() => {
+			const key = Object.keys(localStorage).find((one) => one.startsWith("pi-remote:session:"));
+			const state = JSON.parse(localStorage.getItem(key ?? "") ?? "{}").state ?? {};
+			return typeof state.cost?.total === "number" ? "cost" : `no cost (${Object.keys(state)})`;
+		});
+		if (seen === "cost") return { ok: true };
+		await Bun.sleep(200);
+	}
+	return { ok: false, why: `the page holds no cost the opening carried: ${seen}` };
 }
 
 /**

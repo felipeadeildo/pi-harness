@@ -10,7 +10,7 @@ import { applyChange, emptySessionState, isStateChangeType } from "@adeildo/pi-r
 import { memoryCache } from "../src/cache.ts";
 import { connect } from "../src/connection.ts";
 import { Outbox } from "../src/outbox.ts";
-import { harnessOf, transcriptOfSession } from "../src/session.ts";
+import { harnessOf, type SnapshotData, transcriptOfSession } from "../src/session.ts";
 
 const FIXTURE = join(
 	import.meta.dir,
@@ -68,6 +68,18 @@ function stream(first: number): Envelope[] {
 	];
 }
 
+/** An opening as the bridge sends it: typed, so a field the product does not write does not compile. */
+const opening: SnapshotData = {
+	summary: {
+		session: key.session,
+		machine: key.machine,
+		cwd: "/work",
+		kind: "terminal",
+		state: emptySessionState(),
+	},
+	entries: [],
+};
+
 const snapshot: Envelope = {
 	v: 1,
 	kind: "event",
@@ -76,11 +88,7 @@ const snapshot: Envelope = {
 	epoch: "e1",
 	seq: 1,
 	type: "state",
-	data: {
-		summary: { session: key.session, machine: key.machine, cwd: "/work", kind: "terminal" },
-		entries: [],
-		state: emptySessionState(),
-	},
+	data: opening,
 	at: 0,
 };
 
@@ -214,19 +222,32 @@ describe("a client of a session", () => {
 					onMessage({
 						...snapshot,
 						data: {
-							...(snapshot.data as Record<string, unknown>),
-							state: {
-								tasks: { version: 1, handle: "rig", tasks: [], decisions: [] },
-								questions: {
-									q1: {
-										id: "q1",
-										source: "permission",
-										questions: [{ header: "Deploy", question: "Ship it", options: [] }],
+							...opening,
+							summary: {
+								...opening.summary,
+								state: {
+									...emptySessionState(),
+									tasks: {
+										version: 1,
+										handle: "rig",
+										tasks: [],
+										decisions: [],
+										nextTask: 1,
+										nextDecision: 1,
+										updatedAt: 0,
 									},
+									questions: {
+										q1: {
+											id: "q1",
+											source: "permission",
+											questions: [{ header: "Deploy", question: "Ship it", options: [] }],
+										},
+									},
+									permissions: { mode: "judge", rulings: {}, serves: true },
+									cost: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, total: 3 },
 								},
-								permissions: { mode: "judge", rulings: {} },
 							},
-						},
+						} satisfies SnapshotData,
 					});
 				},
 				close: () => {},
@@ -239,6 +260,8 @@ describe("a client of a session", () => {
 		expect(client.session().state.tasks?.handle).toBe("rig");
 		expect(client.session().state.permissions.mode).toBe("judge");
 		expect(Object.keys(client.session().state.questions)).toEqual(["q1"]);
+		expect(client.session().state.cost?.total).toBe(3);
+		expect(client.session().state.permissions.serves).toBe(true);
 		client.stop();
 	});
 
