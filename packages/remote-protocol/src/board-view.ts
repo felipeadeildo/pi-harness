@@ -1,5 +1,5 @@
 // What a session's board holds, as it travels: the shape the kit draws and the wire carries. A copy,
-// like `SessionTasks`, because the wire may not assume the kit is on the other side.
+// because the wire may not assume the kit is on the other side.
 import { isObject } from "./by.ts";
 
 /** A column of the board, as the writer named it. A reader draws the word it received. */

@@ -2,7 +2,7 @@
 // apart from the document because a `"use dom"` module may export one thing only, and the screen needs
 // these without loading a webview.
 import { type ClientSession, harnessOf, transcriptOfSession } from "@adeildo/pi-remote-client";
-import type { SessionState, SessionTasks, TranscriptItem } from "@adeildo/pi-remote-protocol";
+import type { SessionState, TranscriptItem } from "@adeildo/pi-remote-protocol";
 
 import { plain } from "../../render/index.ts";
 
@@ -37,16 +37,10 @@ export function viewOf(session: ClientSession): View {
 	return view;
 }
 
-/** What the session is called: the title pi or the tasks gave it, else the handle a room uses. */
-export function titleOf(session: ClientSession, tasks?: SessionTasks): string {
+/** What the session is called: the name pi has for it, else the handle a room uses. */
+export function titleOf(session: ClientSession): string {
 	const snapshot = session.summary;
-	return (
-		snapshot?.name ??
-		tasks?.title ??
-		snapshot?.handle ??
-		tasks?.handle ??
-		`new-${session.key.session.slice(-4)}`
-	);
+	return snapshot?.name ?? snapshot?.handle ?? `new-${session.key.session.slice(-4)}`;
 }
 
 /**

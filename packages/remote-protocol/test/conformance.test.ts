@@ -12,7 +12,6 @@ import type {
 	CallRuling as KitRuling,
 	Letter as KitLetter,
 	LogEventMap,
-	SessionTasks as KitTasks,
 } from "@adeildo/pi-kit";
 
 import { blockedOf } from "../src/board-view.ts";
@@ -24,13 +23,11 @@ import {
 	type CallRuling,
 	type StateChangeMap,
 	type StateChangeType,
-	type SessionTasks,
 } from "../src/state-changes.ts";
 import { type QueuedMessage, isQueuedMessage } from "../src/summary.ts";
 
 /** A value of the kit's shape must always be readable as our copy, never the other way round. */
 const copyOfBy = (by: KitBy): By => by;
-const copyOfTasks = (tasks: KitTasks): SessionTasks => tasks;
 const copyOfResult = (result: KitAskResult): AskResult => result;
 const copyOfQuestion = (question: KitAskQuestion): AskQuestion => question;
 const copyOfRuling = (ruling: KitRuling): CallRuling => ruling;
@@ -44,20 +41,11 @@ const copyOfRuling = (ruling: KitRuling): CallRuling => ruling;
  * title becomes the handle), so the copy here is not the kit's shape and the bridge's decoder is
  * what holds the pair together.
  */
-const IN_THE_KIT = [
-	"tasks.changed",
-	"ask.opened",
-	"ask.closed",
-	"call.ruled",
-	"mode.changed",
-] as const;
+const IN_THE_KIT = ["ask.opened", "ask.closed", "call.ruled", "mode.changed"] as const;
 
 type InTheKit = (typeof IN_THE_KIT)[number];
 
 const fromTheKit: Pick<LogEventMap, InTheKit> = {
-	"tasks.changed": {
-		state: { version: 1, tasks: [], decisions: [], nextTask: 1, nextDecision: 1, updatedAt: 0 },
-	},
 	"ask.opened": { id: "ask", source: "ask-questions", questions: [] },
 	"ask.closed": { id: "ask", result: { answers: [], cancelled: false } },
 	"call.ruled": {
@@ -70,13 +58,11 @@ const fromTheKit: Pick<LogEventMap, InTheKit> = {
 // Each line is the proof: the kit's fact is assigned to the copy, so a field missing here is a
 // compile error. A generic would say the same and prove less, since it would need a constraint
 // narrow enough to be the answer.
-const tasksFact: StateChangeMap["tasks.changed"] = fromTheKit["tasks.changed"];
 const openedFact: StateChangeMap["ask.opened"] = fromTheKit["ask.opened"];
 const closedFact: StateChangeMap["ask.closed"] = fromTheKit["ask.closed"];
 
 describe("the protocol's copies match the kit", () => {
 	test("a fact the kit logs reads as the copy, field for field", () => {
-		expect(tasksFact.state.nextTask).toBe(1);
 		expect(openedFact.id).toBe("ask");
 		expect(closedFact.result.cancelled).toBe(false);
 	});
@@ -115,7 +101,6 @@ describe("the protocol's copies match the kit", () => {
 
 	test("the kit's values read as the copies", () => {
 		expect(copyOfBy({ kind: "terminal", name: "rig", machine: "here" }).name).toBe("rig");
-		expect(copyOfTasks(fromTheKit["tasks.changed"].state).nextTask).toBe(1);
 		expect(copyOfResult({ answers: [], cancelled: true }).cancelled).toBe(true);
 		expect(copyOfQuestion({ header: "h", question: "q", options: [] }).header).toBe("h");
 		expect(copyOfRuling({ tone: "pending", head: "asking you" }).head).toBe("asking you");

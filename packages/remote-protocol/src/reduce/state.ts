@@ -14,7 +14,6 @@ import type {
 	PermissionMode,
 	PromptKind,
 	SessionCommand,
-	SessionTasks,
 } from "../state-changes.ts";
 import type { StateChangeType } from "../state-changes.ts";
 
@@ -41,7 +40,6 @@ export type Ask = OpenAsk | ClosedAsk;
  * through one reducer.
  */
 export interface SessionState {
-	tasks?: SessionTasks;
 	questions: Record<string, Ask>;
 	/** What the permission gate decided, and in which mode it ran. */
 	permissions: {

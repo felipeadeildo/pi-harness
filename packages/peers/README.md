@@ -250,9 +250,8 @@ Whatever waits shows in your chat when it arrives, with a line that says why, an
 
 ## What the others can and cannot do
 
-A colleague's words are never yours. The judge that approves tool calls and the tasks keep reading only what
-you said, so no agent in the room can approve a push on your behalf. A colleague asking for work becomes a task
-marked as asked by that colleague, and the judge never reads those.
+A colleague's words are never yours. The judge that approves tool calls reads only what you said, so no agent
+in the room can approve a push on your behalf.
 
 Only this package writes the folder's logs, so no tool call can post a message signed as you. Reading them
 stays allowed, and the agent is told to ask a colleague before editing a file that colleague just touched.

@@ -49,7 +49,6 @@ describe("segments", () => {
 		const [piece] = render(["board"], snapshot({ board }));
 		expect(piece?.text).toBe("> draw the segment  1 waiting  1 queued  1 done");
 		expect(plainText(piece?.shrink?.(38) ?? "")).toBe("> draw...  1 waiting  1 queued  1 done");
-		expect(claimedStatuses([["board"]])).toContain("pi-tasks");
 
 		const [icons] = renderSegments(["board"], {
 			snapshot: snapshot({ board }),

@@ -7,7 +7,7 @@ export interface SessionSummary {
 	session: string;
 	machine: string;
 	cwd: string;
-	/** The word `/name` sets, and what the tasks feature writes. */
+	/** The word `/name` sets. */
 	name?: string;
 	handle?: string;
 	/** The cursor older history pages back from. */
@@ -58,7 +58,6 @@ export function isSummary(value: unknown): value is SessionSummary {
 		(value.kind === "terminal" || value.kind === "background") &&
 		(value.name === undefined || typeof value.name === "string") &&
 		(value.leaf === undefined || typeof value.leaf === "string") &&
-		(value.tasks === undefined || isObject(value.tasks)) &&
 		(value.queue === undefined ||
 			(Array.isArray(value.queue) && value.queue.every(isQueuedMessage))) &&
 		(value.active === undefined || isBy(value.active)) &&

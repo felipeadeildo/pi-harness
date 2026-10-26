@@ -1,17 +1,17 @@
 {
 	"name": "@adeildo/pi-board",
 	"version": "5.15.0",
-	"description": "What a pi session is doing, what it did and with what result, what waits and on whom, and what was decided. Kept by a small model from your words and the agent's work, for you, the permission judge and other agents.",
+	"description": "The board a pi session keeps: what it is doing, what waits and on whom, and what it delivered. The agent writes it with a tool, and Alt+T opens it.",
 	"keywords": [
+		"board",
+		"kanban",
 		"pi",
 		"pi-coding-agent",
 		"pi-extension",
 		"pi-package",
-		"session-memory",
-		"tasks",
-		"todo"
+		"session-memory"
 	],
-	"homepage": "https://github.com/felipeadeildo/pi-harness/tree/main/packages/tasks#readme",
+	"homepage": "https://github.com/felipeadeildo/pi-harness/tree/main/packages/board#readme",
 	"bugs": "https://github.com/felipeadeildo/pi-harness/issues",
 	"license": "MIT",
 	"author": {
@@ -22,7 +22,7 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/felipeadeildo/pi-harness.git",
-		"directory": "packages/tasks"
+		"directory": "packages/board"
 	},
 	"files": [
 		"src",

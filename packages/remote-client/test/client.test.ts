@@ -168,11 +168,10 @@ describe("a client of a session", () => {
 
 		expect(hello).toBeDefined();
 		expect(cursorOf(hello as Envelope)).toEqual({});
-		// The entries and the task facts of the recording arrived, each once, in pi's order.
+		// The entries of the recording arrived, each once, in pi's order.
 		expect(client.session().entries.map((entry) => entry.id)).toEqual(
 			entries.map((entry) => entry.id),
 		);
-		expect(client.session().state.tasks?.handle).toBe("rig");
 		expect(transcriptOfSession(client.session()).items.length).toBeGreaterThan(0);
 		client.stop();
 	});
@@ -227,15 +226,6 @@ describe("a client of a session", () => {
 								...opening.summary,
 								state: {
 									...emptySessionState(),
-									tasks: {
-										version: 1,
-										handle: "rig",
-										tasks: [],
-										decisions: [],
-										nextTask: 1,
-										nextDecision: 1,
-										updatedAt: 0,
-									},
 									questions: {
 										q1: {
 											id: "q1",
@@ -257,7 +247,6 @@ describe("a client of a session", () => {
 		await client.load();
 
 		expect(hello).toBeDefined();
-		expect(client.session().state.tasks?.handle).toBe("rig");
 		expect(client.session().state.permissions.mode).toBe("judge");
 		expect(Object.keys(client.session().state.questions)).toEqual(["q1"]);
 		expect(client.session().state.cost?.total).toBe(3);

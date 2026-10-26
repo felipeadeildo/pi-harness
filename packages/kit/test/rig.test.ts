@@ -8,10 +8,10 @@ import {
 	fauxToolCall,
 } from "@earendil-works/pi-ai";
 
-import { tasks } from "../../tasks/src/index.ts";
 import { createApp } from "../src/app/builder.ts";
 import { defineFeature } from "../src/app/feature.ts";
-import { createRig, type Rig, SCRIPTED } from "../src/rig.ts";
+import { board } from "../src/board/feature.ts";
+import { createRig, type Rig } from "../src/rig.ts";
 
 let rig: Rig | undefined;
 
@@ -20,61 +20,32 @@ afterEach(() => {
 	rig = undefined;
 });
 
-/** Whether the request is the tasks feature keeping the list, which it asks with a prompt of its own. */
-function aboutTasks(context: { messages: { role: string; content: unknown }[] }): boolean {
-	const asked = context.messages.at(-1)?.content;
-	const text =
-		typeof asked === "string"
-			? asked
-			: Array.isArray(asked)
-				? asked
-						.filter((part) => (part as { type?: string }).type === "text")
-						.map((part) => (part as { text?: string }).text ?? "")
-						.join(" ")
-				: "";
-	return text.includes("<tasks>");
-}
-
-/** A change the tasks feature's own model proposes, in the shape its tool takes. */
-type WireOp =
-	| { op: "title"; text: string; handle: string }
-	| { op: "new_task"; text: string; proof: string };
-
 /**
- * What the model answers. The tasks feature asks the same model, so the script routes on the
- * question instead of on the order the calls arrive in.
+ * What the model answers. The first turn calls the board tool; the next one closes the run.
  */
-function scripted(
-	reply: () => AssistantMessage,
-	ops: WireOp[] = [],
-): (context: { messages: { role: string; content: unknown }[] }) => AssistantMessage {
-	return (context) =>
-		aboutTasks(context)
-			? fauxAssistantMessage([fauxToolCall("update_tasks", { language: "English", ops })], {
-					stopReason: "toolUse",
-				})
-			: reply();
+function scriptedBoard(): (context: unknown) => AssistantMessage {
+	let calls = 0;
+	return () => {
+		calls += 1;
+		if (calls > 1) return fauxAssistantMessage([fauxText("Done.")], { stopReason: "stop" });
+		return fauxAssistantMessage(
+			[fauxText("Two files."), fauxToolCall("board", { op: "add", title: "Build the rig" })],
+			{
+				stopReason: "toolUse",
+			},
+		);
+	};
 }
 
 describe("a real pi session with a scripted model", () => {
-	test("a turn leaves its entries in the session file and its facts in the log", async () => {
+	test("a turn leaves its entries in the session file and its board operation in the log", async () => {
 		rig = await createRig({
-			answer: (context) =>
-				scripted(
-					() => fauxAssistantMessage([fauxText("Two files.")], { stopReason: "stop" }),
-					[
-						{ op: "title", text: "Rig test", handle: "rig" },
-						{ op: "new_task", text: "Build the rig", proof: "in this folder" },
-					],
-				)(context),
+			answer: scriptedBoard(),
 			extensions: [
 				(pi) => {
-					createApp(pi, { name: "rig" }).use(tasks).build();
+					createApp(pi, { name: "rig" }).use(board).build();
 				},
 			],
-			// The tasks feature keeps the list with a model of its own, and the catalogue holds every
-			// provider. Point it at the scripted one, or it reaches for a real model.
-			settings: { tasks: { model: SCRIPTED } },
 		});
 
 		await rig.prompt("What is in this folder?");
@@ -84,19 +55,13 @@ describe("a real pi session with a scripted model", () => {
 		const entries = readFileSync(file ?? "", "utf8")
 			.trim()
 			.split("\n")
-			.map((line) => JSON.parse(line) as { type: string; message?: { role?: string } });
+			.map(
+				(line) =>
+					JSON.parse(line) as { type: string; message?: { role?: string }; customType?: string },
+			);
 		expect(entries.some((entry) => entry.message?.role === "user")).toBe(true);
 		expect(entries.some((entry) => entry.message?.role === "assistant")).toBe(true);
-
-		// The tasks feature asks its own model after the run settles, so the log grows after the turn.
-		const lines = await rig.until(
-			(line) =>
-				line.type === "tasks.changed" && (line.data.state as { tasks: unknown[] }).tasks.length > 0,
-		);
-		const types = lines.map((line) => line.type);
-		expect(types).toContain("tasks.changed");
-		const kept = lines.at(-1)?.data.state as { tasks: { text: string }[] };
-		expect(kept.tasks.map((task) => task.text)).toEqual(["Build the rig"]);
+		expect(entries.some((entry) => entry.customType === "pi-board:op")).toBe(true);
 	});
 
 	test("a turn that fails to answer ends the rig instead of hanging", async () => {

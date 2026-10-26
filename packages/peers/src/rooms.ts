@@ -714,8 +714,11 @@ export class Rooms implements RoomsView {
 		const me =
 			this.#session === undefined ? undefined : this.#home?.folder.peers.get(this.#session);
 		if (me === undefined) return;
-		if (me.handle !== undefined && me.title !== undefined)
-			here.log("session.named", { handle: me.handle, title: me.title });
+		if (me.handle !== undefined)
+			here.log("session.named", {
+				handle: me.handle,
+				...(me.title === undefined ? {} : { title: me.title }),
+			});
 		if (this.#state === "running") here.log("session.state", { state: "running" });
 		if (me.board !== undefined) here.log("board.changed", { view: me.board });
 		const edited = [...me.edited].toSorted(([, a], [, b]) => a - b).slice(-SNAPSHOT_FILES);

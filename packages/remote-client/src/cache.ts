@@ -16,7 +16,7 @@ export interface CachedSession {
 	cursor: Cursor;
 	/** pi's entries of the branch the client held, oldest first. */
 	entries: unknown[];
-	/** What the harness knew of the session, folded, so a warm open draws tasks and questions. */
+	/** What the harness knew of the session, folded, so a warm open draws the board and the questions. */
 	state: SessionState;
 	/** Where the branch ended, as the bridge last said; see `ClientSession.leaf`. */
 	leaf?: string | null;

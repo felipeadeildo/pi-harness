@@ -12,10 +12,10 @@ server, and the app talks to the daemon on the page's own origin.
 
 ## Screens
 
-| Where the browser is      | What it shows                                                                               |
-| ------------------------- | ------------------------------------------------------------------------------------------- |
-| `/`                       | The sessions this machine knows.                                                            |
-| `/session/<machine>/<id>` | One session: its transcript, the tasks still open, and the question it waits on, read only. |
+| Where the browser is      | What it shows                                                         |
+| ------------------------- | --------------------------------------------------------------------- |
+| `/`                       | The sessions this machine knows.                                      |
+| `/session/<machine>/<id>` | One session: its board, its transcript, and the question it waits on. |
 
 A session is read only until the composer lands in W4. Nothing here writes to the session yet.
 

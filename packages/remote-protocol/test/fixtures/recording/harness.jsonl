@@ -1,3 +1,1 @@
-{"v":1,"id":"mvllu9jn01gdpl","at":1792798336211,"session":"01a16b1b-a4b1-734c-81d9-0c534a12eac1","type":"tasks.changed","data":{"state":{"version":1,"tasks":[],"decisions":[],"nextTask":1,"nextDecision":1,"updatedAt":0}}}
-{"v":1,"id":"mvllu9la02dbe9","at":1792798336270,"session":"01a16b1b-a4b1-734c-81d9-0c534a12eac1","type":"session.named","data":{"handle":"rig","title":"Read the rig log"}}
-{"v":1,"id":"mvllu9la03d33z","at":1792798336270,"session":"01a16b1b-a4b1-734c-81d9-0c534a12eac1","type":"tasks.changed","data":{"state":{"version":1,"tasks":[],"decisions":[],"nextTask":1,"nextDecision":1,"updatedAt":1792798336267,"language":"English","title":"Read the rig log","titleOrigin":"you","handle":"rig"}}}
+{"v":1,"id":"mvom8f6i015qgi","at":1792980395226,"session":"01a175f5-a4d1-7491-94fe-b4224655d160","type":"session.named","data":{"handle":"indri"}}

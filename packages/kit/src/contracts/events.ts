@@ -2,7 +2,6 @@ import type { BoardView } from "../board/model.ts";
 // The events the harness writes, one shape per type. A viewer reads these and nothing else, so a
 // shape only grows: a field that changes meaning gets a new name, and a new version of the log
 // would get a new `v`.
-import type { SessionTasks } from "../tasks/state.ts";
 import type { AskQuestion, AskResult } from "./ask.ts";
 import type { By } from "./by.ts";
 import type { CallRuling } from "./calls.ts";
@@ -43,9 +42,8 @@ export interface LogEventMap {
 	"session.started": { pid: number; host: string; model?: string; cwd?: string; start?: string };
 	"session.ended": Record<string, never>;
 	/**
-	 * The short name others mention it by, and the title it took it from. An absent field means
-	 * "unchanged", so two writers can log one each: the names feature the handle, and the tasks the
-	 * title always, plus the handle it was given once, which backfills a session from before the list.
+	 * The short name others mention it by, which the names feature writes. A log from before the
+	 * tasks were removed may carry the title they wrote too; an absent field means "unchanged".
 	 */
 	"session.named": { handle?: string; title?: string };
 	/**
@@ -64,12 +62,6 @@ export interface LogEventMap {
 	 * writer always knows the name, and a reader of an older log treats a missing one as unknown.
 	 */
 	"prompt.received": { by: By };
-	"tasks.changed": { state: SessionTasks };
-	/**
-	 * What a shared room carries of a session's tasks: the part the board shows, which is what is
-	 * doing, waiting and queued, and the last few done. The whole snapshot stays in the folder's room.
-	 */
-	"tasks.board": { state: SessionTasks };
 	activity: Activity;
 	/**
 	 * A message in the folder's room. `to` lists session ids, "all" for every session (`@everyone`),

@@ -65,7 +65,7 @@ export function transcriptOfSession(session: ClientSession): Transcript {
 	return transcriptOf(session.entries, session.leaf ?? session.cursor.entry);
 }
 
-/** The tasks, rulings, questions, mode and rename, as the client holds them. */
+/** The rulings, questions, mode and rename, as the client holds them. */
 export function harnessOf(session: ClientSession): SessionState {
 	return session.state;
 }

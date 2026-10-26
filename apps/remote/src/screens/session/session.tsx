@@ -6,7 +6,7 @@ import { openQuestions } from "@adeildo/pi-remote-protocol";
 import { Fragment, type ReactNode } from "react";
 import { useColorScheme } from "react-native";
 
-import { Board, OpenQuestions, Tasks, TerminalWait } from "./chrome.tsx";
+import { Board, OpenQuestions, TerminalWait } from "./chrome.tsx";
 import SessionDocument from "./session-document.tsx";
 import { viewOf } from "./session-view.ts";
 
@@ -15,7 +15,6 @@ export function SessionScreen({ session }: { session: ClientSession }): ReactNod
 	const scheme = useColorScheme() === "dark" ? "dark" : "light";
 	return (
 		<Fragment>
-			<Tasks tasks={state.tasks} />
 			<Board board={state.board} />
 			<OpenQuestions asks={openQuestions(state)} />
 			<TerminalWait prompt={state.prompt} />

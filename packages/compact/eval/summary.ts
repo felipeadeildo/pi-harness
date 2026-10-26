@@ -21,11 +21,11 @@ import {
 
 // pi does not export it, and the eval needs the cut pi's own compaction makes.
 import { prepareCompaction } from "../../../node_modules/@earendil-works/pi-coding-agent/dist/core/compaction/compaction.js";
-import { readBranch } from "../../tasks/eval/session.ts";
-import { modelNamed, signedIn } from "../../tasks/eval/signin.ts";
 import type { AgentMessage } from "../src/prune.ts";
 import { standing } from "../src/summary.ts";
 import { average, mean, parseJson, type Probe, Prober } from "./probe.ts";
+import { readBranch } from "./session.ts";
+import { modelNamed, signedIn } from "./signin.ts";
 
 const { values, positionals } = parseArgs({
 	allowPositionals: true,

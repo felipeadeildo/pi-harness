@@ -4,13 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { createApp } from "../src/app/builder.ts";
-import { defineFeature } from "../src/app/feature.ts";
 import { NAMES } from "../src/contracts/names.ts";
-import { TASKS } from "../src/contracts/tasks.ts";
 import { eventsDir, FolderFeed } from "../src/events/log.ts";
 import { names } from "../src/names/feature.ts";
 import { WORDS } from "../src/names/words.ts";
-import { emptyTasks } from "../src/tasks/state.ts";
 import { fakeContext, fakePi } from "../src/testing.ts";
 
 let root: string;
@@ -28,25 +25,29 @@ afterEach(() => {
 });
 
 const session = { getSessionId: () => "01a16a75-d3d6" };
-const ctx = () =>
+const ctx = (branch: unknown[] = []) =>
 	fakeContext([], true, {
-		sessionManager: { getCwd: () => "/repo", getSessionId: session.getSessionId },
+		sessionManager: {
+			getCwd: () => "/repo",
+			getSessionId: session.getSessionId,
+			getBranch: () => branch,
+		},
 	});
 
-/** A feature that answers the tasks contract, standing in for the tasks feature. */
-function holding(handle: string) {
-	return defineFeature({
-		id: "holder",
-		description: "holds a tasks state",
-		setup: (scope) => TASKS.provide(scope, () => ({ state: { ...emptyTasks(), handle } })),
-	});
+/** The entry the tasks wrote in an older session's file, with the handle they gave it. */
+function tasksEntry(handle: string) {
+	return {
+		type: "custom",
+		customType: "pi-tasks:update",
+		data: { version: 1, state: { version: 1, handle, tasks: [], decisions: [] } },
+	};
 }
 
-function mounted(handle?: string) {
+function mounted() {
 	const fake = fakePi();
-	const app = createApp(fake.pi, { name: "test", settingsPath: join(root, "settings.json") });
-	if (handle !== undefined) app.use(holding(handle));
-	app.use(names({ dir })).build();
+	createApp(fake.pi, { name: "test", settingsPath: join(root, "settings.json") })
+		.use(names({ dir }))
+		.build();
 	return fake;
 }
 
@@ -76,14 +77,18 @@ describe("the names feature", () => {
 		expect(current(again)?.handle).toBe(drawn as string);
 	});
 
-	test("a session that already has a handle from the tasks draws nothing", async () => {
-		const fake = mounted("oauth");
-		await fake.fire("session_start", {}, ctx());
-		expect(current(fake)).toBeUndefined();
+	test("an older session keeps the last handle the tasks wrote in its file, on every start", async () => {
+		const older = [tasksEntry("release"), tasksEntry("oauth")];
+		const fake = mounted();
+		await fake.fire("session_start", {}, ctx(older));
+		expect(current(fake)?.handle).toBe("oauth");
 		const logged = new FolderFeed(eventsDir("/repo"))
 			.read()
 			.filter((event) => event.type === "session.named");
-		expect(logged).toEqual([]);
+		expect(logged.map((event) => event.data)).toEqual([{ handle: "oauth" }]);
+		const after = mounted();
+		await after.fire("session_start", {}, ctx(older));
+		expect(current(after)?.handle).toBe("oauth");
 	});
 
 	test("a rename logs the word it left, which mentions keep resolving", async () => {

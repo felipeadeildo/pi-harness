@@ -7,7 +7,7 @@ import { parseArgs } from "node:util";
 
 import { type AssistantMessage, type Message, Type } from "@earendil-works/pi-ai";
 
-import { modelNamed, signedIn } from "../../tasks/eval/signin.ts";
+import { modelNamed, signedIn } from "./signin.ts";
 
 const { values } = parseArgs({
 	options: {

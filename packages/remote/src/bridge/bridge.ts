@@ -8,6 +8,7 @@ import {
 	CANCEL,
 	type EventScope,
 	bySession,
+	handleOf,
 	HOST,
 	type LogSession,
 	logPath,
@@ -15,7 +16,6 @@ import {
 	readTail,
 	SESSION_STATUS,
 	type SessionSource,
-	TASKS,
 	targetOf,
 	totalsOf,
 } from "@adeildo/pi-kit";
@@ -314,12 +314,11 @@ export class Bridge {
 	#snapshot(): void {
 		this.stream.flush();
 		const { scope, kind } = this.options;
-		const tasks = TASKS.current(scope)?.state;
 		const mode = MODE.current(scope);
 		this.connection.event("state", {
 			summary: {
 				...snapshotOf(this.ctx, kind),
-				handle: tasks?.handle,
+				handle: handleOf(scope),
 				status: SESSION_STATUS.current(scope),
 				// Already folded, so a reader draws the session's state without a replay.
 				state: PRODUCERS.reduce(
@@ -329,7 +328,7 @@ export class Bridge {
 							entries: this.ctx.sessionManager.getEntries(),
 							ctx: this.ctx,
 						}),
-					this.#changes.snapshot(tasks, mode),
+					this.#changes.snapshot(mode),
 				),
 			},
 			entries: this.ctx.sessionManager.getBranch().slice(-STATE_ENTRIES),

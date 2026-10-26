@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 // The recording from P1, read back the way a client reads it: the branch ending at the leaf, the
-// tasks out of the log, and nothing invented on the way.
+// state out of the log, and nothing invented on the way.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -116,14 +116,6 @@ describe("the recording, read back", () => {
 		const [hidden] = transcriptOf([customMessage("b", false)]).items;
 		expect(shown).toMatchObject({ kind: "custom", display: true });
 		expect(hidden).not.toHaveProperty("display");
-	});
-
-	test("the tasks come out of the log with the handle the session was given", () => {
-		const state = foldLogged(facts);
-
-		expect(state.tasks?.handle).toBe("rig");
-		expect(state.tasks?.title).toBe("Read the rig log");
-		expect(state.tasks?.tasks).toEqual([]);
 	});
 
 	test("a log with no rulings and no questions leaves both empty, until A2 and A3 record them", () => {

@@ -19,7 +19,6 @@ export * from "./contracts/events.ts";
 export * from "./contracts/peers.ts";
 export * from "./contracts/mode.ts";
 export * from "./contracts/protected.ts";
-export * from "./contracts/tasks.ts";
 export * from "./contracts/names.ts";
 export * from "./contracts/board.ts";
 export * from "./board/model.ts";
@@ -41,7 +40,7 @@ export {
 	type TailItem,
 } from "./sources/follow.ts";
 export { piSource } from "./sources/pi.ts";
-export * from "./tasks/index.ts";
+export { type TasksUsage, tasksUsageOf } from "./legacy-tasks.ts";
 export * from "./totals.ts";
 export * from "./control.ts";
 export * from "./decode.ts";

@@ -75,6 +75,18 @@
         "@earendil-works/pi-tui": "*",
       },
     },
+    "packages/board": {
+      "name": "@adeildo/pi-board",
+      "version": "5.15.0",
+      "dependencies": {
+        "@adeildo/pi-kit": "workspace:*",
+      },
+      "peerDependencies": {
+        "@earendil-works/pi-ai": "*",
+        "@earendil-works/pi-coding-agent": "*",
+        "@earendil-works/pi-tui": "*",
+      },
+    },
     "packages/compact": {
       "name": "@adeildo/pi-compact",
       "version": "5.15.0",
@@ -197,18 +209,6 @@
         "@earendil-works/pi-tui": "*",
       },
     },
-    "packages/tasks": {
-      "name": "@adeildo/pi-board",
-      "version": "5.15.0",
-      "dependencies": {
-        "@adeildo/pi-kit": "workspace:*",
-      },
-      "peerDependencies": {
-        "@earendil-works/pi-ai": "*",
-        "@earendil-works/pi-coding-agent": "*",
-        "@earendil-works/pi-tui": "*",
-      },
-    },
   },
   "trustedDependencies": [
     "lefthook",
@@ -220,7 +220,7 @@
 
     "@adeildo/pi-ask-questions": ["@adeildo/pi-ask-questions@workspace:packages/ask-questions"],
 
-    "@adeildo/pi-board": ["@adeildo/pi-board@workspace:packages/tasks"],
+    "@adeildo/pi-board": ["@adeildo/pi-board@workspace:packages/board"],
 
     "@adeildo/pi-compact": ["@adeildo/pi-compact@workspace:packages/compact"],
 

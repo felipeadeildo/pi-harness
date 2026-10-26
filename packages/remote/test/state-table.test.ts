@@ -17,6 +17,7 @@ import { Harness } from "../src/bridge/logged.ts";
 import { Sessions } from "../src/daemon/sessions.ts";
 
 const key = { machine: "m", session: "s" };
+/** A line the tasks wrote before they were removed, which an older log still carries. */
 const tasks = { version: 1, tasks: [], decisions: [], nextTask: 1, nextDecision: 1, updatedAt: 1 };
 const queued = (id: string) => ({
 	id,
@@ -52,9 +53,14 @@ const ROWS: Row[] = [
 		leaves: (state) => state,
 	},
 	{
-		name: "tasks, mode, a question and its answer",
+		name: "a tasks line from an older log changes nothing",
+		events: [{ type: "tasks.changed", data: { state: tasks } }],
+		expects: { questions: {}, permissions: { rulings: {} }, queue: [] },
+		leaves: (state) => ({ ...state }),
+	},
+	{
+		name: "mode, a question and its answer",
 		events: [
-			{ type: "tasks.changed", data: { state: tasks } },
 			{ type: "mode.changed", data: { mode: "edits" } },
 			{ type: "ask.opened", data: { id: "q1", source: "agent", questions: [] } },
 			{
@@ -63,7 +69,6 @@ const ROWS: Row[] = [
 			},
 		],
 		expects: {
-			tasks,
 			mode: "edits",
 			// `ask.closed` keeps what the answer needs: the id, the result, who answered. The question
 			// text belongs to the opening, and the closed entry does not repeat it.
@@ -75,7 +80,6 @@ const ROWS: Row[] = [
 			},
 		},
 		leaves: (state) => ({
-			tasks: state.tasks,
 			mode: state.permissions.mode,
 			ask: state.questions.q1,
 		}),
@@ -262,7 +266,7 @@ const ROWS: Row[] = [
 function heldByBridge(events: Logged[]): SessionState {
 	const harness = new Harness();
 	for (const one of events) harness.saw(one.type, one.data);
-	return harness.snapshot(undefined, undefined);
+	return harness.snapshot(undefined);
 }
 
 /** The daemon keeps its own copy, seeded by the snapshot and folded on every event it forwards. */

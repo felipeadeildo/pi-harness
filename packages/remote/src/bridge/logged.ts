@@ -15,7 +15,6 @@ import {
  * program status, written by the bridge.
  */
 const FORWARDED: ReadonlySet<string> = new Set([
-	"tasks.changed",
 	"ask.opened",
 	"ask.closed",
 	"call.ruled",
@@ -64,10 +63,9 @@ export class Harness {
 	}
 
 	/** The state as it stands, with what pi knows and the log does not. */
-	snapshot(tasks: unknown, mode: unknown): SessionState {
+	snapshot(mode: unknown): SessionState {
 		return {
 			...this.#state,
-			...(tasks === undefined ? {} : { tasks: tasks as SessionState["tasks"] }),
 			permissions: {
 				...this.#state.permissions,
 				...(mode === undefined ? {} : { mode: mode as PermissionMode }),
