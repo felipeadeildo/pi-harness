@@ -95,28 +95,31 @@ export function Component(): ReactNode {
 							<AgentName name={name} color={color} />
 						</h1>
 						<div className="flex min-w-0 items-center gap-2.5 overflow-hidden text-[12.5px] text-muted-foreground">
-							<DoingLine doing={doing} className="min-w-0 shrink overflow-hidden" />
+							<DoingLine
+								doing={doing}
+								className={doing.live ? "min-w-0 shrink overflow-hidden" : "shrink-0"}
+							/>
 							{cwd === undefined ? null : (
 								<span
 									className={cn(
-										"shrink-0 items-center gap-1 text-dim",
+										"min-w-0 shrink items-center gap-1 text-dim",
 										doing.live ? "hidden sm:flex" : "flex",
 									)}
 									title={cwd}
 								>
-									<Icon icon={Folder01Icon} className="size-3.5" />
-									<span className="sm:hidden">{folderOf(cwd)}</span>
-									<span className="hidden sm:inline">{shortPath(cwd)}</span>
+									<Icon icon={Folder01Icon} className="size-3.5 shrink-0" />
+									<span className="truncate sm:hidden">{folderOf(cwd)}</span>
+									<span className="hidden truncate sm:inline">{shortPath(cwd)}</span>
 								</span>
 							)}
 							{branch === undefined ? null : (
 								<span
 									className={cn(
-										"min-w-0 shrink items-center gap-1 text-dim",
+										"min-w-0 shrink-[3] items-center gap-1 text-dim",
 										doing.live ? "hidden md:flex" : "flex",
 									)}
 								>
-									<Icon icon={GitBranchIcon} className="size-3.5" />
+									<Icon icon={GitBranchIcon} className="size-3.5 shrink-0" />
 									<span className="truncate">{branch}</span>
 								</span>
 							)}
@@ -165,8 +168,9 @@ export function Component(): ReactNode {
 
 				<div
 					className={cn(
-						"px-3 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6",
-						takeover ? "flex min-h-0 flex-1 flex-col pt-3" : "shrink-0",
+						takeover
+							? "flex min-h-0 flex-1 flex-col pb-[env(safe-area-inset-bottom)]"
+							: "shrink-0 px-3 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6",
 					)}
 				>
 					<div
@@ -183,7 +187,6 @@ export function Component(): ReactNode {
 								key={asked.id}
 								ask={asked}
 								client={client}
-								asker={<AgentName name={name} color={color} />}
 								fill={takeover}
 								{...(wide ? {} : { onFold: () => fold(asked.id) })}
 							/>
