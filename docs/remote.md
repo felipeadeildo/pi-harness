@@ -381,7 +381,7 @@ sequenceDiagram
 ```
 
 - **Where.** Only on a machine whose policy accepts starts, and only in a folder under one of its roots, `~` by default, with symlinks resolved before the check. The folder picker lists the folders under each root, recent session folders first.
-- **How.** The daemon passes only the handle it drew, the title when the client gave one, `--model` and `--session`. Everything else comes from the folder's settings, and the trust question, when the folder needs one, is asked as [Trust](#trust) says.
+- **How.** The daemon passes only the handle it drew, the name when the client gave one, `--model` and `--session`. Everything else comes from the folder's settings, and the trust question, when the folder needs one, is asked as [Trust](#trust) says.
 - **Continuing a closed session.** The session list includes recent sessions no process holds. Opening one starts a runner with `--session <id>` on the machine that holds it.
 - **Stopping.** A client can ask any session to end with `session.stop`. The bridge closes the open questions as a no, with the reason `stopped` and the `by` of whoever asked to stop, aborts the run, then calls `ctx.shutdown()`, which waits for `agent_settled`; an open question nobody answers would otherwise keep the run from settling. With `force`, the runner gets SIGTERM, and SIGKILL 5 seconds later.
 - **A crashed background session** shows as crashed with a continue action. Nothing restarts it by itself, because a run that died mid-tool may have left work half done.
@@ -709,7 +709,7 @@ Each folder member of a shared room becomes the sessions open from that folder a
 
 - **Two groupings.** `g` switches the left list between rooms, as peers does today, and machines. The bottom edge names the one it switches to (`g by machine`, `g by room`). Without remote the machine grouping would hold one machine, so `g` is not offered.
 - **Machines.** Each machine is a header: its name, then a rule to the edge that says its link. A solid rule is live; a dashed one is out of contact, with the time of the last contact at its end. Dashed already means "not current" in the transcript, where it marks the queue. This machine's rule ends in `here`. This machine comes first, the others by name, so headers never move; `w` is how priority is reached. Machines carry no color: agents keep theirs, as everywhere.
-- **Sessions under a machine** are the rows of today: the state mark, the handle in the agent's color, the time, the title. The ones that wait on you come first. Under a dashed header they are `dim`, their spinners stop (motion means live), and the right side says "as of 14:02".
+- **Sessions under a machine** are the rows of today: the state mark, the handle in the agent's color, the time, its name. The ones that wait on you come first. Under a dashed header they are `dim`, their spinners stop (motion means live), and the right side says "as of 14:02".
 - **A machine selected** fills the right side with its state in plain text: since when it is in contact or out of it, how many sessions it holds and what they were at the last contact, and its policy in words (`starts on, ~/Projects`, or `starts off`). No charts: every number there is a single value.
 - **An agent selected** fills the right side with a live peek, read only, in the order it is read: the handle and its name; what it waits on you for, in `warning`, when it waits; the tool running now and its last lines; its board; then, `dim`, the machine, folder and model, and who else has it open (`also open on phone`). There is nothing to type in it: a session is written to in its view, or through a room.
 - **The top edge** counts what waits on every machine (`⚑ 2 waits`) and how many machines there are. `warning` is the only color that asks for attention.
@@ -867,7 +867,7 @@ Expo builds the web, iOS and Android from one React Native codebase, with React 
 
 | Screen               | Shows                                                                                                                                                                                |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Sessions             | Every session on every machine it sees, the ones that need you first, each with its title, machine, state, cost and last line                                                        |
+| Sessions             | Every session on every machine it sees, the ones that need you first, each with its name, machine, state, cost and last line                                                         |
 | Session              | The transcript, with thinking folded into a line ("thought for 12 s") that opens on a tap, the board, the question sheet when one is open, and the composer, with the outbox's items |
 | New session          | Machine (those that refuse starts greyed, with the reason), folder under its roots, model, name, first message                                                                       |
 | Question             | The questions with their options, previews and notes, the way the terminal shows them                                                                                                |
