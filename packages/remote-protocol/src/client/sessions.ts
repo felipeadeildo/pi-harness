@@ -27,7 +27,7 @@ export interface ListedSession {
 	gone?: string;
 	live: LiveSession;
 	/** What a client draws before the replay, when the daemon holds one. */
-	snapshot?: SessionSummary;
+	summary?: SessionSummary;
 	state: SessionState;
 }
 
@@ -87,16 +87,19 @@ function isListed(value: unknown): value is ListedSession {
 		isObject(value.state.questions) &&
 		isObject(value.state.permissions) &&
 		isObject((value.state.permissions as Record<string, unknown>).rulings) &&
-		// The snapshot is the shape the rest of the package draws from, so it is the protocol's call.
-		(value.snapshot === undefined || isSummary(value.snapshot))
+		// The summary is the shape the rest of the package draws from, so it is the protocol's call.
+		(value.summary === undefined || isSummary(value.summary))
 	);
 }
 
-/** How a session reads in one word: where it is, and whether anyone is watching. */
+/**
+ * How a session reads in one word: gone, reconnecting, or pi's own status word, from the state the
+ * daemon folded and then from the summary. A session that has not said one yet reads as nothing.
+ */
 export function stateOf(session: ListedSession): string {
 	if (session.gone !== undefined) return session.gone;
 	if (!session.connected) return "reconnecting";
-	return session.snapshot?.status ?? (session.live.kind === "background" ? "idle" : "working");
+	return session.state.status ?? session.summary?.status ?? "";
 }
 
 /**
