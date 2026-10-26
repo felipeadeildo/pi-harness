@@ -5,15 +5,15 @@ import { describe, expect, test } from "bun:test";
 
 import { emptySessionState } from "@adeildo/pi-remote-protocol";
 
-import { memoryCache } from "../src/cache.ts";
-import { Outbox } from "../src/outbox.ts";
+import { memoryCache } from "../../src/client/cache.ts";
+import { Outbox } from "../../src/client/outbox.ts";
 import {
 	type ClientSession,
 	readEnvelope,
 	sessionOf,
 	cachedOf,
 	transcriptOfSession,
-} from "../src/session.ts";
+} from "../../src/client/session.ts";
 
 const key = { machine: "here", session: "s" };
 

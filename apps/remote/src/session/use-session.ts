@@ -8,7 +8,7 @@ import {
 	type ConnectionOptions,
 	connect,
 	type SessionKey,
-} from "@adeildo/pi-remote-client";
+} from "@adeildo/pi-remote-protocol/client";
 import { useEffect, useState } from "react";
 
 export interface SessionSource {

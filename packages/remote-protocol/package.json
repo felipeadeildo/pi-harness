@@ -2,14 +2,15 @@
 	"name": "@adeildo/pi-remote-protocol",
 	"version": "0.0.0",
 	"private": true,
-	"description": "The shapes that cross a process in pi-remote: the envelope, the state changes, the snapshot and their reducers, with no pi and no kit behind them.",
+	"description": "What crosses a process in pi-remote, and what a client holds of it: the envelope, the state changes and their reducers, and under `/client` the connection, the cache and the session rebuilt from them. No pi and no kit behind them, so a browser runs it.",
 	"files": [
 		"src",
 		"README.md"
 	],
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.ts",
+		"./client": "./src/client/index.ts"
 	},
 	"devDependencies": {
 		"@adeildo/pi-kit": "workspace:*"

@@ -16,8 +16,7 @@ import {
 	type SessionSummary,
 	type Transcript,
 	transcriptOf,
-} from "@adeildo/pi-remote-protocol";
-
+} from "../index.ts";
 import type { CachedSession, SessionKey } from "./cache.ts";
 import { advance, decide, type Cursor } from "./cursor.ts";
 import type { Outbox } from "./outbox.ts";

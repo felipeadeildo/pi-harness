@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { emptySessionState } from "@adeildo/pi-remote-protocol";
 
-import { readEnvelope, sessionOf, type ClientSession } from "../src/session.ts";
+import { readEnvelope, sessionOf, type ClientSession } from "../../src/client/session.ts";
 
 function deepFreeze<T>(value: T): T {
 	if (value !== null && typeof value === "object") {

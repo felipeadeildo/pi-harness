@@ -1,7 +1,7 @@
 // How the browser talks to the daemon: one WebSocket per attempt, on the page's own origin, which is
 // the only one the daemon's `checkPlace` lets open `/ws`. The client library asks for an attempt and
 // sends its hello at once, before a socket is open, so what is sent before that waits for it.
-import type { ConnectionOptions, Transport } from "@adeildo/pi-remote-client";
+import type { ConnectionOptions, Transport } from "@adeildo/pi-remote-protocol/client";
 
 /** The part of a WebSocket the transport uses, so a test can hand it a fake. */
 export interface SocketLike {

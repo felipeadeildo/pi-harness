@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { memoryCache } from "../src/cache.ts";
-import { connect } from "../src/connection.ts";
+import { memoryCache } from "../../src/client/cache.ts";
+import { connect } from "../../src/client/connection.ts";
 
 /**
  * The payload of a command is typed by the protocol, so a screen cannot send `mode.set` with a

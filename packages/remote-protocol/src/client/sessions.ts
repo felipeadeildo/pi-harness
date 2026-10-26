@@ -6,7 +6,7 @@ import {
 	openQuestions,
 	type SessionState,
 	type SessionSummary,
-} from "@adeildo/pi-remote-protocol";
+} from "../index.ts";
 
 /** What `session.live` said about a session, which is the bridge's word, not the daemon's. */
 export interface LiveSession {

@@ -6,7 +6,6 @@ import { connect as dial, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { type Transport } from "@adeildo/pi-remote-client";
 import {
 	applyChange,
 	emptySessionState,
@@ -15,6 +14,7 @@ import {
 	isStateChangeType,
 	PROTOCOL,
 } from "@adeildo/pi-remote-protocol";
+import { type Transport } from "@adeildo/pi-remote-protocol/client";
 
 import { Daemon } from "../src/daemon/server.ts";
 import type { Cursor } from "../src/daemon/sessions.ts";

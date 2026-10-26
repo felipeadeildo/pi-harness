@@ -36,7 +36,6 @@
 	"devDependencies": {
 		"@adeildo/pi-ask-permission": "workspace:*",
 		"@adeildo/pi-ask-questions": "workspace:*",
-		"@adeildo/pi-remote-client": "workspace:*",
 		"playwright-core": "1.64.1"
 	},
 	"peerDependencies": {

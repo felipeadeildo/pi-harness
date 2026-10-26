@@ -1,15 +1,15 @@
-// The controls under the transcript, in the order a thumb reaches them: the lists above, then one strip
-// of pickers (mode, thinking, model), then the field with its one filled button. Two strips at rest.
-// Each picker shows its value and opens a sheet; the acts that do not belong to every moment sit behind
-// an overflow control, so the screen does not grow when a run starts. What each control decides lives
-// in `composer-data.ts`; this file wires it.
-import type { Client, Outgoing } from "@adeildo/pi-remote-client";
 import type {
 	CommandMap,
 	CommandType,
 	ModelOption,
 	PermissionMode,
 } from "@adeildo/pi-remote-protocol";
+// The controls under the transcript, in the order a thumb reaches them: the lists above, then one strip
+// of pickers (mode, thinking, model), then the field with its one filled button. Two strips at rest.
+// Each picker shows its value and opens a sheet; the acts that do not belong to every moment sit behind
+// an overflow control, so the screen does not grow when a run starts. What each control decides lives
+// in `composer-data.ts`; this file wires it.
+import type { Client, Outgoing } from "@adeildo/pi-remote-protocol/client";
 import { type ReactNode, useEffect, useState } from "react";
 import {
 	KeyboardAvoidingView,

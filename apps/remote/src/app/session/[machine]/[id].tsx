@@ -1,5 +1,5 @@
-import { harnessOf } from "@adeildo/pi-remote-client";
 import { openQuestions } from "@adeildo/pi-remote-protocol";
+import { harnessOf } from "@adeildo/pi-remote-protocol/client";
 // The route of one session: it reads which one from the address and hands the screen what the client
 // holds. Everything else lives under `src/session` and `src/screens/session`.
 import { Link, useLocalSearchParams } from "expo-router";

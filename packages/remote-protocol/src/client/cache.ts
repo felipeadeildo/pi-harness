@@ -1,8 +1,7 @@
 // What a client keeps of a session between visits, keyed by machine, session and cursor. The screen
 // draws the cache before the network answers, which is what makes opening a session feel instant.
 
-import type { SessionState, Presence } from "@adeildo/pi-remote-protocol";
-
+import type { SessionState, Presence } from "../index.ts";
 import type { Cursor } from "./cursor.ts";
 import type { Outgoing } from "./outbox.ts";
 

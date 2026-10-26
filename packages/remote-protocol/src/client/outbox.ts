@@ -1,7 +1,7 @@
 // What the operator typed while the daemon was out of reach. A command keeps the time it was typed,
 // because that is what decides whether it still goes on its own after a reconnect: the last two
 // minutes go out in order, and anything older waits for the person to send, edit or drop it.
-import type { CommandType } from "@adeildo/pi-remote-protocol";
+import type { CommandType } from "../index.ts";
 
 /** How long a command typed offline still goes out by itself, once the daemon answers again. */
 export const GOES_ALONE = 2 * 60_000;

@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
-import type { Client } from "@adeildo/pi-remote-client";
+import type { Client } from "@adeildo/pi-remote-protocol/client";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 
 import { Daemon } from "../src/daemon/server.ts";

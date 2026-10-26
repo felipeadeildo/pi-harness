@@ -2,8 +2,8 @@
 // is a photograph taken when a client arrived; the state is folded from every event since, so a mode the
 // person changed a second ago is there and the photograph still says the old one.
 
-import type { ClientSession } from "@adeildo/pi-remote-client";
 import type { PermissionMode, SessionState } from "@adeildo/pi-remote-protocol";
+import type { ClientSession } from "@adeildo/pi-remote-protocol/client";
 
 /** The three values the pickers start on, read from the live state with no fallback to the snapshot. */
 export interface Live {

@@ -2,8 +2,8 @@
 // every rule the views wire is read here from the module that owns it.
 import { describe, expect, test } from "bun:test";
 
-import type { Client, Outgoing } from "@adeildo/pi-remote-client";
 import type { CommandType } from "@adeildo/pi-remote-protocol";
+import type { Client, Outgoing } from "@adeildo/pi-remote-protocol/client";
 
 import {
 	CLIENT_MODES,

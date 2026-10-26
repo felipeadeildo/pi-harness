@@ -1,14 +1,7 @@
 // The connection: a warm cache drawn before the network answers, a hello that carries the cursors,
 // and a reconnect that resumes where the client stopped instead of asking for everything again.
 
-import {
-	isObject,
-	type By,
-	type CommandMap,
-	type CommandType,
-	type Envelope,
-} from "@adeildo/pi-remote-protocol";
-
+import { isObject, type By, type CommandMap, type CommandType, type Envelope } from "../index.ts";
 import type { Cache, SessionKey } from "./cache.ts";
 import { Outbox, type Outgoing } from "./outbox.ts";
 import { cachedOf, hello, readEnvelope, sessionOf, type ClientSession } from "./session.ts";

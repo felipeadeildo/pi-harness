@@ -3,18 +3,18 @@
 // One default export, nothing else: the native bundler refuses a DOM component module that exports more
 // than that, and no web test sees it. A second `export` here breaks Android and green stays green.
 
+import {
+	type ChatMessage,
+	type SessionState,
+	type TranscriptItem,
+} from "@adeildo/pi-remote-protocol";
 // The document half of a session: the transcript and the question it waits on. Everything
 // here is text from elsewhere, so it goes through the W2 renderer and never through raw HTML. It is a
 // DOM component because a phone has no `main`, `ol` or `details`, and text is what this draws.
 //
 // A model's thinking folds into one line, a `<details>` the reader opens, so a long chain of thought
 // does not push the answer off the screen. A tool's output shows its first lines and folds the rest.
-import type { ClientSession } from "@adeildo/pi-remote-client";
-import {
-	type ChatMessage,
-	type SessionState,
-	type TranscriptItem,
-} from "@adeildo/pi-remote-protocol";
+import type { ClientSession } from "@adeildo/pi-remote-protocol/client";
 import { type ReactNode, createContext, createElement as h, useContext } from "react";
 
 import { Markdown, plain } from "../../render/index.ts";

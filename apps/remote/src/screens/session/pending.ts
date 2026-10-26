@@ -2,8 +2,8 @@
 // sent and the daemon has not answered, the queue is what the session itself is holding for the agent
 // to finish. A message moves from one to the other when the answer names it, and it is never in both.
 
-import type { Client } from "@adeildo/pi-remote-client";
 import type { QueuedMessage } from "@adeildo/pi-remote-protocol";
+import type { Client } from "@adeildo/pi-remote-protocol/client";
 
 /** One line of the session's queue, ready to draw and to read in a test. */
 export interface QueuedLine {

@@ -2,7 +2,7 @@
 // for, and only an accepted login lets the socket open. Each test drives the exchange by hand.
 import { afterEach, describe, expect, test } from "bun:test";
 
-import { memoryCache } from "@adeildo/pi-remote-client";
+import { memoryCache } from "@adeildo/pi-remote-protocol/client";
 
 import {
 	type Exchange,
