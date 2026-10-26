@@ -39,7 +39,8 @@ export class Activity {
 	streamed(type: string): void {
 		if (this.#tools.size > 0) return;
 		if (type.startsWith("thinking")) this.#set({ what: "thinking" });
-		else if (type.startsWith("text")) this.#set({ what: "writing" });
+		// A call is written like an answer, until it starts to run.
+		else if (type.startsWith("text") || type.startsWith("toolcall")) this.#set({ what: "writing" });
 	}
 
 	toolStarted(id: string, tool: string, args: unknown): void {

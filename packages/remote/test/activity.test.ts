@@ -43,6 +43,15 @@ describe("the activity", () => {
 		]);
 	});
 
+	test("a call the model is still writing reads as writing, not thinking", () => {
+		const { activity, sent } = tracked();
+		activity.started();
+		activity.streamed("thinking_delta");
+		activity.streamed("toolcall_delta");
+		activity.toolStarted("t1", "bash", { command: "ls" });
+		expect(sent.map((one) => one.what)).toEqual(["thinking", "writing", "tool"]);
+	});
+
 	test("says nothing when nothing changed, and keeps the time it started", () => {
 		const { activity, sent } = tracked();
 		activity.streamed("text_delta");
