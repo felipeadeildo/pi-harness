@@ -24,6 +24,7 @@
 	},
 	"scripts": {
 		"build": "bun build.ts",
+		"dev": "cd web && bun x vite",
 		"prepack": "bun build.ts",
 		"gate": "bun run test/e2e/flow.ts"
 	},
