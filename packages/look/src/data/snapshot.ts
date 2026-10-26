@@ -1,6 +1,6 @@
 import { hostname } from "node:os";
 
-import type { AccountState, PeerMark, SessionTasks, WritingMark } from "@adeildo/pi-kit";
+import type { AccountState, Board, PeerMark, WritingMark } from "@adeildo/pi-kit";
 import { VERSION, type ExtensionContext, type SessionEntry } from "@earendil-works/pi-coding-agent";
 
 import type { GitState } from "./git.ts";
@@ -49,8 +49,8 @@ export interface Snapshot {
 	run: RunView | undefined;
 	averages: Averages;
 	statuses: ReadonlyMap<string, string>;
-	/** What the session is doing, when a tasks feature keeps it. */
-	tasks: SessionTasks | undefined;
+	/** What the session is doing, when a board feature keeps it. */
+	board: Board | undefined;
 	/** The other sessions in this folder, when a peers feature keeps them. */
 	peers: PeerMark[];
 	/** Messages a peer sent this session that its agent has not read yet. */
@@ -82,7 +82,7 @@ export function emptySnapshot(): Snapshot {
 		run: undefined,
 		averages: { decode: undefined, prefill: undefined },
 		statuses: new Map(),
-		tasks: undefined,
+		board: undefined,
 		peers: [],
 		peersUnread: 0,
 		peersWriting: [],
@@ -97,7 +97,7 @@ export interface LiveInputs {
 	last: RequestView | undefined;
 	run: RunView | undefined;
 	statuses: ReadonlyMap<string, string>;
-	tasks?: SessionTasks | undefined;
+	board?: Board | undefined;
 	peers?: PeerMark[] | undefined;
 	peersUnread?: number | undefined;
 	peersWriting?: WritingMark[] | undefined;
@@ -150,7 +150,7 @@ export class SnapshotReader {
 					.map(([key, text]): [string, string] => [key, sanitize(text)])
 					.filter(([, text]) => text !== ""),
 			),
-			tasks: live.tasks,
+			board: live.board,
 			peers: live.peers ?? [],
 			peersUnread: live.peersUnread ?? 0,
 			peersWriting: live.peersWriting ?? [],

@@ -20,7 +20,7 @@ const PERMISSION_MODE: SegmentId = "status:pi-ask-permission:mode";
 /** The line above the editor: how long the agent has worked, and the last call that finished. */
 export const strip: readonly SegmentId[] = ["elapsed"];
 /** The other side of that line, or a line of its own under it when it does not fit. */
-export const stripRight: readonly SegmentId[] = ["tasks", "peers"];
+export const stripRight: readonly SegmentId[] = ["board", "peers"];
 /** After the working spinner on the editor's top edge. */
 export const topLeft: readonly SegmentId[] = ["branch", "session"];
 /** Where you are. */
