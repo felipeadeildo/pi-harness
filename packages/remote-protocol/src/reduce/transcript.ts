@@ -80,27 +80,25 @@ export function branchOf(entries: readonly Entry[], leaf?: string): Entry[] {
 
 /** One entry as the screen draws it. */
 export function itemOf(entry: Entry): TranscriptItem {
+	const base = { entry: entry.id, at: entry.timestamp };
 	switch (entry.type) {
 		case "message":
 			return {
 				kind: "message",
-				entry: entry.id,
-				at: entry.timestamp,
+				...base,
 				message: field<ChatMessage>(entry, "message") ?? { role: "unknown", content: [] },
 			};
 		case "custom":
 			return {
 				kind: "custom",
-				entry: entry.id,
-				at: entry.timestamp,
+				...base,
 				customType: field<string>(entry, "customType") ?? "",
 				data: field<unknown>(entry, "data"),
 			};
 		case "custom_message":
 			return {
 				kind: "custom",
-				entry: entry.id,
-				at: entry.timestamp,
+				...base,
 				customType: field<string>(entry, "customType") ?? "",
 				data: field<unknown>(entry, "content"),
 				...(field<boolean>(entry, "display") === true ? { display: true } : {}),
@@ -108,60 +106,53 @@ export function itemOf(entry: Entry): TranscriptItem {
 		case "compaction":
 			return {
 				kind: "compaction",
-				entry: entry.id,
-				at: entry.timestamp,
+				...base,
 				summary: field<string>(entry, "summary") ?? "",
 				firstKept: field<string>(entry, "firstKeptEntryId"),
 			};
 		case "branch_summary":
 			return {
 				kind: "branch",
-				entry: entry.id,
-				at: entry.timestamp,
+				...base,
 				from: field<string>(entry, "fromId") ?? "",
 				summary: field<string>(entry, "summary") ?? "",
 			};
 		case "model_change":
 			return {
 				kind: "model",
-				entry: entry.id,
-				at: entry.timestamp,
+				...base,
 				provider: field<string>(entry, "provider") ?? "",
 				model: field<string>(entry, "modelId") ?? "",
 			};
 		case "thinking_level_change":
 			return {
 				kind: "thinking",
-				entry: entry.id,
-				at: entry.timestamp,
+				...base,
 				level: field<string>(entry, "thinkingLevel") ?? "",
 			};
 		case "session_info":
 			return {
 				kind: "session",
-				entry: entry.id,
-				at: entry.timestamp,
+				...base,
 				name: field<string>(entry, "name"),
 			};
 		case "label":
 			return {
 				kind: "label",
-				entry: entry.id,
-				at: entry.timestamp,
+				...base,
 				target: field<string>(entry, "targetId") ?? "",
 				label: field<string>(entry, "label"),
 			};
 		case "usage":
-			return { kind: "usage", entry: entry.id, at: entry.timestamp };
+			return { kind: "usage", ...base };
 		case "context_edit":
 			return {
 				kind: "edit",
-				entry: entry.id,
-				at: entry.timestamp,
+				...base,
 				target: field<string>(entry, "targetId") ?? "",
 			};
 		default:
-			return { kind: "other", entry: entry.id, at: entry.timestamp, type: entry.type };
+			return { kind: "other", ...base, type: entry.type };
 	}
 }
 

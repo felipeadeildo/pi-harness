@@ -88,6 +88,9 @@ export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 			isObject(data) && typeof data.id === "string" && isObject(data.result),
 		apply: (state, data) => {
 			const before = state.questions[data.id];
+			// A second answer does not erase who gave the first one: only a named one wins.
+			const earlier = before?.closed === true ? before.by : undefined;
+			const by = data.by !== undefined ? data.by : earlier;
 			return bound({
 				...state,
 				questions: {
@@ -96,12 +99,7 @@ export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 						id: data.id,
 						result: data.result,
 						closed: true,
-						// A second answer does not erase who gave the first one: only a named one wins.
-						...(data.by !== undefined
-							? { by: data.by }
-							: before?.closed === true && before.by !== undefined
-								? { by: before.by }
-								: {}),
+						...(by === undefined ? {} : { by }),
 					},
 				},
 			});

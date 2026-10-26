@@ -81,6 +81,25 @@ const ROWS: Row[] = [
 		}),
 	},
 	{
+		name: "a second answer that names nobody keeps who gave the first, and a named one replaces it",
+		events: [
+			{ type: "ask.opened", data: { id: "q1", source: "agent", questions: [] } },
+			{ type: "ask.closed", data: { id: "q1", by: { kind: "client", name: "phone" }, result: {} } },
+			{ type: "ask.closed", data: { id: "q1", result: {} } },
+			{ type: "ask.opened", data: { id: "q2", source: "agent", questions: [] } },
+			{ type: "ask.closed", data: { id: "q2", by: { kind: "client", name: "phone" }, result: {} } },
+			{
+				type: "ask.closed",
+				data: { id: "q2", by: { kind: "client", name: "tablet" }, result: {} },
+			},
+		],
+		expects: { first: "phone", replaced: "tablet" },
+		leaves: (state) => ({
+			first: (state.questions.q1 as { by?: { name: string } }).by?.name,
+			replaced: (state.questions.q2 as { by?: { name: string } }).by?.name,
+		}),
+	},
+	{
 		name: "the queue is the last list written, and clearing it leaves an empty one",
 		events: [
 			{ type: "queue.changed", data: { queue: [queued("a")] } },
