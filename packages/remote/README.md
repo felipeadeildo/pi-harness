@@ -17,7 +17,7 @@ Three programs work together. A **bridge** runs inside every pi and publishes th
 
 `/remote` in pi prints a link, opens it and says it is good once, for a minute. `pi-remote open` does the same from a shell. Either way the browser gets every session on this machine, with the answer as it is written.
 
-On a machine in a [Tailscale](https://tailscale.com) tailnet, the daemon also listens on the machine's tailnet address, and `/remote` names it, such as `http://laptop.example.ts.net:7878/`. A phone or a computer of yours on the same tailnet opens that address with no link and no token: the daemon asks `tailscale whois` who the device belongs to, and a device of the user who owns this machine gets its login with the first page. Nothing is set up for it, and a machine without Tailscale listens on loopback only.
+On a machine in a [Tailscale](https://tailscale.com) tailnet, the daemon also listens on the machine's tailnet address, and `/remote` names it by address, such as `http://100.101.102.103:7878/`, which works where MagicDNS does not. The machine's tailnet name answers too. A phone or a computer of yours on the same tailnet opens that address with no link and no token: the daemon asks `tailscale whois` who the device belongs to, and a device of the user who owns this machine gets its login with the first page. Nothing is set up for it, and a machine without Tailscale listens on loopback only.
 
 | Command                 | What it does                                                          |
 | ----------------------- | --------------------------------------------------------------------- |

@@ -114,7 +114,9 @@ export class Clients {
 		}
 		const onTailnet = reached !== undefined && !("why" in reached);
 		this.#hosts = hostsOf(looped.port, onTailnet ? tailnet : undefined);
-		this.tailnetUrl = onTailnet ? `http://${tailnet?.name}:${looped.port}/` : undefined;
+		// The address and not the name: a machine whose MagicDNS is broken still answers on its address,
+		// and the name is in the hosts for a device that types it.
+		this.tailnetUrl = onTailnet ? `http://${tailnet?.ip}:${looped.port}/` : undefined;
 		return looped;
 	}
 

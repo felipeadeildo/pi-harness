@@ -144,7 +144,7 @@ describe("a device that comes through the tailnet", () => {
 	test("is the owner's: the page logs it in, and so does a login with no token", async () => {
 		const { clients, port } = await daemonOn(true);
 		const host = `ghost.example.ts.net:${port}`;
-		expect(clients.tailnetUrl).toBe(`http://ghost.example.ts.net:${port}/`);
+		expect(clients.tailnetUrl).toBe(`http://127.0.0.2:${port}/`);
 		const page = await ask("127.0.0.2", port, { host });
 		expect(page.status).toBe(200);
 		expect(page.cookie).toStartWith("pi_remote=");
@@ -190,6 +190,14 @@ describe("a device that comes through the tailnet", () => {
 		clients.close();
 	});
 
+	test("the address the link names answers too, as the name does", async () => {
+		const { clients, port } = await daemonOn(true);
+		const page = await ask("127.0.0.2", port, { host: `127.0.0.2:${port}` });
+		expect(page.status).toBe(200);
+		expect(page.cookie).toStartWith("pi_remote=");
+		clients.close();
+	});
+
 	test("a name the daemon does not answer to is refused before anything is read", async () => {
 		const { clients, port } = await daemonOn(true);
 		const page = await ask("127.0.0.2", port, { host: `evil.example:${port}` });
@@ -211,7 +219,7 @@ describe("the link pi gives", () => {
 		});
 		if (daemon === undefined) throw new Error("the daemon did not start");
 		const link = await requestLink(socket);
-		expect(link).toMatchObject({ tailnet: `http://ghost.example.ts.net:${daemon.clientPort}/` });
+		expect(link).toMatchObject({ tailnet: `http://127.0.0.2:${daemon.clientPort}/` });
 		expect("url" in link ? link.url : "").toContain("#token=");
 		await daemon.stop();
 	});
