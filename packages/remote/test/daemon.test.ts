@@ -188,6 +188,19 @@ describe("the daemon on its socket", () => {
 		}
 	});
 
+	test("the pi-remote command is greeted as a bridge is, and registers no session", async () => {
+		const { daemon: started } = await openDaemon();
+		const client = await raw();
+		client.send(envelope("hello", "cli", { protocol: PROTOCOL }, {}));
+		await until(() => client.received.length > 0);
+		expect(client.received[0]).toMatchObject({
+			kind: "hello",
+			type: "daemon",
+			data: { protocol: PROTOCOL, version: "1.2.0" },
+		});
+		expect(started?.sessions.connected()).toBe(0);
+	});
+
 	test("a bridge's events count only for its own session and epoch", async () => {
 		const { daemon: started } = await openDaemon();
 		const live = { pid: 1, startedAt: 1, cwd: "/", kind: "terminal" };
