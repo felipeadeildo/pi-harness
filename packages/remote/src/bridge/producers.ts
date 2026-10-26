@@ -1,4 +1,4 @@
-import { MODE_SET, totalsOf, type EventScope } from "@adeildo/pi-kit";
+import { BOARD, boardView, MODE_SET, totalsOf, type EventScope } from "@adeildo/pi-kit";
 import type { SessionState } from "@adeildo/pi-remote-protocol";
 // The fields of a session's state that come from the process rather than from the log: a capability, the
 // money spent, who sent a prompt. Each one owns its field and knows how to place it, and the opening
@@ -21,6 +21,14 @@ export interface Producer {
  * arrive, so it stays in `bridge.ts` until a second fold exists to share the shape with.
  */
 export const PRODUCERS: readonly Producer[] = [
+	{
+		// The board the session keeps, cut and ordered by the feature that wrote it: this carries it and
+		// decides nothing, so a screen draws the writer's order and never one of its own.
+		apply: (state, scope) => {
+			const board = BOARD.current(scope);
+			return board === undefined ? state : { ...state, board: boardView(board) };
+		},
+	},
 	{
 		// What the session has spent so far, summed from pi's own per-message usage. Read from the branch
 		// rather than folded from events, so the opening always carries it and a reconnect keeps it.
