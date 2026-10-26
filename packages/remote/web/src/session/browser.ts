@@ -1,5 +1,5 @@
 // How the page reaches its daemon: the page's own origin, with the login spent once. The page is
-// served by the daemon, so there is one address and it is `location`.
+// served by the daemon, so there is one address and it is `location`, whichever machine a session is on.
 import { pageCache } from "./cache.ts";
 import { fetchLogin, logIn } from "./login.ts";
 import { openSocket, socketUrl } from "./transport.ts";
@@ -21,7 +21,7 @@ export function browserSource(): Promise<SessionSource> {
 	).then((logged) => ({
 		cache: logged.cache,
 		clientName: "browser",
-		open: openSocket(socketUrl(location), (url) => new WebSocket(url)),
+		open: (key) => openSocket(socketUrl(location, key.machine), (url) => new WebSocket(url)),
 		...(logged.why === undefined ? {} : { why: logged.why }),
 	}));
 	return made;

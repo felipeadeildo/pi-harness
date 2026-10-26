@@ -1,5 +1,5 @@
 // The server side of a WebSocket, taken from the `ws` package the daemon bundles. It speaks what a
-// browser and the native app send: text messages, ping and close.
+// browser sends: text messages, ping and close.
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 
@@ -59,5 +59,34 @@ export function accept(
 			clearInterval(beat);
 			handlers.closed();
 		});
+	});
+}
+
+/**
+ * Answers an upgrade by joining it to a socket of another daemon: what one end says the other hears,
+ * and either end closing closes both. What the client says before the other daemon answers waits.
+ */
+export function join(
+	wss: WebSocketServer,
+	request: IncomingMessage,
+	socket: Duplex,
+	head: Buffer,
+	upstream: WebSocket,
+): void {
+	accept(wss, request, socket, head, (ws) => {
+		const waiting: string[] = [];
+		upstream.on("open", () => {
+			for (const text of waiting.splice(0)) upstream.send(text);
+		});
+		upstream.on("message", (data) => ws.send(String(data)));
+		upstream.on("close", () => ws.close());
+		upstream.on("error", () => ws.close());
+		return {
+			message: (text) => {
+				if (upstream.readyState === upstream.OPEN) upstream.send(text);
+				else waiting.push(text);
+			},
+			closed: () => upstream.terminate(),
+		};
 	});
 }

@@ -1,16 +1,18 @@
 // The port clients reach: the server, the upgrade into the hub, and the HTTP requests the routes
 // answer. The sockets and their marks are the hub's, the names and the logins are the routes', and
-// what lives here is the server, the port it took, and the one place a `session.gone` clears both.
+// what lives here is the server, the port it took, and the one place a `session.gone` clears both. A
+// socket for a session of another machine is joined to that machine's daemon, untouched.
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
 import type { Envelope } from "@adeildo/pi-remote-protocol";
 import type { WebSocketServer } from "ws";
 
-import { accept, server } from "../wire/websocket.ts";
+import { accept, join, server } from "../wire/websocket.ts";
 import { isAppFile, type WebApp } from "./app.ts";
 import { authorize, hostsOf, type Logins } from "./auth.ts";
 import { Hub } from "./hub.ts";
+import type { Machines } from "./machines.ts";
 import { asking, isRoute, Routes, STATUS } from "./routes.ts";
 import type { Sessions } from "./sessions.ts";
 import type { Owners, Tailnet } from "./tailnet.ts";
@@ -19,6 +21,10 @@ export interface ClientsOptions {
 	sessions: Sessions;
 	logins: Logins;
 	version: string;
+	/** This machine's name, as its sessions carry it. */
+	machine: string;
+	/** The owner's other machines on the tailnet. */
+	machines?: Machines;
 	/** False when no bridge is connected, and the client hears why on the command's id. */
 	command: (session: string, message: Envelope) => boolean;
 	/** Answered for every path the data routes leave. The only paths a browser loads before a login. */
@@ -58,6 +64,8 @@ export class Clients {
 			sessions: options.sessions,
 			logins: options.logins,
 			version: options.version,
+			machine: options.machine,
+			...(options.machines === undefined ? {} : { machines: options.machines }),
 			started: this.#started,
 			hosts: () => this.#hosts,
 			...(options.web === undefined ? {} : { web: options.web }),
@@ -85,11 +93,20 @@ export class Clients {
 				);
 				return;
 			}
-			if (new URL(request.url ?? "/", "http://daemon").pathname !== "/ws") {
+			const url = new URL(request.url ?? "/", "http://daemon");
+			if (url.pathname !== "/ws") {
 				socket.end("HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n");
 				return;
 			}
-			accept(this.#wss, request, socket, head, (ws) => this.hub.open(ws));
+			const elsewhere = this.#options.machines?.named(url.searchParams.get("machine") ?? "");
+			if (elsewhere === undefined) {
+				accept(this.#wss, request, socket, head, (ws) => this.hub.open(ws));
+				return;
+			}
+			void this.#options.machines?.socket(elsewhere).then(
+				(upstream) => join(this.#wss, request, socket, head, upstream),
+				() => socket.end("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n"),
+			);
 		});
 		return served;
 	}

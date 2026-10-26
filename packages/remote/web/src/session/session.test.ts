@@ -61,8 +61,12 @@ function make(url: string): FakeSocket {
 
 describe("the socket", () => {
 	test("is the daemon's /ws on the page's own origin", () => {
-		expect(socketUrl({ protocol: "http:", host: "127.0.0.1:7878" })).toBe("ws://127.0.0.1:7878/ws");
-		expect(socketUrl({ protocol: "https:", host: "pi.example" })).toBe("wss://pi.example/ws");
+		expect(socketUrl({ protocol: "http:", host: "127.0.0.1:7878" }, "ghost")).toBe(
+			"ws://127.0.0.1:7878/ws?machine=ghost",
+		);
+		expect(socketUrl({ protocol: "https:", host: "pi.example" }, "a b")).toBe(
+			"wss://pi.example/ws?machine=a%20b",
+		);
 	});
 
 	test("holds what is sent before it opens, then sends it in order", () => {
@@ -122,7 +126,7 @@ describe("the socket", () => {
 		const told: number[] = [];
 		const opened = openSession(
 			{ machine: "box", session: "s1" },
-			{ cache: memoryCache(), open: openSocket("ws://x/ws", make) },
+			{ cache: memoryCache(), open: () => openSocket("ws://x/ws", make) },
 			(session) => told.push(session.entries.length),
 		);
 		await Bun.sleep(0);

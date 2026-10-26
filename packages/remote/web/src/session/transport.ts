@@ -1,6 +1,7 @@
 // How the browser talks to the daemon: one WebSocket per attempt, on the page's own origin, which is
-// the only one the daemon's `checkPlace` lets open `/ws`. The client library asks for an attempt and
-// sends its hello at once, before a socket is open, so what is sent before that waits for it.
+// the only one the daemon's `checkPlace` lets open `/ws`. A session of another machine goes through
+// the same daemon, which joins the socket to that machine's. The client library asks for an attempt
+// and sends its hello at once, before a socket is open, so what is sent before that waits for it.
 import type { ConnectionOptions, Transport } from "@adeildo/pi-remote-protocol/client";
 
 /** The part of a WebSocket the transport uses, so a test can hand it a fake. */
@@ -16,9 +17,10 @@ export type SocketFactory = (url: string) => SocketLike;
 
 const OPEN = 1;
 
-/** The daemon's `/ws` on the origin the page was loaded from. */
-export function socketUrl(location: { protocol: string; host: string }): string {
-	return `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
+/** The daemon's `/ws` on the origin the page was loaded from, for a session of `machine`. */
+export function socketUrl(location: { protocol: string; host: string }, machine: string): string {
+	const scheme = location.protocol === "https:" ? "wss" : "ws";
+	return `${scheme}://${location.host}/ws?machine=${encodeURIComponent(machine)}`;
 }
 
 /** An `open` for `connect`: each attempt is a socket, and a close the client did not ask for is told. */

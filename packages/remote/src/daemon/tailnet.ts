@@ -34,13 +34,34 @@ const askTailscale: AskTailscale = (args) =>
 
 /** This machine on its tailnet, or nothing when it is not on one. */
 export async function readTailnet(ask: AskTailscale = askTailscale): Promise<Tailnet | undefined> {
-	const self = recordOf(parsed(await ask(["status", "--json"]))?.Self);
+	return nodeOf(parsed(await ask(["status", "--json"]))?.Self);
+}
+
+/**
+ * This machine on its tailnet and the owner's other machines that are online, each by its address.
+ * A node another user shares into the tailnet is not one of them.
+ */
+export async function readOwnTailnet(
+	ask: AskTailscale = askTailscale,
+): Promise<{ self: Tailnet; others: Tailnet[] } | undefined> {
+	const status = parsed(await ask(["status", "--json"]));
+	const self = nodeOf(status?.Self);
 	if (self === undefined) return undefined;
-	const name = typeof self.DNSName === "string" ? self.DNSName.replace(/\.$/, "") : "";
-	const ip = Array.isArray(self.TailscaleIPs)
-		? self.TailscaleIPs.find((one): one is string => typeof one === "string" && one.includes("."))
+	const others = Object.values(recordOf(status?.Peer) ?? {}).flatMap((peer) => {
+		const node = nodeOf(peer);
+		return node?.user === self.user && recordOf(peer)?.Online === true ? [node] : [];
+	});
+	return { self, others };
+}
+
+function nodeOf(value: unknown): Tailnet | undefined {
+	const node = recordOf(value);
+	if (node === undefined) return undefined;
+	const name = typeof node.DNSName === "string" ? node.DNSName.replace(/\.$/, "") : "";
+	const ip = Array.isArray(node.TailscaleIPs)
+		? node.TailscaleIPs.find((one): one is string => typeof one === "string" && one.includes("."))
 		: undefined;
-	const user = self.UserID;
+	const user = node.UserID;
 	if (name === "" || ip === undefined || typeof user !== "number") return undefined;
 	return { name, ip, user };
 }

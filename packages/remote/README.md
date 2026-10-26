@@ -5,8 +5,8 @@
 </p>
 
 <p align="center">
-  <strong>Your pi sessions from a phone, a browser or a pi on another machine.</strong><br>
-  Every session on this machine, live, with nothing to open first.
+  <strong>Your pi sessions from a phone or a browser.</strong><br>
+  Every session on every machine of yours, live, from one address.
 </p>
 
 <p align="center">Pi has it as soon as this package is installed, and <code>/remote</code> opens it</p>
@@ -17,7 +17,13 @@ Three programs work together. A **bridge** runs inside every pi and publishes th
 
 `/remote` in pi prints a link, opens it and says it is good once, for a minute. `pi-remote open` does the same from a shell. Either way the browser gets every session on this machine, with the answer as it is written.
 
-On a machine in a [Tailscale](https://tailscale.com) tailnet, the daemon also listens on the machine's tailnet address, and `/remote` names it by address, such as `http://100.101.102.103:7878/`, which works where MagicDNS does not. The machine's tailnet name answers too. A phone or a computer of yours on the same tailnet opens that address with no link and no token: the daemon asks `tailscale whois` who the device belongs to, and a device of the user who owns this machine gets its login with the first page. Nothing is set up for it, and a machine without Tailscale listens on loopback only.
+On a machine in a [Tailscale](https://tailscale.com) tailnet, the daemon also listens on the machine's tailnet address, and `/remote` names it by address, such as `http://100.101.102.103:7878/`, which works where MagicDNS does not. The machine's tailnet name answers too. A phone or a computer of yours on the same tailnet opens that address with no link and no token: the daemon asks `tailscale whois` who the device belongs to, and a device of the user who owns this machine gets its login with the first page. Nothing is set up for it, and a machine without Tailscale listens on loopback only. A machine that joins its tailnet after the daemon started gets a daemon that listens there within fifteen seconds.
+
+## Your other machines
+
+Every machine of yours on the tailnet that runs pi has its own daemon, and each daemon finds the others: `tailscale status` lists your machines that are online, and each one whose daemon answers at the same port is one of them. Nothing is paired. A daemon logs in at another the way your phone does, because `whois` says both machines are yours; a node another user shares into the tailnet is never one of them.
+
+So one address shows everything. The list holds the sessions of every machine, and a session of another machine opens through the daemon you are talking to, which reads it from that machine's daemon and joins your socket to that machine's. A machine that stops answering leaves the list at the next look, every fifteen seconds.
 
 | Command                 | What it does                                                          |
 | ----------------------- | --------------------------------------------------------------------- |
@@ -38,24 +44,24 @@ The daemon keeps its own state in `~/.pi/agent/harness/remote`, and `PI_REMOTE_D
 
 Clients reach the daemon on `127.0.0.1:7878`, and on the tailnet's name and address at the same port when the machine has one.
 
-| Route                                 | Answer                                                                                                      |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `GET /health`                         | Version, protocol and uptime, with no login                                                                 |
-| `GET /sessions`                       | Every session a bridge registered, with its state and facts                                                 |
-| `GET /sessions/:machine/:id/snapshot` | The session's last snapshot, with the facts that rebuild its state                                          |
-| `GET /sessions/:machine/:id/entries`  | Older entries, read from pi's own session file (`?before=`, `?since=`, 200 a page)                          |
-| `GET /ws`                             | The live stream: one hello per session, then its events                                                     |
-| `POST /login`                         | Trades a link's token for the login cookie, or with no token logs in a device of the owner's on the tailnet |
+| Route                                | Answer                                                                                                      |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `GET /health`                        | Version, protocol, machine and uptime, with no login                                                        |
+| `GET /sessions`                      | Every session of every machine, with its state; `?here` for this machine's only                             |
+| `GET /sessions/:machine/:id/opening` | What a client draws first: the summary, the tail of the branch and the message being written                |
+| `GET /sessions/:machine/:id/entries` | Older entries, read from pi's own session file (`?before=`, `?since=`, 200 a page)                          |
+| `GET /ws?machine=`                   | The live stream of that machine's sessions: one hello per session, then its events                          |
+| `POST /login`                        | Trades a link's token for the login cookie, or with no token logs in a device of the owner's on the tailnet |
 
-A client that opens the stream says the cursor it stopped at, and gets what the daemon still holds after it, or the last snapshot and what follows, or a fresh snapshot asked of the bridge. A delta never leaves a hole, because a delta carries no sequence number: it only matters live, and the end of the message replaces it. A page of entries costs a few milliseconds after the first, which is the one that indexes the file.
+A client that opens the stream says the cursor it stopped at, and gets what the daemon still holds after it, or the opening and what follows. A delta never leaves a hole, because a delta carries no sequence number: it only matters live, and the end of the message replaces it. A page of entries costs a few milliseconds after the first, which is the one that indexes the file.
 
-A session also takes commands, and each one runs in its own process: abort, compact, rename, stop, and the model, the thinking level and the permission mode. Each is answered on its id, and an id that already ran is answered as a repeat, so a command resent after a reconnect is not a second effect. `full` is refused from a client: that mode runs every call without asking, and it is set at the terminal.
+A session also takes commands, and each one runs in its own process: a prompt, abort, compact, rename, stop, and the model, the thinking level and the permission mode. Each is answered on its id, and an id that already ran is answered as a repeat, so a command resent after a reconnect is not a second effect. `full` is refused from a client: that mode runs every call without asking, and it is set at the terminal.
 
-## The app
+## The page
 
-The daemon serves the web app on the same port, from the export the build makes. It answers only for paths the export listed, after every data route, so a made-up path never reaches the filesystem and a file named like a route never answers for it. The export's own files open with no login, because a browser loads them before it has one; anything else needs the cookie. Each page carries a policy that allows its own inline scripts and nothing else.
+The daemon serves the page on the same port: a React app in `web/`, built by Vite into `dist/web`. It answers with the files that were there when it started and with `index.html` for the page's own routes, after every data route, so a made-up path never reaches the filesystem and a file named like a route never answers for it. The page's files open with no login, because a browser loads them before it has one; anything else needs the cookie. Every file carries a policy that runs the page's own scripts and nothing else.
 
-`PI_REMOTE_WEB` points at another export, and without one the daemon serves the data routes alone. The app's policy check loads the export through the daemon's own code, so it sees exactly what a browser would get. The app's policy check loads the export through the daemon's own code, so it sees exactly what a browser would get.
+`PI_REMOTE_WEB` points at another build, and without one the daemon serves the data routes alone.
 
 ## Security
 
@@ -69,7 +75,7 @@ The agent runs with your permissions, so the permission feature asks before any 
 
 ## Building it
 
-`bun run build` in this package writes the two programs and the app's export. pi compiles the bridge itself when it loads it; the daemon and the command ship as one file each that imports nothing but Node's own modules, because nothing else compiles them.
+`bun run build` in this package writes the two programs and the page. pi compiles the bridge itself when it loads it; the daemon and the command ship as one file each that imports nothing but Node's own modules, because nothing else compiles them.
 
 Part of [pi-harness](https://github.com/felipeadeildo/pi-harness), which brings every piece in one install.
 
