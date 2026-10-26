@@ -27,13 +27,10 @@ export interface MachinesOptions {
 	/** Where another node's daemon answers. The same port as this one's, by default. */
 	originOf: (node: Tailnet) => string;
 	ask?: AskTailscale;
-	fetch?: typeof fetch;
-	lookEvery?: number;
 }
 
 export class Machines {
 	readonly #options: MachinesOptions;
-	readonly #fetch: typeof fetch;
 	/** The machines that answered the last look, by name. */
 	#found = new Map<string, Machine>();
 	/** The login each other daemon gave this one, by origin. */
@@ -42,13 +39,12 @@ export class Machines {
 
 	constructor(options: MachinesOptions) {
 		this.#options = options;
-		this.#fetch = options.fetch ?? fetch;
 	}
 
 	/** Looks now, and again every so often until `stop`. */
 	start(): void {
 		void this.look();
-		this.#timer = setInterval(() => void this.look(), this.#options.lookEvery ?? LOOK_EVERY_MS);
+		this.#timer = setInterval(() => void this.look(), LOOK_EVERY_MS);
 		this.#timer.unref?.();
 	}
 
@@ -84,7 +80,7 @@ export class Machines {
 	/** A GET on another machine's daemon, logged in there as a device of the owner. */
 	async get(machine: Machine, path: string): Promise<Response> {
 		const ask = async (): Promise<Response> =>
-			this.#fetch(`${machine.origin}${path}`, {
+			fetch(`${machine.origin}${path}`, {
 				headers: { cookie: `${COOKIE}=${await this.#login(machine)}` },
 				signal: AbortSignal.timeout(ANSWER_MS),
 			});
@@ -105,7 +101,7 @@ export class Machines {
 
 	async #health(origin: string): Promise<Machine | undefined> {
 		try {
-			const answer = await this.#fetch(`${origin}/health`, {
+			const answer = await fetch(`${origin}/health`, {
 				signal: AbortSignal.timeout(ANSWER_MS),
 			});
 			const body: unknown = await answer.json();
@@ -121,7 +117,7 @@ export class Machines {
 	async #login(machine: Machine): Promise<string> {
 		const kept = this.#logins.get(machine.origin);
 		if (kept !== undefined) return kept;
-		const answer = await this.#fetch(`${machine.origin}/login`, {
+		const answer = await fetch(`${machine.origin}/login`, {
 			method: "POST",
 			headers: { origin: machine.origin, "content-type": "application/json" },
 			body: "{}",

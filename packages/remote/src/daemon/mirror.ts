@@ -68,7 +68,6 @@ export interface MirrorOptions {
 	root: string;
 	/** This machine's name, which its own presence entries carry. */
 	self: string;
-	every?: number;
 }
 
 export class Mirror {
@@ -81,7 +80,7 @@ export class Mirror {
 	}
 
 	start(): void {
-		this.#timer = setInterval(() => void this.sync(), this.#options.every ?? SYNC_EVERY_MS);
+		this.#timer = setInterval(() => void this.sync(), SYNC_EVERY_MS);
 		this.#timer.unref?.();
 	}
 
