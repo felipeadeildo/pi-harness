@@ -3,6 +3,7 @@ import type { ClientSession } from "@adeildo/pi-remote-protocol/client";
 import {
 	ChipIcon,
 	ComputerIcon,
+	DashboardSpeed01Icon,
 	Folder01Icon,
 	GitBranchIcon,
 	Money03Icon,
@@ -14,6 +15,7 @@ import type { ReactNode } from "react";
 
 import { Progress } from "@/components/ui/progress";
 import { contextShare, money, shortPath, tokens } from "@/session/format.ts";
+import { speedOf } from "@/session/speed.ts";
 
 import { Icon } from "./kit.tsx";
 
@@ -22,6 +24,7 @@ export function Details({ session }: { session: ClientSession }): ReactNode {
 	const share = contextShare(summary?.context);
 	const cost = state.cost;
 	const viewers = session.presence?.viewers ?? [];
+	const speed = speedOf(session.entries);
 	return (
 		<dl className="flex flex-col gap-4 text-sm">
 			<Fact icon={Folder01Icon} label="Folder">
@@ -45,6 +48,17 @@ export function Details({ session }: { session: ClientSession }): ReactNode {
 					<span className="text-muted-foreground"> · thinking {state.thinkingLevel}</span>
 				)}
 			</Fact>
+			{speed === undefined ? null : (
+				<Fact icon={DashboardSpeed01Icon} label="Speed">
+					<span className="tabular font-mono text-[12.5px]">{Math.round(speed.last)} tok/s</span>
+					<span className="text-muted-foreground"> · last answer</span>
+					{speed.answers < 2 ? null : (
+						<span className="block text-xs text-muted-foreground">
+							{Math.round(speed.recent)} tok/s over the last {speed.answers} answers
+						</span>
+					)}
+				</Fact>
+			)}
 			{state.permissions.mode === undefined ? null : (
 				<Fact icon={SecurityCheckIcon} label="Permission mode">
 					<span className="font-mono text-[12.5px]">{state.permissions.mode}</span>
