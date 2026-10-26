@@ -9,8 +9,6 @@ import type {
 	CommandType,
 	ModelOption,
 	PermissionMode,
-	QueuedMessage,
-	SessionCommand,
 } from "@adeildo/pi-remote-protocol";
 import { type ReactNode, useEffect, useState } from "react";
 import {
