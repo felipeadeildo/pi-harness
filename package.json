@@ -19,7 +19,7 @@
 	],
 	"type": "module",
 	"scripts": {
-		"check": "tsc --noEmit",
+		"check": "tsc --noEmit && tsc --noEmit -p packages/remote/web",
 		"lint": "oxlint",
 		"lint:fix": "oxlint --fix",
 		"fmt": "oxfmt",
