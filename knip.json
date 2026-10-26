@@ -33,5 +33,5 @@
 		}
 	},
 	"ignoreDependencies": ["babel-plugin-react-compiler", "expo-updates"],
-	"ignoreBinaries": ["script", "rsvg-convert"]
+	"ignoreBinaries": ["script", "rsvg-convert", "tailscale"]
 }

@@ -25,6 +25,7 @@ import { loadWebApp } from "./app.ts";
 import { Logins } from "./auth.ts";
 import { Clients } from "./clients.ts";
 import { type GoneReason, type SessionLive, Sessions } from "./sessions.ts";
+import { Owners, type Tailnet } from "./tailnet.ts";
 
 /** A daemon a pi started exits after this long with no session. */
 const IDLE_EXIT_MS = 5 * 60_000;
@@ -53,6 +54,8 @@ export interface DaemonOptions {
 	clientPort?: number;
 	/** The folder of the web app's export, with its `files.json`. Without one, only the data routes. */
 	webDir?: string;
+	/** This machine on its tailnet, where clients reach the daemon too. Loopback only without it. */
+	tailnet?: Tailnet;
 	/** Called once, after the daemon stopped listening and removed its socket. */
 	exited?(reason: ExitReason): void;
 	warn?(message: string): void;
@@ -227,7 +230,13 @@ export class Daemon {
 		const { token, expiresAt } = this.logins.issue();
 		// The daemon names the port, since `serve --port` may have moved it. The token rides in the
 		// fragment, which no request carries to a server or a log.
-		answer("reply", { url: `http://127.0.0.1:${this.clientPort}/#token=${token}`, expiresAt });
+		const tailnet = this.#clients?.tailnetUrl;
+		answer("reply", {
+			url: `http://127.0.0.1:${this.clientPort}/#token=${token}`,
+			expiresAt,
+			// No token: the owner's own devices log in on the tailnet by who they are.
+			...(tailnet === undefined ? {} : { tailnet }),
+		});
 	}
 
 	#bridgeSaid(bridge: { session: string; epoch: string }, message: Envelope): void {
@@ -286,6 +295,9 @@ export class Daemon {
 			command: (session, message) => this.#toBridge(session, message),
 			...(web === undefined ? {} : { web }),
 			warn: (message) => this.#warn(message),
+			...(this.#options.tailnet === undefined
+				? {}
+				: { tailnet: this.#options.tailnet, owners: new Owners(this.#options.tailnet) }),
 		});
 		const listened = await clients.listen(port);
 		if ("why" in listened) {

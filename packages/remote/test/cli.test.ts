@@ -27,7 +27,7 @@ function serve(...flags: string[]) {
 		["serve", "--port", "0", ...flags],
 		(line) => out.push(line),
 		(line) => err.push(line),
-		{ stopped, env: { PI_REMOTE_DIR: dir }, idleExitMs: 10 },
+		{ stopped, env: { PI_REMOTE_DIR: dir }, idleExitMs: 10, tailnet: async () => undefined },
 	);
 	return { code: Promise.resolve(code), out, err, stop };
 }
@@ -67,7 +67,12 @@ test("serve serves the web app of a built package, as the daemon entry does", as
 		["serve", "--port", "0"],
 		(line) => out.push(line),
 		(line) => err.push(line),
-		{ stopped, env: { PI_REMOTE_DIR: dir }, webDir: findWebDir(dist) },
+		{
+			stopped,
+			env: { PI_REMOTE_DIR: dir },
+			webDir: findWebDir(dist),
+			tailnet: async () => undefined,
+		},
 	);
 	await until(() => out.length === 1);
 	const port = Number(/127\.0\.0\.1:(\d+)/.exec(out[0] ?? "")?.[1]);

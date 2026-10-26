@@ -53,6 +53,12 @@ export class Logins {
 		const now = this.#now();
 		for (const [other, until] of this.#tokens) if (until < now) this.#tokens.delete(other);
 		if (expiresAt === undefined || now > expiresAt) return undefined;
+		return this.grant();
+	}
+
+	/** A new login, for a device that proved who it is some other way than a token. */
+	grant(): string {
+		const now = this.#now();
 		const cookie = randomBytes(32).toString("base64url");
 		this.#logins.push({ hash: sha256(cookie), createdAt: now, seenAt: now });
 		this.#save();
@@ -218,7 +224,12 @@ export function loginCookie(value: string, secure: boolean): string {
 	return `${COOKIE}=${value}; ${flags.join("; ")}`;
 }
 
-/** The names a daemon on loopback answers to, with its port. */
-export function loopbackHosts(port: number): Set<string> {
-	return new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`]);
+/** The names the daemon answers to, with its port: loopback's, and the tailnet's name and address. */
+export function hostsOf(port: number, tailnet?: { name: string; ip: string }): Set<string> {
+	const hosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`]);
+	if (tailnet !== undefined) {
+		hosts.add(`${tailnet.name}:${port}`);
+		hosts.add(`${tailnet.ip}:${port}`);
+	}
+	return hosts;
 }

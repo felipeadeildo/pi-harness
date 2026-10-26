@@ -17,6 +17,8 @@ Three programs work together. A **bridge** runs inside every pi and publishes th
 
 `/remote` in pi prints a link, opens it and says it is good once, for a minute. `pi-remote open` does the same from a shell. Either way the browser gets every session on this machine, with the answer as it is written.
 
+On a machine in a [Tailscale](https://tailscale.com) tailnet, the daemon also listens on the machine's tailnet address, and `/remote` names it, such as `http://laptop.example.ts.net:7878/`. A phone or a computer of yours on the same tailnet opens that address with no link and no token: the daemon asks `tailscale whois` who the device belongs to, and a device of the user who owns this machine gets its login with the first page. Nothing is set up for it, and a machine without Tailscale listens on loopback only.
+
 | Command                 | What it does                                                          |
 | ----------------------- | --------------------------------------------------------------------- |
 | `pi-remote open`        | Prints the link and opens it with `$BROWSER` or the platform's opener |
@@ -34,16 +36,16 @@ The daemon keeps its own state in `~/.pi/agent/harness/remote`, and `PI_REMOTE_D
 
 ## What a client sees
 
-Clients reach the daemon on `127.0.0.1:7878`.
+Clients reach the daemon on `127.0.0.1:7878`, and on the tailnet's name and address at the same port when the machine has one.
 
-| Route                                 | Answer                                                                             |
-| ------------------------------------- | ---------------------------------------------------------------------------------- |
-| `GET /health`                         | Version, protocol and uptime, with no login                                        |
-| `GET /sessions`                       | Every session a bridge registered, with its state and facts                        |
-| `GET /sessions/:machine/:id/snapshot` | The session's last snapshot, with the facts that rebuild its state                 |
-| `GET /sessions/:machine/:id/entries`  | Older entries, read from pi's own session file (`?before=`, `?since=`, 200 a page) |
-| `GET /ws`                             | The live stream: one hello per session, then its events                            |
-| `POST /login`                         | Trades a link's token for the login cookie                                         |
+| Route                                 | Answer                                                                                                      |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `GET /health`                         | Version, protocol and uptime, with no login                                                                 |
+| `GET /sessions`                       | Every session a bridge registered, with its state and facts                                                 |
+| `GET /sessions/:machine/:id/snapshot` | The session's last snapshot, with the facts that rebuild its state                                          |
+| `GET /sessions/:machine/:id/entries`  | Older entries, read from pi's own session file (`?before=`, `?since=`, 200 a page)                          |
+| `GET /ws`                             | The live stream: one hello per session, then its events                                                     |
+| `POST /login`                         | Trades a link's token for the login cookie, or with no token logs in a device of the owner's on the tailnet |
 
 A client that opens the stream says the cursor it stopped at, and gets what the daemon still holds after it, or the last snapshot and what follows, or a fresh snapshot asked of the bridge. A delta never leaves a hole, because a delta carries no sequence number: it only matters live, and the end of the message replaces it. A page of entries costs a few milliseconds after the first, which is the one that indexes the file.
 
@@ -57,9 +59,11 @@ The daemon serves the web app on the same port, from the export the build makes.
 
 ## Security
 
-The port listens on loopback only. A `Host` that is not the daemon's own loopback name gets 421, so a page whose DNS name resolves to 127.0.0.1 reads nothing, and a WebSocket or a request that changes something needs the daemon's own `Origin`, or it gets 403: any page can open a socket, and an `Origin` is what it cannot forge. Everything else needs the login cookie, except health, the login route and the app's own files.
+The port listens on loopback, and on the tailnet's address when the machine has one, never on every interface. A `Host` that is not one of the daemon's own names gets 421, so a page whose DNS name resolves to 127.0.0.1 reads nothing, and a WebSocket or a request that changes something needs the daemon's own `Origin`, or it gets 403: any page can open a socket, and an `Origin` is what it cannot forge. Everything else needs the login cookie, except health, the login route and the app's own files.
 
 The token arrives in the URL's fragment, which no request carries to a server or a log, and travels once, in the body of the login. The cookie is `HttpOnly` and `SameSite=Strict`. On a machine other people log into they can read the link in the opener's command line while it runs, since any user can read a process's arguments: the first to trade a link gets the login, so trade it at once, and a 401 means someone else did.
+
+On the tailnet, who a device is decides its login, and only a device of the user who owns this machine gets one that way. A node another user shares into the tailnet, a `whois` that fails, or one that takes longer than two seconds, gets no login, and that device needs a link like any other. A whois answer is kept for a minute. So a device of yours that is lost or taken logs in until you remove it from the tailnet. The tailnet's traffic is encrypted by WireGuard, and the daemon speaks plain HTTP on it, so the cookie is not `Secure` there.
 
 The agent runs with your permissions, so the permission feature asks before any call that reaches this package: it answers its own session's questions and reads its folder.
 

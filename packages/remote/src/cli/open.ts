@@ -13,8 +13,11 @@ import { envelopeOf, line, Lines } from "../wire/lines.ts";
 /** How long the command waits for the daemon. */
 const ANSWER_MS = 3_000;
 
-/** A login link, or why there is none. */
-export type Link = { url: string } | { reason: string };
+/**
+ * A login link, or why there is none. `tailnet` is where the owner's own devices open the app on the
+ * tailnet, with no token, when the daemon listens there.
+ */
+export type Link = { url: string; tailnet?: string } | { reason: string };
 
 /**
  * Reads the daemon's answer to `token.issue`, for `/remote` and for this command alike. The daemon
@@ -22,7 +25,12 @@ export type Link = { url: string } | { reason: string };
  */
 export function linkOf(answer: Envelope | undefined, silence: string): Link {
 	const data = isObject(answer?.data) ? answer.data : {};
-	if (answer?.kind === "reply" && typeof data.url === "string") return { url: data.url };
+	if (answer?.kind === "reply" && typeof data.url === "string") {
+		return {
+			url: data.url,
+			...(typeof data.tailnet === "string" ? { tailnet: data.tailnet } : {}),
+		};
+	}
 	if (answer?.kind === "error" && typeof data.reason === "string") return { reason: data.reason };
 	return { reason: silence };
 }
@@ -70,6 +78,7 @@ export async function open(
 		return 1;
 	}
 	out(`${link.url}\n(good once, for a minute)`);
+	if (link.tailnet !== undefined) out(`On your devices on the tailnet: ${link.tailnet}`);
 	browse(link.url);
 	return 0;
 }

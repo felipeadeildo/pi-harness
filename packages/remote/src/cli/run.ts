@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import { findWebDir } from "../daemon/app.ts";
 import { Daemon } from "../daemon/server.ts";
+import { readTailnet, type Tailnet } from "../daemon/tailnet.ts";
 import { CLIENT_PORT, daemonDir, daemonPaths, PORT_ID, portOf, settingsPath } from "../places.ts";
 import { VERSION } from "../version.ts";
 import { open } from "./open.ts";
@@ -39,6 +40,8 @@ export interface ServeOptions {
 	webDir?: string;
 	/** The idle wait a daemon a pi started would have, so a test sees `serve` outlast it. */
 	idleExitMs?: number;
+	/** This machine on its tailnet, asked of `tailscale` by default. */
+	tailnet?: () => Promise<Tailnet | undefined>;
 }
 
 /**
@@ -69,6 +72,7 @@ async function serve(
 		stayUp: true,
 		webDir: options.webDir ?? findWebDir(dirname(fileURLToPath(import.meta.url)), options.env),
 		...(options.idleExitMs === undefined ? {} : { idleExitMs: options.idleExitMs }),
+		tailnet: await (options.tailnet ?? readTailnet)(),
 		exited: () => exited(),
 		warn: (message) => err(`pi-remote daemon: ${message}`),
 	});
