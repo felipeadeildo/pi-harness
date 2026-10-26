@@ -77,7 +77,7 @@ export async function peersRoom(
 		const migration = homeOf(migrationRooms);
 		const me = homeOf(meRooms);
 
-		oauth.log("session.named", { handle: "oauth", title: "OAuth for the MCP server" });
+		oauth.log("session.named", { handle: "oauth" });
 		oauth.log("session.state", { state: "running" });
 		oauth.log("board.changed", {
 			view: board([
@@ -94,7 +94,7 @@ export async function peersRoom(
 		oauth.log("activity", { kind: "edited", path: "src/session.ts" });
 		oauth.log("activity", { kind: "ran", command: "bun test src/auth", ok: true });
 
-		migration.log("session.named", { handle: "migration", title: "Move users to Postgres" });
+		migration.log("session.named", { handle: "migration" });
 		migration.log("board.changed", {
 			view: board(
 				[
@@ -107,7 +107,7 @@ export async function peersRoom(
 
 		migration.log("session.state", { state: "running" });
 
-		me.log("session.named", { handle: "docs", title: "Rewrite the README" });
+		me.log("session.named", { handle: "docs" });
 		me.log("session.state", { state: "running" });
 		me.log("board.changed", {
 			view: board([{ id: "c1", title: "Rewrite the README", column: "doing" }]),
@@ -147,8 +147,8 @@ export async function peersRoom(
 		now += SECOND;
 		const api = session("5d10-api", 0.5, "backend");
 		const client = session("b7e3-client", 0.5, "frontend");
-		api.log("session.named", { handle: "api", title: "The fleet API" });
-		client.log("session.named", { handle: "client", title: "The fleet client" });
+		api.log("session.named", { handle: "api" });
+		client.log("session.named", { handle: "client" });
 		const linked = client.link({
 			folder: join(root, "Projects", "backend"),
 			why: "to agree on the /v1/fleet contract",

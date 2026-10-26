@@ -98,8 +98,8 @@ function session(
 	return { here, sent, notes, shown, held, wentIn, limit, state };
 }
 
-function name(here: Here, handle: string, title = handle): void {
-	here.log("session.named", { handle, title });
+function name(here: Here, handle: string): void {
+	here.log("session.named", { handle });
 }
 
 /** The peer of a session, as the folder holds it. */
@@ -138,20 +138,14 @@ describe("being here", () => {
 		expect(here.live().map((peer) => peer.session)).toEqual(["a", "twin"]);
 	});
 
-	test("a handle and a title logged apart keep both, in either order", () => {
+	test("a title-only line from an older log names nothing, and the handle stays", () => {
 		const a = session("a", undefined, true, null);
 		a.here.log("session.named", { handle: "otter" });
 		a.here.sync();
-		a.here.log("session.named", { title: "Fix the release" });
+		a.here.log("session.named", { title: "Fix the release" } as never);
 		a.here.sync();
-		expect(peerOf(a.here, "a")).toMatchObject({ handle: "otter", title: "Fix the release" });
-
-		const b = session("b", undefined, true, null);
-		b.here.log("session.named", { title: "Read the rig log" });
-		b.here.sync();
-		b.here.log("session.named", { handle: "quokka" });
-		b.here.sync();
-		expect(peerOf(b.here, "b")).toMatchObject({ handle: "quokka", title: "Read the rig log" });
+		expect(peerOf(a.here, "a")?.handle).toBe("otter");
+		expect(peerOf(a.here, "a")).not.toHaveProperty("title");
 	});
 
 	test("each session sees the others, by the name its tasks gave it", () => {
@@ -715,13 +709,11 @@ describe("who else is here", () => {
 	test("a colleague arriving is told to the agent, and never starts a run", () => {
 		const a = session("a");
 		const b = session("b");
-		name(b.here, "oauth", "OAuth for the MCP server");
+		name(b.here, "oauth");
 		a.here.sync();
 
 		expect(a.notes).toHaveLength(1);
-		expect(a.notes[0]?.text).toContain(
-			"oauth is working in this folder on OAuth for the MCP server",
-		);
+		expect(a.notes[0]?.text).toContain("oauth is working in this folder.");
 		expect(a.notes[0]?.text).toContain("Use the peers tool");
 		expect(a.notes[0]?.options).toEqual({ deliverAs: "nextTurn" });
 		expect(a.notes[0]?.display).toBe(false);

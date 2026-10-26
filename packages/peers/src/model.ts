@@ -23,7 +23,6 @@ export interface RoomSession {
 	session: string;
 	cwd: string;
 	handle?: string;
-	title?: string;
 	/** Closed: added by name, and not open now. */
 	state: RoomActivity | "closed";
 }
