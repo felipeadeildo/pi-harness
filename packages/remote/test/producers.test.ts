@@ -27,7 +27,7 @@ function scope(contracts: Record<string, unknown> = {}) {
 /** The board producer, which is the first entry: it carries the board and nothing else. */
 const board = PRODUCERS[0] as (typeof PRODUCERS)[number];
 const fold = (state: ReturnType<typeof emptySessionState>, at: ReturnType<typeof scope>) =>
-	board.apply(state, at, []);
+	board.apply(state, at, [], {} as never);
 
 const card = (id: string, title: string, at: number) =>
 	({ id, title, column: "doing", at }) as const;
