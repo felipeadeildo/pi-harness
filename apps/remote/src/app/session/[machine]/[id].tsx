@@ -44,8 +44,8 @@ export default function SessionRoute() {
 			>
 				All sessions
 			</Link>
-			{/* The conversation scrolls and the composer does not: a long transcript used to push the
-			    field off the screen, and the field is where the thumb is. */}
+			{/* The conversation scrolls and the composer does not: a long transcript must not push the
+			    field off the screen, because the field is where the thumb is. */}
 			<ScrollView style={{ flex: 1 }}>
 				<SessionScreen session={session} />
 			</ScrollView>

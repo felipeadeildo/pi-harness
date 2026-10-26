@@ -25,7 +25,7 @@ export function sourceAt(at: Link = pageLink()): Promise<SessionSource> {
 		{ exchange: fetchLogin, cache: pageCache(appStorage) },
 	).then((logged) => ({
 		cache: logged.cache,
-		// The page knows it is a browser; which device it is arrives with the marks C9 draws.
+		// The page knows it is a browser and not which device it runs on.
 		clientName: "browser",
 		open: openSocket(socketUrl(at), (url) => new WebSocket(url)),
 		...(logged.why === undefined ? {} : { why: logged.why }),

@@ -53,8 +53,8 @@ export function useSession(key: SessionKey, source: () => Promise<SessionSource>
 				stop = opened.stop;
 				setHeld((before) => ({ ...before, client: opened.client }));
 			})
-			// A screen with nothing to draw and nothing to say is the blank page this PR set out to
-			// remove, so a failure to even ask is a sentence too.
+			// A screen with nothing to draw and nothing to say is a blank page, so a failure to even ask
+			// is a sentence too.
 			.catch(() =>
 				setHeld({
 					session: undefined,
@@ -81,9 +81,9 @@ export function openSession(
 	source: SessionSource,
 	changed: (session: ClientSession) => void,
 ): { client: Client; stop: () => void } {
-	// The identity is the client's, not the session's: a phone looking at a desktop session is still
-	// The machine is the one the address names, which is the pi's: a page cannot know its own host,
-	// and the device's real name arrives with the marks C9 draws. What the log needs today is that a
+	// The identity is the client's, not the session's: a phone looking at a desktop session is still the
+	// phone, so the name is the device's and not the session's. The machine is the one the address
+	// names, which is the pi's, because a page cannot know its own host. What the log needs is that a
 	// command has an author at all, and the name is the part this side can carry.
 	const client = connect({
 		key,
