@@ -260,6 +260,12 @@ describe("the board tool's answer", () => {
 		expect(answer).toEqual({ ok: true, text: "Nothing matches." });
 	});
 
+	test("a search that fits says nothing about a remainder", () => {
+		const done: BoardOp = { op: "add", title: "ship the parser", column: "done", at: 1 };
+		const answer = boardCall(applied([done]), { op: "find", text: "ship" });
+		expect(answer.ok && answer.text).not.toContain("More:");
+	});
+
 	test("a search with more matches than fit says how many were left out", () => {
 		// Only what is done answers a search: a card still open is not an outcome to look up.
 		const many = Array.from({ length: 12 }, (_, at) => ({
