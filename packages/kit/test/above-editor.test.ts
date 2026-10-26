@@ -97,6 +97,30 @@ describe("the row above the editor", () => {
 		expect(seen).toEqual(["1"]);
 	});
 
+	test("a key is typed once: the terminal's release of it is not a second key", async () => {
+		const rig = host();
+		const seen: string[] = [];
+		const opened = openAboveEditor<string>(rig.ui, () => ({
+			render: () => ["Name?"],
+			handleInput: (data) => {
+				seen.push(data);
+			},
+		}));
+		await rig.ready(1);
+		// A terminal speaking the kitty protocol sends a press and a release for each key, and pi's
+		// listeners get both. Typing "ab" fast: a down, b down, a up, b up.
+		for (const data of ["a", "b", "\u001b[97;1:3u", "\u001b[98;1:3u"]) {
+			expect(rig.type(data)).toEqual({ consume: true });
+		}
+		expect(seen).toEqual(["a", "b"]);
+		// Alt+E is read on its press only: its release does not hand the keys back.
+		rig.type(ALT_E);
+		rig.type("\u001b[101;3:3u");
+		expect(rig.type("c")).toBeUndefined();
+		opened.close();
+		expect(await opened.result).toBeUndefined();
+	});
+
 	test("the alt+e key hands the keys to the editor and takes them back", async () => {
 		const rig = host();
 		let focused: boolean | undefined;
