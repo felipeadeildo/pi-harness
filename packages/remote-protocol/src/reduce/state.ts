@@ -64,6 +64,22 @@ export interface SessionState {
 	/** While a dialog no client can answer is open. */
 	prompt?: { kind: PromptKind; title?: string };
 	cost?: SessionCost;
+	activity?: SessionActivity;
+	/** Absent outside a git repository. */
+	branch?: string;
+	/** The first line of the agent's last answer. */
+	said?: { text: string; at: number };
+}
+
+export const ACTIVITIES = ["thinking", "writing", "tool", "compacting", "resting"] as const;
+
+/** What the agent does right now, and since when (the writer's clock). */
+export interface SessionActivity {
+	what: (typeof ACTIVITIES)[number];
+	tool?: string;
+	/** The tool's subject: a command, a path, a pattern. */
+	about?: string;
+	since: number;
 }
 
 export interface SessionCost {

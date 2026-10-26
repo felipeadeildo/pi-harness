@@ -20,7 +20,12 @@ import {
 } from "@adeildo/pi-kit";
 import { type AnswerEvent, isAskResult } from "@adeildo/pi-kit";
 import type { Letter } from "@adeildo/pi-kit";
-import type { Envelope, SessionState, SessionSummary } from "@adeildo/pi-remote-protocol";
+import type {
+	Envelope,
+	SessionActivity,
+	SessionState,
+	SessionSummary,
+} from "@adeildo/pi-remote-protocol";
 import type { PromptKind, SessionCommand } from "@adeildo/pi-remote-protocol";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
@@ -229,6 +234,25 @@ export class Bridge {
 	/** The opening carries it, so a reconnect keeps it. */
 	#cost(): SessionState["cost"] {
 		return costOf(this.ctx.sessionManager.getEntries());
+	}
+
+	acting(activity: SessionActivity): void {
+		this.#changes.saw("activity.changed", { activity });
+		this.connection.event("activity.changed", { activity });
+	}
+
+	/** Sent only when it moved, since it is read after every run. */
+	branched(branch: string | undefined): void {
+		if (this.#changes.state(undefined).branch === branch) return;
+		const change = branch === undefined ? {} : { branch };
+		this.#changes.saw("branch.changed", change);
+		this.connection.event("branch.changed", change);
+	}
+
+	said(text: string): void {
+		const said = { text, at: Date.now() };
+		this.#changes.saw("said.changed", { said });
+		this.connection.event("said.changed", { said });
 	}
 
 	queued(queue: readonly Letter[]): void {

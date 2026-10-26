@@ -850,6 +850,7 @@ describe("the bridge", () => {
 			"pi.thinking_level_select",
 			"pi.session_info_changed",
 			"pi.tool_execution_start",
+			"activity.changed",
 			"pi.tool_execution_update",
 		]);
 		expect(daemon.received[3]?.data).toEqual({ type: "model_select", model, source: "set" });
@@ -918,6 +919,34 @@ describe("the bridge", () => {
 		// The same branch through the two readers: what the event carried, and what the sum says.
 		expect(summed.cost).toBeGreaterThan(0);
 		expect(sent?.cost.total).toBe(summed.cost);
+	});
+
+	test("what the agent does and the line it last said reach the daemon, and a reconnect keeps them", async () => {
+		const daemon = await listening();
+		const fake = mounted();
+		await start(fake, session([]));
+		await until(() => types(daemon).includes("state"));
+		await fake.fire("agent_start", { type: "agent_start" }, session([]));
+		await fake.fire(
+			"tool_execution_start",
+			{ type: "tool_execution_start", toolCallId: "t1", toolName: "bash", args: { command: "ls" } },
+			session([]),
+		);
+		await fake.fire(
+			"message_end",
+			{ type: "message_end", message: fauxAssistantMessage("All **green**.\nMore below.") },
+			session([]),
+		);
+		await until(() => types(daemon).includes("said.changed"));
+		const activity = daemon.received.findLast((one) => one.type === "activity.changed")?.data;
+		expect(activity).toMatchObject({ activity: { what: "tool", tool: "bash", about: "ls" } });
+
+		daemon.sockets[0]?.write(line(envelope("command", "state.get", {})));
+		await until(() => types(daemon).filter((one) => one === "state").length > 1);
+		expect(openingState(daemon)).toMatchObject({
+			activity: { what: "tool", about: "ls" },
+			said: { text: "All green." },
+		});
 	});
 
 	test("a dialog only the terminal can answer reaches the clients, and the others do not", async () => {

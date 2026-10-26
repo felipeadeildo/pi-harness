@@ -124,3 +124,29 @@ describe("a change whose data does not fit", () => {
 		expect(queued).toBe(before);
 	});
 });
+
+describe("what the agent does, where and what it said", () => {
+	test("each folds into the state, and a branch that went away leaves no field", () => {
+		let state = applyChange(emptySessionState(), "activity.changed", {
+			activity: { what: "tool", tool: "bash", about: "bun test", since: 5 },
+		});
+		state = applyChange(state, "branch.changed", { branch: "main" });
+		state = applyChange(state, "said.changed", { said: { text: "Done.", at: 9 } });
+		expect(state).toMatchObject({
+			activity: { what: "tool", about: "bun test" },
+			branch: "main",
+			said: { text: "Done." },
+		});
+		expect("branch" in applyChange(state, "branch.changed", {})).toBe(false);
+	});
+
+	test("an activity this client does not know, or without its time, is refused", () => {
+		const before = emptySessionState();
+		expect(
+			applyChange(before, "activity.changed", { activity: { what: "dancing", since: 1 } }),
+		).toBe(before);
+		expect(applyChange(before, "activity.changed", { activity: { what: "thinking" } })).toBe(
+			before,
+		);
+	});
+});

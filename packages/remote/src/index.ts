@@ -18,6 +18,7 @@ import {
 import { PROMPT_KINDS, type PromptKind } from "@adeildo/pi-remote-protocol";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
+import { Activity, answerOf, branchOf, saidOf } from "./bridge/activity.ts";
 import { ClientAsks } from "./bridge/asks.ts";
 import { Bridge, type SessionKind } from "./bridge/bridge.ts";
 import { Commands, Refused } from "./bridge/commands.ts";
@@ -79,10 +80,14 @@ export const remote = defineFeature({
 		let inbox: SessionInbox | undefined;
 		let commands: Commands | undefined;
 		let restoreDialogs: (() => void) | undefined;
+		let activity: Activity | undefined;
+		let cwd: string | undefined;
 
 		scope.on("session_start", (_event, ctx) => {
 			const kind = sessionKind(ctx.mode);
 			if (kind === undefined) return;
+			cwd = ctx.cwd;
+			activity = new Activity(ctx.cwd, (now) => bridge?.acting(now));
 			const dir = daemonDir();
 			try {
 				writeLauncher(dir, {
@@ -116,6 +121,7 @@ export const remote = defineFeature({
 				startDaemon: () => startDaemon(dir, port.get(scope)),
 				warn: (message) => scope.warn(message),
 			});
+			bridge.branched(branchOf(ctx.cwd));
 			bridge.start();
 			commands = new Commands({
 				session: ctx.sessionManager.getSessionId(),
@@ -178,9 +184,16 @@ export const remote = defineFeature({
 			restoreDialogs?.();
 			restoreDialogs = undefined;
 		});
-		scope.on("agent_settled", () => inbox?.settle());
+		scope.on("agent_settled", () => {
+			inbox?.settle();
+			activity?.settled();
+			if (cwd !== undefined) bridge?.branched(branchOf(cwd));
+		});
 		// The letter stays queued until a run starts, so a send pi drops is visible.
-		scope.on("agent_start", () => inbox?.started());
+		scope.on("agent_start", () => {
+			inbox?.started();
+			activity?.started();
+		});
 		// Only the terminal can answer `custom()` and the editor.
 		const onlyTerminal = (kind: string): kind is PromptKind =>
 			PROMPT_KINDS.some((one) => one === kind);
@@ -197,14 +210,28 @@ export const remote = defineFeature({
 				if (ctx.isIdle()) inbox?.settle();
 			});
 		};
+		scope.on("session_before_compact", () => activity?.compacting());
 		scope.on("session_compact", afterCompaction);
 		scope.on("session_compact_failed", afterCompaction);
 		scope.on("message_start", (event) => bridge?.stream.messageStart(event));
-		scope.on("message_update", (event) => bridge?.stream.messageUpdate(event));
-		scope.on("message_end", (event) => bridge?.stream.messageEnd(event));
-		scope.on("tool_execution_start", (event) => bridge?.stream.toolStart(event));
+		scope.on("message_update", (event) => {
+			bridge?.stream.messageUpdate(event);
+			activity?.streamed(event.assistantMessageEvent.type);
+		});
+		scope.on("message_end", (event) => {
+			bridge?.stream.messageEnd(event);
+			const said = event.message.role === "assistant" ? saidOf(answerOf(event.message)) : undefined;
+			if (said !== undefined) bridge?.said(said);
+		});
+		scope.on("tool_execution_start", (event) => {
+			bridge?.stream.toolStart(event);
+			activity?.toolStarted(event.toolCallId, event.toolName, event.args);
+		});
 		scope.on("tool_execution_update", (event) => bridge?.stream.toolUpdate(event));
-		scope.on("tool_execution_end", (event) => bridge?.stream.toolEnd(event));
+		scope.on("tool_execution_end", (event) => {
+			bridge?.stream.toolEnd(event);
+			activity?.toolEnded(event.toolCallId);
+		});
 		scope.on("turn_end", (event) => {
 			bridge?.stream.turnEnd(event);
 			// The turn's cost is whole only after its last message was forwarded.
