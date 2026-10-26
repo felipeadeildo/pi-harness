@@ -59,7 +59,6 @@ interface SessionSource {
 	getSessionFile?(): string | undefined;
 }
 
-/** A shared room's logs, read whether or not this session is in it: that is how it learns it was added. */
 /** Where a message goes: the room, and the sessions in it. */
 export interface Post {
 	here: Here;

@@ -408,7 +408,6 @@ export class Here implements Sender {
 		}
 	}
 
-	/** How this session stands in this room, which decides what it takes and whether it bids. */
 	/** How this session stands in this room: taking part, listening, or out. */
 	mode(): RoomMode {
 		if (this.session === undefined) return "in";

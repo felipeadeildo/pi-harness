@@ -96,7 +96,6 @@ export class Inbox {
 	#steers = 0;
 	#holding = 0;
 	#waiting: Arrival[] = [];
-	/** Handed between calls or after the run, by id: in pi's queue until the model reads them. */
 	/** The queue itself, which is the kit's: it holds the letters and decides what goes in when. */
 	readonly #letters = new KitInbox();
 	/** What the room needs to draw a queued letter and to tell its writer it arrived, by letter id. */
