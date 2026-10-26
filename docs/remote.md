@@ -1,6 +1,6 @@
 # Remote: your sessions from anywhere
 
-This is the design for reaching pi sessions from a phone, a browser or a pi on another machine, for keeping sessions running with no terminal, and for agents on different machines to share a room. Nothing here ships yet. The phases live in [`ROADMAP.md`](../ROADMAP.md#from-anywhere), the slices of work in [`remote-plan.md`](remote-plan.md), and this document says how it works and why.
+This is the design for reaching pi sessions from a phone, a browser or a pi on another machine, for keeping sessions running with no terminal, and for agents on different machines to share a room. 6.0.0 ships the reading, the control, the questions, the commands, the rooms and the board, from one computer, in the browser and in the app. Three parts are design only: background sessions with no terminal (F4, the runner below), reaching past one computer (F3 and F5), and native apps with push (F6). The phases live in [`ROADMAP.md`](../ROADMAP.md#from-anywhere), the slices of work in [`remote-plan.md`](remote-plan.md), and this document says how it works and why.
 
 ## What it is for
 
@@ -268,7 +268,9 @@ A pi process holds one session at a time, though not always the same one. `/relo
 
 ### The runner
 
-`pi-remote run [folder] [--handle h] [--title t] [--model m] [--session id] [--approve | --no-approve]` starts `pi --mode rpc` with those flags, the title as pi's `--name` and the handle as `--handle`, a flag the bridge registers. It then:
+F4, not built: nothing in `packages/remote` starts a pi session today. What follows is the design for it.
+
+`pi-remote run [folder] [--handle h] [--name n] [--model m] [--session id] [--approve | --no-approve]` starts `pi --mode rpc` with those flags, the name as pi's `--name` and the handle as `--handle`, a flag the bridge registers. It then:
 
 - keeps pi's stdin open, because closing it is how pi shuts down in RPC mode;
 - reads pi's stdout continuously, since a reader that stops can stall pi;
