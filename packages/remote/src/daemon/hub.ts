@@ -101,6 +101,9 @@ export class Hub {
 			for (const event of catchUp) this.#send(ws, event);
 			return;
 		}
+		// The replay lost events after the opening, so only the bridge can write a new one; it reaches
+		// this client with every other watcher.
+		this.#options.command(session, envelope("command", "state.get", {}, { session }));
 	}
 
 	#command(connection: Connection, ws: WebSocket, message: Envelope): void {

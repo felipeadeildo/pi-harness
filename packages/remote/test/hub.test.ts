@@ -4,6 +4,8 @@ import { connect as dial, type Socket } from "node:net";
 import { envelope, type Envelope, PROTOCOL } from "@adeildo/pi-remote-protocol";
 import { connect, memoryCache } from "@adeildo/pi-remote-protocol/client";
 
+import { Hub } from "../src/daemon/hub.ts";
+import { Sessions } from "../src/daemon/sessions.ts";
 import { envelopeOf, line, Lines } from "../src/wire/lines.ts";
 import {
 	bridgeOf,
@@ -450,4 +452,34 @@ describe("a daemon that answers for itself", () => {
 		second.ws.close();
 		bridge.close();
 	});
+});
+
+test("a client whose opening fell out of the replay asks the bridge for a new one", async () => {
+	const sessions = new Sessions(2_000);
+	const toBridge: Envelope[] = [];
+	const hub = new Hub({ sessions, command: (_, message) => toBridge.push(message) > 0 });
+	const at = { machine: "laptop", session: "s1", epoch: "e1" };
+	sessions.live(envelope("event", "session.live", {}, at), {
+		pid: 1,
+		startedAt: 1,
+		cwd: "/repo",
+		kind: "terminal",
+	});
+	const opening = {
+		summary: { session: "s1", machine: "laptop", cwd: "/repo", kind: "terminal" },
+		entries: [],
+	};
+	sessions.event(envelope("event", "state", opening, { ...at, seq: 0 }));
+	for (let seq = 1; seq < 10; seq++) {
+		sessions.event(
+			envelope("event", "entry", { id: `e${seq}`, big: "x".repeat(500) }, { ...at, seq }),
+		);
+	}
+	expect(sessions.opening("s1")).toBeUndefined();
+
+	const sent: string[] = [];
+	const socket = hub.open({ send: (text: string) => sent.push(text), bufferedAmount: 0 } as never);
+	socket.message(JSON.stringify(envelope("hello", "hello", { cursor: {} }, { session: "s1" })));
+	expect(toBridge.map((one) => one.type)).toEqual(["state.get"]);
+	expect(sent).toEqual([]);
 });
