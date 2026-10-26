@@ -15,8 +15,10 @@ import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import type { IconSet } from "../render/glyphs.ts";
 import { isBlank } from "./tool-frame.ts";
 
-/** Undefined leaves pi's entries as they are. */
-export type EntryPaint = () => { theme: Theme; set: IconSet; you: boolean } | undefined;
+/** Undefined leaves pi's entries as they are. `from` names the client a prompt came from. */
+export type EntryPaint = () =>
+	| { theme: Theme; set: IconSet; you: boolean; from?: (text: string) => string | undefined }
+	| undefined;
 
 const YOU: Readonly<Record<IconSet, string>> = {
 	nerd: "\u{f007}", // nf-fa-user
@@ -49,7 +51,9 @@ export function framePiEntries(source: EntryPaint): void {
 	paint = source;
 	if (installed) return;
 	installed = true;
-	wrap(UserMessageComponent, (_self, look) => (look.you ? youFrame(look) : undefined));
+	wrap(UserMessageComponent, (self, look) =>
+		look.you ? youFrame(look, fromOf(self, look)) : undefined,
+	);
 	wrap(CompactionSummaryMessageComponent, (_self, look) => pi(look, "compacted"));
 	wrap(BranchSummaryMessageComponent, (_self, look) => pi(look, "branch summary"));
 	wrap(SkillInvocationMessageComponent, (_self, look) => ({
@@ -66,8 +70,17 @@ export function framePiEntries(source: EntryPaint): void {
 	wrap(BashExecutionComponent, (self, look) => shellFrame(self, look));
 }
 
-function youFrame(look: Paint): Framing {
-	const top = `${look.theme.fg("accent", YOU[look.set])} ${look.theme.fg("muted", "you")}`;
+/** Asked once per message: the client is known before pi draws the prompt, and never changes. */
+const sentFrom = new WeakMap<object, string | undefined>();
+
+function fromOf(self: object, look: Paint): string | undefined {
+	if (!sentFrom.has(self)) sentFrom.set(self, look.from?.((self as { text?: string }).text ?? ""));
+	return sentFrom.get(self);
+}
+
+function youFrame(look: Paint, from: string | undefined): Framing {
+	const you = `${look.theme.fg("accent", YOU[look.set])} ${look.theme.fg("muted", "you")}`;
+	const top = from === undefined ? you : `${you} ${look.theme.fg("dim", `from ${from}`)}`;
 	return { top, color: "accent" };
 }
 

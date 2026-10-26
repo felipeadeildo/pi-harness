@@ -10,6 +10,7 @@ import {
 	eventsDir,
 	FolderFeed,
 	HOST,
+	PROMPT_FROM,
 	provideViews,
 	type SourceAddress,
 } from "@adeildo/pi-kit";
@@ -177,6 +178,23 @@ test("a message that mentions another agent goes to it instead of yours", async 
 		{ session: "a", from: "you", to: ["b"], text: "@new-b run the tests" },
 	]);
 	expect(a.notes).toEqual(["Sent to @new-b."]);
+});
+
+test("a prompt a person sent from a phone routes its mentions; one an extension sent does not", async () => {
+	const a = await mounted("a");
+	await mounted("b");
+	const phone = { kind: "client", name: "phone", machine: "m" } as const;
+	const stop = PROMPT_FROM.provide({ events: a.fake.pi.events, warn: () => {} }, (text) =>
+		text === "@new-b from the phone" ? phone : undefined,
+	);
+	try {
+		const fire = (text: string) => a.fake.fire("input", { text, source: "extension" }, a.ctx);
+		expect(await fire("@new-b from the phone")).toEqual([{ action: "handled" }]);
+		expect(await fire("@new-b from a script")).toEqual([{ action: "continue" }]);
+		expect(posted()).toMatchObject([{ to: ["b"], text: "@new-b from the phone" }]);
+	} finally {
+		stop();
+	}
 });
 
 test("@everyone tells every agent, yours too, @anyone asks for one, and a file stays yours", async () => {

@@ -21,6 +21,7 @@ export * from "./contracts/mode.ts";
 export * from "./contracts/protected.ts";
 export * from "./contracts/names.ts";
 export * from "./contracts/board.ts";
+export * from "./contracts/prompts.ts";
 export * from "./board/model.ts";
 export { names, type NamesOptions } from "./names/feature.ts";
 export { board } from "./board/feature.ts";

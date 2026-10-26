@@ -1,4 +1,4 @@
-import { drawnByWidth, type AskResult, isAskResult, GLYPH } from "@adeildo/pi-kit";
+import { type AskReply, type AskResult, drawnByWidth, GLYPH, isAskResult } from "@adeildo/pi-kit";
 import type {
 	AgentToolResult,
 	Theme,
@@ -131,8 +131,10 @@ export function renderResult(
 		details.answers.find(
 			(answer) => answer.question === question.question && answer.header === question.header,
 		);
+	const by = (details as AskReply).by;
 	return drawnByWidth((width) => [
 		...(details.cancelled ? [theme.fg("warning", "closed without submitting")] : []),
+		...(by?.kind === "client" ? [theme.fg("dim", `answered on ${by.name}`)] : []),
 		...questions.flatMap((question, index) =>
 			answerBlock(
 				question,

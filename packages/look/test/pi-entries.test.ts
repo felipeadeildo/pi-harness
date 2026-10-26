@@ -94,6 +94,19 @@ describe("pi's entries in the transcript", () => {
 		expect(drawn.join("\n")).not.toContain("[pi-memory]");
 	});
 
+	test("a prompt sent from a phone says so on the frame's top edge", () => {
+		const sent = new UserMessageComponent("ship it", getMarkdownTheme(), 1);
+		const typed = new UserMessageComponent("look first", getMarkdownTheme(), 1);
+		framePiEntries(() => ({
+			theme: plain,
+			set: "ascii",
+			you: true,
+			from: (text) => (text === "ship it" ? "phone" : undefined),
+		}));
+		expect(visible(sent.render(40))[0]).toContain("> you from phone");
+		expect(visible(typed.render(40))[0]).not.toContain("from");
+	});
+
 	test("pi's own block comes back when the frames are off", () => {
 		const message = new UserMessageComponent("hello", getMarkdownTheme(), 1);
 		framePiEntries(() => ({ theme: plain, set: "ascii", you: true }));

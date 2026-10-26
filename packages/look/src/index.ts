@@ -6,6 +6,7 @@ import {
 	BOARD,
 	createApp,
 	PEERS,
+	PROMPT_FROM,
 	defineFeature,
 	drawSkillRefs,
 	type FeatureScope,
@@ -108,7 +109,12 @@ export const look = defineFeature({
 		registerToolFrames(scope);
 		framePiEntries(() => {
 			if (live.ctx === undefined) return undefined;
-			return { theme: live.ctx.ui.theme, set: glyphs().set, you: userFrame.get(scope) };
+			return {
+				theme: live.ctx.ui.theme,
+				set: glyphs().set,
+				you: userFrame.get(scope),
+				from: (text: string) => PROMPT_FROM.current(scope, text)?.name,
+			};
 		});
 		frameQueue(() => live.ctx?.ui.theme);
 		const repaint = () => {

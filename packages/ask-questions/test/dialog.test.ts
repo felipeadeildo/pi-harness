@@ -536,6 +536,20 @@ describe("in the transcript", () => {
 		]);
 	});
 
+	test("an answer from a phone says so inside its frame", () => {
+		const result = {
+			content: [],
+			details: {
+				cancelled: false,
+				answers: [{ question: AUTH.question, header: AUTH.header, picked: ["OAuth"], notes: [] }],
+				by: { kind: "client", name: "phone", machine: "m" },
+			},
+		};
+		expect(draw(renderResult(result as never, false, plain, [AUTH])).split("\n")[0]).toBe(
+			"answered on phone",
+		);
+	});
+
 	test("a call that threw shows pi's error, not a crash", () => {
 		const result = {
 			content: [{ type: "text" as const, text: "two options share a label" }],
