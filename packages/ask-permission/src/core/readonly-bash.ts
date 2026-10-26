@@ -531,12 +531,21 @@ function isTrackedAssignment(
 	return before && after;
 }
 
+/**
+ * The words a parsed token carries: a plain token is its own text, and a pattern token carries its
+ * pattern. Anything else yields nothing, which each caller reads as absent or as empty.
+ */
+function wordsOf(token: ParseEntry): string | undefined {
+	if (typeof token === "string") return token;
+	return "pattern" in token ? token.pattern : undefined;
+}
+
 function resolve(
 	token: ParseEntry | undefined,
 	values: Map<string, string>,
 ): ParseEntry | undefined {
 	if (token === undefined || values.size === 0) return token;
-	const text = typeof token === "string" ? token : "pattern" in token ? token.pattern : "";
+	const text = wordsOf(token) ?? "";
 	if (!text.includes(REFERENCE)) return token;
 
 	let resolved = token;
@@ -573,7 +582,7 @@ export function commandWords(
 
 	const words: string[] = [];
 	for (const token of expanded) {
-		const word = typeof token === "string" ? token : "pattern" in token ? token.pattern : undefined;
+		const word = wordsOf(token);
 		if (word === undefined) continue;
 		if (word.includes(REFERENCE)) return undefined;
 		words.push(word);
