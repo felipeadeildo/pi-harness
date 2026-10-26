@@ -17,7 +17,6 @@ import {
 	SESSION_STATUS,
 	type SessionSource,
 	targetOf,
-	totalsOf,
 } from "@adeildo/pi-kit";
 import { type AnswerEvent, isAskResult } from "@adeildo/pi-kit";
 import type { Letter } from "@adeildo/pi-kit";
@@ -29,7 +28,7 @@ import { OpenAsks } from "./asks.ts";
 import { Refused } from "./commands.ts";
 import { BridgeConnection, type ConnectionSeams, type GoneReason } from "./connection.ts";
 import { forward, type Logged, Harness } from "./logged.ts";
-import { PRODUCERS } from "./producers.ts";
+import { PRODUCERS, costOf } from "./producers.ts";
 import { LiveStream } from "./stream.ts";
 
 /** How many entries of the branch a snapshot carries. A client pages through older ones over HTTP. */
@@ -263,14 +262,7 @@ export class Bridge {
 
 	/** What the session has spent, in the wire's shape. The opening carries it, so a reconnect keeps it. */
 	#cost(): SessionState["cost"] {
-		const totals = totalsOf(this.ctx.sessionManager.getEntries());
-		return {
-			input: totals.input,
-			output: totals.output,
-			cacheRead: totals.cacheRead,
-			cacheWrite: totals.cacheWrite,
-			total: totals.cost,
-		};
+		return costOf(this.ctx.sessionManager.getEntries());
 	}
 
 	/** The queue changed: it folds into the state and goes out numbered, as one list for every client. */

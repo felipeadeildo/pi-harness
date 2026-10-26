@@ -12,6 +12,22 @@ interface ProducerInput {
 	ctx: ExtensionContext;
 }
 
+/**
+ * What a session has spent, in the shape the wire carries. One function for both the opening and the
+ * `cost.changed` event, so the number the phone opens with and the number it hears later cannot disagree.
+ */
+export function costOf(entries: readonly SessionEntry[]): SessionState["cost"] {
+	const totals = totalsOf(entries);
+	return {
+		input: totals.input,
+		output: totals.output,
+		cacheRead: totals.cacheRead,
+		cacheWrite: totals.cacheWrite,
+		// The kit names the money `cost`; the wire has called it `total` since the field existed.
+		total: totals.cost,
+	};
+}
+
 /** One field of the state, and how to put its value on a state that came from the log. */
 export interface Producer {
 	/** The field of the state this producer owns, which is what a test names it by. */
@@ -55,20 +71,7 @@ export const PRODUCERS: readonly Producer[] = [
 		field: "cost",
 		// What the session has spent so far, summed from pi's own per-message usage. Read from the branch
 		// rather than folded from events, so the opening always carries it and a reconnect keeps it.
-		apply: (state, { entries }) => {
-			const totals = totalsOf(entries);
-			return {
-				...state,
-				cost: {
-					input: totals.input,
-					output: totals.output,
-					cacheRead: totals.cacheRead,
-					cacheWrite: totals.cacheWrite,
-					// The kit names the money `cost`; the wire has called it `total` since the field existed.
-					total: totals.cost,
-				},
-			};
-		},
+		apply: (state, { entries }) => ({ ...state, cost: costOf(entries) }),
 	},
 	{
 		field: "permissions",
