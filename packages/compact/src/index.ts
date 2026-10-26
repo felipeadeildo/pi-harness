@@ -1,12 +1,12 @@
 import {
+	type Board,
+	BOARD,
+	boardOf,
 	createApp,
-	TASKS,
 	defineFeature,
-	describeTasks,
+	describeBoard,
 	type FeatureScope,
 	modelsFor,
-	type SessionTasks,
-	tasksFromEntries,
 	drawnByWidth,
 	formatTokens,
 } from "@adeildo/pi-kit";
@@ -62,7 +62,7 @@ export const compact = defineFeature({
 	id: "compact",
 	tab: "Compact",
 	description:
-		"Hides old tool output to keep the context small, and writes pi's compaction summary from the tasks",
+		"Hides old tool output to keep the context small, and writes pi's compaction summary from the board",
 	sections: [PRUNE_SECTION, SUMMARY_SECTION],
 	settings: COMPACT_SETTINGS,
 	setup(scope) {
@@ -179,7 +179,7 @@ export const compact = defineFeature({
 				entries: [
 					...entries,
 					...plan.edits,
-					note(tasksNow(ctx), false),
+					note(boardNow(ctx), false),
 					{ type: "custom", customType: PRUNE_CHANGES, data: record },
 				],
 			};
@@ -199,12 +199,13 @@ export const compact = defineFeature({
 
 		scope.on("session_before_compact", async (event, ctx) => {
 			if (!summary.get(scope)) return undefined;
-			const tasks = TASKS.current(scope)?.state ?? tasksFromEntries(event.branchEntries);
-			if (tasks.tasks.length === 0) return undefined;
+			// With nothing on the board there is nothing to put on top, and pi writes its own summary.
+			const board = BOARD.current(scope) ?? boardOf(event.branchEntries);
+			if (describeBoard(board) === "") return undefined;
 			const { preparation } = event;
 			const models = modelsFor(model.get(scope), ctx.modelRegistry, ctx.model);
 			const request = {
-				tasks,
+				board,
 				preparation,
 				...(event.customInstructions ? { instructions: event.customInstructions } : {}),
 			};
@@ -234,7 +235,7 @@ export const compact = defineFeature({
 
 		registerScreen(scope);
 
-		/** Records what Anthropic cleared on the request that just answered, and recites the tasks. */
+		/** Records what Anthropic cleared on the request that just answered, and recites the board. */
 		function clearedOnServer(
 			event: TurnEndEvent,
 			ctx: ExtensionContext,
@@ -261,25 +262,25 @@ export const compact = defineFeature({
 				...priced(usage, ctx.model?.cost.cacheRead ?? 0, previous - prompt, usage.cacheWrite),
 			};
 			return [
-				note(tasksNow(ctx), true),
+				note(boardNow(ctx), true),
 				{ type: "custom", customType: PRUNE_CHANGES, data: record },
 			];
 		}
 
-		function tasksNow(ctx: ExtensionContext): SessionTasks {
-			return TASKS.current(scope)?.state ?? tasksFromEntries(ctx.sessionManager.getBranch());
+		function boardNow(ctx: ExtensionContext): Board {
+			return BOARD.current(scope) ?? boardOf(ctx.sessionManager.getBranch());
 		}
 	},
 });
 
-// Recites the tasks after a prune or a clear, so the agent keeps its goals.
-function note(tasks: SessionTasks, server: boolean): CustomMessageEntryDraft {
+// Recites the board after a prune or a clear, so the agent keeps its goals.
+function note(board: Board, server: boolean): CustomMessageEntryDraft {
 	const parts = [
 		server
 			? "Anthropic cleared older tool output to save context. The calls are still there: run one again if you need its output."
 			: "Older tool output was hidden to save context. Each placeholder names the call it came from: run it again if you need it.",
 	];
-	const stands = describeTasks(tasks, { done: 10, decisions: 10 });
+	const stands = describeBoard(board, { done: 10, decisions: 10 });
 	if (stands !== "") parts.push(`Where the session stands:\n${stands}`);
 	return {
 		type: "custom_message",

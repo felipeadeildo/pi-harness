@@ -3,12 +3,12 @@
 // scores every answer from 0 to 5 against the truth. Method: factory.ai/news/evaluating-compression
 //
 // bun packages/compact/eval/summary.ts <session.jsonl>... [--at 184000] [--out /tmp/compact-eval]
-//   --fresh       write the summaries, probes and tasks again instead of reusing them
+//   --fresh       write the summaries and probes again instead of reusing them
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { parseArgs } from "node:util";
 
-import { type SessionTasks } from "@adeildo/pi-kit";
+import { type Board, boardOf } from "@adeildo/pi-kit";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import {
 	compact as piCompact,
@@ -18,7 +18,6 @@ import {
 	serializeConversation,
 	type SessionEntry,
 } from "@earendil-works/pi-coding-agent";
-import { $ } from "bun";
 
 // pi does not export it, and the eval needs the cut pi's own compaction makes.
 import { prepareCompaction } from "../../../node_modules/@earendil-works/pi-coding-agent/dist/core/compaction/compaction.js";
@@ -42,9 +41,9 @@ const { values, positionals } = parseArgs({
 });
 if (positionals.length === 0) throw new Error("usage: summary.ts <session.jsonl>... [--at tokens]");
 
-// pi on the session's model, pi on the side model, and what the package writes: the tasks and
+// pi on the session's model, pi on the side model, and what the package writes: the board and
 // your words on top of pi on the side model.
-const METHODS = ["pi", "pi-cheap", "tasks+pi-cheap"] as const;
+const METHODS = ["pi", "pi-cheap", "board+pi-cheap"] as const;
 type Method = (typeof METHODS)[number];
 const KINDS = ["recall", "artifact", "decision", "continuation"] as const;
 type Kind = (typeof KINDS)[number];
@@ -101,9 +100,7 @@ for (const file of positionals) {
 	);
 
 	// oxlint-disable-next-line no-await-in-loop -- one session at a time keeps the output readable
-	const tasks = await tasksAt(file, cut, join(dir, "tasks.json"));
-	// oxlint-disable-next-line no-await-in-loop
-	const summaries = await writeSummaries(cut, tasks, join(dir, "summaries.json"));
+	const summaries = await writeSummaries(cut, boardOf(cut.entries), join(dir, "summaries.json"));
 	// oxlint-disable-next-line no-await-in-loop
 	const probes = await prober.cached(join(dir, "probes.json"), () => writeProbes(dropped));
 	const kept = keptText(cut);
@@ -157,19 +154,10 @@ function cutAt(file: string, at: number): Cut | undefined {
 	return { entries, preparation, model: modelNamed(registry, `${provider}/${model}`) };
 }
 
-/** The tasks as the tasks feature would have kept them up to the cut. */
-async function tasksAt(file: string, cut: Cut, path: string): Promise<SessionTasks> {
-	if (values.fresh || !existsSync(path)) {
-		const until = readBranch(file)[cut.entries.length]?.id ?? "";
-		await $`bun ${join(import.meta.dir, "../../tasks/eval/replay.ts")} ${file} --until ${until} --save ${path}`.quiet();
-	}
-	return JSON.parse(readFileSync(path, "utf8")) as SessionTasks;
-}
-
 /** Each method's summary, reusing the ones already written. */
 async function writeSummaries(
 	cut: Cut,
-	tasks: SessionTasks,
+	board: Board,
 	path: string,
 ): Promise<Record<Method, string>> {
 	const written: Partial<Record<Method, string>> =
@@ -192,8 +180,8 @@ async function writeSummaries(
 	};
 	written.pi ??= await piWith(cut.model);
 	written["pi-cheap"] ??= await piWith(side);
-	written["tasks+pi-cheap"] ??=
-		`${standing({ tasks, preparation: cut.preparation })}\n\n${written["pi-cheap"]}`;
+	written["board+pi-cheap"] ??=
+		`${standing({ board, preparation: cut.preparation })}\n\n${written["pi-cheap"]}`;
 	writeFileSync(path, JSON.stringify(written, null, "\t"));
 	return written as Record<Method, string>;
 }

@@ -38,7 +38,7 @@ Each prune or clear leaves a line in the chat, with what rewriting the prompt ca
 
 <!-- /docs -->
 
-When pi compacts anyway, pi's own prompt writes the summary on a small model, and the tasks and your last words go on top as they are, so no model rephrases a decision. Without tasks, pi writes the summary on the session's model.
+When pi compacts anyway, pi's own prompt writes the summary on a small model, and the session's board and your last words go on top as they are, so no model rephrases a decision. With an empty board, pi writes the summary on the session's model.
 
 On six recorded sessions, an agent that only had the summary answered 48 questions about what was dropped. A judge graded the answers against the truth. pi's summary on Haiku scored as well as on Opus, within the judge's noise, for 1/40 of the price. A first version that wrote its own short summary from the tasks scored 2.6 of 5 against pi's 3.9, and was dropped. The method is [Factory's probes](https://factory.ai/news/evaluating-compression), and `bun packages/compact/eval/summary.ts` runs it.
 
@@ -66,7 +66,7 @@ On the Compact tab of `Alt+S`, stored under `compact` in `~/.pi/agent/extensions
 | Hide old tool output    | on       | The prune                                                                                              |
 | On Anthropic's side     | off      | On Anthropic models, Anthropic clears instead of the prune, and the agent keeps its thinking           |
 | Above                   | `150000` | Context tokens past which a run's end prunes                                                           |
-| Write it from the tasks | on       | The tasks on top of pi's summary, written on the model below. Off, pi writes it on the session's model |
+| Write it from the board | on       | The board on top of pi's summary, written on the model below. Off, pi writes it on the session's model |
 | Model                   | `auto`   | Writes the summary. `auto` is the cheapest of the session's provider                                   |
 
 The tab also shows what this session's prunes freed and how many hidden outputs the agent ran again. A high share means the prune hides what the agent still needs.

@@ -1,7 +1,7 @@
 {
 	"name": "@adeildo/pi-compact",
 	"version": "5.15.0",
-	"description": "Keeps a long pi session's context small: hides old tool output, keeping each call so the agent can run it again, and writes pi's compaction summary from the session's tasks.",
+	"description": "Keeps a long pi session's context small: hides old tool output, keeping each call so the agent can run it again, and writes pi's compaction summary from the session's board.",
 	"keywords": [
 		"compaction",
 		"context",
