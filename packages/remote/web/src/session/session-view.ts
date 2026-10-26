@@ -1,11 +1,13 @@
 import type { SessionState, TranscriptItem } from "@adeildo/pi-remote-protocol";
 import {
 	type ClientSession,
+	type ListedSession,
 	harnessOf,
 	transcriptOfSession,
 } from "@adeildo/pi-remote-protocol/client";
 
 import { plain } from "./plain.ts";
+import { nameOf } from "./rows.ts";
 
 export interface View {
 	state: SessionState;
@@ -31,17 +33,25 @@ export function viewOf(session: ClientSession): View {
 	return view;
 }
 
-/** Pi's name for it, else the room's handle. */
-export function titleOf(session: ClientSession): string {
+/** Pi's name for it, else the room's handle; the list's row stands in until the opening arrives. */
+export function titleOf(session: ClientSession, listed?: ListedSession): string {
 	const summary = session.summary;
-	return summary?.name ?? summary?.handle ?? `new-${session.key.session.slice(-4)}`;
+	return (
+		session.state.name ??
+		summary?.name ??
+		summary?.handle ??
+		(listed === undefined ? undefined : nameOf(listed)) ??
+		`new-${session.key.session.slice(-4)}`
+	);
 }
 
-export function aboutOf(session: ClientSession): string[] {
-	const { state, summary } = session;
-	const folder = summary?.cwd.split("/").findLast((part) => part !== "");
-	return [folder, session.key.machine, state.status, state.model?.id].filter(
-		(part): part is string => part !== undefined,
+/** The folded state's word, else the opening's: the same rule the list follows. */
+export function statusOf(session: ClientSession, listed?: ListedSession): SessionState["status"] {
+	return (
+		session.state.status ??
+		session.summary?.status ??
+		listed?.state.status ??
+		listed?.summary?.status
 	);
 }
 

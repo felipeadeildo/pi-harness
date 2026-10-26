@@ -1,6 +1,14 @@
-import { BOARD, boardView, MODE_SET, PEERS, totalsOf, type EventScope } from "@adeildo/pi-kit";
-import { applyChange, type SessionState } from "@adeildo/pi-remote-protocol";
 // The state fields that come from the process rather than the log, each placed by its producer.
+import {
+	BOARD,
+	type Board,
+	boardView,
+	type EventScope,
+	MODE_SET,
+	PEERS,
+	totalsOf,
+} from "@adeildo/pi-kit";
+import { applyChange, type BoardView, type SessionState } from "@adeildo/pi-remote-protocol";
 import type { ExtensionContext, SessionEntry } from "@earendil-works/pi-coding-agent";
 
 interface ProducerInput {
@@ -8,6 +16,19 @@ interface ProducerInput {
 	entries: readonly SessionEntry[];
 	ctx: ExtensionContext;
 }
+
+/** The terminal's view, with room for more: the first backlog cards and the last deliveries. */
+export function remoteBoard(board: Board): BoardView {
+	const cards = board.cards;
+	return {
+		...boardView(board),
+		waiting: cards.filter((card) => card.column === "backlog").slice(0, WAITING),
+		done: cards.filter((card) => card.column === "done").slice(-DELIVERED),
+	};
+}
+
+const WAITING = 10;
+const DELIVERED = 10;
 
 /** Shared by the opening and `cost.changed`, so the two numbers cannot disagree. */
 export function costOf(entries: readonly SessionEntry[]): SessionState["cost"] {
@@ -46,7 +67,7 @@ export const PRODUCERS: readonly Producer[] = [
 		// Cut and ordered by the board feature; screens draw that order.
 		apply: (state, { scope }) => {
 			const board = BOARD.current(scope);
-			return board === undefined ? state : { ...state, board: boardView(board) };
+			return board === undefined ? state : { ...state, board: remoteBoard(board) };
 		},
 	},
 	{

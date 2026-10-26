@@ -39,6 +39,9 @@ export interface Client {
 	stop(): void;
 }
 
+/** A busy session changes thirty times a second, and each save writes the whole session. */
+const SAVE_EVERY_MS = 1_000;
+
 const defaultWait = (ms: number, run: () => void): (() => void) => {
 	const timer = setTimeout(run, ms);
 	return () => clearTimeout(timer);
@@ -58,16 +61,24 @@ export function connect(options: ConnectionOptions): Client {
 	// So a chatty daemon cannot make the client ask twice.
 	let askedForTail = false;
 
+	let saving: (() => void) | undefined;
 	const save = (): void => {
+		saving?.();
+		saving = undefined;
 		void options.cache.write(cachedOf(session, outbox));
+	};
+	const saveSoon = (): void => {
+		saving ??= wait(SAVE_EVERY_MS, save);
 	};
 
 	const tell = (): void => {
 		for (const handle of listeners) handle(session);
 	};
 
-	const changed = (): void => {
-		save();
+	/** What this device sent is saved at once; what the session said can wait a second. */
+	const changed = (sent = false): void => {
+		if (sent) save();
+		else saveSoon();
 		tell();
 	};
 
@@ -80,7 +91,7 @@ export function connect(options: ConnectionOptions): Client {
 			const flight = outbox.all().filter((command) => command.state === "sent");
 			if (flight.length === 1 && flight[0] !== undefined) {
 				outbox.refused(flight[0].id, "the daemon answered without an id");
-				changed();
+				changed(true);
 			}
 			return true;
 		}
@@ -93,7 +104,7 @@ export function connect(options: ConnectionOptions): Client {
 					: "the daemon refused it";
 			outbox.refused(envelope.id, reason);
 		}
-		changed();
+		changed(true);
 		return true;
 	};
 
@@ -147,7 +158,7 @@ export function connect(options: ConnectionOptions): Client {
 		send: <K extends CommandType>(type: K, data: CommandMap[K]) => {
 			const command = outbox.add(type, data as CommandMap[K]);
 			flush();
-			changed();
+			changed(true);
 			return command;
 		},
 		outbox: () => outbox,
@@ -155,13 +166,13 @@ export function connect(options: ConnectionOptions): Client {
 			const released = outbox.release(id);
 			if (released) {
 				flush();
-				changed();
+				changed(true);
 			}
 			return released;
 		},
 		drop: (id) => {
 			const dropped = outbox.drop(id);
-			if (dropped) changed();
+			if (dropped) changed(true);
 			return dropped;
 		},
 		on: (handle) => {
@@ -179,6 +190,7 @@ export function connect(options: ConnectionOptions): Client {
 			open();
 		},
 		stop: () => {
+			if (saving !== undefined) save();
 			stopped = true;
 			cancelWait?.();
 			transport?.close();

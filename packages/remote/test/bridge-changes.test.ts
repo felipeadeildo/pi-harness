@@ -22,6 +22,7 @@ const folded = new Set(
 
 /** Each names the producer that rebuilds it for the opening, so a stale entry fails when the producer goes. */
 const REBUILT: Readonly<Record<string, string>> = {
+	"board.changed": "board",
 	"cost.changed": "cost",
 	"session.live": "model",
 };

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+	BOARD,
 	createApp,
 	defineFeature,
 	bySession,
@@ -25,6 +26,7 @@ import { Commands, Refused } from "./bridge/commands.ts";
 import type { GoneReason } from "./bridge/connection.ts";
 import { forwardDialogs } from "./bridge/dialogs.ts";
 import { letterOf, SessionInbox } from "./bridge/inbox.ts";
+import { remoteBoard } from "./bridge/producers.ts";
 import { commandsFor } from "./bridge/slash.ts";
 import { openInBrowser } from "./browser.ts";
 import { linkOf } from "./cli/open.ts";
@@ -261,6 +263,9 @@ export const remote = defineFeature({
 			});
 		});
 
+		BOARD.onChanged(scope, (board) => {
+			if (board !== undefined) bridge?.boarded(remoteBoard(board));
+		});
 		SESSION_STATUS.onChanged(scope, (state) => {
 			if (state !== undefined) bridge?.connection.event("session.status", { status: state });
 		});

@@ -21,6 +21,7 @@ import {
 import { type AnswerEvent, isAskResult } from "@adeildo/pi-kit";
 import type { Letter } from "@adeildo/pi-kit";
 import type {
+	BoardView,
 	Envelope,
 	SessionActivity,
 	SessionState,
@@ -35,6 +36,7 @@ import { BridgeConnection, type ConnectionSeams, type GoneReason } from "./conne
 import { forward, type Logged, Harness } from "./logged.ts";
 import { PRODUCERS, costOf } from "./producers.ts";
 import { LiveStream } from "./stream.ts";
+import { wireEntry } from "./wire-entry.ts";
 
 /** Older entries are paged over HTTP. */
 export const STATE_ENTRIES = 50;
@@ -220,7 +222,7 @@ export class Bridge {
 					// The mark goes first: it names an entry the client has not drawn yet, so the entry arrives
 					// already marked and is never drawn bare and then again.
 					this.#whose(item.entry as UserEntry);
-					this.connection.event("entry", item.entry);
+					this.connection.event("entry", wireEntry(item.entry));
 				} else if (item.kind === "reset") this.#open();
 			},
 		);
@@ -234,6 +236,10 @@ export class Bridge {
 	/** The opening carries it, so a reconnect keeps it. */
 	#cost(): SessionState["cost"] {
 		return costOf(this.ctx.sessionManager.getEntries());
+	}
+
+	boarded(board: BoardView): void {
+		this.connection.event("board.changed", { board });
 	}
 
 	acting(activity: SessionActivity): void {
@@ -304,7 +310,7 @@ export class Bridge {
 					this.#changes.state(mode),
 				),
 			},
-			entries: this.ctx.sessionManager.getBranch().slice(-STATE_ENTRIES),
+			entries: this.ctx.sessionManager.getBranch().slice(-STATE_ENTRIES).map(wireEntry),
 			streaming: this.stream.streaming,
 		});
 	}

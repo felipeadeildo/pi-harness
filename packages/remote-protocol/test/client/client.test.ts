@@ -116,6 +116,37 @@ describe("a client of a session", () => {
 		second.stop();
 	});
 
+	test("what the session says is saved once a second, and what this device sends at once", async () => {
+		const writes: number[] = [];
+		const cache = { ...memoryCache(), write: async () => void writes.push(writes.length) };
+		let flushSave: (() => void) | undefined;
+		let onMessage: (envelope: unknown) => void = () => {};
+		const client = connect({
+			key,
+			cache,
+			open: (heard) => {
+				onMessage = heard;
+				return { send: () => {}, close: () => {} };
+			},
+			wait: (_, run) => {
+				flushSave = run;
+				return () => (flushSave = undefined);
+			},
+		});
+		await client.load();
+		for (const one of [sentOpening, ...stream(1)]) onMessage(one);
+		expect(writes).toHaveLength(0);
+		flushSave?.();
+		expect(writes).toHaveLength(1);
+
+		client.send("prompt.send", { text: "now" });
+		expect(writes).toHaveLength(2);
+		const more = stream(1 + stream(1).length);
+		onMessage(more[0]);
+		client.stop();
+		expect(writes).toHaveLength(3);
+	});
+
 	test("a command that waited past the window goes out when the person sends it now", async () => {
 		let clock = 0;
 		const outbox = new Outbox({ now: () => clock });

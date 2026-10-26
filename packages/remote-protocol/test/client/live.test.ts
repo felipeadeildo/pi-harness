@@ -34,7 +34,7 @@ describe("the answer being written", () => {
 			update("toolcall_delta", 2, { delta: '{"command":' }),
 			0,
 		);
-		expect(live.message?.parts).toEqual([
+		expect(live.message?.parts).toMatchObject([
 			{ kind: "thinking", text: "hm, ok" },
 			{ kind: "text", text: "Hi" },
 			{ kind: "toolCall", text: '{"command":', id: "t1", name: "bash" },
@@ -42,11 +42,33 @@ describe("the answer being written", () => {
 
 		const message = { content: [{ type: "text", text: "Hi there" }] };
 		live = foldLive(live, "pi.message_end", { stream: 1, message }, 0);
-		expect(live.message).toEqual({
+		expect(live.message).toMatchObject({
 			stream: 1,
 			parts: [{ kind: "text", text: "Hi there" }],
 			ended: true,
 		});
+	});
+
+	test("a thought's time is kept by its entry once pi writes the answer", () => {
+		let live = foldLive(NOTHING_LIVE, "pi.message_start", { stream: 1, message: {} }, 0);
+		live = foldLive(live, "pi.message_update", update("thinking_start", 0), 1_000);
+		live = foldLive(live, "pi.message_update", update("thinking_delta", 0, { delta: "hm" }), 2_500);
+		const message = { content: [{ type: "thinking", thinking: "hm" }] };
+		live = foldLive(live, "pi.message_end", { stream: 1, message }, 3_000);
+		live = settledBy(live, { type: "message", id: "e9", message: { role: "assistant" } });
+		expect(live.message).toBeUndefined();
+		expect(live.thought).toEqual({ "e9:0": 1_500 });
+	});
+
+	test("a tool call found half written keeps what it had, since its deltas no longer append", () => {
+		const half = { type: "toolCall", id: "t1", name: "write", arguments: { path: "/a" } };
+		let live = liveFromOpening(NOTHING_LIVE, { stream: 2, message: { content: [half] } });
+		live = foldLive(live, "pi.message_update", update("toolcall_delta", 0, { delta: "bc" }), 0);
+		expect(live.message?.parts[0]?.text).toBe('{"path":"/a"}');
+		const raw = { ...half, partialJson: '{"path":"/a","content":"x' };
+		live = liveFromOpening(NOTHING_LIVE, { stream: 2, message: { content: [raw] } });
+		live = foldLive(live, "pi.message_update", update("toolcall_delta", 0, { delta: "yz" }), 0);
+		expect(live.message?.parts[0]?.text).toBe('{"path":"/a","content":"xyz');
 	});
 
 	test("an update with no answer open, or that does not decode, changes nothing", () => {

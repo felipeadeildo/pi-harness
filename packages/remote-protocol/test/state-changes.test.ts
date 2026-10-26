@@ -150,3 +150,14 @@ describe("what the agent does, where and what it said", () => {
 		);
 	});
 });
+
+describe("the board", () => {
+	test("a board that changed replaces the one held, with the backlog cards when sent", () => {
+		const card = { id: "c1", title: "Ship it", column: "backlog", at: 1 } as const;
+		const board = { open: [], backlog: 1, done: [], waiting: [card] };
+		const state = applyChange(emptySessionState(), "board.changed", { board });
+		expect(state.board?.waiting?.[0]?.title).toBe("Ship it");
+		const bad = { board: { ...board, waiting: [{ title: "no id" }] } };
+		expect(applyChange(state, "board.changed", bad)).toBe(state);
+	});
+});

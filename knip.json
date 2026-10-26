@@ -31,7 +31,8 @@
 				"web/src/main.tsx",
 				"web/vite.config.ts",
 				"web/src/**/*.test.ts"
-			]
+			],
+			"ignore": ["web/src/components/ui/**", "web/src/lib/**"]
 		},
 		".": {
 			"entry": ["scripts/**/*.ts"]

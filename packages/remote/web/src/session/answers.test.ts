@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import type { OpenAsk } from "@adeildo/pi-remote-protocol";
 import type { Client } from "@adeildo/pi-remote-protocol/client";
 
-import { answerAsk, answerOf, EMPTY, pick, ready, type } from "./answers.ts";
+import { answerAsk, answerOf, EMPTY, note, pick, ready, type } from "./answers.ts";
 
 const ask = (over: Partial<OpenAsk> = {}): OpenAsk => ({
 	id: "q1",
@@ -79,4 +79,23 @@ describe("the answer to a question", () => {
 			},
 		});
 	});
+});
+
+test("a note on an option travels with the answer, picked or not, and an empty one does not", () => {
+	let draft = pick(EMPTY, 0, "yes", undefined);
+	draft = note(draft, 0, "yes", " because the tests passed ");
+	draft = note(draft, 0, "no", "too risky");
+	draft = note(draft, 0, "maybe", "  ");
+	const answer = answerOf(
+		{
+			id: "a1",
+			source: "pi",
+			questions: [{ header: "Deploy", question: "Ship it now", options: [] }],
+		},
+		draft,
+	).answers[0];
+	expect(answer?.notes).toEqual([
+		{ option: "yes", note: "because the tests passed" },
+		{ option: "no", note: "too risky" },
+	]);
 });

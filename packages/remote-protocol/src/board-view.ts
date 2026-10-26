@@ -27,6 +27,8 @@ export interface BoardView {
 	open: BoardCard[];
 	backlog: number;
 	done: BoardCard[];
+	/** The first backlog cards, for a screen with room for them; `backlog` still counts them all. */
+	waiting?: BoardCard[];
 }
 
 /** `operator` reads as "you" only for the operator, so the reader is a parameter. */
@@ -46,7 +48,9 @@ export function isBoardView(value: unknown): value is BoardView {
 		value.open.every(isBoardCard) &&
 		typeof value.backlog === "number" &&
 		Array.isArray(value.done) &&
-		value.done.every(isBoardCard)
+		value.done.every(isBoardCard) &&
+		(value.waiting === undefined ||
+			(Array.isArray(value.waiting) && value.waiting.every(isBoardCard)))
 	);
 }
 
