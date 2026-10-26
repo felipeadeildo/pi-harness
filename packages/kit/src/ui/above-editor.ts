@@ -11,7 +11,7 @@
 // `getKeybindings()` hands the same manager here, overrides included. A key the reader changes in the
 // settings reaches the view from the next dialog, not from the one already open.
 import type { ExtensionUIContext, Theme } from "@earendil-works/pi-coding-agent";
-import { type KeyId, matchesKey } from "@earendil-works/pi-tui";
+import { isKeyRelease, type KeyId, matchesKey } from "@earendil-works/pi-tui";
 
 import { frame, frameInner, type KeyHint } from "./frame.ts";
 
@@ -224,6 +224,10 @@ export function openAboveEditor<T>(
 		host.active = { focused: () => focused };
 		stop = ui.onTerminalInput((data) => {
 			if (finished) return undefined;
+			// A terminal that reports releases sends each key twice, and a listener gets both, where
+			// pi's own components get only the press. Read as a key, the release types every letter
+			// twice and moves the pointer two rows.
+			if (isKeyRelease(data)) return focused ? { consume: true } : undefined;
 			if (matchesKey(data, ABOVE_EDITOR_FOCUS_KEY as KeyId)) {
 				focused = !focused;
 				host.lastTypedAt = focused ? 0 : Date.now();
