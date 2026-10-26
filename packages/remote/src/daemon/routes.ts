@@ -1,13 +1,15 @@
 // The daemon's own HTTP routes: health, the session list, a session's opening and pages, the login
-// that trades a token for a cookie, and the web app for everything the data routes leave.
+// that trades a token for a cookie, and the web app for everything the data routes leave. A device of
+// the machine's owner that comes through the tailnet logs in by who it is, with no token.
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
 import { isAppFile, serveApp, type WebApp } from "./app.ts";
-import { type Asking, authorize, type Logins, loginCookie } from "./auth.ts";
+import { type Asking, authorize, cookieOf, type Logins, loginCookie } from "./auth.ts";
 import { History, PAGE } from "./history.ts";
 import type { Sessions } from "./sessions.ts";
+import type { Owners } from "./tailnet.ts";
 
 export const STATUS = {
 	401: "Unauthorized",
@@ -32,6 +34,8 @@ export interface RoutesOptions {
 	 */
 	web?: WebApp;
 	now?: () => number;
+	/** The machine's tailnet address, and who owns the devices that reach it. */
+	tailnet?: { ip: string; owners: Owners };
 }
 
 /** The pages and the data both come through here; the socket and the port are the lifecycle's. */
@@ -82,8 +86,34 @@ export class Routes {
 		const web = this.#options.web;
 		if (web === undefined) return reply(response, 404, { error: "not found" });
 		const served = serveApp(web, path);
-		response.writeHead(served.status, { "content-type": served.type, ...served.headers });
-		response.end(served.body);
+		const write = (cookie?: string): void => {
+			response.writeHead(served.status, {
+				"content-type": served.type,
+				...served.headers,
+				...(cookie === undefined ? {} : { "set-cookie": loginCookie(cookie, false) }),
+			});
+			response.end(served.body);
+		};
+		// A page asked for over the tailnet with no login: the owner's own device gets one with the page.
+		const needsLogin =
+			served.type.startsWith("text/html") &&
+			!this.#options.logins.has(cookieOf(request.headers.cookie));
+		if (!needsLogin) return write();
+		void this.#ownerLogin(request).then(write, () => write());
+	}
+
+	/**
+	 * A login for a device that came through the tailnet and belongs to the user who owns this machine.
+	 * Nothing for any other request: one on loopback, a device another user shares into the tailnet, or
+	 * a `whois` that failed or was slow.
+	 */
+	async #ownerLogin(request: IncomingMessage): Promise<string | undefined> {
+		const tailnet = this.#options.tailnet;
+		if (tailnet === undefined) return undefined;
+		if (plainAddress(request.socket.localAddress) !== tailnet.ip) return undefined;
+		const from = plainAddress(request.socket.remoteAddress);
+		if (from === undefined || !(await tailnet.owners.owns(from))) return undefined;
+		return this.#options.logins.grant();
 	}
 
 	/**
@@ -159,20 +189,27 @@ export class Routes {
 		request.on("end", () => {
 			if (cut) return;
 			const token = tokenOf(body);
-			const cookie = token === undefined ? undefined : this.#options.logins.exchange(token);
-			if (cookie === undefined) {
-				return reply(response, 401, {
-					error: "this link was used, is unknown or is late: ask pi for a new one with /remote",
-				});
-			}
-			response.writeHead(204, {
-				// Loopback is plain HTTP, where a Secure cookie would never come back. When F3 reaches
-				// the daemon through TLS, this follows the scheme the request came in on.
-				"set-cookie": loginCookie(cookie, false),
-				"cache-control": "no-store",
-			});
-			response.end();
+			void (
+				token === undefined
+					? this.#ownerLogin(request)
+					: Promise.resolve(this.#options.logins.exchange(token))
+			).then((cookie) => this.#loggedIn(response, cookie));
 		});
+	}
+
+	#loggedIn(response: ServerResponse, cookie: string | undefined): void {
+		if (cookie === undefined) {
+			return reply(response, 401, {
+				error: "this link was used, is unknown or is late: ask pi for a new one with /remote",
+			});
+		}
+		response.writeHead(204, {
+			// Loopback and the tailnet are plain HTTP, where a Secure cookie would never come back. A
+			// daemon reached through TLS follows the scheme the request came in on.
+			"set-cookie": loginCookie(cookie, false),
+			"cache-control": "no-store",
+		});
+		response.end();
 	}
 
 	/** The session list: who each session is and how it is doing, without its entries. */
@@ -241,4 +278,9 @@ function decoded(part: string): string | undefined {
 function reply(response: ServerResponse, status: number, body: unknown): void {
 	response.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" });
 	response.end(JSON.stringify(body));
+}
+
+/** An address as the tailnet names it: Node gives an IPv4 peer on a dual-stack socket as `::ffff:a.b.c.d`. */
+function plainAddress(address: string | undefined): string | undefined {
+	return address?.startsWith("::ffff:") ? address.slice("::ffff:".length) : address;
 }

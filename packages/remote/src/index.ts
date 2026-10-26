@@ -275,7 +275,9 @@ export const remote = defineFeature({
 					return;
 				}
 				openInBrowser(link.url);
-				ctx.ui.notify(`pi-remote: ${link.url} works once, for a minute`, "info");
+				const elsewhere =
+					link.tailnet === undefined ? "" : `; on your devices on the tailnet, ${link.tailnet}`;
+				ctx.ui.notify(`pi-remote: ${link.url} works once, for a minute${elsewhere}`, "info");
 			},
 		});
 

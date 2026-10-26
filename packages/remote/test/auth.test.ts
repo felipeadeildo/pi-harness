@@ -11,7 +11,7 @@ import {
 	cookieOf,
 	loginCookie,
 	Logins,
-	loopbackHosts,
+	hostsOf,
 	TOKEN_MS,
 } from "../src/daemon/auth.ts";
 
@@ -113,7 +113,7 @@ function loggedIn(keeper: Logins): string {
 }
 
 describe("a request", () => {
-	const hosts = loopbackHosts(7878);
+	const hosts = hostsOf(7878);
 
 	function decide(asking: Partial<Asking>, keeper = logins()) {
 		return authorize(
@@ -181,7 +181,7 @@ describe("a request", () => {
 });
 
 describe("where a request comes from", () => {
-	const hosts = loopbackHosts(7878);
+	const hosts = hostsOf(7878);
 	const asking: Asking = {
 		method: "GET",
 		path: "/sessions",

@@ -9,10 +9,11 @@ import type { WebSocketServer } from "ws";
 
 import { accept, server } from "../wire/websocket.ts";
 import { isAppFile, type WebApp } from "./app.ts";
-import { authorize, type Logins, loopbackHosts } from "./auth.ts";
+import { authorize, hostsOf, type Logins } from "./auth.ts";
 import { Hub } from "./hub.ts";
 import { asking, isRoute, Routes, STATUS } from "./routes.ts";
 import type { Sessions } from "./sessions.ts";
+import type { Owners, Tailnet } from "./tailnet.ts";
 
 export interface ClientsOptions {
 	sessions: Sessions;
@@ -24,6 +25,9 @@ export interface ClientsOptions {
 	web?: WebApp;
 	warn?: (message: string) => void;
 	now?: () => number;
+	/** This machine on its tailnet: the daemon listens there too, and logs the owner's devices in. */
+	tailnet?: Tailnet;
+	owners?: Owners;
 }
 
 /** The port it took, or the code of the error that stopped it. */
@@ -33,6 +37,8 @@ export type ListenResult = { port: number } | { why: string | undefined };
 export class Clients {
 	readonly #options: ClientsOptions;
 	readonly #server: Server;
+	/** The same handlers on the machine's tailnet address, when it has one. */
+	readonly #tailnetServer: Server | undefined;
 	readonly #wss: WebSocketServer;
 	readonly #started: number;
 	/** The names this daemon answers to, once it knows its port. */
@@ -56,10 +62,19 @@ export class Clients {
 			hosts: () => this.#hosts,
 			...(options.web === undefined ? {} : { web: options.web }),
 			...(options.now === undefined ? {} : { now: options.now }),
+			...(options.tailnet === undefined || options.owners === undefined
+				? {}
+				: { tailnet: { ip: options.tailnet.ip, owners: options.owners } }),
 		});
-		this.#server = createServer((request, response) => this.routes.handle(request, response));
 		this.#wss = server();
-		this.#server.on("upgrade", (request: IncomingMessage, socket, head: Buffer) => {
+		this.#server = this.#serving();
+		this.#tailnetServer = options.tailnet === undefined ? undefined : this.#serving();
+	}
+
+	/** A server that answers the routes and the upgrade, on whatever address it is given. */
+	#serving(): Server {
+		const served = createServer((request, response) => this.routes.handle(request, response));
+		served.on("upgrade", (request: IncomingMessage, socket, head: Buffer) => {
 			// Any page can open a WebSocket to 127.0.0.1, so one from another Origin is refused here,
 			// and one with no login too.
 			const verdict = authorize(asking(request, true), this.#place());
@@ -76,26 +91,43 @@ export class Clients {
 			}
 			accept(this.#wss, request, socket, head, (ws) => this.hub.open(ws));
 		});
+		return served;
 	}
 
-	/** Listens on `host:port`, and resolves the port it got, which tells a test where `0` landed. */
-	listen(port: number, host = "127.0.0.1"): Promise<ListenResult> {
-		return new Promise((resolve) => {
-			// The reason travels: "the port is taken" and "the port needs privilege" are the same
-			// silence to the caller and very different to whoever has to fix it.
-			this.#server.once("error", (error: NodeJS.ErrnoException) => resolve({ why: error.code }));
-			this.#server.listen(port, host, () => {
-				const bound = (this.#server.address() as AddressInfo).port;
-				this.#hosts = loopbackHosts(bound);
-				resolve({ port: bound });
-			});
-		});
+	/**
+	 * Listens on loopback at `port`, and on the tailnet address at the port loopback got, and resolves
+	 * the port, which tells a test where `0` landed. The tailnet is an extra: a machine whose tailnet
+	 * address refuses still answers on loopback, and says why it does not on the tailnet.
+	 */
+	async listen(port: number): Promise<ListenResult> {
+		const looped = await listenOn(this.#server, port, "127.0.0.1");
+		if ("why" in looped) return looped;
+		const tailnet = this.#options.tailnet;
+		const reached =
+			tailnet === undefined || this.#tailnetServer === undefined
+				? undefined
+				: await listenOn(this.#tailnetServer, looped.port, tailnet.ip);
+		if (reached !== undefined && "why" in reached) {
+			this.#options.warn?.(
+				`not listening on the tailnet at ${tailnet?.ip}:${looped.port}: ${reached.why ?? "no reason given"}`,
+			);
+		}
+		const onTailnet = reached !== undefined && !("why" in reached);
+		this.#hosts = hostsOf(looped.port, onTailnet ? tailnet : undefined);
+		// The address and not the name: a machine whose MagicDNS is broken still answers on its address,
+		// and the name is in the hosts for a device that types it.
+		this.tailnetUrl = onTailnet ? `http://${tailnet?.ip}:${looped.port}/` : undefined;
+		return looped;
 	}
+
+	/** Where a device on the tailnet opens the app, once the daemon listens there. */
+	tailnetUrl: string | undefined;
 
 	close(): void {
 		this.hub.close();
 		this.#wss.close();
 		this.#server.close();
+		this.#tailnetServer?.close();
 	}
 
 	/**
@@ -124,4 +156,14 @@ export class Clients {
 			isAppFile: (path) => web !== undefined && !isRoute(path) && isAppFile(web, path),
 		};
 	}
+}
+
+/** Listens on `host:port`, and gives the port it got or the code of the error that stopped it. */
+function listenOn(served: Server, port: number, host: string): Promise<ListenResult> {
+	return new Promise((resolve) => {
+		// The reason travels: "the port is taken" and "the port needs privilege" are the same silence
+		// to the caller and very different to whoever has to fix it.
+		served.once("error", (error: NodeJS.ErrnoException) => resolve({ why: error.code }));
+		served.listen(port, host, () => resolve({ port: (served.address() as AddressInfo).port }));
+	});
 }
