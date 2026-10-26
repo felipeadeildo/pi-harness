@@ -37,6 +37,7 @@ export {
 } from "./state-changes.ts";
 export { STATE_CHANGES, isStateChangeType } from "./reduce/entry.ts";
 export {
+	ACTIVITIES,
 	type Ask,
 	type ClosedAsk,
 	emptySessionState,
@@ -45,6 +46,7 @@ export {
 	openQuestions,
 	applyChange,
 	foldLogged,
+	type SessionActivity,
 	type SessionState,
 } from "./reduce/state.ts";
 export { COMMAND_TYPES, type CommandMap, type CommandType, isCommand } from "./commands.ts";

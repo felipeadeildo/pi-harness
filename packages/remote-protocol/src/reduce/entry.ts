@@ -14,7 +14,7 @@ import {
 	SESSION_STATES,
 } from "../state-changes.ts";
 import { type QueuedMessage } from "../summary.ts";
-import type { SessionCost, SessionState } from "./state.ts";
+import { ACTIVITIES, type SessionActivity, type SessionCost, type SessionState } from "./state.ts";
 
 export interface Entry<T> {
 	check(data: unknown): data is T;
@@ -246,6 +246,27 @@ export const CHANGES = {
 		check: (data): data is { cost: SessionCost } => isObject(data) && isCost(data.cost),
 		apply: (state, data) => ({ ...state, cost: data.cost }),
 	}),
+	"activity.changed": entry({
+		check: (data): data is { activity: SessionActivity } =>
+			isObject(data) && isActivity(data.activity),
+		apply: (state, data) => ({ ...state, activity: data.activity }),
+	}),
+	"branch.changed": entry({
+		check: (data): data is { branch?: string } =>
+			isObject(data) && (data.branch === undefined || typeof data.branch === "string"),
+		apply: (state, data) => {
+			const { branch: _old, ...rest } = state;
+			return data.branch === undefined ? rest : { ...rest, branch: data.branch };
+		},
+	}),
+	"said.changed": entry({
+		check: (data): data is { said: { text: string; at: number } } =>
+			isObject(data) &&
+			isObject(data.said) &&
+			typeof data.said.text === "string" &&
+			typeof data.said.at === "number",
+		apply: (state, data) => ({ ...state, said: data.said }),
+	}),
 };
 
 export type StateChangeMap = { [K in keyof typeof CHANGES]: DataOf<(typeof CHANGES)[K]> };
@@ -284,6 +305,16 @@ function isCost(value: unknown): value is NonNullable<SessionState["cost"]> {
 		Number.isFinite(value.cacheWrite) &&
 		typeof value.total === "number" &&
 		Number.isFinite(value.total)
+	);
+}
+
+function isActivity(value: unknown): value is SessionActivity {
+	return (
+		isObject(value) &&
+		(ACTIVITIES as readonly unknown[]).includes(value.what) &&
+		typeof value.since === "number" &&
+		(value.tool === undefined || typeof value.tool === "string") &&
+		(value.about === undefined || typeof value.about === "string")
 	);
 }
 
