@@ -55,6 +55,7 @@ describe("what the pickers start on", () => {
 			serves: undefined,
 			running: false,
 			models: undefined,
+			modelsTotal: undefined,
 		});
 	});
 });

@@ -77,6 +77,8 @@ export interface SessionState {
 	 * "none": a picker that finds the list absent waits, and one that finds it empty says so.
 	 */
 	models?: ModelOption[];
+	/** How many models the registry listed, which is more than `models` holds when the list was cut. */
+	modelsTotal?: number;
 	/** The dialog the terminal waits on that no client can answer, while it is open. */
 	prompt?: { kind: PromptKind; title?: string };
 	/** Changes every turn, so it lives in the state. */

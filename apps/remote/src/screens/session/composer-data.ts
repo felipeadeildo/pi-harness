@@ -92,6 +92,16 @@ export function modelLabel(model: { provider: string; id: string } | undefined):
 	return model === undefined ? "" : model.id;
 }
 
+/**
+ * What the sheet says when the list it holds is shorter than the registry's: the search covers only
+ * those, and a list cut without a word reads as the whole registry.
+ */
+export function modelsNote(held: number, total: number | undefined): string | undefined {
+	return total !== undefined && total > held
+		? `${held} of ${total} models, refine the search`
+		: undefined;
+}
+
 /** Sends a held command now: it keeps its id, so the far side reads it as the same one. */
 export function sendNow(client: Client, id: string): void {
 	client.release(id);

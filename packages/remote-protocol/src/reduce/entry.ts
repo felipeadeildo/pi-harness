@@ -213,7 +213,11 @@ export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 					typeof model.name === "string" &&
 					model.name !== "",
 			),
-		apply: (state, data) => ({ ...state, models: data.models.slice(0, KEPT_MODELS) }),
+		apply: (state, data) => ({
+			...state,
+			models: data.models.slice(0, KEPT_MODELS),
+			modelsTotal: data.models.length,
+		}),
 	},
 	"queue.changed": {
 		check: (data): data is StateChangeMap["queue.changed"] =>

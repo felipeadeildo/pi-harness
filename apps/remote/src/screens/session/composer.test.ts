@@ -14,6 +14,7 @@ import {
 	modeChoices,
 	menuItems,
 	modelLabel,
+	modelsNote,
 	outboxLine,
 	primaryAct,
 	sendNow,
@@ -205,5 +206,14 @@ describe("the model sheet", () => {
 			false,
 		);
 		expect(models.map((one) => isCurrentModel(one, undefined))).toEqual([false, false, false]);
+	});
+});
+
+describe("when the list is shorter than the registry", () => {
+	test("the sheet says how many it holds of how many, and says nothing when it holds them all", () => {
+		expect(modelsNote(300, 301)).toBe("300 of 301 models, refine the search");
+		expect(modelsNote(300, 300)).toBeUndefined();
+		// A list nobody counted is not a short one.
+		expect(modelsNote(300, undefined)).toBeUndefined();
 	});
 });

@@ -36,6 +36,7 @@ import {
 	isCurrentModel,
 	matchModels,
 	modelLabel,
+	modelsNote,
 	outboxLine,
 	primaryAct,
 	sendNow,
@@ -65,6 +66,8 @@ export interface ComposerProps {
 	running?: boolean;
 	/** The models the session could switch to. Absent until the bridge says: the chip then stays a label. */
 	models?: readonly ModelOption[];
+	/** How many models the registry listed, when the state holds fewer. */
+	modelsTotal?: number;
 	/** What the field starts with: a draft restored from the cache. */
 	initialDraft?: string;
 }
@@ -83,6 +86,7 @@ export function Composer({
 	serves,
 	running = false,
 	models,
+	modelsTotal,
 	initialDraft,
 }: ComposerProps): ReactNode {
 	// The queue changes without the session changing, so the composer hears the client itself.
@@ -146,6 +150,7 @@ export function Composer({
 					serves={serves}
 					model={model}
 					models={models}
+					modelsTotal={modelsTotal}
 					thinking={thinking}
 				/>
 				<View style={{ flexDirection: "row", gap: theme.space(3), alignItems: "center" }}>
@@ -290,6 +295,7 @@ function Pickers({
 	serves,
 	model,
 	models,
+	modelsTotal,
 	thinking,
 }: {
 	send: Send;
@@ -297,6 +303,7 @@ function Pickers({
 	serves: boolean | undefined;
 	model: { provider: string; id: string } | undefined;
 	models: readonly ModelOption[] | undefined;
+	modelsTotal: number | undefined;
 	thinking: string | undefined;
 }): ReactNode {
 	const [open, setOpen] = useState<"mode" | "thinking" | "model" | undefined>(undefined);
@@ -320,6 +327,7 @@ function Pickers({
 			{open === "model" && models !== undefined ? (
 				<ModelSheet
 					models={models}
+					total={modelsTotal}
 					current={model}
 					onClose={() => setOpen(undefined)}
 					onPick={(picked) => {
@@ -413,17 +421,20 @@ function Held({ lines, client }: { lines: readonly QueuedLine[]; client: Client 
 /** The models the session could switch to, with a search: a registry is long, and a row each is a scroll. */
 function ModelSheet({
 	models,
+	total,
 	current,
 	onClose,
 	onPick,
 }: {
 	models: readonly ModelOption[];
+	total: number | undefined;
 	current: { provider: string; id: string } | undefined;
 	onClose: () => void;
 	onPick: (model: ModelOption) => void;
 }): ReactNode {
 	const [query, setQuery] = useState("");
 	const shown = matchModels(models, query);
+	const note = modelsNote(models.length, total);
 	return (
 		<Sheet title="Model" onClose={onClose}>
 			<TextInput
@@ -442,6 +453,11 @@ function ModelSheet({
 					color: theme.color.text,
 				}}
 			/>
+			{note === undefined ? null : (
+				<Text style={{ ...theme.type.caption, color: theme.color.muted, padding: theme.space(2) }}>
+					{note}
+				</Text>
+			)}
 			{shown.length === 0 ? (
 				<Text style={{ ...theme.type.body, color: theme.color.muted, padding: theme.space(4) }}>
 					No model matches

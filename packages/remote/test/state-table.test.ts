@@ -203,8 +203,12 @@ const ROWS: Row[] = [
 				},
 			},
 		],
-		expects: { count: 300, last: "m299" },
-		leaves: (state) => ({ count: state.models?.length, last: state.models?.at(-1)?.id }),
+		expects: { count: 300, last: "m299", total: 301 },
+		leaves: (state) => ({
+			count: state.models?.length,
+			last: state.models?.at(-1)?.id,
+			total: state.modelsTotal,
+		}),
 	},
 	{
 		name: "a dialog a client can answer is not a wait on the terminal",

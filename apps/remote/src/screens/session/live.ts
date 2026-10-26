@@ -23,6 +23,7 @@ export function composerOf(session: ClientSession): Live & {
 	serves: boolean | undefined;
 	running: boolean;
 	models: ClientSession["state"]["models"];
+	modelsTotal: ClientSession["state"]["modelsTotal"];
 } {
 	return {
 		...liveOf(session),
@@ -31,6 +32,7 @@ export function composerOf(session: ClientSession): Live & {
 		serves: session.state.permissions.serves,
 		running: runningOf(session.state.status),
 		models: session.state.models,
+		modelsTotal: session.state.modelsTotal,
 	};
 }
 
