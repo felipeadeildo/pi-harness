@@ -20,13 +20,14 @@ import {
 	ScrollView,
 	Text,
 	TextInput,
+	type TextStyle,
 	View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Action, Option, Primary, Trigger } from "../../ui/controls.tsx";
 import { Sheet } from "../../ui/sheet.tsx";
-import { HIT } from "../../ui/theme.ts";
+import { HIT, type Theme } from "../../ui/theme.ts";
 import { useTheme } from "../../ui/use-theme.ts";
 import {
 	dropNow,
@@ -73,6 +74,19 @@ export interface ComposerProps {
 	initialDraft?: string;
 }
 
+/** What a text field looks like, the prompt and the model search alike. */
+function fieldStyle(theme: Theme): TextStyle {
+	return {
+		...theme.type.body,
+		minHeight: theme.hit,
+		paddingHorizontal: theme.space(4),
+		borderWidth: theme.line.hairline,
+		borderColor: theme.color.border,
+		borderRadius: theme.radius(1),
+		color: theme.color.text,
+	};
+}
+
 /** How tall the lists above the field may grow before they scroll, in points. */
 const LISTS_MAX = HIT * 3;
 
@@ -116,14 +130,20 @@ export function Composer({
 
 	const act = primaryAct(running, empty);
 	const menu = menuItems({ running, empty, canRename: ask !== undefined });
-	const runMenu = (id: (typeof menu)[number]["id"]): void => {
-		if (id === "steer") take("steer");
-		else if (id === "abort") send("run.abort", {});
-		else if (id === "compact") send("session.compact", {});
-		else if (id === "stop") send("session.stop", {});
-		else {
-			const name = ask?.("Name this session")?.trim();
-			if (name !== undefined && name !== "") send("session.rename", { name });
+	const runMenu = (id: MenuItem["id"]): void => {
+		switch (id) {
+			case "steer":
+				return take("steer");
+			case "abort":
+				return send("run.abort", {});
+			case "compact":
+				return send("session.compact", {});
+			case "stop":
+				return send("session.stop", {});
+			case "rename": {
+				const name = ask?.("Name this session")?.trim();
+				if (name !== undefined && name !== "") send("session.rename", { name });
+			}
 		}
 	};
 
@@ -167,15 +187,7 @@ export function Composer({
 							returnKeyType="send"
 							onSubmitEditing={() => take("followUp")}
 							blurOnSubmit={false}
-							style={{
-								...theme.type.body,
-								minHeight: theme.hit,
-								paddingHorizontal: theme.space(4),
-								borderWidth: theme.line.hairline,
-								borderColor: theme.color.border,
-								borderRadius: theme.radius(1),
-								color: theme.color.text,
-							}}
+							style={fieldStyle(theme)}
 						/>
 					</View>
 					<Overflow items={menu} onPick={runMenu} />
@@ -378,24 +390,25 @@ function Outbox({
 	const theme = useTheme();
 	return (
 		<>
-			{queue.map((command) => (
-				<View
-					key={command.id}
-					testID="outbox-row"
-					style={{ gap: theme.space(1), paddingVertical: theme.space(2) }}
-				>
-					<Text style={{ ...theme.type.label, color: theme.color.text }}>{command.type}</Text>
-					<Text style={{ ...theme.type.caption, color: theme.color.muted }}>
-						{outboxLine(command, held).text}
-					</Text>
-					{outboxLine(command, held).actionable ? (
-						<View style={{ flexDirection: "row", gap: theme.space(3) }}>
-							<Action label="Send now" onPress={() => sendNow(client, command.id)} />
-							<Action label="Drop" onPress={() => dropNow(client, command.id)} />
-						</View>
-					) : null}
-				</View>
-			))}
+			{queue.map((command) => {
+				const line = outboxLine(command, held);
+				return (
+					<View
+						key={command.id}
+						testID="outbox-row"
+						style={{ gap: theme.space(1), paddingVertical: theme.space(2) }}
+					>
+						<Text style={{ ...theme.type.label, color: theme.color.text }}>{command.type}</Text>
+						<Text style={{ ...theme.type.caption, color: theme.color.muted }}>{line.text}</Text>
+						{line.actionable ? (
+							<View style={{ flexDirection: "row", gap: theme.space(3) }}>
+								<Action label="Send now" onPress={() => sendNow(client, command.id)} />
+								<Action label="Drop" onPress={() => dropNow(client, command.id)} />
+							</View>
+						) : null}
+					</View>
+				);
+			})}
 		</>
 	);
 }
@@ -451,15 +464,7 @@ function ModelSheet({
 				placeholderTextColor={theme.color.faint}
 				value={query}
 				onChangeText={setQuery}
-				style={{
-					...theme.type.body,
-					minHeight: theme.hit,
-					paddingHorizontal: theme.space(4),
-					borderWidth: theme.line.hairline,
-					borderColor: theme.color.border,
-					borderRadius: theme.radius(1),
-					color: theme.color.text,
-				}}
+				style={fieldStyle(theme)}
 			/>
 			{note === undefined ? null : (
 				<Text style={{ ...theme.type.caption, color: theme.color.muted, padding: theme.space(2) }}>
