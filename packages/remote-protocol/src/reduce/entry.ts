@@ -1,20 +1,30 @@
-// One entry per state change: the shape it must carry, and what it does to the state. Written as a table so a
-// change added to `StateChangeMap` does not compile until somebody says both — one with a shape and
-// no effect is a shape nobody folds, and one with an effect and no check is a reader trusting the wire.
+// One entry per state change: the shape it carries, the check that reads it off the wire, and what it
+// does to the state. `StateChangeMap` is read from this table, so a change is added in one place, and an
+// entry does not compile without both: a shape nobody folds, or a fold that trusts the wire, is refused.
 
-import { isBy, isObject } from "../by.ts";
+import { type By, isBy, isObject } from "../by.ts";
 import {
+	type AskQuestion,
+	type AskResult,
+	type CallRuling,
+	type ModelOption,
+	type PermissionMode,
 	PROMPT_KINDS,
+	type PromptKind,
+	type SessionCommand,
 	SESSION_STATES,
-	type StateChangeMap,
-	type StateChangeType,
 } from "../state-changes.ts";
 import { type QueuedMessage } from "../summary.ts";
-import type { SessionState } from "./state.ts";
+import type { SessionCost, SessionState } from "./state.ts";
 
 export interface Entry<T> {
 	check(data: unknown): data is T;
 	apply(state: SessionState, data: T): SessionState;
+}
+
+/** Writes an entry whose shape is the one its check names, so the shape is written once, in the check. */
+function entry<T>(written: Entry<T>): Entry<T> {
+	return written;
 }
 
 const unchanged = (state: SessionState): SessionState => state;
@@ -44,9 +54,9 @@ function bound(state: SessionState): SessionState {
 	};
 }
 
-export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
-	"call.ruled": {
-		check: (data): data is StateChangeMap["call.ruled"] =>
+export const CHANGES = {
+	"call.ruled": entry({
+		check: (data): data is { toolCallId: string; ruling: CallRuling; by?: By } =>
 			isObject(data) &&
 			typeof data.toolCallId === "string" &&
 			isObject(data.ruling) &&
@@ -70,17 +80,19 @@ export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 					},
 				},
 			}),
-	},
-	"ask.opened": {
-		check: (data): data is StateChangeMap["ask.opened"] =>
+	}),
+	"ask.opened": entry({
+		check: (
+			data,
+		): data is { id: string; source: string; questions: AskQuestion[]; expiresAt?: number } =>
 			isObject(data) && typeof data.id === "string" && Array.isArray(data.questions),
 		apply: (state, data) => ({
 			...state,
 			questions: { ...state.questions, [data.id]: data },
 		}),
-	},
-	"ask.closed": {
-		check: (data): data is StateChangeMap["ask.closed"] =>
+	}),
+	"ask.closed": entry({
+		check: (data): data is { id: string; by?: By; result: AskResult } =>
 			isObject(data) && typeof data.id === "string" && isObject(data.result),
 		apply: (state, data) => {
 			const before = state.questions[data.id];
@@ -100,9 +112,9 @@ export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 				},
 			});
 		},
-	},
-	"mode.changed": {
-		check: (data): data is StateChangeMap["mode.changed"] =>
+	}),
+	"mode.changed": entry({
+		check: (data): data is { mode: PermissionMode } =>
 			isObject(data) &&
 			(data.mode === "manual" ||
 				data.mode === "edits" ||
@@ -112,23 +124,42 @@ export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 			...state,
 			permissions: { ...state.permissions, mode: data.mode },
 		}),
-	},
-	"session.renamed": {
-		check: (data): data is StateChangeMap["session.renamed"] =>
+	}),
+	"session.renamed": entry({
+		check: (data): data is { from: string; to: string; by?: By } =>
 			isObject(data) && (data.by === undefined || isBy(data.by)),
 		apply: (state, data) => ({ ...state, renamed: data }),
-	},
-	"session.status": {
+	}),
+	"session.status": entry({
 		// pi's program status words only: the log's own `session.state` is peers' running or idle, and a
 		// line of it must never read as a status.
-		check: (data): data is StateChangeMap["session.status"] =>
+		check: (data): data is { status: (typeof SESSION_STATES)[number] } =>
 			isObject(data) && SESSION_STATES.some((status) => status === data.status),
 		apply: (state, data) => ({ ...state, status: data.status }),
-	},
-	"session.live": {
+	}),
+	"session.live": entry({
 		// The list is the contract the composer and the refusal both read: a `source` this version does
 		// not know would be drawn by the screen and misjudged by the wire, so it is refused here.
-		check: (data): data is StateChangeMap["session.live"] =>
+		check: (
+			data,
+		): data is {
+			pid?: number;
+			startedAt?: number;
+			cwd?: string;
+			name?: string;
+			kind: "terminal" | "background";
+			/** The model this session answers with, and how hard it thinks, as pi reports them live. */
+			model?: { provider: string; id: string };
+			thinkingLevel?: string;
+			/**
+			 * pi's session file, which the daemon pages older entries from. pi knows the path from the
+			 * start, but writes the file only with the first message, so until then a page finds nothing:
+			 * `ENOENT` means no older entries yet. Absent only with `--no-session`.
+			 */
+			file?: string;
+			/** What a client may run by typing `/`, which this session offers at this instant. */
+			commands?: SessionCommand[];
+		} =>
 			isObject(data) &&
 			(data.commands === undefined ||
 				(Array.isArray(data.commands) &&
@@ -146,9 +177,9 @@ export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 			...(data.thinkingLevel === undefined ? {} : { thinkingLevel: data.thinkingLevel }),
 			...(data.commands === undefined ? {} : { commands: data.commands }),
 		}),
-	},
-	"session.gone": {
-		check: (data): data is StateChangeMap["session.gone"] =>
+	}),
+	"session.gone": entry({
+		check: (data): data is { reason: "exit" | "crash" | "unanswered" | "replaced" } =>
 			isObject(data) &&
 			(data.reason === "exit" ||
 				data.reason === "crash" ||
@@ -156,10 +187,11 @@ export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 				data.reason === "replaced"),
 		// A session that ended is news to the daemon and to the screen; the state it left stays.
 		apply: unchanged,
-	},
-	"stream.bound": {
+	}),
+	/** The bridge numbers each message it streams, from 1 in each epoch; `pi.message_start` carries the same number. */
+	"stream.bound": entry({
 		// The number matters: a stream that is not pi's number cannot be matched to a transcript.
-		check: (data): data is StateChangeMap["stream.bound"] =>
+		check: (data): data is { messages: { stream: number; entry: string }[] } =>
 			isObject(data) &&
 			Array.isArray(data.messages) &&
 			data.messages.every(
@@ -169,20 +201,26 @@ export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 					typeof message.entry === "string",
 			),
 		apply: unchanged,
-	},
-	"leaf.changed": {
-		check: (data): data is StateChangeMap["leaf.changed"] =>
+	}),
+	/** The entry the branch ends at, or null when a `/tree` move goes back to the root. */
+	"leaf.changed": entry({
+		check: (data): data is { leaf: string | null } =>
 			isObject(data) && (data.leaf === null || typeof data.leaf === "string"),
 		// Where the branch ends is the stream's cursor, not the state's: the entries carry the leaf.
 		apply: unchanged,
-	},
-	"prompt.received": {
+	}),
+	/** Always written with who sent it, since that is the whole state change; read leniently, see `isStateChange`. */
+	"prompt.received": entry({
 		// A prompt that reached the log names who sent it; anything else is not this state change.
-		check: (data): data is StateChangeMap["prompt.received"] => isObject(data) && isBy(data.by),
+		check: (data): data is { by: By } => isObject(data) && isBy(data.by),
 		apply: unchanged,
-	},
-	"prompt.from": {
-		check: (data): data is StateChangeMap["prompt.from"] =>
+	}),
+	/**
+	 * Which client a prompt came from, by the entry it became. The bridge writes it when the entry shows
+	 * on the branch and it is sure whose it is: a prompt typed at the terminal never has one.
+	 */
+	"prompt.from": entry({
+		check: (data): data is { entry: string; by: By } =>
 			isObject(data) && typeof data.entry === "string" && isBy(data.by),
 		apply: (state, data) => ({
 			...state,
@@ -190,11 +228,12 @@ export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 				Object.entries({ ...state.promptFrom, [data.entry]: data.by }).slice(-KEPT_PROMPTS),
 			),
 		}),
-	},
-	"models.listed": {
+	}),
+	/** The models the session could switch to, from pi's registry when the bridge built its opening. */
+	"models.listed": entry({
 		// One entry without a provider, an id or a name makes the whole list unreadable: a list that
 		// names a model a client cannot pick, or cannot read, is worse than the list not arriving.
-		check: (data): data is StateChangeMap["models.listed"] =>
+		check: (data): data is { models: ModelOption[] } =>
 			isObject(data) &&
 			Array.isArray(data.models) &&
 			data.models.every(
@@ -212,14 +251,16 @@ export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 			models: data.models.slice(0, KEPT_MODELS),
 			modelsTotal: data.models.length,
 		}),
-	},
-	"queue.changed": {
-		check: (data): data is StateChangeMap["queue.changed"] =>
+	}),
+	/** The whole queue as it stands: it waits in the session, so every client sees the same list. */
+	"queue.changed": entry({
+		check: (data): data is { queue: QueuedMessage[] } =>
 			isObject(data) && Array.isArray(data.queue) && data.queue.every(isQueuedMessage),
 		apply: (state, data) => ({ ...state, queue: data.queue }),
-	},
-	"terminal.prompted": {
-		check: (data): data is StateChangeMap["terminal.prompted"] =>
+	}),
+	/** The terminal waits on a dialog a client cannot answer, or stops waiting on it. */
+	"terminal.prompted": entry({
+		check: (data): data is { open: boolean; kind: PromptKind; title?: string } =>
 			isObject(data) &&
 			typeof data.open === "boolean" &&
 			PROMPT_KINDS.some((kind) => kind === data.kind) &&
@@ -228,13 +269,21 @@ export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 			const { prompt: _closed, ...rest } = state;
 			return data.open ? { ...rest, prompt: { kind: data.kind, title: data.title } } : rest;
 		},
-	},
-	"cost.changed": {
+	}),
+	/** What the session has cost so far, summed by the bridge from pi's per-message usage. */
+	"cost.changed": entry({
 		// Every number a reader sums: a `NaN` here would be drawn as `$NaN` and kept for the day.
-		check: (data): data is StateChangeMap["cost.changed"] => isObject(data) && isCost(data.cost),
+		check: (data): data is { cost: SessionCost } => isObject(data) && isCost(data.cost),
 		apply: (state, data) => ({ ...state, cost: data.cost }),
-	},
+	}),
 };
+
+/** Every state change the client reduces, with the shape each carries: the one its entry's check names. */
+export type StateChangeMap = { [K in keyof typeof CHANGES]: DataOf<(typeof CHANGES)[K]> };
+
+export type StateChangeType = keyof StateChangeMap;
+
+type DataOf<E> = E extends Entry<infer T> ? T : never;
 
 export const STATE_CHANGES: readonly StateChangeType[] = Object.keys(CHANGES) as StateChangeType[];
 
@@ -243,12 +292,15 @@ export function isStateChangeType(type: string): type is StateChangeType {
 	return Object.hasOwn(CHANGES, type);
 }
 
+/** The same table, read by type: each entry's check and apply agree on one shape, which `applyOne` needs. */
+const BY_TYPE: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = CHANGES;
+
 export function applyOne<K extends StateChangeType>(
 	state: SessionState,
 	type: K,
 	data: unknown,
 ): SessionState {
-	const entry = CHANGES[type];
+	const entry = BY_TYPE[type];
 	return entry.check(data) ? entry.apply(state, data) : state;
 }
 
