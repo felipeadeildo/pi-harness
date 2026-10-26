@@ -1,7 +1,7 @@
 // Folded by the same function on the daemon and every client.
 
 import type { BoardView } from "../board-view.ts";
-import type { By } from "../by.ts";
+import { type By, isObject } from "../by.ts";
 import type { QueuedMessage } from "../summary.ts";
 import { applyOne, isStateChangeType } from "./entry.ts";
 export { KEPT_CLOSED } from "./entry.ts";
@@ -111,6 +111,24 @@ export function foldLogged(events: readonly { type: string; data: unknown }[]): 
 	let state = emptySessionState();
 	for (const event of events) {
 		if (isStateChangeType(event.type)) state = applyChange(state, event.type, event.data);
+	}
+	return state;
+}
+
+/** Pi's own changes of model, thinking level and name, in pi's JSON-mode shapes. */
+export function applyPi(state: SessionState, type: string, data: unknown): SessionState {
+	if (!isObject(data)) return state;
+	if (type === "pi.model_select" && isObject(data.model)) {
+		const { provider, id } = data.model;
+		return typeof provider === "string" && typeof id === "string"
+			? { ...state, model: { provider, id } }
+			: state;
+	}
+	if (type === "pi.thinking_level_select" && typeof data.level === "string")
+		return { ...state, thinkingLevel: data.level };
+	if (type === "pi.session_info_changed") {
+		const { name: _old, ...rest } = state;
+		return typeof data.name === "string" ? { ...rest, name: data.name } : rest;
 	}
 	return state;
 }

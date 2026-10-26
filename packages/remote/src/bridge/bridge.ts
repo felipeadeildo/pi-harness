@@ -306,6 +306,7 @@ export class Bridge {
 							scope,
 							entries: this.ctx.sessionManager.getEntries(),
 							ctx: this.ctx,
+							commands: this.options.offered(),
 						}),
 					this.#changes.state(mode),
 				),

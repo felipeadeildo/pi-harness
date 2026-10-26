@@ -219,3 +219,30 @@ test("a daemon that listens on no port for clients says so instead of giving a l
 	expect("reason" in link ? link.reason : "").toContain("no client can reach this daemon");
 	expect("reason" in link ? link.reason : "").toContain("Alt+S › Remote");
 });
+
+test("a rename at the terminal reaches the list before the next opening", async () => {
+	const { daemon, port, cookie } = await openDaemon();
+	const bridge = await bridgeOf("s9");
+	bridge.send("state", {
+		summary: {
+			session: "s9",
+			machine: "laptop",
+			cwd: "/repo",
+			kind: "terminal",
+			handle: "kestrel",
+		},
+		entries: [],
+	});
+	await until(() => daemon.sessions.get("s9")?.opening !== undefined);
+	bridge.send("pi.session_info_changed", { type: "session_info_changed", name: "Fix the queue" });
+	const loggedIn = ((url: string | URL, init?: RequestInit) =>
+		fetch(url, { ...init, headers: { cookie } })) as typeof fetch;
+	let name: string | undefined;
+	const deadline = Date.now() + 2_000;
+	while (name !== "Fix the queue" && Date.now() < deadline) {
+		const listed = await listSessions(`http://127.0.0.1:${port}`, loggedIn);
+		name = listed.find((one) => one.session === "s9")?.state.name;
+		if (name !== "Fix the queue") await Bun.sleep(20);
+	}
+	expect(name).toBe("Fix the queue");
+});

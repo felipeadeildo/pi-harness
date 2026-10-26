@@ -45,6 +45,7 @@ export {
 	type OpenAsk,
 	openQuestions,
 	applyChange,
+	applyPi,
 	foldLogged,
 	type SessionActivity,
 	type SessionState,

@@ -1,5 +1,6 @@
 import {
 	applyChange,
+	applyPi,
 	emptySessionState,
 	type SessionState,
 	isStateChangeType,
@@ -147,7 +148,7 @@ export function readEnvelope(session: ClientSession, value: unknown): Read {
 			session: {
 				...session,
 				live: foldLive(session.live, value.type, value.data, at),
-				state: piState(session.state, value.type, value.data),
+				state: applyPi(session.state, value.type, value.data),
 				cursor: advance(session.cursor, value),
 			},
 		};
@@ -180,24 +181,6 @@ export function readEnvelope(session: ClientSession, value: unknown): Read {
 		};
 	}
 	return { read: "now", session: { ...session, cursor: advance(session.cursor, value) } };
-}
-
-/** Pi's own changes of model, thinking level and name, in pi's JSON-mode shapes. */
-function piState(state: SessionState, type: string, data: unknown): SessionState {
-	if (!isObject(data)) return state;
-	if (type === "pi.model_select" && isObject(data.model)) {
-		const { provider, id } = data.model;
-		return typeof provider === "string" && typeof id === "string"
-			? { ...state, model: { provider, id } }
-			: state;
-	}
-	if (type === "pi.thinking_level_select" && typeof data.level === "string")
-		return { ...state, thinkingLevel: data.level };
-	if (type === "pi.session_info_changed") {
-		const { name: _old, ...rest } = state;
-		return typeof data.name === "string" ? { ...rest, name: data.name } : rest;
-	}
-	return state;
 }
 
 export function hello(session: ClientSession): Envelope {

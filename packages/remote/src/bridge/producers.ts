@@ -8,13 +8,19 @@ import {
 	PEERS,
 	totalsOf,
 } from "@adeildo/pi-kit";
-import { applyChange, type BoardView, type SessionState } from "@adeildo/pi-remote-protocol";
+import {
+	applyChange,
+	type BoardView,
+	type SessionCommand,
+	type SessionState,
+} from "@adeildo/pi-remote-protocol";
 import type { ExtensionContext, SessionEntry } from "@earendil-works/pi-coding-agent";
 
 interface ProducerInput {
 	scope: EventScope;
 	entries: readonly SessionEntry[];
 	ctx: ExtensionContext;
+	commands?: readonly SessionCommand[];
 }
 
 /** The terminal's view, with room for more: the first backlog cards and the last deliveries. */
@@ -95,6 +101,12 @@ export const PRODUCERS: readonly Producer[] = [
 				.map(({ provider, id, name }) => ({ provider, id, name }));
 			return applyChange(state, "models.listed", { models });
 		},
+	},
+	{
+		field: "commands",
+		// Also on `session.live`, but the opening replaces what came before it.
+		apply: (state, { commands }) =>
+			commands === undefined ? state : { ...state, commands: [...commands] },
 	},
 	{
 		field: "model",

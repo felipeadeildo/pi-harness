@@ -27,7 +27,7 @@ import { ANSWER, ASK, CANCEL, totalsOf } from "@adeildo/pi-kit";
 import type { SessionSource, SourceItem } from "@adeildo/pi-kit";
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
 import { type FakePi, fakeContext, fakePi, keystrokes } from "@adeildo/pi-kit/testing";
-import { envelope, type SessionState } from "@adeildo/pi-remote-protocol";
+import { envelope, type SessionCommand, type SessionState } from "@adeildo/pi-remote-protocol";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import type { MessageStartEvent, MessageUpdateEvent } from "@earendil-works/pi-coding-agent";
 
@@ -1140,7 +1140,11 @@ function source(onFollow: (on: (item: SourceItem) => void) => void = () => {}): 
 }
 
 describe("one bridge", () => {
-	function bridged(from: SessionSource = source(), typedEveryMs = 2_000) {
+	function bridged(
+		from: SessionSource = source(),
+		typedEveryMs = 2_000,
+		offered: () => SessionCommand[] = () => [],
+	) {
 		const { sockets, dial } = held();
 		const scope = { events: fakePi().pi.events, warn: () => {} };
 		const inbox = new SessionInbox(scope, {
@@ -1168,7 +1172,7 @@ describe("one bridge", () => {
 				arrived: () => {},
 				busy: () => false,
 			},
-			offered: () => [],
+			offered,
 			startDaemon: () => {},
 			warn: () => {},
 			seams: { dial, backoff: [5] },
@@ -1224,6 +1228,18 @@ describe("one bridge", () => {
 			"pi.message_update",
 			"state",
 		]);
+		await bridge.stop(undefined);
+	});
+
+	test("every opening offers the commands, so a daemon that restarts still has them", async () => {
+		const simplify: SessionCommand = { name: "skill:simplify", source: "skill" };
+		const { bridge, socket } = bridged(source(), 2_000, () => [simplify]);
+		socket.emit("data", line(envelope("command", "state.get", {})));
+		await Bun.sleep(50);
+		const openings = socket.written.filter((one) => one.type === "state");
+		expect(openings).toHaveLength(2);
+		for (const opening of openings)
+			expect(opening.data).toMatchObject({ summary: { state: { commands: [simplify] } } });
 		await bridge.stop(undefined);
 	});
 

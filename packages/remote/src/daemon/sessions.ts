@@ -7,6 +7,7 @@ import {
 	isSummary,
 	isStateChangeType,
 	applyChange,
+	applyPi,
 	type SessionState,
 	type SessionSummary,
 } from "@adeildo/pi-remote-protocol";
@@ -126,6 +127,8 @@ export class Sessions {
 		// Deltas and bindings travel without folding.
 		if (isStateChangeType(envelope.type))
 			entry.state.state = applyChange(entry.state.state, envelope.type, envelope.data);
+		// Pi's own name, model and thinking, so the list shows a rename before the next opening.
+		else entry.state.state = applyPi(entry.state.state, envelope.type, envelope.data);
 		if (EPHEMERAL.has(envelope.type) || envelope.seq === undefined) return undefined;
 		const bytes = JSON.stringify(envelope).length;
 		entry.replay.push({ envelope, bytes });
