@@ -129,6 +129,9 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
 - The checkout's daemon runs `packages/remote/dist/daemon.js`, so a merge that changes the daemon or
   the page reaches it after `bun run --cwd packages/remote build` there and a restart: stop the
   daemon's process, and a bridge starts the new one within ten seconds.
+- `bun run --cwd packages/remote dev` serves the page from a worktree with hot reload on port 5199,
+  and the running daemon answers its API. `-- --host <tailnet address>` opens it to a phone, which
+  keeps the login it has on the daemon's address because a cookie does not name a port.
 - A new worktree installs with `bun install --frozen-lockfile --ignore-scripts`, and
   that same install is what lets a commit or a push there run the hooks: without `node_modules` the
   `pre-push` exits 127 and git reports `failed to push some refs`, which reads like a conflict.
