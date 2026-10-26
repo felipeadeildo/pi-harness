@@ -2,7 +2,7 @@
 // room's last words. It reads it when it wants, so nobody is interrupted to publish it.
 import { isAbsolute, join } from "node:path";
 
-import { tasksWith, tildify } from "@adeildo/pi-kit";
+import { blockedText, tildify } from "@adeildo/pi-kit";
 
 import type { Peer, Posted } from "./folder.ts";
 import type { Here } from "./here.ts";
@@ -46,24 +46,7 @@ function section(room: BoardRoom, me: string, shown: Set<string>): string {
 		);
 	if (room.room !== undefined)
 		lines.push("", `To write to everyone there, send with room: "${room.room.name}".`);
-	return [...lines, ...boardsOf(room, names, me)].join("\n");
-}
-
-/**
- * What the other sessions of a room have on their boards, each under its own name. Nothing is merged:
- * a card belongs to the session that wrote it, and two sessions may work on different boards.
- */
-function boardsOf(room: BoardRoom, names: ReadonlyMap<string, Named>, me: string): string[] {
-	const lines: string[] = [];
-	for (const [session, view] of room.folder.boards) {
-		if (session === me) continue;
-		const open = view.open.filter((card) => card.column !== "done");
-		if (open.length === 0) continue;
-		const handle = names.get(session)?.handle ?? session;
-		lines.push("", `@${handle} has on its board:`);
-		for (const card of open) lines.push(`- ${card.column}: ${card.title}`);
-	}
-	return lines;
+	return lines.join("\n");
 }
 
 function heading(room: BoardRoom, others: number): string {
@@ -84,15 +67,13 @@ function peerLines(peer: Peer, names: ReadonlyMap<string, Named>, cwd: string): 
 	const lines = [
 		`@${handle} (${peer.state === "running" ? "working" : "idle"})${where}${peer.title === undefined ? "" : `: ${peer.title}`}`,
 	];
-	const tasks = peer.tasks;
-	if (tasks !== undefined) {
-		for (const task of tasksWith(tasks, "doing")) lines.push(`  doing: ${task.text}`);
-		for (const task of tasksWith(tasks, "waiting"))
-			lines.push(`  waiting on the operator: ${task.text}`);
-		for (const task of tasksWith(tasks, "queued")) lines.push(`  queued: ${task.text}`);
-		for (const task of tasksWith(tasks, "done").slice(-3))
-			lines.push(`  done: ${task.text}${task.result === undefined ? "" : ` -> ${task.result}`}`);
+	// Its board, as it wrote it: a card belongs to the session that wrote it, and nothing is merged.
+	for (const card of peer.board?.open ?? []) {
+		const blocked = card.blocked === undefined ? "" : ` (${blockedText(card.blocked, "agent")})`;
+		lines.push(`  ${card.column}: ${card.title}${blocked}`);
 	}
+	for (const card of peer.board?.done ?? [])
+		lines.push(`  done: ${card.title}${card.result === undefined ? "" : ` -> ${card.result}`}`);
 	const edited = [...peer.edited]
 		.toSorted(([, a], [, b]) => b - a)
 		.slice(0, RECENT_FILES)

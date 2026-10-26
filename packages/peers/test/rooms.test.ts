@@ -4,8 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
-	applyTaskOps,
-	emptyTasks,
+	type BoardView,
 	type LoggedEvent,
 	logEvent,
 	readFrom,
@@ -18,7 +17,7 @@ import type { Hooks } from "../src/here.ts";
 import { PEER_MESSAGE, type PeerDelivery } from "../src/inbox.ts";
 import { Membership } from "../src/membership.ts";
 import type { MembershipChange } from "../src/model.ts";
-import { boardOf, Rooms } from "../src/rooms.ts";
+import { Rooms } from "../src/rooms.ts";
 
 let root: string;
 let work: string;
@@ -46,7 +45,7 @@ interface Sent {
 	items?: PeerDelivery["items"];
 }
 
-/** A tiny bus, so the tasks package's lines reach the rooms the way pi's events do. */
+/** A tiny bus, so the kit's lines reach the rooms the way pi's events do. */
 function bus() {
 	const handlers = new Map<string, Set<(data: unknown) => void>>();
 	return {
@@ -97,14 +96,19 @@ function session(id: string, folder: string, extra: Partial<Hooks> = {}) {
 	const source = { getCwd: () => cwd, getSessionId: () => id };
 	rooms.open(source, undefined);
 	rooms.onMembership((change) => changes.push(change));
-	/** What the tasks package writes into the folder's room. */
-	function tasks(...texts: string[]) {
-		const state = applyTaskOps(
-			emptyTasks(),
-			texts.map((text) => ({ op: "ask" as const, text })),
-			{ at: now, origin: "you" },
-		);
-		logEvent(targetOf(source), events, "tasks.changed", { state }, undefined, now);
+	/** What the board feature hands the rooms: the session's cards being done, cut and ordered. */
+	function board(...titles: string[]) {
+		const view: BoardView = {
+			open: titles.map((title, index) => ({
+				id: `c${index + 1}`,
+				title,
+				column: "doing",
+				at: now,
+			})),
+			backlog: 0,
+			done: [],
+		};
+		rooms.board(view);
 	}
 	function name(handle: string) {
 		logEvent(targetOf(source), events, "session.named", { handle, title: handle }, undefined, now);
@@ -120,7 +124,7 @@ function session(id: string, folder: string, extra: Partial<Hooks> = {}) {
 		wentIn,
 		changes,
 		cwd,
-		tasks,
+		board,
 		name,
 		renamed,
 		peers: () => sent.filter((one) => one.kind === "custom"),
@@ -369,24 +373,22 @@ describe("a shared room", () => {
 		expect(api.rooms.rooms()).toHaveLength(2);
 	});
 
-	test("carries the board's part of the tasks, not the whole snapshot", () => {
+	test("carries the session's board into a shared room", () => {
 		const api = session("api", "backend");
 		const client = session("client", "frontend");
 		const id = api.rooms.create("backend+frontend", [{ folder: api.cwd }, { folder: client.cwd }]);
 		sync(api, client);
-		api.tasks("Expose capacity on /v1/fleet");
+		api.board("Expose capacity on /v1/fleet");
 		sync(api, client);
-		const seen = client.rooms.here(id)?.folder.peers.get("api")?.tasks;
-		expect(seen?.tasks.map((task) => task.text)).toEqual(["Expose capacity on /v1/fleet"]);
-		expect(seen?.decisions).toEqual([]);
-		const lines = rawLines(id, "api");
-		expect(lines.some((line) => line.type === "tasks.changed")).toBe(false);
-		expect(lines.some((line) => line.type === "tasks.board")).toBe(true);
+		const seen = client.rooms.here(id)?.folder.peers.get("api")?.board;
+		expect(seen?.open.map((card) => card.title)).toEqual(["Expose capacity on /v1/fleet"]);
+		expect(rawLines(id, "api").filter((line) => line.type === "board.changed")).toHaveLength(1);
 	});
 
-	test("a session that joins brings its name and its last edits, at the time of the join", () => {
+	test("a session that joins brings its name, its board and its last edits, at the time of the join", () => {
 		const api = session("api", "backend");
 		api.name("api");
+		api.board("Expose capacity on /v1/fleet");
 		api.rooms.log("activity", { kind: "edited", path: "src/fleet.ts" });
 		const client = session("client", "frontend");
 		now += 60_000;
@@ -397,6 +399,7 @@ describe("a shared room", () => {
 		sync(api, client);
 		const there = client.rooms.here(id)?.folder.peers.get("api");
 		expect(there?.handle).toBe("api");
+		expect(there?.board?.open.map((card) => card.title)).toEqual(["Expose capacity on /v1/fleet"]);
 		expect([...(there?.edited.keys() ?? [])]).toEqual(["src/fleet.ts"]);
 		expect(there?.edited.get("src/fleet.ts")).toBe(now);
 	});
@@ -416,7 +419,7 @@ describe("a shared room", () => {
 		expect(board).toContain('send with room: "backend+frontend"');
 	});
 
-	test("the board shows the other sessions' cards, each under its own name and merged with nothing", () => {
+	test("the board shows the other sessions' cards, each under its own agent and merged with nothing", () => {
 		const api = session("api", "backend");
 		const client = session("client", "frontend");
 		api.name("api");
@@ -431,18 +434,31 @@ describe("a shared room", () => {
 				open: [
 					{ id: "c1", title: "ship the parser", column: "doing", at: 10 },
 					{ id: "c2", title: "review the docs", column: "review", at: 5 },
+					{
+						id: "c3",
+						title: "name the package",
+						column: "todo",
+						at: 1,
+						blocked: { on: "operator", why: "which name?" },
+					},
 				] as never,
 				backlog: 2,
-				done: [],
+				done: [{ id: "c4", title: "the login", column: "done", result: "merged", at: 1 }] as never,
 			},
 		} as never);
 		sync(api, client);
 		const board = boardText(api.rooms.joined(), "api");
-		expect(board).toContain("@client has on its board:");
-		expect(board).toContain("- doing: ship the parser");
-		expect(board).toContain("- review: review the docs");
-		// The order is the writer's: this reader sorts nothing.
-		expect(board.indexOf("ship the parser")).toBeLessThan(board.indexOf("review the docs"));
+		// Under the client's own line, in the order it wrote them: this reader sorts nothing, and the
+		// `at` runs the other way.
+		const lines = board.split("\n");
+		const at = lines.findIndex((line) => line.startsWith("@client (idle)"));
+		expect(at).toBeGreaterThan(-1);
+		expect(lines.slice(at + 1, at + 5)).toEqual([
+			"  doing: ship the parser",
+			"  review: review the docs",
+			"  todo: name the package (o operador: which name?)",
+			"  done: the login -> merged",
+		]);
 	});
 });
 
@@ -494,23 +510,6 @@ describe("the open sessions", () => {
 		expect(api.rooms.openIn(client.cwd).map((entry) => entry.session)).toEqual(["client"]);
 		client.rooms.end();
 		expect(api.rooms.live().map((entry) => entry.session)).toEqual(["api"]);
-	});
-});
-
-describe("the board's part of the tasks", () => {
-	test("keeps what is open and the last three done", () => {
-		let state = applyTaskOps(
-			emptyTasks(),
-			["a", "b", "c", "d", "e"].map((text) => ({ op: "ask" as const, text, beside: true })),
-			{ at: 1, origin: "you" },
-		);
-		const ids = state.tasks.map((task) => task.id);
-		state = applyTaskOps(
-			state,
-			ids.slice(0, 4).map((id) => ({ op: "done" as const, id })),
-			{ at: 2, origin: "agent" },
-		);
-		expect(boardOf(state).tasks.map((task) => task.text)).toEqual(["b", "c", "d", "e"]);
 	});
 });
 

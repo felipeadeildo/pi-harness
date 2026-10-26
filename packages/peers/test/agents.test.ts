@@ -25,12 +25,13 @@ function working(text: string): Peer {
 		edited: new Map([["src/auth.ts", at]]),
 		ran: [{ command: "bun test", ok: true, at }],
 		commits: [],
-		tasks: {
-			tasks: [
-				{ id: "1", text, status: "doing" },
-				{ id: "2", text: "next thing", status: "queued" },
+		board: {
+			open: [
+				{ id: "c1", title: text, column: "doing", at },
+				{ id: "c2", title: "next thing", column: "todo", at },
 			],
-			decisions: [],
+			backlog: 0,
+			done: [],
 		},
 	} as unknown as Peer;
 }

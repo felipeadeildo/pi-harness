@@ -3,16 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import {
-	applyTaskOps,
-	emptyTasks,
-	HOST,
-	logEvent,
-	ownStart,
-	readFrom,
-	targetOf,
-	logPath,
-} from "@adeildo/pi-kit";
+import { HOST, logEvent, ownStart, readFrom, targetOf, logPath } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
 import type { Fit } from "../src/bid.ts";
@@ -744,20 +735,31 @@ describe("who else is here", () => {
 		expect(a.notes.at(-1)?.text).toContain("oauth left this folder");
 	});
 
-	test("the agent is told what the new colleague is doing", () => {
+	test("the agent is told what the new colleague is doing and what waits on the operator", () => {
 		const a = session("a");
 		const b = session("b");
 		name(b.here, "migration");
-		b.here.log("tasks.changed", {
-			state: applyTaskOps(emptyTasks(), [{ op: "ask", text: "Move the users table" }], {
-				at: now,
-				origin: "you",
-			}),
+		b.here.log("board.changed", {
+			view: {
+				open: [
+					{ id: "c1", title: "Move the users table", column: "doing", at: now },
+					{
+						id: "c2",
+						title: "Drop the old table",
+						column: "todo",
+						at: now,
+						blocked: { on: "operator", why: "keep a backup?" },
+					},
+				],
+				backlog: 0,
+				done: [],
+			},
 		});
 		b.here.log("activity", { kind: "edited", path: "src/db.ts" });
 		a.here.sync();
 
 		expect(a.notes[0]?.text).toContain("doing: Move the users table");
+		expect(a.notes[0]?.text).toContain("waiting: Drop the old table");
 		expect(a.notes[0]?.text).toContain("edited: src/db.ts");
 	});
 

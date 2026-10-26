@@ -558,7 +558,7 @@ export const peers = defineFeature({
 		}
 
 		scope.registerShortcut(Key.alt("g"), {
-			description: "The agents in your rooms, their tasks, and the rooms to talk in",
+			description: "The agents in your rooms, their boards, and the rooms to talk in",
 			handler: (ctx) =>
 				ctx.mode === "tui"
 					? openPanel(ctx, rooms, canOpenView(scope.events) ? showSession : undefined)

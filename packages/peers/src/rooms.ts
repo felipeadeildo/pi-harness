@@ -24,9 +24,7 @@ import {
 	type BoardView,
 	type RoomActivity,
 	type RoomMode,
-	type SessionTasks,
 	targetOf,
-	tasksWith,
 	tildify,
 	writePresence,
 } from "@adeildo/pi-kit";
@@ -48,8 +46,6 @@ import { byHandle, mentionedNames, type Named, namesOf } from "./names.ts";
 
 /** The edited files a session brings into a room it joins. */
 const SNAPSHOT_FILES = 8;
-/** How many done tasks a shared room carries, as the board shows them. */
-const BOARD_DONE = 3;
 /** How long a room keeps a member with no open agent. */
 const ROOM_GRACE_MS = 30_000;
 
@@ -96,8 +92,7 @@ export class Rooms implements RoomsView {
 	#wake: { at: number; timer: ReturnType<typeof setTimeout> } | undefined;
 	/** Rooms this session stepped out of with `m`, kept in the list so `m` brings it back. */
 	readonly #steppedOut = new Set<string>();
-	/** The part of the tasks last written to the shared rooms, so an unchanged board is not written again. */
-	#board = "";
+	/** The board last written, so an unchanged one is not written again. */
 	#boardView = "";
 	readonly #listeners = new Set<() => void>();
 	readonly #membership = new Set<(change: MembershipChange) => void>();
@@ -173,7 +168,7 @@ export class Rooms implements RoomsView {
 		this.#home = undefined;
 		removePresence(this.#session);
 		this.#session = undefined;
-		this.#board = "";
+		this.#boardView = "";
 	}
 
 	/** Reads every room, joins and leaves as their members say, and hands over what arrived, together. */
@@ -711,8 +706,8 @@ export class Rooms implements RoomsView {
 	}
 
 	/**
-	 * What the room would have seen had this session been there all along: its name, its state, the
-	 * board of its tasks and the files it edited last. Every line carries the time of the join, since
+	 * What the room would have seen had this session been there all along: its name, its state, its
+	 * board and the files it edited last. Every line carries the time of the join, since
 	 * names and tie-breaks go by who came first.
 	 */
 	#snapshot(here: Here): void {
@@ -722,32 +717,24 @@ export class Rooms implements RoomsView {
 		if (me.handle !== undefined && me.title !== undefined)
 			here.log("session.named", { handle: me.handle, title: me.title });
 		if (this.#state === "running") here.log("session.state", { state: "running" });
-		if (me.tasks !== undefined) here.log("tasks.board", { state: boardOf(me.tasks) });
+		if (me.board !== undefined) here.log("board.changed", { view: me.board });
 		const edited = [...me.edited].toSorted(([, a], [, b]) => a - b).slice(-SNAPSHOT_FILES);
 		for (const [path] of edited) here.log("activity", { kind: "edited", path });
 	}
 
-	/** The tasks package logs into the folder's room only; what the shared rooms need follows here. */
+	/** The names feature logs into the folder's room only; what the shared rooms need follows here. */
 	#mirror(event: LoggedEvent): void {
 		if (event.session !== this.#session) return;
 		const shared = this.#joinedShared().flatMap((room) => {
 			const here = this.#inside.get(room.id);
 			return here === undefined ? [] : [here];
 		});
-		if (event.type === "session.named") {
-			const data = event.data as LogEventMap["session.named"];
-			for (const here of shared) here.log("session.named", data);
-			// The index reads the name from the folder's room, which has not read this line yet.
-			this.#home?.sync();
-			this.#writeLive();
-			return;
-		}
-		if (event.type !== "tasks.changed") return;
-		const board = boardOf((event.data as LogEventMap["tasks.changed"]).state);
-		const text = JSON.stringify(board.tasks);
-		if (text === this.#board) return;
-		this.#board = text;
-		for (const here of shared) here.log("tasks.board", { state: board });
+		if (event.type !== "session.named") return;
+		const data = event.data as LogEventMap["session.named"];
+		for (const here of shared) here.log("session.named", data);
+		// The index reads the name from the folder's room, which has not read this line yet.
+		this.#home?.sync();
+		this.#writeLive();
 	}
 
 	/** Writes what this session's board holds, for the sessions that read it from the folder. */
@@ -981,21 +968,6 @@ function normal(member: Member): Member {
 	return "folder" in member
 		? { folder: real(member.folder) }
 		: { session: member.session, cwd: real(member.cwd) };
-}
-
-/** The part of the tasks the board shows: what is doing, waiting and queued, and the last few done. */
-export function boardOf(state: SessionTasks): SessionTasks {
-	const open = tasksWith(state, "doing", "waiting", "queued");
-	const done = tasksWith(state, "done").slice(-BOARD_DONE);
-	const shown = new Set([...open, ...done].map((task) => task.id));
-	return {
-		...state,
-		// Your messages' entry ids mean nothing in another folder's room.
-		tasks: state.tasks
-			.filter((task) => shown.has(task.id))
-			.map((task) => Object.assign(structuredClone(task), { asks: [] })),
-		decisions: [],
-	};
 }
 
 /** The line under a room an agent asked for: who asked, why, and what let it through. */
