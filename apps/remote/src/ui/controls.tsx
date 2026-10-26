@@ -104,7 +104,7 @@ export function Trigger({
 	return (
 		<Pressable
 			role="button"
-			aria-label={`${title}: ${value}`}
+			aria-label={value === "" ? title : `${title}: ${value}`}
 			aria-disabled={onPress === undefined}
 			disabled={onPress === undefined}
 			onPress={onPress}
@@ -120,7 +120,7 @@ export function Trigger({
 			}}
 		>
 			<Text numberOfLines={1} style={{ ...theme.type.label, color: theme.color.text }}>
-				{value}
+				{value === "" ? title : value}
 				{onPress === undefined ? "" : " \u25BE"}
 			</Text>
 		</Pressable>

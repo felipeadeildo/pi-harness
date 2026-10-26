@@ -84,9 +84,12 @@ export function menuItems(state: {
 	return items;
 }
 
-/** The model the session is on, as the one line the picker shows. */
+/**
+ * The model the session is on, as the one line the picker shows. Before the session has said which one,
+ * the line is empty and the chip shows its own name: "no model" would say there is none.
+ */
 export function modelLabel(model: { provider: string; id: string } | undefined): string {
-	return model === undefined ? "no model" : model.id;
+	return model === undefined ? "" : model.id;
 }
 
 /** Sends a held command now: it keeps its id, so the far side reads it as the same one. */

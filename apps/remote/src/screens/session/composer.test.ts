@@ -75,7 +75,8 @@ describe("the pickers", () => {
 
 	test("the model line names the model, and says so when there is none", () => {
 		expect(modelLabel({ provider: "anthropic", id: "opus" })).toBe("opus");
-		expect(modelLabel(undefined)).toBe("no model");
+		// Not said yet is not "no model": the chip shows its own name until the session says which.
+		expect(modelLabel(undefined)).toBe("");
 	});
 });
 

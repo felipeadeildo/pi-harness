@@ -272,7 +272,7 @@ async function carriesTheOpeningsState(page: Page): Promise<Result> {
  */
 async function searchesModels(page: Page): Promise<Result> {
 	try {
-		await page.getByRole("button", { name: /^Model: / }).click({ timeout: 20_000 });
+		await page.getByRole("button", { name: /^Model(: |$)/ }).click({ timeout: 20_000 });
 		const sheet = page.getByRole("dialog", { name: "Model" });
 		await sheet.waitFor({ timeout: 20_000 });
 		const all = await sheet.getByRole("radio").count();
