@@ -2,7 +2,7 @@
 // Every control is at least `theme.hit` points on its short side, says what it is to a screen reader,
 // and shows its state in more than color.
 import { type ReactNode } from "react";
-import { Pressable, Text } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { useTheme } from "./use-theme.ts";
 
@@ -130,7 +130,12 @@ export function Trigger({
 	);
 }
 
-/** One row of a list where exactly one is on: a heavier weight and a mark say which, not color alone. */
+/**
+ * One row of a list where exactly one is on, marked the way the terminal marks its selected row, three
+ * marks together: a bar in the accent against the left edge, `❯` in the accent before the label, and the
+ * label in bold. The rows that are not on keep the column of the pointer empty, so nothing shifts when
+ * the choice moves.
+ */
 export function Option({
 	label,
 	hint,
@@ -155,15 +160,28 @@ export function Option({
 				paddingHorizontal: theme.space(4),
 				flexDirection: "row",
 				alignItems: "center",
-				justifyContent: "space-between",
 				gap: theme.space(3),
 			}}
 		>
+			<View
+				testID={chosen ? "option-bar" : undefined}
+				style={{
+					position: "absolute",
+					left: 0,
+					top: 0,
+					bottom: 0,
+					width: theme.line.thick,
+					backgroundColor: chosen ? theme.color.accent : "transparent",
+				}}
+			/>
+			<Text style={{ ...theme.type.body, color: theme.color.accent, width: theme.space(5) }}>
+				{chosen ? "\u276F" : ""}
+			</Text>
 			<Text style={{ flex: 1 }}>
 				<Text
 					style={{
 						...theme.type.body,
-						fontWeight: chosen ? "600" : "400",
+						fontWeight: chosen ? "700" : "400",
 						color: theme.color.text,
 					}}
 				>
@@ -173,7 +191,6 @@ export function Option({
 					<Text style={{ ...theme.type.caption, color: theme.color.muted }}>{`  ${hint}`}</Text>
 				)}
 			</Text>
-			<Text style={{ ...theme.type.body, color: theme.color.text }}>{chosen ? "\u2713" : ""}</Text>
 		</Pressable>
 	);
 }
