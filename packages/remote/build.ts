@@ -1,7 +1,7 @@
 // Builds the daemon and the command into one JavaScript file each. Node runs them outside pi, where
 // nothing compiles TypeScript, so every dependency goes inside and only Node's own modules stay out.
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 const ENTRIES = {
@@ -66,15 +66,25 @@ export function foreign(outside: readonly string[], builtins: ReadonlySet<string
 	);
 }
 
-/** Builds the page with Vite into `web` next to the daemon, where the daemon looks for it. */
+/**
+ * Builds the page with Vite into `web` next to the daemon, where the daemon looks for it. The build
+ * goes to a folder beside it and is swapped in whole, so a running daemon never serves half of one.
+ */
 function buildWeb(outdir: string): void {
 	const web = join(outdir, "web");
-	const result = spawnSync("bun", ["x", "vite", "build", "--outDir", web, "--emptyOutDir"], {
+	const next = `${web}.next`;
+	const result = spawnSync("bun", ["x", "vite", "build", "--outDir", next, "--emptyOutDir"], {
 		cwd: join(import.meta.dir, "web"),
 		stdio: "inherit",
 	});
 	if (result.status !== 0) throw new Error("the page's build failed");
-	if (!existsSync(join(web, "index.html"))) throw new Error(`the build left no ${web}/index.html`);
+	if (!existsSync(join(next, "index.html")))
+		throw new Error(`the build left no ${next}/index.html`);
+	const old = `${web}.old`;
+	rmSync(old, { recursive: true, force: true });
+	if (existsSync(web)) renameSync(web, old);
+	renameSync(next, web);
+	rmSync(old, { recursive: true, force: true });
 }
 
 if (import.meta.main) {

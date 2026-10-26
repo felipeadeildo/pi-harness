@@ -83,7 +83,8 @@ export function isAppFile(app: WebApp, path: string): boolean {
 
 export function serveApp(app: WebApp, path: string): Served {
 	const file = fileFor(app, path);
-	if (file === undefined)
+	const body = file === undefined ? undefined : readOf(join(app.dir, file));
+	if (file === undefined || body === undefined)
 		return { status: 404, type: TYPES[".html"]!, headers: {}, body: "not found" };
 	return {
 		status: 200,
@@ -96,6 +97,15 @@ export function serveApp(app: WebApp, path: string): Served {
 				: "no-cache",
 			"x-content-type-options": "nosniff",
 		},
-		body: readFileSync(join(app.dir, file)),
+		body,
 	};
+}
+
+/** A build being swapped in takes a listed file away for an instant. */
+function readOf(path: string): Buffer | undefined {
+	try {
+		return readFileSync(path);
+	} catch {
+		return undefined;
+	}
 }

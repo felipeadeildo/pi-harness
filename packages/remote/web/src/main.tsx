@@ -18,6 +18,18 @@ const router = createBrowserRouter([
 	},
 ]);
 
+// A page left open across a new build asks for chunks the build removed; the new page has them.
+window.addEventListener("vite:preloadError", (event) => {
+	const last = Number(sessionStorage.getItem("reloaded-for-build") ?? 0);
+	if (Date.now() - last < 10_000) return;
+	event.preventDefault();
+	sessionStorage.setItem("reloaded-for-build", String(Date.now()));
+	// A tap into a session has not moved the address yet while its chunk loads.
+	const going = router.state.navigation.location;
+	if (going === undefined) location.reload();
+	else location.assign(`${going.pathname}${going.search}${going.hash}`);
+});
+
 createRoot(document.getElementById("root") as HTMLElement).render(
 	<StrictMode>
 		<RouterProvider router={router} />

@@ -95,6 +95,12 @@ describe("the page's build", () => {
 		expect(serveApp(app, "/nowhere").status).toBe(404);
 	});
 
+	test("a listed file that went away answers not found", () => {
+		const app = appOf();
+		rmSync(join(dir, "web", "assets"), { recursive: true });
+		expect(serveApp(app, "/assets/index-1234.js").status).toBe(404);
+	});
+
 	test("a folder with no page is no build", () => {
 		mkdirSync(join(dir, "empty"));
 		expect(loadWebApp(join(dir, "empty"))).toBeUndefined();
