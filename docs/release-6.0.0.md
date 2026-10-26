@@ -74,5 +74,8 @@ title any more. A session is its handle, and the name you give it with `/name` o
 | the look's `tasks` segment                                   | `board`                                                       |
 | a title on `session.named`, on a peer and in presence        | the handle only                                               |
 
+Upgrade the daemon and the clients together. The shape of `SessionState` changed, and a 5.x client
+does not know `board.changed`, so a phone on 5.x reading a 6.0.0 daemon shows no board.
+
 A session written with 5.x opens as it was. Its tasks' paid model calls still count in its cost, and
 it keeps the handle the tasks gave it.
