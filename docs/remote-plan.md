@@ -44,7 +44,7 @@ The other tracks of the cycle:
 - [x] The permission is asked above the editor, which stays usable (#214)
 - [x] The questions are asked above the editor the same way (#254, #298)
 - [x] Skills, templates and `/compact` from the phone, and nothing else offered (#231, #245, #261)
-- [ ] The board each agent keeps. nearly: the model, the contract and the tool (#201, #256), the Alt+T panel (#338), the other sessions' cards in the room (#346) and the board on the phone (#365, #366) are on `main`; the small model's removal is still coming (#358)
+- [x] The board each agent keeps: the model, the contract and the tool (#201, #256), the Alt+T panel (#338), the other sessions' cards in the room (#346), the board on the phone (#365, #366), the compaction, the look's strip and the peers reading it (#377, #381, #383), and the tasks with their small model gone (#358, `cbfb9b1c`)
 - [x] The permission judge reads only the operator's words (#213)
 - [x] The port clients reach the daemon on is a setting (#197, #225)
 - [x] `main` takes no merge with `verify`, `app` or `gate` red
@@ -54,7 +54,7 @@ The simplifications:
 - [x] One entry per state change, and a state change the table lacks does not compile (#275, #278)
 - [x] The daemon answers a client from what it keeps; the opening packet has one name (#277, #280)
 - [x] The daemon speaks WebSocket through `ws`, with one clock (#290)
-- [ ] No export without a reader, and `knip` in `verify`. nearly: most packages are clean (#274, #281, #283, #301, #303, #307, #308, #319) and the config names what each package has (#313); the app, `compact` and `tasks` still export what nobody reads, and the step into `verify` is still coming
+- [x] No export without a reader, and `knip` in `verify`: every package is clean (#274, #281, #283, #301, #303, #307, #308, #319, #313), `knip` runs in `verify` (#328), and since #358 it runs with no exception
 - [ ] Comments say only what the code cannot. nearly: the remote stack, the kit and peers are read line by line (#286, #292, #295, #304, #305, #311, #312, #315, #318, #320, #339); the app and the ask packages are still to read
 
 The app runs on iOS and Android as well as the web:
