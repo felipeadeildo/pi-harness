@@ -10,3 +10,5 @@ apps/remote/.expo/
 
 *.orig
 *.rej
+.agents/
+skills-lock.json
