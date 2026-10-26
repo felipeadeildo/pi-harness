@@ -83,6 +83,40 @@ describe("who owns an address", () => {
 		await owners.owns("100.1.1.2");
 		expect(asked).toBe(2);
 	});
+
+	test("a no is kept for the same minute, so a node that leaves the tailnet is out within it", async () => {
+		let at = 0;
+		let answer = whois(OTHER);
+		const owners = new Owners(
+			tailnet,
+			async () => answer,
+			() => at,
+		);
+		expect(await owners.owns("100.1.1.3")).toBe(false);
+		// The node joins the owner's tailnet at 30 s: the kept no still holds, which is the cost of the
+		// cache and the reason it is a minute and not an hour.
+		answer = whois(OWNER);
+		at = 30_000;
+		expect(await owners.owns("100.1.1.3")).toBe(false);
+		at = 61_000;
+		expect(await owners.owns("100.1.1.3")).toBe(true);
+	});
+
+	test("a yes is kept for the same minute, so a node that leaves is not admitted for an hour", async () => {
+		let at = 0;
+		let answer = whois(OWNER);
+		const owners = new Owners(
+			tailnet,
+			async () => answer,
+			() => at,
+		);
+		expect(await owners.owns("100.1.1.2")).toBe(true);
+		answer = whois(OTHER);
+		at = 59_000;
+		expect(await owners.owns("100.1.1.2")).toBe(true);
+		at = 61_000;
+		expect(await owners.owns("100.1.1.2")).toBe(false);
+	});
 });
 
 /** A daemon's client port with a tailnet on a second loopback address, which Linux lets anyone bind. */
