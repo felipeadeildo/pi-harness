@@ -18,7 +18,6 @@ export function waiting(peer: Peer): BoardCard[] {
 
 export type AgentState = "running" | "idle" | "waiting";
 
-/** What waits on the operator comes first, since it is what the operator can act on. */
 export function stateOf(peer: Peer): AgentState {
 	if (waiting(peer).length > 0) return "waiting";
 	return peer.state === "running" ? "running" : "idle";

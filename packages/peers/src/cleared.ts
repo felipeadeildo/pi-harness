@@ -7,7 +7,6 @@ type Listener = (session: string) => void;
 const listeners = new Set<Listener>();
 let installed = false;
 
-/** Calls `listener` with the session's id each time pi empties that session's queue. */
 export function onQueueCleared(listener: Listener): () => void {
 	install();
 	listeners.add(listener);

@@ -1,5 +1,4 @@
-// What a session is called and painted with. Both come from the folder's logs, so every session
-// shows the same name in the same color, and a name stays put while it is open.
+// A session's name and color, from the folder's logs, so every session draws them the same.
 import type { ThemeColor } from "@earendil-works/pi-coding-agent";
 
 import type { Peer } from "./folder.ts";
@@ -17,12 +16,10 @@ type PeerColor = (typeof PEER_COLORS)[number];
 export interface Named {
 	session: string;
 	handle: string;
-	/** What this session wears. Any theme color can arrive from the logs; the palette above is what
-	 * a new session is given. */
+	/** Any theme color can arrive from the logs; the palette is for new sessions. */
 	color: ThemeColor;
 }
 
-/** The words the room uses: the open sessions by session id. */
 export interface Names {
 	readonly bySession: ReadonlyMap<string, Named>;
 }
@@ -60,21 +57,18 @@ function hash(text: string): number {
 	return value;
 }
 
-/** The open session a name points at, ignoring case and a leading @. */
 export function byHandle(names: Names, name: string): Named | undefined {
 	const wanted = name.replace(/^@/, "").toLowerCase();
 	return [...names.bySession.values()].find((one) => one.handle === wanted);
 }
 
-/** `@` and a name, not inside an address. A path or a file name after the `@` is a file. */
+/** A path or file name after the `@` is a file. */
 const MENTION = /(?<![\w@])@([a-z][a-z0-9-]*)(?![\w/-]|\.\w)/gi;
 
-/** The names after each `@` in a text, in lower case. */
 export function mentionedNames(text: string): string[] {
 	return [...text.matchAll(MENTION)].map((match) => (match[1] ?? "").toLowerCase());
 }
 
-/** Every @name in a text that points at an open session. */
 export function mentionsIn(names: Names, text: string): Named[] {
 	const found = new Map<string, Named>();
 	for (const name of mentionedNames(text)) {

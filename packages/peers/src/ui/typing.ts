@@ -22,16 +22,14 @@ const WHEN: Record<Waiting["mode"], string> = {
 	"after-run": "after this run",
 };
 
-/** The drafts in every room, and each room's names, which only that room knows. */
 export interface TypingSource {
 	othersTyping(): RoomTyping[];
-	/** What was sent to this agent and waits in its queue. */
 	queued(): Waiting[];
 	here(room: string | undefined): Pick<Here, "session" | "names"> | undefined;
 	rooms(): Room[];
 }
 
-/** Who is writing, to whom, in one line the footer draws: the frame over the editor is only for what waits here. */
+/** The frame over the editor is only for what waits here. */
 export interface WritingMark {
 	handle: string;
 	color: string;
@@ -55,7 +53,6 @@ export function writingMarks(
 	});
 }
 
-/** The same names the frame uses, without the theme: `you` for this session, `@handle` for the rest. */
 function plainRecipients(to: string, names: ReadonlyMap<string, Named>, me: string | undefined) {
 	if (to === EVERYONE_MENTION) return "everyone";
 	return to
@@ -66,7 +63,6 @@ function plainRecipients(to: string, names: ReadonlyMap<string, Named>, me: stri
 		.join(", ");
 }
 
-/** Sent and not read yet: the draft's frame, with its first lines and when the agent gets it. */
 export function waitingLines(waiting: readonly Waiting[], theme: Theme, width: number): string[] {
 	return waiting.flatMap((one) => {
 		const color = (one.fromYou ? "accent" : one.color) as ThemeColor;
@@ -83,7 +79,6 @@ export function waitingLines(waiting: readonly Waiting[], theme: Theme, width: n
 	});
 }
 
-/** The first lines with words, and how many more there are when they do not all fit. */
 function firstLines(text: string, width: number): { text: string; more: boolean }[] {
 	const words = wrapTextWithAnsi(text.trim(), width).filter((line) => line.trim() !== "");
 	if (words.length <= WAITING_SHOWN) return words.map((line) => ({ text: line, more: false }));
@@ -91,7 +86,7 @@ function firstLines(text: string, width: number): { text: string; more: boolean 
 	return [...shown, { text: `${words.length - WAITING_SHOWN + 1} more lines`, more: true }];
 }
 
-/** Redraws itself every frame while someone writes; pi drops it when nobody does. */
+/** Redraws every frame while someone writes; pi drops it when nobody does. */
 export class TypingWidget implements Component {
 	readonly #source: TypingSource;
 	readonly #theme: Theme;
@@ -104,8 +99,7 @@ export class TypingWidget implements Component {
 	}
 
 	render(width: number): string[] {
-		// Only what waits for this session: another agent's draft is not addressed here, and a frame
-		// over the editor for something not meant for you would move the editor you are typing in.
+		// Another agent's draft is not addressed here; a frame for it would move the editor you type in.
 		return waitingLines(this.#source.queued(), this.#theme, width);
 	}
 
@@ -116,7 +110,7 @@ export class TypingWidget implements Component {
 	}
 }
 
-/** Who a draft goes to, each in its color; `me` reads "you". */
+/** `me` reads "you". */
 export function typingRecipients(
 	to: string,
 	names: ReadonlyMap<string, Named>,

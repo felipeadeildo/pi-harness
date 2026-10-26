@@ -1,5 +1,5 @@
-// The folder as every session sees it, rebuilt from the logs. Every session reads the same events,
-// so each one reaches the same board, the same room and the same winner of a request.
+// The folder rebuilt from the logs. Every session reads the same events, so all reach the same board,
+// room and request winner.
 import {
 	type Activity,
 	type BoardView,
@@ -17,18 +17,17 @@ const KEEP_RUNS = 5;
 export interface Peer {
 	session: string;
 	pid?: number;
-	/** When its process started, which tells it from a later process with the same pid. */
 	start?: string;
 	host?: string;
 	model?: string;
-	/** Where it works. Its edited paths are relative to this. Absent in logs older than rooms. */
+	/** Edited paths are relative to it. */
 	cwd?: string;
 	startedAt: number;
 	endedAt?: number;
 	handle?: string;
 	state: RoomActivity;
 	stateAt: number;
-	/** The operator wrote here at least once. Until then nothing from the room wakes it. */
+	/** Until the operator writes here, nothing from the room wakes it. */
 	prompted?: boolean;
 	board?: BoardView;
 	edited: Map<string, number>;
@@ -47,7 +46,6 @@ export interface Posted {
 	id: string;
 	session: string;
 	from: "you" | "agent";
-	/** Session ids, "all" for every session, or "any" for a request one of them takes. */
 	to: string[] | "all" | "any";
 	text: string;
 	urgent: boolean;
@@ -117,14 +115,13 @@ export class Folder {
 	readonly peers = new Map<string, Peer>();
 	readonly messages = new Map<string, Posted>();
 	readonly room: RoomItem[] = [];
-	/** Who counts in this room, folded from its `room.*` events. */
 	readonly membership = new Membership();
 	/** The folder is the room's first member, so a session opened there is in before any `room.added`. */
 	constructor(folder?: string) {
 		if (folder !== undefined) this.membership.folders.set(folder, 0);
 	}
 
-	/** Counts the reads that brought events, so what is worked out from the folder knows it is stale. */
+	/** Bumped on every read that brought events, so derived values know they are stale. */
 	version = 0;
 
 	apply(events: readonly LoggedEvent[]): void {
@@ -133,7 +130,7 @@ export class Folder {
 	}
 
 	#apply(event: LoggedEvent): void {
-		// Who changed the room need not be in it, so a `room.*` line makes nobody a peer.
+		// Who changed the room need not be in it.
 		if (event.type.startsWith("room.")) return this.membership.apply(event);
 		const peer = this.#peer(event.session, event.at);
 		switch (event.type) {
@@ -184,7 +181,6 @@ export class Folder {
 		}
 	}
 
-	/** Receipts, bids and takes, which all point at a message. */
 	#about(event: LoggedEvent): void {
 		const data = event.data as { id?: string; request?: string };
 		const message = this.messages.get(data.id ?? data.request ?? "");
@@ -235,8 +231,7 @@ export class Folder {
 	}
 
 	#board(peer: Peer, view: BoardView, at: number): void {
-		// The first board is where the session was, not something it just finished. The view carries
-		// the last done cards only, so a card is finished when it enters them.
+		// The first board is where the session was, not something it just finished.
 		if (peer.board !== undefined) {
 			const before = new Set(peer.board.done.map((card) => card.id));
 			for (const card of view.done)

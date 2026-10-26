@@ -105,18 +105,15 @@ const PARAMETERS = Type.Object({
 	),
 });
 
-/** The path the logs live under, as a command would name it. */
 const EVENTS = "harness/events";
-/** A shell redirection, or a command that changes a file. Reading one of these logs stays allowed. */
+/** Reading the logs stays allowed. */
 const WRITES =
 	/(>>?|\btee\b|\brm\b|\bmv\b|\bcp\b|\btruncate\b|\bdd\b|\binstall\b|\btouch\b|\bchmod\b|\bsed -i\b|\bpython3? -c\b|\bnode -e\b|\bbun -e\b)/;
-/** Redirections that write nowhere: errors thrown away, or one stream joined to another. */
+/** Errors thrown away, or one stream joined to another. */
 const HARMLESS = /\d*>>?\s*\/dev\/null|\d*>&\d+/g;
-/** Where pi-ask-permission says what let a call through, and where a tool describes its calls to it. */
 const DECIDED = "pi-ask-permission:decided";
 const DESCRIBE = "pi-ask-permission:tool";
 
-/** Whether this session is a subagent's, which lives inside another session and stays out of the room. */
 function inSubagent(): boolean {
 	return process.env.PI_SUBAGENT_CHILD === "1";
 }
@@ -125,7 +122,6 @@ export interface SentDetails {
 	id: string;
 	to: string[];
 	text: string;
-	/** The shared room it went to, by id. Absent for the folder's room. */
 	room?: string;
 }
 
@@ -139,12 +135,10 @@ export const peers = defineFeature({
 		// A subagent never joins the room: a woken message would collide with the prompt that started it.
 		if (inSubagent()) return;
 		let session: ExtensionContext | undefined;
-		/** Held messages a run that was not yours took, by id, so their line says so. */
 		const wentIn = new Map<string, WentIn>();
 		function remember({ ids, by }: WentInEntry): void {
 			for (const id of ids) wentIn.set(id, by === undefined ? {} : { by });
 		}
-		// Tool rows that show receipts, redrawn when a room changes.
 		const rows = new Map<string, () => void>();
 		const rooms = new Rooms({
 			events: scope.events,
@@ -172,8 +166,7 @@ export const peers = defineFeature({
 			},
 			busyDelivery: () => delivery.get(scope),
 			chainLimit: () => chainLimit.get(scope),
-			// The run that took them is starting, and its frames redraw the line. The entry keeps it
-			// for the next time the session opens.
+			// The run that took them is starting; its frames redraw the line.
 			wentIn: (ids, by) => {
 				const went: WentInEntry = { ids: [...ids], ...(by === undefined ? {} : { by }) };
 				remember(went);
@@ -188,10 +181,8 @@ export const peers = defineFeature({
 			opening: () => opening.get(scope),
 		});
 		let typingShown = false;
-		/** What let each call of the tool through, from the permission gate, by call id. */
 		const allowed = new Map<string, string>();
 
-		/** Over the editor while another agent writes to a room, and after, until the agent reads it. */
 		function showTyping(): void {
 			const ctx = session;
 			if (ctx === undefined || ctx.mode !== "tui") return;
@@ -230,7 +221,7 @@ export const peers = defineFeature({
 			ctx.ui.setStatus(PEERS_STATUS, statusLine(summary, ctx.ui.theme));
 		}
 
-		// The look draws its own peers segment from this, so the footer can show names and colours.
+		// The look draws its own peers segment from this.
 		PEERS.provide(scope, () => {
 			const summary = rooms.summary();
 			return {
@@ -250,19 +241,18 @@ export const peers = defineFeature({
 			session?.ui.notify(membershipNotice(change, rooms.session), "info");
 		});
 
-		// Something else may set the active tools before this one registers, as pi-subagents does on a
-		// reload, and then the agent has no way to talk to the others.
+		// Another extension (pi-subagents on reload) may set the active tools first.
 		scope.on("before_agent_start", () => {
 			const active = scope.getActiveTools();
 			if (!active.includes(TOOL)) scope.setActiveTools([...active, TOOL]);
 		});
 
-		// Esc empties pi's queue, colleagues' messages included. The inbox puts them back or holds them.
+		// The inbox puts colleagues' messages back or holds them.
 		let stopClearing: (() => void) | undefined;
 		function watchClearing(): () => void {
 			return onQueueCleared((id) => {
 				if (id !== rooms.session) return;
-				// Esc aborts right after it empties the queue, so look once that has happened.
+				// Esc aborts right after it empties the queue.
 				queueMicrotask(() => {
 					const ctx = session;
 					if (ctx === undefined || id !== rooms.session) return;
@@ -279,7 +269,7 @@ export const peers = defineFeature({
 					remember(entry.data);
 			stopClearing?.();
 			stopClearing = watchClearing();
-			// The gate sees what each call does: a yes to sending never lets a link through.
+			// A yes to sending never lets a link through.
 			scope.events.emit(DESCRIBE, {
 				name: TOOL,
 				describe: (input: Record<string, unknown>) => describeCall(input),
@@ -287,7 +277,6 @@ export const peers = defineFeature({
 					input.action === "link" && link.get(scope) === "ask",
 			});
 			rooms.open(ctx.sessionManager, ctx.model === undefined ? undefined : modelRef(ctx.model));
-			// What this session's board holds, for the other sessions in the room to read.
 			const board = BOARD.current(scope);
 			if (board !== undefined) rooms.board(boardView(board));
 			if (ctx.mode === "tui")
@@ -298,13 +287,11 @@ export const peers = defineFeature({
 		scope.onShutdown(() => {
 			stopClearing?.();
 			stopClearing = undefined;
-			// Everything that reads the log stops first: a room still open during the shutdown reads
-			// a context pi no longer owns, and that throw would skip the rest of this handler.
+			// Readers of the log stop first: an open room during shutdown would read a context pi no longer owns.
 			rooms.end();
 			const ui = session?.ui;
 			session = undefined;
-			// Clearing the mark on the footer is a courtesy, and pi is allowed to have taken the
-			// context away already.
+			// Pi may have taken the context away already.
 			try {
 				ui?.setStatus(PEERS_STATUS, undefined);
 			} catch {
@@ -317,7 +304,6 @@ export const peers = defineFeature({
 		scope.on("input", (event, ctx) => {
 			if (event.source !== "interactive" || event.text.startsWith("/"))
 				return { action: "continue" };
-			// The watcher may not have caught a session that just opened.
 			rooms.sync();
 			const route = rooms.chat(event.text);
 			switch (route.kind) {
@@ -344,7 +330,6 @@ export const peers = defineFeature({
 			}
 		});
 
-		// The message the agent is writing, live, for the others' room.
 		scope.on("message_update", (event) => {
 			const kind = event.assistantMessageEvent.type;
 			if (kind !== "toolcall_start" && kind !== "toolcall_delta") return;
@@ -376,7 +361,6 @@ export const peers = defineFeature({
 			if (message.role === "user") rooms.read(undefined, textOf(message.content));
 		});
 
-		// What the agent did, for the others' board.
 		scope.on("tool_execution_start", (event) => {
 			const args = (event.args ?? {}) as { path?: unknown; command?: unknown };
 			pending.set(event.toolCallId, {
@@ -410,8 +394,7 @@ export const peers = defineFeature({
 			}
 		});
 
-		// Only this package writes the logs, so no tool can post words as yours or add a session to a
-		// room. Reading them stays allowed: looking at the logs is how an agent learns who else is here.
+		// Only this package writes the logs, so no tool can post as you; reading them stays allowed.
 		scope.on("tool_call", (event) =>
 			writesLogs(event)
 				? {
@@ -422,7 +405,7 @@ export const peers = defineFeature({
 				: undefined,
 		);
 
-		/** The write tools name their target, and a command is only a problem when it changes a file. */
+		/** A command is a problem only when it changes a file. */
 		function writesLogs(event: { toolName: string; input?: unknown }): boolean {
 			const input = (event.input ?? {}) as { path?: unknown; command?: unknown };
 			if (
@@ -520,7 +503,6 @@ export const peers = defineFeature({
 			const folder = params.folder?.trim() ?? "";
 			if (folder === "") return reply("Say which folder in folder.");
 			let by = allowed.get(toolCallId);
-			// Without the permission gate, or when it let the call through some other way, ask here.
 			if (rule === "ask" && by !== "you") {
 				const yes =
 					ctx.hasUI &&
@@ -597,12 +579,10 @@ export function committed(output: string): { sha: string; subject: string } | un
 	return match === null ? undefined : { sha: match[1] ?? "", subject: (match[2] ?? "").trim() };
 }
 
-/** The sessions a post goes to. */
 function sessionsOf(post: Post): string[] {
 	return post.to.map((named: Named) => named.session);
 }
 
-/** What the permission gate shows of a call: what it does, and a level per action. */
 function describeCall(input: Record<string, unknown>): { summary: string; levels: string[] } {
 	const action = typeof input.action === "string" ? input.action : "board";
 	return { summary: callSummary(action, input), levels: [`${TOOL} ${action}`] };
@@ -623,14 +603,12 @@ function callSummary(action: string, input: Record<string, unknown>): string {
 	}
 }
 
-/** Everyone or anyone, when one of the names is the group. */
 function groupOf(names: readonly string[]): "all" | "any" | undefined {
 	if (names.some((name) => EVERYONE.has(name.toLowerCase()))) return "all";
 	if (names.some((name) => ANYONE.has(name.toLowerCase()))) return "any";
 	return undefined;
 }
 
-/** The notice after you send a message from the editor to other agents. */
 function sentNotice(to: readonly Post[] | "all" | "any"): string {
 	if (to === "all") return `Sent to @${EVERYONE_MENTION}: every agent here gets it.`;
 	if (to === "any") return `Asked @${ANYONE_MENTION}. The agent that fits it best takes it.`;

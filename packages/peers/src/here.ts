@@ -1,7 +1,6 @@
 import { readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-// This session in one room: what it logs, what it reads, and what is due for its agent.
 import {
 	type Delivery,
 	FolderFeed,
@@ -37,18 +36,17 @@ import { award, turnToTake } from "./rules.ts";
 export type BoardMark = PeerMark;
 export { PEER_HELD, PEER_MESSAGE, type PeerDelivery, type PeerMessageDetails } from "./inbox.ts";
 
-/** How long the open sessions are taken as they were, between two changes of the folder. */
 const LIVE_FOR_MS = 1_000;
 
-/** A quiet note for the agent: who else is in the room. It is not shown in the chat. */
+/** Not shown in the chat. */
 export const PEER_NOTE = "pi-peers:note";
-/** A request to everyone another session took, kept in this transcript only. */
+/** Kept in this transcript only. */
 export const PEER_BROADCAST = "pi-peers:broadcast";
-/** Older messages and requests are history, never delivered or bid on, and so is what came before the session. */
+/** Older messages and requests are history: never delivered or bid on. */
 const RECENT_MS = 10 * 60_000;
-/** A session that has shown nothing yet waits this long before it is worth telling the agent about. */
+/** A new session that shows nothing waits this long before the agent is told. */
 const ANNOUNCE_MS = 4_000;
-/** A message still being written, shown live and never logged. Stale ones are a crashed writer. */
+/** A stale draft is a crashed writer. */
 const TYPING_STALE_MS = 15_000;
 const TYPING_EVERY_MS = 100;
 
@@ -63,40 +61,32 @@ export interface Hooks extends InboxHooks {
 	events: ExtensionAPI["events"];
 	fit(request: string, me: Peer, signal: AbortSignal): Promise<Fit>;
 	changed(): void;
-	/** Puts a request to everyone that another session took in the transcript, outside the model's context. */
+	/** Outside the model's context. */
 	show?(details: PeerMessageDetails): void;
-	/** The session's inbox, when it reads several rooms. A room alone gets its own. */
+	/** A room alone gets its own. */
 	inbox?: Inbox;
 	now?(): number;
-	/** Whether a process of this machine runs, given its pid and the start it recorded. */
 	alive?: Lives;
-	/** The sessions open on the owner's other machines. */
 	elsewhere?(): ReadonlySet<string>;
-	/** How long, in milliseconds, a shared room keeps a member with no open agent. */
 	roomGrace?(): number;
-	/** How a session the operator adds to a room stands there: taking part, or only listening. */
 	opening?(): Exclude<RoomMode, "out">;
 	/** Required, so no timer outlives the session. */
 	defer(run: () => void, ms?: number): void;
 }
 
-/** A shared room, as this session knows it. */
 export interface RoomRef {
 	id: string;
 	name: string;
 }
 
-/** Where a session joins a room, and what it already read of it. */
 export interface Place {
 	target: LogTarget;
 	cwd: string;
 	model?: string;
-	/** Absent for the folder's room. */
 	room?: RoomRef;
-	/** The room's logs, already read up to now. */
 	feed?: FolderFeed;
 	folder?: Folder;
-	/** False when whoever holds the session's rooms watches the logs and syncs them together. */
+	/** False when the session's rooms sync the logs together. */
 	watch?: boolean;
 }
 
@@ -107,7 +97,6 @@ interface SessionSource {
 
 export class Here implements Sender {
 	readonly #hooks: Hooks;
-	/** Who this session is, as the log names it: the handle it drew and the machine it runs on. */
 	get by(): By {
 		const handle =
 			this.names().bySession.get(this.session ?? "")?.handle ?? this.session ?? "an agent";
@@ -115,7 +104,7 @@ export class Here implements Sender {
 	}
 	readonly #inbox: Inbox;
 	#live: { key: string; peers: Peer[]; names: Names | undefined } | undefined;
-	/** A room alone owns its inbox and tells it when a run starts; the session's rooms tell theirs once. */
+	/** A room alone tells its own inbox when a run starts; the session's rooms tell theirs once. */
 	readonly #ownInbox: boolean;
 	#target: LogTarget | undefined;
 	#cwd = "";
@@ -131,9 +120,7 @@ export class Here implements Sender {
 	readonly #shown = new Set<string>();
 	readonly #bidding = new Set<string>();
 	readonly #fits = new Map<string, Fit>();
-	/** The peers this session has already been told about, and the name each had. */
 	#known = new Map<string, string>();
-	/** Peers with nothing to show yet, and when this session first saw them. */
 	#seen = new Map<string, number>();
 	/** Your words handed to the agent, waiting for its model to read them. */
 	readonly #unread = new Map<string, string>();
@@ -153,12 +140,10 @@ export class Here implements Sender {
 		return this.#folder;
 	}
 
-	/** The shared room this is, or undefined for the folder's room. */
 	get room(): RoomRef | undefined {
 		return this.#room;
 	}
 
-	/** Where this session works. */
 	get cwd(): string {
 		return this.#cwd;
 	}
@@ -194,7 +179,6 @@ export class Here implements Sender {
 		return cached.names;
 	}
 
-	/** One mark per other session, and how many asked this one something its agent has not read. */
 	summary(): { others: BoardMark[]; unread: number } {
 		const others = [...this.marks().values()];
 		let unread = 0;
@@ -207,7 +191,6 @@ export class Here implements Sender {
 		return { others, unread };
 	}
 
-	/** One mark per other open session, by session, oldest first. */
 	marks(): Map<string, BoardMark> {
 		const live = this.live();
 		const named = namesOf(live).bySession;
@@ -225,7 +208,6 @@ export class Here implements Sender {
 		return marks;
 	}
 
-	/** Opens the session in its folder's room. */
 	open(session: SessionSource, model: string | undefined): void {
 		this.join({
 			target: targetOf(session),
@@ -234,7 +216,6 @@ export class Here implements Sender {
 		});
 	}
 
-	/** Starts reading a room and says so in it. */
 	join(place: Place): void {
 		this.close();
 		this.#abort = new AbortController();
@@ -244,8 +225,7 @@ export class Here implements Sender {
 		this.#feed = place.feed ?? new FolderFeed(place.target.dir, folds);
 		this.#folder = place.folder ?? new Folder(place.cwd);
 		if (place.folder === undefined) this.#folder.apply(this.#feed.read());
-		// Set before logging: the log reads the room, and what it finds is judged against this.
-		// A reload opens the session again, and what arrived while it reloaded is still for this run.
+		// Set before logging: the log reads the room and judges it against this.
 		const me = this.#folder.peers.get(this.session ?? "");
 		this.#openedAt = me?.startedAt ?? this.#now();
 		if (me?.prompted === true) this.#inbox.wake();
@@ -257,7 +237,7 @@ export class Here implements Sender {
 			cwd: place.cwd,
 			...(place.model === undefined ? {} : { model: place.model }),
 		});
-		// Joining a room after the operator wrote: the others there count it among those who bid.
+		// Joining after the operator wrote: the others count this session among the bidders.
 		if (this.#inbox.awake && me?.prompted !== true) this.log("session.prompted", {});
 		if (place.watch !== false) this.#stopWatching = this.#feed.watch(() => this.sync());
 		for (const message of this.#folder.messages.values()) this.#consider(message);
@@ -278,18 +258,17 @@ export class Here implements Sender {
 
 	log<K extends keyof LogEventMap>(type: K, data: LogEventMap[K], entry?: string): void {
 		if (this.#target === undefined) return;
-		// Inside the process, an event is published once: from the folder's room, where the session is.
+		// An event is published once inside the process, from the folder's room.
 		const bus = this.#room === undefined ? this.#hooks.events : undefined;
 		logEvent(this.#target, bus, type, data, entry, this.#now());
 		this.sync();
 	}
 
-	/** Reads what the room wrote since the last time, and acts on it. */
 	sync(): void {
 		if (this.#feed === undefined) return;
 		const fresh = this.#feed.read();
 		if (fresh.length === 0) {
-			// Still worth redrawing: someone may be typing, which is not an event.
+			// Someone may be typing, which is not an event.
 			this.#evaluate();
 			this.#hooks.changed();
 			return;
@@ -309,7 +288,6 @@ export class Here implements Sender {
 		this.#hooks.changed();
 	}
 
-	/** Posts to the room and returns the message's id. */
 	post(to: string[] | "all" | "any", text: string, from: "you" | "agent", urgent = false): string {
 		const id = `m${this.#now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 		const depth = from === "agent" ? this.#inbox.depth : 0;
@@ -324,7 +302,6 @@ export class Here implements Sender {
 		return id;
 	}
 
-	/** What this session's agent is writing to the room right now, for the others to watch. */
 	typing(to: string, text: string): void {
 		if (this.#target === undefined || this.#now() - this.#typedAt < TYPING_EVERY_MS) return;
 		this.#typedAt = this.#now();
@@ -345,7 +322,6 @@ export class Here implements Sender {
 		rmSync(join(this.#target.dir, `${this.#target.session}.typing`), { force: true });
 	}
 
-	/** What the other open sessions are writing right now. */
 	othersTyping(): Typing[] {
 		if (this.#target === undefined) return [];
 		const live = new Set(this.live().map((peer) => peer.session));
@@ -369,7 +345,7 @@ export class Here implements Sender {
 		});
 	}
 
-	/** Someone typed a prompt here: what the agent writes next starts a new chain. */
+	/** What the agent writes next starts a new chain. */
 	prompted(): void {
 		const first = !this.#inbox.awake;
 		this.#inbox.prompted();
@@ -384,11 +360,11 @@ export class Here implements Sender {
 		this.log("session.state", { state: "running" });
 	}
 
-	/** The run ended: say so, and bid again as idle on what is still open. */
+	/** Bids again as idle on what is still open. */
 	settled(): void {
 		this.#busy = false;
 		this.log("session.state", { state: "idle" });
-		// All the new bids go in before any request closes, so what it takes arrives together.
+		// Every new bid goes in before any request closes.
 		this.#holding(() => this.#bidIdle());
 	}
 
@@ -411,7 +387,7 @@ export class Here implements Sender {
 		return this.#folder.membership.modeOf(this.session, this.#cwd);
 	}
 
-	/** The agent's model read one of the messages it got. Another room's message is not this one's. */
+	/** Another room's message is not this one's. */
 	read(id: string | undefined, text?: string): void {
 		const message = id ?? (text === undefined ? undefined : this.#unread.get(text));
 		if (message === undefined || this.session === undefined) return;
@@ -421,7 +397,6 @@ export class Here implements Sender {
 		this.log("message.read", { id: message });
 	}
 
-	/** The inbox handed these to the agent: say so in the room. */
 	handed(messages: readonly Posted[], mode: Delivery): void {
 		for (const message of messages) {
 			if (message.from === "you") this.#unread.set(message.text, message.id);
@@ -456,7 +431,6 @@ export class Here implements Sender {
 		const handles = new Map(
 			live.map((peer) => [peer.session, names.get(peer.session)?.handle ?? "anon"]),
 		);
-		/** Who the agent is being told about now, and the name used. */
 		const told = new Map<string, string>();
 		const lines: string[] = [];
 
@@ -466,14 +440,14 @@ export class Here implements Sender {
 				told.set(peer.session, handle);
 				continue;
 			}
-			// A session that opened and has done nothing yet may be on its way out, so it waits a moment.
+			// A session that has done nothing yet may be on its way out.
 			if (!worthTelling(peer) && this.#fresh(peer.session, at)) continue;
 			this.#seen.delete(peer.session);
 			lines.push(...this.#peerLines(peer, names.get(peer.session)?.handle ?? "another agent"));
 			told.set(peer.session, handle);
 		}
 
-		// A session that left is not in the names any more, so use the name it had while it was here.
+		// A session that left is not in the names, so use the name it had.
 		const place = this.#room === undefined ? "this folder" : `the room ${this.#room.name}`;
 		for (const [session, handle] of this.#known)
 			if (!told.has(session)) lines.push(`${handle} left ${place}.`);
@@ -490,7 +464,6 @@ export class Here implements Sender {
 		);
 	}
 
-	/** What the agent is told about one colleague: who it is, where, what it is doing and touched. */
 	#peerLines(peer: Peer, who: string): string[] {
 		const edited = [...peer.edited.keys()].slice(-3);
 		const works =
@@ -503,7 +476,6 @@ export class Here implements Sender {
 		return lines;
 	}
 
-	/** Whether a peer with nothing to show yet is still inside the wait before it is told. */
 	#fresh(session: string, at: number): boolean {
 		const seen = this.#seen.get(session);
 		if (seen === undefined) {
@@ -522,7 +494,6 @@ export class Here implements Sender {
 		void this.#bid(message);
 	}
 
-	/** A request to everyone, once someone else took it, goes in this transcript for you to read. */
 	#showTaken(message: Posted): void {
 		const taker = message.takenBy;
 		if (message.to !== "any" || taker === undefined) return;
@@ -559,7 +530,7 @@ export class Here implements Sender {
 		);
 	}
 
-	/** Taking a request logs it, and logging reads the room and evaluates again: that waits. */
+	/** Taking a request logs, and logging evaluates again, so that waits. */
 	#evaluating = false;
 	#evaluateAgain = false;
 
@@ -571,7 +542,6 @@ export class Here implements Sender {
 		this.#holding(() => this.#evaluateOnce());
 	}
 
-	/** Runs `work` with evaluating held, then evaluates once if anything asked for it meanwhile. */
 	#holding(work: () => void): void {
 		const outer = this.#evaluating;
 		this.#evaluating = true;
@@ -585,7 +555,6 @@ export class Here implements Sender {
 		this.#evaluate();
 	}
 
-	/** Hands over what is due, takes what is this session's turn, and waits for the next deadline. */
 	#evaluateOnce(): void {
 		if (this.#timer !== undefined) clearTimeout(this.#timer);
 		this.#timer = undefined;
@@ -610,7 +579,6 @@ export class Here implements Sender {
 			if (now < turn) next = Math.min(next, turn);
 			else if (this.#take(message)) due.push(message);
 		}
-		// Messages and the requests taken now arrive together, in the order they were written.
 		if (due.length > 0) {
 			for (const message of due) this.#delivered.add(message.id);
 			this.#inbox.arrive(
@@ -624,19 +592,16 @@ export class Here implements Sender {
 	}
 
 	#due(message: Posted, me: string, now: number): boolean {
-		// How this session stands here decides what reaches it: listening keeps only what names it,
-		// and the agent and the screen both read this gate, so the silence is theirs too.
+		// Listening keeps only what names the session; the agent and the screen both read this gate.
 		if (!receivesFor(this.mode(), message, me)) return false;
 		if (message.received.has(me) || this.#delivered.has(message.id)) return false;
 		return this.#recent(message, now);
 	}
 
-	/** Sent after this session joined the room, and not so long ago it is history. */
 	#recent(message: Posted, now = this.#now()): boolean {
 		return message.at >= this.#openedAt && now - message.at <= RECENT_MS;
 	}
 
-	/** Claims the request, and says whether this session got it: another one may have been first. */
 	#take(message: Posted): boolean {
 		const me = this.session;
 		this.log("request.taken", { request: message.id });

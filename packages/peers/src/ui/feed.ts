@@ -10,14 +10,13 @@ import { award, TAKE_MS, turnToTake } from "../rules.ts";
 import { blink, dots, isFresh, spin } from "./motion.ts";
 import { typingRecipients } from "./typing.ts";
 
-/** The words sit two columns under the header, the only indent the room uses. */
 const INDENT = 2;
 const BAR_CELLS = 5;
 const TOGETHER_MS = 60_000;
 /** A message nobody logged after this stops spinning. */
 export const ON_ITS_WAY_MS = 60_000;
 
-/** A long message shows this many lines, unless it is the newest or the room is narrowed. */
+/** Unless it is the newest or the room is narrowed. */
 const BODY_SHOWN = 4;
 
 /** Wrapping is most of a frame, and a message's words never change. */
@@ -47,7 +46,7 @@ export interface FeedOptions {
 	live: readonly Peer[];
 	clock: (at: number) => string;
 	only?: string;
-	/** How many of the newest items to lay out; all of them when absent. */
+	/** All of them when absent. */
 	last?: number;
 }
 
@@ -62,7 +61,7 @@ export function feedView(
 		options.only === undefined ? room : room.filter((item) => involves(item, options.only ?? ""));
 	const lines: string[] = [];
 	const heads: (number | undefined)[] = [];
-	/** A block of lines; `head` says its first line names who wrote it, kept in view when it scrolls. */
+	// `head` marks a block whose first line names the writer, kept in view when it scrolls.
 	const add = (block: readonly string[], head = false) => {
 		const at = head ? lines.length : undefined;
 		for (const line of block) {
@@ -100,7 +99,7 @@ export function feedView(
 			continue;
 		}
 		if (lines.length > 0) gap();
-		// An answer right under its question needs no quote: the order already says it.
+		// An answer right under its question needs no quote.
 		const answered = replies.get(item.message.id);
 		const quoted = answered !== undefined && answered !== lastMessage ? answered : undefined;
 		const full = item === newest || options.only !== undefined;
@@ -139,11 +138,11 @@ function messageLines(
 	const lines = [spread(head, theme.fg(fresh ? color : "dim", options.clock(message.at)), width)];
 	if (answered !== undefined) lines.push(`  ${quoteLine(answered, options)}`);
 
-	// Only a message that just arrived keeps its rail lit, in its writer's color.
+	// Only a message that just arrived keeps its rail lit.
 	const lead = fresh ? `${theme.fg(color, "\u258e")} ` : " ".repeat(INDENT);
 	let wrapped = wrappedBody(message, room);
 	if (!full) {
-		// A preview skips blank lines, so its few lines carry words.
+		// A preview skips blank lines.
 		const words = wrapped.filter((line) => line.trim() !== "");
 		if (words.length > BODY_SHOWN)
 			wrapped = [
@@ -159,7 +158,6 @@ function messageLines(
 	return lines;
 }
 
-/** The first line of the message an answer answers, quoted above it. */
 function quoteLine(question: Posted, options: FeedOptions): string {
 	const { theme } = options;
 	const first = question.text.split("\n")[0] ?? "";
@@ -167,9 +165,7 @@ function quoteLine(question: Posted, options: FeedOptions): string {
 }
 
 interface Receipts {
-	/** What the message became, the last line under its words. */
 	bottom: string | undefined;
-	/** What needs lines of its own before that: the bids of a request for anyone. */
 	inside: readonly string[];
 }
 
@@ -195,7 +191,6 @@ function receiptLines(message: Posted, options: FeedOptions, room: number): Rece
 	return { bottom: parts.join("   "), inside: [] };
 }
 
-/** Where a message to everyone got: how many read it, got it, and still have it on its way. */
 function tally(message: Posted, options: FeedOptions): string {
 	const { theme, live } = options;
 	const to = addressees(message, live);
@@ -276,7 +271,7 @@ function typingLines(typing: Typing, options: FeedOptions): string[] {
 	if (wrapped.length === 0) wrapped.push("");
 	const head = `${theme.fg(color, theme.bold(`@${named?.handle ?? "an agent"}`))}${theme.fg("dim", ` ${GLYPH.right} `)}${typingRecipients(typing.to, options.names, theme)}`;
 	const state = `${theme.fg(color, spin(now))} ${theme.fg("dim", `writing${dots(now)}`)}`;
-	// Not said yet, so the words stay grey until they are sent.
+	// Not sent yet, so the words stay grey.
 	return [
 		spread(head, state, width),
 		...wrapped.map(
@@ -314,14 +309,14 @@ function happeningLine(group: readonly Happening[], options: FeedOptions): strin
 	return stamped(line, first.at, options);
 }
 
-/** A line of the room with its time after it, the line giving way so the time always shows. */
+/** The line gives way so the time always shows. */
 function stamped(line: string, at: number, options: FeedOptions): string {
 	const time = `  ${options.theme.fg("dim", options.clock(at))}`;
 	const room = Math.max(8, options.width - visibleWidth(time));
 	return `${truncateToWidth(line, room, CUT)}${time}`;
 }
 
-/** Left and came back within a minute: the session was reloaded. */
+/** Left and came back within a minute: a reload. */
 function restarted(left: Happening, back: Happening): boolean {
 	return (
 		left.kind === "left" &&
@@ -353,7 +348,7 @@ function lastWasHappening(room: readonly RoomItem[], index: number): boolean {
 	return false;
 }
 
-/** A message answers the last one its addressee sent its writer, or the request its writer took. */
+/** The last one its addressee sent its writer, or the request its writer took. */
 function answers(room: readonly RoomItem[]): Map<string, Posted> {
 	const found = new Map<string, Posted>();
 	const asked = new Map<string, Posted>();
@@ -433,7 +428,6 @@ function fitting(parts: readonly string[], width: number, theme: Theme): string 
 	return line;
 }
 
-/** How well an agent fits a request, as a short row of cells in its color. */
 export function bar(value: number, color: ThemeColor, theme: Theme): string {
 	const filled = Math.max(0, Math.min(BAR_CELLS, Math.round(value * BAR_CELLS)));
 	return (
@@ -441,7 +435,6 @@ export function bar(value: number, color: ThemeColor, theme: Theme): string {
 	);
 }
 
-/** A fit as the room writes it: `.62`, or `1.0`. */
 export function fit(value: number): string {
 	return value >= 1 ? "1.0" : value.toFixed(2).replace(/^0/, "");
 }

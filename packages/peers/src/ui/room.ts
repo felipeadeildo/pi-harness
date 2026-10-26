@@ -11,7 +11,6 @@ import { byHandle, mentionedNames, mentionsIn, type Named, type Names } from "..
 import { markOf, stateText } from "./agents.ts";
 import { feedMoving, feedView } from "./feed.ts";
 
-/** The rule over the line you write in, and that line. */
 const COMPOSER_ROWS = 2;
 const PICKER_ROWS = 4;
 /** The newest items laid out, and how many more each scroll to the oldest adds. */
@@ -20,12 +19,11 @@ const HISTORY = 200;
 export interface RoomOptions {
 	theme: Theme;
 	here: Here;
-	/** A shared room's name, for the line you write in. Absent in the folder's room. */
 	room?: string;
-	/** How a shared room came to be, said once above what was said in it. */
+	/** Said once above the conversation. */
 	origin?: string;
 	requestRender: () => void;
-	/** Injected so the docs pictures do not depend on when or where they are drawn. */
+	/** So the docs pictures do not depend on when they are drawn. */
 	now?: () => number;
 	clock?: (at: number) => string;
 	send: (text: string) => void;
@@ -41,7 +39,7 @@ export class RoomView {
 	#unread = 0;
 	#window = HISTORY;
 	#pick = 0;
-	/** The text the @ list was closed on: it stays closed until the text changes. */
+	/** The @ list stays closed until the text changes. */
 	#dismissed: string | undefined;
 
 	constructor(options: RoomOptions) {
@@ -65,31 +63,27 @@ export class RoomView {
 		return feedMoving(here.folder.room, here.live(), this.#now());
 	}
 
-	/** The agent the conversation is narrowed to, if any. */
 	only(): string | undefined {
 		return this.#only;
 	}
 
-	/** Narrows the conversation to what one agent said or was told, or widens it back. */
 	narrow(session: string | undefined): void {
 		this.#only = session;
 		this.#follow = true;
 		this.#options.requestRender();
 	}
 
-	/** The line you write in, starting with an agent's name. */
 	mention(handle: string): void {
 		const rest = this.#composer.getValue().replace(/^@[a-z0-9-]+\s*/i, "");
 		this.#composer.setValue(`@${handle} ${rest}`);
 		this.#options.requestRender();
 	}
 
-	/** Whether the @ list is open, so `esc` and the arrows belong to it. */
+	/** So `esc` and the arrows belong to it. */
 	picking(): boolean {
 		return this.#candidates().length > 0;
 	}
 
-	/** Takes a key while you write. Returns false for one the panel should handle. */
 	handleInput(data: string): boolean {
 		const picking = this.#candidates();
 		if (picking.length > 0) {
@@ -131,7 +125,6 @@ export class RoomView {
 		];
 	}
 
-	/** The conversation, then the rule and the line you write in, `height` lines in all. */
 	lines(width: number, height: number, writing: boolean): string[] {
 		const { theme, here } = this.#options;
 		this.#composer.focused = writing;
@@ -170,10 +163,9 @@ export class RoomView {
 		this.#height = Math.max(1, height - COMPOSER_ROWS - picker.length);
 		this.#followRoom(lines.length);
 		const shown = lines.slice(this.#offset, this.#offset + this.#height);
-		// A message cut at the top keeps its header, so you still see who wrote it.
+		// A message cut at the top keeps its header.
 		const head = heads[this.#offset];
 		if (head !== undefined && head < this.#offset) shown[0] = lines[head] ?? "";
-		// Like a chat: the newest line sits right over the line you write in.
 		while (shown.length < this.#height) shown.unshift("");
 		return [...shown, this.#rule(width), ...picker, this.#composerLine(width, names, writing)];
 	}
@@ -184,7 +176,6 @@ export class RoomView {
 		return [...wrapTextWithAnsi(origin, width).map((line) => theme.fg("dim", line)), ""];
 	}
 
-	/** The rule over the line you write in, saying how far back you scrolled and what is filtered. */
 	#rule(width: number): string {
 		const { theme } = this.#options;
 		const only =
@@ -226,7 +217,6 @@ export class RoomView {
 		});
 	}
 
-	/** The line you write in, and who it goes to on its right once there is something to send. */
 	#composerLine(width: number, names: Names, writing: boolean): string {
 		const { theme } = this.#options;
 		const prompt = pointer(theme, true, writing);
@@ -338,7 +328,6 @@ export class RoomView {
 	}
 }
 
-/** Whether a key types text, rather than moving or acting. */
 export function printable(data: string): boolean {
 	return !data.startsWith("\x1b") && [...data].every((char) => char >= " " && char !== "\x7f");
 }

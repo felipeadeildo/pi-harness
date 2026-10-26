@@ -14,7 +14,6 @@ const ROOM_LINES = 12;
 
 export type BoardRoom = Pick<Here, "folder" | "live" | "names" | "room" | "cwd">;
 
-/** The folder's room first, then each shared one. An agent already shown is not shown again. */
 export function boardText(rooms: readonly BoardRoom[], me: string): string {
 	const shown = new Set<string>([me]);
 	return rooms.map((room) => section(room, me, shown)).join("\n\n");

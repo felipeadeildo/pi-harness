@@ -1,17 +1,15 @@
-// Who takes a request to everyone, and when a message reaches an agent: plain functions of the
-// folder, so every session reaches the same answer without asking the others.
+// Plain functions of the folder, so every session reaches the same answer without asking.
 import type { Delivery } from "@adeildo/pi-kit";
 
 import { openCards } from "./cards.ts";
 import type { Peer, Posted } from "./folder.ts";
 
-/** How long open sessions have to bid before the request goes to the best idle one. */
 export const BID_WINDOW_MS = 6_000;
-/** How long the winner has to take it before the next one in line does. */
+/** Before the next one in line takes it. */
 export const TAKE_MS = 8_000;
 /** Counts only messages to an agent: messages to the whole room always go through. */
 export const CHAIN_LIMIT = 20;
-/** Colleagues' messages one run takes while it works; past that, they wait for the next prompt. */
+/** Past this many, colleagues' messages wait for the next prompt. */
 export const STEERS_PER_RUN = 8;
 
 export type Award =
@@ -23,7 +21,7 @@ export type Award =
 /** Idle before busy, best fit, fewest open cards, oldest session. */
 export function award(request: Posted, live: readonly Peer[], now: number): Award {
 	if (request.takenBy !== undefined) return { kind: "taken", by: request.takenBy };
-	// A session the operator has not written in yet does not bid, so it is not waited for either.
+	// A session the operator has not written in yet does not bid, so it is not waited for.
 	const open = new Map(
 		live.filter((peer) => peer.prompted === true).map((peer) => [peer.session, peer]),
 	);
@@ -46,19 +44,17 @@ export function award(request: Posted, live: readonly Peer[], now: number): Awar
 			);
 		})
 		.map(([session]) => session);
-	// A request that waited closes when its first idle bid came in.
 	const closedAt = Math.max(Math.min(now, closes), ...idle.map(([, bid]) => bid.at));
 	return { kind: "ranked", order, closedAt };
 }
 
-/** When the given session should take the request, or undefined when it is not in line. */
+/** Undefined when the session is not in line. */
 export function turnToTake(ranking: Award, session: string): number | undefined {
 	if (ranking.kind !== "ranked") return undefined;
 	const place = ranking.order.indexOf(session);
 	return place === -1 ? undefined : ranking.closedAt + place * TAKE_MS;
 }
 
-/** How a colleague's message reaches this session while its agent is busy. */
 export const BUSY_DELIVERIES = ["steered", "after-run", "next-turn"] as const;
 export type BusyDelivery = (typeof BUSY_DELIVERIES)[number];
 
