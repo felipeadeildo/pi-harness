@@ -21,7 +21,6 @@ export interface PresenceEntry {
 	/** pi's session file, so a reader can open the session read only. */
 	file?: string;
 	handle?: string;
-	title?: string;
 	state: RoomActivity;
 	/** When the session opened, which orders the list. */
 	startedAt: number;
@@ -118,8 +117,7 @@ function isPresenceEntry(value: unknown): value is PresenceEntry {
 		typeof value.at === "number" &&
 		optionalString(value.start) &&
 		optionalString(value.file) &&
-		optionalString(value.handle) &&
-		optionalString(value.title)
+		optionalString(value.handle)
 	);
 }
 

@@ -42,10 +42,10 @@ export interface LogEventMap {
 	"session.started": { pid: number; host: string; model?: string; cwd?: string; start?: string };
 	"session.ended": Record<string, never>;
 	/**
-	 * The short name others mention it by, which the names feature writes. A log from before the
-	 * tasks were removed may carry the title they wrote too; an absent field means "unchanged".
+	 * The short name others mention it by, which the names feature writes. A line from an older log
+	 * may carry only the title the tasks wrote, and then it names nothing.
 	 */
-	"session.named": { handle?: string; title?: string };
+	"session.named": { handle?: string };
 	/**
 	 * A handle moved. The word the session had stays an alias for a week, so a mention written before
 	 * the rename still reaches it, unless another live session holds that word.

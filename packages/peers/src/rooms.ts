@@ -714,11 +714,7 @@ export class Rooms implements RoomsView {
 		const me =
 			this.#session === undefined ? undefined : this.#home?.folder.peers.get(this.#session);
 		if (me === undefined) return;
-		if (me.handle !== undefined)
-			here.log("session.named", {
-				handle: me.handle,
-				...(me.title === undefined ? {} : { title: me.title }),
-			});
+		if (me.handle !== undefined) here.log("session.named", { handle: me.handle });
 		if (this.#state === "running") here.log("session.state", { state: "running" });
 		if (me.board !== undefined) here.log("board.changed", { view: me.board });
 		const edited = [...me.edited].toSorted(([, a], [, b]) => a - b).slice(-SNAPSHOT_FILES);
@@ -805,7 +801,6 @@ export class Rooms implements RoomsView {
 			const one: RoomSession = { session, cwd, state: open ? (peer?.state ?? "idle") : "closed" };
 			const handle = names.get(session)?.handle ?? peer?.handle;
 			if (handle !== undefined) one.handle = handle;
-			if (peer?.title !== undefined) one.title = peer.title;
 			return one;
 		});
 		const origin = originOf(membership.additions, (session) => this.#handleIn(room, session));
@@ -898,7 +893,6 @@ export class Rooms implements RoomsView {
 			cwd: this.#cwd,
 			...(this.#file === undefined ? {} : { file: this.#file }),
 			...(me?.handle === undefined ? {} : { handle: me.handle }),
-			...(me?.title === undefined ? {} : { title: me.title }),
 			state: this.#state,
 			startedAt: this.#startedAt,
 			at: this.#now(),
@@ -934,7 +928,7 @@ function resolveFrom(cwd: string, path: string): string {
 
 function describeLive(entry: LiveSession): string {
 	const name = entry.handle === undefined ? entry.session : `@${entry.handle}`;
-	return entry.title === undefined ? name : `${name} (${entry.title})`;
+	return name;
 }
 
 /** A folder as the rooms compare it: absolute, with symlinks resolved. */

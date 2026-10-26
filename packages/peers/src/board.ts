@@ -64,9 +64,7 @@ function peerLines(peer: Peer, names: ReadonlyMap<string, Named>, cwd: string): 
 	const handle = names.get(peer.session)?.handle ?? peer.session;
 	const elsewhere = peer.cwd !== undefined && peer.cwd !== cwd ? peer.cwd : undefined;
 	const where = elsewhere === undefined ? "" : ` in ${tildify(elsewhere)}`;
-	const lines = [
-		`@${handle} (${peer.state === "running" ? "working" : "idle"})${where}${peer.title === undefined ? "" : `: ${peer.title}`}`,
-	];
+	const lines = [`@${handle} (${peer.state === "running" ? "working" : "idle"})${where}`];
 	// Its board, as it wrote it: a card belongs to the session that wrote it, and nothing is merged.
 	for (const card of peer.board?.open ?? []) {
 		const blocked = card.blocked === undefined ? "" : ` (${blockedText(card.blocked, "agent")})`;

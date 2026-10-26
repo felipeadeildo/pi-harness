@@ -83,7 +83,7 @@ describe("what the composer promises", () => {
 
 	test("a file after the @ stays a file, as the send path reads it", () => {
 		const oauth = session("oauth");
-		oauth.log("session.named", { handle: "oauth", title: "OAuth" });
+		oauth.log("session.named", { handle: "oauth" });
 		const me = session("me");
 		const drawn = typing(room(me), "read @oauth.ts");
 		expect(drawn).not.toContain("no agent");
@@ -97,7 +97,7 @@ describe("what the composer promises", () => {
 
 	test("the list after an @ offers the group mentions the chat offers", () => {
 		const oauth = session("oauth");
-		oauth.log("session.named", { handle: "oauth", title: "OAuth" });
+		oauth.log("session.named", { handle: "oauth" });
 		const me = session("me");
 		const drawn = typing(room(me), "@eve");
 		expect(drawn).toMatch(/❯ +everyone/);

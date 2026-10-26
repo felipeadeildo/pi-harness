@@ -194,10 +194,7 @@ export class Picker {
 		for (const [path, sessions] of byFolder) {
 			const folderMatches = query === "" || tildify(path).toLowerCase().includes(query);
 			const matching = sessions.filter(
-				(live) =>
-					folderMatches ||
-					(live.handle ?? "").toLowerCase().includes(query) ||
-					(live.title ?? "").toLowerCase().includes(query),
+				(live) => folderMatches || (live.handle ?? "").toLowerCase().includes(query),
 			);
 			if (matching.length === 0) continue;
 			rows.push(folderRow(path), ...matching.map(sessionRow));

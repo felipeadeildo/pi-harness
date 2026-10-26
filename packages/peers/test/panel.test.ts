@@ -251,7 +251,7 @@ describe("an agent's line", () => {
 		const rooms = new Rooms(session("me", "/repo"));
 		const here = shared(rooms);
 		const api = session("api", "/home/x/backend");
-		api.log("session.named", { handle: "api", title: "API" });
+		api.log("session.named", { handle: "api" });
 		here.sync();
 		const panel = panelOf(rooms, show);
 		press(panel, TAB, DOWN, DOWN, DOWN);
@@ -312,7 +312,7 @@ describe("an agent's line", () => {
 		const rooms = new Rooms(session("me", "/repo"));
 		const here = shared(rooms);
 		const api = session("api", "/home/x/backend");
-		api.log("session.named", { handle: "api", title: "API" });
+		api.log("session.named", { handle: "api" });
 		here.sync();
 		const panel = panelOf(rooms, (id) => shown.push(id) > 0);
 		// The room, api, then this session last.
@@ -323,7 +323,7 @@ describe("an agent's line", () => {
 	test("@ on this session's own line types an @, and does not write to yourself", () => {
 		const rooms = new Rooms(session("me", "/repo"));
 		const here = shared(rooms);
-		session("api", "/home/x/backend").log("session.named", { handle: "api", title: "API" });
+		session("api", "/home/x/backend").log("session.named", { handle: "api" });
 		here.sync();
 		const drawn = press(panelOf(rooms), TAB, DOWN, DOWN, DOWN, DOWN, "@");
 		expect(drawn).not.toContain("@me");
@@ -411,7 +411,7 @@ describe("changing the rooms", () => {
 		const rooms = new Rooms(session("me", "/repo"));
 		const here = shared(rooms);
 		const api = session("api", "/home/x/backend");
-		api.log("session.named", { handle: "api", title: "API" });
+		api.log("session.named", { handle: "api" });
 		here.sync();
 		// The room, then its agents: api first, this session last.
 		press(panelOf(rooms), TAB, DOWN, DOWN, DOWN, "r");

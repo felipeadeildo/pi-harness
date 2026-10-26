@@ -499,11 +499,10 @@ export class Here implements Sender {
 	/** What the agent is told about one colleague: who it is, where, what it is doing and touched. */
 	#peerLines(peer: Peer, who: string): string[] {
 		const edited = [...peer.edited.keys()].slice(-3);
-		const title = peer.title === undefined ? "" : ` on ${peer.title}`;
 		const works =
 			peer.cwd === undefined || peer.cwd === this.#cwd ? "this folder" : tildify(peer.cwd);
 		const room = this.#room === undefined ? "" : `, in the room ${this.#room.name}`;
-		const lines = [`${who} is working in ${works}${title}${room}.`];
+		const lines = [`${who} is working in ${works}${room}.`];
 		if (doing(peer).length > 0) lines.push(`  doing: ${titles(doing(peer))}`);
 		if (waiting(peer).length > 0) lines.push(`  waiting: ${titles(waiting(peer))}`);
 		if (edited.length > 0) lines.push(`  edited: ${edited.join(", ")}`);
@@ -662,7 +661,6 @@ export class Here implements Sender {
 function worthTelling(peer: Peer): boolean {
 	return (
 		peer.handle !== undefined ||
-		peer.title !== undefined ||
 		peer.board !== undefined ||
 		peer.edited.size > 0 ||
 		peer.ran.length > 0 ||

@@ -28,7 +28,6 @@ export interface Peer {
 	handle?: string;
 	/** The earlier words, which mentions still resolve for a week. */
 	aliases?: string[];
-	title?: string;
 	state: RoomActivity;
 	stateAt: number;
 	/** The operator wrote here at least once. Until then nothing from the room wakes it. */
@@ -157,11 +156,8 @@ export class Folder {
 				this.#happen({ kind: "left", session: peer.session, at: event.at });
 				return;
 			case "session.named": {
-				const data = event.data as LoggedEvent<"session.named">["data"];
-				// The handle and the title have different writers, so a field that is absent says
-				// "unchanged", not "erase it".
-				if (data.handle !== undefined) peer.handle = data.handle;
-				if (data.title !== undefined) peer.title = data.title;
+				const { handle } = event.data as LoggedEvent<"session.named">["data"];
+				if (handle !== undefined) peer.handle = handle;
 				return;
 			}
 			case "session.renamed": {
