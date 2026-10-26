@@ -1,4 +1,4 @@
-import { BOARD, boardView, MODE_SET, totalsOf, type EventScope } from "@adeildo/pi-kit";
+import { BOARD, boardView, MODE_SET, PEERS, totalsOf, type EventScope } from "@adeildo/pi-kit";
 import { applyChange, type SessionState } from "@adeildo/pi-remote-protocol";
 // The fields of a session's state that come from the process rather than from the log: a capability, the
 // money spent, who sent a prompt. Each one owns its field and knows how to place it, and the opening
@@ -14,6 +14,8 @@ interface ProducerInput {
 
 /** One field of the state, and how to put its value on a state that came from the log. */
 export interface Producer {
+	/** The field of the state this producer owns, which is what a test names it by. */
+	field: keyof SessionState;
 	/** The state with this field set, or the state it was given when the value is not known. */
 	apply(state: SessionState, input: ProducerInput): SessionState;
 	/** The state change that publishes it when it moves on its own, for a field that changes mid-session. */
@@ -29,6 +31,19 @@ export interface Producer {
  */
 export const PRODUCERS: readonly Producer[] = [
 	{
+		field: "theme",
+		// What the session wears: the accent of the theme it runs under, and the color the room gave it.
+		// The room is the only one that knows the color, and it names the session it is for.
+		apply: (state, { scope }) => {
+			const color = PEERS.current(scope)?.me?.color;
+			return {
+				...state,
+				theme: { accent: "accent", ...(color === undefined ? {} : { color }) },
+			};
+		},
+	},
+	{
+		field: "board",
 		// The board the session keeps, cut and ordered by the feature that wrote it: this carries it and
 		// decides nothing, so a screen draws the writer's order and never one of its own.
 		apply: (state, { scope }) => {
@@ -37,6 +52,7 @@ export const PRODUCERS: readonly Producer[] = [
 		},
 	},
 	{
+		field: "cost",
 		// What the session has spent so far, summed from pi's own per-message usage. Read from the branch
 		// rather than folded from events, so the opening always carries it and a reconnect keeps it.
 		apply: (state, { entries }) => {
@@ -55,6 +71,7 @@ export const PRODUCERS: readonly Producer[] = [
 		},
 	},
 	{
+		field: "permissions",
 		// Whether the session takes a mode at all. A capability, not a value: the mode itself comes from
 		// the log, and this says only whether there is a dial to turn. A live bridge always knows, so it
 		// answers both ways; only the empty state before any bridge spoke has no opinion.
@@ -64,6 +81,7 @@ export const PRODUCERS: readonly Producer[] = [
 		}),
 	},
 	{
+		field: "models",
 		// The models pi could switch to, read from the registry the terminal's `/model` lists. pi gives no
 		// signal when it changes, so this is read when a snapshot is built. A host with no registry has not
 		// said which models exist, which is not the same as none, so the field stays absent.
@@ -77,6 +95,7 @@ export const PRODUCERS: readonly Producer[] = [
 		},
 	},
 	{
+		field: "model",
 		// The model and the thinking level the session is on now, from pi's context. They arrive on
 		// `session.live` too, but the opening is the new base and drops what came before it, so a
 		// client that opens after a restart would find neither. A session pi has given no model to

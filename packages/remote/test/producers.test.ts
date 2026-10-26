@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { BOARD, emptyBoard, type Board, type BoardView } from "@adeildo/pi-kit";
+import { BOARD, emptyBoard, PEERS, type Board, type BoardView } from "@adeildo/pi-kit";
 import { emptySessionState } from "@adeildo/pi-remote-protocol";
 
 import { PRODUCERS } from "../src/bridge/producers.ts";
@@ -24,8 +24,8 @@ function scope(contracts: Record<string, unknown> = {}) {
 	} as never;
 }
 
-/** The board producer, which is the first entry: it carries the board and nothing else. */
-const board = PRODUCERS[0] as (typeof PRODUCERS)[number];
+/** The board producer, named by the field it owns. */
+const board = PRODUCERS.find((one) => one.field === "board")!;
 const fold = (state: ReturnType<typeof emptySessionState>, at: ReturnType<typeof scope>) =>
 	board.apply(state, { scope: at, entries: [], ctx: {} as never });
 
@@ -39,6 +39,32 @@ function written(...titles: string[]): Board {
 		cards: titles.map((title, index) => card(`c${index + 1}`, title, titles.length - index)),
 	};
 }
+
+describe("what the session wears", () => {
+	const theme = PRODUCERS.find((one) => one.field === "theme")!;
+
+	test("a scope with no room says the accent and nothing about a color", () => {
+		const worn = theme.apply(emptySessionState(), {
+			scope: scope(),
+			entries: [],
+			ctx: {} as never,
+		});
+		// The key is what matters: `toEqual` accepts a written `undefined`, and a color that exists and
+		// holds nothing is the absence drawn as a value.
+		expect(Object.keys(worn.theme ?? {})).toEqual(["accent"]);
+	});
+
+	test("a room that named the session gives the color the terminals draw it in", () => {
+		const at = scope();
+		PEERS.provide(at, () => ({
+			peers: [],
+			unread: 0,
+			me: { handle: "otter", color: "syntaxKeyword", state: "idle" },
+		}));
+		const worn = theme.apply(emptySessionState(), { scope: at, entries: [], ctx: {} as never });
+		expect(worn.theme).toEqual({ accent: "accent", color: "syntaxKeyword" });
+	});
+});
 
 describe("the board a session keeps", () => {
 	test("a scope with no board leaves the state untouched, which is not an empty board", () => {

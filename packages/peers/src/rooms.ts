@@ -44,7 +44,7 @@ import type {
 	RoomsView,
 	RoomTyping,
 } from "./model.ts";
-import { byHandle, mentionedNames, type Named } from "./names.ts";
+import { byHandle, mentionedNames, type Named, namesOf } from "./names.ts";
 
 /** The edited files a session brings into a room it joins. */
 const SNAPSHOT_FILES = 8;
@@ -306,14 +306,30 @@ export class Rooms implements RoomsView {
 	}
 
 	/** The folder's marks first, so the footer can set the other rooms apart after them. */
-	summary(): { others: PeerMark[]; unread: number } {
+	summary(): { others: PeerMark[]; unread: number; me?: PeerMark } {
 		const marks = new Map<string, PeerMark>();
 		let unread = 0;
 		for (const here of this.joined()) {
 			unread += here.summary().unread;
 			for (const [session, mark] of here.marks()) if (!marks.has(session)) marks.set(session, mark);
 		}
-		return { others: [...marks.values()], unread };
+		const me = this.#mark();
+		return { others: [...marks.values()], unread, ...(me === undefined ? {} : { me }) };
+	}
+
+	/** This session as the room draws it, from the same names and state the others are drawn with. */
+	#mark(): PeerMark | undefined {
+		const session = this.#session;
+		const here = this.#home;
+		if (session === undefined || here === undefined) return undefined;
+		const live = here.live().find((peer) => peer.session === session);
+		if (live === undefined) return undefined;
+		const named = namesOf(here.live()).bySession.get(session);
+		return {
+			handle: named?.handle ?? session,
+			color: named?.color ?? "muted",
+			state: live.state === "running" ? "running" : "idle",
+		};
 	}
 
 	othersTyping(): RoomTyping[] {

@@ -22,6 +22,11 @@ export interface WritingMark {
 
 export interface PeersState {
 	peers: PeerMark[];
+	/**
+	 * This session's own mark, as the room draws it. Absent when the session is not in a room yet, which
+	 * is not the same as a session with no color.
+	 */
+	me?: PeerMark;
 	/** Messages a peer sent to this session that its agent has not read yet. */
 	unread: number;
 	/** Who is writing to whom, drawn in the footer: a draft is never worth a frame over the editor. */
@@ -38,6 +43,7 @@ const STATES = new Set(["running", "idle", "waiting"]);
 function isPeersState(value: unknown): value is PeersState {
 	if (!isObject(value) || typeof value.unread !== "number") return false;
 	if (!Array.isArray(value.peers) || !value.peers.every(isPeerMark)) return false;
+	if (value.me !== undefined && !isPeerMark(value.me)) return false;
 	if (value.writing === undefined) return true;
 	return Array.isArray(value.writing) && value.writing.every(isWritingMark);
 }

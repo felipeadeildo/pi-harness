@@ -241,7 +241,11 @@ export const peers = defineFeature({
 		// The look draws its own peers segment from this, so the footer can show names and colours.
 		PEERS.provide(scope, () => {
 			const summary = rooms.summary();
-			return { peers: summary.others, unread: summary.unread };
+			return {
+				peers: summary.others,
+				unread: summary.unread,
+				...(summary.me === undefined ? {} : { me: summary.me }),
+			};
 		});
 
 		scope.events.on(DECIDED, (data: unknown) => {
