@@ -31,8 +31,6 @@ describe("the board as cards", () => {
 		({ id, title, column: "doing", at }) as never;
 
 	test("draws the open cards in the order the writer cut them, and sorts nothing", () => {
-		// Two cards whose creation order disagrees with the order they arrive in: a comparator on `at`
-		// or on the id would reorder them, and this screen must not have an opinion.
 		// The `at` runs against the arrival: the first card to arrive is the newest one. Sorting by `at`
 		// or by id would both reorder this list, and the screen must not have an opinion.
 		const board = { open: [card("c2", "second", 9), card("c1", "first", 1)], backlog: 0, done: [] };
