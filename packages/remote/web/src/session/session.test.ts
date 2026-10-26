@@ -7,6 +7,7 @@ import { connect, memoryCache, type CachedSession } from "@adeildo/pi-remote-pro
 
 import { KEPT, pageCache, storageCache, type StorageLike } from "./cache.ts";
 import { openSocket, type SocketLike, socketUrl } from "./transport.ts";
+import { openSession } from "./use-session.ts";
 
 class FakeSocket implements SocketLike {
 	static made: FakeSocket[] = [];
@@ -115,6 +116,34 @@ describe("the socket", () => {
 		transport.send({ v: 1, kind: "hello", type: "hello", data: {}, at: 0 });
 		socket?.open();
 		expect(socket?.sent).toEqual([]);
+	});
+
+	test("a screen that goes closes its socket, and hears nothing after", async () => {
+		const told: number[] = [];
+		const opened = openSession(
+			{ machine: "box", session: "s1" },
+			{ cache: memoryCache(), open: openSocket("ws://x/ws", make) },
+			(session) => told.push(session.entries.length),
+		);
+		await Bun.sleep(0);
+		const socket = FakeSocket.made.at(-1);
+		socket?.open();
+		const before = told.length;
+		opened.stop();
+		expect(socket?.closed).toBe(true);
+		socket?.say(
+			JSON.stringify({
+				v: 1,
+				kind: "event",
+				session: "s1",
+				epoch: "e1",
+				seq: 1,
+				type: "state",
+				data: { entries: [] },
+				at: 0,
+			}),
+		);
+		expect(told.length).toBe(before);
 	});
 
 	test("lets the client say hello, read the snapshot and draw it", async () => {

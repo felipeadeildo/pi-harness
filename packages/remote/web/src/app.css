@@ -119,3 +119,459 @@ a {
 	display: flex;
 	gap: var(--s4);
 }
+
+[hidden] {
+	display: none !important;
+}
+
+button,
+input {
+	font: inherit;
+	color: inherit;
+}
+
+button {
+	cursor: pointer;
+	touch-action: manipulation;
+}
+
+button:disabled {
+	cursor: default;
+}
+
+:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.name {
+	font-weight: 600;
+}
+
+.dim {
+	color: var(--muted);
+}
+
+/* The session: the way back, a conversation that scrolls, and the composer that does not. `dvh` follows
+   the keyboard (the viewport meta asks for it), so the field stays above it. */
+.session {
+	display: flex;
+	flex-direction: column;
+	height: 100dvh;
+}
+
+.back {
+	display: flex;
+	align-items: center;
+	min-height: var(--hit);
+	padding: 0 var(--s5);
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.scroll {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	padding: 0 var(--s5) var(--s5);
+}
+
+.board h2,
+.sheet h2 {
+	margin: 0;
+	font-size: 15px;
+	font-weight: 600;
+}
+
+.board {
+	padding: var(--s3) 0;
+}
+
+.board p {
+	margin: var(--s2) 0 0;
+}
+
+.terminal-wait {
+	margin: 0;
+	padding: var(--s3) 0;
+	color: var(--warn);
+	font-size: 13px;
+	font-weight: 600;
+}
+
+/* The transcript. Who speaks is smaller and heavier than what they say. */
+.remote-head h1 {
+	margin: 0;
+	font-size: 22px;
+	line-height: 1.25;
+	overflow-wrap: anywhere;
+}
+
+.remote-about {
+	margin: 0 0 var(--s5);
+	color: var(--muted);
+	font-size: 12px;
+}
+
+.remote-transcript {
+	display: grid;
+	gap: var(--s4);
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.remote-transcript li {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.remote-who {
+	color: var(--muted);
+	font-size: 13px;
+	font-weight: 700;
+}
+
+.remote-from {
+	margin-left: var(--s3);
+	color: var(--muted);
+	font-size: 12px;
+}
+
+.remote-line {
+	color: var(--muted);
+	font-size: 13px;
+}
+
+.remote-markdown > :first-child {
+	margin-top: var(--s2);
+}
+
+.remote-markdown p,
+.remote-markdown ul,
+.remote-markdown h1,
+.remote-markdown h2,
+.remote-markdown h3 {
+	margin: var(--s3) 0 0;
+}
+
+.remote-markdown h1,
+.remote-markdown h2,
+.remote-markdown h3,
+.remote-markdown h4,
+.remote-markdown h5,
+.remote-markdown h6 {
+	font-size: 16px;
+}
+
+.remote-markdown code,
+.remote-transcript pre {
+	font-family: var(--mono);
+	font-size: 13px;
+}
+
+.remote-markdown code {
+	padding: 1px var(--s2);
+	border-radius: var(--s2);
+	background: var(--surface);
+}
+
+.remote-transcript pre {
+	margin: var(--s2) 0 0;
+	padding: var(--s3);
+	border-radius: var(--radius-1);
+	background: var(--surface);
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.remote-markdown pre code {
+	padding: 0;
+	background: none;
+}
+
+.remote-thinking,
+.remote-transcript summary {
+	color: var(--muted);
+	font-size: 13px;
+}
+
+.remote-transcript summary {
+	min-height: var(--hit);
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+}
+
+/* The composer: lists, pickers, then the field with its one filled button. */
+.composer {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s3);
+	padding: var(--s4) var(--s5) calc(var(--s4) + env(safe-area-inset-bottom));
+	border-top: 1px solid var(--border);
+	background: var(--bg);
+}
+
+.lists {
+	max-height: calc(var(--hit) * 3);
+	overflow-y: auto;
+	touch-action: pan-y;
+}
+
+.list-row {
+	display: flex;
+	align-items: center;
+	gap: var(--s3);
+	padding: var(--s2) 0;
+}
+
+.grow {
+	flex: 1;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.quiet {
+	color: var(--muted);
+	font-size: 12px;
+}
+
+.pickers {
+	display: flex;
+	gap: var(--s3);
+}
+
+.field-row {
+	display: flex;
+	gap: var(--s3);
+	align-items: center;
+}
+
+.field {
+	position: relative;
+	flex: 1;
+	min-width: 0;
+}
+
+input[type="text"] {
+	width: 100%;
+	min-height: var(--hit);
+	padding: 0 var(--s4);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-1);
+	background: var(--bg);
+	/* 16px is what keeps a phone browser from zooming the page when the field is focused. */
+	font-size: 16px;
+}
+
+.suggestions {
+	position: absolute;
+	bottom: 100%;
+	left: 0;
+	right: 0;
+	display: flex;
+	flex-direction: column;
+	max-height: calc(var(--hit) * 3);
+	margin-bottom: var(--s2);
+	overflow-y: auto;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-1);
+	background: var(--elevated);
+}
+
+.suggestions button {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	min-height: var(--hit);
+	padding: var(--s2) var(--s4);
+	border: 0;
+	background: none;
+	text-align: left;
+}
+
+.primary,
+.action,
+.trigger {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--s2);
+	min-height: var(--hit);
+	min-width: var(--hit);
+	border-radius: var(--radius-1);
+	font-size: 15px;
+	font-weight: 600;
+}
+
+.primary {
+	padding: 0 var(--s5);
+	border: 0;
+	background: var(--accent);
+	color: var(--bg);
+}
+
+.primary.danger {
+	background: var(--danger);
+}
+
+.primary:disabled {
+	background: var(--border);
+	color: var(--faint);
+}
+
+.action {
+	padding: 0 var(--s4);
+	border: 1px solid var(--border);
+	background: none;
+}
+
+.action:disabled {
+	color: var(--faint);
+}
+
+.trigger {
+	flex-shrink: 1;
+	min-width: 0;
+	padding: 0 var(--s4);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-2);
+	background: none;
+}
+
+.trigger-value {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* The sheets: a layer over the page, rising from the bottom edge. */
+.sheet-layer {
+	position: fixed;
+	inset: 0;
+	z-index: 10;
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-end;
+}
+
+.shade {
+	flex: 1;
+	border: 0;
+	background: rgba(0, 0, 0, 0.3);
+}
+
+.sheet {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s3);
+	max-height: 70dvh;
+	padding: var(--s4) var(--s4) calc(var(--s4) + env(safe-area-inset-bottom));
+	border-radius: var(--radius-3) var(--radius-3) 0 0;
+	background: var(--elevated);
+	animation: rise 0.2s ease-out;
+}
+
+@keyframes rise {
+	from {
+		transform: translateY(100%);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.sheet {
+		animation: none;
+	}
+}
+
+.sheet-body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s2);
+	overflow-y: auto;
+	touch-action: pan-y;
+}
+
+/* A list where one row is on: a bar, `❯`, and bold, so the choice does not rest on color alone. */
+.option {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: var(--s3);
+	min-height: var(--hit);
+	padding: 0 var(--s4);
+	cursor: pointer;
+}
+
+.option .bar {
+	position: absolute;
+	inset: 0 auto 0 0;
+	width: 3px;
+	background: var(--accent);
+}
+
+.option .pointer {
+	width: var(--s5);
+	color: var(--accent);
+}
+
+.option .label {
+	font-weight: 400;
+}
+
+.option.chosen .label {
+	font-weight: 700;
+}
+
+.option .hint {
+	color: var(--muted);
+	font-size: 12px;
+}
+
+/* The question the agent waits on, in the composer's place. */
+.question {
+	border-top: 1px solid var(--border);
+	padding-bottom: env(safe-area-inset-bottom);
+}
+
+.question-panel {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s3);
+	padding: var(--s5);
+}
+
+.question-panel p {
+	margin: 0;
+}
+
+.question-head {
+	display: flex;
+	justify-content: space-between;
+}
+
+.choice {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s1);
+	min-height: var(--hit);
+	padding: var(--s4);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-2);
+	background: none;
+	text-align: left;
+}
+
+.choice.chosen {
+	border-color: var(--accent);
+	background: var(--surface);
+}
+
+.question-actions {
+	display: flex;
+	gap: var(--s3);
+	justify-content: flex-end;
+}

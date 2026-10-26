@@ -99,6 +99,32 @@ describe("the web app's export", () => {
 	});
 });
 
+describe("the page's own routes", () => {
+	test("a session's address is answered by the one index.html, and a made-up path is not", () => {
+		packageWeb(exported(), join(dir, "dist"));
+		rmSync(join(dir, "dist", "web", "session"), { recursive: true });
+		writeFileSync(join(dir, "dist", "web", "files.json"), JSON.stringify(["/index.html"]));
+		const app = loadWebApp(join(dir, "dist", "web"));
+		expect(app).toBeDefined();
+		if (app === undefined) return;
+		expect(fileFor(app, "/session/laptop/01a16e22")).toBe("/index.html");
+		expect(fileFor(app, "/session/laptop/01a16e22/")).toBe("/index.html");
+		// The routes the daemon answers itself must not be eaten by the page: they come first, in the
+		// server, and `fileFor` leaves them undefined.
+		expect(fileFor(app, "/login")).toBeUndefined();
+		expect(fileFor(app, "/sessions")).toBeUndefined();
+		expect(fileFor(app, "/session/laptop")).toBeUndefined();
+		expect(fileFor(app, "/session/laptop/s1/more")).toBeUndefined();
+		expect(fileFor(app, "/x.js")).toBeUndefined();
+	});
+
+	test("a hashed asset is cached for good, and the page itself is not", () => {
+		const app = appOf({ "assets/index-abc.js": "console.log(1)" });
+		expect(serveApp(app, "/assets/index-abc.js").headers["cache-control"]).toContain("immutable");
+		expect(serveApp(app, "/").headers["cache-control"]).toBe("no-cache");
+	});
+});
+
 test("the preview serves an export through the daemon's own routes, with no session", async () => {
 	const preview = await serveExport(exported());
 	try {
