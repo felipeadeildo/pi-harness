@@ -9,9 +9,9 @@ push to `main`, so this file is where the writing happens and the merge is where
 
 ## From a browser
 
-- **Your sessions, in a browser.** The first pi on a machine starts a daemon, and `pi-remote open`
-  opens the app: it lists what is open, shows the transcript as it streams, and takes a prompt. The
-  app is written for iOS and Android too, and no native build is published yet.
+- **Your sessions, in a browser.** The first pi on a machine starts a daemon, and `/remote` or
+  `pi-remote open` opens the app: it lists what is open, shows the transcript as it streams, and takes
+  a prompt. The app is a web page the daemon serves, made for a phone's screen first.
 - **On this machine, and on your tailnet.** The daemon listens on `127.0.0.1`, and on a machine in a
   Tailscale tailnet also on its tailnet address, at the same port. `/remote` names that address, and a
   phone or a computer of yours on the tailnet opens it with no link: the daemon asks `tailscale whois`
@@ -74,19 +74,22 @@ Everything that read the tasks reads the board now: the compaction summary ("Whe
 stands"), the look's strip, the peers' room and the bids, and the browser. Nothing writes a session
 title any more. A session is its handle, and the name you give it with `/name` or from the browser.
 
-| 5.x                                                          | 6.0.0                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------- |
-| `packages/tasks`, the tasks feature and its model            | `packages/board`: the `Alt+T` panel over the kit's board      |
-| `Alt+S` › Tasks, and the `tasks` settings                    | gone; the board's limits are fixed, 3 in progress and 15 open |
-| feature id `tasks`                                           | `names`, `board` and `board-panel`                            |
-| `TASKS`, `SessionTasks`, `describeTasks`, `tasksFromEntries` | `BOARD`, `Board`, `describeBoard`, `boardOf`                  |
-| `tasks.changed` and `tasks.board` in the log                 | `board.changed`, and the board's own `pi-board:op` entries    |
-| `SessionState.tasks` on the wire                             | `SessionState.board`                                          |
-| the look's `tasks` segment                                   | `board`                                                       |
-| a title on `session.named`, on a peer and in presence        | the handle only                                               |
+| 5.x                                                          | 6.0.0                                                           |
+| ------------------------------------------------------------ | --------------------------------------------------------------- |
+| `packages/tasks`, the tasks feature and its model            | the kit's board, and the `Alt+T` panel in `@adeildo/pi-harness` |
+| `Alt+S` › Tasks, and the `tasks` settings                    | gone; the board's limits are fixed, 3 in progress and 15 open   |
+| feature id `tasks`                                           | `names`, `board` and `board-panel`                              |
+| `TASKS`, `SessionTasks`, `describeTasks`, `tasksFromEntries` | `BOARD`, `Board`, `describeBoard`, `boardOf`                    |
+| `tasks.changed` and `tasks.board` in the log                 | `board.changed`, and the board's own `pi-board:op` entries      |
+| `SessionState.tasks` on the wire                             | `SessionState.board`                                            |
+| the look's `tasks` segment                                   | `board`                                                         |
+| a title on `session.named`, on a peer and in presence        | the handle only                                                 |
 
 Upgrade the daemon and the clients together. The shape of `SessionState` changed, and a 5.x client
 does not know `board.changed`, so a 5.x client reading a 6.0.0 daemon shows no board.
+
+`@adeildo/pi-board`, which was the tasks' package, is no longer published: install `@adeildo/pi-harness`,
+which carries the board and its panel.
 
 A session written with 5.x opens as it was. Its tasks' paid model calls still count in its cost, and
 it keeps the handle the tasks gave it.
