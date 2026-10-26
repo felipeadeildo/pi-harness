@@ -129,9 +129,7 @@ describe("the recording, read back", () => {
 
 describe("a line the file wrote wrong", () => {
 	test("an entry that is not an object reads as absent, and the transcript still draws", () => {
-		// The transcript is built from the session file, which is JSON somebody else wrote. A line that
-		// is a string where an entry should be is not a reason to lose the conversation: it reads as an
-		// entry of an unknown type, which is what the screen draws for a type it does not know.
+		// A malformed line reads as an entry of an unknown type, not a lost conversation.
 		const transcript = transcriptOf(["not an entry" as never]);
 		expect(transcript.items).toHaveLength(1);
 		expect(transcript.items[0]?.kind).toBe("other");

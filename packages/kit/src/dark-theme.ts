@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 
 import { Theme } from "@earendil-works/pi-coding-agent";
 
-/** The tokens a theme paints as a background rather than as a foreground. */
 const BACKGROUND_TOKENS = new Set([
 	"selectedBg",
 	"searchMatchBg",
@@ -15,11 +14,7 @@ const BACKGROUND_TOKENS = new Set([
 	"toolErrorBg",
 ]);
 
-/**
- * The theme pi ships as `dark`, built from the file pi reads. A scripted run has no terminal to
- * report one, and a feature that paints a status line still gets the colors it expects. This reads a
- * file inside pi's package, so a pi release that moves it breaks the rig loudly, at the first run.
- */
+/** Read from pi's own theme file, so a pi release that moves it fails loudly. */
 export function darkTheme(): Theme {
 	const root = dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent")));
 	const file = JSON.parse(

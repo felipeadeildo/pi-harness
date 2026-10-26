@@ -16,7 +16,6 @@ export async function loginFor(
 	return screen ?? { interaction: dialogs(ctx, label, signal), close: () => {} };
 }
 
-/** Pi's own dialogs, for a host without our screen. */
 function dialogs(
 	ctx: ExtensionContext,
 	label: string,

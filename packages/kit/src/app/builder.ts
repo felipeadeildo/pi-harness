@@ -1,7 +1,5 @@
-// The app builder. A package's extension is `createApp(pi, ...).use(feature).build()`, and the
-// harness is the same call with every feature. The builder is where the rules from pi's extension
-// docs live: registration only in the factory, session work from `session_start`, cleanup once per
-// session, and a feature that fails to set up becomes a warning.
+// `createApp(pi, ...).use(feature).build()`. Registration happens only in the factory, session work
+// from `session_start`, cleanup once per session, and a feature that fails to set up is a warning.
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { CHANGED } from "../contracts/screen.ts";
@@ -17,10 +15,8 @@ import { serveScreen } from "./host.ts";
 import { type AppState, createScope, type Hook } from "./scope.ts";
 
 export interface App extends SettingsScope {
-	/** Shown in front of every warning, like `pi-harness` or `pi-providers`. */
 	readonly name: string;
 	readonly settings: SettingsStore;
-	/** True when this app runs a feature with that id. */
 	has(featureId: string): boolean;
 }
 

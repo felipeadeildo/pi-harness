@@ -1,8 +1,7 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Key } from "@earendil-works/pi-tui";
 
-// The Alt+T panel: it opens the session's board. The board is its own feature; this one only gives the
-// panel a key and wires it to the contract, so a host can keep the board and leave the panel out.
+// The Alt+T key and its wiring to the board contract; the board itself is its own feature.
 import { defineFeature } from "../app/feature.ts";
 import { BOARD } from "../contracts/board.ts";
 import { hideImagesUnderOverlays } from "../overlay-images.ts";

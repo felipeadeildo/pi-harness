@@ -14,7 +14,7 @@ export interface Decided {
 	toolName: string;
 	summary: string;
 	action: "allow" | "block";
-	/** The layer that decided, `you` for the dialog, or `no UI`. */
+	/** `you` for the dialog, or `no UI`. */
 	by: string;
 	/** Who answered the dialog, when the provider that drew it says. */
 	answeredBy?: By;

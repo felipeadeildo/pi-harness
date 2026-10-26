@@ -34,10 +34,8 @@ afterAll(() => {
 
 describe("the harness", () => {
 	test("every tool it gives a model has an object at the top of its schema", () => {
-		// A provider refuses a tool whose schema is not `type: "object"` (OpenAI answers `Invalid schema
-		// for function 'board'`), and it does so on the session's first call. The scripted provider the
-		// rig uses never checks, so this is the only place it can be seen. A union as `parameters` is
-		// what breaks it, and it is easy to write again.
+		// Providers refuse a tool schema that is not `type: "object"` on the first call; the rig's scripted
+		// provider never checks, so only this test sees it.
 		const bus = createEventBus();
 		const mounted = [
 			harnessBoard,
@@ -60,9 +58,7 @@ describe("the harness", () => {
 		}
 	});
 
-	// What each piece of the harness registers that no other piece does, in the order of what is lost
-	// when it silently fails to mount: a permission gate that is gone asks nothing, while a missing board
-	// fails loudly at the provider.
+	// What each piece registers that no other does.
 	const MOUNTS: {
 		name: string;
 		mount: (pi: ExtensionAPI) => void;

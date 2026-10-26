@@ -1,6 +1,4 @@
-// Colleagues' messages that wait for your next prompt, drawn when they arrive: the same frames as a
-// delivery, and one line under them that says why the agent did not get them yet, or, once a run
-// that was not yours took them, which run that was.
+// Colleagues' messages waiting for your next prompt, with why the agent has not got them yet.
 import { drawnByWidth, CHANGES_X, isObject } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, wrapTextWithAnsi } from "@earendil-works/pi-tui";
@@ -9,17 +7,15 @@ import type { Held, PeerDelivery } from "../inbox.ts";
 import { CHAIN_LIMIT, STEERS_PER_RUN } from "../rules.ts";
 import { deliveryBlock } from "./message.ts";
 
-/** What the transcript keeps of a held delivery. */
 export interface HeldDelivery extends PeerDelivery {
 	why: Held;
 }
 
-/** A run that was not yours took the held messages: `by` started it, when a colleague did. */
 export interface WentIn {
 	by?: string;
 }
 
-/** Kept in the session, out of the context, so a held line still says it went in after a reload. */
+/** Out of the context, so a held line still says it went in after a reload. */
 export const PEER_WENT_IN = "pi-peers:went-in";
 
 export interface WentInEntry extends WentIn {
@@ -34,7 +30,7 @@ export function isWentIn(value: unknown): value is WentInEntry {
 	);
 }
 
-/** `wentIn` is read on every frame, so the line changes once a run takes the messages. */
+/** Read on every frame, so the line changes once a run takes the messages. */
 export function heldBlock(
 	held: HeldDelivery,
 	theme: Theme,

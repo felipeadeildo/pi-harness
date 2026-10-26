@@ -1,6 +1,4 @@
-// The page the daemon serves. One build, hashed assets, no server rendering: the daemon answers the
-// same `index.html` for every route of the page, and the browser draws it. `bun run build` in the
-// package writes it to `dist/web`, next to the daemon.
+// `bun run build` writes the page to `dist/web`; the daemon answers `index.html` for every route.
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 

@@ -80,7 +80,7 @@ export interface Paint {
 	stress(percent: number, text: string): string;
 	money(amount: number, text: string): string;
 	frame(text: string): string;
-	/** A theme colour a package named in a contract, like a peer's own colour. */
+	/** A theme color a package named in a contract, like a peer's. */
 	raw(color: string, text: string): string;
 }
 

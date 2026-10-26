@@ -1,7 +1,5 @@
-// Between runs pi keeps the prompt cache warm by sending the last request again. It assumes a
-// fixed 15% chance that you come back before the next refresh, and refreshes only when that saves
-// five cents. On Opus 5.5 it skips every prompt under about 96k tokens and refreshes for 30
-// minutes. The chance falls the longer you are away, so the learned strategy uses that instead.
+// Pi keeps the cache warm assuming a fixed 15% chance you return. The chance falls the longer you
+// are away, so the learned strategy uses the measured one.
 import type { Model } from "@earendil-works/pi-ai";
 import type {
 	CacheWarmingDecisionEvent,
@@ -10,19 +8,15 @@ import type {
 
 import { returnChance, type Returns } from "./returns.ts";
 
-/** The model's prices and cache lifetime, which is all the decision reads from it. */
 export type CacheModel = Pick<Model<string>, "cost" | "promptCache">;
 
 export const STRATEGIES = ["learned", "pi", "minutes", "off"] as const;
-/** The learned strategy never keeps a cache warm longer than this. */
 const MAX_WARM_MINUTES = 120;
 export type Strategy = (typeof STRATEGIES)[number];
 
 export interface Away {
 	minutes: number;
-	/** The run ended on a question to you. */
 	asked: boolean;
-	/** Minutes between pi's refreshes. */
 	window: number;
 }
 
@@ -53,7 +47,7 @@ export function warmAction(
 	}
 }
 
-/** Pi refreshes at 90% of the cache's lifetime, keeping at least ten seconds of margin. */
+/** At 90% of the cache's lifetime, with at least ten seconds of margin. */
 export function refreshWindow(model: CacheModel | undefined): number {
 	const retention = process.env.PI_CACHE_RETENTION === "long" ? "long" : "short";
 	const seconds = model?.promptCache?.[retention] ?? 300;
@@ -61,10 +55,7 @@ export function refreshWindow(model: CacheModel | undefined): number {
 	return Math.min(ms * 0.9, ms - 10_000) / 60_000;
 }
 
-/**
- * How long the learned strategy keeps the cache warm on this model, whatever the prompt's size:
- * a refresh reads the prompt from cache, and a miss writes all of it again.
- */
+/** Independent of prompt size: a refresh reads from cache, a miss writes everything again. */
 export function warmFor(model: CacheModel, returns: Returns | undefined, asked: boolean): number {
 	const { cacheRead, cacheWrite } = model.cost;
 	if (cacheWrite <= cacheRead) return 0;

@@ -1,7 +1,5 @@
-// A session that has no name yet draws one from the list the first time it starts, and the room
-// calls it by that word from then on. The claim is a file, so a resumed session gets its word back
-// even after a restart; a session that started before the list existed keeps the handle the tasks
-// wrote in its file.
+// A session draws a handle the first time it starts and keeps it, across restarts too. Sessions
+// from before the list keep the handle their tasks wrote.
 import { join } from "node:path";
 
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
@@ -16,13 +14,9 @@ import { claimWord, drawWord } from "./claim.ts";
 import { WORDS } from "./words.ts";
 
 export interface NamesOptions {
-	/** The folder of claims. Defaults to `<agent dir>/harness/names`. */
 	dir?: string;
 }
 
-/**
- * The names feature. The folder is an option so a test can draw into a temporary one.
- */
 export function names(options: NamesOptions = {}): Feature {
 	return {
 		id: "names",
@@ -33,8 +27,7 @@ export function names(options: NamesOptions = {}): Feature {
 			scope.onSessionStart((ctx) => {
 				const session = ctx.sessionManager.getSessionId();
 				const dir = options.dir ?? join(getAgentDir(), "harness", "names");
-				// An older session keeps the handle the tasks wrote in its file, and claims it in the names
-				// folder like any other word.
+				// An older session claims the handle its tasks wrote, like any other word.
 				const previous = tasksHandleOf(ctx.sessionManager.getBranch());
 				if (previous !== undefined) {
 					held = { handle: previous };

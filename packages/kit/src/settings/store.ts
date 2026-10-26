@@ -1,6 +1,4 @@
-// One store per app, reading only the settings its own features declared. A value comes from the
-// first layer with a valid one: project (for settings that accept it, in a trusted project),
-// global, default.
+// A value comes from the first layer that has a valid one: project (when allowed and trusted), global, default.
 import { formatProblems } from "../decode.ts";
 import {
 	assign,
@@ -53,9 +51,9 @@ export class SettingsStore {
 		return [...this.#known.values()];
 	}
 
-	/** Throws for a setting no feature declared, which would otherwise read its default forever. */
+	/** Throws for an undeclared setting, which would otherwise read its default forever. */
 	get<T>(entry: Setting<T>): T {
-		// Only `load` fills #loaded, and always with a value this setting's decoder produced.
+		// `load` fills #loaded only with values this setting's decoder produced.
 		return this.#read(entry).value as T;
 	}
 
@@ -70,19 +68,18 @@ export class SettingsStore {
 	listen<T>(entry: Setting<T>, listener: (value: T) => void): () => void {
 		const listeners = this.#listeners.get(entry.id) ?? new Set();
 		this.#listeners.set(entry.id, listeners);
-		// Same reasoning as `get`: every value handed to a listener came from this setting's decoder.
+		// Every value given to a listener came from this setting's decoder.
 		const untyped = listener as (value: unknown) => void;
 		listeners.add(untyped);
 		return () => listeners.delete(untyped);
 	}
 
-	/** Lets other stores on the same files read them again. */
 	onWrite(listener: () => void): () => void {
 		this.#writeListeners.add(listener);
 		return () => this.#writeListeners.delete(listener);
 	}
 
-	/** Reads the files again. Pass the project file only when pi trusts the project. */
+	/** Pass the project file only when pi trusts the project. */
 	load(projectPath?: string): string[] {
 		this.#fresh = true;
 		this.#projectPath = projectPath;
@@ -114,16 +111,12 @@ export class SettingsStore {
 		return warnings;
 	}
 
-	/** Writes one value to the global file, keeping the rest. Returns an error message on failure. */
+	/** Keeps the rest of the file. Returns an error message on failure. */
 	set<T>(entry: Setting<T>, value: T): string | undefined {
 		return this.setAll([[entry, value]]);
 	}
 
-	/**
-	 * Writes several values in one pass, keeping the rest of the file. A value that already reads the
-	 * same is not written, so the file ends up holding what was decided and not a copy of every
-	 * default, which would freeze them.
-	 */
+	/** A value equal to the current one is not written, so the file never freezes a default. */
 	setAll(entries: readonly (readonly [Setting<unknown>, unknown])[]): string | undefined {
 		for (const [entry] of entries) this.#assertKnown(entry);
 		const changed = entries.filter(([entry, value]) => !same(this.#globalOf(entry), value));
@@ -193,7 +186,7 @@ function decodeAt<T>(
 	return result.ok ? { found: true, value: result.value } : { found: false };
 }
 
-/** Decoders build new arrays and objects on every read, so two values are compared by content. */
+/** Decoders build new objects on every read, so values compare by content. */
 function same(left: unknown, right: unknown): boolean {
 	return JSON.stringify(left) === JSON.stringify(right);
 }

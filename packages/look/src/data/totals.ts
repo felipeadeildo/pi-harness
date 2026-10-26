@@ -1,6 +1,5 @@
 import { type UsageLike } from "@adeildo/pi-kit";
 
-// The sum itself lives in the kit, where the phone's list reads it too: one owner for one number.
 export {
 	emptyTotals,
 	promptOf,
@@ -19,7 +18,7 @@ export interface RequestRecord {
 }
 
 export const REQUEST_CHANGES = "pi-look:request";
-/** Written by this package before it was renamed. It has no `prompt`, so it only counts for decode. */
+/** Entries from this package's old name. They have no `prompt`, so they count only for decode. */
 const LEGACY_CHANGES = "pi-statusline:turn";
 
 export interface Averages {
@@ -27,7 +26,6 @@ export interface Averages {
 	prefill: number | undefined;
 }
 
-/** The usage of the last answer the model gave, which is what the cache lines talk about. */
 function lastAssistantUsage(entries: readonly SessionEntry[]): UsageLike | undefined {
 	for (let index = entries.length - 1; index >= 0; index--) {
 		const entry = entries[index];

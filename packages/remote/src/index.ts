@@ -1,6 +1,5 @@
-// The remote's part inside every pi, the bridge. It keeps the launcher current, so `pi-remote`
-// always runs the version of the pi that started last, and it publishes this session to the daemon,
-// starting the daemon when none answers.
+// The bridge inside every pi: keeps the launcher pointing at the newest pi and publishes the session
+// to the daemon, starting one when none answers.
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -34,20 +33,16 @@ import { CLIENT_PORT, daemonDir, daemonPaths } from "./places.ts";
 import { forwardOtherDialogs, port } from "./settings.ts";
 import { VERSION } from "./version.ts";
 
-/** The built daemon and command, next to this package's sources. */
 const DIST = fileURLToPath(new URL("../dist/", import.meta.url));
 
-/**
- * Which sessions the remote shows: one in a terminal, and one in RPC mode whose starter set
- * `PI_REMOTE_SHARE=1`, as the runner does. A `pi -p` or a subagent leaves no trace.
- */
+/** A terminal, or RPC with `PI_REMOTE_SHARE=1`. `pi -p` and subagents are not shown. */
 export function sessionKind(mode: string): SessionKind | undefined {
 	if (mode === "tui") return "terminal";
 	if (mode === "rpc" && process.env.PI_REMOTE_SHARE === "1") return "background";
 	return undefined;
 }
 
-/** How the end of a session in pi reads to the daemon. A reload is no end: the next runtime goes on. */
+/** A reload is no end: the next runtime goes on. */
 export function goneReason(
 	reason: "quit" | "reload" | "new" | "resume" | "fork",
 ): GoneReason | undefined {
@@ -68,11 +63,9 @@ export const remote = defineFeature({
 	description: "Reach your sessions from a phone, a browser or another machine",
 	settings: [port, forwardOtherDialogs],
 	setup(scope) {
-		// The source registers its own handlers, so it is made while the extension loads.
 		const source = piSource(scope);
 		followSessionStatus(scope, (message) => scope.warn(message));
-		// The agent runs as you, so the permission feature asks before any call that reaches the remote:
-		// it could answer its own question, drive another session, or read the machine's key.
+		// The agent runs as you: without this it could answer its own question or read the machine's key.
 		provideProtected(scope.events, () => {
 			const dir = daemonDir();
 			return {
@@ -101,8 +94,6 @@ export const remote = defineFeature({
 			} catch (error) {
 				scope.warn(`could not write the pi-remote launcher: ${String(error)}`);
 			}
-			// The inbox is built here, where the wiring lives: its delivery goes through the same api the
-			// commands use, and what it announces comes back through the bridge, which folds the state.
 			const api = commandApi(scope, ctx);
 			inbox = new SessionInbox(scope, {
 				send: (text, deliverAs) => api.send(text, deliverAs),
@@ -121,13 +112,11 @@ export const remote = defineFeature({
 				kind,
 				command: (message) => commands?.run(message),
 				api,
-				// `FeatureScope` is the extension API, so the list of slash commands is asked here.
 				offered: () => commandsFor(scope.getCommands()),
 				startDaemon: () => startDaemon(dir, port.get(scope)),
 				warn: (message) => scope.warn(message),
 			});
 			bridge.start();
-			// The commands are built here, where the inbox, the api and the dialogs of this session meet.
 			commands = new Commands({
 				session: ctx.sessionManager.getSessionId(),
 				effects: {
@@ -164,7 +153,6 @@ export const remote = defineFeature({
 					logFrom(ctx, scope.events, "command.outcome", { id, command, by, outcome });
 				},
 			});
-			// A session with no terminal has no dialog to draw, so the questions go to the clients.
 			if (kind === "background") {
 				asks = new ClientAsks({
 					events: scope.events,
@@ -173,7 +161,6 @@ export const remote = defineFeature({
 				});
 				asks.start();
 			}
-			// A terminal session has a dialog to race: the clients answer pi's and other extensions' too.
 			if (kind === "terminal") {
 				restoreDialogs?.();
 				restoreDialogs = forwardDialogs(ctx.ui, {
@@ -191,13 +178,10 @@ export const remote = defineFeature({
 			restoreDialogs?.();
 			restoreDialogs = undefined;
 		});
-		// A follow-up waits for this: the run is over, so what a client held goes in now.
 		scope.on("agent_settled", () => inbox?.settle());
-		// And a run that starts is the proof that the prompt which started it is in: until it arrives
-		// the letter stays in the queue, so a send pi drops is visible instead of lost.
+		// The letter stays queued until a run starts, so a send pi drops is visible.
 		scope.on("agent_start", () => inbox?.started());
-		// Only the terminal can answer `custom()` and the editor, so clients say it waits. The other
-		// dialogs reach the clients as asks they can answer.
+		// Only the terminal can answer `custom()` and the editor.
 		const onlyTerminal = (kind: string): kind is PromptKind =>
 			PROMPT_KINDS.some((one) => one === kind);
 		scope.on("ui_prompt_start", (event) => {
@@ -206,12 +190,8 @@ export const remote = defineFeature({
 		scope.on("ui_prompt_end", (event) => {
 			if (onlyTerminal(event.kind)) bridge?.prompted(false, event.kind, undefined);
 		});
-		/**
-		 * A compaction is the other moment a follow-up is held for, and it ends no run: pi emits this
-		 * before it clears the flag that makes a send throw, so the queue is drained on the next turn
-		 * of the loop, once the flag is gone, and only if pi would take a prompt then. The app owns
-		 * that turn: a session that ends first takes the deferral with it.
-		 */
+		// Pi emits this before it clears the flag that makes a send throw, so the queue drains on the
+		// next turn of the loop.
 		const afterCompaction = (_event: unknown, ctx: ExtensionContext): void => {
 			scope.defer(() => {
 				if (ctx.isIdle()) inbox?.settle();
@@ -227,15 +207,13 @@ export const remote = defineFeature({
 		scope.on("tool_execution_end", (event) => bridge?.stream.toolEnd(event));
 		scope.on("turn_end", (event) => {
 			bridge?.stream.turnEnd(event);
-			// The turn's cost is only whole after its last message was forwarded, so it goes after the
-			// stream binds the entry, not on the way in.
+			// The turn's cost is whole only after its last message was forwarded.
 			bridge?.charged();
 		});
-		// A leaf of null is the root: the branch is empty, and a client drops what it drew.
 		scope.on("session_tree", (event) => {
 			bridge?.connection.event("leaf.changed", { leaf: event.newLeafId });
 		});
-		// pi's JSON mode has no form for a model change, so this one keeps the style of the others.
+		// Pi's JSON mode has no form for a model change.
 		scope.on("model_select", (event) => {
 			bridge?.connection.event("pi.model_select", {
 				type: "model_select",
@@ -259,7 +237,6 @@ export const remote = defineFeature({
 		SESSION_STATUS.onChanged(scope, (state) => {
 			if (state !== undefined) bridge?.connection.event("session.status", { status: state });
 		});
-		// Every line the kit logs is published inside the process too, and the bridge keeps the state changes.
 		scope.events.on(LOGGED_EVENT, (line: unknown) => {
 			if (!isObject(line) || typeof line.session !== "string" || typeof line.type !== "string")
 				return;

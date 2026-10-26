@@ -1,5 +1,3 @@
-// Joining a provider to the session: which account a request uses, where a refreshed token goes, and
-// what quota each account reported.
 import type { FeatureScope } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
@@ -18,10 +16,9 @@ import { type Renewal, needsRefresh, refreshAccount } from "./refresh.ts";
 import { accountsLockPath, type AccountStore } from "./store.ts";
 import type { Account } from "./types.ts";
 
-/** What the session learns while it runs. */
 export interface Watch {
 	limited: Map<string, Set<string>>;
-	/** The accounts you chose to stop on at a limit, which are not asked about again. */
+	/** Not asked about again at a limit. */
 	declined: Map<string, Set<string>>;
 	usage: UsageMap;
 	quota: Quota;
@@ -35,12 +32,10 @@ export function attachProvider(
 	ctx: ExtensionContext,
 	providerId: string,
 ): void {
-	// A pin with no account left behind it injects nothing, so re-registering would only cost a
-	// model-registry rebuild.
+	// A pin with no account behind it injects nothing; re-registering would only rebuild the registry.
 	if (!store.has(providerId)) return;
 
-	// `getProvider` returns the lifted provider once we registered one, so unwrap it before wrapping
-	// again. After a `/reload` it returns the built-in one, which is unwrapped too.
+	// `getProvider` returns our lifted provider once registered, so unwrap it before wrapping again.
 	const provider = ctx.modelRegistry.getProvider(providerId);
 	if (provider === undefined) {
 		scope.warn(`no provider "${providerId}", so its accounts do nothing`);
@@ -59,7 +54,7 @@ export function sessionFor(
 	ctx: ExtensionContext,
 	providerId: string,
 ): AccountSession {
-	// The turn and a side model's call can hit a limit together; they share one dialog and its answer.
+	// The turn and a side model's call can hit a limit together; they share one dialog.
 	const deciding = new Map<string, Promise<AccountCredential | undefined>>();
 	function once(
 		key: string,
@@ -110,7 +105,6 @@ export function sessionFor(
 	};
 }
 
-/** An account as a request carries it. */
 function requestOf(account: Account | undefined): AccountCredential | undefined {
 	return account === undefined ? undefined : { id: account.id, credential: account.credential };
 }
@@ -120,7 +114,6 @@ function withReset(detail: string, usage: AccountUsage | undefined): string {
 	return note === undefined ? detail : `${detail} · ${note}`;
 }
 
-/** The reading already known: the live one, else the endpoint's. */
 export function knownReading(
 	watch: Watch,
 	providerId: string,
@@ -129,7 +122,7 @@ export function knownReading(
 	return usageOf(watch.usage, providerId, accountId) ?? watch.quota.read(providerId, accountId);
 }
 
-/** Reads every account's plan of a provider, so the footer and the dialogs find their quota ready. */
+/** So the footer and the dialogs find their quota ready. */
 export async function readPlans(
 	store: AccountStore,
 	watch: Watch,
@@ -144,7 +137,6 @@ export async function readPlans(
 	);
 }
 
-/** Reads a provider's plans in the background, and draws the account again once they are in. */
 export function showPlans(
 	store: AccountStore,
 	pins: Pins,
@@ -155,7 +147,7 @@ export function showPlans(
 	return readPlans(store, watch, ctx, providerId).then(() => refreshStatus(store, pins, ctx));
 }
 
-/** The best reading for an account: the live one, else the endpoint's, fetched when there is none. */
+/** The live reading, else the endpoint's, fetched when there is none. */
 export async function readingFor(
 	watch: Watch,
 	store: AccountStore,
@@ -169,7 +161,6 @@ export async function readingFor(
 	return await watch.quota.ensure(providerId, accountId, token);
 }
 
-/** The token that can read a plan, refreshed when it has expired. */
 async function planToken(
 	store: AccountStore,
 	ctx: ExtensionContext,
@@ -200,7 +191,6 @@ async function planToken(
 	}
 }
 
-/** The store side of a refresh: the newest copy, and where to save the result. */
 function renewalFor(store: AccountStore, providerId: string): Renewal {
 	return {
 		freshen: (id) => {

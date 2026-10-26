@@ -1,5 +1,4 @@
-// What reaches this session's agent, from every room it is in. A session is one agent however many
-// rooms it reads, so the depth of its chain and the way a message reaches it belong here, and what
+// What reaches this session's agent from all its rooms. One agent, so one chain depth, and what
 // arrives from several rooms at once is one turn.
 import { Inbox as KitInbox, type By, type Delivery, type Letter } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -8,7 +7,7 @@ import type { Posted } from "./folder.ts";
 import { type BusyDelivery, CHAIN_LIMIT, deliveryFor, STEERS_PER_RUN } from "./rules.ts";
 
 export const PEER_MESSAGE = "pi-peers:message";
-/** Colleagues' messages that wait for the next prompt, drawn when they arrive and kept out of the context. */
+/** Drawn when they arrive and kept out of the context. */
 export const PEER_HELD = "pi-peers:held";
 
 export interface PeerMessageDetails {
@@ -17,62 +16,50 @@ export interface PeerMessageDetails {
 	color: string;
 	fromYou: boolean;
 	toYou: boolean;
-	/** Sent to every agent in the room, with `@everyone`. */
 	everyone?: boolean;
 	text: string;
 	at: number;
-	/** A request to everyone that another agent took: shown here, never sent to this agent. */
+	/** Shown here, never sent to this agent. */
 	takenBy?: string;
-	/** The shared room it came from, by name. Absent for the folder's room. */
 	room?: string;
-	/** Where the writer works, when that is not this session's folder. */
+	/** When that is not this session's folder. */
 	where?: string;
 }
 
-/** One arrival: everything that was waiting for this session when it looked. */
 export interface PeerDelivery {
 	items: PeerMessageDetails[];
-	/** For a chain that stopped waking the agent: how many replies that took. */
+	/** How many replies the chain took before it stopped waking the agent. */
 	chain?: number;
 }
 
 /** Why a colleague's message waits for the next prompt instead of reaching the agent now. */
 export type Held = "asleep" | "quiet" | "full" | "stopped";
 
-/** A colleague's message in the agent's queue, which its model has not read yet. */
+/** Its model has not read it yet. */
 export interface Waiting extends PeerMessageDetails {
 	mode: "steered" | "after-run";
 }
 
 export interface InboxHooks {
 	sendMessage: ExtensionAPI["sendMessage"];
-	/** Shows now, outside the model's context, what waits for the next prompt, and why. */
+	/** Shown now, outside the model's context. */
 	held?(delivery: PeerDelivery, why: Held): void;
 	sendUserMessage: ExtensionAPI["sendUserMessage"];
-	/** What the delivery setting says for a colleague's message that arrives while the agent runs. */
 	busyDelivery?: () => BusyDelivery;
-	/** Agent replies in a chain before it stops waking anyone. 0 never stops it. */
+	/** 0 never stops it. */
 	chainLimit?: () => number;
-	/**
-	 * What waited for the next prompt went in with a run that did not start from one: `by` is the
-	 * colleague whose message started it, when one did.
-	 */
+	/** `by` is the colleague whose message started the run, when one did. */
 	wentIn?(ids: readonly string[], by: string | undefined): void;
 	idle(): boolean;
 }
 
-/** A room handing over what is due in it, and logging the receipts once the agent has it. */
 export interface Sender {
-	/** Who is writing, as the log and the wire name them. */
 	by: By;
 	details(message: Posted): PeerMessageDetails;
 	handed(messages: readonly Posted[], mode: Delivery): void;
 }
 
-/**
- * The same words as a letter of the kit, which is what the queue holds once it moves there. The kit
- * reads `want`, the peers reads `mode`: one is how it goes in, the other is when.
- */
+/** The kit reads `want` (how it goes in), peers reads `mode` (when). */
 export function letterOf(message: Posted, by: By, mode: Waiting["mode"]): Letter {
 	return {
 		id: message.id,
@@ -90,29 +77,24 @@ interface Arrival {
 
 export class Inbox {
 	readonly #hooks: InboxHooks;
-	/** The depth of what this session's agent writes now: how many agent replies woke its run. */
+	/** How many agent replies woke this run. */
 	#depth = 0;
-	/** Colleagues' messages steered into the run that is going on, which does not deepen it. */
+	/** Steers do not deepen the run. */
 	#steers = 0;
 	#holding = 0;
 	#waiting: Arrival[] = [];
-	/** The queue itself, which is the kit's: it holds the letters and decides what goes in when. */
 	readonly #letters = new KitInbox();
-	/** What the room needs to draw a queued letter and to tell its writer it arrived, by letter id. */
+	/** By letter id. */
 	#shown = new Map<
 		string,
 		{ details: PeerMessageDetails; from: Sender; message: Posted; waiting: Waiting }
 	>();
-	/** The operator has written to this session: before that, a colleague's message waits for it. */
+	/** Until then, a colleague's message waits for the operator's first prompt. */
 	#awake = false;
-	/**
-	 * Held deliveries in pi's next-turn list. Pi gives that list to whatever run starts next, which is
-	 * not always yours, so the inbox keeps them until a run takes them and says which.
-	 */
+	/** Pi gives its next-turn list to whichever run starts next, so the inbox tracks which one took them. */
 	#held: Arrival[][] = [];
-	/** The run about to start is one you started, with a prompt here or from another session. */
+	/** With a prompt here or from another session. */
 	#yours = false;
-	/** The colleague whose message is starting the next run. */
 	#wokenBy: string | undefined;
 
 	constructor(hooks: InboxHooks) {
@@ -127,7 +109,6 @@ export class Inbox {
 		return this.#awake;
 	}
 
-	/** Someone typed a prompt here: what the agent writes next starts a new chain. */
 	prompted(): void {
 		this.#depth = 0;
 		this.#steers = 0;
@@ -136,13 +117,8 @@ export class Inbox {
 		if (this.#hooks.idle()) this.#yours = true;
 	}
 
-	/**
-	 * A run started, and took what waited for the next prompt. Your run is the one those were held
-	 * for. Any other run took them too, so the room's receipts, the chain and the screen say so.
-	 */
 	started(): void {
-		// The run that starts now takes what waited, so the queue is emptied in the same place it is
-		// kept: the kit's, which is the one the screen and the receipts read.
+		// The run that starts now takes what waited, emptied from the kit's queue that the screen reads.
 		this.#letters.settle();
 		this.#shown.clear();
 		const held = this.#held.flat();
@@ -161,12 +137,11 @@ export class Inbox {
 		);
 	}
 
-	/** A session reopened after the operator had already written in it. */
 	wake(): void {
 		this.#awake = true;
 	}
 
-	/** Another session opens in this process: it starts asleep, with nothing waiting. */
+	/** A new session in this process starts asleep, with nothing waiting. */
 	reset(): void {
 		this.#depth = 0;
 		this.#steers = 0;
@@ -178,17 +153,15 @@ export class Inbox {
 		this.#wokenBy = undefined;
 	}
 
-	/** Colleagues' messages the agent has and has not read yet, oldest first. */
 	queued(): Waiting[] {
 		return [...this.#shown.values()].map(({ waiting }) => waiting);
 	}
 
-	/** What waits, as the kit's letters: the queue's own view of itself. */
 	letters(): Letter[] {
 		return this.#letters.queue();
 	}
 
-	/** The model read it, so it leaves the queue. Says whether it was there. */
+	/** Says whether it was there. */
 	read(id: string): boolean {
 		const there = this.#shown.delete(id);
 		if (there) this.#letters.take([id]);
@@ -196,18 +169,14 @@ export class Inbox {
 	}
 
 	/**
-	 * Pi emptied the agent's queue, which Esc and taking your queued messages back both do, and the
-	 * colleagues' messages in it went too. They are not dropped: the room already logged them as
-	 * received, so the writer counts on this agent reading them, and you stopped your own run, not the
-	 * conversation. A run that goes on gets them again the same way; one you stopped leaves them for
-	 * your next prompt, shown with why, and the room's receipt says so.
+	 * Pi emptied the queue (Esc). The room already logged colleagues' messages as received, so they are
+	 * not dropped: a running run gets them again, a stopped one leaves them for your next prompt.
 	 */
 	cleared(running: boolean): void {
 		const queued = [...this.#shown.values()];
 		if (queued.length === 0) return;
 		if (running) {
-			// Pi draws a queued message only when the agent takes it, so the copy that went was never
-			// drawn, and this one shows once.
+			// Pi draws a queued message only when the agent takes it, so this copy shows once.
 			for (const mode of ["steered", "after-run"] as const) {
 				const items = queued
 					.filter(({ waiting }) => waiting.mode === mode)
@@ -221,7 +190,7 @@ export class Inbox {
 		const items = queued.map(({ details }) => details);
 		this.#hooks.held?.({ items }, "stopped");
 		this.#send(items, "next-turn", this.#hooks.held === undefined);
-		// The room learns they wait now, so the writer does not count on them being read.
+		// The writer learns they wait, so it does not count on them being read.
 		const bySender = new Map<Sender, Posted[]>();
 		for (const { from, message } of queued)
 			bySender.set(from, [...(bySender.get(from) ?? []), message]);
@@ -229,7 +198,6 @@ export class Inbox {
 		this.#held.push([...bySender].map(([from, messages]) => ({ from, messages })));
 	}
 
-	/** Runs `work`, and hands over everything that arrived during it together. */
 	hold(work: () => void): void {
 		this.#holding++;
 		try {
@@ -249,8 +217,7 @@ export class Inbox {
 		const arrivals = this.#waiting;
 		this.#waiting = [];
 		if (arrivals.length === 0) return;
-		// Everything waiting right now arrives together: one run reads the burst, instead of one run
-		// per message, which is what made a reply feel slow.
+		// One run reads the whole burst, not one run per message.
 		const theirs = arrivals.map(({ from, messages }) => ({
 			from,
 			messages: messages.filter((message) => message.from !== "you"),
@@ -265,7 +232,6 @@ export class Inbox {
 		if (yours.some((arrival) => arrival.messages.length > 0)) this.#handYou(yours);
 	}
 
-	/** Colleagues' messages, wrapped so the agent knows who wrote and that they cannot approve. */
 	#handPeer(arrivals: readonly Arrival[]): void {
 		const { mode, held, chain } = this.#modeFor(arrivals, true);
 		const ordered = inOrder(arrivals).map(({ from, message }) => ({
@@ -274,12 +240,11 @@ export class Inbox {
 			details: from.details(message),
 		}));
 		const items = ordered.map(({ details }) => details);
-		// A held message is shown now, and goes in with the next run without being drawn a second time.
+		// Shown now, and not drawn a second time when it goes in.
 		if (held !== undefined) {
 			this.#hooks.held?.({ items, ...(chain === undefined ? {} : { chain }) }, held);
 			this.#held.push([...arrivals]);
 		}
-		// The first colleague to wake the agent is the one the held line names.
 		if (mode === "woke") this.#wokenBy ??= items[0]?.from;
 		this.#send(items, mode, held === undefined || this.#hooks.held === undefined);
 		// Pi does not list what an extension queues, so the inbox keeps it until the model reads it.
@@ -289,7 +254,6 @@ export class Inbox {
 		this.#handed(arrivals, mode);
 	}
 
-	/** Keeps one message in both places: what the room draws, and the queue the kit holds. */
 	#queueUp(
 		one: { details: PeerMessageDetails; from: Sender; message: Posted },
 		mode: Waiting["mode"],
@@ -310,14 +274,12 @@ export class Inbox {
 		);
 	}
 
-	/** Yours, sent from another session: the operator speaking, so no wrapper. */
 	#handYou(arrivals: readonly Arrival[]): void {
-		// Your words are never held back: only colleagues fill a run.
+		// Your words are never held back.
 		const { mode } = this.#modeFor(arrivals, false);
 		if (mode !== "next-turn" && this.#hooks.idle()) this.#yours = true;
 		const texts = inOrder(arrivals).map(({ message }) => message.text);
-		// Its deliverAs only matters while the agent runs, so pass it whether or not it looks idle: a
-		// run starting between the two would otherwise make the call fail.
+		// `deliverAs` matters only while the agent runs; pass it anyway, since a run may start in between.
 		this.#hooks.sendUserMessage(texts.join("\n\n"), {
 			deliverAs: mode === "steered" ? "steer" : "followUp",
 		});
@@ -327,8 +289,7 @@ export class Inbox {
 	#handed(arrivals: readonly Arrival[], mode: Delivery): void {
 		for (const { from, messages } of arrivals) if (messages.length > 0) from.handed(messages, mode);
 		if (mode === "next-turn") return;
-		// A steer joins a run already going, so only a run it starts is one reply deeper. The count of
-		// steers is what stops two running agents from keeping each other's runs going forever.
+		// Only a run a message starts is one reply deeper; the steer count stops two running agents feeding each other.
 		const messages = arrivals.flatMap((arrival) => arrival.messages);
 		if (mode === "steered") {
 			if (messages.some((message) => message.from !== "you")) this.#steers++;
@@ -338,7 +299,6 @@ export class Inbox {
 		this.#steers = 0;
 	}
 
-	/** Until the operator writes here, it waits for that first prompt; then it follows the rule. */
 	#modeFor(
 		arrivals: readonly Arrival[],
 		colleagues: boolean,
@@ -347,8 +307,7 @@ export class Inbox {
 		const messages = arrivals.flatMap((arrival) => arrival.messages);
 		const urgent = messages.some((message) => message.urgent === true);
 		const limit = this.#hooks.chainLimit?.() ?? CHAIN_LIMIT;
-		// A message to the whole room is no reply to anyone, so it is never held as a loop. It still
-		// counts, so the run it wakes writes at its depth.
+		// A message to the room is no reply, so never held as a loop, but the run it wakes writes at its depth.
 		const quiet =
 			limit > 0 && messages.every((message) => Array.isArray(message.to) && message.depth >= limit);
 		const mode = deliveryFor({
@@ -364,17 +323,13 @@ export class Inbox {
 	}
 }
 
-/** Every message of an arrival, in the order they were written, whichever room it came from. */
 function inOrder(arrivals: readonly Arrival[]): { from: Sender; message: Posted }[] {
 	return arrivals
 		.flatMap(({ from, messages }) => messages.map((message) => ({ from, message })))
 		.toSorted((a, b) => a.message.at - b.message.at);
 }
 
-/**
- * How deep a run this message starts is. Your own words start a chain; a colleague's message adds
- * one, and the chain limit of those is where agents that only answer each other stop waking.
- */
+/** Your words start a chain; a colleague's message adds one. */
 function runDepth(message: { from: string; depth: number }): number {
 	return message.from === "you" ? 0 : message.depth + 1;
 }
@@ -385,7 +340,7 @@ function sendOptions(mode: Delivery): {
 } {
 	switch (mode) {
 		case "woke":
-			// A run that starts now refuses a message with no delivery, so this wakes it with the words.
+			// A run starting now refuses a message with no delivery.
 			return { triggerTurn: true, deliverAs: "followUp" };
 		case "after-run":
 			return { triggerTurn: true, deliverAs: "followUp" };
@@ -396,7 +351,7 @@ function sendOptions(mode: Delivery): {
 	}
 }
 
-/** What the agent reads: everything that arrived together, one block each. A peer's words are never the operator's. */
+/** A peer's words are never the operator's. */
 function forModel(items: readonly PeerMessageDetails[]): string {
 	return items.map(oneForModel).join("\n\n");
 }

@@ -1,10 +1,7 @@
-// How the browser talks to the daemon: one WebSocket per attempt, on the page's own origin, which is
-// the only one the daemon's `checkPlace` lets open `/ws`. A session of another machine goes through
-// the same daemon, which joins the socket to that machine's. The client library asks for an attempt
-// and sends its hello at once, before a socket is open, so what is sent before that waits for it.
+// One WebSocket per attempt on the page's own origin, the only one `checkPlace` lets open `/ws`.
+// What is sent before the socket opens waits for it.
 import type { ConnectionOptions, Transport } from "@adeildo/pi-remote-protocol/client";
 
-/** The part of a WebSocket the transport uses, so a test can hand it a fake. */
 export interface SocketLike {
 	readyState: number;
 	send(data: string): void;
@@ -17,13 +14,12 @@ export type SocketFactory = (url: string) => SocketLike;
 
 const OPEN = 1;
 
-/** The daemon's `/ws` on the origin the page was loaded from, for a session of `machine`. */
 export function socketUrl(location: { protocol: string; host: string }, machine: string): string {
 	const scheme = location.protocol === "https:" ? "wss" : "ws";
 	return `${scheme}://${location.host}/ws?machine=${encodeURIComponent(machine)}`;
 }
 
-/** An `open` for `connect`: each attempt is a socket, and a close the client did not ask for is told. */
+/** A close the client did not ask for is reported. */
 export function openSocket(url: string, socket: SocketFactory): ConnectionOptions["open"] {
 	return (onMessage, onClose) => {
 		const ws = socket(url);
@@ -38,7 +34,7 @@ export function openSocket(url: string, socket: SocketFactory): ConnectionOption
 			try {
 				value = JSON.parse(event.data);
 			} catch {
-				// A line that is not JSON is not an envelope, and the client skips what does not read.
+				// Not JSON is not an envelope.
 				return;
 			}
 			onMessage(value);
@@ -48,7 +44,7 @@ export function openSocket(url: string, socket: SocketFactory): ConnectionOption
 		});
 		const transport: Transport = {
 			send(envelope) {
-				// A socket closing or closed never opens again: the client asks for a new attempt.
+				// A closing socket never reopens; the client asks for a new attempt.
 				if (ws.readyState > OPEN) return;
 				const text = JSON.stringify(envelope);
 				if (ws.readyState === OPEN) ws.send(text);

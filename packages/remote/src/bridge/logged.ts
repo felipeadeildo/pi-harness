@@ -1,5 +1,3 @@
-// The session's harness state as this bridge knows it: what the kit logs for this session, folded the
-// same way every reader folds it, so the opening it sends needs no replay behind it.
 import {
 	applyChange,
 	isStateChangeType,
@@ -9,11 +7,8 @@ import {
 	type SessionState,
 } from "@adeildo/pi-remote-protocol";
 
-/**
- * The log's state changes a client reduces. The log's own `session.state` is peers' running or idle, a
- * `RoomActivity` from another package, and it never crosses: the wire's `session.status` is pi's
- * program status, written by the bridge.
- */
+// The log's `session.state` is peers' running or idle and never crosses; the wire's
+// `session.status` is pi's, written by the bridge.
 const FORWARDED: ReadonlySet<string> = new Set([
 	"ask.opened",
 	"ask.closed",
@@ -28,11 +23,7 @@ export interface Logged {
 	data: unknown;
 }
 
-/**
- * Forwards a state change the kit logged for this session, and keeps what an opening needs of it. Only this
- * session's events cross, and only the ones in `FORWARDED`: the log carries state changes of other sessions
- * and types that are peers' business, and both would be wrong on the wire.
- */
+/** Forwards only this session's events, and only the types in `FORWARDED`. */
 export function forward(
 	logged: Logged,
 	session: string,
@@ -45,15 +36,9 @@ export function forward(
 }
 
 export class Harness {
-	/**
-	 * The state as the log has written it so far. It is the same shape a client reduces and the same
-	 * shape the daemon seeds itself with, so there is one reducer and one bound, here and everywhere.
-	 */
 	#state: SessionState = emptySessionState();
 
-	/** Folds one event the session logged into the state an opening carries. */
 	saw(type: string, data: unknown): void {
-		// The forwarder hands whatever the log wrote; only a state change has an effect to fold.
 		if (isStateChangeType(type)) this.#state = applyChange(this.#state, type, data);
 	}
 
@@ -61,7 +46,6 @@ export class Harness {
 		return openQuestions(this.#state).map((ask) => ask.id);
 	}
 
-	/** The state as it stands, with what pi knows and the log does not. */
 	state(mode: unknown): SessionState {
 		return {
 			...this.#state,

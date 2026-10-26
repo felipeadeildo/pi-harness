@@ -9,7 +9,6 @@ import { spin } from "./motion.ts";
 
 export const MARKS = { idle: GLYPH.diamondEmpty, waiting: GLYPH.flag } as const;
 
-/** Lines a card may wrap to: the selected agent shows it whole, the others a glance. */
 const CARD_LINES_OPEN = 4;
 const CARD_LINES_CLOSED = 2;
 const EDITED_SHOWN = 3;
@@ -20,11 +19,10 @@ export interface AgentsOptions {
 	me: string | undefined;
 	selected: number;
 	width: number;
-	/** The pointer is bright while ↑↓ move it, and dim while you write in the room. */
+	/** Bright while ↑↓ move it, dim while you write in the room. */
 	focused?: boolean;
-	/** A line per agent, and what it does only under the selected one, for a narrow list. */
+	/** For a narrow list. */
 	compact?: boolean;
-	/** Columns in front of every line, under whatever the list sits in. */
 	indent?: number;
 }
 
@@ -50,7 +48,6 @@ export function stateText(peer: Peer, theme: Theme, now: number): string {
 	}
 }
 
-/** The state in a word or two, for a list too narrow for the whole of it. */
 function shortState(peer: Peer, theme: Theme, now: number): string {
 	switch (stateOf(peer)) {
 		case "waiting":
@@ -62,7 +59,7 @@ function shortState(peer: Peer, theme: Theme, now: number): string {
 	}
 }
 
-/** The others first, this session last: it is the one you already know about. */
+/** This session last: it is the one you already know. */
 export function inOrder(live: readonly Peer[], me: string | undefined): Peer[] {
 	return [...live].toSorted((a, b) => Number(a.session === me) - Number(b.session === me));
 }
@@ -95,7 +92,7 @@ export function agentLines(
 		const marker = pointer(theme, selected, options.focused === true);
 		const you = peer.session === options.me ? theme.fg("dim", "  you") : "";
 		const name = theme.fg(color, theme.bold(named?.handle ?? "anon"));
-		// In a shared room, an agent from another folder says which, since its files are there.
+		// An agent from another folder says which, since its files are there.
 		const where =
 			peer.cwd === undefined || here === undefined || peer.cwd === here
 				? ""
@@ -109,7 +106,6 @@ export function agentLines(
 			)}`,
 		);
 		const room = width - indent.length - 4;
-		// A narrow list keeps one line of what each agent does, and the whole of it for the selected.
 		const shown =
 			compact && !selected ? glance(peer, theme, room) : details(peer, theme, room, selected);
 		for (const line of shown) lines.push(`${indent}    ${line}`);
@@ -119,10 +115,7 @@ export function agentLines(
 	return { lines, selectedAt, selectedEnd };
 }
 
-/**
- * Under the name and its state: what waits on you, what it is on, and the files it edited. The card
- * wraps instead of being cut, since a cut title says nothing.
- */
+/** The card wraps rather than being cut, since a cut title says nothing. */
 function details(peer: Peer, theme: Theme, width: number, selected: boolean): string[] {
 	const most = selected ? CARD_LINES_OPEN : CARD_LINES_CLOSED;
 	const lines: string[] = [];
@@ -136,7 +129,6 @@ function details(peer: Peer, theme: Theme, width: number, selected: boolean): st
 	return lines;
 }
 
-/** What an agent waits on or does, cut to one line. */
 function glance(peer: Peer, theme: Theme, width: number): string[] {
 	const waits = waiting(peer)[0];
 	const first = waits ?? doing(peer)[0];
@@ -146,7 +138,6 @@ function glance(peer: Peer, theme: Theme, width: number): string[] {
 	];
 }
 
-/** The first card wrapped to at most `most` lines, and how many others there are. */
 function card(
 	theme: Theme,
 	cards: readonly BoardCard[],

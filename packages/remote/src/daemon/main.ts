@@ -1,6 +1,4 @@
-// The entry the build turns into dist/daemon.js, one daemon per machine. A bridge starts it with
-// `detached: true` when nothing answers on the socket. It runs outside pi, so it finds the remote's
-// folder the way pi finds its own, without importing pi.
+// The entry of dist/daemon.js, one per machine, started detached by a bridge. It runs outside pi.
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,16 +8,14 @@ import { findWebDir } from "./app.ts";
 import { Daemon } from "./server.ts";
 import { readTailnet } from "./tailnet.ts";
 
-/** How often the daemon looks at the tailnet for an address it does not listen on yet. */
 const TAILNET_EVERY_MS = 15_000;
 
-// Only as the entry: a module that imported this file would start a daemon in the operator's real
-// folder and port. The bundle keeps the check, as `require.main` for Node.
+// Only as the entry, or importing this file would start a daemon on the operator's real port.
 if (import.meta.main) {
 	const args = process.argv.slice(2);
 	if (args[0] === "--version") console.log(VERSION);
 	else {
-		// `--serve` is how `pi-remote serve --dev` runs this file: up until stopped, on its port.
+		// `pi-remote serve --dev` runs this file with `--serve`.
 		const at = args.indexOf("--port");
 		const port = at === -1 ? CLIENT_PORT : Number(args[at + 1]);
 		if (!Number.isInteger(port) || port < 0 || port > 65_535) {
@@ -28,7 +24,6 @@ if (import.meta.main) {
 		}
 		const tailnet = await readTailnet();
 		const stayUp = args.includes("--serve");
-		// When another daemon already answers on the socket, nothing is listening here and Node exits.
 		const daemon = await Daemon.start({
 			...daemonPaths(daemonDir()),
 			version: VERSION,
@@ -40,9 +35,8 @@ if (import.meta.main) {
 			exited: () => process.exit(0),
 			warn: (message) => console.error(`pi-remote daemon: ${message}`),
 		});
-		// A machine that joins its tailnet after the daemon started, or comes back on another address,
-		// gets a daemon that listens there: this one makes way, and a bridge starts the next one. A
-		// daemon kept up by hand has no bridge to start it again, so it stays.
+		// A new tailnet address needs a new daemon: this one exits and a bridge starts the next. A
+		// daemon kept up by hand has no bridge behind it, so it stays.
 		if (daemon !== undefined && !stayUp) {
 			setInterval(async () => {
 				const now = await readTailnet();

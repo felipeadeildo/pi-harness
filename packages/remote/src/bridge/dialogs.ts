@@ -1,7 +1,5 @@
-// The dialogs of pi and of other extensions, in a terminal session. `select`, `confirm` and `input`
-// open in the terminal as they always did, and the same question goes to the clients as an ask the
-// terminal already draws. The first answer wins: a client's closes the terminal's dialog through the
-// signal pi gives each dialog, and the terminal's answers the clients' ask.
+// Pi's dialogs in a terminal session also go to the clients as an ask. The first answer wins: a
+// client's closes the terminal dialog through its signal, and the terminal's closes the ask.
 import {
 	ANSWER,
 	type AskOptions,
@@ -21,11 +19,9 @@ type DialogOptions = Parameters<ExtensionUIContext["select"]>[2];
 
 export interface DialogsOptions {
 	events: Events;
-	/** The session whose log records the asks. */
 	ctx: AskOptions["ctx"];
-	/** Who the terminal is, as the author of an answer given there. */
 	terminal: () => By;
-	/** Read at each dialog, so the setting takes effect without a reload. */
+	/** Read at each dialog, so the setting applies without a reload. */
 	enabled: () => boolean;
 }
 
@@ -54,14 +50,10 @@ function typed(question: AskQuestion, value: string): AskResult {
 	return { answers: [answer], cancelled: false };
 }
 
-/**
- * Wraps the three dialogs on the shared `ui`, and returns what puts the originals back. The editor is
- * left alone: pi gives it no signal, so a client's answer could not close the terminal's.
- */
+/** Returns what restores the originals. The editor is left alone: pi gives it no signal. */
 export function forwardDialogs(ui: Dialogs, options: DialogsOptions): () => void {
 	const original = { select: ui.select, confirm: ui.confirm, input: ui.input };
 
-	/** Asks the terminal and the clients at once, and settles on whichever answers first. */
 	async function race(
 		source: string,
 		question: AskQuestion,
@@ -70,8 +62,7 @@ export function forwardDialogs(ui: Dialogs, options: DialogsOptions): () => void
 	): Promise<AskReply> {
 		const id = crypto.randomUUID();
 		const terminal = new AbortController();
-		// A close the kit announces says why. The bridge's stop closes with no reason, and that one still
-		// needs the terminal's answer to end the wait.
+		// The bridge's stop closes with no reason and still needs the terminal's answer to end the wait.
 		let closed = false;
 		const stop = options.events.on(CANCEL, (data: unknown) => {
 			if (!isObject(data) || data.id !== id) return;
@@ -97,7 +88,6 @@ export function forwardDialogs(ui: Dialogs, options: DialogsOptions): () => void
 		}
 	}
 
-	/** The signal a dialog gets: the terminal's own, and the caller's when it passed one. */
 	const within = (dialog: DialogOptions, signal: AbortSignal): DialogOptions => ({
 		...dialog,
 		signal: dialog?.signal === undefined ? signal : AbortSignal.any([dialog.signal, signal]),

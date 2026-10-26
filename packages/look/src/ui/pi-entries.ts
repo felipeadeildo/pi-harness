@@ -1,8 +1,5 @@
-// Pi's own entries in the transcript wear the harness's frame: your messages, compactions, branch
-// summaries, skills, `!` commands and the messages of extensions that bring no renderer. Pi sets them
-// apart with a background and blank rows; the frame does that job here, so the text keeps its colour,
-// loses the background, and sits against the edges. Pi has no hook for drawing these, so this wraps
-// the render of each component.
+// Pi's own transcript entries in the harness frame instead of a background. Pi has no hook for
+// drawing them, so this wraps each component's render.
 import { CHANGES_CUT, CHANGES_X, entryFrame, type EntryFrame, GLYPH } from "@adeildo/pi-kit";
 import {
 	BashExecutionComponent,
@@ -18,7 +15,7 @@ import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import type { IconSet } from "../render/glyphs.ts";
 import { isBlank } from "./tool-frame.ts";
 
-/** What the frames need from the session. Undefined leaves pi's entries as they are. */
+/** Undefined leaves pi's entries as they are. */
 export type EntryPaint = () => { theme: Theme; set: IconSet; you: boolean } | undefined;
 
 const YOU: Readonly<Record<IconSet, string>> = {
@@ -26,10 +23,9 @@ const YOU: Readonly<Record<IconSet, string>> = {
 	unicode: GLYPH.triangle,
 	ascii: ">",
 };
-/** The shell integration markers pi puts on the first and last line of your message. */
+/** The shell integration markers pi puts on your message's first and last line. */
 // oxlint-disable-next-line no-control-regex -- the markers are escape sequences
 const MARKERS = /^(?:\u001b\]133;[^\u0007]*\u0007)*/;
-/** Background colour codes, which pi paints its entries with. */
 // oxlint-disable-next-line no-control-regex -- colour codes are escape sequences
 const BACKGROUND = /\u001b\[(?:48;[25];[\d;]+|49|4[0-7]|10[0-7])m/g;
 /** Pi's bracketed label, as `[compaction]`, which the frame's top edge replaces. */
@@ -38,11 +34,9 @@ const LABEL = /(\u001b\[1m)?\[[\w:.-]+\](\u001b\[22m)? ?/;
 
 type Paint = NonNullable<ReturnType<EntryPaint>>;
 
-/** A frame, and what of pi's own drawing it replaces. */
 interface Framing extends EntryFrame {
-	/** Pi's bracketed label on the first line, as `[compaction]`. */
+	/** As `[compaction]`. */
 	label?: boolean;
-	/** The rules pi draws above and below a `!` command. */
 	rules?: boolean;
 }
 type Render = (width: number) => string[];
@@ -50,7 +44,7 @@ type Render = (width: number) => string[];
 let installed = false;
 let paint: EntryPaint = () => undefined;
 
-/** Frames pi's entries from now on. Calling it again only changes where the paint comes from. */
+/** Calling it again only changes where the paint comes from. */
 export function framePiEntries(source: EntryPaint): void {
 	paint = source;
 	if (installed) return;
@@ -64,7 +58,6 @@ export function framePiEntries(source: EntryPaint): void {
 		label: true,
 	}));
 	wrap(CustomMessageComponent, (self, look) => {
-		// A renderer of an extension draws its own message.
 		const own = self as unknown as { customComponent?: unknown; message: { customType: string } };
 		if (own.customComponent !== undefined) return undefined;
 		const top = look.theme.fg("muted", own.message.customType);
@@ -119,8 +112,7 @@ function wrap(
 		const frame = look === undefined || width < CHANGES_X * 2 ? undefined : frameOf(this, look);
 		if (look === undefined || frame === undefined) return own.call(this, width);
 		const source = own.call(this, width - 2);
-		// The transcript draws every entry on every keystroke. Pi caches its own lines, so the frame
-		// is only drawn again when they, the width or the paint change.
+		// Pi caches its own lines, so the frame redraws only when they, the width or the paint change.
 		const known = drawnBefore.get(this);
 		const key = `${width}\u0000${frame.top}\u0000${frame.bottom}\u0000${frame.color}`;
 		if (known?.key === key && known.theme === look.theme && sameLines(known.source, source))
@@ -132,7 +124,6 @@ function wrap(
 }
 
 interface Drawn {
-	/** The width and the frame's labels. */
 	key: string;
 	theme: Theme;
 	source: readonly string[];
@@ -148,7 +139,7 @@ function sameLines(a: readonly string[], b: readonly string[]): boolean {
 	return true;
 }
 
-/** Pi's lines, drawn two columns narrower with a column of padding each side, in the frame. */
+/** Two columns narrower, with a column of padding each side. */
 export function framed(
 	body: readonly string[],
 	width: number,
@@ -161,18 +152,16 @@ export function framed(
 	let lines = body.map((line) => line.replace(MARKERS, "").replace(BACKGROUND, ""));
 	if (rules) {
 		lines = lines.filter((line) => !/^\u2500+$/.test(stripTerminalSequences(line).trim()));
-		// The blank line between a command and what it printed.
 		const gap = lines.findIndex((line, index) => index > 0 && isBlank(line));
 		if (gap > 0 && gap < lines.length - 1) lines[gap] = CHANGES_CUT;
 	}
-	// The blank rows pi pads its entries with.
 	const trim = () => {
 		while (lines.length > 1 && isBlank(lines[0] ?? "")) lines.shift();
 		while (lines.length > 1 && isBlank(lines.at(-1) ?? "")) lines.pop();
 	};
 	trim();
 	if (label && lines[0] !== undefined) {
-		// Alone on its line it goes with the line, otherwise it leaves the rest, as `[skill] name`.
+		// Alone on its line it goes with the line; otherwise only the label goes, as `[skill] name`.
 		const alone = /^\[[\w:.-]+\]$/.test(stripTerminalSequences(lines[0]).trim());
 		if (alone) lines.shift();
 		else lines[0] = lines[0].replace(LABEL, "$2");

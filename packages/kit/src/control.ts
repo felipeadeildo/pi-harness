@@ -1,4 +1,4 @@
-// How the settings screen edits a value. Plain JSON, because the screen may live in another package.
+// Plain JSON, because the screen may live in another package.
 export type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
 
 export interface ControlOption {

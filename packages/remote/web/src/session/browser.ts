@@ -1,5 +1,4 @@
-// How the page reaches its daemon: the page's own origin, with the login spent once. The page is
-// served by the daemon, so there is one address and it is `location`, whichever machine a session is on.
+// The page reaches its daemon on its own origin, with the login spent once.
 import { pageCache } from "./cache.ts";
 import { fetchLogin, logIn } from "./login.ts";
 import { openSocket, socketUrl } from "./transport.ts";
@@ -7,9 +6,8 @@ import type { SessionSource } from "./use-session.ts";
 
 let made: Promise<SessionSource> | undefined;
 
-/** The source for every screen of this page: one login, whatever draws first. */
 export function browserSource(): Promise<SessionSource> {
-	// Once per page: a screen that draws again, or two screens, must not spend the token twice.
+	// Once per page, so two screens never spend the token twice.
 	made ??= logIn(
 		{
 			pathname: location.pathname,

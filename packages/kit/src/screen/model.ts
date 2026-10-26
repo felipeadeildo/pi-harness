@@ -15,7 +15,7 @@ export class ScreenModel {
 	tab = 0;
 	query = "";
 	#cursor: string | undefined;
-	/** Built once per tab, query and list, and dropped by the four mutators that change one of them. */
+	/** Built once per tab, query and list; the four mutators drop it. */
 	#lines: Line[] | undefined;
 
 	constructor(tabs: TabView[]) {
@@ -27,7 +27,6 @@ export class ScreenModel {
 		return this.query !== "";
 	}
 
-	/** Keeps the tab and the row under the cursor. */
 	refresh(tabs: TabView[]): void {
 		const title = this.tabs[this.tab]?.title;
 		this.tabs = tabs;
@@ -37,7 +36,6 @@ export class ScreenModel {
 		if (this.#index() === -1) this.#cursor = this.#firstKey();
 	}
 
-	/** The lines of the current tab, or of the search. Shared between calls until one of them changes. */
 	lines(): Line[] {
 		this.#lines ??= this.searching ? this.#results() : this.#tabLines();
 		return this.#lines;
@@ -129,7 +127,7 @@ export class ScreenModel {
 
 	#results(): Line[] {
 		const all = this.tabs.flatMap((tab) => tab.rows.map((row) => ({ row, tab: tab.title })));
-		// The query picks the rows. The order stays the tab's.
+		// The query picks the rows; the order stays the tab's.
 		const matched = new Set(
 			fuzzyFilter(all, this.query, ({ row, tab }) =>
 				[row.label, row.section, tab, row.id].join(" "),

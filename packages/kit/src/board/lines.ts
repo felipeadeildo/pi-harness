@@ -1,19 +1,12 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 
-// The board as the panel draws it: one line per open card, the column first, so a card that moves
-// changes its own line and no other line changes place. The words come from the kit: the column is
-// its name and the blocker is the one translation, so the panel cannot disagree with the board.
+// One line per open card, column first, so a moved card changes only its own line.
 import { CUT } from "../ui/glyphs.ts";
 import { BOARD_COLUMNS, blockedText, type BoardCard, type BoardView } from "./model.ts";
 
-/**
- * The widest column word the panel draws is the width of the field, so a title starts in the same place
- * on every line. Only the open columns count: a column the panel never draws must not widen it.
- */
 const WIDTH = Math.max(...BOARD_COLUMNS.filter((one) => one.open).map((one) => one.column.length));
 
-/** What the panel shows of the board: the open cards, the backlog's count and the last done. */
 export function boardLines(
 	view: BoardView | undefined,
 	theme: Theme,
@@ -29,7 +22,6 @@ export function boardLines(
 	return [truncateToWidth(head, width, CUT), ...lines];
 }
 
-/** One card: the column, what it is, and the one fact that goes with its column. */
 function cardLine(
 	card: BoardCard,
 	theme: Theme,

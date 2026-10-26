@@ -1,6 +1,4 @@
-// The judge's intent: what the operator asked for, in their words and under the name they gave the
-// session. Nothing the agent wrote reaches it, and there is nothing to wait for: the words are
-// already in the branch when the judge reads it.
+// The judge's intent: the operator's words and the session's name, never the agent's.
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { isRecord } from "#util/primitives.ts";
@@ -46,7 +44,6 @@ function userText(entry: unknown): string | undefined {
 	return contentText(entry.message.content).trim() || undefined;
 }
 
-/** A message holds a string, or parts where only the text ones say anything. */
 function contentText(content: unknown): string {
 	if (typeof content === "string") return content;
 	if (!Array.isArray(content)) return "";

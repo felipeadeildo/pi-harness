@@ -1,7 +1,5 @@
-// The sessions open on this machine, one small file each, so a reader finds who is open without
-// reading every folder's logs. It is an index, not a record: the logs stay the record, and nothing
-// replays this. The remote's daemon writes the open sessions of the owner's other machines here too,
-// again every few seconds while that machine answers.
+// One small file per open session, so readers find who is open without reading the logs. The
+// remote daemon also writes the owner's other machines' sessions here.
 import {
 	mkdirSync,
 	readdirSync,
@@ -23,35 +21,26 @@ export { ownStart, processLives, processStart, startFromStat, startsFromPs } fro
 export interface PresenceEntry {
 	session: string;
 	pid: number;
-	/** When the process started, from `processStart`. Entries written before it was recorded lack it. */
+	/** From `processStart`; older entries lack it. */
 	start?: string;
 	host: string;
 	cwd: string;
-	/** pi's session file, so a reader can open the session read only. */
+	/** So a reader can open the session read only. */
 	file?: string;
 	handle?: string;
 	state: RoomActivity;
-	/** When the session opened, which orders the list. */
 	startedAt: number;
-	/** When the entry last changed. */
 	at: number;
 }
 
-/** Whether the process of an entry runs, given its pid and the start it recorded. */
 export type Lives = (pid: number, start: string | undefined) => boolean;
 
-/**
- * How long an entry of another machine stays open after it was last written. The daemon writes them
- * every two seconds while that machine answers, so an older one belongs to a machine out of contact.
- */
+/** The daemon rewrites them every two seconds while the machine answers. */
 export const ELSEWHERE_FOR_MS = 15_000;
 
 export interface PresenceReading {
-	/** Judges the entries of this machine. Defaults to `processLives`. */
 	lives?: Lives;
-	/** This machine. Defaults to the hostname. */
 	host?: string;
-	/** The events root the index lives under. Defaults to the harness's. */
 	root?: string;
 	now?: () => number;
 }
@@ -60,12 +49,7 @@ function pathOf(session: string, root?: string): string {
 	return join(liveDir(root), `${session}.json`);
 }
 
-/**
- * Writes this session's entry. It goes to a temporary file first and is renamed into place, and the
- * rename is what keeps a reader from meeting half an entry; a test can see that the file was
- * replaced, though no test can race a reader against the write. Failing to write must never stop
- * the session.
- */
+/** Renamed into place, so no reader meets half an entry. Never throws. */
 export function writePresence(entry: PresenceEntry, root?: string): void {
 	const path = pathOf(entry.session, root);
 	const temporary = `${path}.${process.pid}.tmp`;
@@ -79,10 +63,6 @@ export function writePresence(entry: PresenceEntry, root?: string): void {
 	}
 }
 
-/**
- * Removes this session's entry. Like a write, failing to must never stop the session: an entry left
- * behind with no process is dropped by every reader.
- */
 export function removePresence(session: string, root?: string): void {
 	removeQuietly(pathOf(session, root));
 }
@@ -95,11 +75,7 @@ function removeQuietly(path: string): void {
 	}
 }
 
-/**
- * The sessions open now, oldest first. A session that crashed leaves its file behind, so an entry of
- * this machine whose process no longer runs is left out, and so is an entry of another machine that
- * was not written again for `ELSEWHERE_FOR_MS`.
- */
+/** Leaves out a crashed session's entry, and another machine's not rewritten within `ELSEWHERE_FOR_MS`. */
 export function readPresence(reading: PresenceReading = {}): PresenceEntry[] {
 	const { lives = processLives, host = HOST, root, now = Date.now } = reading;
 	let names: string[];
@@ -119,7 +95,6 @@ export function readPresence(reading: PresenceReading = {}): PresenceEntry[] {
 		.toSorted((a, b) => a.startedAt - b.startedAt || a.session.localeCompare(b.session));
 }
 
-/** The sessions open on the owner's other machines, as their daemons last said. */
 export function openElsewhere(reading: PresenceReading = {}): Set<string> {
 	const host = reading.host ?? HOST;
 	return new Set(
@@ -129,11 +104,6 @@ export function openElsewhere(reading: PresenceReading = {}): Set<string> {
 	);
 }
 
-/**
- * Whether a file on disk is a presence entry. Every field the readers use is checked, including the
- * one that is a union: an entry written by a version that knew another state is not an entry this one
- * can draw, and reading it as one would put a word nobody typed into the room's list.
- */
 function isPresenceEntry(value: unknown): value is PresenceEntry {
 	return (
 		isObject(value) &&

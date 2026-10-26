@@ -1,5 +1,4 @@
-// What a client keeps of a session between visits, keyed by machine, session and cursor. The screen
-// draws the cache before the network answers, which is what makes opening a session feel instant.
+// Keyed by machine, session and cursor; the screen draws it before the network answers.
 
 import type { SessionState, Presence } from "../index.ts";
 import type { Cursor } from "./cursor.ts";
@@ -13,29 +12,23 @@ export interface SessionKey {
 export interface CachedSession {
 	key: SessionKey;
 	cursor: Cursor;
-	/** pi's entries of the branch the client held, oldest first. */
 	entries: unknown[];
-	/** What the harness knew of the session, folded, so a warm open draws the board and the questions. */
+	/** Folded, so a warm open draws the board and the questions. */
 	state: SessionState;
-	/** Where the branch ended, as the bridge last said; see `ClientSession.leaf`. */
+	/** See `ClientSession.leaf`. */
 	leaf?: string | null;
-	/** Who was watching when the page closed, so a warm open does not draw nobody. */
+	/** So a warm open does not draw nobody. */
 	presence?: Presence;
-	/**
-	 * What the person typed and has not been answered yet. A phone kills the tab without asking, and
-	 * losing a prompt that was typed offline is losing the reason the queue exists.
-	 */
+	/** Kept because a phone kills the tab without asking. */
 	outbox?: Outgoing[];
 }
 
 export interface Cache {
 	read(key: SessionKey): Promise<CachedSession | undefined>;
 	write(value: CachedSession): Promise<void>;
-	/** Forgets a session, when the owner does not know the cursor or the machine was unlinked. */
 	drop(key: SessionKey): Promise<void>;
 }
 
-/** The cache of a client that lives as long as the process does, and of every test. */
 export function memoryCache(): Cache {
 	const held = new Map<string, CachedSession>();
 	const keyOf = (key: SessionKey) => `${key.machine}\n${key.session}`;

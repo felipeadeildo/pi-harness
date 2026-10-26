@@ -1,6 +1,4 @@
-// The deferred work a feature asks for belongs to the session: it runs while the session is up, and it
-// never runs — nor reports — after the session ends. The shutdown is the fake's, so the test can say
-// exactly when it happens; the refusal is a real pi's, because only the host can refuse a context.
+// Deferred work never runs or reports after the session ends. The refusal is a real pi's.
 import { afterEach, expect, setDefaultTimeout, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";

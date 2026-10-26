@@ -5,12 +5,8 @@ import { join, resolve } from "node:path";
 
 import { DefaultResourceLoader, SettingsManager } from "@earendil-works/pi-coding-agent";
 /**
- * Load the packed packages the way Pi will, from outside the repository.
- *
- * The tarballs are installed with npm into a directory outside the repository, so a dependency
- * that only resolves inside the workspace, or a source file the `files` list left out, fails here
- * instead of on a stranger's machine. Each package that ships an extension is then loaded with the
- * SDK's resource loader.
+ * Installs the packed tarballs outside the repository and loads each extension with the SDK, so a
+ * workspace-only dependency or a missing file fails here.
  *
  * Usage: bun scripts/smoke.ts [--keep]
  */

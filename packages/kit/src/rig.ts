@@ -1,6 +1,4 @@
-// A real pi session inside a test, with a scripted model. What a slice of the remote work needs to
-// prove: pi's real events, the real session file and the real harness log, with no network, no
-// tokens spent and nothing from anyone's history in the repository.
+// A real pi session inside a test, with a scripted model: real events, session file and log, no network.
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -26,38 +24,21 @@ import { darkTheme } from "./dark-theme.ts";
 import { eventsDir, logPath } from "./events/log.ts";
 
 export interface RigOptions {
-	/** The extensions the run loads, the way the harness loads its own. */
 	extensions?: readonly ExtensionFactory[];
-	/** What the model answers, in order. */
 	replies?: readonly FauxResponseStep[];
-	/**
-	 * What the model answers to every request, read from the request itself. A run asks more than
-	 * once: a tool call asks again with the result, and a compaction asks for a summary. A script that
-	 * only lists replies runs out in the middle of one.
-	 */
+	/** A run asks more than once (tool results, compaction), so answer from the request. */
 	answer?: FauxResponseFactory;
-	/**
-	 * How fast the scripted model writes, in tokens a second. Without it the answer arrives in one
-	 * microtask, and a test of what happens while the model writes has nothing to hold on to.
-	 */
+	/** Without it the answer arrives in one microtask. */
 	tokensPerSecond?: number;
-	/** Where the session file, the log and the working folder go. A temporary folder otherwise. */
+	/** A temporary folder otherwise. */
 	root?: string;
-	/** Where the session works. A folder under the root otherwise. */
 	cwd?: string;
-	/**
-	 * The harness's settings for this run, written where the features read them. A run without them
-	 * gets the harness defaults, never the settings of the machine it happens to run on.
-	 */
+	/** Never the settings of the machine running the test. */
 	settings?: Record<string, unknown>;
-	/**
-	 * What the terminal answers when a feature asks, in order. The dialogs a run cannot answer come
-	 * back as cancelled, the way Esc leaves them, so a feature never hangs a test.
-	 */
+	/** Dialogs the script does not answer come back cancelled, as Esc leaves them. */
 	says?: RigSays;
 }
 
-/** What the terminal answers, one queue per kind of dialog. */
 export interface RigSays {
 	select?: (string | undefined)[];
 	confirm?: boolean[];
@@ -65,19 +46,16 @@ export interface RigSays {
 	editor?: (string | undefined)[];
 }
 
-/** The model a rig answers as, so a feature's setting can name it. */
+/** So a feature's setting can name it. */
 export const SCRIPTED = "rig/scripted";
 
-/** The root of the rig in use, since the environment it sets is shared by the process. */
 let open: string | undefined;
 
-/** Puts an environment variable back the way the test found it. */
 function restore(name: string, before: string | undefined): void {
 	if (before === undefined) delete process.env[name];
 	else process.env[name] = before;
 }
 
-/** The harness's lines for a session, in the order it wrote them. */
 function loggedIn(
 	events: string,
 	cwd: string,
@@ -88,7 +66,7 @@ function loggedIn(
 	try {
 		text = readFileSync(file, "utf8");
 	} catch {
-		// No feature has written yet. That is a run with nothing to say, not a broken log.
+		// No feature has written yet: nothing to say, not a broken log.
 		return [];
 	}
 	return text
@@ -107,42 +85,24 @@ function loggedIn(
 export interface Rig {
 	session: AgentSession;
 	faux: FauxProviderHandle;
-	/** The folder holding everything this run wrote. */
 	root: string;
-	/** Where the session works. */
 	cwd: string;
-	/** The harness log's folder, which `PI_HARNESS_EVENTS` points at while the rig is open. */
+	/** `PI_HARNESS_EVENTS` points here while the rig is open. */
 	events: string;
-	/** The folder pi's session files go in. */
 	sessions: string;
-	/** What the features told the terminal, in the order they said it: `ctx.ui.notify`, as it reads. */
+	/** `ctx.ui.notify`, in order. */
 	notified: { message: string; level: string }[];
-	/**
-	 * What an extension threw where pi could not show it: a handler that failed, or a promise it never
-	 * awaited — both go through the same channel, `runner.emitError`. Without this the run looks like
-	 * nothing happened, which is what a swallowed rejection is: the reason a feature can be silent in a
-	 * test and loud in a terminal. `error` is the message as pi formatted it, not an `Error`.
-	 */
+	/** What extensions threw where pi could not show it, as pi formatted it. */
 	errors: { event: string; error: string; stack?: string }[];
-	/** Sends a prompt and waits for the run it starts to settle. */
 	prompt(text: string): Promise<void>;
-	/**
-	 * Waits until the log holds a line the predicate accepts, and answers every line written so far.
-	 * A feature that asks a model of its own writes after the run settles, so a test that reads the
-	 * log as the run ends races it.
-	 */
+	/** A feature that calls its own model writes after the run settles. */
 	until(
 		match: (line: { type: string; data: Record<string, unknown> }) => boolean,
 		ms?: number,
 	): Promise<{ type: string; data: Record<string, unknown> }[]>;
-	/** Ends the rig and puts the environment back. */
 	dispose(): void;
 }
 
-/**
- * The screen a scripted run answers through. It holds only what a feature asks: the dialogs, which
- * come from the script, and no drawing at all.
- */
 function scriptedUI(
 	says: RigSays,
 	notified: { message: string; level: string }[],
@@ -187,11 +147,7 @@ function scriptedUI(
 	};
 }
 
-/**
- * A pi session with the harness's extensions and a model that answers from a script. One at a time:
- * the two variables a feature reads its log's folder and its settings from are process-wide, so a
- * second rig open beside the first would write into the wrong folder.
- */
+/** One at a time: the log folder and settings come from process-wide variables. */
 export async function createRig(options: RigOptions = {}): Promise<Rig> {
 	if (open !== undefined) {
 		throw new Error(`a rig is already open on ${open}; dispose it before opening another`);
@@ -204,8 +160,7 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 	const agentDir = join(root, "agent");
 	for (const folder of [cwd, sessions, events, agentDir]) mkdirSync(folder, { recursive: true });
 
-	// The features read the log's folder and their settings from here, so both have to be in place
-	// before any of them runs.
+	// Features read the log folder and settings from here, so both must be set before any runs.
 	const beforeEvents = process.env.PI_HARNESS_EVENTS;
 	const beforeAgent = process.env.PI_CODING_AGENT_DIR;
 	process.env.PI_HARNESS_EVENTS = events;
@@ -228,7 +183,7 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 	if (answer === undefined) {
 		faux.setResponses([...(options.replies ?? [])]);
 	} else {
-		// The provider takes its replies off a list, so the script puts itself back before answering.
+		// The provider takes replies off a list, so the script puts itself back before answering.
 		const step: FauxResponseFactory = (context, settings, state, model) => {
 			faux.appendResponses([step]);
 			return answer(context, settings, state, model);
@@ -236,13 +191,12 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 		faux.setResponses([step]);
 	}
 
-	// No models.json and no network: the only provider is the scripted one.
+	// No models.json and no network: the scripted provider is the only one.
 	const modelRuntime = await ModelRuntime.create({ modelsPath: null, allowModelNetwork: false });
 	modelRuntime.registerNativeProvider(faux.provider);
 
 	const settingsManager = SettingsManager.inMemory({
-		// Auto-compaction stays off: a scripted run compacts when the script asks. The window kept is
-		// one token, so a run of a few messages still has something to compact.
+		// Off: a scripted run compacts when the script asks. Keeping one token lets a short run compact.
 		compaction: { enabled: false, keepRecentTokens: 1 },
 		retry: { enabled: false },
 	});
@@ -252,8 +206,7 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 		agentDir,
 		settingsManager,
 		extensionFactories: [...(options.extensions ?? [])],
-		// The run holds only what the test gave it: no packages, skills, prompts, themes or context
-		// files from the machine it happens to run on.
+		// Nothing from the machine: no packages, skills, prompts, themes or context files.
 		noExtensions: true,
 		noSkills: true,
 		noPromptTemplates: true,
@@ -262,10 +215,8 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 	});
 	await resourceLoader.reload();
 
-	// What the features said to the terminal, kept for a test that reads it instead of the screen.
 	const notified: { message: string; level: string }[] = [];
-	// What an extension threw where pi swallows it, kept for the same reason: an error a test cannot
-	// see is an error that looks like nothing happening.
+	// What pi swallows: an error a test cannot see looks like nothing happening.
 	const errors: { event: string; error: string; stack?: string }[] = [];
 	let session: AgentSession;
 	try {
@@ -280,8 +231,7 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 			sessionManager: SessionManager.create(cwd, sessions),
 		}));
 
-		// `session_start` reaches the extensions through the bindings, not through creation, so a rig
-		// that skips this one runs with every feature asleep. No terminal: this is a run, not a screen.
+		// `session_start` reaches the extensions through the bindings; skipping this leaves every feature asleep.
 		await session.bindExtensions({
 			mode: "rpc",
 			uiContext: scriptedUI(options.says ?? {}, notified),
@@ -289,12 +239,10 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 				errors.push({
 					event: error.event,
 					error: String(error.error),
-					// The line, not just the message: an error a test reads is worth more with where.
 					...(error.stack === undefined ? {} : { stack: error.stack }),
 				}),
 		});
 	} catch (error) {
-		// A session that never opened leaves nothing behind for the next rig in this file to trip on.
 		open = undefined;
 		restore("PI_HARNESS_EVENTS", beforeEvents);
 		restore("PI_CODING_AGENT_DIR", beforeAgent);

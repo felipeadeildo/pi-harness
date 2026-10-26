@@ -1,8 +1,5 @@
 #!/usr/bin/env bun
-// The typing bench: opens pi in a terminal of its own, on a copy of the longest session in this
-// folder, types a line one character at a time and measures how long each keystroke takes to reach
-// the screen. `--cpu-prof` writes a profile beside the copy, so the same run also says where those
-// milliseconds went, which is what makes the number actionable.
+// Types into pi on a copy of this folder's longest session and measures each keystroke to the screen.
 //
 // Usage:
 //   bun scripts/bench/typing.ts [--text "..."] [--warmup <seconds>] [--session <file>] [--max-mb 20] [--keep]

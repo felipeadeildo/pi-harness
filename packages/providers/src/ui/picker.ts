@@ -1,5 +1,4 @@
-// Our dialogs wear the same frame as the rest of the harness. A host that cannot draw a component,
-// like RPC, falls back to pi's own select.
+// A host that cannot draw a component, like RPC, falls back to pi's own select.
 import { frame, frameInner, type KeyHint, oneAtATime, GLYPH } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -12,7 +11,6 @@ import {
 	visibleWidth,
 } from "@earendil-works/pi-tui";
 
-/** One row of a picker: a label, and a second column on the right. */
 export interface PickOption {
 	label: string;
 	description?: string;
@@ -28,10 +26,10 @@ const MAX_VISIBLE = 10;
 const GAP = 2;
 const MIN_DESCRIPTION = 12;
 
-/** Pi draws one dialog in the editor's place; a second one replaces the first without closing it. */
+// Pi draws one dialog in the editor's place; a second replaces the first without closing it.
 const dialogs = oneAtATime();
 
-/** The options in our frame; undefined when the answer is cancelled. One opens at a time. */
+/** Undefined when cancelled. One opens at a time. */
 export function pick(
 	ctx: ExtensionContext,
 	title: string,
@@ -39,7 +37,6 @@ export function pick(
 	dialog: { signal?: AbortSignal } = {},
 ): Promise<string | undefined> {
 	return dialogs(() => shown(ctx, title, options, dialog), dialog.signal).catch((error) => {
-		// Cancelled while it waited for another dialog to close.
 		if (dialog.signal?.aborted) return undefined;
 		throw error;
 	});
@@ -67,7 +64,6 @@ async function shown(
 	});
 }
 
-/** A host that only takes lines gets the two columns on one. */
 function plainText(option: string | PickOption): string {
 	if (typeof option === "string") return option;
 	return option.description === undefined ? option.label : `${option.label}  ${option.description}`;
@@ -123,7 +119,6 @@ export class FramedSelect implements Component {
 		});
 	}
 
-	/** One line: the pointer, the label, and the description in a column shared by every row. */
 	private row(option: string | PickOption, index: number, inner: number): string {
 		const chosen = index === this.selected;
 		const pointer = chosen ? this.theme.fg("accent", POINTER) : " ".repeat(POINTER.length);
@@ -141,7 +136,7 @@ export class FramedSelect implements Component {
 		return `${pointer}${name}${gap}${rest}`;
 	}
 
-	/** Wide enough for the longest label, and never more than half of the room. */
+	/** Never more than half the room. */
 	private column(room: number): number {
 		const widest = Math.max(...this.options.map((option) => visibleWidth(labelOf(option))));
 		return Math.min(widest + GAP, Math.max(MIN_DESCRIPTION, Math.floor(room / 2)));

@@ -1,5 +1,4 @@
-// What a failed request is, so an account's limit can be told from a server, plan or token failure.
-// Rules are shared plus one entry per provider; adding Codex means adding an entry.
+// Tells an account's limit from a server, plan or token failure. Rules are shared, plus one entry per provider.
 import { isObject } from "@adeildo/pi-kit";
 
 export const FAILURE_KINDS = [
@@ -48,7 +47,6 @@ const SERVER = /internal (server )?error|api_error|bad gateway|service unavailab
 const NETWORK =
 	/fetch failed|econnreset|econnrefused|etimedout|getaddrinfo|enotfound|eai_again|socket hang up|network|timed? ?out|terminated/i;
 
-/** Rules every provider shares, in the order they are tried. */
 const COMMON: Rule[] = [
 	{
 		kind: "spend",
@@ -70,7 +68,7 @@ const COMMON: Rule[] = [
 	{ kind: "network", when: (signals) => NETWORK.test(haystack(signals)) },
 ];
 
-/** Rules a provider adds before the shared ones, so its own wording wins. */
+/** Tried before the shared ones, so a provider's own wording wins. */
 const BY_PROVIDER: Record<string, Rule[]> = {
 	anthropic: [
 		{

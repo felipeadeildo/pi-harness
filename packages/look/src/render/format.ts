@@ -18,7 +18,6 @@ export function cell(text: string, width: number): string {
 
 export const UNKNOWN = "–";
 
-/** The look's word for the kit's format, which is where the shape was decided. */
 export const count = formatTokens;
 
 export function rate(perSecond: number): string {
@@ -99,7 +98,7 @@ export function fitWidth(text: string, width: number, ellipsis = "..."): string 
 	return truncateToWidth(text, Math.max(0, width), ellipsis);
 }
 
-/** Tabs become three spaces: a tab is as wide as the terminal says, and these lines have a width. */
+/** A tab is as wide as the terminal says, and these lines have a width. */
 export function tabs(text: string): string {
 	return text.replace(/\t/g, "   ");
 }

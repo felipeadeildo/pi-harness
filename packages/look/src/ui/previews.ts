@@ -1,5 +1,4 @@
-// What each look setting changes, drawn under the list in Alt+S while it or one of its values is
-// selected: the marks of the icon set, the editor in the frame style, your message framed or not.
+// What each look setting changes, drawn under the list in Alt+S.
 import { entryFrame, GLYPH, type Json } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
@@ -20,7 +19,6 @@ const TOOLS = [
 	"memory_write",
 ];
 
-/** The tool marks and the phase marks of an icon set. */
 export function iconsPreview(value: Json, theme: Theme): string[] {
 	const set = resolveIcons(value as IconMode).set;
 	const tools = TOOLS.map(
@@ -32,7 +30,6 @@ export function iconsPreview(value: Json, theme: Theme): string[] {
 	return [tools.slice(0, 4).join("   "), tools.slice(4).join("   "), "", phases.join("   ")];
 }
 
-/** The editor, in the frame's lines. */
 export function framePreview(value: Json, theme: Theme, width: number): string[] {
 	const style = value as FrameStyle | "off";
 	const room = Math.min(WIDTH, width);
@@ -42,7 +39,7 @@ export function framePreview(value: Json, theme: Theme, width: number): string[]
 			theme.fg("dim", "pi's editor, as pi draws it, with the edges' information in the footer"),
 		];
 	const box = BOXES[style];
-	// The preview draws its edges with the frame's own border, so it cannot drift from the editor.
+	// Drawn with the frame's own border, so it cannot drift from the editor.
 	const edge = (which: "top" | "bottom", label: string, rest: string) =>
 		border(room, [{ text: label, priority: 1 }], [{ text: rest, priority: 2 }], {
 			box,
@@ -58,7 +55,6 @@ export function framePreview(value: Json, theme: Theme, width: number): string[]
 	];
 }
 
-/** Your message, framed or in pi's block. */
 export function userFramePreview(value: Json, theme: Theme, width: number): string[] {
 	const room = Math.min(WIDTH, width);
 	const text = theme.fg("text", "commit with a semantic message and push");

@@ -1,17 +1,14 @@
-// What a session is doing, in the words of pi's program status protocol: working, blocked, done,
-// error and idle. pi reports them to the terminal (its `ProgramStatusReporter`) but not to
-// extensions, so the kit follows the same events with the same rules, for the bridge to publish and
-// for a client to push on.
+// Pi's program status (working, blocked, done, error, idle), which pi reports only to the terminal,
+// rebuilt from the same events with the same rules.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { defineContract, type EventScope } from "./contract.ts";
 import { ASK, CANCEL } from "./contracts/ask.ts";
 import { guarded, isObject } from "./decode.ts";
 
-/** pi's program status words. `blocked` is a dialog waiting for the operator. */
+/** `blocked` is a dialog waiting for the operator. */
 export type SessionStatus = "working" | "blocked" | "done" | "error" | "idle";
 
-/** How a run or a compaction left the session. */
 type Ending = "done" | "error" | "idle";
 
 const WORDS: ReadonlySet<string> = new Set<SessionStatus>([
@@ -31,33 +28,25 @@ export const SESSION_STATUS = defineContract<SessionStatus>(
 	guarded(isStatus, "a session status"),
 );
 
-/** Answered by the one follower of a process, so a second caller can tell it is not the first. */
+/** Answered by the process's one follower, so a second caller knows it is not the first. */
 const FOLLOWING = "harness:session.status:following";
 
-/** How a compaction ended, as pi reports it. */
 export interface CompactionEnd {
-	/** `/compact`, as against a threshold or an overflow. */
+	/** As against a threshold or an overflow. */
 	manual: boolean;
-	/** Cancelled or stopped. */
 	aborted: boolean;
-	/** Failed for a reason other than an abort. */
+	/** For a reason other than an abort. */
 	failed: boolean;
 }
 
-/**
- * Folds a session's events into its status, with the rules of pi's reporter. It holds no pi, so a
- * test drives it directly.
- */
 export class StatusTracker {
 	#running = false;
 	#compacting = false;
-	/** How the run going on will end, as its latest response says. */
 	#outcome: Ending = "done";
-	/** The status while no run goes on. */
 	#resting: Ending = "idle";
-	/** pi's own dialogs open now: select, confirm, input, editor and custom. */
+	/** Select, confirm, input, editor and custom. */
 	#prompts = 0;
-	/** The harness's questions open now, which a client may hold with no dialog on screen. */
+	/** A client may hold one with no dialog on screen. */
 	readonly #asks = new Set<string>();
 
 	get status(): SessionStatus {
@@ -71,12 +60,12 @@ export class StatusTracker {
 		this.#outcome = "done";
 	}
 
-	/** The latest response decides how the run ends, so a retried error gives way to its retry. */
+	/** A retried error gives way to its retry. */
 	responded(failed: boolean): void {
 		this.#outcome = failed ? "error" : "done";
 	}
 
-	/** The run is over, with no retry or queued message left. An abort leaves it idle, as pi says. */
+	/** No retry or queued message left. An abort leaves it idle, as pi says. */
 	settled(aborted: boolean): void {
 		this.#running = false;
 		this.#resting = aborted ? "idle" : this.#outcome;
@@ -86,10 +75,7 @@ export class StatusTracker {
 		this.#compacting = true;
 	}
 
-	/**
-	 * A compaction during a run changes how the run ends only when it fails. One with no run under it
-	 * is the session's ending: a manual one shows done or error, and any one stopped shows idle.
-	 */
+	/** A compaction with no run under it ends the session's turn: done or error if manual, idle if stopped. */
 	compactionEnded(end: CompactionEnd): void {
 		this.#compacting = false;
 		if (this.#running) {
@@ -106,22 +92,14 @@ export class StatusTracker {
 		this.#prompts = Math.max(0, this.#prompts + (open ? 1 : -1));
 	}
 
-	/**
-	 * A harness question opened or closed. The session stays blocked until the asker closes it, so
-	 * this relies on the kit's client, which emits `harness:ask.cancel` for every question it opened.
-	 */
+	/** Relies on the kit's client emitting `harness:ask.cancel` for every question it opened. */
 	ask(id: string, open: boolean): void {
 		if (open) this.#asks.add(id);
 		else this.#asks.delete(id);
 	}
 }
 
-/**
- * Follows this process's session and answers `SESSION_STATUS`, announcing each change. Only the
- * first caller on a bus follows, so the bridge and any other feature can both call it. Asking who
- * follows, and not who provides the status, keeps a test or a feature that provides one of its own
- * from silently stopping the follower.
- */
+/** Only the first caller on a bus follows. */
 export function followSessionStatus(
 	pi: ExtensionAPI,
 	warn: (message: string) => void = () => {},
@@ -147,8 +125,7 @@ export function followSessionStatus(
 	function fresh(): void {
 		tracker = new StatusTracker();
 	}
-	// Another session in this process starts afresh, as pi's reporter resets on a switch, and an
-	// ended one says idle, so nobody reading the contract waits on a run that will never finish.
+	// Another session in this process starts afresh, as pi's reporter does, and an ended one says idle.
 	pi.on("session_start", () => after(fresh));
 	pi.on("session_shutdown", () => after(fresh));
 	pi.on("agent_start", () => after((now) => now.runStarted()));

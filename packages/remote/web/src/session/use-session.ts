@@ -1,6 +1,4 @@
-// One open session for a screen: the client connects when the screen mounts, draws the cache first,
-// and stops when the screen goes. The client changes its session in place, so the screen is told to
-// draw again by a count of the changes, not by a new object.
+// The client changes its session in place, so the screen redraws on a change count.
 import {
 	type Cache,
 	type Client,
@@ -13,24 +11,21 @@ import { useEffect, useState } from "react";
 
 export interface SessionSource {
 	cache: Cache;
-	/** How to reach one session, which can be on another machine than the page's. */
+	/** May be on another machine than the page's. */
 	open: (key: SessionKey) => ConnectionOptions["open"];
-	/** What to call this client in the log. The machine is the session's, until a device brings its own. */
+	/** The machine is the session's until a device brings its own. */
 	clientName?: string;
-	/** Set when the page cannot open the socket at all, as a refused login leaves it. */
+	/** Set when the socket cannot open at all, as after a refused login. */
 	why?: string;
 }
 
-/** What a screen gets: the session, and why it has none when something stopped it. */
 export interface OpenSession {
 	session: ClientSession | undefined;
-	/** The connection itself, which is what a composer sends through and what its queue comes from. */
 	client: Client | undefined;
 	changes: number;
 	why?: string;
 }
 
-/** The session as the client holds it, and how many changes it has seen, which keys a redraw. */
 export function useSession(key: SessionKey, source: () => Promise<SessionSource>): OpenSession {
 	const [opened, setOpened] = useState<OpenSession>({
 		session: undefined,
@@ -54,8 +49,7 @@ export function useSession(key: SessionKey, source: () => Promise<SessionSource>
 				stop = opened.stop;
 				setOpened((before) => ({ ...before, client: opened.client }));
 			})
-			// A screen with nothing to draw and nothing to say is a blank page, so a failure to even ask
-			// is a sentence too.
+			// A failure to even ask is a sentence too, not a blank page.
 			.catch(() =>
 				setOpened({
 					session: undefined,
@@ -72,20 +66,13 @@ export function useSession(key: SessionKey, source: () => Promise<SessionSource>
 	return opened;
 }
 
-/**
- * Connects to one session and tells `changed` about it: once the cache is read, even when it held
- * nothing, so a cold open shows the frame of the screen while the daemon answers, and after each
- * change. What it returns ends the connection and stops the telling, which is a screen's unmount.
- */
+/** Calls `changed` once the cache is read, even when empty, then after each change. */
 export function openSession(
 	key: SessionKey,
 	source: SessionSource,
 	changed: (session: ClientSession) => void,
 ): { client: Client; stop: () => void } {
-	// The identity is the client's, not the session's: a phone looking at a desktop session is still the
-	// phone, so the name is the device's and not the session's. The machine is the one the address
-	// names, which is the pi's, because a page cannot know its own host. What the log needs is that a
-	// command has an author at all, and the name is the part this side can carry.
+	// The author is the device, not the session.
 	const client = connect({
 		key,
 		cache: source.cache,

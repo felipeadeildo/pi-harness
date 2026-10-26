@@ -1,32 +1,26 @@
-// The one frame every dialog of the harness wears: a rounded line on the terminal's own background,
-// the title and a status in the top edge, the keys in the bottom edge. No surface paints a background,
-// so nothing clashes with the terminal's theme. See DESIGN.md.
+// The frame every harness dialog wears. No surface paints a background. See DESIGN.md.
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 import { CUT, GLYPH, LINE } from "./glyphs.ts";
 
-/** Columns between a side of the frame and the text. */
 export const FRAME_PAD = 2;
-/** Columns the frame takes from a row: both sides and their padding. */
+/** Both sides and their padding. */
 export const FRAME_X = 2 + FRAME_PAD * 2;
-/** Rows the frame takes: the top and the bottom edge. */
 export const FRAME_Y = 2;
 
 export const POINTER = GLYPH.pointer;
 const BAR = GLYPH.bar;
 
-/** A key and what it does, as the bottom edge lists them. */
 export type KeyHint = readonly [key: string, action: string];
 
-/** A line inside the frame. A selected one gets the bar on the left edge. */
+/** A selected line gets the bar on the left edge. */
 export type FrameLine = string | { text: string; selected?: boolean };
 
 export interface FrameOptions extends BottomOptions {
 	title: string;
-	/** On the right of the top edge: counts, a step, how far along. */
+	/** Counts, a step, how far along. */
 	status?: string;
-	/** A line of tabs under the top edge, ruled off from the body, which the column line meets. */
 	tabs?: FrameTabs;
 }
 
@@ -36,17 +30,16 @@ export interface FrameTabs {
 }
 
 export interface BottomOptions {
-	/** In the bottom edge, only the ones that do something right now. */
+	/** Only the ones that do something right now. */
 	keys?: readonly KeyHint[];
-	/** On the right of the bottom edge: what it cost, where you are. */
+	/** What it cost, where you are. */
 	footnote?: string;
-	/** A column line inside, this many columns into the text, meeting both edges. */
+	/** Columns into the text, meeting both edges. */
 	split?: number;
-	/** The color of the lines. A screen that fills the terminal draws them quieter than a dialog. */
+	/** A full-screen view draws them quieter than a dialog. */
 	border?: ThemeColor;
 }
 
-/** The text width inside a frame this wide. */
 export function frameInner(width: number): number {
 	return Math.max(1, width - FRAME_X);
 }
@@ -86,10 +79,7 @@ export function frame(
 	return [top, ...head, ...rows, frameBottom(theme, width, options)];
 }
 
-/**
- * The tabs, the current one in the accent. When they do not fit, the ones before the current give way
- * first, so the tab you are on always shows.
- */
+/** When they do not fit, the tabs before the current one give way first. */
 function tabsLine(theme: Theme, tabs: FrameTabs, inner: number): string {
 	const gap = "   ";
 	const drawn = tabs.titles.map((title, index) =>
@@ -102,7 +92,6 @@ function tabsLine(theme: Theme, tabs: FrameTabs, inner: number): string {
 	return line();
 }
 
-/** The rule between the tabs and the body, with the column line starting under it. */
 function divider(
 	theme: Theme,
 	border: ThemeColor,
@@ -115,15 +104,13 @@ function divider(
 	return theme.fg(border, `${LINE.teeLeft}${cells.join("")}${LINE.teeRight}`);
 }
 
-/** The bottom edge on its own, for a screen that draws the rest itself. */
 export function frameBottom(theme: Theme, width: number, options: BottomOptions = {}): string {
 	const keys = options.keys ?? [];
-	// The keys may run under the column when they only all fit there; the column then stops short.
+	// The keys may run under the column only when they all fit there; the column then stops short.
 	const wanted = visibleWidth(keyHints(theme, keys));
 	const past = options.split === undefined ? 0 : FRAME_PAD + options.split + 2;
 	const crowded = wanted <= width - 6 && wanted > width - 6 - past;
 	const cross = crowded ? undefined : junction(options.split, LINE.teeBottom);
-	// Past the column line when there is one, as the edge places a label that does not fit before it.
 	const room = width - 6 - (cross === undefined ? 0 : cross.at + 1);
 	const hints = keyHints(theme, fitKeys(theme, keys, room));
 	const footnote = options.footnote ?? "";
@@ -132,10 +119,7 @@ export function frameBottom(theme: Theme, width: number, options: BottomOptions 
 	return edge(theme, border, width, LINE.bottomLeft, LINE.bottomRight, hints, note, cross);
 }
 
-/**
- * Whole keys only: when they do not fit, the ones before the last go first, so the way out (the last,
- * by convention `esc`) always shows.
- */
+/** Whole keys only; the last one, the way out, always shows. */
 function fitKeys(theme: Theme, keys: readonly KeyHint[], room: number): KeyHint[] {
 	const kept = [...keys];
 	while (kept.length > 1 && visibleWidth(keyHints(theme, kept)) > room)
@@ -143,7 +127,6 @@ function fitKeys(theme: Theme, keys: readonly KeyHint[], room: number): KeyHint[
 	return kept;
 }
 
-/** A row of text, padded to the frame. A selected row gets the accent bar against the left side. */
 function row(
 	theme: Theme,
 	border: ThemeColor,
@@ -152,7 +135,6 @@ function row(
 	selected: boolean,
 ): string {
 	const inner = frameInner(width);
-	// The line is measured to pad it anyway, so it is only cut when it does not fit.
 	const cells = visibleWidth(text);
 	const clipped = cells > inner ? truncateToWidth(text, inner, CUT) : text;
 	const shown = cells > inner ? visibleWidth(clipped) : cells;
@@ -164,7 +146,6 @@ function row(
 	return `${side}${lead}${clipped}${fill}${" ".repeat(FRAME_PAD)}${side}`;
 }
 
-/** A quiet line across the text, for a break inside one part of the frame. */
 export function rule(theme: Theme, width: number, note = ""): string {
 	const line = (count: number) => theme.fg("borderMuted", LINE.h.repeat(Math.max(0, count)));
 	if (note === "") return line(width);
@@ -177,7 +158,6 @@ function keyHints(theme: Theme, keys: readonly KeyHint[]): string {
 		.join("   ");
 }
 
-/** The pointer in front of the selected row, or the room it takes on the others. */
 export function pointer(theme: Theme, selected: boolean, active = true): string {
 	if (!selected) return "  ";
 	return `${theme.fg(active ? "accent" : "dim", POINTER)} `;
@@ -192,11 +172,6 @@ function junction(split: number | undefined, char: string): Junction | undefined
 	return split === undefined ? undefined : { at: FRAME_PAD + split + 1, char };
 }
 
-/**
- * An edge of the frame: the corners, a label after the first, a note before the last, and where a
- * column line meets it. The label sits at the left when it fits before the column line, and right
- * after it when it does not; the note gives way first when room runs out.
- */
 function edge(
 	theme: Theme,
 	color: ThemeColor,

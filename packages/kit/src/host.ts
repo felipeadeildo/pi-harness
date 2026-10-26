@@ -1,5 +1,4 @@
-// This machine, as presence entries, log lines and the `by` of a state change name it. One place owns it, so
-// the day machines get ids every reader changes together.
+// This machine as presence entries, log lines and `by` name it.
 import { hostname } from "node:os";
 
 export const HOST = hostname();

@@ -1,26 +1,21 @@
-// Who may talk to the daemon over TCP. A pi asks for a token good once and for 60 seconds, opens the
-// app with it in the fragment, which no request carries, and the app trades it for an HttpOnly
-// cookie that every request needs. Loopback is no exception: any process here reaches 127.0.0.1.
+// A token good once for 60 seconds travels in the URL fragment and is traded for an HttpOnly
+// cookie. Loopback needs it too: any local process reaches 127.0.0.1.
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 
-/** How long an unused token stays good. */
 export const TOKEN_MS = 60_000;
-/** The cookie's name. */
 export const COOKIE = "pi_remote";
-/** A login lasts a year from its last use. */
+/** From its last use. */
 const LOGIN_MS = 365 * 24 * 60 * 60_000;
 
 interface Login {
-	/** The file never holds a usable cookie. */
+	/** Only hashes are stored. */
 	hash: string;
 	createdAt: number;
 	seenAt: number;
 }
 
-/** The tokens handed out and the logins they became, as hashes only. */
 export class Logins {
-	/** A token's hash and when it stops being good. */
 	readonly #tokens = new Map<string, number>();
 	readonly #logins: Login[];
 
@@ -36,7 +31,6 @@ export class Logins {
 		this.#logins = readLogins(file);
 	}
 
-	/** Good once, until `expiresAt`. */
 	issue(): { token: string; expiresAt: number } {
 		const token = randomBytes(32).toString("base64url");
 		const expiresAt = this.#now() + TOKEN_MS;
@@ -44,11 +38,9 @@ export class Logins {
 		return { token, expiresAt };
 	}
 
-	/** A token used before, unknown or late gets nothing. */
 	exchange(token: string): string | undefined {
 		const key = sha256(token);
 		const expiresAt = this.#tokens.get(key);
-		// Good once, whatever happens next.
 		this.#tokens.delete(key);
 		const now = this.#now();
 		for (const [other, until] of this.#tokens) if (until < now) this.#tokens.delete(other);
@@ -56,7 +48,6 @@ export class Logins {
 		return this.grant();
 	}
 
-	/** A new login, for a device that proved who it is some other way than a token. */
 	grant(): string {
 		const now = this.#now();
 		const cookie = randomBytes(32).toString("base64url");
@@ -65,7 +56,6 @@ export class Logins {
 		return cookie;
 	}
 
-	/** Whether a cookie is a login that has not lapsed. Using it keeps it alive. */
 	has(cookie: string | undefined): boolean {
 		if (cookie === undefined || cookie === "") return false;
 		const key = sha256(cookie);
@@ -73,7 +63,7 @@ export class Logins {
 		if (login === undefined) return false;
 		const now = this.#now();
 		if (now - login.seenAt > LOGIN_MS) return false;
-		// Written at most once a day, so a busy client does not rewrite the file on every request.
+		// At most once a day, so a busy client does not rewrite the file on every request.
 		if (now - login.seenAt > 24 * 60 * 60_000) {
 			login.seenAt = now;
 			this.#save();
@@ -81,10 +71,7 @@ export class Logins {
 		return true;
 	}
 
-	/**
-	 * Writes the logins down. A disk that refuses keeps the login in memory until the daemon restarts,
-	 * which beats failing the request that made it.
-	 */
+	/** A disk that refuses keeps the login in memory until restart. */
 	#save(): void {
 		const now = this.#now();
 		const kept = this.#logins.filter((login) => now - login.seenAt <= LOGIN_MS);
@@ -123,28 +110,25 @@ function sha256(text: string): string {
 	return createHash("sha256").update(text).digest("hex");
 }
 
-/** Compares two hex digests in constant time. */
 function sameHash(left: string, right: string): boolean {
 	const a = Buffer.from(left, "hex");
 	const b = Buffer.from(right, "hex");
 	return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** What `authorize` reads of a request, so it never needs Node's types. */
 export interface Asking {
 	method: string;
-	/** The path, without the query. */
 	path: string;
 	host: string | undefined;
 	origin: string | undefined;
 	cookie: string | undefined;
-	/** A WebSocket upgrade, which a page of any origin can open unless the daemon checks. */
+	/** Any origin can open a WebSocket unless the daemon checks. */
 	upgrade: boolean;
 }
 
 export type Verdict = { ok: true } | { ok: false; status: 401 | 403 | 421; reason: string };
 
-/** The routes a browser reaches before it holds a cookie, besides the app's own files. */
+/** Reached without a cookie, besides the page's files. */
 const OPEN_ROUTES: ReadonlySet<string> = new Set([
 	"GET /health",
 	"GET /.well-known/pi-remote",
@@ -152,11 +136,8 @@ const OPEN_ROUTES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Whether a request reaches this daemon on purpose. A `Host` the daemon does not answer to is a page
- * that resolved its own name to 127.0.0.1, so it gets 421. A WebSocket, or a request that changes
- * something, needs an `Origin` of the daemon's own, since any page can open one or post a form. A
- * client that is not a browser, such as the client library in a test or a native app, sends that
- * `Origin` too, or reads 403 on its first WebSocket.
+ * An unknown `Host` is DNS rebinding (421). A WebSocket or a request that changes something needs
+ * the daemon's own `Origin` (403), since any page can open one or post a form.
  */
 export function checkPlace(request: Asking, hosts: ReadonlySet<string>): Verdict {
 	const host = request.host?.toLowerCase();
@@ -174,12 +155,7 @@ export function checkPlace(request: Asking, hosts: ReadonlySet<string>): Verdict
 	return { ok: true };
 }
 
-/**
- * Decides one request: the checks of `checkPlace` first, then a login cookie for everything but the
- * app's files and the open routes. `isAppFile` is the only thing between a data route and a request
- * with no cookie, so it answers from the list of files the web build exported, never from the shape of
- * a path.
- */
+/** `checkPlace` first, then a login cookie for all but the page's files and the open routes. */
 export function authorize(
 	request: Asking,
 	place: { hosts: ReadonlySet<string>; logins: Logins; isAppFile(path: string): boolean },
@@ -208,7 +184,6 @@ function isOwnOrigin(origin: string | undefined, hosts: ReadonlySet<string>): bo
 	return (url.protocol === "http:" || url.protocol === "https:") && hosts.has(url.host);
 }
 
-/** The login cookie in a `Cookie` header. */
 export function cookieOf(header: string | undefined): string | undefined {
 	for (const part of (header ?? "").split(";")) {
 		const at = part.indexOf("=");
@@ -217,14 +192,13 @@ export function cookieOf(header: string | undefined): string | undefined {
 	return undefined;
 }
 
-/** The `Set-Cookie` that gives a browser its login. `secure` when the request came over TLS. */
+/** `secure` when the request came over TLS. */
 export function loginCookie(value: string, secure: boolean): string {
 	const flags = ["HttpOnly", "SameSite=Strict", "Path=/", `Max-Age=${LOGIN_MS / 1000}`];
 	if (secure) flags.push("Secure");
 	return `${COOKIE}=${value}; ${flags.join("; ")}`;
 }
 
-/** The names the daemon answers to, with its port: loopback's, and the tailnet's name and address. */
 export function hostsOf(port: number, tailnet?: { name: string; ip: string }): Set<string> {
 	const hosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`]);
 	if (tailnet !== undefined) {

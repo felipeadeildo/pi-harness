@@ -72,11 +72,10 @@ export const questions = defineFeature({
 		let session: ExtensionContext | undefined;
 		let typing = new TypingMonitor();
 		const turns = oneAtATime();
-		/** The dialogs opened while the model writes their call, by tool call id. */
 		const live = new Map<string, LiveAsk>();
-		/** Every request this provider draws or holds in its queue, so a cancel reaches it. */
+		/** So a cancel reaches every request this provider draws or queues. */
 		const pending = new Map<string, AbortController>();
-		/** The tool's own requests, which wait for your typing and ring the bell. */
+		/** They wait for your typing and ring the bell. */
 		const fromTool = new Set<string>();
 
 		// Keys typed into a dialog are not typing in the editor.
@@ -169,9 +168,8 @@ export const questions = defineFeature({
 			typing.stop();
 		});
 
-		// Every question asks through here, the tool's own included, so the permission dialog and the
-		// agent questions share one dialog, one set of keys and one note model. Whoever else listens,
-		// such as a phone, can answer first.
+		// Every question asks through here, so the permission dialog and agent questions share one dialog;
+		// any other listener, such as a phone, may answer first.
 		scope.events.on(AVAILABLE, (data: unknown) => {
 			if (canDraw(session) && isObject(data)) data.available = true;
 		});
@@ -273,10 +271,7 @@ function canDraw(ctx: ExtensionContext | undefined): ctx is ExtensionContext {
 	return ctx !== undefined && ctx.hasUI && ctx.mode === "tui";
 }
 
-/**
- * The answer from the dialog that opened while the model wrote the call. It takes the finished
- * questions, which the tool checked, and closes when someone else answers first.
- */
+/** Takes the finished questions, which the tool checked. */
 async function adopt(early: LiveAsk, raw: unknown, signal: AbortSignal): Promise<AskResult> {
 	const problem = decodeAskRequest(raw);
 	if (problem !== undefined) {

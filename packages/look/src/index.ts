@@ -65,7 +65,7 @@ export { ROLE_TOKENS } from "./render/paint.ts";
 
 const STRIP_WIDGET = "pi-look:strip";
 const TICK_MS = 500;
-/** GitHub is asked once per process, however many sessions it opens. */
+// Once per process, however many sessions it opens.
 let probedGithub = false;
 
 interface Live {
@@ -122,7 +122,6 @@ export const look = defineFeature({
 		let visited = false;
 		let lastVisit: LastVisit | undefined;
 
-		// Another session over the screen, when the panel or remote asks for one.
 		provideViews(
 			scope.events,
 			(address) => {
@@ -153,8 +152,7 @@ export const look = defineFeature({
 					new FooterComponent(tui, data, screen, {
 						attach: (footerData, paint) => {
 							live.footerData = footerData;
-							// Everything that asks for a redraw says what the screen draws may have changed, which is
-							// what a component that keeps its drawing for a moment compares.
+							// Anything that asks for a redraw bumps the revision that kept drawings compare.
 							live.repaint = () => {
 								screen.bump();
 								paint();
@@ -170,12 +168,12 @@ export const look = defineFeature({
 				placement: "aboveEditor",
 			});
 			installEditor(ctx, screen, live, scope);
-			// Once per launch: a new session in the same pi is not a return to the folder.
+			// A new session in the same pi is not a return to the folder.
 			if (!visited) {
 				visited = true;
 				lastVisit = visit(visitsFile, ctx.cwd, HARNESS_VERSION, Date.now());
 			}
-			// Once per launch, off the critical path: the card shows these lines when the answers arrive.
+			// Off the critical path: the card shows these lines when the answers arrive.
 			if (!probedGithub) {
 				probedGithub = true;
 				void probeGithub(live, lastVisit?.at);
@@ -204,8 +202,7 @@ export const look = defineFeature({
 			live.tui = undefined;
 		});
 
-		// These two fire for the calls the agent makes, and not for pi's cache warming, which calls the
-		// provider on its own: the marks always belong to the answer being measured.
+		// Only for the agent's calls, not pi's cache warming.
 		scope.on("before_provider_request", () => telemetry.providerRequestSent());
 		scope.on("after_provider_response", () => telemetry.providerResponseArrived());
 
@@ -300,7 +297,7 @@ function explain(screen: Screen): string {
 			SLOT_TITLES[name],
 			screen.slot(name),
 		]),
-		// Not on screen: the timings of the last call, kept for when an answer feels slow.
+		// Not on screen: kept for when an answer feels slow.
 		["The last call to the model", ["last", "wait", "speed", "server", "request"]],
 	];
 	for (const [title, ids] of groups) {
@@ -331,7 +328,6 @@ function createScreen(
 	telemetry: Telemetry,
 	glyphs: () => Glyphs,
 ): Screen {
-	// What the components that keep a drawing for a moment compare: an event, a probe, a new branch.
 	let revision = 0;
 	return {
 		snapshot() {
@@ -469,7 +465,7 @@ async function probeGithub(live: Live, since: number | undefined): Promise<void>
 	const github = await readGithub(ctx.cwd, since);
 	if (live.ctx === undefined) return;
 	live.github = github;
-	// The card keeps its drawing for a second; this is the redraw that makes the new lines appear.
+	// The card keeps its drawing for a second; this makes the new lines appear.
 	live.repaint?.();
 }
 
@@ -501,7 +497,6 @@ export default function piLook(pi: ExtensionAPI): void {
 	createApp(pi, { name: "pi-look" }).use(look).build();
 }
 
-/** Another session over the whole screen, until its reader closes it. */
 async function openView(
 	ctx: ExtensionContext,
 	screen: Screen,
@@ -522,7 +517,6 @@ async function openView(
 	view?.dispose();
 }
 
-/** Alt+O: the session's tool output, one call at a time, newest first. */
 async function openOutputs(ctx: ExtensionContext): Promise<void> {
 	if (ctx.mode !== "tui") return;
 	const outputs = outputsOf(ctx.sessionManager.getBranch());

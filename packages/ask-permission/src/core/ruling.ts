@@ -1,4 +1,3 @@
-// The line under a call that says who decided and why.
 import type { By, CallRuling } from "@adeildo/pi-kit";
 
 import { judgeSignalText, judgeStatText } from "#core/judge/report.ts";
@@ -9,7 +8,7 @@ export type Ruling = CallRuling;
 
 export interface Settled {
 	action: "allow" | "block";
-	/** The layer that decided, `you` for the dialog. */
+	/** `you` for the dialog. */
 	by: string;
 	/** Who answered the dialog, when the provider that drew it says. */
 	answeredBy?: By;

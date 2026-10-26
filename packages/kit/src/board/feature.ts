@@ -1,6 +1,4 @@
-// The board feature: on session start the board is the fold of the operations the session's branch
-// carries, and readers ask it through the BOARD contract. There is one writer, the board tool, in
-// the same process, so an operation needs no merge.
+// The board is the fold of the branch's operations; the board tool is its only writer.
 import type { Feature } from "../app/feature.ts";
 import { BOARD } from "../contracts/board.ts";
 import { BOARD_OP, boardOf } from "./log.ts";

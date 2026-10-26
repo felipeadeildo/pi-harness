@@ -45,10 +45,7 @@ export async function buildRemote(outdir: string): Promise<Built> {
 	return { files: files as Built["files"], outside: [...outside].toSorted() };
 }
 
-/**
- * Node's own modules, as the Node that runs the built files lists them. Bun counts a few packages,
- * `ws` among them, as its own modules, so its list would let them through.
- */
+/** Asked of Node, since Bun counts `ws` and a few others as its own modules. */
 export function nodeBuiltins(node = Bun.which("node") ?? "node"): Set<string> {
 	const script = "JSON.stringify(require('node:module').builtinModules)";
 	const result = spawnSync(node, ["-p", script], { encoding: "utf8" });

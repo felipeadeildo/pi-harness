@@ -1,5 +1,4 @@
-// What can be done to an account from any dialog, and the status that follows it: the settings screen,
-// /accounts and a login's adoption all go through here.
+// Account actions shared by the settings screen, /accounts and a login's adoption.
 import type { Credential } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
@@ -9,7 +8,6 @@ import { pin, type Pins } from "./pins.ts";
 import type { AccountStore } from "./store.ts";
 import type { Account } from "./types.ts";
 
-/** One provider's accounts, as the actions reach them. */
 export interface AccountsOf {
 	pi: ExtensionAPI;
 	store: AccountStore;
@@ -17,7 +15,6 @@ export interface AccountsOf {
 	providerId: string;
 }
 
-/** Asks for a name, keeping the suggestion when the answer is empty. */
 export async function askName(
 	ctx: ExtensionContext,
 	title: string,
@@ -26,7 +23,6 @@ export async function askName(
 	return (await ctx.ui.input(title, suggestion))?.trim() || suggestion;
 }
 
-/** Stores a new account, saying why when it could not. */
 export function saveAccount(
 	ctx: ExtensionContext,
 	store: AccountStore,
@@ -39,14 +35,13 @@ export function saveAccount(
 	return added.account;
 }
 
-/** Makes an account the one in use, in this session and in the ones that start after it. */
+/** In this session and the ones that start after it. */
 export function useAccount(of: AccountsOf, ctx: ExtensionContext, accountId: string): void {
 	of.store.setActive(of.providerId, accountId);
 	pin(of.pi, of.pins, of.providerId, accountId);
 	refreshStatus(of.store, of.pins, ctx);
 }
 
-/** Renames an account, answering with a problem or undefined. */
 export function renameAccount(
 	of: AccountsOf,
 	ctx: ExtensionContext,
@@ -58,7 +53,7 @@ export function renameAccount(
 	return problem;
 }
 
-/** Removes an account; a session pinned to it goes back to the store's choice. */
+/** A session pinned to it goes back to the store's choice. */
 export function removeAccount(
 	of: AccountsOf,
 	ctx: ExtensionContext,
@@ -71,13 +66,12 @@ export function removeAccount(
 	return undefined;
 }
 
-/** What removing an account asks, saying so when it is the last one the provider has. */
+/** Says so when it is the provider's last account. */
 export function removeQuestion(provider: string, label: string, last: boolean): string {
 	if (!last) return `Remove the ${provider} account "${label}"?`;
 	return `Remove "${label}"? It is the last ${provider} account, so ${provider} goes back to pi's own /login.`;
 }
 
-/** The label of the account the current model uses, or undefined when there is nothing to say. */
 export function accountStatus(
 	store: AccountStore,
 	pins: Pins,
@@ -88,7 +82,7 @@ export function accountStatus(
 	return activeAccount(store, pins, providerId)?.label;
 }
 
-/** Publishes the account next to the model, where every other piece reads it. */
+/** Next to the model, where every other piece reads it. */
 export function refreshStatus(store: AccountStore, pins: Pins, ctx: ExtensionContext): void {
 	ctx.ui.setStatus(STATUS_KEY, accountStatus(store, pins, ctx));
 }

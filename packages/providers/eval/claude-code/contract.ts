@@ -1,9 +1,5 @@
-// Reverse engineers the Claude Code release we mimic: the version, the features it knows, the betas
-// a turn asks for, and the shape of the request it sends.
-//
-// The turn comes from the interactive TUI, not from `claude -p`: the two differ in entrypoint, user
-// agent and identity block. A pty makes the TUI believe it is on a terminal, and the config directory
-// is its own, so nothing reaches Anthropic and no account is involved.
+// Reverse engineers the Claude Code release we mimic: version, features, betas and request shape.
+// Drives the interactive TUI in a pty with its own config directory, so nothing reaches Anthropic.
 //
 // bun packages/providers/eval/claude-code/contract.ts [--version 2.1.299] [--channel latest]
 import { execFile, spawn, type ChildProcess } from "node:child_process";
@@ -34,13 +30,7 @@ export interface Feature {
 	description: string;
 }
 
-/**
- * What each feature does, in the words of the request it travels with.
- *
- * Claude Code carries no description of its own: the `.describe()` strings in the binary belong to
- * telemetry events, and a build only pairs a name with a header. What the notes below come from is
- * the field each feature is pushed beside, the endpoint it belongs to, and the docs the binary ships.
- */
+/** From the field each feature is sent beside, its endpoint and the bundled docs: builds carry no descriptions. */
 const NOTES: Record<string, string> = {
 	"claude-code-20250219":
 		"marks the request as Claude Code's, which is where Anthropic reads the plan from",
@@ -102,13 +92,7 @@ const PI_ASKS = new Set([
 	"inline-tools-2026-09-15",
 ]);
 
-/**
- * The gate each feature sits behind, from the `{beta, when}` table a build keeps beside the registry.
- *
- * The predicate is minified but the names it tests are not, so the class comes from the identifiers
- * in the window rather than from reading the expression, or from the body of the function a
- * predicate like `()=>D8()` calls. A window with none of them is left out instead of guessed at.
- */
+/** Read from the identifiers a minified predicate tests; a window with none is left out. */
 const GATES: readonly (readonly [string, string])[] = [
 	["firstPartyOnlyBetas", "Anthropic's own API only."],
 	["anthropicAws", "Anthropic's own API only."],
@@ -274,15 +258,7 @@ interface Declaration {
 	variable: string;
 }
 
-/**
- * The feature declarations a build keeps together, as `VAR=z("name", "header")`.
- *
- * The list right after the string `"claude_code"` is a list of those variables, so this reads the
- * same set from the side that also gives the variable a gate names. A header a build spelled as a
- * constant resolves from that constant's own assignment. The minifier renames the function that
- * builds them between builds (`z` in 2.1.299, `k` in 2.1.301), so its name is read off the call that
- * declares `"claude_code"` itself.
- */
+/** `VAR=z("name", "header")`. The builder function's name changes between builds, so it is read off the `"claude_code"` call. */
 function declarations(source: string): Declaration[] {
 	const anchor = source.indexOf('"claude_code"');
 	if (anchor < 0) throw new Error("this build has no feature registry");
@@ -309,12 +285,7 @@ function declarations(source: string): Declaration[] {
 	return found;
 }
 
-/**
- * The string a build assigned to a name, for a header the registry spelled as a constant.
- *
- * The name must stand alone, or `ef` would match the `href="thumb.png"` of some HTML in the build. A
- * minified name is reused across modules, so the assignment closest before the registry wins.
- */
+/** The name must stand alone; the closest assignment before the registry wins. */
 export function constant(source: string, name: string, before: number): string | undefined {
 	const assigned = new RegExp(
 		`(?<![\\w$])${name.replaceAll("$", "\\$")}="([a-z0-9][a-z0-9.-]*)"`,
@@ -339,10 +310,7 @@ interface Block {
 	cache_control?: unknown;
 }
 
-/**
- * Runs one turn of the TUI and keeps the request it sends. It types once the TUI has stopped drawing,
- * so it does not depend on how long a build takes to start.
- */
+/** Types once the TUI stops drawing, so build startup time does not matter. */
 async function probeTurn(binary: string, prompt: string): Promise<Turn> {
 	const home = await mkdtemp(join(tmpdir(), "claude-code-eval-"));
 	const config = join(home, "config");
@@ -458,12 +426,7 @@ const STREAM = [
 	"",
 ].join("\n\n");
 
-/**
- * Whether the prompt went out as the user's own message, which is what makes a request the turn.
- *
- * A session also names itself with a smaller model, and that request carries the prompt too, inside a
- * `<session>` block, so a match on the text alone would take the naming request for the turn.
- */
+/** The naming request also carries the prompt, inside `<session>`, so the text alone is not enough. */
 function asks(body: Record<string, unknown>, prompt: string): boolean {
 	if (!Array.isArray(body.messages)) return false;
 	return body.messages.some((message) => {

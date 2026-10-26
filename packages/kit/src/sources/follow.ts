@@ -1,22 +1,15 @@
-// Follows a JSONL file whose records carry an `id`, such as a pi session file, reading only what was
-// appended. Pi rewrites the whole file when it migrates it, keeping the ids, so the follower notices a
-// rewrite and reads again from the start without handing over a record twice. The daemon bundles
-// this file, so it imports nothing but `node:*`.
+// Follows a JSONL file of records with an `id`. Pi rewrites the whole file when it migrates it, so a
+// rewrite is detected and read again without repeating a record. Imports only `node:*`.
 import { closeSync, fstatSync, openSync, readSync, watch } from "node:fs";
 import { dirname } from "node:path";
 
-/** Where a follower stands. The daemon keeps it to resume a file after a restart. */
 export interface FollowState {
-	/** Bytes read, always at the end of a line. */
+	/** Always at the end of a line. */
 	offset: number;
-	/**
-	 * The id of the last record read, which ends at `offset` unless lines without an id follow it. Then
-	 * the next read takes the file for rewritten and reads it from the start, still sending nothing twice.
-	 */
 	lastId: string | undefined;
 	ino: number;
 	size: number;
-	/** A rewrite can keep the file's size, but not its modification time. */
+	/** A rewrite can keep the size, but not the modification time. */
 	mtimeMs: number;
 }
 
@@ -25,10 +18,7 @@ export interface FileRecord {
 	[field: string]: unknown;
 }
 
-/**
- * A record, or `reset`: the file was rewritten and the last record read is gone from it, so drop
- * what came before. Every record of the file follows it.
- */
+/** `reset`: the file was rewritten; drop what came before. */
 export type TailItem = { kind: "record"; record: FileRecord } | { kind: "reset" };
 
 const START: FollowState = { offset: 0, lastId: undefined, ino: 0, size: 0, mtimeMs: 0 };
@@ -46,7 +36,7 @@ export class FileTail {
 		return { ...this.#state };
 	}
 
-	/** What the file gained since the last poll. A file that does not exist yet gives nothing. */
+	/** A file that does not exist yet gives nothing. */
 	poll(): TailItem[] {
 		let fd: number;
 		try {
@@ -86,11 +76,7 @@ export class FileTail {
 	}
 }
 
-/**
- * Calls `on` with what the file gains, as it gains it, until the returned function is called. What
- * the file already holds comes before `followFile` returns. It waits for a file that does not exist
- * yet. `every` is the poll that backs up the directory watch, which some filesystems never fire.
- */
+/** `every` is the poll behind the directory watch, which some filesystems never fire. */
 export function followFile(
 	path: string,
 	on: (items: TailItem[]) => void,
@@ -114,7 +100,6 @@ export function followFile(
 	};
 }
 
-/** Undefined for a folder that does not exist yet, which the poll covers. */
 function watchFolder(folder: string, changed: () => void): { close(): void } | undefined {
 	try {
 		const watcher = watch(folder, changed);
@@ -129,7 +114,6 @@ function asItem(record: FileRecord): TailItem {
 	return { kind: "record", record };
 }
 
-/** The complete lines in `[from, size)`, and where the last of them ends. */
 function readLines(fd: number, from: number, size: number): { records: FileRecord[]; end: number } {
 	if (size <= from) return { records: [], end: from };
 	const buffer = Buffer.alloc(size - from);
@@ -144,7 +128,7 @@ function readLines(fd: number, from: number, size: number): { records: FileRecor
 	return { records, end: from + last + 1 };
 }
 
-/** The id of the line that ends at `offset`, reading back only as far as that line starts. */
+/** Reads back only as far as that line starts. */
 function idEndingAt(fd: number, offset: number): string | undefined {
 	for (let window = 4_096; ; window *= 2) {
 		const start = Math.max(0, offset - window);

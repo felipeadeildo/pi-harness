@@ -1,5 +1,4 @@
-// pi-tui leaves a picture's line out when it composes an overlay, and the terminal paints the picture
-// over the overlay. Remove this file, its calls and its test once
+// pi-tui paints pictures over overlays. Delete this file and its calls once
 // https://github.com/earendil-works/pi/issues/10863 is fixed.
 import type { TUI } from "@earendil-works/pi-tui";
 
@@ -12,7 +11,6 @@ interface Composer {
 
 const wrapped = new WeakSet<object>();
 
-/** Hides the pictures on screen while an overlay is open. */
 export function hideImagesUnderOverlays(tui: TUI): void {
 	const composer = tui as unknown as Composer;
 	const compose = composer.compositeOverlays;
@@ -25,7 +23,7 @@ export function hideImagesUnderOverlays(tui: TUI): void {
 	};
 }
 
-/** Blanks the picture lines in the last screenful. Lines in the scrollback stay untouched. */
+/** Only the last screenful; the scrollback stays untouched. */
 export function withoutImages(lines: readonly string[], height: number): string[] {
 	const out = [...lines];
 	for (let index = Math.max(0, out.length - height); index < out.length; index++)

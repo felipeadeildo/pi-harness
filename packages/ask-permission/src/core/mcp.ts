@@ -1,6 +1,5 @@
-// What a call to an MCP server means for the gate. Pi registers each server tool as
-// `mcp__<server>__<tool>` and reports the server's own annotations beside it, so the policy here
-// decides per server, and a hint the server declares can stand in for the mode.
+// Pi names server tools `mcp__<server>__<tool>` with the server's annotations, so policy is per
+// server and a declared hint can stand in for the mode.
 import type { ToolAnnotations, ToolInfo } from "@earendil-works/pi-coding-agent";
 
 const MCP_PREFIX = "mcp__";
@@ -12,7 +11,6 @@ export type McpPolicy = (typeof MCP_POLICIES)[number];
 /** Every server follows its own annotations until I say otherwise. */
 export const DEFAULT_MCP_POLICY: McpPolicy = "hints";
 
-/** The words the settings screen uses for a policy. */
 export const MCP_POLICY_TEXT: Record<McpPolicy, { label: string; description: string }> = {
 	ask: { label: "ask me", description: "every call comes to me" },
 	hints: {
@@ -23,16 +21,12 @@ export const MCP_POLICY_TEXT: Record<McpPolicy, { label: string; description: st
 	deny: { label: "deny", description: "every call is blocked" },
 };
 
-/**
- * The tools that drive other tools. Their own call is a script or a search, and every call inside
- * reaches the gate on its own, so asking for the wrapper would ask twice for the same thing.
- */
+/** Every call inside them reaches the gate on its own, so the wrapper is not asked about. */
 const ORCHESTRATORS = new Set(["codemode", "tool_search"]);
 
 export interface McpCall {
-	/** The server name, as pi knows it. */
 	server: string;
-	/** The tool inside the server, as the registered name spells it. */
+	/** As the registered name spells it. */
 	tool: string;
 }
 
@@ -45,7 +39,6 @@ export function isOrchestrator(toolName: string): boolean {
 	return ORCHESTRATORS.has(toolName);
 }
 
-/** The MCP call behind a tool name, or undefined for anything else. */
 export function mcpCallOf(toolName: string, fact: ToolFact | undefined): McpCall | undefined {
 	const server = serverOf(toolName, fact);
 	if (server === undefined) return undefined;
@@ -58,7 +51,6 @@ export function sameServer(left: string, right: string): boolean {
 	return normalize(left) === normalize(right);
 }
 
-/** The policy a server follows: the one set for it, or the default. */
 export function policyFor(servers: Readonly<Record<string, McpPolicy>>, server: string): McpPolicy {
 	for (const [name, policy] of Object.entries(servers)) {
 		if (sameServer(name, server)) return policy;

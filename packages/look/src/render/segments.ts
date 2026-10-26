@@ -64,7 +64,7 @@ export function isSegmentId(value: string): value is SegmentId {
 	);
 }
 
-/** Status keys a builtin segment already draws, so the statuses segment skips them. */
+/** The statuses segment skips them. */
 const CLAIMED_BY_SEGMENT: Partial<Record<BuiltinSegment, string>> = {
 	model: "pi-providers:account",
 	peers: "pi-peers",
@@ -160,10 +160,10 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 		priority: 25,
 		describe:
 			"the other agents in this folder, then those of each shared room after a rule, each by the name it chose and in its colour, then @ how many messages wait for an answer",
-		// The whole folder, then one name, then the bare mark, as the line runs out of room.
+		// The whole folder, then one name, then the bare mark, as room runs out.
 		render: ({ snapshot, glyphs, paint }) => {
 			const peers = snapshot.peers;
-			// A draft is a line here, not a frame over the editor: `@migration → you` while it types.
+			// A draft is a line here, not a frame over the editor.
 			const drafts = (snapshot.peersWriting ?? []).map(
 				(mark) => `${paint.raw(mark.color, mark.handle)}${paint.dim(` \u2192 ${mark.to}`)}`,
 			);
@@ -194,7 +194,7 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 		priority: 30,
 		describe:
 			"the card being done, then ⚑ how many open cards are blocked, ⧗ how many are to do and free to start, and ✓ how many are done, from the session's board",
-		// The counts outlive the card's words: a short line cuts the words.
+		// A short line cuts the words, not the counts.
 		render: ({ snapshot, glyphs, paint }) => {
 			const cards = snapshot.board?.cards ?? [];
 			const doing = cards.filter((card) => card.column === "doing");
@@ -209,7 +209,7 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 			const step = doing[0]?.title;
 			if (step === undefined && counts.length === 0) return undefined;
 			const more = doing.length > 1 ? paint.dim(` +${doing.length - 1}`) : "";
-			// Between cards the line stays, so what was done and what waits do not vanish with them.
+			// Between cards the line stays, so what was done and what waits do not vanish.
 			const icon = mark(glyphs.board, paint, "board");
 			const words = (room: number) =>
 				step === undefined ? paint.dim("idle") : paint.text(fitWidth(step, room, glyphs.ellipsis));
@@ -448,10 +448,9 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 			"what the session cost; `sub` means a subscription, so it is what the tokens would have cost",
 		render: ({ snapshot, glyphs, paint }) => {
 			const amount = snapshot.totals.cost;
-			// A session that spent nothing has nothing to say yet.
 			if (amount === 0) return undefined;
 			const value = paint.money(amount, money(amount));
-			// On a plan nothing is billed per token: the amount is what the tokens would cost.
+			// On a plan the amount is what the tokens would cost at API prices.
 			const what = paint.dim(snapshot.subscription ? " at API prices" : " this session");
 			const icon = glyphs.cost === "$" ? "" : mark(glyphs.cost, paint, "cost");
 			return { text: `${icon}${value}${what}`, compact: `${icon}${value}` };
@@ -464,7 +463,7 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 		render: ({ snapshot, glyphs, paint, options }) => {
 			const totals = snapshot.totals;
 			if (tokensOf(totals) === 0) return undefined;
-			// Everything sent, not just the uncached part: `66 in` next to a million cached reads is a lie.
+			// Everything sent, not only the uncached part.
 			const sent = paint.role("sent", count(promptOf(totals)));
 			const got = paint.role("received", count(totals.output));
 			const arrows = `${paint.role("sent", glyphs.sent)}${sent} ${paint.role("received", glyphs.received)}${got}`;
@@ -483,13 +482,13 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 			const hit = snapshot.cacheHit;
 			if (hit === undefined) return undefined;
 			const icon = mark(glyphs.cacheRead, paint, "cache");
-			// A prompt that was written to the cache and not read from it is the cache warming up, not a miss.
+			// Written to the cache and not read from it is the cache warming, not a miss.
 			if (snapshot.cacheWarming)
 				return { text: `${icon}${paint.muted(options.labels ? "cache new" : "new")}` };
 			const value =
 				hit >= 90 ? paint.role("done", percent(hit)) : paint.stress(100 - hit, percent(hit));
 			return {
-				// The numbers around it are the session's, so the label says this one is the last prompt's.
+				// The numbers around it are the session's; this one is the last prompt's.
 				text: options.labels
 					? `${paint.dim("last prompt ")}${value}${paint.dim(" cached")}`
 					: `${icon}${value}`,
@@ -545,7 +544,7 @@ export function renderSegments(ids: readonly SegmentId[], input: SegmentInput): 
 	});
 }
 
-/** One plan window, like `5h 62% resets in 2h`. The percent carries the color. */
+/** `5h 62% resets in 2h`; the percent carries the color. */
 function quotaWindow(paint: Paint, window: AccountWindow): string {
 	const used = paint.stress(window.used, `${window.used}%`);
 	const reset =
@@ -553,7 +552,6 @@ function quotaWindow(paint: Paint, window: AccountWindow): string {
 	return `${paint.dim(window.name)} ${used}${reset}`;
 }
 
-/** The parts that have something to say, with the gap the footer uses between things. */
 function joined(...parts: string[]): string {
 	return parts.filter((part) => part !== "").join("  ");
 }
@@ -562,12 +560,12 @@ function mark(glyph: string, paint: Paint, role: Role): string {
 	return glyph === "" ? "" : `${paint.role(role, glyph)} `;
 }
 
-/** A card that waits on someone before it can move, counted there and not as to do. A closed card no longer waits. */
+/** Counted as blocked, not as to do; a closed card no longer waits. */
 function blocks(card: BoardCard): boolean {
 	return card.blocked !== undefined && card.column !== "done" && card.column !== "dropped";
 }
 
-/** With no glyph, the word goes after the number: ASCII has no icon, and a bare count says less. */
+/** ASCII has no icon, so the word goes after the number. */
 function tally(
 	size: number,
 	glyph: string,
@@ -578,7 +576,6 @@ function tally(
 	return paint.role(role, glyph === "" ? `${size} ${role}` : `${glyph} ${size}`);
 }
 
-/** `✓2` in the color of what it counts, like the branch's marks. */
 function counted(value: number, glyph: string, role: Role, paint: Paint): string {
 	return value > 0 ? paint.role(role, `${glyph}${value}`) : "";
 }

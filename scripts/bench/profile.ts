@@ -1,6 +1,4 @@
-// Reading a V8 `.cpuprofile`: how much of a stretch of time was busy, and where that time went. The
-// typing bench writes one profile per pi process, then asks these questions about the seconds it was
-// typing, so a change to a render path can be judged against the same window before and after.
+// Where the busy time of a stretch of a V8 `.cpuprofile` went.
 
 export interface ProfileNode {
 	id: number;

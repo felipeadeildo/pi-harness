@@ -1,6 +1,5 @@
-// pi writes the summary with its own prompt, on the side model. On top go the board and your last
-// words as they are, so no model rephrases a decision. eval/summary.ts: on six recorded sessions,
-// pi's summary on Haiku answers as well as on Opus, within the judge's noise, for 1/40 of the price.
+// Pi's summary on the side model, with the board and your last words on top verbatim. eval/summary.ts
+// found Haiku as good as Opus here for 1/40 of the price.
 import { type Board, type ChatModel, describeBoard } from "@adeildo/pi-kit";
 import {
 	compact,
@@ -23,7 +22,7 @@ export interface SummaryRequest {
 	instructions?: string;
 }
 
-/** pi's compaction from the first model that answers, or undefined when none does. */
+/** Undefined when no model answers. */
 export async function summarize(
 	request: SummaryRequest,
 	models: readonly ChatModel[],
@@ -52,7 +51,6 @@ export async function summarize(
 	return undefined;
 }
 
-/** The board and your last words, as they are. */
 export function standing({ board, preparation }: SummaryRequest): string {
 	const parts: string[] = [];
 	const stands = describeBoard(board, { done: 20, decisions: 20 });

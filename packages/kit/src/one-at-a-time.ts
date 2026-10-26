@@ -2,7 +2,6 @@
 
 export type Turns = <T>(task: () => Promise<T>, signal?: AbortSignal) => Promise<T>;
 
-/** Runs tasks one at a time, in order. A task aborted while it waits never runs. */
 export function oneAtATime(): Turns {
 	let last: Promise<unknown> = Promise.resolve();
 

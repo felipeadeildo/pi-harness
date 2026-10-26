@@ -31,11 +31,7 @@ const WINDOW = `429 {"type":"error","error":{"type":"rate_limit_error","message"
 
 let dir: string;
 let restore: () => void;
-/**
- * Every `fetch` in this file. A session reads the plans without waiting, so a read that reached the
- * network would answer a few hundred milliseconds later, in another test's spy. Refused at once, a
- * read ends inside the test that started it. A test that needs an answer sets its own.
- */
+/** Refused at once, so a background plan read ends inside the test that started it. */
 let network: Mock<typeof fetch>;
 
 beforeEach(() => {
@@ -806,10 +802,7 @@ test("the first account brings pi's own login along, under a name of its own", a
 	expect(store.active("anthropic")?.label).toBe("work");
 });
 
-/**
- * Lets the plans read in the background settle. One turn is enough because the mocked fetch answers
- * within microtasks; it is no wait for a real timer or the network, so a test with either needs more.
- */
+/** One turn, since the mocked fetch answers within microtasks. */
 async function settle(): Promise<void> {
 	await new Promise((resolve) => setTimeout(resolve, 0));
 }

@@ -1,7 +1,5 @@
 #!/usr/bin/env bun
-// Checks a candidate list against the word list's rules, prints how many words survive each, and
-// writes the kit's list with `--write`. The rules live in packages/kit/src/names/rules.ts, beside
-// the list they hold; this script reads a file, counts, and writes.
+// Checks a candidate list against `packages/kit/src/names/rules.ts`; `--write` writes the kit's list.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 

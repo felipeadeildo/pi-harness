@@ -213,7 +213,6 @@ function folderOf(offer: FolderOffer | undefined, picked: string): string | unde
 	return offer.folders.find((folder) => openLabel(offer, folder) === picked);
 }
 
-/** Every note the user left, the picked option's first. */
 function noteOf(answer: AskAnswer | undefined): string | undefined {
 	if (answer === undefined) return undefined;
 	const parts: string[] = [];

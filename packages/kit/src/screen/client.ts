@@ -17,7 +17,7 @@ import { isObject } from "../decode.ts";
 
 type Events = ExtensionAPI["events"];
 
-/** Tabs with the same title, from features of different packages, become one. */
+/** Same-titled tabs from different packages merge. */
 export function listTabs(events: Events): TabView[] {
 	const request: ListRequest = { tabs: [] };
 	events.emit(LIST, request);
@@ -37,7 +37,6 @@ export function listTabs(events: Events): TabView[] {
 	return merged;
 }
 
-/** Returns why the change was refused. */
 export function applyRow(
 	events: Events,
 	row: RowView,

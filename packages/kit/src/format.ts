@@ -1,5 +1,4 @@
-// How a number reads on the screen, the same in every package: a token count the footer, a panel and
-// a cost table all show, and a price. The format was decided once, in the look, and moved here.
+// How numbers read on screen, the same in every package.
 
 export function formatTokens(count: number): string {
 	const n = Math.max(0, Math.round(count));
@@ -20,7 +19,6 @@ function trim(fixed: string): string {
 	return fixed.endsWith(".0") ? fixed.slice(0, -2) : fixed;
 }
 
-/** The time of day, hours and minutes, in the machine's own zone. */
 export function formatClock(at: number): string {
 	const date = new Date(at);
 	return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;

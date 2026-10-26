@@ -35,7 +35,7 @@ interface JudgeHealth {
 }
 
 export interface SessionState {
-	/** The context pi handed this session, which a change from outside needs to record and show. */
+	/** A change from outside needs it to record and show. */
 	ctx?: ExtensionContext;
 	config: PermissionConfig;
 	mode: PermissionMode;
@@ -51,11 +51,9 @@ export interface SessionState {
 	typing: TypingMonitor;
 	customTools: Map<string, Partial<ToolAdapter>>;
 	pendingWrites: PendingWrites;
-	/** What the gate said about each call, by tool call id. */
 	rulings: Map<string, Ruling>;
-	/** Redraws a call on screen, by tool call id. */
 	redraws: Map<string, () => void>;
-	/** Judges started when an answer with several calls ended, by tool call id. */
+	/** Started when an answer with several calls ended, by tool call id. */
 	prejudged: Map<string, Prejudged>;
 	asking: Turns;
 }

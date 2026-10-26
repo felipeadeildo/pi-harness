@@ -1,6 +1,4 @@
-// A sheet that rises from the bottom edge with a title and a list, where a choice is too long for a
-// row. It closes on the shade, on its Close control and on Escape, and it never moves what is behind
-// it: it is a layer, not a part of the layout.
+// A sheet from the bottom edge, over the layout. Closes on the shade, Close and Escape.
 import { type ReactNode, useEffect } from "react";
 
 import { Action } from "./controls.tsx";

@@ -62,7 +62,6 @@ class JudgeEntry implements Component {
 		}
 	}
 
-	/** In a frame named judge, one row per decision. */
 	private build(width: number): string[] {
 		const lines: string[] = [];
 		const columns = this.columns();

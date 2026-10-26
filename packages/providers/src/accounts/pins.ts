@@ -1,11 +1,9 @@
-// The account a session uses lives in the session file, so a resume or a fork comes back with the
-// account it had. The store holds the default; a pin here only overrides it for one branch.
+// The account in use lives in the session file, so a resume or a fork keeps it. The store holds the default.
 import { isObject } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { SESSION_CHANGES } from "./names.ts";
 
-/** The account pinned for a provider. */
 export type Pins = Map<string, string>;
 
 interface PinEntry {
@@ -14,7 +12,6 @@ interface PinEntry {
 	account: string;
 }
 
-/** Pins the account for the rest of the session, and writes it into the session file. */
 export function pin(pi: ExtensionAPI, pins: Pins, providerId: string, accountId: string): void {
 	pins.set(providerId, accountId);
 	pi.appendEntry(SESSION_CHANGES, {
@@ -24,7 +21,6 @@ export function pin(pi: ExtensionAPI, pins: Pins, providerId: string, accountId:
 	} satisfies PinEntry);
 }
 
-/** The pins a branch recorded, newest winning. */
 export function replay(branch: readonly unknown[]): Pins {
 	const pins: Pins = new Map();
 	for (const item of branch) {
@@ -34,8 +30,7 @@ export function replay(branch: readonly unknown[]): Pins {
 		if (data.kind === "account" && typeof data.account === "string") {
 			pins.set(data.provider, data.account);
 		} else {
-			// Older sessions pinned pi's own credential, which is no account any more: the session goes
-			// back to the store's choice.
+			// A pin of pi's own credential is not an account: back to the store's choice.
 			pins.delete(data.provider);
 		}
 	}

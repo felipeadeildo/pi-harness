@@ -618,9 +618,7 @@ describe("how a session stands in a room", () => {
 		api.rooms.setMode(undefined, "out");
 		expect(api.rooms.rooms()[0]?.mode).toBe("out");
 		expect(api.rooms.rooms()).toHaveLength(1);
-		// Out is being out for everyone who reads the room, not just a line on disk. Read from the
-		// other session: the folder's first member stands `out`, and a message to everyone no
-		// longer goes there. The session stays on the board, which is where the others still see it.
+		// Read from the other session: an `out` member gets no message to everyone but stays on the board.
 		sync(client);
 		const seen = client.rooms.rooms()[0];
 		expect(seen?.sessions.map((member) => member.session)).not.toContain("api");

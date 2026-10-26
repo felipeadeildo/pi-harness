@@ -1,9 +1,7 @@
 import { basename } from "node:path";
 
-// The `Alt+G` panel, over the whole screen. On the left, the rooms this session is in, the folder's
-// first, with the open one's agents under its name. On the right, the open room's conversation and the
-// line you write in. The two sides never move or change width, whatever is open, so switching rooms
-// only changes what is in them.
+// The `Alt+G` panel: rooms and their agents on the left, the open room's conversation on the right.
+// Neither side changes width, so switching rooms only changes what is in them.
 import {
 	FRAME_X,
 	FRAME_Y,
@@ -37,18 +35,15 @@ import { FRAME_MS } from "./motion.ts";
 import { Picker, scrolled, sessionRow } from "./picker.ts";
 import { printable, RoomView } from "./room.ts";
 
-/** The keys that change rooms on the list. */
 const ACTIONS = new Set(["n", "a", "r", "l", "x"]);
-/** The key of the folder's room, whose id is undefined. */
 const FOLDER = "";
 const SIDE_MIN = 26;
 const SIDE_MAX = 38;
-/** Narrower than this, the panel shows one side at a time. */
+/** Narrower than this, one side at a time. */
 const BESIDE = 72;
 
 type Pane = "rooms" | "write";
 
-/** A line of the list on the left: a room, or an agent or a member folder of the open one. */
 type Entry =
 	| { kind: "room"; room: Room }
 	| { kind: "agent"; room: Room; peer: Peer }
@@ -60,13 +55,9 @@ export interface PanelOptions {
 	close: () => void;
 	requestRender: () => void;
 	rows: () => number;
-	/**
-	 * Shows a session over the screen, the panel staying under it. False when nothing can show it,
-	 * and then `enter` writes to the agent instead. The hint says `enter view` whenever this is
-	 * given, so an agent that closed between two redraws gets written to under that hint.
-	 */
+	/** False when nothing can show it, and then `enter` writes to the agent instead. */
 	show?: (session: string) => boolean;
-	/** Injected so the docs pictures do not depend on when or where they are drawn. */
+	/** So the docs pictures do not depend on when they are drawn. */
 	now?: () => number;
 	clock?: (at: number) => string;
 }
@@ -77,11 +68,9 @@ export class PeersPanel implements Component, Focusable {
 	readonly #options: PanelOptions;
 	readonly #rooms = new Map<string, RoomView>();
 	#pane: Pane = "write";
-	/** The room whose conversation shows, by key, so it stays put as rooms come and go around it. */
+	/** By key, so it stays put as rooms come and go. */
 	#open = FOLDER;
-	/** The line of the list the cursor is on: a room's key, or an agent's session. */
 	#cursor = FOLDER;
-	/** The room `x` asked about, waiting on `y`. */
 	#closing: string | undefined;
 	#picker: Picker | undefined;
 
@@ -94,7 +83,6 @@ export class PeersPanel implements Component, Focusable {
 		this.#picker?.invalidate();
 	}
 
-	/** Whether something on screen moves, so the panel draws every frame. */
 	moving(): boolean {
 		const room = this.#roomView(this.#openRoom());
 		const live = room?.here.live() ?? [];
@@ -140,20 +128,17 @@ export class PeersPanel implements Component, Focusable {
 		if (matchesKey(data, Key.ctrl("f")) && entry?.kind === "agent") return this.#narrow(entry);
 		if (data === "@" && this.#other(entry)) return this.#writeTo(entry);
 		if (data === "n") return this.#pick(undefined);
-		// Any room, the folder's own included: `m` switches between taking part and just hearing it.
 		if (data === "m" && entry?.kind === "room")
 			return this.#act(() => this.#options.view.setMode(entry.room.id, nextMode(entry.room)));
 		if (shared !== undefined && room !== undefined && this.#manage(data, shared, room, entry))
 			return;
-		// Typing on the list writes in the room, so the line you write in is never far. The keys that
-		// change rooms never type, even where they do nothing, so a stray one is not sent.
+		// Typing on the list writes in the room; the keys that change rooms never type.
 		if (printable(data) && !ACTIONS.has(data)) {
 			this.#pane = "write";
 			this.#writeInput(data);
 		}
 	}
 
-	/** The keys that change a shared room. Returns false for any other. */
 	#manage(data: string, shared: string, room: Room, entry: Entry | undefined): boolean {
 		const { view } = this.#options;
 		switch (data) {
@@ -220,7 +205,6 @@ export class PeersPanel implements Component, Focusable {
 		});
 	}
 
-	/** The rooms, the open one with its agents under it, and how to make another when there is one. */
 	#listLines(
 		rooms: readonly Room[],
 		open: Room | undefined,
@@ -238,7 +222,7 @@ export class PeersPanel implements Component, Focusable {
 			const name = isOpen
 				? theme.fg("accent", theme.bold(room.name))
 				: theme.fg("muted", room.name);
-			// The column is always there: a room that changes how it stands keeps its name in place.
+			// A room that changes how it stands keeps its name in place.
 			const mark = `${this.#mark(room.mode)} `;
 			lines.push(
 				spread(
@@ -276,14 +260,12 @@ export class PeersPanel implements Component, Focusable {
 		return { lines, cursorAt };
 	}
 
-	/** The mark before a room's name, for how this session stands in it. */
 	#mark(mode: RoomMode): string {
 		const { theme } = this.#options;
 		if (mode === "listening") return theme.fg("muted", GLYPH.half);
 		return mode === "out" ? theme.fg("dim", GLYPH.ring) : theme.fg("accent", GLYPH.dot);
 	}
 
-	/** What waits in a room: an agent waiting on you, messages your agent has not read, or a count. */
 	#badge(room: Room): string {
 		const { theme } = this.#options;
 		const here = this.#options.view.here(room.id);
@@ -306,7 +288,6 @@ export class PeersPanel implements Component, Focusable {
 		return room.lines(width, height, this.focused && this.#pane === "write");
 	}
 
-	/** The top edge's right: who is in the open room, or the question `x` asked. */
 	#status(open: Room | undefined): string {
 		const { theme } = this.#options;
 		const closing =
@@ -354,7 +335,6 @@ export class PeersPanel implements Component, Focusable {
 		return keys;
 	}
 
-	/** The rooms, and the agents of the open one, in the order the list draws them. */
 	#entries(): Entry[] {
 		const open = this.#openRoom();
 		const entries: Entry[] = [];
@@ -371,7 +351,6 @@ export class PeersPanel implements Component, Focusable {
 		return entries;
 	}
 
-	/** The open room; the folder's when the one you had open is gone. */
 	#openRoom(): Room | undefined {
 		const rooms = this.#options.view.rooms();
 		const room = rooms.find((one) => keyOf(one) === this.#open) ?? rooms[0];
@@ -405,7 +384,7 @@ export class PeersPanel implements Component, Focusable {
 		return made;
 	}
 
-	/** Moving onto a room opens it, so its conversation shows while you look down the list. */
+	/** Moving onto a room opens it. */
 	#move(entries: readonly Entry[], to: number): void {
 		if (entries.length === 0) return;
 		const entry = entries[(to + entries.length) % entries.length];
@@ -421,12 +400,10 @@ export class PeersPanel implements Component, Focusable {
 		this.#writeTo(entry);
 	}
 
-	/** Another agent's line, which `enter` and `@` act on. */
 	#other(entry: Entry | undefined): entry is Entry & { kind: "agent" } {
 		return entry?.kind === "agent" && entry.peer.session !== this.#me();
 	}
 
-	/** The agent's handle at the start of the line you write in, and the cursor there. */
 	#writeTo(entry: Entry & { kind: "agent" }): void {
 		const handle = this.#options.view
 			.here(entry.room.id)
@@ -449,7 +426,6 @@ export class PeersPanel implements Component, Focusable {
 		this.#options.requestRender();
 	}
 
-	/** The picker in the conversation's place: for a new room when `room` is absent, else to add to it. */
 	#pick(room: Room | undefined): void {
 		const { theme, view } = this.#options;
 		const me = view.live().find((live) => live.session === this.#me());
@@ -483,7 +459,6 @@ export class PeersPanel implements Component, Focusable {
 		this.#options.requestRender();
 	}
 
-	/** A room this session left takes its unsent line with it. */
 	#forgetLeft(rooms: readonly Room[]): void {
 		const kept = new Set(rooms.map(keyOf));
 		for (const key of this.#rooms.keys()) if (!kept.has(key)) this.#rooms.delete(key);
@@ -498,13 +473,12 @@ export class PeersPanel implements Component, Focusable {
 	}
 }
 
-/** What `m` does next: every room walks the same three states, and out keeps the row to come back. */
+/** Every room walks the same three states; out keeps the row to come back. */
 function nextMode(room: Room): RoomMode {
 	if (room.mode === "in") return "listening";
 	return room.mode === "listening" ? "out" : "in";
 }
 
-/** What `m` says it will do, in the room's own words. */
 function modeKey(room: Room): string {
 	const next = nextMode(room);
 	if (next === "listening") return "listen";
@@ -534,7 +508,6 @@ function plural(count: number, word: string): string {
 	return `${count} ${word}${count === 1 ? "" : "s"}`;
 }
 
-/** Where a session open on this machine is read from: its presence entry names its machine and file. */
 export function addressOf(
 	open: readonly LiveSession[],
 	session: string,
@@ -545,7 +518,6 @@ export function addressOf(
 	return { session, machine, ...(file === undefined ? {} : { file }) };
 }
 
-/** Opens the panel over the whole screen, on the folder's room. `show` opens a session's view. */
 export async function openPanel(
 	ctx: ExtensionContext,
 	view: RoomsView,
@@ -555,7 +527,6 @@ export async function openPanel(
 	await ctx.ui.custom<void>(
 		(tui, theme, _keybindings, done) => {
 			hideImagesUnderOverlays(tui);
-			// Every frame while something moves, otherwise once a second, and at once on any change.
 			let quiet = 0;
 			const ticks = setInterval(() => {
 				quiet += FRAME_MS;

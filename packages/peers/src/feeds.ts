@@ -1,16 +1,11 @@
-// The rooms on this machine, as the disk has them: one folder feed per room, watched, and the
-// folder each one folds to. It decides nothing about who is in a room; it says what exists and when
-// it changed, and the caller reconciles.
-//
-// A room's logs are read whether or not this session is in it: that is how a session learns it was
-// added to one.
+// One feed per room on disk, watched. A room's logs are read even when this session is not in it:
+// that is how it learns it was added.
 import { readdirSync } from "node:fs";
 
 import { eventsRoot, FolderFeed, roomDir, roomsDir } from "@adeildo/pi-kit";
 
 import { Folder, folds } from "./folder.ts";
 
-/** One room as this process holds it. */
 export interface RoomOnDisk {
 	id: string;
 	feed: FolderFeed;
@@ -28,12 +23,10 @@ export class RoomFeeds {
 		this.#changed = changed;
 	}
 
-	/** The rooms known now, in the order the disk listed them. */
 	values(): IterableIterator<RoomOnDisk> {
 		return this.#rooms.values();
 	}
 
-	/** Reads the room folder and watches every room it names that this process does not hold yet. */
 	scan(root: string = eventsRoot()): void {
 		let ids: string[];
 		try {
@@ -50,18 +43,16 @@ export class RoomFeeds {
 		}
 	}
 
-	/** Folds what the room's folder holds now, for a room no session is inside yet. */
+	/** For a room no session is inside yet. */
 	read(room: RoomOnDisk): void {
 		room.folder.apply(room.feed.read());
 	}
 
-	/** Stops watching a room that will never open again. */
 	close(room: RoomOnDisk): void {
 		room.stop();
 		room.done = true;
 	}
 
-	/** Stops every feed, which a session that ends does. */
 	stop(): void {
 		for (const room of this.#rooms.values()) room.stop();
 		this.#rooms.clear();

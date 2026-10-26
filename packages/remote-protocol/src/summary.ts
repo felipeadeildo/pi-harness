@@ -1,4 +1,4 @@
-// What a client draws before the live stream reaches it. A shape only grows, so fields past the cursor are optional.
+// Shapes only grow, so fields past the cursor are optional.
 
 import { isBy, isObject, type By } from "./by.ts";
 import type { SessionState } from "./reduce/state.ts";
@@ -7,19 +7,15 @@ export interface SessionSummary {
 	session: string;
 	machine: string;
 	cwd: string;
-	/** The word `/name` sets. */
 	name?: string;
 	handle?: string;
-	/** The cursor older history pages back from. */
 	leaf?: string;
 	context?: { tokens: number; window?: number };
 	kind: "terminal" | "background";
-	/** The word the footer and the list show. */
 	status?: "working" | "blocked" | "done" | "error" | "idle";
-	/** The one whose input came last. From the connection, so a replay never sets it. */
+	/** From the connection, so a replay never sets it. */
 	active?: By;
 	viewers?: Viewer[];
-	/** The folded state, so a reader needs no replay to draw it. */
 	state?: SessionState;
 }
 
@@ -34,7 +30,6 @@ export const PRESENCE_HERE = "presence.here";
 
 export interface Presence {
 	viewers: Viewer[];
-	/** The one whose input came last, which is the one the session answers. */
 	active?: By;
 }
 
@@ -73,12 +68,11 @@ export function isCommandBy(value: unknown): value is CommandBy {
 	return isObject(value) && (value.by === undefined || isBy(value.by));
 }
 
-/** Absent when the letter waits only for the run to settle. */
 type WaitingWhy = "asleep" | "quiet" | "full" | "stopped" | "not-started";
 
 type WaitingWant = "steer" | "followUp";
 
-/** A letter waiting in the queue. `when` is the writer's clock, from the letter's `at`. */
+/** `when` is the writer's clock. */
 export interface QueuedMessage {
 	id: string;
 	by: By;

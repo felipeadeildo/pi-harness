@@ -1,6 +1,5 @@
-// Folders the user opened from the dialog. A call that reaches only open folders counts as inside
-// the workspace, so the mode decides it. A read folder lets read-only calls in, a write folder
-// lets everything in.
+// Folders opened from the dialog count as inside the workspace: read folders for read-only calls,
+// write folders for everything.
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 

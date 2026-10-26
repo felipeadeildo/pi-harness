@@ -1,5 +1,4 @@
-// A message from another session, drawn in the chat of the one that got it: a frame in the color of
-// the agent that wrote it, who and to whom in its top edge with the time on the right, the words inside.
+// A message from another session, framed in its writer's color.
 import { basename } from "node:path";
 
 import { drawnByWidth, CHANGES_X, entryFrame, formatClock, GLYPH } from "@adeildo/pi-kit";
@@ -13,7 +12,6 @@ export function messageBlock(details: PeerMessageDetails, theme: Theme): Compone
 	return drawnByWidth((width) => messageLines(details, theme, width));
 }
 
-/** Everything that arrived together, one frame under the other. */
 export function deliveryBlock(delivery: PeerDelivery, theme: Theme): Component {
 	return drawnByWidth((width) =>
 		delivery.items.flatMap((item) => messageLines(item, theme, width)),
@@ -37,7 +35,6 @@ function messageLines(details: PeerMessageDetails, theme: Theme, width: number):
 	});
 }
 
-/** Who the message went to, as this session sees it, and in which shared room. */
 export function addressed(details: PeerMessageDetails): string {
 	const room = details.room === undefined ? "" : ` in ${details.room}`;
 	if (details.toYou) return `${GLYPH.right} you${room}`;
@@ -46,7 +43,6 @@ export function addressed(details: PeerMessageDetails): string {
 	return `to anyone${room}, ${details.takenBy} took it`;
 }
 
-/** The notice in the chat when this session joins or leaves a shared room. */
 export function membershipNotice(change: MembershipChange, me?: string): string {
 	const room = change.room.name;
 	if (change.kind === "left")
@@ -59,7 +55,6 @@ export function membershipNotice(change: MembershipChange, me?: string): string 
 	return `You joined ${room}, added ${by}${why}.${who === "" ? "" : ` ${who}`} Alt+G shows it.`;
 }
 
-/** Who else the room counts, by folder and by name. */
 function othersIn(room: Room, me: string | undefined): string {
 	const parts = [
 		...room.folders.map((folder) => basename(folder.path)),

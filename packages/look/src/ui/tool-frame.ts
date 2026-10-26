@@ -1,5 +1,4 @@
-// Draws every tool call in a frame of its own: the mark and the name on the top rule, the call and
-// its result inside, and how it went on the bottom rule.
+// Every tool call in its own frame: name on the top rule, call and result inside, how it went on the bottom rule.
 import {
 	CUT,
 	type CallRuling,
@@ -26,7 +25,6 @@ import { type Stream, STREAMERS } from "../render/streaming.ts";
 import { stateMark, toolIcon, toolLabel } from "../render/tools.ts";
 import { icons } from "../settings.ts";
 
-/** What the call is doing, which is what the bottom rule says while it has no result yet. */
 type Phase = "writing" | "waiting" | "running" | "done" | "failed";
 
 const PHASE_COLORS = {
@@ -38,19 +36,16 @@ const PHASE_COLORS = {
 } as const;
 const BODY_PAD = 4;
 const COLLAPSED_ARGS_CHARS = 100;
-/** How many lines of a result the frame prints before telling you the rest is there. */
 const RESULT_PREVIEW_LINES = 10;
 
 export function registerToolFrames(scope: FeatureScope): void {
 	const redraws = new Map<string, () => void>();
 	const written = new Map<string, number>();
-	// The set is asked for on every drawing of every frame, and it changes only with the setting.
+	// Asked for on every drawing, and it changes only with the setting.
 	const set = glyphsOf(() => icons.get(scope));
 	CALLS_FRAMED.provide(scope, () => true);
 	RULING.onChanged(scope, (_ruling, toolCallId) => redraws.get(toolCallId)?.());
-	// Pi completes every call of a message only when the message ends, so a call the model finished
-	// before writing the next one would go on writing. The provider says when each one ends. Pi tells
-	// the extensions first and hands every call its arguments right after, which draws the frame.
+	// Pi completes a message's calls only when the message ends; the provider says when each one ends.
 	scope.on("message_update", (event) => {
 		const update = event.assistantMessageEvent;
 		if (update.type === "toolcall_end") written.set(update.toolCall.id, Date.now());
@@ -70,7 +65,6 @@ interface FrameContext {
 	name: string;
 	set: () => IconSet;
 	redraws: Map<string, () => void>;
-	/** When the model finished writing each call, until its frame reads it. */
 	written: Map<string, number>;
 }
 
@@ -79,14 +73,11 @@ function framed(
 	base: ToolRenderers | undefined,
 	frame: FrameContext,
 ): ToolRenderers {
-	// A tool may bring renderers of its own, one of them, or none: the frame wraps whichever half
-	// exists, and the arguments or the text of the result stand in for the rest.
+	// The frame wraps whichever half a tool brings a renderer for.
 	const call = base?.renderCall ?? genericCall;
 	const result = base?.renderResult ?? genericResult;
 
-	// A renderer of pi's own mutates the component it returned last time, which sits inside the
-	// frame, so it gets that one back instead of the frame. A frame that showed the stream instead
-	// holds no component of pi's.
+	// Pi's renderers mutate the component they returned last time, so they get that one back, not the frame.
 	const inner = new WeakMap<Component, Component | undefined>();
 	const passed = (last: Component | undefined): Component | undefined =>
 		last === undefined || !inner.has(last) ? last : inner.get(last);
@@ -94,7 +85,6 @@ function framed(
 
 	return {
 		...base,
-		// The frame is the shell, so pi does not wrap it in a box of its own.
 		renderShell: "self",
 		renderCall(args, theme, context) {
 			frame.redraws.set(context.toolCallId, context.invalidate);
@@ -102,21 +92,19 @@ function framed(
 			const now = Date.now();
 			const ended = frame.written.get(context.toolCallId);
 			frame.written.delete(context.toolCallId);
-			// A call replayed from the session, or one already running, was written long ago.
+			// A call replayed or already running was written long ago.
 			const done =
 				ended !== undefined ||
 				context.argsComplete ||
 				context.executionStarted ||
 				!context.isPartial;
-			// Only a call seen while the model wrote it has a time it took to write.
 			if (!done) clock.writingAt ??= now;
 			else clock.writtenAt ??= ended ?? now;
 			if (context.executionStarted) clock.startedAt ??= now;
 			const writing = clock.writtenAt === undefined;
 			const ruling = RULING.current(scope, context.toolCallId);
 
-			// Pi hands every call of a message its arguments again on each piece the model writes, so a
-			// call that did not change keeps the frame it has, and its renderer is not asked again.
+			// Pi hands every call its arguments again on each piece the model writes, so an unchanged call keeps its frame.
 			const inputs = [
 				args,
 				theme,
@@ -135,8 +123,7 @@ function framed(
 				writing,
 				state: context.state as object,
 			});
-			// While the model writes, pi's renderer has nothing new to show, so it is not asked. The
-			// frame pads its inside itself, so pi's renderer adds no padding of its own.
+			// While the model writes, pi's renderer has nothing new to show. The frame pads its inside itself.
 			const streaming = writing && stream !== undefined;
 			const own = streaming
 				? undefined
@@ -171,9 +158,9 @@ function framed(
 		},
 		renderResult(shown, options, theme, context) {
 			const clock = clockOf(context);
-			// A blocked call prints nothing but the reason the line above already gives.
+			// A blocked call prints only the reason the line above already gives.
 			const blocked = RULING.current(scope, context.toolCallId)?.blocked === true;
-			// Pi draws the pictures of a result right below the frame, so the frame counts them.
+			// Pi draws a result's pictures right below the frame, so the frame counts them.
 			const images = shown.content.filter((block) => block.type === "image").length;
 			if (!options.isPartial) clock.endedAt ??= Date.now();
 			clock.resulted = true;
@@ -199,25 +186,17 @@ function framed(
 	};
 }
 
-/*
- * The stand-in for a tool that brings no renderer of its own: the arguments, under the top rule
- * that already names the tool, and the text of the result.
- */
 const genericCall: NonNullable<ToolRenderers["renderCall"]> = (args, theme, context) =>
 	new Text(callText(args, theme, context.expanded), 0, 0);
 
 const genericResult: NonNullable<ToolRenderers["renderResult"]> = (result, options, theme) =>
 	new Text(resultText(result, options.expanded, theme), 0, 0);
 
-/** What a running call is doing, for tools whose running means something else. */
 const RUNNING_WORDS: Readonly<Record<string, string>> = {
 	ask_questions: "waiting for your answer",
 };
 
-/**
- * The phase the call closes with while it still has no result: writing the arguments, then waiting
- * to run. A call with a result, live or replayed, stays open for the result half to close.
- */
+/** Without a result: writing the arguments, then waiting to run. */
 function phaseOf(
 	context: { isPartial: boolean; executionStarted: boolean },
 	writing: boolean,
@@ -282,10 +261,9 @@ interface FrameParts {
 	body: Component;
 }
 
-/** The top rule, the call inside it, and the phase while the call has nothing to show yet. */
 class CallFrame implements Component {
 	#drawn?: Drawn;
-	/** Set when pi or the terminal asks for a fresh drawing, which asks the renderers again. */
+	/** Set when pi or the terminal asks for a fresh drawing. */
 	#stale = false;
 
 	constructor(
@@ -293,7 +271,6 @@ class CallFrame implements Component {
 		private readonly inputs: readonly unknown[],
 	) {}
 
-	/** Whether this frame was made from these inputs and nothing asked for it to be made again. */
 	drawnFrom(inputs: readonly unknown[]): boolean {
 		return (
 			!this.#stale &&
@@ -310,13 +287,11 @@ class CallFrame implements Component {
 
 	render(width: number): string[] {
 		const { theme, icon, label, ruling, expanded, clock } = this.parts;
-		// A running call closes too until its result draws the rest of the frame, as a call that
-		// waits for you does while its dialog is open.
+		// A running call closes too until its result draws the rest of the frame.
 		const running = this.parts.executing === true && clock?.resulted !== true;
 		const phase = this.parts.phase ?? (running ? "running" : undefined);
-		// The time is read on every drawing, so it goes on while nothing new arrives.
+		// Read on every drawing, so the time goes on while nothing new arrives.
 		const time = clock === undefined || phase === undefined ? undefined : timeOf(phase, clock);
-		// The mark of a phase that lasts moves, so it is picked on every drawing.
 		const mark = phase === undefined ? undefined : this.parts.mark(phase, this.parts.set());
 		const body = this.parts.body.render(room(width));
 		const progress = this.parts.progress?.join("\u0000");
@@ -325,10 +300,9 @@ class CallFrame implements Component {
 
 		const title = `${theme.fg("toolTitle", icon)} ${theme.fg("toolTitle", theme.bold(label))}`;
 		const lines = [rule("top", title, width, theme), ...inside(withoutBlanks(body), width, theme)];
-		// The decision is about the call, so it stays with the call.
 		if (ruling !== undefined)
 			lines.push(...inside([rulingText(ruling, theme, expanded)], width, theme));
-		// The call has nothing else to show yet, so the frame closes with what it is doing.
+		// With nothing else to show yet, the frame closes with what the call is doing.
 		if (phase !== undefined && mark !== undefined) {
 			const times = [time, ...(this.parts.progress ?? [])];
 			const word = phase === "running" ? this.parts.runningAs : undefined;
@@ -348,24 +322,19 @@ interface CallParts {
 	phase?: Phase;
 	mark: (phase: Phase, set: IconSet) => string;
 	set: () => IconSet;
-	/** What the model has written so far, while it writes. */
 	progress?: readonly string[];
 	clock?: Clock;
-	/** The call runs and its result is not final. */
+	/** It runs and its result is not final. */
 	executing?: boolean;
-	/** The word for running, when the tool's running means something else. */
+	/** When the tool's running means something else. */
 	runningAs?: string;
 }
 
-/** Lines that are already drawn. The frame cuts the ones too wide for it. */
 function drawnBody(drawn: readonly string[]): Component {
 	return { render: () => [...drawn], invalidate: () => {} };
 }
 
-/**
- * Pi's own body, or the stream while pi's body is only its first line, as when an edit's diff is
- * still being read from the file after the model finished writing.
- */
+/** The stream while pi's body is still only its first line. */
 function orStream(own: Component, stream: Stream | undefined): Component {
 	if (stream === undefined) return own;
 	return {
@@ -377,7 +346,6 @@ function orStream(own: Component, stream: Stream | undefined): Component {
 	};
 }
 
-/** The result, behind a cut, and the bottom rule with how it went and how long it took. */
 class ResultFrame implements Component {
 	#drawn?: Drawn;
 
@@ -399,7 +367,7 @@ class ResultFrame implements Component {
 		const printed =
 			quiet === true ? [] : withoutBlanks(dropTime(body)).map((line) => hidden(line, theme));
 		const lines = [
-			// The cut opens what the call printed, and a call with nothing to print has no cut.
+			// A call with nothing to print has no cut.
 			...(printed.length === 0 ? [] : [cut(width, theme), ...inside(printed, width, theme)]),
 			rule(
 				"bottom",
@@ -423,13 +391,12 @@ interface ResultParts {
 	set: () => IconSet;
 	elapsed?: string;
 	wrote?: string;
-	/** How many pictures follow the frame, which pi draws outside it. */
+	/** Pi draws them outside the frame. */
 	images?: string;
-	/** Nothing worth printing under the line, like a call the gate blocked. */
+	/** Nothing worth printing, like a call the gate blocked. */
 	quiet?: boolean;
 }
 
-/** One rule of the frame: two corners, and what sits on the left. */
 function rule(
 	edge: "top" | "bottom",
 	left: string,
@@ -444,20 +411,16 @@ function rule(
 	const fill = Math.max(1, width - BODY_PAD - visibleWidth(cell));
 	const line =
 		paint(`${start}${LINE.h}`) + cell + paint(LINE.h.repeat(fill)) + paint(`${LINE.h}${end}`);
-	// A rule with room to fill is the width already; only a label that filled the row needs cutting.
 	return fill === 1 ? truncateToWidth(line, width, "") : line;
 }
 
-/** The line that ends the call and starts what it printed. */
 function cut(width: number, theme: Theme): string {
 	const paint = (text: string) => theme.fg("border", text);
 	const fill = Math.max(1, width - BODY_PAD);
 	const line = `${paint(LINE.teeLeft)}${paint(LINE.h.repeat(fill + 2))}${paint(LINE.teeRight)}`;
-	// Room for the fill means the cut is the width already.
 	return fill === 1 ? truncateToWidth(line, width, "") : line;
 }
 
-/** The bottom rule: what the call is doing, how long it ran, and how long the model took to write it. */
 function phaseLabel(
 	theme: Theme,
 	mark: string,
@@ -475,7 +438,6 @@ function inside(lines: readonly string[], width: number, theme: Theme): string[]
 	const paint = (text: string) => theme.fg("border", text);
 	const inner = room(width);
 	return trim(lines).map((line) => {
-		// Measuring is cheap, and cutting a line that already fits is not.
 		const text = visibleWidth(line) > inner ? truncateToWidth(line, inner, CUT, true) : line;
 		const pad = " ".repeat(Math.max(0, inner - visibleWidth(text)));
 		return `${paint(LINE.v)} ${text}${pad} ${paint(LINE.v)}`;
@@ -485,18 +447,17 @@ function inside(lines: readonly string[], width: number, theme: Theme): string[]
 interface Drawn {
 	width: number;
 	body: readonly string[];
-	/** What the frame drew around the body: the ruling, the phase, the times. */
 	rest: readonly unknown[];
 	lines: string[];
 }
 
-/** Whether the frame was already drawn for this body and this state, which keeps typing cheap. */
+/** Keeps typing cheap. */
 function unchanged(drawn: Drawn | undefined, next: Omit<Drawn, "lines">): drawn is Drawn {
 	if (drawn === undefined || drawn.width !== next.width) return false;
 	if (drawn.body.length !== next.body.length || drawn.rest.length !== next.rest.length)
 		return false;
 	if (drawn.rest.some((part, index) => part !== next.rest[index])) return false;
-	// A renderer that kept its lines hands back the same array, which saves comparing a long output.
+	// A renderer that kept its lines hands back the same array.
 	return drawn.body === next.body || drawn.body.every((line, index) => line === next.body[index]);
 }
 
@@ -504,10 +465,9 @@ function room(width: number): number {
 	return Math.max(1, width - BODY_PAD);
 }
 
-/** Pi's note on the lines it cut from an output, as `... (240 earlier lines, ctrl+o to expand)`. */
+/** As `... (240 earlier lines, ctrl+o to expand)`. */
 const HIDDEN = /^\.\.\. \((\d+) (earlier|more) lines, (.+?) to expand\)$/u;
 
-/** Pi's note on cut lines, in the frame's words: which way they are, how many, and the key. */
 export function hidden(line: string, theme: Theme): string {
 	const match = HIDDEN.exec(stripTerminalSequences(line).trim());
 	if (match === null) return line;
@@ -517,7 +477,7 @@ export function hidden(line: string, theme: Theme): string {
 	return `${theme.fg("dim", GLYPH.ellipsisUp)} ${lines}  ${theme.fg("dim", key ?? "")}`;
 }
 
-/** Pi prints the time of a call itself, and the frame says it on the bottom rule instead. */
+/** The frame says the time on the bottom rule instead. */
 function dropTime(lines: readonly string[]): string[] {
 	const at = lines.findLastIndex((line) => !isBlank(line));
 	if (at === -1) return [...lines];
@@ -527,22 +487,18 @@ function dropTime(lines: readonly string[]): string[] {
 }
 
 interface Clock {
-	/** When the model started writing the call, and when it finished. */
 	writingAt?: number;
 	writtenAt?: number;
-	/** When the call started running, and when it answered. */
 	startedAt?: number;
 	endedAt?: number;
-	/** Pi drew the result half, which closes the frame from then on. */
+	/** Closes the frame from then on. */
 	resulted?: boolean;
 }
 
-/** Pi shares one state object between the two halves of a call. */
 function clockOf(context: { state: unknown }): Clock {
 	return context.state as Clock;
 }
 
-/** How long the model took to write the call. */
 function wroteFor(clock: Clock): string | undefined {
 	if (clock.writingAt === undefined || clock.writtenAt === undefined) return undefined;
 	return elapsed(clock.writtenAt - clock.writingAt);
@@ -554,7 +510,6 @@ function ranFor(clock: Clock, running: boolean): string | undefined {
 	return end === undefined ? undefined : elapsed(end - clock.startedAt);
 }
 
-/** How long the call has been in the phase the call half of the frame closes with. */
 function timeOf(phase: Phase, clock: Clock): string | undefined {
 	if (phase === "running") return ranFor(clock, true);
 	const from = phase === "waiting" ? clock.writtenAt : clock.writingAt;
@@ -569,7 +524,6 @@ function elapsed(ms: number): string {
 	return `${Math.floor(total / 3600)}h ${Math.floor((total % 3600) / 60)}m`;
 }
 
-/** Pi's renderers pad their part with blank lines, which the frame does not need. */
 function trim(lines: readonly string[]): string[] {
 	let [from, to] = [0, lines.length];
 	while (from < to && isBlank(lines[from])) from++;
@@ -577,13 +531,12 @@ function trim(lines: readonly string[]): string[] {
 	return lines.slice(from, to);
 }
 
-/** A renderer that separates its parts with a blank line leaves a gap the frame does not need. */
 function withoutBlanks(lines: readonly string[]): string[] {
 	return lines.filter((line) => !isBlank(line));
 }
 
 export function isBlank(line: string | undefined): boolean {
-	// A line of nothing but colour codes reads as blank, and pi's renderers end their parts with one.
+	// A line of only color codes reads as blank.
 	return stripTerminalSequences(line ?? "").trim() === "";
 }
 

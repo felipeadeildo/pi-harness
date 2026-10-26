@@ -6,9 +6,7 @@ import type { SegmentId } from "./render/segments.ts";
 import { framePreview, iconsPreview, userFramePreview } from "./ui/previews.ts";
 import type { SlotName } from "./ui/screen.ts";
 
-// The look has opinions: where each piece of information sits, the separators, the cursor and the
-// start screen are fixed. Only what depends on your terminal or your taste in lines is a setting:
-// the icon set, the frame's line style, and whether your messages are framed. See DESIGN.md.
+// Only what depends on the terminal or taste is a setting: icons, line style, framed messages.
 
 export const SECTIONS = ["Appearance"];
 
@@ -34,7 +32,7 @@ export const below: readonly SegmentId[] = ["cost", "tokens", "cache", "average"
 /** The plan's quota: what each window spent, and when it resets. */
 export const belowRight: readonly SegmentId[] = ["quota"];
 
-/** Where each piece of the screen comes from. The docs fixture draws with the same map. */
+/** The docs fixture draws with the same map. */
 export const SLOTS: Record<SlotName, readonly SegmentId[]> = {
 	strip,
 	stripRight,

@@ -1,37 +1,25 @@
-// What one feature knows and the others read, over pi.events, which every extension in a process
-// shares. A contract is declared once in `contracts/`, never in the package that owns the state, so
-// the reader does not depend on the owner.
-//
-// The bus is synchronous, so a reader asks while drawing and the owner answers on the spot: the
-// value is never a frame old. A change is also announced with the whole new value, so a bridge can
-// follow every contract without polling and without knowing what any of them hold. Values are plain
-// JSON, and they are decoded on arrival, because the other side may be another version.
+// State one feature owns and others read over pi.events. The bus is synchronous, so a read is never
+// stale, and a change is announced with the whole value. Values are JSON, decoded on arrival, since
+// the other side may be another version.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { type Decoder, formatProblems, isObject } from "./decode.ts";
 
-/** What a contract needs to travel. A feature scope is one. */
 export interface EventScope {
 	readonly events: ExtensionAPI["events"];
 	warn(message: string): void;
 }
 
-/** A contract with a key takes it as one more argument; one without takes nothing. */
 type KeyArgs<K> = [K] extends [void] ? [] : [key: K];
 
 export interface Contract<T, K extends string | void = void> {
-	/** The pi.events channel readers ask on. Changes go on the same channel plus `:changed`. */
 	readonly channel: string;
-	/** Undefined when nobody provides it, or the answer does not decode, which warns. */
+	/** Undefined when nobody provides it, or when the answer does not decode (which warns). */
 	current(scope: EventScope, ...key: KeyArgs<K>): T | undefined;
-	/**
-	 * Answers the readers. An undefined answer leaves the question to another provider. Returns what
-	 * stops answering.
-	 */
+	/** An undefined answer leaves the question to another provider. */
 	provide(scope: EventScope, answer: (key: K) => T | undefined): () => void;
-	/** Tells every listener the new value. Undefined says there is none any more. */
+	/** Undefined says there is none any more. */
 	changed(scope: EventScope, value: T | undefined, ...key: KeyArgs<K>): void;
-	/** A change that does not decode is dropped with a warning. */
 	onChanged(scope: EventScope, listener: (value: T | undefined, key: K) => void): () => void;
 }
 
@@ -41,7 +29,7 @@ interface Question {
 	value?: unknown;
 }
 
-/** Name it `<area>` or `<area>:<what>`, like `tasks` or `calls:ruling`. */
+/** Named `<area>` or `<area>:<what>`, like `tasks` or `calls:ruling`. */
 export function defineContract<T, K extends string | void = void>(
 	name: string,
 	decoder: Decoder<T>,

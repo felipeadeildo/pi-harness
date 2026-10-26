@@ -1,19 +1,18 @@
-// A refresh between runs pays only if you come back before the next one, so this learns that
-// chance from the session files: how long the end of each run waited for the next request.
+// A refresh between runs pays only if you come back before the next one, so this learns that chance
+// from the session files.
 import { createReadStream } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 
-/** Half-minute buckets for the first hour. The last one holds longer waits and runs never answered. */
+/** For the first hour; the last bucket holds longer waits and runs never answered. */
 const BUCKET_MINUTES = 0.5;
 const BUCKETS = 121;
 export const LEARN_DAYS = 30;
-/** With fewer runs than this still waiting at a time, the chance after it is noise. */
+/** Fewer runs still waiting make the chance after it noise. */
 const MIN_WAITING = 40;
 
 export interface Returns {
-	/** The run ended on a question to you. */
 	asked: number[];
 	other: number[];
 }
@@ -23,13 +22,9 @@ export interface Wait {
 	asked: boolean;
 }
 
-/** The runs the table below was measured on. */
 export const MEASURED_RUNS = 1688;
 
-/**
- * The chance of a message in the 4.5 minutes after a refresh, for refreshes sent less than `until`
- * minutes after the last request, measured on `MEASURED_RUNS` runs. Used until enough is learned.
- */
+/** Measured on `MEASURED_RUNS` runs; used until enough is learned. */
 const MEASURED: readonly (readonly [until: number, chance: number])[] = [
 	[9, 0.28],
 	[13.5, 0.12],
@@ -43,7 +38,6 @@ export function emptyReturns(): Returns {
 	return { asked: zeros(), other: zeros() };
 }
 
-/** Whether counts read back from disk have the buckets this version uses. */
 export function isReturns(value: Partial<Returns>): value is Returns {
 	return value.asked?.length === BUCKETS && value.other?.length === BUCKETS;
 }
@@ -57,7 +51,7 @@ export function runsIn(returns: Returns): number {
 	return sum(returns.asked) + sum(returns.other);
 }
 
-/** Chance of a message in the `window` minutes after `minutes` away, given none came before. */
+/** Given none came before. */
 export function returnChance(
 	returns: Returns | undefined,
 	minutes: number,
@@ -82,17 +76,14 @@ function chanceIn(counts: readonly number[], minutes: number, window: number): n
 	return sum(counts.slice(from, to)) / waiting;
 }
 
-/**
- * The waits in one session file. A run ends on an assistant message without tool calls, and its
- * wait lasts until the next request; a run nothing followed waited forever.
- */
+/** A run ends on an assistant message without tool calls; a run nothing followed waited forever. */
 export function waitsIn(file: string, since: number): Wait[] {
 	const requests: AgentRequest[] = [];
 	for (const line of file.split("\n")) addRequest(requests, line, since);
 	return waitsAfter(requests);
 }
 
-/** The same as `waitsIn`, read line by line, so a long session never sits in memory as one string. */
+/** Line by line, so a long session never sits in memory as one string. */
 async function waitsInFile(path: string, since: number): Promise<Wait[]> {
 	const requests: AgentRequest[] = [];
 	try {
@@ -107,7 +98,7 @@ async function waitsInFile(path: string, since: number): Promise<Wait[]> {
 type AgentRequest = { timestamp: number; ends: boolean; asked: boolean };
 
 function addRequest(requests: AgentRequest[], line: string, since: number): void {
-	// Most lines are tool output; this skips them without parsing.
+	// Most lines are tool output; skip them without parsing.
 	if (!line.includes('"role":"assistant"')) return;
 	const message = assistantOf(line);
 	if (message !== undefined && message.timestamp >= since) requests.push(message);
@@ -127,13 +118,11 @@ interface Part {
 	text?: string;
 }
 
-/** A line of a session file, as far as this reads it. */
 interface Line {
 	type?: string;
 	message?: { role?: string; timestamp?: unknown; usage?: unknown; content?: unknown };
 }
 
-/** A request the agent made, from its line. Undefined for any other line. */
 function assistantOf(line: string): AgentRequest | undefined {
 	const message = parse(line)?.message;
 	if (message?.role !== "assistant" || message.usage === undefined) return undefined;
@@ -155,7 +144,6 @@ function parse(line: string): Line | undefined {
 	}
 }
 
-/** Whether the agent's last words were a question to you. */
 export function endsOnQuestion(content: readonly Part[]): boolean {
 	const texts = content
 		.filter((part) => part.type === "text")
@@ -163,10 +151,7 @@ export function endsOnQuestion(content: readonly Part[]): boolean {
 	return texts.findLast((text) => text !== "")?.endsWith("?") ?? false;
 }
 
-/**
- * Reads every session file changed in the last `LEARN_DAYS`, one file and one line at a time, so
- * neither a month of sessions nor one long session is ever in memory at once.
- */
+/** One file and one line at a time, so no month of sessions is ever in memory. */
 export async function learnReturns(root: string, now: number): Promise<Returns> {
 	const since = now - LEARN_DAYS * 86_400_000;
 	const returns = emptyReturns();

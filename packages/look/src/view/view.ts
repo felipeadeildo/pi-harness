@@ -1,6 +1,4 @@
-// Another session over the whole screen: its transcript, then an editor box whose edges say its
-// folder, model and context as yours do, all inside one frame. A source that only reads, such as a
-// session file, has a line in place of the editor.
+// Another session over the whole screen. A read-only source has a line in place of the editor.
 import { entryFrame, type SessionSummary, type SessionSource } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
@@ -20,14 +18,12 @@ import { type Screen, type SlotName, slotPieces } from "../ui/screen.ts";
 import { ViewState, Viewport } from "./state.ts";
 import { transcriptOf } from "./transcript.ts";
 
-/** Rows the frame, the blank row over the editor box and the box take from the screen. */
 const CHROME = 6;
 const READ_ONLY = "Read only: write to this session through a room.";
 
 export interface ViewOptions {
 	tui: TUI;
 	theme: Theme;
-	/** Your screen, whose slots and glyphs the view's editor box is drawn with. */
 	screen: Screen;
 	source: SessionSource;
 	close(): void;
@@ -39,7 +35,7 @@ export class SessionView implements Component, Focusable {
 	readonly #state = new ViewState();
 	readonly #viewport = new Viewport();
 	readonly #stop: () => void;
-	/** The transcript's lines, drawn again only when the session or the width changed. */
+	/** Drawn again only when the session or the width changed. */
 	#drawn: { version: number; width: number; lines: string[] } | undefined;
 
 	constructor(options: ViewOptions) {
@@ -49,7 +45,6 @@ export class SessionView implements Component, Focusable {
 		});
 	}
 
-	/** Stops following the source. */
 	dispose(): void {
 		this.#stop();
 	}
@@ -81,7 +76,7 @@ export class SessionView implements Component, Focusable {
 		const body = [...Array.from({ length: height - shown.length }, () => ""), ...shown];
 		const snapshot = this.#state.snapshot;
 		const ended = this.#state.ended;
-		// A blank row sets the editor box apart from the transcript, as it is under your own.
+		// A blank row sets the editor box apart, as under your own.
 		return entryFrame([...body, "", ...this.#editor(inner, snapshot)], width, theme, {
 			top: titleOf(snapshot),
 			topRight: theme.fg(ended ? "dim" : "success", ended ? "ended" : "live"),
@@ -108,7 +103,6 @@ export class SessionView implements Component, Focusable {
 		return lines;
 	}
 
-	/** The editor box, with your slots filled from the viewed session. */
 	#editor(width: number, session: SessionSummary | undefined): string[] {
 		const { screen, theme } = this.#options;
 		const style = screen.frameStyle();
@@ -132,18 +126,14 @@ export class SessionView implements Component, Focusable {
 	}
 }
 
-/** The viewed session's title and machine, or its id until its file says more. */
 function titleOf(snapshot: SessionSummary | undefined): string {
 	if (snapshot === undefined) return "Opening the session";
-	// With no title yet, the name a room gives a session it has no handle for.
+	// With no title, the name a room gives a session without a handle.
 	const name = snapshot.name ?? `new-${snapshot.session.slice(-4)}`;
 	return `${name} @ ${snapshot.machine}`;
 }
 
-/**
- * What your slots read, filled from the viewed session. What it does not publish, such as its git
- * state, its account and its costs, stays empty, so those segments draw nothing.
- */
+/** What the viewed session does not publish (git, account, costs) stays empty. */
 export function lookSnapshot(yours: Snapshot, session: SessionSummary | undefined): Snapshot {
 	if (session === undefined) return { ...emptySnapshot(), now: yours.now, home: yours.home };
 	const window = session.context?.window;

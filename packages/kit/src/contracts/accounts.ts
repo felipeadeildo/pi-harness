@@ -1,4 +1,3 @@
-// What the accounts feature knows about the account a provider uses.
 import { defineContract } from "../contract.ts";
 import { guarded, isObject } from "../decode.ts";
 
@@ -14,11 +13,10 @@ export interface AccountState {
 	provider: string;
 	label: string;
 	windows: AccountWindow[];
-	/** The provider refused the account's credential, so it needs a sign-in. */
 	needsLogin?: boolean;
 }
 
-/** The account in use, keyed by provider. Nobody answers for a provider with no accounts. */
+/** Keyed by provider; nobody answers for a provider with no accounts. */
 export const ACCOUNT = defineContract<AccountState, string>(
 	"accounts:state",
 	guarded(isAccountState, "an account with a provider, a label and windows"),

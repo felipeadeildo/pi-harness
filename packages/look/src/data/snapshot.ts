@@ -49,13 +49,11 @@ export interface Snapshot {
 	run: RunView | undefined;
 	averages: Averages;
 	statuses: ReadonlyMap<string, string>;
-	/** What the session is doing, when a board feature keeps it. */
+	/** When a board feature keeps it. */
 	board: Board | undefined;
-	/** The other sessions in this folder, when a peers feature keeps them. */
+	/** When a peers feature keeps them. */
 	peers: PeerMark[];
-	/** Messages a peer sent this session that its agent has not read yet. */
 	peersUnread: number;
-	/** Who is writing to whom right now, drawn beside the peers. */
 	peersWriting: WritingMark[];
 }
 
@@ -158,9 +156,7 @@ export class SnapshotReader {
 	}
 
 	#derive(ctx: ExtensionContext): Derived {
-		// Every entry is appended at the leaf, so the leaf moving is the only way the sums change. The
-		// context also depends on the model's window. Pi counts it over the whole branch, which is too
-		// slow to do on every keystroke.
+		// Entries are appended at the leaf, so the sums change only when the leaf or the model does.
 		const key = `${ctx.sessionManager.getLeafId() ?? ""}\u0000${ctx.model?.provider}/${ctx.model?.id}`;
 		if (this.#derived !== undefined && key === this.#key) return this.#derived;
 

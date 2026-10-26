@@ -1,4 +1,4 @@
-// Every app brings this feature, and the claim keeps the first copy.
+// Every app brings this feature; the claim keeps the first copy.
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Key } from "@earendil-works/pi-tui";
 
@@ -38,7 +38,7 @@ async function openScreen(scope: FeatureScope, ctx: ExtensionContext, tab: strin
 	const model = new ScreenModel(listTabs(scope.events));
 	if (tab.trim() !== "") model.openTab(tab);
 
-	// The editor for long text is pi's own, so the screen closes for it and opens where it was.
+	// Pi's own editor takes over for long text, so the screen closes and reopens where it was.
 	for (;;) {
 		// oxlint-disable-next-line no-await-in-loop -- one screen at a time
 		const result = await ctx.ui.custom<ScreenResult>(

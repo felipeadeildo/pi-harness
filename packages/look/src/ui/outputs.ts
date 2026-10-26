@@ -1,6 +1,4 @@
-// Alt+O: a tool call's whole output in a frame you scroll, newest call first. Pi only shows a long
-// output cut in the transcript, and Ctrl+O opens every call at once; here one call opens at a time,
-// and the arrows move between calls.
+// Alt+O: one tool call's whole output in a scrollable frame, newest first; the arrows move between calls.
 import { callTarget, CUT, frame, frameInner, FRAME_Y, GLYPH, type KeyHint } from "@adeildo/pi-kit";
 import type { SessionEntry, Theme } from "@earendil-works/pi-coding-agent";
 import {
@@ -11,16 +9,14 @@ import {
 	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 
-/** One call and what it printed. */
 export interface Output {
 	tool: string;
-	/** What it pointed at: the path, the command, the query. */
+	/** The path, the command, the query. */
 	target: string;
 	lines: string[];
 	failed: boolean;
 }
 
-/** Every tool call on the branch that printed something, oldest first. */
 export function outputsOf(branch: readonly SessionEntry[]): Output[] {
 	const calls = new Map<string, { tool: string; target: string }>();
 	const outputs: Output[] = [];
@@ -56,16 +52,15 @@ export interface OutputViewOptions {
 	close: () => void;
 }
 
-/** The frame: one output at a time, newest first, scrolled with the arrows and the page keys. */
 export class OutputView implements Component {
 	readonly #options: OutputViewOptions;
-	/** Which output, counted from the newest. */
+	/** Counted from the newest. */
 	#index = 0;
 	#scroll = 0;
 	#width = 80;
-	/** The wrapped lines of what is on screen, wrapped again only when it or the width changes. */
+	/** Wrapped again only when it or the width changes. */
 	#wrapped: { output: Output; inner: number; lines: string[] } | undefined;
-	/** The last drawing of the frame, drawn again only when a key moved something. */
+	/** Drawn again only when a key moved something. */
 	#drawn:
 		| { output: Output; width: number; scroll: number; page: number; lines: string[] }
 		| undefined;
@@ -133,7 +128,6 @@ export class OutputView implements Component {
 		this.#drawn = undefined;
 	}
 
-	/** The mark, the tool and what it pointed at, cut so the count beside it still fits. */
 	#title(output: Output): string {
 		const { theme } = this.#options;
 		const mark = output.failed ? theme.fg("error", GLYPH.cross) : theme.fg("success", GLYPH.check);

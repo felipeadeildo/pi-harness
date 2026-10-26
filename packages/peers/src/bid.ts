@@ -63,7 +63,6 @@ export async function fitFor(
 	return NO_MODEL;
 }
 
-/** What the model reads of the session: its board, then the files and commits behind them. */
 function aboutSession(me: Peer): string {
 	const cards = [...(me.board?.open ?? []), ...(me.board?.done ?? [])];
 	const lines =

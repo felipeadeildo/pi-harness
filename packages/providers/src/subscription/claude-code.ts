@@ -262,7 +262,6 @@ export const CLAUDE_CODE_FEATURES = [
 	},
 ] as const;
 
-/** The betas a turn of Claude Code's TUI asks for. */
 export function turnBetas(): string[] {
 	return CLAUDE_CODE_FEATURES.filter((feature) => feature.turn).map((feature) => feature.header);
 }

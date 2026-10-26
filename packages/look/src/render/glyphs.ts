@@ -37,7 +37,7 @@ export interface Glyphs {
 	empty: string;
 	levels: readonly string[];
 	ellipsis: string;
-	/** Between the agents of the folder and those of each shared room. */
+	/** Between the folder's agents and each shared room's. */
 	apart: string;
 }
 
@@ -165,11 +165,7 @@ export function resolveIcons(mode: IconMode, env: NodeJS.ProcessEnv = process.en
 	return NERD;
 }
 
-/**
- * The glyphs for a scope, resolved once and again only when the setting behind them changes. Every
- * frame, rule and slot of the screen asks for them on each drawing, and resolving each time was a
- * fifth of what typing cost.
- */
+/** Resolved again only when the setting changes; resolving per drawing was a fifth of typing's cost. */
 export function glyphsOf(modeOf: () => IconMode): () => Glyphs {
 	let known: { mode: IconMode; glyphs: Glyphs } | undefined;
 	return () => {

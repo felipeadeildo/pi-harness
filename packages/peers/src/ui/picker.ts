@@ -1,5 +1,4 @@
-// The picker that makes a room or adds to one, from what is open on this machine. It draws in the
-// panel's conversation pane, over the room it was opened from, until it is done or left.
+// Makes a room or adds to one, drawn in the panel's conversation pane.
 import { basename } from "node:path";
 
 import { GLYPH, type KeyHint, type Member, pointer, rule, spread, tildify } from "@adeildo/pi-kit";
@@ -8,13 +7,12 @@ import { Input, Key, matchesKey, wrapTextWithAnsi } from "@earendil-works/pi-tui
 
 import type { LiveSession, Room, RoomsView } from "../model.ts";
 
-/** One row of the picker: a folder, which brings every session opened there, or one session. */
 interface Row {
 	key: string;
 	member: Member;
 	label: string;
 	state: string;
-	/** The folder a session row sits under, so picking the folder covers it. */
+	/** Picking the folder covers it. */
 	folder?: string;
 }
 
@@ -40,16 +38,14 @@ export function sessionRow(live: LiveSession): Row {
 export interface PickerOptions {
 	theme: Theme;
 	view: RoomsView;
-	/** The room to add to; a new room when absent. */
 	room: Room | undefined;
-	/** Rows picked from the start: this session, for a new room. */
+	/** This session, for a new room. */
 	start: Row[];
 	requestRender: () => void;
-	/** Back to the room, with the room made or added to, or nothing when it was left. */
+	/** Undefined when left. */
 	done: (room: string | undefined) => void;
 }
 
-/** What is open on this machine, by folder, filtered by what you type. A folder needs an open agent. */
 export class Picker {
 	focused = false;
 
@@ -57,7 +53,6 @@ export class Picker {
 	readonly #query = new Input({ prompt: "", placeholder: "" });
 	readonly #picked = new Map<string, Row>();
 	#cursor = 0;
-	/** The name a new room is made with, once the members are picked. */
 	#naming: Input | undefined;
 
 	constructor(options: PickerOptions) {
@@ -116,7 +111,6 @@ export class Picker {
 		];
 	}
 
-	/** The pane's lines: what you type, then what is open, or the name once the members are picked. */
 	lines(width: number, height: number): string[] {
 		const { theme } = this.#options;
 		if (this.#naming !== undefined) return this.#nameLines(this.#naming, width);
@@ -179,7 +173,6 @@ export class Picker {
 		);
 	}
 
-	/** Each folder open on the machine and its sessions, those already in the room left out. */
 	#rows(): Row[] {
 		const { view, room } = this.#options;
 		const query = this.#query.getValue().trim().toLowerCase();
@@ -223,7 +216,6 @@ export class Picker {
 		this.#options.requestRender();
 	}
 
-	/** The members picked, a session left out when its folder is picked too. */
 	#members(): Member[] {
 		const rows = [...this.#picked.values()];
 		return rows
@@ -231,7 +223,7 @@ export class Picker {
 			.map((row) => row.member);
 	}
 
-	/** The folders the members come from, joined by `+`, like `backend+frontend`. */
+	/** Like `backend+frontend`. */
 	#suggestedName(): string {
 		const folders = this.#members().map((member) =>
 			basename("folder" in member ? member.folder : member.cwd),
@@ -250,7 +242,6 @@ function wrapped(theme: Theme, text: string, width: number): string[] {
 	return wrapTextWithAnsi(text, width).map((line) => theme.fg("dim", line));
 }
 
-/** The lines that fit, keeping one in view, and where they start. */
 export function scrolled(
 	lines: readonly string[],
 	keep: number,

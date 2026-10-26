@@ -4,16 +4,10 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 /**
- * Publish the workspace packages to npm, in dependency order, from the packed tarball.
+ * Publishes the workspace packages in dependency order. Versions already on npm are skipped, so a
+ * failed release can run again.
  *
- * A version already on the registry is skipped, so a release that died halfway can be run again.
- * Packages that depend on a failure wait; unrelated ones still go out.
- *
- * Usage:
- *   bun scripts/publish.ts                  # everything, in order
- *   bun scripts/publish.ts --dry-run        # pack and check, publish nothing
- *   bun scripts/publish.ts --paths a,b      # only these package folders
- *   bun scripts/publish.ts --tarballs <dir> # leave the tarballs in a directory
+ * Usage: bun scripts/publish.ts [--dry-run] [--paths a,b] [--tarballs <dir>]
  */
 import { $ } from "bun";
 

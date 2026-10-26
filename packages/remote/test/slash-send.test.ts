@@ -2,11 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { commandApi } from "../src/commands-api.ts";
 
-/**
- * The `send` is the place the decision has to happen: the phone shows what the session offers, and the
- * wire refuses the rest. These tests drive the real `commandApi`, with a scope and a context that record
- * what was asked of them, so a `send` that stops deciding fails here.
- */
+/** Drives the real `commandApi`, so a `send` that stops deciding fails here. */
 function apiWith(offered: { name: string; source: string; description?: string }[]) {
 	const sent: { text: string; options?: Record<string, unknown> }[] = [];
 	const compacts: (string | undefined)[] = [];

@@ -25,7 +25,7 @@ export interface Hidden {
 export interface PrunePlan {
 	edits: ContextEditEntryDraft[];
 	hidden: Hidden[];
-	/** Estimated, like `total`: compare them, never `freed` with tokens the API reported. */
+	/** Estimated, like `total`: never compare it with tokens the API reported. */
 	freed: number;
 	total: number;
 }
@@ -71,10 +71,7 @@ export function pruneNow(
 	return plan;
 }
 
-/**
- * What Anthropic's `clear_tool_uses` takes out when it runs: every tool result but the last
- * `keep`, errors too, leaving the calls. `cleared` are the entries it took out before.
- */
+/** Every result but the last `keep`, errors too, leaving the calls. */
 export function planServerClear(
 	entries: readonly ProjectedSessionEntry[],
 	keep: number,
@@ -124,7 +121,7 @@ export function clearAtLeast(above: number): number {
 	return Math.round(MIN_FREED_SHARE * above);
 }
 
-/** The context's size after `plan`, in the tokens the API reported for it before. */
+/** In the tokens the API reported before. */
 export function sizeAfter(plan: PrunePlan, contextTokens: number): number {
 	return Math.round(contextTokens - plan.freed * scale(plan, contextTokens));
 }
@@ -198,9 +195,8 @@ export function describeCall(name: string, args: unknown): string {
 }
 
 /**
- * An old call without its long arguments, and a note on what went. The model copies what it sees
- * in its context: a value cut short with a note in it once taught it to cut its own arguments,
- * and the call ran with them cut. A value that is gone makes a copied call fail, out loud.
+ * Removes long arguments rather than cutting them: the model copies what it sees, and a cut value once
+ * taught it to cut its own arguments. A removed value makes a copied call fail loudly.
  */
 function shortened(args: ToolCall["arguments"]): ToolCall["arguments"] {
 	const kept: ToolCall["arguments"] = {};
@@ -216,15 +212,11 @@ function shortened(args: ToolCall["arguments"]): ToolCall["arguments"] {
 	};
 }
 
-/** The key of the note an old call carries in place of its long arguments. */
 const PRUNED_KEY = "_pruned";
-/** How cut values read before: an agent that saw them wrote its own arguments that way. */
+/** How cut values once read; an agent that saw them wrote its own arguments that way. */
 const OLD_MARKER = /characters, hidden to save context\)/u;
 
-/**
- * Why a call must not run: it carries a pruned call's note, or a value cut the old way, which
- * means the model copied a pruned call instead of writing its arguments.
- */
+/** The model copied a pruned call instead of writing its arguments. */
 export function copiedPrune(args: unknown): string | undefined {
 	if (typeof args === "string") return OLD_MARKER.test(args) ? "a value cut short" : undefined;
 	if (Array.isArray(args)) return args.map(copiedPrune).find((reason) => reason !== undefined);

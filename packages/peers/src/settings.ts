@@ -63,7 +63,6 @@ export const chainLimit = setting<number>({
 
 const ROOMS_SECTION = "Rooms";
 
-/** What happens when an agent asks to bring the sessions of another folder into a room. */
 export type LinkRule = "mode" | "ask" | "never";
 
 export const link = setting<LinkRule>({
@@ -86,7 +85,6 @@ export const link = setting<LinkRule>({
 	},
 });
 
-/** A whole number of seconds, zero or more. */
 const seconds: Decoder<number> = {
 	control: { type: "number", min: 0, step: 5, unit: "s" },
 	decode(input, path) {
@@ -108,7 +106,6 @@ export const roomGrace = setting<number>({
 	},
 });
 
-/** How a session stands in a room it is added to: taking part, or hearing only what names it. */
 export const opening = setting<Exclude<RoomMode, "out">>({
 	id: "peers.opening",
 	default: "in",

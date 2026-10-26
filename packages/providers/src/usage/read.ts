@@ -1,5 +1,3 @@
-// Reading a plan's windows: the names a person sees, the reset countdown, and the map the session
-// keeps. Nothing here knows a provider.
 import type { AccountUsage, NamedWindow, UsageMap, UsageWindow, Window } from "./types.ts";
 
 export function noteUsage(
@@ -22,7 +20,6 @@ export function usageOf(
 	return usage.get(providerId)?.get(accountId);
 }
 
-/** The windows of a reading, ready to show. */
 export function windowsOf(usage: AccountUsage | undefined, now = Date.now()): UsageWindow[] {
 	return namedWindows(usage, now).map((named) => {
 		const left = leftOf(named.window, now);
@@ -31,7 +28,6 @@ export function windowsOf(usage: AccountUsage | undefined, now = Date.now()): Us
 	});
 }
 
-/** The window closest to its limit. */
 export function worstWindow(
 	usage: AccountUsage | undefined,
 	now = Date.now(),
@@ -43,7 +39,7 @@ export function worstWindow(
 	);
 }
 
-/** How long the worst window has left, like `11m`. */
+/** Like `11m`. */
 export function resetIn(usage: AccountUsage | undefined, now = Date.now()): string | undefined {
 	const shown = worstWindow(usage, now);
 	return shown === undefined ? undefined : leftOf(shown.window, now);
@@ -54,7 +50,6 @@ export function resetNote(usage: AccountUsage | undefined, now = Date.now()): st
 	return left === undefined ? undefined : `resets in ${left}`;
 }
 
-/** The windows the reading knows, a window that already rolled counted as empty. */
 function namedWindows(usage: AccountUsage | undefined, now: number): NamedWindow[] {
 	if (usage === undefined) return [];
 	const named: NamedWindow[] = [];
@@ -70,7 +65,7 @@ function effective(window: Window, now: number): Window {
 	return window;
 }
 
-/** How long until a unix second, like `2h`. */
+/** Like `2h`. */
 export function timeLeft(until: number, now = Date.now()): string | undefined {
 	const seconds = until - Math.floor(now / 1000);
 	return seconds <= 0 ? undefined : duration(seconds);

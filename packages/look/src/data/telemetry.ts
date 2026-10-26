@@ -8,25 +8,25 @@ import {
 } from "./totals.ts";
 
 const MIN_SAMPLE_MS = 250;
-/** Measured over 16,889 assistant messages of one machine: 2.88 characters per output token. */
+/** Measured over 16,889 assistant messages: 2.88 characters per output token. */
 const DEFAULT_CHARS_PER_TOKEN = 2.9;
 
-/** What a delta carried, so the wait for the first thought can be told from the first word. */
+/** So the wait for the first thought can be told from the first word. */
 export type DeltaKind = "thinking" | "writing";
 
 export interface RequestView {
 	streaming: boolean;
 	waiting: boolean;
 	elapsedMs: number;
-	/** From the request leaving to the first token of any kind: what you waited for the model. */
+	/** From the request leaving to the first token of any kind. */
 	waitMs: number | undefined;
-	/** The same wait while it is still running, so the number counts from the moment it left. */
+	/** The same wait while it runs. */
 	waitingMs: number;
-	/** From the request leaving to the response headers: the provider's own latency. */
+	/** To the response headers: the provider's own latency. */
 	serverMs: number | undefined;
 	/** From the headers to the first token: the model reading the prompt. */
 	prefillMs: number | undefined;
-	/** From the first thought to the first word written. Unset when it wrote without thinking. */
+	/** Unset when it wrote without thinking. */
 	thoughtMs: number | undefined;
 	decode: number | undefined;
 	prefill: number | undefined;
@@ -38,13 +38,11 @@ export interface RunView {
 	running: boolean;
 	elapsedMs: number;
 	requests: number;
-	/** What the run's answers cost so far, at the provider's prices. */
 	cost: number;
 }
 
 interface Request {
 	startedAt: number;
-	/** When the request left, from pi's own `before_provider_request`. */
 	sentAt: number | undefined;
 	headersAt: number | undefined;
 	firstTokenAt: number | undefined;
@@ -78,10 +76,10 @@ export class Telemetry {
 	#run: Run | undefined;
 	#request: Request | undefined;
 	#last: RequestView | undefined;
-	/** The marks of the request in flight, which arrive before the pi message it belongs to. */
+	/** They arrive before the pi message they belong to. */
 	#sentAt: number | undefined;
 	#headersAt: number | undefined;
-	/** Characters and tokens of the answers that finished, for the live estimate to use a real ratio. */
+	/** So the live estimate uses a real ratio. */
 	#sampled = { characters: 0, output: 0 };
 
 	constructor(now: () => number = Date.now) {
@@ -96,21 +94,20 @@ export class Telemetry {
 		if (this.#run !== undefined && this.#run.endedAt === undefined) this.#run.endedAt = this.#now();
 	}
 
-	/** Fires before every call to the model, so it is the start of the wait. */
+	/** Before every call to the model: the start of the wait. */
 	providerRequestSent(): void {
 		this.#sentAt = this.#now();
 		this.#headersAt = undefined;
 		this.#attach();
 	}
 
-	/** Fires when the response arrives, before its stream is read. */
+	/** Before the stream is read. */
 	providerResponseArrived(): void {
 		this.#headersAt = this.#now();
 		this.#attach();
 	}
 
 	requestStarted(): void {
-		// A turn begins, and nothing has left for it yet.
 		this.#sentAt = undefined;
 		this.#headersAt = undefined;
 		this.#begin();
@@ -118,7 +115,7 @@ export class Telemetry {
 		if (this.#run !== undefined) this.#run.requests++;
 	}
 
-	// Later requests of a turn: the model answered, a tool ran, and the next call is already on its way.
+	/** Later requests of a turn: the next call after a tool ran. */
 	answerStarted(): void {
 		if (this.#request === undefined || this.#request.endedAt !== undefined) this.#begin();
 	}
@@ -201,7 +198,7 @@ export class Telemetry {
 		};
 	}
 
-	/** The marks belong to a request that may not exist yet: pi sends before it opens the message. */
+	/** Pi sends before it opens the message, so the marks may arrive first. */
 	#attach(): void {
 		const request = this.#request;
 		if (request === undefined || request.endedAt !== undefined) return;
@@ -238,7 +235,7 @@ export class Telemetry {
 		};
 	}
 
-	/** The measured mix of this session, or the one measured over a machine's worth of answers. */
+	/** This session's ratio, or the measured default. */
 	#charsPerToken(): number {
 		const { characters, output } = this.#sampled;
 		return output > 0 ? characters / output : DEFAULT_CHARS_PER_TOKEN;

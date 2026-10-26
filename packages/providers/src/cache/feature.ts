@@ -20,13 +20,12 @@ import { type CacheModel, refreshWindow, warmAction, warmFor } from "./warm.ts";
 
 type AgentMessage = TurnEndEvent["message"];
 
-/** What was learned, and when. Learning reads a month of sessions, so it runs once a day. */
+/** Learning reads a month of sessions, so it runs once a day. */
 interface Learned extends Returns {
 	learnedAt: number;
 }
 
 const RELEARN_AFTER = 86_400_000;
-/** The newest misses listed under the summary. */
 const LATEST_MISSES = 5;
 
 export const cache = defineFeature({
@@ -40,7 +39,7 @@ export const cache = defineFeature({
 		const file = join(dirname(scope.settings.globalPath), "cache-returns.json");
 		let learned = readLearned(file);
 		let learning = false;
-		// Every turn is one request, and pi's refreshes are not turns.
+		/** Pi's refreshes are not turns. */
 		let lastRequestAt: number | undefined;
 		let asked = false;
 
@@ -94,7 +93,7 @@ function registerScreen(scope: FeatureScope, learned: () => Learned | undefined)
 		description: `When you came back after a run, over the last ${LEARN_DAYS} days of sessions.`,
 		text: (ctx) => learnedText(learned(), ctx.model),
 	});
-	// Read when the screen opens: a session's misses only change with its requests.
+	// A session's misses only change with its requests.
 	scope.screen.rows((ctx) => {
 		const misses = missesOf(ctx.sessionManager.getBranch());
 		const prices = ctx.model?.cost;
@@ -149,7 +148,6 @@ function lastAsked(branch: readonly { type: string; message?: AgentMessage }[]):
 	return last?.message !== undefined && isAsking(last.message);
 }
 
-/** The folder that holds every project's sessions. Undefined when the session is not saved. */
 function sessionsRoot(ctx: ExtensionContext): string | undefined {
 	if (ctx.sessionManager.getSessionFile() === undefined) return undefined;
 	return dirname(ctx.sessionManager.getSessionDir());

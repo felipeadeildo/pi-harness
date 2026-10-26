@@ -1,8 +1,5 @@
-// The acceptance table the room asked for: one sequence of logged events, and the state it leaves —
-// run through the three holders of that state, not only through the reducer. The rule lives in
-// `applyChange`, but what the day taught is that a holder can stop calling it and every test of the
-// function stays green: the bridge, the daemon and the client each have their own way in, and each
-// one is checked here against the same expected state.
+// One sequence of logged events through the three holders of the state: bridge, daemon and client.
+// A holder that stops calling `applyChange` keeps every reducer test green, so each is checked here.
 import { describe, expect, test } from "bun:test";
 
 import {

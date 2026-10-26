@@ -1,6 +1,5 @@
-// What the room reads of a colleague's board: the cards it is doing, the ones that wait on the
-// operator or on something outside, and how many are open. One place, so the list, the marks, the
-// agent's notes and the award count the same cards.
+// The cards the room counts from a colleague's board, in one place so the list, the marks, the
+// notes and the award agree.
 import type { BoardCard } from "@adeildo/pi-kit";
 
 import type { Peer } from "./folder.ts";
@@ -19,7 +18,6 @@ export function waiting(peer: Peer): BoardCard[] {
 
 export type AgentState = "running" | "idle" | "waiting";
 
-/** What waits on the operator comes first, since it is what the operator can act on. */
 export function stateOf(peer: Peer): AgentState {
 	if (waiting(peer).length > 0) return "waiting";
 	return peer.state === "running" ? "running" : "idle";

@@ -1,15 +1,13 @@
-// Why a request wrote the prompt cache again instead of reading it, from the session's own entries.
-// A request reads the cache up to where the last one wrote it, as long as nothing before that point
-// changed and the cache was still alive. So each miss has one of a few causes, and the entries
-// between it and the request before it say which.
+// Why a request wrote the prompt cache instead of reading it, found in the entries between it and
+// the request before it.
 import { formatCost, formatTokens, PRUNE_CHANGES } from "@adeildo/pi-kit";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 
-/** A request that wrote at least this much again counts as a miss: a turn only writes its tail. */
+/** A turn only writes its tail. */
 const MISS_TOKENS = 30_000;
 /** How long Anthropic keeps a prompt cached when nothing reads it. */
 const CACHE_LIFE_MS = 5 * 60_000;
-/** A context smaller than the request before by this much was cut, by a prune or a server clear. */
+/** Shrinking this much means a prune or a server clear. */
 const SHRANK = 5_000;
 
 type MissCause =
@@ -25,13 +23,10 @@ type MissCause =
 export interface Miss {
 	at: number;
 	cause: MissCause;
-	/** Tokens written again. */
 	written: number;
-	/** The whole prompt of the request. */
 	prompt: number;
-	/** The prompt of the request before. */
 	before: number | undefined;
-	/** Minutes since the cache was last used, by a request or a warming refresh. */
+	/** Since the cache was last used, by a request or a warming refresh. */
 	idleMinutes: number;
 }
 
@@ -42,7 +37,6 @@ interface Answer {
 	prompt: number;
 }
 
-/** Every miss on the branch, oldest first. */
 export function missesOf(branch: readonly SessionEntry[]): Miss[] {
 	const misses: Miss[] = [];
 	let last: Answer | undefined;
@@ -114,12 +108,10 @@ function isSystemMessage(entry: SessionEntry): boolean {
 	return entry.type === "message" && entry.message.role === "system";
 }
 
-/** What writing `tokens` again cost over reading them, in dollars, at prices per million. */
 function extraCost(tokens: number, prices: { cacheRead: number; cacheWrite: number }): number {
 	return (tokens * Math.max(0, prices.cacheWrite - prices.cacheRead)) / 1_000_000;
 }
 
-/** One line for the session: how many misses, what they cost, and their causes, biggest first. */
 export function missesSummary(
 	misses: readonly Miss[],
 	prices: { cacheRead: number; cacheWrite: number } | undefined,
@@ -140,7 +132,6 @@ export function missesSummary(
 	return `${count} wrote ${formatTokens(written)} tokens again${cost}: ${causes.join(", ")}`;
 }
 
-/** One miss: its cause, what it wrote again and what that cost, and the detail that shows the cause. */
 export function missLine(
 	miss: Miss,
 	prices: { cacheRead: number; cacheWrite: number } | undefined,

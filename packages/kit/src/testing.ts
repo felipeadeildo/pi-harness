@@ -1,5 +1,4 @@
-// Fakes for testing features without a running pi. Two fakes on one bus behave like two extensions
-// in the same pi process.
+// Fakes for testing features without pi. Two fakes on one bus act like two extensions in one process.
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -21,7 +20,6 @@ import type { FeatureScope, ScreenEntry, ScreenGroup } from "./app/feature.ts";
 import { darkTheme } from "./dark-theme.ts";
 import { SettingsStore } from "./settings/store.ts";
 
-/** A tool as `getAllTools` reports it, with the fields the callers read. */
 export function toolInfo(name: string, extra: Partial<ToolInfo> = {}): ToolInfo {
 	return {
 		name,
@@ -41,10 +39,8 @@ export interface FakePi {
 	handlers: Map<string, FakeHandler[]>;
 	commands: Map<string, CommandOptions>;
 	shortcuts: string[];
-	/** What each shortcut runs, by its key. */
 	shortcutHandlers: Map<string, (ctx: ExtensionContext) => unknown>;
 	tools: ToolDefinition[];
-	/** Every registered tool, as `getAllTools` reports it. */
 	allTools: ToolInfo[];
 	providers: { name: string; config: unknown }[];
 	renderers: Map<string, EntryRenderer>;
@@ -52,12 +48,11 @@ export interface FakePi {
 	toolRenderers: ToolRendererResolver[];
 	entries: { customType: string; data: unknown }[];
 	messages: unknown[];
-	/** What the extension sent as if you typed it. */
 	userMessages: unknown[];
 	sessionName: string | undefined;
 	thinkingLevel: "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | undefined;
 	model: { provider: string; id: string } | undefined;
-	/** Runs every handler registered for `name`, in order, and returns what each returned. */
+	/** In order, returning what each handler returned. */
 	fire(name: string, event: unknown, ctx: ExtensionContext): Promise<unknown[]>;
 	count(name: string): number;
 }
@@ -139,20 +134,13 @@ export function fakePi(bus: EventBus = createEventBus()): FakePi {
 export interface FakeScopeOptions {
 	id?: string;
 	pi?: FakePi;
-	/** Collects what the feature warned about. */
 	notes?: string[];
 	settingsPath?: string;
-	/** Collects the rows the feature adds to the settings screen. */
 	screen?: ScreenEntry[];
-	/** Collects the row providers, for the screen to run. */
 	screenGroups?: ScreenGroup[];
 }
 
-/**
- * A feature scope over a fake pi, for calling a feature's own modules directly. Session hooks
- * registered through it run when `fire("session_start")` or `fire("session_shutdown")` is called.
- * It does not add the app's error attribution, which the kit tests on its own.
- */
+/** Session hooks run on `fire("session_start")` and `fire("session_shutdown")`. */
 export function fakeScope(options: FakeScopeOptions = {}): FeatureScope {
 	const fake = options.pi ?? fakePi();
 	const notes = options.notes ?? [];
@@ -182,7 +170,7 @@ export function fakeScope(options: FakeScopeOptions = {}): FeatureScope {
 	};
 }
 
-/** The key handlers a context was given, so a test can fire a key at the terminal. */
+/** So a test can fire a key at the terminal. */
 export const keystrokes: ((data: string) => unknown)[] = [];
 
 export function fakeContext(
@@ -214,23 +202,14 @@ export function fakeContext(
 	} as unknown as ExtensionContext;
 }
 
-/** A terminal's side of a context: what the dialogs drew in it, and the keys the reader presses. */
 export interface FakeTerminal {
-	/** Sends each key to the terminal's input listeners, the way pi hands a key to every one. */
 	press(...keys: string[]): void;
-	/** What the widget in this slot draws now, or nothing when no dialog is open. */
 	draw(key: string, width?: number): string[] | undefined;
-	/** The editor's text. */
 	text: string;
-	/** How many widgets were built, so a test can tell one dialog from two. */
+	/** So a test can tell one dialog from two. */
 	built: number;
 }
 
-/**
- * Gives a context the parts of a terminal that draw above the editor: `setWidget` builds the view
- * and keeps it, `onTerminalInput` keeps the listener, and the editor holds a text. A test answers
- * a dialog by pressing the keys a reader would.
- */
 export function fakeTerminal(ctx: ExtensionContext): FakeTerminal {
 	const ui = ctx.ui as unknown as Record<string, unknown>;
 	const listen = ui.onTerminalInput as (handler: (data: string) => unknown) => () => void;

@@ -31,9 +31,7 @@ describe("a fact the daemon has to carry", () => {
 
 describe("the table of entries", () => {
 	test("a fact with no check and no apply does not compile", () => {
-		// The reducer reads the table as this mapped type, so an entry without a check and an apply that
-		// agree on one shape does not compile. The directive is the test: if the type became partial, it
-		// would be unused and `tsc` would report that instead of staying silent.
+		// If the mapped type became partial, the directive would be unused and `tsc` would say so.
 		// @ts-expect-error the object is missing every entry, which is the compile error this pins
 		const incomplete: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {};
 		expect(incomplete).toBeDefined();
@@ -118,9 +116,7 @@ describe("an opening without a queue, and one with an empty queue", () => {
 
 describe("a change whose data does not fit", () => {
 	test("leaves the state as it was, because the entry checks before it applies", () => {
-		// `applyChange` does not check the type — the caller does, and its signature proves it. The data
-		// is another matter: it comes off the wire, and the entry's `check` is the only thing between a
-		// malformed payload and a state somebody draws.
+		// The entry's `check` is the only guard between a malformed payload and the state.
 		const before = emptySessionState();
 		const after = applyChange(before, "mode.changed", { mode: "not a mode" });
 		expect(after).toBe(before);

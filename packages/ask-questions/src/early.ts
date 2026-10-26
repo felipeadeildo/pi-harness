@@ -1,12 +1,10 @@
-// The dialog opens while the model is still writing the call. Pi parses the arguments as they
-// stream, so the first question can be read, and answered once whole, while the next ones arrive.
-// When pi runs the tool, it finds the dialog already open and waits on the same answer.
+// The dialog opens while the model writes the call; pi parses arguments as they stream. When the
+// tool runs, it waits on the same answer.
 import { type AskOption, type AskQuestion, type AskResult, isObject } from "@adeildo/pi-kit";
 
 import type { QuestionDialog } from "./ui/dialog.ts";
 import { normalizeText } from "./validate.ts";
 
-/** One call's dialog, from the first question the model writes until the tool answers. */
 export class LiveAsk {
 	questions: readonly AskQuestion[];
 	writing = true;
@@ -23,11 +21,7 @@ export class LiveAsk {
 		this.dialog = dialog;
 	}
 
-	/**
-	 * A stream cut mid-token can parse to fewer questions than the last delta did. While the model
-	 * writes, such a step back is skipped, so what you answered never vanishes. The finished call
-	 * is taken whole, since the tool checks it before you can send.
-	 */
+	/** While the model writes, a step back from a cut token is skipped, so answers never vanish. */
 	update(questions: readonly AskQuestion[], writing: boolean): void {
 		if (writing && questions.length < this.questions.length) return;
 		this.questions = questions;
@@ -41,15 +35,11 @@ export class LiveAsk {
 	}
 }
 
-/** Whether the stream has enough to open on: the text of the first question. */
 export function opensEarly(questions: readonly AskQuestion[]): boolean {
 	return (questions[0]?.question ?? "").trim() !== "";
 }
 
-/**
- * The questions as far as the stream got. Every question but the last is whole, since the model
- * started the next one. The last may lack its header, its options or the end of its text.
- */
+/** Every question but the last is whole; the last may lack its header, options or end. */
 export function streamedQuestions(args: unknown): AskQuestion[] {
 	if (!isObject(args) || !Array.isArray(args.questions)) return [];
 	return args.questions.filter(isObject).map((raw) => {

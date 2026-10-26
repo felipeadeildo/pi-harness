@@ -40,9 +40,9 @@ export interface LoadedCounts {
 export interface HeaderSource {
 	style(): HeaderStyle;
 	counts(): LoadedCounts;
-	/** The last session in this folder, undefined for the first one. */
+	/** Undefined for the first session here. */
 	lastVisit(): LastVisit | undefined;
-	/** What GitHub answered for this folder, undefined while it is still being asked. */
+	/** Undefined while it is still being asked. */
 	github?(): GithubState | undefined;
 }
 
@@ -51,22 +51,17 @@ interface Hint {
 	does: string;
 }
 
-/** The π rises from its feet once per launch, one row of the art every step. */
+/** Once per launch, one row of the art every step. */
 const RISE_STEP_MS = 70;
 const NOTES = 6;
-/** How long a drawing of the card stands before it is drawn again. */
 const REDRAW_MS = 1000;
-/** The harness's version, read once from the package that ships it. */
+/** Read once from the package that ships it. */
 export const HARNESS_VERSION = harnessVersion();
 
-/**
- * The start screen: the π, the folder and the model, and under them only what changed or waits on
- * you since the last session here. See DESIGN.md.
- */
 export class HeaderComponent implements Component {
 	readonly #screen: Screen;
 	readonly #source: HeaderSource;
-	/** When the π started rising. Without a terminal to redraw it, it stands from the start. */
+	/** Without a terminal to redraw it, it stands from the start. */
 	readonly #born: number;
 
 	constructor(screen: Screen, source: HeaderSource, tui?: { requestRender(): void }) {
@@ -78,7 +73,7 @@ export class HeaderComponent implements Component {
 			setTimeout(() => tui.requestRender(), row * RISE_STEP_MS).unref?.();
 	}
 
-	/** The last drawing, kept for a moment: the card changes rarely and pi redraws on every keystroke. */
+	/** Kept for a moment: the card changes rarely and pi redraws on every keystroke. */
 	#drawn:
 		| { width: number; at: number; github: GithubState | undefined; lines: string[] }
 		| undefined;
@@ -88,7 +83,7 @@ export class HeaderComponent implements Component {
 		const github = this.#source.github?.();
 		const risen = now - this.#born > LOGO.length * RISE_STEP_MS;
 		const drawn = this.#drawn;
-		// GitHub answers after the card is up, and that answer must not wait for the next keystroke.
+		// GitHub answers after the card is up, and that must not wait for the next keystroke.
 		if (risen && drawn?.width === width && drawn.github === github && now - drawn.at < REDRAW_MS)
 			return drawn.lines;
 		const notes = startNotes(
@@ -167,7 +162,6 @@ export class HeaderComponent implements Component {
 		);
 	}
 
-	/** The art, its rows lit from the feet up while it rises. */
 	#logo(paint: Paint): string[] {
 		const risen = Math.floor((Date.now() - this.#born) / RISE_STEP_MS) + 1;
 		return LOGO.map((row, index) =>
@@ -291,7 +285,6 @@ export function halfBlocks(pixels: readonly string[]): string[] {
 
 function pad(text: string, width: number): string {
 	const cells = visibleWidth(text);
-	// Measuring is cheap, and cutting a line that already fits is not.
 	if (cells <= width) return text + " ".repeat(width - cells);
 	const clipped = truncateToWidth(text, width, CUT);
 	return clipped + " ".repeat(Math.max(0, width - visibleWidth(clipped)));
@@ -300,7 +293,6 @@ function pad(text: string, width: number): string {
 function center(text: string, width: number): string {
 	const cells = visibleWidth(text);
 	const fits = cells <= width;
-	// Measuring is cheap, and cutting a line that already fits is not.
 	const clipped = fits ? text : truncateToWidth(text, width, "");
 	const room = Math.max(0, width - (fits ? cells : visibleWidth(clipped)));
 	const before = Math.floor(room / 2);

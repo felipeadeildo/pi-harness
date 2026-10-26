@@ -5,9 +5,7 @@ import { describeBoard } from "../src/board/text.ts";
 
 const at = 1;
 
-// Created in an order the sections do not follow: backlog and to-do cards come before the card
-// being done, so a description that kept the board's order without grouping reads differently.
-// All but the last card share one `at`.
+// Created out of section order, and all but the last share one `at`.
 const OPS: BoardOp[] = [
 	{ op: "add", title: "Ship the login", column: "todo", at },
 	{ op: "add", title: "Write the notes", column: "backlog", at },

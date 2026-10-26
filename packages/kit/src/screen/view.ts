@@ -41,7 +41,6 @@ interface PickItem {
 	value: Json;
 	label: string;
 	description?: string;
-	/** Opens an input or the editor instead of picking a value. */
 	opens?: "input" | "edit";
 }
 
@@ -80,7 +79,7 @@ type Mode = { kind: "browse" } | PickMode | CheckMode | InputMode | TextMode;
 type Tone = "success" | "error" | "warning" | "muted";
 
 const PANEL = 4;
-/** The top edge, the tabs, two dividers, the one over the panel, and the bottom edge with the keys. */
+// The top edge, the tabs, two dividers, the panel's divider and the bottom edge.
 const CHROME = 5 + PANEL;
 const MIN_BODY = 6;
 
@@ -125,7 +124,7 @@ export class ScreenView implements Component {
 		this.#options.tui.requestRender();
 	}
 
-	/** A second Enter on the same row runs it. Any other key cancels. */
+	/** A second Enter on the same row runs it; any other key cancels. */
 	#confirmed(data: string): boolean {
 		const pending = this.#confirming;
 		this.#confirming = undefined;
@@ -169,7 +168,6 @@ export class ScreenView implements Component {
 		}
 	}
 
-	/** The section starts at the top, heading and all. */
 	#jumpSection(direction: 1 | -1): void {
 		const model = this.#options.model;
 		model.jumpSection(direction);
@@ -306,7 +304,7 @@ export class ScreenView implements Component {
 		const input = new Input();
 		input.focused = true;
 		input.setValue(inputText(row));
-		// setValue leaves the cursor at the start.
+		// `setValue` leaves the cursor at the start.
 		input.handleInput("\u001b[F");
 		const mode: InputMode = { kind: "input", row, input };
 		input.onEscape = () => {
@@ -478,10 +476,6 @@ export class ScreenView implements Component {
 		return out;
 	}
 
-	/**
-	 * The list, and under it what the selected value looks like, when the setting draws one and there
-	 * is room left. While picking, the preview follows the highlighted value.
-	 */
 	#withPreview(listed: string[], width: number): string[] {
 		const mode = this.#mode;
 		// Only browsing and picking have a highlighted row; the other modes have no preview.
@@ -737,7 +731,6 @@ function divider(start: string, end: string, inner: number, left: number, joint:
 	return `${start}${LINE.h.repeat(left)}${joint}${LINE.h.repeat(inner - left - 1)}${end}`;
 }
 
-/** True for each line of the section the cursor is in, its heading included. */
 function inFocus(lines: readonly Line[], cursor: number): boolean[] {
 	let section = -1;
 	const sections = lines.map((line) => (line.kind === "heading" ? ++section : section));
@@ -749,7 +742,6 @@ function widestOf(texts: readonly (string | undefined)[]): number {
 	return Math.max(0, ...texts.map((text) => visibleWidth(text ?? "")));
 }
 
-/** True where the thumb is. Empty when everything fits. */
 function scrollbar(total: number, height: number, scroll: number): (boolean | undefined)[] {
 	const thumb = thumbRange(total, height, scroll);
 	if (thumb === undefined) return [];

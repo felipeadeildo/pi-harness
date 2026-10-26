@@ -10,13 +10,11 @@ export function needsRefresh(credential: Credential | undefined): boolean {
 	return credential?.type === "oauth" && credential.expires <= Date.now() + MARGIN_MS;
 }
 
-/** Where a refresh reads the newest copy and writes its result. */
 export interface Renewal {
 	freshen(id: string): Credential | undefined;
 	save(id: string, credential: Credential): void;
 }
 
-/** Refreshes under the shared lock, keeping what another pi already wrote. */
 export async function refreshAccount(
 	oauth: OAuthAuth,
 	renewal: Renewal,

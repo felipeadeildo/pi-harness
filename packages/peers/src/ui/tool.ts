@@ -1,8 +1,4 @@
-// The peers tool in the chat of the agent that calls it: the message as the model writes it, then what
-// became of it. A message to a few agents gets a line per agent, a tick that turns into two when it
-// arrives and lights up when it is read. One to everyone fans out into a row of names, each wearing
-// its own ticks, under a count of who read it. One to anyone shows the bids, the countdown, and who
-// took it.
+// The peers tool in the calling agent's chat: the message, then what became of it.
 import { CUT, GLYPH } from "@adeildo/pi-kit";
 import type { Delivery } from "@adeildo/pi-kit";
 import type { AgentToolResult, Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
@@ -25,18 +21,15 @@ interface Args {
 	to?: string;
 	text?: string;
 	urgent?: boolean;
-	/** The shared room it goes to, by name. */
 	room?: string;
 	folder?: string;
 }
 
-/** What pi hands a renderer each time it draws the row. */
 interface Row {
 	toolCallId: string;
 	argsComplete: boolean;
 	invalidate(): void;
 	state: RowState;
-	/** What this renderer returned last time for the same half of the row. */
 	lastComponent?: Component;
 }
 
@@ -44,10 +37,8 @@ interface RowState {
 	tick?: ReturnType<typeof setTimeout>;
 }
 
-/** What the receipts read from this session: the same the room reads. */
 export type Source = Pick<Here, "session" | "folder" | "live" | "names">;
 
-/** The rooms this session is in: the folder's under `undefined`, a shared one by id. */
 export interface Places {
 	here(room: string | undefined): Source | undefined;
 	rooms(): readonly { id: string | undefined; name: string }[];
@@ -56,7 +47,7 @@ export interface Places {
 const CURSOR = GLYPH.bar;
 const INDENT = "  ";
 const GAP = "   ";
-/** A receipt still moving redraws once a second: enough for a countdown, cheap in a long transcript. */
+/** Once a second: enough for a countdown, cheap in a long transcript. */
 const TICK_MS = 1_000;
 
 const EVERYONE = new Set([EVERYONE_MENTION, "all", "room"]);
@@ -69,11 +60,9 @@ const ARRIVED: Record<Delivery, string> = {
 	"next-turn": "gets it with the next prompt",
 };
 
-/** Where a message got with one agent, in the order it gets there. */
 type Stage = "read" | "got" | "sending" | "sent";
 const STAGES: readonly Stage[] = ["read", "got", "sending", "sent"];
 
-/** Who the tool's `to` names, read the way the tool reads it when it sends. */
 export function audienceOf(to: string | undefined): "all" | "any" | string[] {
 	const wanted = (to ?? EVERYONE_MENTION)
 		.split(",")
@@ -84,13 +73,8 @@ export function audienceOf(to: string | undefined): "all" | "any" | string[] {
 	return wanted;
 }
 
-/**
- * Rows to redraw when the folder changes, by call, so a tick turns into two while you watch.
- *
- * Pi hands each drawing a new `row`, and that row holds the component drawn before it. A component
- * that kept the row would keep every component the row ever drew, so the components here keep only
- * the row's state and its redraw, and the one drawn last is updated instead of replaced.
- */
+// Pi hands each drawing a new `row` that holds the component drawn before it, so components keep
+// only the row's state and the last one drawn is updated, not replaced.
 export function toolRenderers(places: Places, rows: Map<string, () => void>) {
 	return {
 		renderCall: (args: Args, theme: Theme, row: Row): Component => {
@@ -104,8 +88,7 @@ export function toolRenderers(places: Places, rows: Map<string, () => void>) {
 			theme: Theme,
 			row: Row,
 		): Component => {
-			// One redraw per call: pi builds the row again when it draws the chat again, and the new
-			// row's redraw takes the place of the old one's.
+			// Pi builds the row again when it redraws the chat, and the new row's redraw replaces the old.
 			if (result.details !== undefined) rows.set(row.toolCallId, row.invalidate);
 			const last = row.lastComponent;
 			const drawn =
@@ -115,7 +98,6 @@ export function toolRenderers(places: Places, rows: Map<string, () => void>) {
 	};
 }
 
-/** The call as the model writes it, drawn again only when the width changes or it is updated. */
 class CallRow implements Component {
 	#args: Args = {};
 	#theme: Theme | undefined;
@@ -147,10 +129,7 @@ class CallRow implements Component {
 	}
 }
 
-/**
- * What became of the message, read from the room. Pi draws every row on every frame, so the lines
- * are kept until the room changes, the second turns, or the width does.
- */
+/** Lines are kept until the room changes, the second turns or the width does. */
 class ResultRow implements Component {
 	#result: AgentToolResult<SentDetails | undefined> | undefined;
 	#expanded = false;
@@ -192,7 +171,7 @@ class ResultRow implements Component {
 		this.#drawn = undefined;
 	}
 
-	// The folder only says when something arrives; a countdown or a bid window closing needs the clock.
+	/** The folder only says when something arrives; a countdown needs the clock. */
 	#tick(): void {
 		if (this.state.tick !== undefined) return;
 		this.state.tick = setTimeout(() => {
@@ -202,7 +181,6 @@ class ResultRow implements Component {
 	}
 }
 
-/** Where a call writes: the shared room it names, or the folder's. */
 function placeOf(places: Places, room: string | undefined): Shown {
 	const shared =
 		room === undefined ? undefined : places.rooms().find((place) => place.name === room);
@@ -210,7 +188,6 @@ function placeOf(places: Places, room: string | undefined): Shown {
 	return here === undefined ? undefined : { here, room: shared?.name };
 }
 
-/** A room as the call line shows it; `undefined` before the session has joined any. */
 type Shown = { here: Source; room: string | undefined } | undefined;
 
 export function callLines(
@@ -240,7 +217,6 @@ export function callLines(
 	return lines;
 }
 
-/** Who the message goes to. A group is written as the group, with what it means next to it. */
 function addressLine(here: Source | undefined, to: "all" | "any" | string[], theme: Theme): string {
 	if (to === "all" || to === "any") {
 		const group = theme.fg(
@@ -296,7 +272,6 @@ export function resultLines(
 	return receipts.each().map((line) => truncateToWidth(line, width, CUT));
 }
 
-/** Whether the receipt still changes with time: bids open, a turn to take, or a message on its way. */
 function moving(here: Source, message: Posted, now: number): boolean {
 	if (message.to === "any") {
 		const kind = award(message, here.live(), now).kind;
@@ -328,7 +303,6 @@ class Receipts {
 		this.#now = now;
 	}
 
-	/** A line per agent, with how it arrived: for a few named agents, or everyone expanded. */
 	each(): string[] {
 		const theme = this.#theme;
 		const message = this.#message;
@@ -350,10 +324,6 @@ class Receipts {
 		});
 	}
 
-	/**
-	 * A message to everyone: how far it got in one line, then every agent as a name with its own ticks,
-	 * those that read it first. Expanding the row gives the line per agent.
-	 */
 	fanOut(width: number): string[] {
 		const theme = this.#theme;
 		const to = this.#addressees();
@@ -374,13 +344,12 @@ class Receipts {
 		];
 	}
 
-	/** A request to anyone: where the bidding is, then the bids, the best first. */
 	request(width: number): string[] {
 		const theme = this.#theme;
 		const message = this.#message;
 		const live = this.#here.live();
 		const ranking = award(message, live, this.#now);
-		// One the operator has not written in yet does not bid.
+		// Sessions the operator has not written in yet do not bid.
 		const candidates = live
 			.filter((peer) => peer.prompted === true)
 			.map((peer) => peer.session)
@@ -409,7 +378,6 @@ class Receipts {
 			}
 		}
 		const bids = [...message.bids]
-			// Once someone took it, the busy ones no longer matter.
 			.filter(
 				([session, bid]) => candidates.includes(session) && (bid.idle || ranking.kind !== "taken"),
 			)
@@ -420,7 +388,6 @@ class Receipts {
 				const color = (this.#here.names().bySession.get(session)?.color ?? "muted") as ThemeColor;
 				return `${who} ${bar(bid.fit, color, theme)} ${theme.fg("dim", fit(bid.fit))}`;
 			});
-		// While the window is open, the agents still thinking about their bid show as waiting.
 		if (ranking.kind === "bidding")
 			for (const session of candidates)
 				if (!message.bids.has(session))
@@ -431,10 +398,7 @@ class Receipts {
 		];
 	}
 
-	/**
-	 * The group's ticks are the furthest every agent got, as a group chat shows them: lit only when all
-	 * of them read it. The words count each stage.
-	 */
+	/** Lit only when every agent read it, as a group chat shows it. */
 	#tally(stages: readonly Stage[]): string {
 		const theme = this.#theme;
 		const count = (stage: Stage) => stages.filter((one) => one === stage).length;
@@ -481,7 +445,6 @@ class Receipts {
 	}
 }
 
-/** Parts laid out in lines no wider than the room, a part never split across two. */
 function flow(parts: readonly string[], width: number): string[] {
 	const lines: string[] = [];
 	let line = "";

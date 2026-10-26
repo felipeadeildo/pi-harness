@@ -53,7 +53,7 @@ function chatModel(
 	};
 }
 
-// DeepInfra tags its models and Together types them; a plain OpenAI catalog only has ids.
+/** DeepInfra tags its models and Together types them; a plain OpenAI catalog only has ids. */
 function isChat(id: string, tags: readonly string[], type: unknown): boolean {
 	if (tags.length > 0) return tags.includes("chat");
 	if (typeof type === "string") return CHAT_TYPES.has(type);

@@ -1,27 +1,22 @@
-// The answers GitHub gives the start card: the last run of CI on this branch, and your own open pull
-// requests with something waiting on you. The card asks once per launch, in the background, and shows
-// nothing when gh is missing, the network is down, or the folder is not on GitHub.
+// CI's last run on this branch and your open pull requests that wait on you, asked once per launch.
+// Shows nothing without gh, network or a GitHub remote.
 import { isObject } from "@adeildo/pi-kit";
 
 import { processRunner, type Runner } from "./runner.ts";
 
-/** The conclusions that mean a run did not pass. */
 const FAILED = new Set(["failure", "startup_failure", "timed_out"]);
-/** What gh is asked about a pull request: enough to tell a new comment from an old one. */
+/** Enough to tell a new comment from an old one. */
 const PR_FIELDS = "number,title,author,reviewDecision,comments";
 
 interface CiFailure {
 	branch: string;
-	/** The failing commit, short enough to read. */
 	sha: string;
-	/** The workflow that failed. */
 	name: string;
 }
 
 interface OpenPullRequest {
 	number: number;
 	title: string;
-	/** What waits on you there. */
 	waits: "changes requested" | "new comment";
 }
 
@@ -30,10 +25,7 @@ export interface GithubState {
 	pr: OpenPullRequest | undefined;
 }
 
-/**
- * What GitHub knows about this folder. It never rejects: every question that cannot be answered
- * leaves its note out. `since` is the last session in the folder, the bar for a comment to be news.
- */
+/** Never rejects. `since` is the last session here, the bar for a comment to be news. */
 export async function readGithub(
 	cwd: string,
 	since: number | undefined,
@@ -49,7 +41,6 @@ async function branchOf(run: Runner): Promise<string | undefined> {
 	return branch === undefined || branch === "" ? undefined : branch;
 }
 
-/** The last run of CI on the branch, when it failed. */
 async function failedRun(run: Runner, branch: string): Promise<CiFailure | undefined> {
 	const out = await ask(() =>
 		run("gh", [
@@ -74,7 +65,6 @@ async function failedRun(run: Runner, branch: string): Promise<CiFailure | undef
 	};
 }
 
-/** The first of your open pull requests, newest first, with a review or a comment waiting on you. */
 async function pullRequest(
 	run: Runner,
 	since: number | undefined,
@@ -110,7 +100,6 @@ function loginOf(value: unknown): string | undefined {
 	return isObject(value) ? field(value, "login") : undefined;
 }
 
-/** The stdout of a question that could not be asked is no answer at all. */
 async function ask(question: () => Promise<string>): Promise<string | undefined> {
 	try {
 		return await question();

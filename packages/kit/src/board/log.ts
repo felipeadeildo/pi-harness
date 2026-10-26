@@ -1,11 +1,10 @@
-// The board's log entries: one operation each, folded in the order the branch wrote them. Storing the
-// operation instead of the whole board keeps a session's log small and follows a `/tree` or a fork.
+// One operation per entry, folded in branch order, so the log stays small and follows `/tree` and forks.
 import { isObject } from "../decode.ts";
 import { foldBoard, type Board, type BoardOp } from "./model.ts";
 
 export const BOARD_OP = "pi-board:op";
 
-/** Whether a value is an operation this version knows. An unknown or half-written one is skipped. */
+/** An unknown or half-written operation is skipped. */
 function isBoardOp(value: unknown): value is BoardOp {
 	if (!isObject(value) || typeof value.op !== "string" || typeof value.at !== "number")
 		return false;
@@ -25,7 +24,6 @@ function isBoardOp(value: unknown): value is BoardOp {
 	}
 }
 
-/** The board operations of a branch, in the order they were written. */
 export function opsOf(branch: readonly unknown[]): BoardOp[] {
 	const ops: BoardOp[] = [];
 	for (const entry of branch) {
@@ -37,7 +35,7 @@ export function opsOf(branch: readonly unknown[]): BoardOp[] {
 	return ops;
 }
 
-/** The board a branch carries. A session with no board operations starts with an empty board. */
+/** Empty when the branch has no board operations. */
 export function boardOf(branch: readonly unknown[]): Board {
 	return foldBoard(opsOf(branch));
 }

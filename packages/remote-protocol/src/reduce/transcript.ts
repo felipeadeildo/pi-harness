@@ -1,8 +1,6 @@
-// The transcript of one branch: pi's entries are the conversation, and the live stream only carries
-// the message being written. So a reader puts the branch back together by `parentId` and draws it in
-// the order pi wrote it, which is what makes a reconnect show nothing twice.
+// The branch is rebuilt from pi's entries by `parentId`, so a reconnect shows nothing twice.
 
-/** An entry, read by the fields the tree needs. The rest travels untouched. */
+/** The fields the tree needs; the rest travels untouched. */
 export interface Entry {
 	id: string;
 	parentId: string | null;
@@ -10,7 +8,6 @@ export interface Entry {
 	timestamp?: string;
 }
 
-/** A message as pi stores it, with only the fields a screen reads. */
 export interface ChatMessage {
 	role: string;
 	content: unknown;
@@ -27,7 +24,7 @@ export type TranscriptItem =
 			at?: string;
 			customType: string;
 			data: unknown;
-			/** A message an extension put in the session says whether pi shows it in the chat. */
+			/** Whether pi shows it in the chat. */
 			display?: boolean;
 	  }
 	| { kind: "compaction"; entry: string; at?: string; summary: string; firstKept?: string }
@@ -38,32 +35,20 @@ export type TranscriptItem =
 	| { kind: "label"; entry: string; at?: string; target: string; label?: string }
 	| { kind: "usage"; entry: string; at?: string }
 	| { kind: "edit"; entry: string; at?: string; target: string }
-	/** An entry a newer pi writes, kept so the transcript shows it happened without inventing a shape. */
+	/** A newer pi's entry, kept so the transcript shows it happened. */
 	| { kind: "other"; entry: string; at?: string; type: string };
 
-/** What a reader holds of one session: the branch, and where it ends. */
 export interface Transcript {
 	items: TranscriptItem[];
-	/** The entry the branch starts from, which is what a moved leaf changed. */
 	leaf?: string;
 }
 
-/**
- * One field of an entry, read by name. `Reflect.get` reads the same property `entry.x` would, without
- * the cast to a record the protocol never promised. Every caller reaches it from a branch that already
- * read `entry.type`, so the value is an object by then: the transcript's defence against a malformed
- * line is at the boundary, where the entry is taken for what it says it is.
- */
 function field<T>(entry: Entry, name: string): T | undefined {
 	const value: unknown = Reflect.get(entry, name);
 	return value === undefined ? undefined : (value as T);
 }
 
-/**
- * The entries from the root to `leaf`, in order. Without a leaf it takes the last entry, which is
- * where pi left the session. An entry whose parent is missing ends the walk, so a file that lost
- * entries in a migration still yields the part it kept.
- */
+/** Without a leaf, the last entry. A missing parent ends the walk, so a damaged file still yields what it kept. */
 export function branchOf(entries: readonly Entry[], leaf?: string): Entry[] {
 	const byId = new Map(entries.map((entry) => [entry.id, entry]));
 	const start = leaf === undefined ? entries.at(-1) : byId.get(leaf);
@@ -78,7 +63,6 @@ export function branchOf(entries: readonly Entry[], leaf?: string): Entry[] {
 	return walked.reverse();
 }
 
-/** One entry as the screen draws it. */
 export function itemOf(entry: Entry): TranscriptItem {
 	const base = { entry: entry.id, at: entry.timestamp };
 	switch (entry.type) {
@@ -156,7 +140,6 @@ export function itemOf(entry: Entry): TranscriptItem {
 	}
 }
 
-/** The branch, drawn. */
 export function transcriptOf(entries: readonly Entry[], leaf?: string): Transcript {
 	const branch = branchOf(entries, leaf);
 	const last = branch.at(-1);

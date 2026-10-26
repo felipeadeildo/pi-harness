@@ -1,7 +1,5 @@
-// The copies are only safe while they match. This file imports the kit's types and proves, at compile
-// time, that everything the protocol reads out of the log is a shape the kit actually writes.
-// The proof here is a type proof, and the judge is `tsc`: revert a field of a copy or add a
-// required one to the kit, and `bun test` still passes while `bun run check` fails. Run the check.
+// Proves at compile time that the protocol's copies match what the kit writes. `bun run check` is
+// the judge: a drifted copy still passes `bun test`.
 import { describe, expect, test } from "bun:test";
 
 import { blockedText, isLetter, type BoardBlocker } from "@adeildo/pi-kit";
@@ -32,13 +30,7 @@ const copyOfResult = (result: KitAskResult): AskResult => result;
 const copyOfQuestion = (question: KitAskQuestion): AskQuestion => question;
 const copyOfRuling = (ruling: KitRuling): CallRuling => ruling;
 
-/**
- * The facts the kit's log writes. The rest of `STATE_CHANGES` comes from the bridge and the daemon,
- * which have no log of their own: `session.live`, `session.gone`, `stream.bound`, `leaf.changed` and
- * `prompt.received`. `session.state` and `session.named` are left out on purpose: the bridge
- * rewrites both for the wire (`running`/`idle` becomes the client's five states), so the copy here is
- * not the kit's shape and the bridge's decoder is what holds the pair together.
- */
+// `session.state` and `session.named` are left out: the bridge rewrites both for the wire.
 const IN_THE_KIT = ["ask.opened", "ask.closed", "call.ruled", "mode.changed"] as const;
 
 type InTheKit = (typeof IN_THE_KIT)[number];
@@ -53,9 +45,6 @@ const fromTheKit: Pick<LogEventMap, InTheKit> = {
 	"mode.changed": { mode: "edits" },
 };
 
-// Each line is the proof: the kit's fact is assigned to the copy, so a field missing here is a
-// compile error. A generic would say the same and prove less, since it would need a constraint
-// narrow enough to be the answer.
 const openedFact: StateChangeMap["ask.opened"] = fromTheKit["ask.opened"];
 const closedFact: StateChangeMap["ask.closed"] = fromTheKit["ask.closed"];
 
@@ -71,9 +60,7 @@ describe("the protocol's copies match the kit", () => {
 	});
 
 	test("the reasons a letter waits are the ones the kit's own validator accepts", () => {
-		// The list is a copy, because the protocol cannot import the kit. The kit's validator is the
-		// source of truth, so every reason here has to be one it accepts, and an invented one has to
-		// be refused by both sides.
+		// The kit's validator is the source of truth for the copied list.
 		const by = { kind: "client" as const, name: "phone", machine: "here" };
 		const letter = { id: "l1", by, text: "hold on", want: "followUp" as const, at: 3 };
 		for (const why of ["asleep", "quiet", "full", "stopped"] as const) {

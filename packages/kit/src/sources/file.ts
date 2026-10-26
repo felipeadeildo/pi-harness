@@ -1,5 +1,4 @@
-// A session read from its file on this machine, followed as pi appends to it. It only reads: the
-// file has no open questions, no queue and no way in.
+// A session read from its file on this machine. Read-only: no questions, queue or way in.
 import {
 	calculateContextTokens,
 	type ExtensionAPI,
@@ -16,14 +15,10 @@ import { HOST } from "../events/log.ts";
 import { FileTail, followFile, type FileRecord, type TailItem } from "./follow.ts";
 
 export interface FileSourceOptions {
-	/** How often to look at the file when the directory watch stays quiet, in milliseconds. */
+	/** Milliseconds between polls when the directory watch stays quiet. */
 	every?: number;
 }
 
-/**
- * The source for `address`: a provider's, such as remote's, or else the session's file when it is on
- * this machine. Undefined when neither can show it.
- */
 export function sourceFor(
 	events: ExtensionAPI["events"],
 	address: SourceAddress,
@@ -46,9 +41,8 @@ export function fileSource(path: string, options: FileSourceOptions = {}): Sessi
 		},
 		follow(after, on) {
 			const fold = new Fold();
-			// Entries up to the cursor only feed the snapshot.
 			let waiting = after?.entry;
-			// A cursor with nothing this source reads, such as a newer one, is a cursor it does not know.
+			// A cursor with nothing this source reads, such as a newer one, is unknown.
 			if (after !== undefined && waiting === undefined) on({ kind: "reset" });
 			let sent = "";
 			return followFile(
@@ -61,7 +55,7 @@ export function fileSource(path: string, options: FileSourceOptions = {}): Sessi
 					let entries = items.flatMap((item) => fold.apply(item));
 					if (waiting !== undefined) {
 						const at = entries.findIndex((entry) => entry.id === waiting);
-						// The first read holds the whole file, so a cursor it lacks is one the file does not know.
+						// The first read holds the whole file, so a cursor it lacks is unknown to the file.
 						if (at === -1) on({ kind: "reset" });
 						entries = entries.slice(at + 1);
 						waiting = undefined;
@@ -79,7 +73,6 @@ export function fileSource(path: string, options: FileSourceOptions = {}): Sessi
 	};
 }
 
-/** What the file says of the live state, from its header and the entries that change it. */
 class Fold {
 	#header: { session: string; cwd: string } | undefined;
 	#rest: Omit<SessionSummary, "session" | "machine" | "cwd"> = {};
@@ -89,7 +82,6 @@ class Fold {
 		this.#rest = {};
 	}
 
-	/** Takes in one item, and returns it as an entry when it is one. */
 	apply(item: TailItem): SessionEntry[] {
 		if (item.kind === "reset") return [];
 		const record = item.record;
@@ -117,7 +109,7 @@ function changes(entry: SessionEntry): Partial<SessionSummary> {
 		case "thinking_level_change":
 			return { thinkingLevel: entry.thinkingLevel };
 		case "compaction":
-			// Pi does not know the context's size again until the next answer.
+			// Pi does not know the context size again until the next answer.
 			return { context: undefined };
 		case "message": {
 			const message = entry.message;

@@ -1,14 +1,11 @@
-// Who caused a state change. One a person or an agent can cause carries this on disk, on the wire and
-// inside the process, so a reader tells the operator at the terminal from the operator on a phone,
-// and both from an agent.
+// Who caused a state change: the operator at the terminal, the operator on a phone, or an agent.
 import { isObject } from "../decode.ts";
 
 export interface By {
-	/** The operator at a pi's terminal, the operator at a client such as a phone, or an agent. */
 	kind: "terminal" | "client" | "agent";
-	/** The session's handle for a terminal or an agent, and the device's name for a client. */
+	/** The handle for a terminal or an agent; the device's name for a client. */
 	name: string;
-	/** Where it happened: the hostname, until machines have ids. */
+	/** The hostname. */
 	machine: string;
 }
 

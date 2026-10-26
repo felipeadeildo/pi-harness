@@ -58,7 +58,6 @@ export const mode: Decoder<PermissionMode> = {
 	},
 };
 
-/** The policy per MCP server, keyed by server name. */
 export const mcpPolicies: Decoder<Record<string, McpPolicy>> = {
 	decode(input, path) {
 		if (!isObject(input)) return fail(problem(path, "expected a map of server to policy"));

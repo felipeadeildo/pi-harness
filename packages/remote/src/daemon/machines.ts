@@ -1,39 +1,30 @@
-// The owner's other machines whose daemon answers on the tailnet. `tailscale status` names the
-// owner's nodes that are online, and each one's daemon is asked for its health at the same port as
-// this one. Nothing is paired: the other daemon logs this one in the way it logs in the owner's
-// phone, because its `whois` says this machine belongs to the same person.
+// The owner's other machines whose daemon answers on the tailnet, at this daemon's port. Nothing
+// is paired: each daemon logs the other in by `whois`, as it does the owner's phone.
 import { isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
 import { WebSocket } from "ws";
 
 import { COOKIE, cookieOf } from "./auth.ts";
 import { type AskTailscale, readOwnTailnet, type Tailnet } from "./tailnet.ts";
 
-/** How often the tailnet is looked at again for machines that came or went. */
 const LOOK_EVERY_MS = 15_000;
-/** How long another daemon has to answer before it counts as not there. */
 const ANSWER_MS = 2_000;
 
-/** Another machine, as its sessions name it and as its daemon is reached. */
 export interface Machine {
-	/** Its hostname, which every session of it carries as its machine. */
 	name: string;
-	/** Where its daemon answers, `http://<tailnet address>:<port>`. */
+	/** `http://<tailnet address>:<port>`. */
 	origin: string;
 }
 
 export interface MachinesOptions {
-	/** This machine's name, which is never one of the others. */
 	self: string;
-	/** Where another node's daemon answers. The same port as this one's, by default. */
+	/** The same port as this one's, by default. */
 	originOf: (node: Tailnet) => string;
 	ask?: AskTailscale;
 }
 
 export class Machines {
 	readonly #options: MachinesOptions;
-	/** The machines that answered the last look, by name. */
 	#found = new Map<string, Machine>();
-	/** The login each other daemon gave this one, by origin. */
 	readonly #logins = new Map<string, string>();
 	#timer: ReturnType<typeof setInterval> | undefined;
 
@@ -41,7 +32,6 @@ export class Machines {
 		this.#options = options;
 	}
 
-	/** Looks now, and again every so often until `stop`. */
 	start(): void {
 		void this.look();
 		this.#timer = setInterval(() => void this.look(), LOOK_EVERY_MS);
@@ -60,10 +50,7 @@ export class Machines {
 		return this.#found.get(name);
 	}
 
-	/**
-	 * Asks the tailnet which of the owner's machines run a daemon now. A `tailscale` that does not
-	 * answer changes nothing: the machines found last stay until a look says otherwise.
-	 */
+	/** A `tailscale` that does not answer keeps the machines found last. */
 	async look(): Promise<void> {
 		const tailnet = await readOwnTailnet(this.#options.ask);
 		if (tailnet === undefined) return;
@@ -77,7 +64,6 @@ export class Machines {
 		this.#found = found;
 	}
 
-	/** A GET on another machine's daemon, logged in there as a device of the owner. */
 	async get(machine: Machine, path: string): Promise<Response> {
 		const ask = async (): Promise<Response> =>
 			fetch(`${machine.origin}${path}`, {
@@ -86,12 +72,11 @@ export class Machines {
 			});
 		const answer = await ask();
 		if (answer.status !== 401) return answer;
-		// The other daemon forgot the login, as a restart with its file gone does: one more, once.
+		// The other daemon forgot the login (a restart without its file): log in again, once.
 		this.#logins.delete(machine.origin);
 		return ask();
 	}
 
-	/** A WebSocket to another machine's daemon, with its own `Origin` and the login it gave. */
 	async socket(machine: Machine): Promise<WebSocket> {
 		const cookie = await this.#login(machine);
 		return new WebSocket(`${machine.origin.replace(/^http/, "ws")}/ws`, {
@@ -113,7 +98,6 @@ export class Machines {
 		}
 	}
 
-	/** The login another daemon gives this one, asked for once and kept. Empty when it refused. */
 	async #login(machine: Machine): Promise<string> {
 		const kept = this.#logins.get(machine.origin);
 		if (kept !== undefined) return kept;

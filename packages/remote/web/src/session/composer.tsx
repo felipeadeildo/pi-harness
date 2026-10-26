@@ -4,11 +4,8 @@ import type {
 	ModelOption,
 	PermissionMode,
 } from "@adeildo/pi-remote-protocol";
-// The controls under the transcript, in the order a thumb reaches them: the lists above, then one strip
-// of pickers (mode, thinking, model), then the field with its one filled button. Two strips at rest.
-// Each picker shows its value and opens a sheet; the acts that do not belong to every moment sit behind
-// an overflow control, so the page does not grow when a run starts. What each control decides lives
-// in `composer-data.ts`; this file wires it.
+// The controls under the transcript: the lists, one strip of pickers, then the field and its button.
+// What each control decides lives in `composer-data.ts`.
 import type { Client, Outgoing } from "@adeildo/pi-remote-protocol/client";
 import { type ReactNode, useEffect, useState } from "react";
 
@@ -36,19 +33,16 @@ import { chosen, suggested, type Suggestion } from "./suggestions.ts";
 type Send = <K extends CommandType>(type: K, data: CommandMap[K]) => void;
 
 export interface ComposerProps {
-	/** The connection this session is drawn from, which is also where commands go. */
 	client: Client;
-	/** What the session is now, built from its state in one place. */
 	view: ComposerView;
-	/** Called when a control needs a value from the person, as rename does. */
+	/** For a control that needs a value from the person, as rename does. */
 	ask?: (question: string) => string | undefined;
-	/** What the field starts with: a draft restored from the cache. */
 	initialDraft?: string;
 }
 
 export function Composer({ client, view, ask, initialDraft }: ComposerProps): ReactNode {
 	const { waiting, commands, running } = view;
-	// The queue changes without the session changing, so the composer hears the client itself.
+	// The queue changes without the session changing.
 	const [, redraw] = useState(0);
 	useEffect(() => client.on(() => redraw((count) => count + 1)), [client]);
 	const [draft, write] = useState(initialDraft ?? "");
@@ -59,7 +53,6 @@ export function Composer({ client, view, ask, initialDraft }: ComposerProps): Re
 	const take = (deliverAs: "steer" | "followUp"): void =>
 		takeDraft(send, draft, () => write(""), deliverAs);
 	const empty = draft.trim() === "";
-	// A command past the window waits for the person, and one inside it goes out on its own.
 	const heldIds = new Set(
 		client
 			.outbox()
@@ -88,7 +81,7 @@ export function Composer({ client, view, ask, initialDraft }: ComposerProps): Re
 				return;
 			}
 			default: {
-				// A menu id with no case is a button that does nothing: the compiler says so here.
+				// An unhandled menu id fails to compile here.
 				const unhandled: never = id;
 				return unhandled;
 			}
@@ -135,7 +128,6 @@ export function Composer({ client, view, ask, initialDraft }: ComposerProps): Re
 	);
 }
 
-/** The acts behind one control: the same rows every time, the ones that cannot mean anything dimmed. */
 function Overflow({
 	items,
 	onPick,
@@ -166,10 +158,7 @@ function Overflow({
 	);
 }
 
-/**
- * What `/` offers, drawn over the transcript's edge and not in the flow: the list opens above the field
- * and the conversation stays where it was. Choosing one writes the command and keeps the field.
- */
+/** Drawn over the transcript's edge, so the conversation does not move. */
 function Suggestions({
 	offering,
 	write,
@@ -185,7 +174,7 @@ function Suggestions({
 					type="button"
 					key={one.name}
 					aria-label={one.name}
-					// The field keeps its focus, so the keyboard stays up while a command is chosen.
+					// Keeps the field's focus, so the keyboard stays up.
 					onMouseDown={(event) => event.preventDefault()}
 					onClick={() => write(chosen(one.name))}
 				>
@@ -224,8 +213,7 @@ function Pickers({ send, view }: { send: Send; view: ComposerView }): ReactNode 
 				title="Model"
 				word="model"
 				value={modelLabel(model)}
-				// Only a list that has something to pick opens: an absent list is not said yet, and an
-				// empty one has nothing to offer, so neither is a button that opens an empty sheet.
+				// Only a list with something to pick opens.
 				onPress={models === undefined || models.length === 0 ? undefined : () => setOpen("model")}
 			/>
 			{open === "model" && models !== undefined ? (
@@ -269,7 +257,6 @@ function Pickers({ send, view }: { send: Send; view: ComposerView }): ReactNode 
 	);
 }
 
-/** What this device sent and the daemon has not settled, with the two acts a held command allows. */
 function Outbox({
 	queue,
 	heldIds,
@@ -302,7 +289,6 @@ function Outbox({
 	);
 }
 
-/** The session's own queue, in the order it will run: two phones see the same lines. */
 function QueueRows({ lines, client }: { lines: readonly QueuedLine[]; client: Client }): ReactNode {
 	return (
 		<>
@@ -319,7 +305,7 @@ function QueueRows({ lines, client }: { lines: readonly QueuedLine[]; client: Cl
 	);
 }
 
-/** The models the session could switch to, with a search: a registry is long, and a row each is a scroll. */
+/** A registry is long, so the list has a search. */
 function ModelSheet({
 	models,
 	total,

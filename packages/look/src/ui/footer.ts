@@ -6,19 +6,12 @@ import type { Paint } from "../render/paint.ts";
 import { type Screen, type SlotName, slotPieces } from "./screen.ts";
 
 const GAP = 3;
-/** Room reserved for the strip, so its changing width never moves the right side between lines. */
+/** So the strip's changing width never moves the right side. */
 const STRIP_ROOM = 56;
-/**
- * How long the footer and the strip are drawn again without a reason. What they show moves with the
- * clock, the live tokens and the context, and none of that reads differently 100 ms later, while a
- * keystroke always redraws both. Anything that asks for a redraw drops the drawing anyway.
- */
+/** A keystroke always redraws; nothing shown here reads differently 100 ms later. */
 const REDRAW_MS = 100;
 
-/**
- * A drawing kept per width and per revision of the screen for a moment. The transcript draws every
- * entry on every keystroke, and the footer and the strip were built again each time.
- */
+/** Kept per width and screen revision, since the transcript redraws on every keystroke. */
 class KeptDrawing {
 	#drawn: { width: number; revision: number; at: number; lines: string[] } | undefined;
 

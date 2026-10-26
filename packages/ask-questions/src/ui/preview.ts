@@ -15,15 +15,12 @@ const DRAWING = /[\u2500-\u259f]/;
 const COLUMNS = /\S {2,}\S/;
 const TAB = "    ";
 
-/**
- * Whether a preview is a picture to show as written. Markdown joins its lines and squeezes its
- * spaces, which breaks a mockup or a diagram. A preview with a fenced block is markdown.
- */
+/** Markdown would join lines and squeeze spaces in a mockup; a fenced block means markdown. */
 function isDrawing(text: string): boolean {
 	return !ANY_FENCE.test(text) && (DRAWING.test(text) || COLUMNS.test(text));
 }
 
-/** The previews, drawn once per width: markdown rendered, a drawing line by line. */
+/** Drawn once per width. */
 export class PreviewCache {
 	private readonly rendered = new Map<string, string[]>();
 

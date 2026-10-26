@@ -1,6 +1,3 @@
-// What the two release checks share when they talk to GitHub: the step outputs a workflow reads back,
-// the issue a red run files, and the pull request that bumps a pin. `trailingNewline` is per
-// workflow, since `claude-code` and `newest-pi` differ there on purpose.
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 
 import { $ } from "bun";
@@ -85,13 +82,7 @@ interface PullRequest {
 	trailingNewline: boolean;
 }
 
-/**
- * Commits the bump on its own branch, pushes it, and opens the pull request or edits the open one.
- *
- * The push is a plain `--force`: the branch belongs to the bot and is rebuilt from `main` every run.
- * A bare `--force-with-lease` compares against `origin/<branch>`, which the shallow checkout never
- * fetches, so it rejected every push while a bump pull request was still open ("stale info").
- */
+/** The branch is the bot's and rebuilt every run, so a plain `--force`: the shallow checkout has no lease to compare. */
 export async function openPullRequest(request: PullRequest, body: string[]): Promise<void> {
 	writeFileSync("body.md", request.trailingNewline ? `${body.join("\n")}\n` : body.join("\n"));
 	await $`git checkout -B ${request.branch}`;

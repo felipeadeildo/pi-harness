@@ -1,6 +1,5 @@
-// A bridge's connection to its daemon. Nothing here may hold pi up: a send never waits, a daemon
-// that is gone is retried in the background, and what it missed comes back through what the bridge
-// sends on every connect. The state changes reach the disk on their own, so only deltas are ever dropped.
+// The bridge's socket to its daemon. Nothing here may block pi: sends never wait, and a lost daemon
+// is retried in the background. State changes are on disk, so only deltas are ever dropped.
 import { randomUUID } from "node:crypto";
 import { connect, type Socket } from "node:net";
 
@@ -16,43 +15,35 @@ export const RECONNECT_AT = 8 * 1024 * 1024;
 const BACKOFF_MS: readonly number[] = [100, 200, 400, 800, 1_600, 3_200, 5_000];
 /** While nothing answers, the daemon is started at most this often. */
 export const RESTART_DAEMON_MS = 10_000;
-/** How long closing waits for the last message to leave before it drops the socket. */
 const CLOSE_WAIT_MS = 500;
-/** How long a request waits for the daemon's reply. */
 const REQUEST_MS = 3_000;
 
 export interface Origin {
-	/** The socket the daemon listens on. */
 	path: string;
 	machine: string;
 	session: string;
-	/** The life of this extension runtime: a new one after `/reload`, `/new`, `/resume` and `/fork`. */
+	/** A new one after `/reload`, `/new`, `/resume` and `/fork`. */
 	epoch: string;
-	/** This package's version, which the daemon compares with its own. */
 	version: string;
 }
 
 export interface ConnectionHooks {
-	/** The daemon was just greeted: send what it must know first, such as the session and an opening. */
+	/** Sends what the daemon must know first, such as the session and an opening. */
 	connected(): void;
-	/** Deltas were dropped while the socket was full, and it has drained: send the current message. */
+	/** Deltas were dropped while the socket was full, and it drained. */
 	resync?(): void;
-	/** A message from the daemon. */
 	message?(envelope: Envelope): void;
-	/** Starts the daemon, after nothing answered on the socket. */
 	startDaemon(): void;
 	warn(message: string): void;
 }
 
-/** What a test replaces: the socket, to hold its buffer, the monotonic clock and the waits. */
 export interface ConnectionSeams {
 	dial(path: string): Socket;
 	now(): number;
-	/** The waits between attempts to connect. The last one repeats. */
 	backoff: readonly number[];
 }
 
-/** Why a session ended, as the daemon shows it. A `/reload` is no end: the next runtime goes on. */
+/** A `/reload` is no end: the next runtime goes on. */
 export type GoneReason = "exit" | "replaced";
 
 const NODE: ConnectionSeams = {
@@ -71,7 +62,6 @@ export class BridgeConnection {
 	#owesResync = false;
 	#seq = 0;
 	readonly #seams: ConnectionSeams;
-	/** The requests waiting for a reply, by id. */
 	readonly #waiting = new Map<string, (reply: Envelope | undefined) => void>();
 
 	constructor(
@@ -86,17 +76,13 @@ export class BridgeConnection {
 		this.#dial();
 	}
 
-	/** Whether the daemon answered and the socket is still open. */
 	get up(): boolean {
 		return this.#up;
 	}
 
 	/**
-	 * Sends an event of this session, numbered in its epoch. A droppable one, a delta, takes no number,
-	 * since it only matters live and the message's end replaces it, so a replay never has a hole where
-	 * a delta was. A delta is also what is dropped while the socket is backed up, and the bridge is
-	 * asked for a resync once it drains. Past the larger bound the socket is opened again. Returns
-	 * whether the event went out, and never throws.
+	 * Sends an event numbered in its epoch. A delta takes no number, so a replay has no holes, and is
+	 * dropped while the socket is backed up. Never throws.
 	 */
 	event(type: string, data: unknown, options: { droppable?: boolean } = {}): boolean {
 		const socket = this.#socket;
@@ -117,10 +103,6 @@ export class BridgeConnection {
 		return true;
 	}
 
-	/**
-	 * Asks the daemon something and waits for the reply that carries the same id. Resolves with
-	 * nothing after `timeoutMs`, when the socket is lost, or when no daemon answers now.
-	 */
 	request(type: string, data: unknown, timeoutMs = REQUEST_MS): Promise<Envelope | undefined> {
 		const socket = this.#socket;
 		if (!this.#up || socket === undefined || socket.destroyed) return Promise.resolve(undefined);
@@ -139,10 +121,6 @@ export class BridgeConnection {
 		});
 	}
 
-	/**
-	 * Answers a command on its id, in the shape the daemon sent it, so the daemon routes it back to
-	 * the client that asked. Returns whether the answer went out.
-	 */
 	answer(kind: "reply" | "error", type: string, data: unknown, id: string): boolean {
 		const socket = this.#socket;
 		if (!this.#up || socket === undefined || socket.destroyed) return false;
@@ -151,10 +129,7 @@ export class BridgeConnection {
 		return true;
 	}
 
-	/**
-	 * Stops for good. With a reason, the daemon hears the session is gone before the socket ends.
-	 * Resolves once the socket is closed, or after a short wait when the daemon does not read.
-	 */
+	/** With a reason, the daemon hears the session is gone before the socket closes. */
 	close(reason?: GoneReason): Promise<void> {
 		this.#closed = true;
 		clearTimeout(this.#retry);
@@ -173,7 +148,6 @@ export class BridgeConnection {
 		});
 	}
 
-	/** Where an event comes from, with no number, as a delta goes. */
 	#place(): Omit<Envelope, "v" | "kind" | "type" | "data" | "at"> {
 		const { machine, session, epoch } = this.origin;
 		return { machine, session, epoch };
@@ -194,13 +168,12 @@ export class BridgeConnection {
 		const lines = new Lines(() =>
 			this.hooks.warn("the pi-remote daemon sent a line too long to read"),
 		);
-		// One warning per connection: a daemon that speaks another protocol sends nothing else.
+		// A daemon that speaks another protocol sends nothing else.
 		let warnedUnreadable = false;
 		socket.on("connect", () => {
 			this.#attempts = 0;
 			this.#up = true;
 			this.#owesResync = false;
-			// The hello's type names the role, which the daemon accepts only on this socket.
 			const { machine, session, epoch, version } = this.origin;
 			const hello = { protocol: PROTOCOL, version };
 			socket.write(line(envelope("hello", "bridge", hello, { machine, session, epoch })));
@@ -228,7 +201,7 @@ export class BridgeConnection {
 			this.#owesResync = false;
 			this.#call(() => this.hooks.resync?.());
 		});
-		// A failed connect and a lost daemon both end in "close", which decides what comes next.
+		// A failed connect and a lost daemon both end in "close".
 		socket.on("error", () => {});
 		socket.on("close", () => this.#lost(socket));
 		// An open socket must never keep a pi that is done from exiting.
@@ -240,7 +213,6 @@ export class BridgeConnection {
 		const answered = this.#up;
 		this.#up = false;
 		this.#socket = undefined;
-		// A reply can only come on the socket the request went out on.
 		for (const settle of this.#waiting.values()) settle(undefined);
 		if (this.#closed) return;
 		if (!answered) this.#startDaemon();
@@ -258,7 +230,6 @@ export class BridgeConnection {
 		this.#call(() => this.hooks.startDaemon(), "could not start the pi-remote daemon");
 	}
 
-	/** Runs a hook so that its failure becomes a warning, since a throw here would reach pi. */
 	#call(run: () => void, what = "the remote bridge failed"): void {
 		try {
 			run();

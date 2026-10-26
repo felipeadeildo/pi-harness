@@ -1,4 +1,3 @@
-// What a session screen derives from a session: the cached view, the title and the about line.
 import type { SessionState, TranscriptItem } from "@adeildo/pi-remote-protocol";
 import {
 	type ClientSession,
@@ -15,14 +14,7 @@ export interface View {
 
 const views = new WeakMap<ClientSession, { key: readonly unknown[]; view: View }>();
 
-/**
- * The transcript and the state, worked out again only when what they come from changed. A client
- * changes its session in place: an entry or a state change is pushed onto its list, an opening swaps the
- * list, and a `/tree` move changes the leaf. So the lists, their lengths and the leaf say whether
- * anything moved, and a screen that draws on every envelope does not fold the whole log each time.
- * An entry changed where it stands would go unseen: the client never does that today, and one that
- * starts to has to swap the list or bump what this compares.
- */
+/** Recomputed only when the entry lists, their lengths or the leaf change. */
 export function viewOf(session: ClientSession): View {
 	const key = [
 		session.entries,
@@ -39,18 +31,12 @@ export function viewOf(session: ClientSession): View {
 	return view;
 }
 
-/** What the session is called: the name pi has for it, else the handle a room uses. */
+/** Pi's name for it, else the room's handle. */
 export function titleOf(session: ClientSession): string {
 	const summary = session.summary;
 	return summary?.name ?? summary?.handle ?? `new-${session.key.session.slice(-4)}`;
 }
 
-/**
- * What the header says about the session beside its name: its folder, the machine, what it is doing and
- * the model it answers with. It is text, and typed as text on purpose: this array goes to a `join`, and
- * an `unknown[]` let the folded state object through to become `[object Object]` without a word from
- * the compiler. The status is the field for "what it is doing"; the folded `state` is the whole picture.
- */
 export function aboutOf(session: ClientSession): string[] {
 	const { state, summary } = session;
 	const folder = summary?.cwd.split("/").findLast((part) => part !== "");
@@ -59,20 +45,14 @@ export function aboutOf(session: ClientSession): string[] {
 	);
 }
 
-/**
- * Where a user message was typed, when the bridge could say. Every user message is the operator's, since
- * the clients are devices they signed in, so the screen says "you" on all of them and this adds the
- * device beside it. No origin does not mean the terminal: the bridge says nothing when it is not sure
- * (two prompts with the same words, a slash prompt pi expanded), and the screen then says only "you".
- * The name is the client's own, so it is read as text.
- */
+/** The device a user message came from. Absent does not mean the terminal: the bridge says nothing when unsure. */
 export function originOf(
 	promptFrom: SessionState["promptFrom"],
 	entry: string,
 ): string | undefined {
 	const by = promptFrom?.[entry];
 	if (by === undefined) return undefined;
-	// A sender with no name is still known to be a client, and the line does not invent one.
+	// A sender with no name is still a client, and the line invents none.
 	const name = plain(by.name).trim();
 	return name === "" ? "from a client" : `from ${name}`;
 }

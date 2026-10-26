@@ -1,8 +1,6 @@
-// The `/skill:name` pattern the skills feature expands and the look colors.
 import { defineContract, type EventScope } from "../contract.ts";
 import { stringList } from "../decode.ts";
 
-/** The names a `/skill:` reference expands to, which the skills feature knows. */
 export const SKILLS = defineContract<string[]>("skills:names", stringList("skill names"));
 
 export const SKILL_REF = "/skill:";

@@ -13,24 +13,20 @@ import type {
 import { forgetRenderers, keepMessageRenderer, keepToolRenderer } from "./renderers.ts";
 
 export interface Hook<T> {
-	/** The feature that registered it, named when it fails. */
 	source: string;
 	run: T;
 }
 
-/** The parts of an app a feature scope reads and writes. */
 export interface AppState {
 	name: string;
 	pi: ExtensionAPI;
 	settings: SettingsStore;
 	mounted: ReadonlySet<string>;
-	/** Command name to the feature that registered it. */
 	commands: Map<string, string>;
 	starts: Hook<SessionHook>[];
 	shutdowns: Hook<ShutdownHook>[];
 	screen: Map<string, ScreenEntry[]>;
 	screenGroups: Map<string, ScreenGroup[]>;
-	/** False once the session is shutting down: nothing new may be deferred. */
 	live(): boolean;
 	/** Ends the session from inside a deferral a refused context was found in. */
 	stop(): void;
@@ -108,14 +104,10 @@ export function createScope(state: AppState, featureId: string): FeatureScope {
 	} as FeatureScope;
 }
 
-/**
- * pi's words when a renderer, a hook or a scope call uses a context the host no longer owns. Read from
- * `@earendil-works/pi-coding-agent@1.4.0`, `dist/core/extensions/runner.js:482`, where the message
- * comes from whoever invalidated the context.
- */
+/** Pi's message for a stale context (`dist/core/extensions/runner.js` in 1.4.0). */
 const STALE = "stale after session replacement or reload";
 
-/** Whether the host refused a context, which is how a session that ended announces itself. */
+/** A session that ended announces itself by the host refusing its context. */
 function refusedByHost(error: unknown): boolean {
 	return error instanceof Error && error.message.includes(STALE);
 }

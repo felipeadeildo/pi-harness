@@ -1,5 +1,4 @@
-// The question the agent asked, answerable from the phone: this is the case the whole remote exists
-// for ("the agent needs a decision while I am away"), so the page has to be usable with one hand.
+// The question the agent asked, answerable from the phone.
 import type { OpenAsk } from "@adeildo/pi-remote-protocol";
 import type { Client } from "@adeildo/pi-remote-protocol/client";
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
@@ -16,8 +15,7 @@ export function QuestionDialog({ ask, client }: { ask: OpenAsk; client: Client }
 	const one = ask.questions[index];
 	const last = index === ask.questions.length - 1;
 
-	// A floor, not a fixed height: the panel grows with its content and never drops below the tallest
-	// it has been, so a question with two options after one with four does not move the composer.
+	// A floor that only rises, so a shorter question does not move the composer.
 	useLayoutEffect(() => {
 		const height = panel.current?.offsetHeight ?? 0;
 		setTallest((was) => cap(was, height));

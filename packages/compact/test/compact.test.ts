@@ -625,9 +625,7 @@ describe("the compaction summary", () => {
 		]);
 	});
 
-	// No board and an empty board end the same way here, and on purpose: the section is about the
-	// work, and with no work there is nothing to put on top of pi's own summary. The side model
-	// answers, so only the board decides.
+	// With no work there is nothing to put on top of pi's own summary.
 	test("pi writes its own when the board is empty, even with a side model that answers", async () => {
 		expect(await compacted([])).toBeUndefined();
 		const dropped: BoardOp[] = [

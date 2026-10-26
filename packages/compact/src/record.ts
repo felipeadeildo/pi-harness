@@ -16,15 +16,14 @@ export interface PruneRecord {
 	after: number;
 	hidden: Hidden[];
 	forced?: boolean;
-	/** Anthropic cleared it on its side, on the request this was recorded after. */
+	/** Cleared by Anthropic on the request this was recorded after. */
 	server?: boolean;
 	/** Dollars the next request pays to write the cache again, or paid already when `server`. */
 	rewrite?: number;
-	/** Dollars each request after saves. */
 	saving?: number;
 }
 
-/** The cost of the request that ran before the prune, as pi records it. */
+/** As pi records it. */
 export interface Billed {
 	input: number;
 	cacheRead: number;
@@ -84,7 +83,7 @@ export function spentOn(branch: readonly unknown[]): Spent {
 	return spent;
 }
 
-/** Entries Anthropic cleared on its side, which the session itself still holds whole. */
+/** The session itself still holds them whole. */
 export function clearedEntries(branch: readonly unknown[]): Set<string> {
 	const entries = new Set<string>();
 	for (const entry of branch) {
@@ -94,10 +93,7 @@ export function clearedEntries(branch: readonly unknown[]): Set<string> {
 	return entries;
 }
 
-/**
- * The last request's prompt, so the first clear after a reload is seen. Undefined after an edit or
- * a compaction, which shrink the next request on their own.
- */
+/** Undefined after an edit or a compaction, which shrink the next request on their own. */
 export function lastPromptOf(branch: readonly unknown[]): number | undefined {
 	for (const entry of branch.toReversed()) {
 		if (!isObject(entry) || entry.type === "compaction" || entry.type === "context_edit")
@@ -131,7 +127,6 @@ function outputsHidden(count: number): string {
 	return count === 1 ? "1 old tool output" : `${count} old tool outputs`;
 }
 
-/** Label and amount for each row of what the prune costs and saves. */
 export function costRows(record: PruneRecord): [string, string][] {
 	const { rewrite, saving } = record;
 	if (rewrite === undefined || saving === undefined || saving < 0.005) return [];
@@ -147,7 +142,7 @@ export function costRows(record: PruneRecord): [string, string][] {
 	];
 }
 
-/** Laid out like the judge's rulings: a glyph, a label, the detail, and numbers on the right edge. */
+/** Laid out like the judge's rulings. */
 export class PruneEntry implements Component {
 	readonly #record: PruneRecord;
 	readonly #expanded: boolean;

@@ -1,8 +1,5 @@
-// Every room this session is in: its folder's, and the shared ones whose members include it. Each
-// room is a directory of logs where every member writes its own file, so the rules inside a room
-// stay what they are in a folder. This holds them together for one session: it watches them, joins
-// and leaves as the `room.*` lines say, writes what the session does into each, and hands what
-// arrives from all of them to the agent at once.
+// Every room this session is in. Each room is a directory where every member writes its own log;
+// this joins and leaves as `room.*` lines say, and hands what arrives from all of them to the agent.
 import { realpathSync } from "node:fs";
 import { basename, isAbsolute, resolve } from "node:path";
 
@@ -46,9 +43,7 @@ import type {
 } from "./model.ts";
 import { byHandle, mentionedNames, type Named, namesOf } from "./names.ts";
 
-/** The edited files a session brings into a room it joins. */
 const SNAPSHOT_FILES = 8;
-/** How long a room keeps a member with no open agent. */
 const ROOM_GRACE_MS = 30_000;
 
 interface SessionSource {
@@ -57,16 +52,13 @@ interface SessionSource {
 	getSessionFile?(): string | undefined;
 }
 
-/** Where a message goes: the room, and the sessions in it. */
 export interface Post {
 	here: Here;
 	to: Named[];
 }
 
-/** The rooms a name or a mention resolved to, or why it did not. */
 export type Route = { posts: Post[] } | { error: string };
 
-/** What a line you typed in the chat does. */
 export type ChatRoute =
 	| { kind: "yours" }
 	| { kind: "group"; to: "all" | "any"; rooms: Here[] }
@@ -78,7 +70,6 @@ export class Rooms implements RoomsView {
 	readonly #inbox: Inbox;
 	#home: Here | undefined;
 	readonly #feeds = new RoomFeeds(() => this.#soon());
-	/** The rooms this session is inside, by room id. A room on disk with no entry here is one it left. */
 	readonly #inside = new Map<string, Here>();
 	#session: string | undefined;
 	#cwd = "";
@@ -88,12 +79,12 @@ export class Rooms implements RoomsView {
 	#state: RoomActivity = "idle";
 	#stops: (() => void)[] = [];
 	#soonPending = false;
-	/** When each stale member or room was first seen, by `staleIn`'s key. */
+	/** By `staleIn`'s key. */
 	#stale = new Map<string, number>();
 	#wake: { at: number; timer: ReturnType<typeof setTimeout> } | undefined;
-	/** Rooms this session stepped out of with `m`, kept in the list so `m` brings it back. */
+	/** Kept in the list so `m` brings them back. */
 	readonly #steppedOut = new Set<string>();
-	/** The board last written, so an unchanged one is not written again. */
+	/** So an unchanged board is not written again. */
 	#boardView = "";
 	readonly #listeners = new Set<() => void>();
 	readonly #membership = new Set<(change: MembershipChange) => void>();
@@ -107,12 +98,10 @@ export class Rooms implements RoomsView {
 		return this.#session;
 	}
 
-	/** The folder's room. */
 	get home(): Here | undefined {
 		return this.#home;
 	}
 
-	/** Every room this session is in, the folder's first. */
 	joined(): Here[] {
 		const shared = this.#joinedShared().map((room) => this.#inside.get(room.id));
 		return [
@@ -145,15 +134,13 @@ export class Rooms implements RoomsView {
 			new FolderFeed(roomsDir()).watch(() => this.#soon()),
 			this.#hooks.events.on(LOGGED_EVENT, (event) => this.#mirror(event as LoggedEvent)),
 		];
-		// How this session opens is its own setting, so the line is written here and not by whoever
-		// adds it to a room. A mode already written stands: a reload does not reset it.
+		// Each session writes its own opening mode; a mode already written stands across reloads.
 		if (this.#opening() !== "in" && this.#home.mode() === "in")
 			this.setMode(undefined, this.#opening());
 		this.#writeLive();
 		this.sync();
 	}
 
-	/** Leaves every room: the session closed, or became another. */
 	end(): void {
 		if (this.#session === undefined) return;
 		for (const stop of this.#stops) stop();
@@ -173,7 +160,6 @@ export class Rooms implements RoomsView {
 		this.#boardView = "";
 	}
 
-	/** Reads every room, joins and leaves as their members say, and hands over what arrived, together. */
 	sync(): void {
 		if (this.#session === undefined) return;
 		this.#inbox.hold(() => {
@@ -190,7 +176,7 @@ export class Rooms implements RoomsView {
 		this.#changed();
 	}
 
-	// Closes a room left with one folder and drops members with no open agent, after the grace.
+	/** After the grace, closes a room left with one folder and drops members with no open agent. */
 	#prune(): void {
 		const rooms = [...this.#feeds.values()].filter((room) => !room.folder.membership.closed);
 		const live = rooms.length === 0 ? [] : this.live();
@@ -211,7 +197,7 @@ export class Rooms implements RoomsView {
 		this.#wakeAt(next);
 	}
 
-	// Nothing may change in the logs when a grace runs out, so a timer looks again.
+	/** Nothing changes in the logs when a grace runs out, so a timer looks again. */
 	#wakeAt(at: number): void {
 		if (this.#wake?.at === at) return;
 		clearTimeout(this.#wake?.timer);
@@ -227,8 +213,6 @@ export class Rooms implements RoomsView {
 		timer.unref?.();
 		this.#wake = { at, timer };
 	}
-
-	// What the session does goes into every room it is in.
 
 	log<K extends keyof LogEventMap>(type: K, data: LogEventMap[K]): void {
 		for (const here of this.joined()) here.log(type, data);
@@ -258,18 +242,15 @@ export class Rooms implements RoomsView {
 		if (id !== undefined && this.#inbox.read(id)) this.#changed();
 	}
 
-	/** Colleagues' messages the agent has and has not read yet. */
 	queued(): Waiting[] {
 		return this.#inbox.queued();
 	}
 
-	/** Pi emptied the agent's queue. `Inbox.cleared` says what happens to the colleagues' messages. */
 	cleared(running: boolean): void {
 		this.#inbox.cleared(running);
 		this.#changed();
 	}
 
-	/** What the agent is writing, shown in the room the message goes to. */
 	typing(to: string, text: string, room?: string): void {
 		const here = this.#typingRoom(to, room);
 		here?.typing(to, text);
@@ -278,8 +259,6 @@ export class Rooms implements RoomsView {
 	doneTyping(): void {
 		for (const here of this.joined()) here.doneTyping();
 	}
-
-	// What the screen reads.
 
 	rooms(): Room[] {
 		const home = this.#home;
@@ -302,7 +281,7 @@ export class Rooms implements RoomsView {
 		return readPresence(this.#hooks.alive === undefined ? {} : { lives: this.#hooks.alive });
 	}
 
-	/** The folder's marks first, so the footer can set the other rooms apart after them. */
+	/** The folder's marks first, so the footer can set the other rooms apart. */
 	summary(): { others: PeerMark[]; unread: number; me?: PeerMark } {
 		const marks = new Map<string, PeerMark>();
 		let unread = 0;
@@ -314,7 +293,7 @@ export class Rooms implements RoomsView {
 		return { others: [...marks.values()], unread, ...(me === undefined ? {} : { me }) };
 	}
 
-	/** This session as the room draws it, from the same names and state the others are drawn with. */
+	/** Drawn from the same names and state as the others. */
 	#mark(): PeerMark | undefined {
 		const session = this.#session;
 		const here = this.#home;
@@ -339,7 +318,7 @@ export class Rooms implements RoomsView {
 		);
 	}
 
-	/** From the panel, a mention of this session's own agent counts too: that is how you reach it there. */
+	/** From the panel, mentioning this session's own agent reaches it too. */
 	send(room: string | undefined, text: string): void {
 		const here = this.here(room);
 		if (here === undefined) return;
@@ -347,8 +326,6 @@ export class Rooms implements RoomsView {
 		if (to === undefined) here.post("all", text, "you");
 		else here.post(typeof to === "string" ? to : to.map((named) => named.session), text, "you");
 	}
-
-	// What the operator, or an agent the gate let through, changes.
 
 	create(name: string, members: readonly Member[], by: AddedBy = YOU): string {
 		const id = `r${this.#now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -368,15 +345,10 @@ export class Rooms implements RoomsView {
 		this.sync();
 	}
 
-	/**
-	 * How this session stands in a room. `listening` hears only what names it and never takes a
-	 * request to everyone; `in` takes part. The folder's room takes the same line as the others.
-	 */
 	setMode(room: string | undefined, mode: RoomMode): void {
 		if (this.#session === undefined) return;
 		const member = { session: this.#session, cwd: this.#cwd };
-		// Every room is the same: out is a removal, and a session that stepped out of the folder's
-		// room works alone until it comes back. The folder's room is written by its own log.
+		// Out is a removal; a session out of the folder's room works alone until it comes back.
 		if (room === undefined) {
 			if (mode === "out") this.#home?.log("room.removed", { member });
 			else if (this.#home?.mode() === "out")
@@ -386,8 +358,7 @@ export class Rooms implements RoomsView {
 			return;
 		}
 		if (mode === "out") {
-			// Out is removal, and the room stays in the list for this session: without that row the
-			// operator has no way back in after stepping out.
+			// The room stays in the list, or the operator has no way back in.
 			this.#write(room, "room.removed", { member });
 			this.#steppedOut.add(room);
 			this.sync();
@@ -419,9 +390,6 @@ export class Rooms implements RoomsView {
 		return () => this.#membership.delete(listener);
 	}
 
-	// Where a name goes.
-
-	/** A room by its id or its name. The folder's room answers to the folder's name. */
 	roomNamed(name: string): Here | { error: string } {
 		const wanted = name.trim().toLowerCase();
 		const found = this.joined().filter(
@@ -440,11 +408,7 @@ export class Rooms implements RoomsView {
 		};
 	}
 
-	/**
-	 * The rooms some names point at. Each name is one agent: a name two rooms give to two sessions
-	 * is unclear. An agent in several rooms with this session is reached in the folder's room when it
-	 * is there, else where the two last talked, else in the oldest room they share.
-	 */
+	/** An agent in several shared rooms is reached in the folder's room, else where you last talked, else the oldest. */
 	route(names: readonly string[], room?: string): Route {
 		const rooms = room === undefined ? this.joined() : [this.roomNamed(room)];
 		const only = rooms[0];
@@ -475,7 +439,6 @@ export class Rooms implements RoomsView {
 		return { posts: [...posts].map(([here, to]) => ({ here, to })) };
 	}
 
-	/** A line you typed: to another agent, to a group, or to yours. */
 	chat(text: string): ChatRoute {
 		const mentioned = mentionedNames(text);
 		const group = groupIn(mentioned);
@@ -494,14 +457,13 @@ export class Rooms implements RoomsView {
 			: { kind: "sessions", posts: route.posts };
 	}
 
-	/** The rooms you are in with another agent open, the folder's first. */
 	#withOthers(): Here[] {
 		return this.joined().filter((here) =>
 			here.live().some((peer) => peer.session !== this.#session),
 		);
 	}
 
-	// The folder's room, else the only shared one with agents: in two rooms, two could take it.
+	/** In two shared rooms, two agents could take it. */
 	#anyone(): ChatRoute {
 		const rooms = this.#withOthers();
 		const first = rooms[0];
@@ -513,7 +475,7 @@ export class Rooms implements RoomsView {
 		};
 	}
 
-	// The first room gets it as one to everyone, the next ones only name who has not got it yet.
+	/** The first room gets it as one to everyone; the next ones name only who has not got it. */
 	postGroup(to: "all" | "any", text: string, rooms: readonly Here[]): void {
 		const reached = new Set<string>();
 		for (const [index, here] of rooms.entries()) {
@@ -527,7 +489,6 @@ export class Rooms implements RoomsView {
 		}
 	}
 
-	/** Every other agent across the rooms, once each, and where it is. */
 	others(): (Named & { where?: string })[] {
 		const seen = new Set<string>();
 		return this.joined().flatMap((here) =>
@@ -541,11 +502,7 @@ export class Rooms implements RoomsView {
 		);
 	}
 
-	/**
-	 * An agent's call that the permission gate let through: brings the sessions open in a folder now
-	 * into a shared room, a new one unless `room` names one this session is in. Never a folder: a
-	 * folder brings sessions that do not exist yet, and a lasting change is the operator's.
-	 */
+	/** Never a folder: a folder brings future sessions, and a lasting change is the operator's. */
 	link(request: LinkRequest): { text: string; room?: string } {
 		const me = this.#session;
 		if (me === undefined) return { text: "Not in a session." };
@@ -598,7 +555,6 @@ export class Rooms implements RoomsView {
 		};
 	}
 
-	/** The sessions open in a folder now, other than this one. */
 	openIn(folder: string): LiveSession[] {
 		const path = real(folder);
 		return this.live().filter((entry) => entry.cwd === path && entry.session !== this.#session);
@@ -614,7 +570,7 @@ export class Rooms implements RoomsView {
 		return talked?.one ?? (found[0] as { here: Here; named: Named });
 	}
 
-	/** When this session and that one last wrote to each other in the room, or 0. */
+	/** 0 when they never wrote to each other. */
 	#lastTalked(here: Here, them: string): number {
 		let last = 0;
 		for (const message of here.folder.messages.values()) {
@@ -640,9 +596,6 @@ export class Rooms implements RoomsView {
 		return "error" in route ? this.#home : route.posts[0]?.here;
 	}
 
-	// Joining and leaving.
-
-	/** Starts reading the shared rooms that appeared since the last look, and drops the closed ones. */
 	#reconcile(): void {
 		const me = this.#session;
 		if (me === undefined) return;
@@ -651,7 +604,6 @@ export class Rooms implements RoomsView {
 			const member = room.folder.membership.includes(me, this.#cwd);
 			if (member && here === undefined) this.#join(room);
 			else if (!member && here !== undefined) this.#leave(room);
-			// A closed room never opens again, so there is nothing more to watch in it.
 			if (room.folder.membership.closed && here === undefined && room.done !== true)
 				this.#feeds.close(room);
 		}
@@ -660,8 +612,7 @@ export class Rooms implements RoomsView {
 	#join(room: RoomOnDisk): void {
 		const me = this.#session;
 		if (me === undefined) return;
-		// A session that only listens says so itself when it becomes a member, whether a folder
-		// brought it or someone added it by name. Written once: what is already there stands.
+		// A listening session says so itself when it becomes a member; what is already written stands.
 		const opening = this.#opening();
 		if (opening !== "in" && room.folder.membership.modeOf(me, this.#cwd) === "in") {
 			this.#write(room.id, "room.mode", { member: { session: me, cwd: this.#cwd }, mode: opening });
@@ -707,11 +658,7 @@ export class Rooms implements RoomsView {
 		this.#emit({ kind: "left", room: info, reason });
 	}
 
-	/**
-	 * What the room would have seen had this session been there all along: its name, its state, its
-	 * board and the files it edited last. Every line carries the time of the join, since
-	 * names and tie-breaks go by who came first.
-	 */
+	/** Writes what the room would have seen had this session been there, stamped with the join time. */
 	#snapshot(here: Here): void {
 		const me =
 			this.#session === undefined ? undefined : this.#home?.folder.peers.get(this.#session);
@@ -723,7 +670,6 @@ export class Rooms implements RoomsView {
 		for (const [path] of edited) here.log("activity", { kind: "edited", path });
 	}
 
-	/** The names feature logs into the folder's room only; what the shared rooms need follows here. */
 	#mirror(event: LoggedEvent): void {
 		if (event.session !== this.#session) return;
 		const shared = this.#joinedShared().flatMap((room) => {
@@ -738,7 +684,6 @@ export class Rooms implements RoomsView {
 		this.#writeLive();
 	}
 
-	/** Writes what this session's board holds, for the sessions that read it from the folder. */
 	board(view: BoardView): void {
 		const text = JSON.stringify(view);
 		if (text === this.#boardView) return;
@@ -749,7 +694,6 @@ export class Rooms implements RoomsView {
 	#addMembers(room: string, members: readonly Member[], by: AddedBy): void {
 		for (const member of members) {
 			const normalized = normal(member);
-			// A folder joins taking part and has no mode; a session may say how it joins.
 			this.#write(room, "room.added", {
 				...("folder" in normalized
 					? { member: { folder: normalized.folder } }
@@ -761,7 +705,6 @@ export class Rooms implements RoomsView {
 		}
 	}
 
-	/** A `room.*` line, in this session's own file in that room, whether or not it is a member. */
 	#write<K extends "room.created" | "room.added" | "room.removed" | "room.closed" | "room.mode">(
 		room: string,
 		type: K,
@@ -778,12 +721,10 @@ export class Rooms implements RoomsView {
 		);
 	}
 
-	/** How this session stands when it opens or joins a room. */
 	#opening(): Exclude<RoomMode, "out"> {
 		return this.#hooks.opening?.() ?? "in";
 	}
 
-	/** The addition that brought this session in last. */
 	#addedMe(room: RoomOnDisk): Addition | undefined {
 		return room.folder.membership.additions.findLast((addition) =>
 			"folder" in addition.member
@@ -827,10 +768,8 @@ export class Rooms implements RoomsView {
 		);
 	}
 
-	/** The shared rooms this session is in, oldest first. */
 	#joinedShared(): RoomOnDisk[] {
-		// The only exception to "out is not in the list": a room this session stepped out of keeps
-		// its row, so `m` has a way back. A session removed by someone else simply is not here.
+		// A room this session stepped out of keeps its row, so `m` has a way back.
 		return [...this.#feeds.values()]
 			.filter((room) => this.#inside.has(room.id) || this.#steppedOut.has(room.id))
 			.toSorted(
@@ -845,7 +784,6 @@ export class Rooms implements RoomsView {
 			...this.#hooks,
 			inbox: this.#inbox,
 			changed: () => this.#changed(),
-			// A session bids with what its folder's room knows of it, whatever room asked.
 			fit: (request, me, signal) =>
 				this.#hooks.fit(
 					request,
@@ -872,8 +810,7 @@ export class Rooms implements RoomsView {
 	}
 
 	#soon(): void {
-		// Several logs change at once when a message lands, so they are read together a moment later.
-		// The wait belongs to the session: an app that owns its lifetime takes the read with it.
+		// Several logs change when a message lands, so they are read together a moment later.
 		if (this.#soonPending) return;
 		this.#soonPending = true;
 		const read = (): void => {
@@ -906,7 +843,6 @@ export class Rooms implements RoomsView {
 	}
 }
 
-/** Who adds a member: you, or an agent, what it said and what let its call through. */
 export interface AddedBy {
 	by: "you" | "agent";
 	why?: string;
@@ -915,7 +851,6 @@ export interface AddedBy {
 
 const YOU: AddedBy = { by: "you" };
 
-/** What an agent asks for with `link`, and what let its call through. */
 export interface LinkRequest {
 	folder: string;
 	session?: string;
@@ -933,7 +868,6 @@ function describeLive(entry: LiveSession): string {
 	return name;
 }
 
-/** A folder as the rooms compare it: absolute, with symlinks resolved. */
 function real(path: string): string {
 	const absolute = resolve(expandHome(path));
 	try {
@@ -943,7 +877,7 @@ function real(path: string): string {
 	}
 }
 
-/** The room itself when its open agents share one folder, else its members with none open. */
+/** The room when its open agents share one folder, else its members with none open. */
 function staleIn(
 	id: string,
 	membership: Membership,
@@ -956,7 +890,7 @@ function staleIn(
 	for (const folder of membership.folders.keys())
 		if (!folders.has(folder)) stale.push({ key: `${id} ${folder}`, member: { folder } });
 	for (const [session, cwd] of membership.sessions) {
-		// A member folder decides for its sessions: removing one would keep it out.
+		// A member folder decides for its sessions.
 		if (membership.folders.has(cwd) || open.some((entry) => entry.session === session)) continue;
 		stale.push({ key: `${id} ${session}`, member: { session, cwd } });
 	}
@@ -969,7 +903,6 @@ function normal(member: Member): Member {
 		: { session: member.session, cwd: real(member.cwd) };
 }
 
-/** The line under a room an agent asked for: who asked, why, and what let it through. */
 function originOf(
 	additions: readonly Addition[],
 	handle: (session: string) => string,

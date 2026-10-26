@@ -15,38 +15,26 @@ export type CommandOptions = Omit<RegisteredCommand, "name" | "sourceInfo">;
 export interface Feature {
 	/** Unique across every package, like `subscription`. It names the feature's settings too. */
 	id: string;
-	/** One line for the settings screen. */
 	description: string;
 	/** The settings tab. Features with the same tab share it. Defaults to the id. */
 	tab?: string;
 	/** Section order on the tab. Sections not listed come after. A function runs when the screen opens. */
 	sections?: readonly string[] | ((ctx: ExtensionContext | undefined) => readonly string[]);
 	settings?: readonly Setting<unknown>[];
-	/** Registers handlers, commands and providers. Starts nothing: that goes in `onSessionStart`. */
 	setup(scope: FeatureScope): void;
 }
 
-/**
- * What a feature gets in `setup`: the extension API, with `on` and `registerCommand` wired to this
- * feature, plus the app's services. It extends `ExtensionAPI` on purpose. Reading a method through
- * another type collapses pi's per-event overloads, and extending an interface keeps them.
- */
+/** Extends `ExtensionAPI`, since reading it through another type collapses pi's per-event overloads. */
 export interface FeatureScope extends ExtensionAPI, SettingsScope {
 	readonly id: string;
 	readonly settings: SettingsStore;
-	/** Runs when a session starts, after the settings are loaded for it. */
 	onSessionStart(hook: SessionHook): void;
 	/** Runs once per session, newest first. */
 	onShutdown(hook: ShutdownHook): void;
-	/**
-	 * Work that belongs to this session: it runs once, after `ms` (zero by default), and never after
-	 * the session ends. The app cancels it before any shutdown hook runs, so a hook that stops a
-	 * service never races a read of it, and a `defer` called from a shutdown hook does nothing.
-	 */
+	/** Runs once after `ms`, never after the session ends; cancelled before any shutdown hook runs. */
 	defer(run: () => void, ms?: number): void;
 	/** Shown as `<app>: <feature>: <message>`. */
 	warn(message: string): void;
-	/** True when this app runs a feature with that id. */
 	has(featureId: string): boolean;
 	readonly screen: ScreenRows;
 }

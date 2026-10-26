@@ -1,12 +1,11 @@
-// The commands a client sends to a session, with the shape each takes. A command is answered on the
-// envelope's `id`, so a resent command is a repeat instead of a second effect.
+// A command is answered on the envelope's `id`, so a resend is a repeat.
 
 import { isObject } from "./by.ts";
 import type { AskResult, PermissionMode } from "./state-changes.ts";
 
 export interface CommandMap {
 	"prompt.send": { text: string; images?: string[]; deliverAs?: "steer" | "followUp" | "nextTurn" };
-	/** Takes the queued messages back: all of them, or the ones named. Absent ids take everything. */
+	/** Absent ids take everything. */
 	"queue.clear": { ids?: string[] };
 	"run.abort": Record<string, never>;
 	"ask.answer": { ask: string; result: AskResult };
@@ -39,10 +38,7 @@ export const COMMAND_TYPES: readonly CommandType[] = [
 	"tree.get",
 ];
 
-/**
- * Whether a command carries the fields it needs. Only the fields whose absence would break the run
- * are checked: a command from a newer client still runs while the old fields are there.
- */
+/** Checks only the fields whose absence would break the run, so newer clients still work. */
 export function isCommand(type: string, data: unknown): boolean {
 	if (!isObject(data)) return false;
 	switch (type) {

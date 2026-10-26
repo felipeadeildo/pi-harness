@@ -1,5 +1,4 @@
-// What happens after a provider login: the credential gets a name, either replacing an account or
-// becoming a new one, and the session moves to it.
+// After a provider login the credential gets a name, replacing an account or becoming a new one.
 import type { FeatureScope } from "@adeildo/pi-kit";
 import type { Credential } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -12,11 +11,7 @@ import type { Pins } from "./pins.ts";
 import type { AccountStore } from "./store.ts";
 import type { Account } from "./types.ts";
 
-/**
- * Pi's login just produced a credential; ask where it belongs and keep it. Pi's own copy is no
- * account, so a login that went nowhere would be lost: closing the dialog keeps it as a new account
- * under the provider's name, which `/accounts` can rename or remove.
- */
+/** Closing the dialog keeps the credential as a new account, since pi's own copy is not one. */
 export async function adoptAccount(
 	scope: FeatureScope,
 	store: AccountStore,
@@ -56,14 +51,13 @@ export async function adoptAccount(
 		return;
 	}
 
-	// A closed dialog asks nothing more, and the login keeps the provider's name.
+	// A closed dialog keeps the provider's name.
 	let label = provider;
 	if (choice !== undefined) label = await askName(ctx, `Name this ${provider} account`, provider);
 	const added = saveAccount(ctx, store, providerId, label, credential);
 	if (added !== undefined) keep(of, ctx, provider, added);
 }
 
-/** Moves the session to the account the login belongs to. */
 function keep(of: AccountsOf, ctx: ExtensionContext, provider: string, account: Account): void {
 	useAccount(of, ctx, account.id);
 	ctx.ui.notify(`${NAME}: ${provider} now uses ${account.label}`, "info");
