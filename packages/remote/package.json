@@ -1,8 +1,7 @@
 {
 	"name": "@adeildo/pi-remote",
 	"version": "5.15.0",
-	"private": true,
-	"description": "Your pi sessions from a phone, a browser or a pi on another machine: a bridge in every pi, a daemon per machine, and the pi-remote command.",
+	"description": "Your pi sessions on every machine of yours, from a phone or a browser at one address on your tailnet: a bridge in every pi, a daemon per machine, and the pi-remote command.",
 	"license": "MIT",
 	"author": {
 		"name": "adeildo",
@@ -25,6 +24,7 @@
 	},
 	"scripts": {
 		"build": "bun build.ts",
+		"prepack": "bun build.ts",
 		"gate": "bun run test/e2e/flow.ts"
 	},
 	"dependencies": {

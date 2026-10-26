@@ -18,9 +18,9 @@ export async function packPackage(
 	pkg: WorkspacePackage,
 	into: string,
 ): Promise<PackedPackage> {
-	const printed = (
-		await $`bun pm pack --destination ${into} --quiet`.cwd(join(root, pkg.dir)).text()
-	).trim();
+	// A package's `prepack` may print its build first; the tarball's path is the last line.
+	const output = await $`bun pm pack --destination ${into} --quiet`.cwd(join(root, pkg.dir)).text();
+	const printed = output.trim().split("\n").at(-1)?.trim() ?? "";
 	return { pkg, tarball: isAbsolute(printed) ? printed : join(into, printed) };
 }
 
@@ -47,11 +47,11 @@ export async function checkTarballs(
 	return problems.flat();
 }
 
-// Three ways a package breaks without anyone noticing. A `workspace:` range left unresolved. A
+// Four ways a package breaks without anyone noticing. A `workspace:` range left unresolved. A
 // dependency on a workspace package at a version other than the one being released, which is what
 // happens when release-please bumps the package.json files and bun.lock still has the old
 // versions, because `bun pm pack` takes the version from the lockfile. And a `pi` manifest
-// pointing at a file the tarball does not carry.
+// pointing at a file the tarball does not carry, or a folder of `files` it does not carry.
 async function checkTarball(
 	packed: PackedPackage,
 	versions: ReadonlyMap<string, string>,
@@ -85,6 +85,14 @@ async function checkTarball(
 		const inside = `package/${path.replace(/^\.\//, "")}`;
 		if (!entries.includes(inside))
 			problems.push(`${path} is declared in the pi manifest but missing`);
+	}
+
+	// A folder the package lists in `files` and does not carry is a build that did not run, as a
+	// `dist` left out by a pack without its `prepack`.
+	for (const listed of (manifest.files ?? []) as string[]) {
+		const inside = `package/${listed.replace(/^\.\//, "").replace(/\/$/, "")}`;
+		if (!entries.some((entry) => entry === inside || entry.startsWith(`${inside}/`)))
+			problems.push(`${listed} is listed in files but missing`);
 	}
 
 	return problems.map((problem) => `${packed.pkg.name}: ${problem}`);

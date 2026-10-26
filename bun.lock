@@ -149,7 +149,7 @@
     },
     "packages/remote-protocol": {
       "name": "@adeildo/pi-remote-protocol",
-      "version": "0.0.0",
+      "version": "5.15.0",
       "devDependencies": {
         "@adeildo/pi-kit": "workspace:*",
       },

@@ -1,6 +1,7 @@
 <h1 align="center">@adeildo/pi-remote</h1>
 
 <p align="center">
+  <a href="https://www.npmjs.com/package/@adeildo/pi-remote"><img src="https://img.shields.io/npm/v/@adeildo/pi-remote" alt="npm"></a>
   <a href="https://pi.dev"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffelipeadeildo%2Fpi-harness%2Fmain%2Fpackage.json&query=%24.devDependencies%5B%22%40earendil-works%2Fpi-coding-agent%22%5D&label=pi%20SDK&color=6E56CF" alt="pi SDK"></a>
 </p>
 
@@ -9,7 +10,7 @@
   Every session on every machine of yours, live, from one address.
 </p>
 
-<p align="center">Pi has it as soon as this package is installed, and <code>/remote</code> opens it</p>
+<p align="center"><code>pi install npm:@adeildo/pi-remote</code>, or <code>@adeildo/pi-harness</code>, which brings it; <code>/remote</code> opens it</p>
 
 Three programs work together. A **bridge** runs inside every pi and publishes that session. A **daemon** runs once per machine and holds the stream, the replay and the login. A **`pi-remote`** command is there for a shell, to print and open a link.
 
