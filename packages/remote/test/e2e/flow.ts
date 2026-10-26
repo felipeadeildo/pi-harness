@@ -260,15 +260,11 @@ async function carriesTheOpeningsState(page: Page): Promise<Result> {
  * a settle that never comes.
  */
 /**
- * A prompt typed in the browser, and the three things that have to happen for it to count: the field
- * takes the text, the screen sends it, and the session's branch grows. Each has its own sentence,
- * because "the branch did not grow" covered three different failures for an afternoon.
- */
-/**
  * The model chip opens a sheet of the models the session's registry lists, and the search narrows it.
  * The list comes from the opening, with no event after it, so a chip that opens has read the state
- * the bridge sent. The rig's registry is pi's own, so the test names no model but searches for a letter
- * pair every provider in it shares.
+ * the bridge sent. The rig's registry is pi's own and its size depends on the machine's credentials,
+ * so the step needs one model at least: it proves the sheet reads the state, a search nothing matches
+ * empties it, and clearing the search brings every row back.
  */
 async function searchesModels(page: Page): Promise<Result> {
 	try {
@@ -281,7 +277,7 @@ async function searchesModels(page: Page): Promise<Result> {
 		await sheet.getByRole("textbox", { name: "Search models" }).fill("");
 		const back = await sheet.getByRole("radio").count();
 		await sheet.getByRole("button", { name: "Close", exact: true }).click({ timeout: 10_000 });
-		return all > 1 && none === 0 && back === all
+		return all >= 1 && none === 0 && back === all
 			? { ok: true }
 			: {
 					ok: false,
@@ -292,6 +288,11 @@ async function searchesModels(page: Page): Promise<Result> {
 	}
 }
 
+/**
+ * A prompt typed in the browser, and the three things that have to happen for it to count: the field
+ * takes the text, the screen sends it, and the session's branch grows. Each has its own sentence,
+ * because "the branch did not grow" covered three different failures for an afternoon.
+ */
 async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
 	try {
 		// Counted before the click, not after: the scripted model answers at once, so a run that starts
