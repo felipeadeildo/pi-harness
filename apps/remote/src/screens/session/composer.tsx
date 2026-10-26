@@ -44,6 +44,7 @@ import {
 	sendNow,
 	takeDraft,
 } from "./composer-data.ts";
+import { type ComposerView } from "./live.ts";
 import { type QueuedLine, queuedLines, withdraw } from "./pending.ts";
 import { chosen, suggested, type Suggestion } from "./suggestions.ts";
 
@@ -52,24 +53,10 @@ type Send = <K extends CommandType>(type: K, data: CommandMap[K]) => void;
 export interface ComposerProps {
 	/** The connection this session is drawn from, which is also where commands go. */
 	client: Client;
-	/** The permission mode, model and thinking the session is on now, as its state says. */
-	mode?: PermissionMode;
-	model?: { provider: string; id: string };
-	thinking?: string;
+	/** What the session is now, built from its state in one place. */
+	view: ComposerView;
 	/** Called when a control needs a value from the person, as rename does. */
 	ask?: (question: string) => string | undefined;
-	/** What the session is holding for the agent to finish, which every client sees the same way. */
-	waiting?: readonly QueuedMessage[];
-	/** What a phone may run by typing `/`, as the session last said. Nothing here, nothing offered. */
-	commands?: SessionCommand[];
-	/** Whether the session takes `mode.set`. */
-	serves?: boolean;
-	/** Whether a run is going, which is when Abort and Steer mean something. */
-	running?: boolean;
-	/** The models the session could switch to. Absent until the bridge says: the chip then stays a label. */
-	models?: readonly ModelOption[];
-	/** How many models the registry listed, when the state holds fewer. */
-	modelsTotal?: number;
 	/** What the field starts with: a draft restored from the cache. */
 	initialDraft?: string;
 }
@@ -90,20 +77,8 @@ function fieldStyle(theme: Theme): TextStyle {
 /** How tall the lists above the field may grow before they scroll, in points. */
 const LISTS_MAX = HIT * 3;
 
-export function Composer({
-	client,
-	mode,
-	model,
-	thinking,
-	ask,
-	waiting,
-	commands,
-	serves,
-	running = false,
-	models,
-	modelsTotal,
-	initialDraft,
-}: ComposerProps): ReactNode {
+export function Composer({ client, view, ask, initialDraft }: ComposerProps): ReactNode {
+	const { waiting, commands, running } = view;
 	const theme = useTheme();
 	// The queue changes without the session changing, so the composer hears the client itself.
 	const [, redraw] = useState(0);
@@ -172,15 +147,7 @@ export function Composer({
 						<Held lines={lines} client={client} />
 					</ScrollView>
 				)}
-				<Pickers
-					send={send}
-					mode={mode}
-					serves={serves}
-					model={model}
-					models={models}
-					modelsTotal={modelsTotal}
-					thinking={thinking}
-				/>
+				<Pickers send={send} view={view} />
 				<View style={{ flexDirection: "row", gap: theme.space(3), alignItems: "center" }}>
 					<View style={{ flex: 1 }}>
 						<Suggestions offering={offering} write={write} />
@@ -311,23 +278,8 @@ function Row({
 	);
 }
 
-function Pickers({
-	send,
-	mode,
-	serves,
-	model,
-	models,
-	modelsTotal,
-	thinking,
-}: {
-	send: Send;
-	mode: PermissionMode | undefined;
-	serves: boolean | undefined;
-	model: { provider: string; id: string } | undefined;
-	models: readonly ModelOption[] | undefined;
-	modelsTotal: number | undefined;
-	thinking: string | undefined;
-}): ReactNode {
+function Pickers({ send, view }: { send: Send; view: ComposerView }): ReactNode {
+	const { mode, serves, model, models, modelsTotal, thinking } = view;
 	const theme = useTheme();
 	const [open, setOpen] = useState<"mode" | "thinking" | "model" | undefined>(undefined);
 	const modes = modeChoices(mode, serves);

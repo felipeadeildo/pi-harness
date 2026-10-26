@@ -23,13 +23,12 @@ export default function SessionRoute() {
 				<Text style={{ color: theme.color.text }}>{why}</Text>
 			</View>
 		);
+	if (session === undefined || client === undefined) return null;
 	// One question at a time, and it sits above the composer: it is the thing the agent is waiting on.
 	// The oldest comes first: whoever asked first has been waiting longest, and a question nobody can
 	// answer is worse than one answered in an order the person did not choose.
-	const waiting = session === undefined ? [] : openQuestions(harnessOf(session));
-	const composer = session === undefined ? undefined : composerOf(session);
-	const asked = waiting[0];
-	return session === undefined || client === undefined ? null : (
+	const asked = openQuestions(harnessOf(session))[0];
+	return (
 		<View style={{ flex: 1 }}>
 			{/* The way back, because a phone opened this page from a list and has no browser chrome. */}
 			<Link
@@ -49,12 +48,10 @@ export default function SessionRoute() {
 			<ScrollView style={{ flex: 1 }}>
 				<SessionScreen session={session} />
 			</ScrollView>
-			{/* Everything from the live state, in one spread: naming a field here is how the snapshot's
-			    photograph got back into a picker. */}
 			{/* A question takes the composer's place: two fields on a phone is one too many, and the
 			    composer stays mounted behind it, so the draft is there when the question closes. */}
 			<View style={{ display: asked === undefined ? "flex" : "none" }}>
-				<Composer client={client} {...composer} />
+				<Composer client={client} view={composerOf(session)} />
 			</View>
 			{asked === undefined ? null : <QuestionDialog ask={asked} client={client} />}
 		</View>
