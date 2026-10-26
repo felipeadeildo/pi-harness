@@ -44,7 +44,7 @@ The other tracks of the cycle:
 - [x] The permission is asked above the editor, which stays usable (#214)
 - [x] The questions are asked above the editor the same way (#254, #298)
 - [x] Skills, templates and `/compact` from the phone, and nothing else offered (#231, #245, #261)
-- [ ] The board each agent keeps. nearly: the model, the contract and the tool (#201, #256), the Alt+T panel (#338) and the other sessions' cards in the room (#346) are on `main`; the small model's removal is still coming
+- [ ] The board each agent keeps. nearly: the model, the contract and the tool (#201, #256), the Alt+T panel (#338), the other sessions' cards in the room (#346) and the board on the phone (#365, #366) are on `main`; the small model's removal is still coming (#358)
 - [x] The permission judge reads only the operator's words (#213)
 - [x] The port clients reach the daemon on is a setting (#197, #225)
 - [x] `main` takes no merge with `verify`, `app` or `gate` red
@@ -64,7 +64,7 @@ The app runs on iOS and Android as well as the web:
 
 Before 6.0.0:
 
-- [ ] No test in the suite fails one run in ten. nearly: the gate's steps 4 and 6 wait for the right thing and say which side failed (#327, #330, #345), and the unit tests hold (#241); step 7 still drops a command whose send was lost, and its fix is coming
+- [x] No test in the suite fails one run in ten: the gate's steps 4, 6 and 7 wait for the right thing and say which side failed, and the scripted model asks once per prompt (#327, #330, #345, #350)
 - [x] Each `as unknown as` cast outside test fakes, and each patched pi prototype, has a test, a guard, or the reason it stays: the casts that covered a check are guards now, and the ones left each say why they stay (#243, #249, #250, #260; issue #251 asks pi for the hooks)
 - [x] [The remote design](remote.md) speaks the new names (#265, #269, #297)
 - [ ] The release notes, and 6.0.0
