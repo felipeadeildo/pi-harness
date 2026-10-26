@@ -407,8 +407,10 @@ export class Here implements Sender {
 		}
 	}
 
-	/** How this session stands in this room, which decides what it takes and whether it bids. */
-	/** How this session stands in this room: taking part, listening, or out. */
+	/**
+	 * How this session stands in this room: taking part, listening, or out. It decides what reaches it and
+	 * whether the agent bids, and both readers of that gate are outside this method.
+	 */
 	mode(): RoomMode {
 		if (this.session === undefined) return "in";
 		return this.#folder.membership.modeOf(this.session, this.#cwd);
