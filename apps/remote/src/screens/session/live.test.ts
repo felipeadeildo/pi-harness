@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import { sessionOf } from "@adeildo/pi-remote-client";
-import { applyChange } from "@adeildo/pi-remote-protocol";
+import { readEnvelope, sessionOf, type SnapshotData } from "@adeildo/pi-remote-client";
+import { applyChange, emptySessionState, type Envelope } from "@adeildo/pi-remote-protocol";
 
+import { modeChoices } from "./composer-data.ts";
 import { composerOf, liveOf, runningOf } from "./live.ts";
 
 describe("what the pickers start on", () => {
@@ -62,5 +63,46 @@ describe("when a run is going", () => {
 		for (const status of ["working", "blocked"] as const) expect(runningOf(status)).toBe(true);
 		for (const status of ["idle", "done", "error", undefined] as const)
 			expect(runningOf(status)).toBe(false);
+	});
+});
+
+describe("what an opening says about the mode dial", () => {
+	const key = { machine: "box", session: "abcdef12" };
+
+	/** An opening as the bridge sends it, with the capability it computed. */
+	function opened(serves: boolean) {
+		const state = emptySessionState();
+		const opening: SnapshotData = {
+			summary: {
+				session: key.session,
+				machine: key.machine,
+				cwd: "/work",
+				kind: "terminal",
+				state: { ...state, permissions: { ...state.permissions, serves } },
+			},
+			entries: [],
+		};
+		const envelope: Envelope = {
+			v: 1,
+			kind: "event",
+			machine: key.machine,
+			session: key.session,
+			epoch: "e1",
+			seq: 1,
+			type: "state",
+			data: opening,
+			at: 0,
+		};
+		const read = readEnvelope(sessionOf(key), envelope);
+		if (read.read !== "now") throw new Error(`the opening was not read: ${read.read}`);
+		const { mode, serves: said } = composerOf(read.session);
+		return modeChoices(mode, said);
+	}
+
+	test("a session that says it takes no mode offers no dial, and one that takes it offers every mode", () => {
+		// `undefined` draws the dial too, so only `false` separates a client that read the opening from one
+		// that did not: with the state ignored the capability stays `undefined` and this offers the dial.
+		expect(opened(false)).toEqual([]);
+		expect(opened(true).length).toBeGreaterThan(0);
 	});
 });

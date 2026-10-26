@@ -101,9 +101,15 @@ describe("the leaf the bridge names", () => {
 			envelope(
 				"state",
 				{
-					summary: { session: "s", machine: "here", cwd: "/work", kind: "terminal", leaf: "a" },
+					summary: {
+						session: "s",
+						machine: "here",
+						cwd: "/work",
+						kind: "terminal",
+						leaf: "a",
+						state: emptySessionState(),
+					},
 					entries: [entry("a", null, "first"), entry("b", "a", "second")],
-					state: emptySessionState(),
 				},
 				2,
 			),

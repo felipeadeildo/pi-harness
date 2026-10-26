@@ -28,7 +28,6 @@ export const STATE = "state";
 export interface SnapshotData {
 	summary: SessionSummary;
 	entries: Entry[];
-	state?: SessionState;
 }
 
 export interface ClientSession {
@@ -125,7 +124,7 @@ export function readEnvelope(session: ClientSession, value: unknown): Read {
 								...(data.summary?.active === undefined ? {} : { active: data.summary.active }),
 							},
 				entries: data.entries,
-				state: data.state ?? session.state,
+				state: data.summary.state ?? session.state,
 				leaf,
 				cursor: { ...advance(session.cursor, value), entry: leaf ?? undefined },
 			},
