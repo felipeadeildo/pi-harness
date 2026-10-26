@@ -2,11 +2,10 @@
 import { isObject } from "../decode.ts";
 
 export interface By {
-	/** The operator at a pi's terminal, the operator at a client such as a phone, or an agent. */
 	kind: "terminal" | "client" | "agent";
-	/** The session's handle for a terminal or an agent, and the device's name for a client. */
+	/** The handle for a terminal or an agent; the device's name for a client. */
 	name: string;
-	/** Where it happened: the hostname, until machines have ids. */
+	/** The hostname. */
 	machine: string;
 }
 

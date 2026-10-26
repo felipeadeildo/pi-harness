@@ -15,10 +15,8 @@ import { serveScreen } from "./host.ts";
 import { type AppState, createScope, type Hook } from "./scope.ts";
 
 export interface App extends SettingsScope {
-	/** Shown in front of every warning, like `pi-harness` or `pi-providers`. */
 	readonly name: string;
 	readonly settings: SettingsStore;
-	/** True when this app runs a feature with that id. */
 	has(featureId: string): boolean;
 }
 

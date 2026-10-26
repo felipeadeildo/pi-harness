@@ -7,7 +7,6 @@ import { BOARD_COLUMNS, blockedText, type BoardCard, type BoardView } from "./mo
 
 const WIDTH = Math.max(...BOARD_COLUMNS.filter((one) => one.open).map((one) => one.column.length));
 
-/** What the panel shows of the board: the open cards, the backlog's count and the last done. */
 export function boardLines(
 	view: BoardView | undefined,
 	theme: Theme,
@@ -23,7 +22,6 @@ export function boardLines(
 	return [truncateToWidth(head, width, CUT), ...lines];
 }
 
-/** One card: the column, what it is, and the one fact that goes with its column. */
 function cardLine(
 	card: BoardCard,
 	theme: Theme,

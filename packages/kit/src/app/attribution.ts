@@ -19,7 +19,6 @@ export function attributed<A extends unknown[], R>(
 			throw relabel(label, error);
 		}
 		if (!(result instanceof Promise)) return result;
-		// Still the same kind of promise, only rejected with the relabeled error.
 		return result.catch((error: unknown) => {
 			throw relabel(label, error);
 		}) as R;

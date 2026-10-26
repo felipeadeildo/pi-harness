@@ -3,29 +3,25 @@
 import type { Letter } from "./letter.ts";
 
 export class Inbox {
-	/** Injected, so a test can hold it. */
 	readonly #now: () => number;
 	constructor(now: () => number = Date.now) {
 		this.#now = now;
 	}
 
-	/** `queue` is the order it goes in, which is not the order it arrived in. */
+	/** In delivery order, not arrival order. */
 	readonly #held: Letter[] = [];
 	readonly #sent: Letter[] = [];
 	/** This instance's memory only; the command runner rereads ids from the log after a restart. */
 	readonly #done = new Set<string>();
 
-	/** Letters waiting for the agent to settle, in the order they go in. */
 	queue(): Letter[] {
 		return this.#held.toSorted((left, right) => rank(left) - rank(right));
 	}
 
-	/** Steers handed to pi whose effect has not come back yet. */
 	sent(): readonly Letter[] {
 		return [...this.#sent];
 	}
 
-	/** What makes a resend a repeat instead of a second one. */
 	seen(id: string): boolean {
 		return this.#done.has(id);
 	}
@@ -65,8 +61,7 @@ export class Inbox {
 
 	/** A letter already held keeps its place and gains the reason. */
 	holdFor(letter: Letter, why: Letter["why"]): void {
-		// A letter already carried is never put back: a late reason must not resurrect a message that
-		// a run is already answering.
+		// A late reason must not resurrect a message a run is already answering.
 		if (this.#done.has(letter.id)) return;
 		const at = this.#held.findIndex((one) => one.id === letter.id);
 		const held = why === undefined ? letter : { ...letter, why };
@@ -78,7 +73,7 @@ export class Inbox {
 	cleared(letters: readonly Letter[], running: boolean): { resend: Letter[]; held: Letter[] } {
 		const gone = letters.filter((one) => one.want === "steer");
 		this.#sent.length = 0;
-		// What comes back is not a repeat any more: whoever sends it again may put it again too.
+		// What comes back may be sent again.
 		for (const letter of gone) this.#done.delete(letter.id);
 		if (running) return { resend: gone, held: [] };
 		const held = gone.map((one) => ({ ...one, why: "stopped" as const }));
@@ -95,12 +90,11 @@ export class Inbox {
 		}
 	}
 
-	/** The run ended, so nothing it carried is a repeat any more: the next prompt may say it again. */
+	/** Nothing the run carried is a repeat any more. */
 	ended(): void {
 		this.#done.clear();
 	}
 
-	/** A new run starts, so nothing from the one before is a repeat any more. */
 	reset(): void {
 		this.#held.length = 0;
 		this.#sent.length = 0;
@@ -108,7 +102,6 @@ export class Inbox {
 	}
 }
 
-/** Zero for what the operator wrote, one for what an agent wrote. */
 function rank(letter: Letter): number {
 	return letter.by.kind === "agent" ? 1 : 0;
 }

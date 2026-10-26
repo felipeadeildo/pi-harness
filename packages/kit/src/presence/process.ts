@@ -2,7 +2,6 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
-/** How long one listing of every process is reused on macOS, where listing spawns `ps`. */
 const MAC_LISTING_MS = 2_000;
 let macListing: { starts: Map<number, string>; at: number } | undefined;
 
@@ -16,7 +15,7 @@ export function processStart(pid: number): string | undefined {
 
 let own: { start: string | undefined } | undefined;
 
-/** This process's start, read once: it never changes while the process runs. */
+/** Read once: it never changes while the process runs. */
 export function ownStart(): string | undefined {
 	own ??= { start: processStart(process.pid) };
 	return own.start;
@@ -51,7 +50,7 @@ function macStart(pid: number): string | undefined {
 }
 
 function listProcesses(): string {
-	// `ps` prints the date in the caller's locale, and every session must read the same text.
+	// `ps` prints the date in the caller's locale; every session must read the same text.
 	const result = spawnSync("ps", ["-A", "-o", "pid=,lstart="], {
 		encoding: "utf8",
 		env: { ...process.env, LC_ALL: "C" },
@@ -59,7 +58,6 @@ function listProcesses(): string {
 	return result.status === 0 ? result.stdout : "";
 }
 
-/** Each line of `ps -o pid=,lstart=`: the pid, then the start as `ps` prints it. */
 export function startsFromPs(listing: string): Map<number, string> {
 	const starts = new Map<number, string>();
 	for (const line of listing.split("\n")) {
@@ -75,12 +73,12 @@ export function processLives(
 	start: string | undefined,
 	startOf: (pid: number) => string | undefined = processStart,
 ): boolean {
-	// 0 and -1 would signal a whole group of processes, which always answers.
+	// 0 and -1 would signal a whole process group, which always answers.
 	if (!isPid(pid)) return false;
 	if (start !== undefined) {
 		const now = startOf(pid);
 		if (now !== undefined) return now === start;
-		// Nothing to compare: the pid is gone, unless this system cannot tell any start at all.
+		// The pid is gone, unless this system cannot tell any start at all.
 		if (startOf(process.pid) !== undefined) return false;
 	}
 	try {

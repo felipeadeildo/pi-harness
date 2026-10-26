@@ -76,9 +76,8 @@ export function emptyBoard(): Board {
 
 export const BOARD_COLUMNS: readonly {
 	column: BoardColumn;
-	/** What a reader draws for it. */
 	label: string;
-	/** Whether a card in it is open, which is what the open cap and the panel count. */
+	/** Open cards count toward the cap and the panel. */
 	open: boolean;
 }[] = [
 	{ column: "doing", label: "Doing", open: true },
@@ -93,7 +92,6 @@ const OPEN_COLUMNS: ReadonlySet<BoardColumn> = new Set(
 	BOARD_COLUMNS.filter((one) => one.open).map((one) => one.column),
 );
 
-/** The word a reader draws for a column. */
 export function labelOf(column: BoardColumn): string {
 	return BOARD_COLUMNS.find((one) => one.column === column)?.label ?? column;
 }
@@ -161,7 +159,7 @@ function move(
 		return { ok: false, why: "a card is dropped with a reason, through drop" };
 	const at = op.at;
 	const next: BoardCard = { ...card, column: op.column, at };
-	// A field belongs to a column; leaving it clears it, so the fold is the same whoever wrote.
+	// A field belongs to its column; leaving the column clears it, whoever wrote.
 	if (op.column === "doing") next.now = card.now;
 	else delete next.now;
 	if (op.column === "review") next.reviewer = op.reviewer;
@@ -241,7 +239,7 @@ function badTitle(title: string): string | undefined {
 	return undefined;
 }
 
-/** What a session hands to others: the open cards, the backlog as a count, the last three done. */
+/** What other sessions see: the open cards, the backlog as a count, the last three done. */
 export interface BoardView {
 	open: BoardCard[];
 	backlog: number;
@@ -282,7 +280,6 @@ export function blockedText(blocker: BoardBlocker, reader: "operator" | "agent")
 	return `${handle}: ${blocker.why}`;
 }
 
-/** The board is the fold of the session's operations, in the order the log keeps them. */
 export function foldBoard(ops: readonly BoardOp[], writer: BoardWriter = "agent"): Board {
 	let board = emptyBoard();
 	for (const op of ops) {
@@ -294,7 +291,7 @@ export function foldBoard(ops: readonly BoardOp[], writer: BoardWriter = "agent"
 
 const COLUMNS: ReadonlySet<string> = new Set(BOARD_COLUMNS.map((one) => one.column));
 
-/** Whether a value is a board this version wrote. A shape it cannot read is skipped, never guessed. */
+/** A shape this version cannot read is skipped, never guessed. */
 export function isBoard(value: unknown): value is Board {
 	if (!isObject(value)) return false;
 	const { cards, decisions, next } = value;

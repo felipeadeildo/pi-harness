@@ -15,7 +15,6 @@ interface Registered {
 // for the next session replaces what it registered for the last one.
 const byFeature = new Map<string, Registered>();
 
-/** Forgets what `feature` registered, before it mounts again. */
 export function forgetRenderers(feature: string): void {
 	byFeature.delete(feature);
 }
@@ -32,7 +31,7 @@ export function keepMessageRenderer(
 	registered(feature).messages.set(customType, renderer);
 }
 
-/** The renderers for `toolName` after every feature's resolver, over `base`, as pi resolves them. */
+/** As pi resolves them: every feature's resolver over `base`. */
 export function resolveToolRenderers(
 	toolName: string,
 	base: () => ToolRenderers | undefined,
@@ -45,7 +44,6 @@ export function resolveToolRenderers(
 	return resolve(0);
 }
 
-/** The renderer a feature registered for a custom message type, the first one as in pi. */
 export function messageRendererFor(customType: string): MessageRenderer | undefined {
 	for (const one of byFeature.values()) {
 		const renderer = one.messages.get(customType);

@@ -1,10 +1,7 @@
-// Where the thumb of a scroll bar sits, in one place: the settings screen and the questions dialog
-// both draw one, and each had worked out the arithmetic on its own.
-
 export interface ThumbRange {
-	/** Row the thumb starts at, counted from the top. */
+	/** From the top. */
 	start: number;
-	/** Rows the thumb covers, at least one. */
+	/** At least one. */
 	size: number;
 }
 

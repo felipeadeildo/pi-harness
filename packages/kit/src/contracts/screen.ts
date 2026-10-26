@@ -1,7 +1,6 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
-// In the harness every piece is an extension of its own, so the screen asks them over pi.events.
-// The bus is synchronous: an app answers by writing on the payload, like the claim.
+// Every harness piece is its own extension, so the screen asks them over pi.events.
 import type { Control, Json } from "../control.ts";
 import type { Layer } from "../settings/store.ts";
 
@@ -24,20 +23,18 @@ export interface RowView {
 	value?: Json;
 	text?: string;
 	confirm?: string;
-	/** How deep the row sits under its section. Each step indents two columns. */
 	indent?: number;
-	/** Where a value row applies, when that is not this session. */
+	/** When that is not this session. */
 	meta?: string;
 	layer?: Layer;
 	fallback?: Json;
 	/** The global value a project value hides. */
 	hidden?: Json;
 	restart?: boolean;
-	/** Lines that show what a value of the setting looks like, drawn under the list. */
+	/** Drawn under the list. */
 	preview?: Preview;
 }
 
-/** Draws what a value of a setting looks like, in the screen's theme and width. */
 export type Preview = (value: Json, theme: Theme, width: number) => string[];
 
 export interface TabView {

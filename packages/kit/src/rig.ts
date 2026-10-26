@@ -24,17 +24,14 @@ import { darkTheme } from "./dark-theme.ts";
 import { eventsDir, logPath } from "./events/log.ts";
 
 export interface RigOptions {
-	/** The extensions the run loads, the way the harness loads its own. */
 	extensions?: readonly ExtensionFactory[];
-	/** What the model answers, in order. */
 	replies?: readonly FauxResponseStep[];
 	/** A run asks more than once (tool results, compaction), so answer from the request. */
 	answer?: FauxResponseFactory;
 	/** Without it the answer arrives in one microtask. */
 	tokensPerSecond?: number;
-	/** Where the session file, the log and the working folder go. A temporary folder otherwise. */
+	/** A temporary folder otherwise. */
 	root?: string;
-	/** Where the session works. A folder under the root otherwise. */
 	cwd?: string;
 	/** Never the settings of the machine running the test. */
 	settings?: Record<string, unknown>;
@@ -42,7 +39,6 @@ export interface RigOptions {
 	says?: RigSays;
 }
 
-/** What the terminal answers, one queue per kind of dialog. */
 export interface RigSays {
 	select?: (string | undefined)[];
 	confirm?: boolean[];
@@ -50,19 +46,16 @@ export interface RigSays {
 	editor?: (string | undefined)[];
 }
 
-/** The model a rig answers as, so a feature's setting can name it. */
+/** So a feature's setting can name it. */
 export const SCRIPTED = "rig/scripted";
 
-/** The root of the rig in use, since the environment it sets is shared by the process. */
 let open: string | undefined;
 
-/** Puts an environment variable back the way the test found it. */
 function restore(name: string, before: string | undefined): void {
 	if (before === undefined) delete process.env[name];
 	else process.env[name] = before;
 }
 
-/** The harness's lines for a session, in the order it wrote them. */
 function loggedIn(
 	events: string,
 	cwd: string,
@@ -73,7 +66,7 @@ function loggedIn(
 	try {
 		text = readFileSync(file, "utf8");
 	} catch {
-		// No feature has written yet. That is a run with nothing to say, not a broken log.
+		// No feature has written yet: nothing to say, not a broken log.
 		return [];
 	}
 	return text
@@ -92,26 +85,21 @@ function loggedIn(
 export interface Rig {
 	session: AgentSession;
 	faux: FauxProviderHandle;
-	/** The folder holding everything this run wrote. */
 	root: string;
-	/** Where the session works. */
 	cwd: string;
-	/** The harness log's folder, which `PI_HARNESS_EVENTS` points at while the rig is open. */
+	/** `PI_HARNESS_EVENTS` points here while the rig is open. */
 	events: string;
-	/** The folder pi's session files go in. */
 	sessions: string;
-	/** What the features told the terminal, in the order they said it: `ctx.ui.notify`, as it reads. */
+	/** `ctx.ui.notify`, in order. */
 	notified: { message: string; level: string }[];
 	/** What extensions threw where pi could not show it, as pi formatted it. */
 	errors: { event: string; error: string; stack?: string }[];
-	/** Sends a prompt and waits for the run it starts to settle. */
 	prompt(text: string): Promise<void>;
 	/** A feature that calls its own model writes after the run settles. */
 	until(
 		match: (line: { type: string; data: Record<string, unknown> }) => boolean,
 		ms?: number,
 	): Promise<{ type: string; data: Record<string, unknown> }[]>;
-	/** Ends the rig and puts the environment back. */
 	dispose(): void;
 }
 
@@ -172,8 +160,7 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 	const agentDir = join(root, "agent");
 	for (const folder of [cwd, sessions, events, agentDir]) mkdirSync(folder, { recursive: true });
 
-	// The features read the log's folder and their settings from here, so both have to be in place
-	// before any of them runs.
+	// Features read the log folder and settings from here, so both must be set before any runs.
 	const beforeEvents = process.env.PI_HARNESS_EVENTS;
 	const beforeAgent = process.env.PI_CODING_AGENT_DIR;
 	process.env.PI_HARNESS_EVENTS = events;
@@ -196,7 +183,7 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 	if (answer === undefined) {
 		faux.setResponses([...(options.replies ?? [])]);
 	} else {
-		// The provider takes its replies off a list, so the script puts itself back before answering.
+		// The provider takes replies off a list, so the script puts itself back before answering.
 		const step: FauxResponseFactory = (context, settings, state, model) => {
 			faux.appendResponses([step]);
 			return answer(context, settings, state, model);
@@ -204,13 +191,12 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 		faux.setResponses([step]);
 	}
 
-	// No models.json and no network: the only provider is the scripted one.
+	// No models.json and no network: the scripted provider is the only one.
 	const modelRuntime = await ModelRuntime.create({ modelsPath: null, allowModelNetwork: false });
 	modelRuntime.registerNativeProvider(faux.provider);
 
 	const settingsManager = SettingsManager.inMemory({
-		// Auto-compaction stays off: a scripted run compacts when the script asks. The window kept is
-		// one token, so a run of a few messages still has something to compact.
+		// Off: a scripted run compacts when the script asks. Keeping one token lets a short run compact.
 		compaction: { enabled: false, keepRecentTokens: 1 },
 		retry: { enabled: false },
 	});
@@ -220,8 +206,7 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 		agentDir,
 		settingsManager,
 		extensionFactories: [...(options.extensions ?? [])],
-		// The run holds only what the test gave it: no packages, skills, prompts, themes or context
-		// files from the machine it happens to run on.
+		// Nothing from the machine: no packages, skills, prompts, themes or context files.
 		noExtensions: true,
 		noSkills: true,
 		noPromptTemplates: true,
@@ -230,10 +215,8 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 	});
 	await resourceLoader.reload();
 
-	// What the features said to the terminal, kept for a test that reads it instead of the screen.
 	const notified: { message: string; level: string }[] = [];
-	// What an extension threw where pi swallows it, kept for the same reason: an error a test cannot
-	// see is an error that looks like nothing happening.
+	// What pi swallows: an error a test cannot see looks like nothing happening.
 	const errors: { event: string; error: string; stack?: string }[] = [];
 	let session: AgentSession;
 	try {
@@ -248,8 +231,7 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 			sessionManager: SessionManager.create(cwd, sessions),
 		}));
 
-		// `session_start` reaches the extensions through the bindings, not through creation, so a rig
-		// that skips this one runs with every feature asleep. No terminal: this is a run, not a screen.
+		// `session_start` reaches the extensions through the bindings; skipping this leaves every feature asleep.
 		await session.bindExtensions({
 			mode: "rpc",
 			uiContext: scriptedUI(options.says ?? {}, notified),
@@ -257,12 +239,10 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 				errors.push({
 					event: error.event,
 					error: String(error.error),
-					// The line, not just the message: an error a test reads is worth more with where.
 					...(error.stack === undefined ? {} : { stack: error.stack }),
 				}),
 		});
 	} catch (error) {
-		// A session that never opened leaves nothing behind for the next rig in this file to trip on.
 		open = undefined;
 		restore("PI_HARNESS_EVENTS", beforeEvents);
 		restore("PI_CODING_AGENT_DIR", beforeAgent);

@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 
 import { Theme } from "@earendil-works/pi-coding-agent";
 
-/** The tokens a theme paints as a background rather than as a foreground. */
 const BACKGROUND_TOKENS = new Set([
 	"selectedBg",
 	"searchMatchBg",

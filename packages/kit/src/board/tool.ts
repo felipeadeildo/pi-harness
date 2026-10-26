@@ -1,10 +1,9 @@
-// The board tool: one call, one operation. The card is a deliverable another can ask about and a
-// third can check; steps of a day's work are not cards, and neither is another agent's work.
+// One call, one operation. A card is a deliverable others can ask about and check; steps of the work are not cards.
 import { Type } from "@earendil-works/pi-ai";
 
 import { applyBoard, blockedText, findBoard, type Board, type BoardOp } from "./model.ts";
 
-/** A string that is one of these words: an `enum`, which every provider reads, and no `anyOf`. */
+/** An `enum`, which every provider reads, never `anyOf`. */
 function oneOf<const T extends string>(values: readonly T[], description?: string) {
 	return Type.Unsafe<T>({
 		type: "string",
@@ -74,7 +73,6 @@ export function boardText(board: Board): string {
 export type BoardCallParams = BoardOp | { op: "find"; text: string };
 export type BoardToolResult = { ok: true; text: string } | { ok: false; why: string };
 
-/** What each operation needs, so a call that leaves one out is answered with which, not applied. */
 const NEEDS: Record<BoardCallParams["op"], readonly string[]> = {
 	add: ["title"],
 	move: ["id", "column"],
@@ -84,7 +82,6 @@ const NEEDS: Record<BoardCallParams["op"], readonly string[]> = {
 	find: ["text"],
 };
 
-/** The reason a call cannot run: an operation this board does not have, or a field it needs and lacks. */
 export function missingFor(params: Record<string, unknown>): string | undefined {
 	const needs = NEEDS[params.op as BoardCallParams["op"]];
 	if (needs === undefined) return `There is no operation ${JSON.stringify(params.op)}.`;

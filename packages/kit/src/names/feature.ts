@@ -14,7 +14,6 @@ import { claimWord, drawWord } from "./claim.ts";
 import { WORDS } from "./words.ts";
 
 export interface NamesOptions {
-	/** The folder of claims. Defaults to `<agent dir>/harness/names`. */
 	dir?: string;
 }
 
@@ -28,8 +27,7 @@ export function names(options: NamesOptions = {}): Feature {
 			scope.onSessionStart((ctx) => {
 				const session = ctx.sessionManager.getSessionId();
 				const dir = options.dir ?? join(getAgentDir(), "harness", "names");
-				// An older session keeps the handle the tasks wrote in its file, and claims it in the names
-				// folder like any other word.
+				// An older session claims the handle its tasks wrote, like any other word.
 				const previous = tasksHandleOf(ctx.sessionManager.getBranch());
 				if (previous !== undefined) {
 					held = { handle: previous };

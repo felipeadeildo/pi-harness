@@ -80,7 +80,6 @@ export const duration: Decoder<number> = {
 	},
 };
 
-/** A whole number from `min` to `max`, inclusive. */
 export function integer(min: number, max: number): Decoder<number> {
 	return {
 		control: { type: "number", min, max, step: 1 },
@@ -93,7 +92,7 @@ export function integer(min: number, max: number): Decoder<number> {
 	};
 }
 
-/** A string that matches `pattern`, described to the user as `expected`. */
+/** `expected` is how the value is described to the user. */
 export function matching(pattern: RegExp, expected: string): Decoder<string> {
 	return {
 		control: { type: "text" },
@@ -179,7 +178,6 @@ export function stringListOrEmpty(
 	};
 }
 
-/** A value checked by a type guard, for shapes that already have one. */
 export function guarded<T>(test: (input: unknown) => input is T, expected: string): Decoder<T> {
 	return {
 		decode(input, path) {

@@ -23,7 +23,6 @@ export function emptyTotals(): Totals {
 	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
 }
 
-/** What the model read: the whole prompt, cached or not. */
 export function promptOf(totals: Totals): number {
 	return totals.input + totals.cacheRead + totals.cacheWrite;
 }
@@ -38,7 +37,7 @@ export function usageTotals(usage: UsageLike): Totals {
 	return totals;
 }
 
-/** The branch's total: every message pi recorded, including what a compaction ate. */
+/** Every message pi recorded, including what a compaction ate. */
 export function totalsOf(entries: readonly SessionEntry[]): Totals {
 	const totals = emptyTotals();
 
@@ -64,7 +63,7 @@ function add(totals: Totals, usage: UsageLike): void {
 	totals.cost += usage.cost.total;
 }
 
-// The tasks' model calls, in sessions written while they existed, are not pi's, so pi does not count them. They count here.
+/** Pi does not count the removed tasks' model calls; they count here. */
 function addTasks(totals: Totals, usage: ReturnType<typeof tasksUsageOf>): void {
 	if (usage === undefined) return;
 	totals.input += usage.input;

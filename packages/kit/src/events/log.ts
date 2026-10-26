@@ -34,11 +34,10 @@ export interface LoggedEvent<K extends EventType = EventType> {
 	session: string;
 	type: K;
 	data: LogEventMap[K];
-	/** The pi session entry it came from, so a viewer can open that point of the conversation. */
+	/** So a viewer can open that point of the conversation. */
 	entry?: string;
 }
 
-/** Where a session writes: its folder's directory and its own file in it. */
 export interface LogTarget {
 	dir: string;
 	session: string;
@@ -53,12 +52,11 @@ export interface LogSession {
 	getSessionId(): string;
 }
 
-/** `PI_HARNESS_EVENTS` moves every log, so tests and tools can point it elsewhere. */
+/** Lets tests and tools move every log. */
 export function eventsRoot(): string {
 	return process.env.PI_HARNESS_EVENTS ?? join(getAgentDir(), "harness", "events");
 }
 
-/** The directory of a folder's logs, named the way pi names its session folders. */
 export function eventsDir(cwd: string, root = eventsRoot()): string {
 	return join(root, `--${cwd.replace(/^[/\\]+/, "").replace(/[/\\:]+/g, "-")}--`);
 }
@@ -68,12 +66,11 @@ export function roomsDir(root = eventsRoot()): string {
 	return join(root, "rooms");
 }
 
-/** The directory of a shared room's logs. */
 export function roomDir(id: string, root = eventsRoot()): string {
 	return join(roomsDir(root), id);
 }
 
-/** The index of the sessions open now, one small file each, so finding them reads no logs. */
+/** One small file per open session, so finding them reads no logs. */
 export function liveDir(root = eventsRoot()): string {
 	return join(root, "live");
 }
@@ -88,7 +85,6 @@ export function logPath(target: LogTarget): string {
 
 let counter = 0;
 
-/** Appends the event to the session's log and publishes it inside the process. */
 export function logEvent<K extends EventType>(
 	target: LogTarget,
 	bus: Bus | undefined,
@@ -117,7 +113,7 @@ export function logEvent<K extends EventType>(
 	return event;
 }
 
-/** Logs from a handler's context. A context with no session behind it logs nothing. */
+/** A context with no session behind it logs nothing. */
 export function logFrom<K extends EventType>(
 	ctx: { sessionManager: Partial<LogSession> },
 	bus: Bus | undefined,
@@ -132,10 +128,10 @@ export function logFrom<K extends EventType>(
 
 export { HOST } from "../host.ts";
 
-/** Reads the whole events written after `offset`. A line still being written waits for the next read. */
 /** Which event types a reader folds; the others are skipped before they are parsed. */
 export type Wanted = (type: string) => boolean;
 
+/** The events written after `offset`; a line still being written waits for the next read. */
 export function readFrom(
 	path: string,
 	offset: number,
@@ -165,7 +161,6 @@ export function readFrom(
 	}
 }
 
-/** How long the log of a session that is not open stays in its folder. */
 export const KEEP_LOGS_MS = 7 * 24 * 60 * 60_000;
 
 /** Deletes the logs of sessions that are not open and have written nothing for `KEEP_LOGS_MS`. */
@@ -185,7 +180,6 @@ export function pruneLogs(dir: string, root = eventsRoot(), now = Date.now()): v
 	}
 }
 
-/** Reads only the end of a log, for readers that need the newest lines. */
 export function readTail(path: string, bytes = TAIL_BYTES): LoggedEvent[] {
 	let fd: number;
 	try {
@@ -213,7 +207,7 @@ export function readTail(path: string, bytes = TAIL_BYTES): LoggedEvent[] {
 	}
 }
 
-/** Enough of a log's tail for the last commands of a long session, at a few hundred bytes each. */
+/** Enough for the last commands of a long session. */
 const TAIL_BYTES = 512 * 1024;
 
 /** Checks the shape, since any version may have written the line. */
@@ -232,7 +226,7 @@ function isLoggedEvent(value: unknown): value is LoggedEvent {
 
 const TYPE_KEY = '"type":"';
 
-/** The type of a line as `logEvent` writes it, where `type` comes before `data`. */
+/** `logEvent` writes `type` before `data`. */
 function typeOf(line: string): string {
 	const at = line.indexOf(TYPE_KEY);
 	if (at === -1) return "";
@@ -243,8 +237,7 @@ function typeOf(line: string): string {
 function parsed(line: string): LoggedEvent[] {
 	try {
 		const value: unknown = JSON.parse(line);
-		// Every field the readers use, including the one that carries the event's payload: a line that
-		// lost its `data` is not an event, and reading it as one hands `undefined` to whatever folds it.
+		// A line without its `data` is not an event, and would hand `undefined` to whatever folds it.
 		if (!isLoggedEvent(value)) return [];
 		return [value];
 	} catch {
@@ -252,7 +245,7 @@ function parsed(line: string): LoggedEvent[] {
 	}
 }
 
-/** Every session's log in a folder, read from where it was left: new events, oldest first. */
+/** Reads from where it was left: new events, oldest first. */
 export class FolderFeed {
 	readonly #dir: string;
 	readonly #wanted: Wanted | undefined;
@@ -284,7 +277,7 @@ export class FolderFeed {
 		return fresh.toSorted((a, b) => a.at - b.at || a.id.localeCompare(b.id));
 	}
 
-	/** Calls back when a log in the folder changes, or every second where watching is not there. */
+	/** Polls every second where the folder cannot be watched. */
 	watch(changed: () => void): () => void {
 		mkdirSync(this.#dir, { recursive: true });
 		let timer: ReturnType<typeof setTimeout> | undefined;

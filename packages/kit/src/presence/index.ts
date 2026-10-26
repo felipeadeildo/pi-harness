@@ -21,32 +21,26 @@ export { ownStart, processLives, processStart, startFromStat, startsFromPs } fro
 export interface PresenceEntry {
 	session: string;
 	pid: number;
-	/** When the process started, from `processStart`. Entries written before it was recorded lack it. */
+	/** From `processStart`; older entries lack it. */
 	start?: string;
 	host: string;
 	cwd: string;
-	/** pi's session file, so a reader can open the session read only. */
+	/** So a reader can open the session read only. */
 	file?: string;
 	handle?: string;
 	state: RoomActivity;
-	/** When the session opened, which orders the list. */
 	startedAt: number;
-	/** When the entry last changed. */
 	at: number;
 }
 
-/** Whether the process of an entry runs, given its pid and the start it recorded. */
 export type Lives = (pid: number, start: string | undefined) => boolean;
 
 /** The daemon rewrites them every two seconds while the machine answers. */
 export const ELSEWHERE_FOR_MS = 15_000;
 
 export interface PresenceReading {
-	/** Judges the entries of this machine. Defaults to `processLives`. */
 	lives?: Lives;
-	/** This machine. Defaults to the hostname. */
 	host?: string;
-	/** The events root the index lives under. Defaults to the harness's. */
 	root?: string;
 	now?: () => number;
 }
@@ -101,7 +95,6 @@ export function readPresence(reading: PresenceReading = {}): PresenceEntry[] {
 		.toSorted((a, b) => a.startedAt - b.startedAt || a.session.localeCompare(b.session));
 }
 
-/** The sessions open on the owner's other machines, as their daemons last said. */
 export function openElsewhere(reading: PresenceReading = {}): Set<string> {
 	const host = reading.host ?? HOST;
 	return new Set(

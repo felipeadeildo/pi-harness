@@ -3,14 +3,13 @@
 import { closeSync, fstatSync, openSync, readSync, watch } from "node:fs";
 import { dirname } from "node:path";
 
-/** Where a follower stands. The daemon keeps it to resume a file after a restart. */
 export interface FollowState {
-	/** Bytes read, always at the end of a line. */
+	/** Always at the end of a line. */
 	offset: number;
 	lastId: string | undefined;
 	ino: number;
 	size: number;
-	/** A rewrite can keep the file's size, but not its modification time. */
+	/** A rewrite can keep the size, but not the modification time. */
 	mtimeMs: number;
 }
 
@@ -37,7 +36,7 @@ export class FileTail {
 		return { ...this.#state };
 	}
 
-	/** What the file gained since the last poll. A file that does not exist yet gives nothing. */
+	/** A file that does not exist yet gives nothing. */
 	poll(): TailItem[] {
 		let fd: number;
 		try {
@@ -101,7 +100,6 @@ export function followFile(
 	};
 }
 
-/** Undefined for a folder that does not exist yet, which the poll covers. */
 function watchFolder(folder: string, changed: () => void): { close(): void } | undefined {
 	try {
 		const watcher = watch(folder, changed);
@@ -116,7 +114,6 @@ function asItem(record: FileRecord): TailItem {
 	return { kind: "record", record };
 }
 
-/** The complete lines in `[from, size)`, and where the last of them ends. */
 function readLines(fd: number, from: number, size: number): { records: FileRecord[]; end: number } {
 	if (size <= from) return { records: [], end: from };
 	const buffer = Buffer.alloc(size - from);
@@ -131,7 +128,7 @@ function readLines(fd: number, from: number, size: number): { records: FileRecor
 	return { records, end: from + last + 1 };
 }
 
-/** The id of the line that ends at `offset`, reading back only as far as that line starts. */
+/** Reads back only as far as that line starts. */
 function idEndingAt(fd: number, offset: number): string | undefined {
 	for (let window = 4_096; ; window *= 2) {
 		const start = Math.max(0, offset - window);

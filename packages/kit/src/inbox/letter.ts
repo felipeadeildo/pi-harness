@@ -2,23 +2,22 @@
 import { type By, isBy } from "../contracts/by.ts";
 import { isObject } from "../decode.ts";
 
-/** What a message becomes on the way in. `steer` goes in at once, between the agent's calls. */
+/** `steer` goes in at once, between the agent's calls. */
 export type Want = "steer" | "followUp";
 
 /** Absent for the ordinary case, a follow-up waiting for the run to settle. */
 type Why = "asleep" | "quiet" | "full" | "stopped" | "not-started";
 
 export interface Letter {
-	/** Unique among the letters of one session, so a repeat in the same run is recognized. */
+	/** Unique within the session, so a repeat in the same run is recognized. */
 	id: string;
 	by: By;
 	text: string;
 	want: Want;
-	/** Set when the letter is a message of another feature, as peers' messages are, and not speech. */
+	/** A message of another feature, as peers' are, not speech. */
 	custom?: { customType: string; details?: unknown; display?: boolean };
-	/** When it was written, in milliseconds, by the writer's clock. A held one shows its age. */
+	/** By the writer's clock; a held letter shows its age. */
 	at?: number;
-	/** Set while the inbox holds it, and absent once it went in. */
 	why?: Why;
 }
 

@@ -13,38 +13,30 @@ import { join } from "node:path";
 
 import { isObject } from "../decode.ts";
 
-/** How long a word waits after its session let it go, so a resumed session gets it back. */
+/** So a resumed session gets its word back. */
 export const RESERVED_MS = 7 * 24 * 60 * 60 * 1000;
-/** The suffixes the draw tries when every word is held, before it gives up. */
 const CROWD = 99;
-/** How long a reclaim lock lives before another process may break it; a reclaim takes milliseconds. */
+/** A reclaim takes milliseconds. */
 const LOCK_MS = 10_000;
 let temporaries = 0;
 
-/** A word one session holds, or held until it let it go. */
 export interface Claim {
 	word: string;
 	session: string;
 	machine: string;
-	/** When this session took the word. */
 	at: number;
-	/** When the session let it go; absent while it holds it. */
+	/** Absent while held. */
 	released?: number;
 }
 
-/** Where the claims live, and the three things the draw needs to know. */
 export interface Claiming {
-	/** The folder of claim files, one per word. */
 	dir: string;
-	/** The clock; tests move it. */
 	now?: number;
-	/** Whether the session of a claim still runs. Defaults to true, which keeps every claim. */
+	/** Defaults to true, which keeps every claim. */
 	lives?: (session: string) => boolean;
-	/** The draw's source of chance. */
 	random?: () => number;
 }
 
-/** The claim of `word`, or undefined when nobody holds it or its file makes no sense. */
 export function readClaim(dir: string, word: string): Claim | undefined {
 	try {
 		const value: unknown = JSON.parse(readFileSync(pathOf(dir, word), "utf8"));
@@ -54,7 +46,7 @@ export function readClaim(dir: string, word: string): Claim | undefined {
 			return undefined;
 		if (typeof at !== "number" || (released !== undefined && typeof released !== "number"))
 			return undefined;
-		// The file's name is the word; a file that says another thing was written by something else.
+		// A file named for one word that holds another was written by something else.
 		if (held !== word) return undefined;
 		return { word: held, session, machine, at, ...(released === undefined ? {} : { released }) };
 	} catch {
@@ -62,7 +54,6 @@ export function readClaim(dir: string, word: string): Claim | undefined {
 	}
 }
 
-/** Every claim in the folder, oldest first. A file that makes no sense is left out, not fixed. */
 export function claims(dir: string): Claim[] {
 	let names: string[];
 	try {
@@ -101,8 +92,7 @@ export function claimWord(
 	try {
 		return attemptClaim(claiming, word, session, machine);
 	} catch (error) {
-		// A handle is not worth a session: a read-only folder or a full disk leaves the draw empty,
-		// and the feature falls back to `new-<id4>`.
+		// A read-only folder or a full disk leaves the draw empty, and the feature falls back to `new-<id4>`.
 		if (isObject(error) && typeof error.code === "string") return false;
 		throw error;
 	}
@@ -117,8 +107,7 @@ function attemptClaim(claiming: Claiming, word: string, session: string, machine
 
 	const held = readClaim(dir, word);
 	if (held?.session === session) {
-		// A resumed session keeps the claim, with the machine and the time it came back; a word it
-		// had let go is taken back.
+		// A resumed session keeps its claim; a word it let go is taken back.
 		writeAtomically(path, { ...held, machine, at: now, released: undefined });
 		return true;
 	}
@@ -147,7 +136,6 @@ function attemptClaim(claiming: Claiming, word: string, session: string, machine
 	}
 }
 
-/** Creates a lock file for a reclaim, or says another process is already reclaiming the word. */
 function lockWord(dir: string, word: string, now: number): string | undefined {
 	const lock = `${pathOf(dir, word)}.lock`;
 	for (let attempt = 0; attempt < 2; attempt++) {
@@ -160,7 +148,7 @@ function lockWord(dir: string, word: string, now: number): string | undefined {
 			at = 0;
 		}
 		if (now - at < LOCK_MS) return undefined;
-		// A lock left by a process that died is broken by renaming it away, which only one does.
+		// Renaming the dead lock away breaks it for exactly one process.
 		const grave = `${lock}.${process.pid}.stale`;
 		try {
 			renameSync(lock, grave);
@@ -172,7 +160,6 @@ function lockWord(dir: string, word: string, now: number): string | undefined {
 	return undefined;
 }
 
-/** Lets the word go, keeping the claim for the reservation window. A session cannot release another's. */
 export function releaseWord(dir: string, word: string, session: string, now = Date.now()): void {
 	const held = readClaim(dir, word);
 	if (held === undefined || held.session !== session || held.released !== undefined) return;
@@ -189,7 +176,6 @@ export function drawWord(
 	const { dir } = claiming;
 	const kept = wordOf(dir, session, claiming.now ?? Date.now());
 	if (kept !== undefined) {
-		// A resumed session takes its own word back, which clears a release still inside the window.
 		claimWord(claiming, kept, session, machine);
 		return readClaim(dir, kept);
 	}

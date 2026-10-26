@@ -15,14 +15,12 @@ export type CommandOptions = Omit<RegisteredCommand, "name" | "sourceInfo">;
 export interface Feature {
 	/** Unique across every package, like `subscription`. It names the feature's settings too. */
 	id: string;
-	/** One line for the settings screen. */
 	description: string;
 	/** The settings tab. Features with the same tab share it. Defaults to the id. */
 	tab?: string;
 	/** Section order on the tab. Sections not listed come after. A function runs when the screen opens. */
 	sections?: readonly string[] | ((ctx: ExtensionContext | undefined) => readonly string[]);
 	settings?: readonly Setting<unknown>[];
-	/** Registers handlers, commands and providers. Starts nothing: that goes in `onSessionStart`. */
 	setup(scope: FeatureScope): void;
 }
 
@@ -30,7 +28,6 @@ export interface Feature {
 export interface FeatureScope extends ExtensionAPI, SettingsScope {
 	readonly id: string;
 	readonly settings: SettingsStore;
-	/** Runs when a session starts, after the settings are loaded for it. */
 	onSessionStart(hook: SessionHook): void;
 	/** Runs once per session, newest first. */
 	onShutdown(hook: ShutdownHook): void;
@@ -38,7 +35,6 @@ export interface FeatureScope extends ExtensionAPI, SettingsScope {
 	defer(run: () => void, ms?: number): void;
 	/** Shown as `<app>: <feature>: <message>`. */
 	warn(message: string): void;
-	/** True when this app runs a feature with that id. */
 	has(featureId: string): boolean;
 	readonly screen: ScreenRows;
 }

@@ -1,22 +1,18 @@
-// The other sessions this one works with, as the footer and any other viewer draw them.
 import { defineContract } from "../contract.ts";
 import { guarded, isObject } from "../decode.ts";
 
-/** Another session in the folder, as every viewer should draw it. */
 export interface PeerMark {
 	handle: string;
 	/** A theme color name, so a peer looks the same in the footer, the room and the board. */
 	color: string;
 	state: "running" | "idle" | "waiting";
-	/** The shared room it is in with this session, absent for the folder's room. */
 	room?: string;
 }
 
-/** An agent whose message is still being written, and who it is going to. */
 export interface WritingMark {
 	handle: string;
 	color: string;
-	/** Who it goes to: `you` for this session, `@handle` for the rest, `everyone` for the room. */
+	/** `you`, `@handle` or `everyone`. */
 	to: string;
 }
 
@@ -24,9 +20,9 @@ export interface PeersState {
 	peers: PeerMark[];
 	/** Absent when the session is in no room yet, which differs from a session with no color. */
 	me?: PeerMark;
-	/** Messages a peer sent to this session that its agent has not read yet. */
+	/** Messages to this session its agent has not read yet. */
 	unread: number;
-	/** Who is writing to whom, drawn in the footer: a draft is never worth a frame over the editor. */
+	/** A draft is never worth a frame over the editor, so it goes to the footer. */
 	writing?: WritingMark[];
 }
 

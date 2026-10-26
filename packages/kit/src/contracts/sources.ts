@@ -6,15 +6,14 @@ import { isObject } from "../decode.ts";
 
 type Events = ExtensionAPI["events"];
 
-/** What a session's entries do not say, which only grows. */
 export interface SessionSummary {
 	session: string;
-	/** The machine the session runs on: its hostname, until machines get ids. */
+	/** The hostname. */
 	machine: string;
 	cwd: string;
 	/** Pi's `/name`, not the room's handle. */
 	name?: string;
-	/** The entry the conversation continues from. Pi draws the branch from it back to the root. */
+	/** Pi draws the branch from it back to the root. */
 	leafId?: string;
 	model?: { provider: string; id: string };
 	thinkingLevel?: string;
@@ -23,7 +22,6 @@ export interface SessionSummary {
 }
 
 export interface SourceCursor {
-	/** The last pi session entry it holds. */
 	entry?: string;
 }
 
@@ -40,21 +38,21 @@ export interface SessionSource {
 	follow(after: SourceCursor | undefined, on: (item: SourceItem) => void): () => void;
 }
 
-/** Which session to show. `file` lets a session of this machine be read without anyone's help. */
+/** `file` lets a session of this machine be read without anyone's help. */
 export interface SourceAddress {
 	session: string;
 	machine: string;
 	file?: string;
 }
 
-/** Remote answers here with its daemon and link sources. The kit's file source is the fallback. */
+/** Remote answers with its sources; the kit's file source is the fallback. */
 export const SOURCES = "harness:sources";
 interface SourceRequest {
 	address: SourceAddress;
 	source?: SessionSource;
 }
 
-/** Answers source requests. An undefined answer leaves the address to another provider. */
+/** An undefined answer leaves the address to another provider. */
 export function provideSources(
 	events: Events,
 	answer: (address: SourceAddress) => SessionSource | undefined,
@@ -67,7 +65,6 @@ export function provideSources(
 	});
 }
 
-/** The source a provider gives for `address`, if one does. */
 export function askSource(events: Events, address: SourceAddress): SessionSource | undefined {
 	const request: SourceRequest = { address };
 	events.emit(SOURCES, request);

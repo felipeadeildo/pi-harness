@@ -1,7 +1,7 @@
 // The word list's rules: short, one word, unique first three letters for Tab, two edits apart, and
 // nothing that reads as code or a command. `scripts/names/check.ts` reports a candidate list.
 
-/** The fewest letters and the most a handle may have, so `@` plus the word stays easy to type. */
+/** So `@` plus the word stays easy to type. */
 export const SHORTEST = 3;
 export const LONGEST = 8;
 /** Three edits would leave 484 of 1,057 candidates; 600 are needed. */
@@ -139,17 +139,13 @@ const DENIED = new Set([
 ]);
 
 export interface Audit {
-	/** Every word the file held, duplicates counted once. */
 	total: number;
-	/** The words that break no rule, in the order of the file. */
 	words: string[];
-	/** One line per word left out, saying which rule it broke. */
 	left: { word: string; why: string }[];
-	/** How many words each rule removed, so a count is easy to compare. */
 	removed: Record<string, number>;
 }
 
-/** Phone-book distance: how many single-letter edits turn one word into the other. */
+/** Edit distance. */
 export function distance(a: string, b: string): number {
 	const before = new Uint16Array(b.length + 1);
 	const after = new Uint16Array(b.length + 1);
@@ -212,7 +208,6 @@ export function audit(candidates: readonly string[]): Audit {
 	return { total: seen.size, words: kept, left, removed };
 }
 
-/** The shortest list that fails, or undefined when the list holds every rule. */
 export function problemWith(words: readonly string[]): string | undefined {
 	const report = audit(words);
 	if (report.words.length < FEWEST)

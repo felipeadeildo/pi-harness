@@ -7,7 +7,6 @@ import { HOST } from "../events/log.ts";
 interface Follower {
 	on: (item: SourceItem) => void;
 	after: string | undefined;
-	/** How many entries it has, or undefined until its cursor is found. */
 	seen: number | undefined;
 	sent: string | undefined;
 }
@@ -17,11 +16,9 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 	let ctx: ExtensionContext | undefined;
 	let pending = false;
 	let ended = false;
-	/** The turn a change waits for, kept so the shutdown can call it off. */
 	let turn: ReturnType<typeof setTimeout> | undefined;
 	const followers = new Set<Follower>();
 
-	/** Ends the session the followers were reading, once, from wherever it is learnt. */
 	function finish(): void {
 		clearTimeout(turn);
 		turn = undefined;
@@ -60,8 +57,7 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 	}
 
 	function changed(next: ExtensionContext): void {
-		// A context that arrives after the session ended belongs to no session: pi still fires some
-		// events on the way out, and the turn below would read a context it no longer owns.
+		// Pi still fires some events after the session ended, with a context it no longer owns.
 		if (ended) return;
 		ctx = next;
 		// Pi tells extensions of `message_end` before it writes the entry.
@@ -75,7 +71,6 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 		}, 0);
 	}
 
-	// Each one may have appended an entry or changed the snapshot.
 	pi.on("session_start", (_event, next) => {
 		ended = false;
 		changed(next);
@@ -95,12 +90,12 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 			return Promise.resolve(snapshotOf(ctx));
 		},
 		follow(after, on) {
-			// One that comes late, such as a bridge reconnecting during `/new`, hears the end too.
+			// A late caller, such as a bridge reconnecting during `/new`, hears the end too.
 			if (ended) {
 				on({ kind: "ended" });
 				return () => {};
 			}
-			// A cursor with nothing this source reads, such as a newer one, is a cursor it does not know.
+			// A cursor with nothing this source reads, such as a newer one, is unknown.
 			if (after !== undefined && after.entry === undefined) on({ kind: "reset" });
 			const follower: Follower = { on, after: after?.entry, seen: undefined, sent: undefined };
 			followers.add(follower);

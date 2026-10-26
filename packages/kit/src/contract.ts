@@ -5,25 +5,21 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { type Decoder, formatProblems, isObject } from "./decode.ts";
 
-/** What a contract needs to travel. A feature scope is one. */
 export interface EventScope {
 	readonly events: ExtensionAPI["events"];
 	warn(message: string): void;
 }
 
-/** A contract with a key takes it as one more argument; one without takes nothing. */
 type KeyArgs<K> = [K] extends [void] ? [] : [key: K];
 
 export interface Contract<T, K extends string | void = void> {
-	/** The pi.events channel readers ask on. Changes go on the same channel plus `:changed`. */
 	readonly channel: string;
-	/** Undefined when nobody provides it, or the answer does not decode, which warns. */
+	/** Undefined when nobody provides it, or when the answer does not decode (which warns). */
 	current(scope: EventScope, ...key: KeyArgs<K>): T | undefined;
 	/** An undefined answer leaves the question to another provider. */
 	provide(scope: EventScope, answer: (key: K) => T | undefined): () => void;
-	/** Tells every listener the new value. Undefined says there is none any more. */
+	/** Undefined says there is none any more. */
 	changed(scope: EventScope, value: T | undefined, ...key: KeyArgs<K>): void;
-	/** A change that does not decode is dropped with a warning. */
 	onChanged(scope: EventScope, listener: (value: T | undefined, key: K) => void): () => void;
 }
 
@@ -33,7 +29,7 @@ interface Question {
 	value?: unknown;
 }
 
-/** Name it `<area>` or `<area>:<what>`, like `tasks` or `calls:ruling`. */
+/** Named `<area>` or `<area>:<what>`, like `tasks` or `calls:ruling`. */
 export function defineContract<T, K extends string | void = void>(
 	name: string,
 	decoder: Decoder<T>,

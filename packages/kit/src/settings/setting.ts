@@ -1,5 +1,4 @@
-// A setting is declared next to the feature that reads it. The declaration is plain data plus two
-// helpers, so one handle works against any app.
+// Declared next to the feature that reads it; one handle works against any app.
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import type { Preview } from "../contracts/screen.ts";
@@ -7,7 +6,6 @@ import type { Control } from "../control.ts";
 import type { Decoder } from "../decode.ts";
 import type { SettingsStore } from "./store.ts";
 
-/** The setting's row on the settings screen. */
 export interface SettingUi {
 	section: string;
 	label: string;
@@ -21,11 +19,11 @@ export interface SettingUi {
 }
 
 export interface SettingDefinition<T> {
-	/** Dotted path in the settings file, like `subscription.claudeCodeVersion`. */
+	/** Dotted path, like `subscription.claudeCodeVersion`. */
 	id: string;
 	default: T;
 	decoder: Decoder<T>;
-	/** Accept a value from the project's settings file, once pi trusts the project. */
+	/** Once pi trusts the project. */
 	project?: boolean;
 	ui?: SettingUi;
 }

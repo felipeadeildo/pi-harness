@@ -24,7 +24,6 @@ export interface Host {
 	settings: SettingsStore;
 	features: () => readonly Feature[];
 	screen: ReadonlyMap<string, ScreenEntry[]>;
-	/** Rows a feature builds when the screen opens. */
 	screenGroups: ReadonlyMap<string, ScreenGroup[]>;
 	session: () => ExtensionContext | undefined;
 	isLive: () => boolean;
@@ -160,7 +159,6 @@ function apply(host: Host, feature: Feature, request: ApplyRequest): string | un
 	return row.set(request.value ?? null, ctx);
 }
 
-/** The rows a feature has at this moment: the ones it declared, then the ones it builds. */
 function entriesOf(host: Host, feature: string, ctx: ExtensionContext): ScreenEntry[] {
 	return [
 		...(host.screen.get(feature) ?? []),

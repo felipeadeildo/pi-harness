@@ -18,7 +18,6 @@ import { logFrom, type LogSession } from "../events/log.ts";
 
 type Events = ExtensionAPI["events"];
 
-/** True when a feature in this process can draw a question right now. */
 export function canAsk(events: Events): boolean {
 	const probe = { available: false };
 	events.emit(AVAILABLE, probe);
@@ -26,7 +25,6 @@ export function canAsk(events: Events): boolean {
 }
 
 export interface AskOptions {
-	/** The feature asking, as `ask.opened` records it: `ask-questions` or `ask-permission`. */
 	source?: string;
 	/** Closes the question unanswered. The call resolves as cancelled, and never rejects. */
 	signal?: AbortSignal;
@@ -40,7 +38,7 @@ export interface AskOptions {
 	drawn?: true;
 }
 
-/** A new one every time, so a caller that changes its result changes nobody else's. */
+/** A new one every time, so a caller that mutates its result changes nobody else's. */
 function aborted(): AskResult {
 	return { answers: [], cancelled: true };
 }

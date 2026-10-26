@@ -6,10 +6,9 @@ import { defineContract, type EventScope } from "./contract.ts";
 import { ASK, CANCEL } from "./contracts/ask.ts";
 import { guarded, isObject } from "./decode.ts";
 
-/** pi's program status words. `blocked` is a dialog waiting for the operator. */
+/** `blocked` is a dialog waiting for the operator. */
 export type SessionStatus = "working" | "blocked" | "done" | "error" | "idle";
 
-/** How a run or a compaction left the session. */
 type Ending = "done" | "error" | "idle";
 
 const WORDS: ReadonlySet<string> = new Set<SessionStatus>([
@@ -29,29 +28,25 @@ export const SESSION_STATUS = defineContract<SessionStatus>(
 	guarded(isStatus, "a session status"),
 );
 
-/** Answered by the one follower of a process, so a second caller can tell it is not the first. */
+/** Answered by the process's one follower, so a second caller knows it is not the first. */
 const FOLLOWING = "harness:session.status:following";
 
-/** How a compaction ended, as pi reports it. */
 export interface CompactionEnd {
-	/** `/compact`, as against a threshold or an overflow. */
+	/** As against a threshold or an overflow. */
 	manual: boolean;
-	/** Cancelled or stopped. */
 	aborted: boolean;
-	/** Failed for a reason other than an abort. */
+	/** For a reason other than an abort. */
 	failed: boolean;
 }
 
 export class StatusTracker {
 	#running = false;
 	#compacting = false;
-	/** How the run going on will end, as its latest response says. */
 	#outcome: Ending = "done";
-	/** The status while no run goes on. */
 	#resting: Ending = "idle";
-	/** pi's own dialogs open now: select, confirm, input, editor and custom. */
+	/** Select, confirm, input, editor and custom. */
 	#prompts = 0;
-	/** The harness's questions open now, which a client may hold with no dialog on screen. */
+	/** A client may hold one with no dialog on screen. */
 	readonly #asks = new Set<string>();
 
 	get status(): SessionStatus {
@@ -65,12 +60,12 @@ export class StatusTracker {
 		this.#outcome = "done";
 	}
 
-	/** The latest response decides how the run ends, so a retried error gives way to its retry. */
+	/** A retried error gives way to its retry. */
 	responded(failed: boolean): void {
 		this.#outcome = failed ? "error" : "done";
 	}
 
-	/** The run is over, with no retry or queued message left. An abort leaves it idle, as pi says. */
+	/** No retry or queued message left. An abort leaves it idle, as pi says. */
 	settled(aborted: boolean): void {
 		this.#running = false;
 		this.#resting = aborted ? "idle" : this.#outcome;
@@ -130,8 +125,7 @@ export function followSessionStatus(
 	function fresh(): void {
 		tracker = new StatusTracker();
 	}
-	// Another session in this process starts afresh, as pi's reporter resets on a switch, and an
-	// ended one says idle, so nobody reading the contract waits on a run that will never finish.
+	// Another session in this process starts afresh, as pi's reporter does, and an ended one says idle.
 	pi.on("session_start", () => after(fresh));
 	pi.on("session_shutdown", () => after(fresh));
 	pi.on("agent_start", () => after((now) => now.runStarted()));

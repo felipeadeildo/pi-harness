@@ -1,5 +1,4 @@
-// Where the settings files live and how they are read and written. Every app shares them, so a
-// write keeps every key it does not know.
+// Every app shares the settings files, so a write keeps every key it does not know.
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
@@ -28,7 +27,7 @@ export function readSettingsFile(path: string): SettingsFile {
 		if (isObject(data)) return { data, warnings: [] };
 		return { data: {}, warnings: [`${path}: must contain a JSON object; using the defaults`] };
 	} catch (error) {
-		// A file that is not there is a fresh start, not a warning.
+		// A missing file is a fresh start, not a warning.
 		if ((error as NodeJS.ErrnoException).code === "ENOENT") return { data: {}, warnings: [] };
 		const reason = error instanceof Error ? error.message : String(error);
 		return { data: {}, warnings: [`${path}: could not be read (${reason}); using the defaults`] };
@@ -58,7 +57,6 @@ export function lookup(data: SettingsData, id: string): unknown {
 	return node;
 }
 
-/** Deletes the key, and every object it leaves empty. */
 export function remove(data: SettingsData, id: string): void {
 	const [key, ...rest] = id.split(".");
 	if (key === undefined || !(key in data)) return;

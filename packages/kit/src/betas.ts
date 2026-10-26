@@ -3,7 +3,6 @@
 
 export interface Betas {
 	betas: string[];
-	/** True when a name we asked for was not on the list yet. */
 	added: boolean;
 }
 
