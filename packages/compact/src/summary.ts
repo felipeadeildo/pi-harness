@@ -1,7 +1,7 @@
-// pi writes the summary with its own prompt, on the side model. On top go the tasks and your last
+// pi writes the summary with its own prompt, on the side model. On top go the board and your last
 // words as they are, so no model rephrases a decision. eval/summary.ts: on six recorded sessions,
 // pi's summary on Haiku answers as well as on Opus, within the judge's noise, for 1/40 of the price.
-import { type ChatModel, describeTasks, type SessionTasks } from "@adeildo/pi-kit";
+import { type Board, type ChatModel, describeBoard } from "@adeildo/pi-kit";
 import {
 	compact,
 	type CompactionResult,
@@ -18,7 +18,7 @@ const MAX_ASKS = 8;
 const MAX_ASK_CHARS = 400;
 
 export interface SummaryRequest {
-	tasks: SessionTasks;
+	board: Board;
 	preparation: CompactionPreparation;
 	instructions?: string;
 }
@@ -52,11 +52,11 @@ export async function summarize(
 	return undefined;
 }
 
-/** The tasks and your last words, as they are. */
-export function standing({ tasks, preparation }: SummaryRequest): string {
+/** The board and your last words, as they are. */
+export function standing({ board, preparation }: SummaryRequest): string {
 	const parts: string[] = [];
-	if (tasks.tasks.length > 0 || tasks.decisions.length > 0)
-		parts.push(`## Where the session stands\n${describeTasks(tasks, { done: 20, decisions: 20 })}`);
+	const stands = describeBoard(board, { done: 20, decisions: 20 });
+	if (stands !== "") parts.push(`## Where the session stands\n${stands}`);
 	const asked = yourWords([...preparation.messagesToSummarize, ...preparation.turnPrefixMessages]);
 	if (asked.length > 0)
 		parts.push(
