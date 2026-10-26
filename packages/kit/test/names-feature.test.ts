@@ -90,18 +90,4 @@ describe("the names feature", () => {
 		await after.fire("session_start", {}, ctx(older));
 		expect(current(after)?.handle).toBe("oauth");
 	});
-
-	test("a rename logs the word it left, which mentions keep resolving", async () => {
-		const fake = mounted();
-		await fake.fire("session_start", {}, ctx());
-		const before = current(fake)?.handle as string;
-		const command = fake.commands.get("name");
-		expect(command).toBeDefined();
-		await command?.handler("auth", ctx() as never);
-		expect(current(fake)?.handle).toBe("auth");
-		const renamed = new FolderFeed(eventsDir("/repo"))
-			.read()
-			.filter((event) => event.type === "session.renamed");
-		expect(renamed.map((event) => event.data)).toEqual([{ from: before, to: "auth", by: "you" }]);
-	});
 });

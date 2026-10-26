@@ -26,8 +26,6 @@ export interface Peer {
 	startedAt: number;
 	endedAt?: number;
 	handle?: string;
-	/** The earlier words, which mentions still resolve for a week. */
-	aliases?: string[];
 	state: RoomActivity;
 	stateAt: number;
 	/** The operator wrote here at least once. Until then nothing from the room wakes it. */
@@ -158,14 +156,6 @@ export class Folder {
 			case "session.named": {
 				const { handle } = event.data as LoggedEvent<"session.named">["data"];
 				if (handle !== undefined) peer.handle = handle;
-				return;
-			}
-			case "session.renamed": {
-				const data = event.data as LoggedEvent<"session.renamed">["data"];
-				// The old word keeps pointing here for a week: a mention written before the rename
-				// still reaches the session it meant.
-				peer.aliases = [...(peer.aliases ?? []).filter((one) => one !== data.from), data.from];
-				peer.handle = data.to;
 				return;
 			}
 			case "session.state": {

@@ -20,7 +20,6 @@ const FORWARDED: ReadonlySet<string> = new Set([
 	"call.ruled",
 	"mode.changed",
 	"prompt.received",
-	"session.renamed",
 ]);
 
 export interface Logged {

@@ -72,7 +72,10 @@ model runs for it, so it costs nothing per turn.
 
 Everything that read the tasks reads the board now: the compaction summary ("Where the session
 stands"), the look's strip, the peers' room and the bids, and the browser. Nothing writes a session
-title any more. A session is its handle, and the name you give it with `/name` or from the browser.
+title any more. A session is known by its handle, the word drawn when it opens, which `@` mentions
+reach and which never changes, and by the name you give it with pi's own `/name` or from the browser.
+The harness's `/name`, which changed the handle, is gone: pi 1.4 has its own, which wins in the
+terminal.
 
 | 5.x                                                          | 6.0.0                                                           |
 | ------------------------------------------------------------ | --------------------------------------------------------------- |

@@ -187,14 +187,6 @@ export class Here implements Sender {
 		return cached.names;
 	}
 
-	/** The earlier words here, each pointing at the session that owns it. */
-	aliases(): Map<string, string> {
-		const summary = new Map<string, string>();
-		for (const peer of this.live())
-			for (const alias of peer.aliases ?? []) summary.set(alias, peer.session);
-		return summary;
-	}
-
 	/** One mark per other session, and how many asked this one something its agent has not read. */
 	summary(): { others: BoardMark[]; unread: number } {
 		const others = [...this.marks().values()];

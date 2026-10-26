@@ -59,23 +59,6 @@ export function names(options: NamesOptions = {}): Feature {
 				NAMES.changed(scope, held);
 				logFrom(ctx, scope.events, "session.named", { handle: claim.word });
 			});
-			// The session changes the word it answers to. The old one stays an alias for a week, so a
-			// mention written before the rename still reaches the session it meant.
-			scope.registerCommand("name", {
-				description: "Change the word this session answers to",
-				handler: async (args, ctx) => {
-					const next = args.trim();
-					const before = held?.handle;
-					if (next === "") return void ctx.ui.notify("Write the word: /name <word>", "warning");
-					if (before === undefined)
-						return void ctx.ui.notify("This session has no word yet", "warning");
-					if (before === next) return;
-					held = { handle: next };
-					NAMES.changed(scope, held);
-					logFrom(ctx, scope.events, "session.renamed", { from: before, to: next, by: "you" });
-					ctx.ui.notify(`Now ${next}`, "info");
-				},
-			});
 		},
 	};
 }
