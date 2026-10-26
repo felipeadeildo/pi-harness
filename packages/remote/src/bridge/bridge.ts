@@ -12,7 +12,6 @@ import {
 	type LogSession,
 	logPath,
 	MODE,
-	MODE_SET,
 	readTail,
 	SESSION_STATUS,
 	type SessionSource,
@@ -30,6 +29,7 @@ import { OpenAsks } from "./asks.ts";
 import { Refused } from "./commands.ts";
 import { BridgeConnection, type ConnectionSeams, type GoneReason } from "./connection.ts";
 import { forward, type Logged, Harness } from "./logged.ts";
+import { PRODUCERS } from "./producers.ts";
 import { LiveStream } from "./stream.ts";
 
 /** How many entries of the branch a snapshot carries. A client pages through older ones over HTTP. */
@@ -322,11 +322,9 @@ export class Bridge {
 				handle: tasks?.handle,
 				status: SESSION_STATUS.current(scope),
 				// Already folded, so a reader draws the session's state without a replay.
-				state: this.#changes.snapshot(
-					tasks,
-					mode,
-					MODE_SET.current(scope) !== undefined,
-					this.#cost(),
+				state: PRODUCERS.reduce(
+					(state, producer) => producer.apply(state, scope),
+					this.#changes.snapshot(tasks, mode, this.#cost()),
 				),
 			},
 			entries: this.ctx.sessionManager.getBranch().slice(-STATE_ENTRIES),
