@@ -11,7 +11,7 @@ import {
 	type Board,
 	type BoardOp,
 } from "../src/board/model.ts";
-import { boardText } from "../src/board/tool.ts";
+import { boardCall, boardText } from "../src/board/tool.ts";
 
 const at = 1;
 const blocker = { on: "operator", why: "which name?" } as const;
@@ -246,4 +246,36 @@ test("the view takes the first open cards by arrival, then shows them oldest fir
 		"Segunda",
 		"Terceira",
 	]);
+});
+
+describe("the board tool's answer", () => {
+	const applied = (ops: BoardOp[]): Board => foldBoard(ops, "operator");
+	const added = (title: string, at: number): BoardOp => ({ op: "add", title, at });
+
+	test("a search nothing matches says so, and does not answer with an empty list", () => {
+		const answer = boardCall(applied([added("ship the parser", 1)]), {
+			op: "find",
+			text: "no such card",
+		});
+		expect(answer).toEqual({ ok: true, text: "Nothing matches." });
+	});
+
+	test("a search that fits says nothing about a remainder", () => {
+		const done: BoardOp = { op: "add", title: "ship the parser", column: "done", at: 1 };
+		const answer = boardCall(applied([done]), { op: "find", text: "ship" });
+		expect(answer.ok && answer.text).not.toContain("More:");
+	});
+
+	test("a search with more matches than fit says how many were left out", () => {
+		// Only what is done answers a search: a card still open is not an outcome to look up.
+		const many = Array.from({ length: 12 }, (_, at) => ({
+			op: "add" as const,
+			title: `card ${at}`,
+			column: "done" as const,
+			at,
+		}));
+		const answer = boardCall(applied(many), { op: "find", text: "card" });
+		expect(answer.ok).toBe(true);
+		expect(answer.ok && answer.text).toContain("More:");
+	});
 });

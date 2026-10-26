@@ -72,14 +72,10 @@ export type BoardToolResult = { ok: true; text: string } | { ok: false; why: str
 export function boardCall(board: Board, params: BoardCallParams): BoardToolResult {
 	if (params.op === "find") {
 		const found = findBoard(board, params.text);
+		if (found.matches.length === 0) return { ok: true, text: "Nothing matches." };
 		const lines = found.matches.map((one) => `${one.id} ${"title" in one ? one.title : one.text}`);
-		return {
-			ok: true,
-			text:
-				lines.length === 0
-					? "Nothing matches."
-					: lines.join("\n") + (found.more > 0 ? `\nMore: ${found.more}` : ""),
-		};
+		const more = found.more > 0 ? `\nMore: ${found.more}` : "";
+		return { ok: true, text: lines.join("\n") + more };
 	}
 	const result = applyBoard(board, params, "agent");
 	if (!result.ok) return result;
