@@ -567,6 +567,7 @@ function blocks(card: BoardCard): boolean {
 	return card.blocked !== undefined && card.column !== "done" && card.column !== "dropped";
 }
 
+/** With no glyph, the word goes after the number: ASCII has no icon, and a bare count says less. */
 function tally(
 	size: number,
 	glyph: string,
@@ -577,7 +578,7 @@ function tally(
 	return paint.role(role, glyph === "" ? `${size} ${role}` : `${glyph} ${size}`);
 }
 
-/** `✓2` in the color of what it counts, like the branch's marks. With no glyph, `tally` writes the word. */
+/** `✓2` in the color of what it counts, like the branch's marks. */
 function counted(value: number, glyph: string, role: Role, paint: Paint): string {
 	return value > 0 ? paint.role(role, `${glyph}${value}`) : "";
 }
