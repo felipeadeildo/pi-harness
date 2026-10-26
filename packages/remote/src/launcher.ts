@@ -1,20 +1,14 @@
-// Every pi start writes down the Node binary and the built files of its version, and `bin/pi-remote`
-// runs them. The launcher's text never changes, so a service that points at it survives an update.
+// `bin/pi-remote` runs the Node binary and built files the last pi wrote down. Its text never changes,
+// so a service that points at it survives updates.
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-/** What the last pi that started with the remote wrote down. */
 export interface Current {
-	/** The Node binary that ran pi. */
 	node: string;
-	/** `dist/cli.js`. */
 	cli: string;
-	/** `dist/daemon.js`. */
 	daemon: string;
-	/** The package's version. */
 	version: string;
-	/** The daemon that holds the socket, once one is listening: who to stop, and on what port. */
 	pid?: number;
 	port?: number;
 }
@@ -37,7 +31,6 @@ exec "$node" "$cli" "$@"
 `;
 }
 
-/** The same values as `current.json`, as shell assignments the launcher sources. */
 function currentScript(current: Current): string {
 	const lines = Object.entries(current).map(([key, value]) => `${key}=${shellQuoted(value)}`);
 	return `# Written by pi at every start, for bin/pi-remote. current.json holds the same values.\n${lines.join("\n")}\n`;
@@ -64,7 +57,6 @@ export function writeHolder(dir: string, holder: { pid: number; port: number }):
 	writeAtomically(join(dir, "current.json"), `${JSON.stringify(current, null, "\t")}\n`);
 }
 
-/** What `current.json` names, or nothing when it is missing or not what a pi wrote. */
 export function readCurrent(dir: string): Current | undefined {
 	let value: unknown;
 	try {
@@ -92,13 +84,11 @@ export function startDaemon(dir: string, port: number): void {
 	const current = readCurrent(dir);
 	if (current === undefined)
 		throw new Error(`${join(dir, "current.json")} names no daemon to start`);
-	// The port comes from the settings the running pi read, so a machine where the default is taken
-	// can be fixed without a shell and the link keeps pointing at the same address.
+	// From the settings, so a taken default port is fixed without a shell.
 	const child = spawn(current.node, [current.daemon, "--port", String(port)], {
 		detached: true,
 		stdio: "ignore",
 	});
-	// A Node binary that moved since must not take pi down with it.
 	child.on("error", () => {});
 	child.unref();
 }
@@ -109,7 +99,6 @@ function writeAtomically(path: string, text: string, mode = 0o644): void {
 	renameSync(temporary, path);
 }
 
-/** Single quotes keep every character as it is, and a quote inside closes, escapes and reopens. */
 function shellQuoted(text: string): string {
 	return `'${text.replaceAll("'", `'\\''`)}'`;
 }

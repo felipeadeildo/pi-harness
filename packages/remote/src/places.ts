@@ -3,10 +3,9 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-/** Where clients reach the daemon, on loopback. A setting changes it, and this is the default. */
 export const CLIENT_PORT = 7878;
 
-/** The setting's path and the rule that reads it: the command and pi have to agree on both. */
+/** The command and pi must agree on the setting's path and rule. */
 export const PORT_ID = "remote.port";
 
 export function portOf(value: unknown): number | undefined {
@@ -15,7 +14,6 @@ export function portOf(value: unknown): number | undefined {
 	return number;
 }
 
-/** The remote's folder: `PI_REMOTE_DIR`, or `harness/remote` under pi's agent folder. */
 export function daemonDir(env: NodeJS.ProcessEnv = process.env): string {
 	if (env.PI_REMOTE_DIR !== undefined && env.PI_REMOTE_DIR !== "") return env.PI_REMOTE_DIR;
 	const agent = env.PI_CODING_AGENT_DIR?.replace(/^~(?=\/|$)/, homedir());

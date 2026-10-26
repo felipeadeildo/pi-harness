@@ -1,5 +1,4 @@
-// The server side of a WebSocket, taken from the `ws` package the daemon bundles. It speaks what a
-// browser sends: text messages, ping and close.
+// The server side of a WebSocket, from the bundled `ws` package.
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 
@@ -7,7 +6,7 @@ import { WebSocketServer, type WebSocket } from "ws";
 
 export type { WebSocket };
 
-/** A message larger than this closes the connection: a client sends commands, never files. */
+/** A client sends commands, never files. */
 const MAX_MESSAGE = 1024 * 1024;
 
 /** A phone that lost signal may never close its TCP socket; a ping with no pong closes it. */
@@ -18,7 +17,6 @@ export interface WebSocketHandlers {
 	closed(): void;
 }
 
-/** The server that turns an upgrade request into a socket, with our limit on how big a message may be. */
 export function server(): WebSocketServer {
 	return new WebSocketServer({ noServer: true, maxPayload: MAX_MESSAGE });
 }
@@ -35,8 +33,7 @@ export function accept(
 		const handlers = open(ws);
 		ws.on("message", (data) => handlers.message(String(data)));
 		ws.on("error", () => ws.terminate());
-		// A beat asks whether the peer is there, and the pong that answers is what lets the next one
-		// through: a peer that missed a beat is terminated by the one after it.
+		// A peer that missed a beat is terminated by the next one.
 		let answered = true;
 		ws.on("pong", () => {
 			answered = true;

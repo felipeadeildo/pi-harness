@@ -1,5 +1,4 @@
-// Who has a session open, and whose input came last. It holds no socket and decides nothing in time, so
-// it is testable without a network; what the daemon does with a change is not this module's business.
+// Who has a session open and whose input came last. No sockets, so it tests without a network.
 import type { By, Viewer } from "@adeildo/pi-remote-protocol";
 
 export type Connection = string;
@@ -23,7 +22,7 @@ export class Presence {
 		this.#listen = listen;
 	}
 
-	/** A client can watch a session whose bridge is not registered yet: after a restart it comes first. */
+	/** After a restart a client may come before its session's bridge. */
 	watch(session: string, connection: Connection): void {
 		const watching = this.#watching.get(session);
 		if (watching === undefined) this.#watching.set(session, [connection]);
@@ -31,17 +30,14 @@ export class Presence {
 		this.#announce(session);
 	}
 
-	/** What it claimed does not outlive its watching, so the maps drop it. */
 	leave(session: string, connection: Connection): void {
 		const watching = this.#watching.get(session);
 		if (watching === undefined) return;
 		const at = watching.indexOf(connection);
 		if (at === -1) return;
 		watching.splice(at, 1);
-		// A session nobody watches leaves no entry, whether it ended or never came.
 		if (watching.length === 0) this.#watching.delete(session);
-		// Not what clears the mark: `of` only marks a connection still watching. This is so the maps
-		// do not keep a name nobody can see.
+		// Only so the maps do not keep a name nobody can see; `of` marks only connections still watching.
 		if (this.#latest.get(session) === connection) this.#latest.delete(session);
 		if (![...this.#watching.values()].some((one) => one.includes(connection))) {
 			this.#by.delete(connection);
@@ -56,7 +52,6 @@ export class Presence {
 		this.#announce(session);
 	}
 
-	/** A connection typed: it is a viewer under that name, and it has the latest input. */
 	input(session: string, connection: Connection, by: By): void {
 		if (this.#watching.get(session)?.includes(connection) !== true) return;
 		this.#by.set(connection, by);
@@ -64,7 +59,6 @@ export class Presence {
 		this.#announce(session);
 	}
 
-	/** A connection closed: it leaves every session it watched, and each one is announced once. */
 	drop(connection: Connection): void {
 		for (const session of this.#watching.keys()) this.leave(session, connection);
 		this.#by.delete(connection);
@@ -76,7 +70,6 @@ export class Presence {
 		this.#announce(session);
 	}
 
-	/** The viewers of a session and the one whose input came last. */
 	of(session: string): PresenceOf {
 		const viewers: Viewer[] = [];
 		let active: By | undefined;
@@ -94,7 +87,6 @@ export class Presence {
 		return active === undefined ? { viewers } : { viewers, active };
 	}
 
-	/** The connections watching a session, so whoever owns the sockets can send to them. */
 	connections(session: string): Connection[] {
 		return [...(this.#watching.get(session) ?? [])];
 	}
@@ -112,7 +104,6 @@ export class Presence {
 		}
 	}
 
-	/** How many connections watch each session, which is what the daemon reports as its clients. */
 	counts(): Map<string, number> {
 		return new Map([...this.#watching].map(([session, watching]) => [session, watching.length]));
 	}
@@ -120,7 +111,6 @@ export class Presence {
 	/** Two changes that leave a session looking the same are one event. */
 	#announce(session: string): void {
 		const presence = this.of(session);
-		// Nobody to name is nothing to say, and a watcher that named nobody changed nothing.
 		if (presence.viewers.length === 0) {
 			this.#announced.delete(session);
 			return;

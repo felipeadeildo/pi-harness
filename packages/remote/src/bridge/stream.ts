@@ -9,14 +9,13 @@ import type {
 	TurnEndEvent,
 } from "@earendil-works/pi-coding-agent";
 
-/** Hands an event to the connection. A droppable one may be lost, and a resync puts it back. */
+/** A droppable event may be lost; a resync puts it back. */
 export type Send = (type: string, data: unknown, options?: { droppable?: boolean }) => boolean;
 
-/** Deltas of one block are joined over this long, so a fast model costs ~30 frames a second. */
+/** About 30 frames a second for a fast model. */
 export const DELTA_WINDOW_MS = 33;
-/** The most of a tool's output that goes out live. The whole output is fetched over HTTP. */
+/** The whole output is fetched over HTTP. */
 export const OUTPUT_TAIL = 4 * 1024;
-/** A running tool's output goes out at most this often. */
 export const OUTPUT_EVERY_MS = 100;
 
 type Inner = MessageUpdateEvent["assistantMessageEvent"];
@@ -28,9 +27,7 @@ interface WireUpdate {
 	assistantMessageEvent: WireInner;
 }
 
-/** The message being written, as the opening and a resync carry it. */
 export interface Streaming {
-	/** Numbers the message among those this runtime streamed, as `stream.bound` refers to it. */
 	stream: number;
 	message: unknown;
 }
@@ -81,7 +78,6 @@ interface Tool {
 export class LiveStream {
 	#streams = 0;
 	#open: Streaming | undefined;
-	/** The message that ended in this turn, waiting for `turn_end` to name its entry. */
 	#ended: number | undefined;
 	#batch: WireUpdate | undefined;
 	#flushTimer: ReturnType<typeof setTimeout> | undefined;
@@ -92,7 +88,6 @@ export class LiveStream {
 		private readonly now: () => number = () => performance.now(),
 	) {}
 
-	/** The message being written, if one is. */
 	get streaming(): Streaming | undefined {
 		return this.#open;
 	}
@@ -148,7 +143,7 @@ export class LiveStream {
 
 	toolStart(event: ToolExecutionStartEvent): void {
 		this.#tools.set(event.toolCallId, { sentAt: Number.NEGATIVE_INFINITY });
-		// The arguments are in the message's tool call already, which is where a screen reads them.
+		// The arguments are already in the message's tool call.
 		this.send("pi.tool_execution_start", {
 			type: "tool_execution_start",
 			toolCallId: event.toolCallId,
@@ -156,7 +151,7 @@ export class LiveStream {
 		});
 	}
 
-	/** At most one update per call every `OUTPUT_EVERY_MS`, and the last one held is never lost. */
+	/** The last update held is never lost. */
 	toolUpdate(event: ToolExecutionUpdateEvent): void {
 		let tool = this.#tools.get(event.toolCallId);
 		if (tool === undefined) {
@@ -191,7 +186,6 @@ export class LiveStream {
 		});
 	}
 
-	/** Names the entry the turn's message became, so a client swaps its streamed copy for the entry. */
 	turnEnd(event: TurnEndEvent): void {
 		this.flush();
 		const stream = this.#ended;
@@ -200,7 +194,7 @@ export class LiveStream {
 		this.send("stream.bound", { messages: [{ stream, entry: event.messageEntryId }] });
 	}
 
-	/** After deltas were dropped: the message as it stands, which replaces whatever the daemon held. */
+	/** Replaces whatever the daemon held after deltas were dropped. */
 	resync(): void {
 		this.flush();
 		if (this.#open !== undefined) this.send("stream.resync", { ...this.#open });
@@ -215,7 +209,6 @@ export class LiveStream {
 		if (batch !== undefined) this.send("pi.message_update", batch, { droppable: true });
 	}
 
-	/** Stops the timers, as the session ends. */
 	stop(): void {
 		clearTimeout(this.#flushTimer);
 		this.#batch = undefined;

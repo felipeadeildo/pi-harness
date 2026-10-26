@@ -20,23 +20,19 @@ import { isObject } from "@adeildo/pi-remote-protocol";
 
 import type { Machine, Machines } from "./machines.ts";
 
-/** How often the other machines are asked what changed. */
 const SYNC_EVERY_MS = 2_000;
-/** A room or a log is a name, never a path. */
+/** Never a path. */
 const NAME = /^[\w-][\w.-]*$/;
 
-/** What a machine shares: its open sessions, and the size of each room log it holds. */
 export interface Shared {
 	presence: { session: string; host: string }[];
 	rooms: Record<string, Record<string, number>>;
 }
 
-/** This machine's open sessions, from its presence index, and every room log here with its size. */
 export function sharedHere(root: string, self: string): Shared {
 	return { presence: openHere(root, self), rooms: roomSizes(root) };
 }
 
-/** A room log's bytes past `from`, or nothing when the room or the log is not a name here. */
 export function roomBytes(
 	root: string,
 	room: string,
@@ -61,9 +57,7 @@ export function roomBytes(
 
 export interface MirrorOptions {
 	machines: Machines;
-	/** The harness's logs on this machine. */
 	root: string;
-	/** This machine's name, which its own presence entries carry. */
 	self: string;
 }
 
@@ -85,7 +79,6 @@ export class Mirror {
 		clearInterval(this.#timer);
 	}
 
-	/** Copies what each other machine shares, and forgets the open sessions of a machine that left. */
 	async sync(): Promise<void> {
 		if (this.#syncing) return;
 		this.#syncing = true;
@@ -127,11 +120,11 @@ export class Mirror {
 			const bytes = Buffer.from(await answer.arrayBuffer());
 			const dir = join(this.#options.root, "rooms", room);
 			mkdirSync(dir, { recursive: true });
-			// The size is read again: a copy that grew since the list was read must not get the same bytes twice.
+			// A copy that grew since the list was read must not get the same bytes twice.
 			if (sizeOf(join(dir, log)) !== from) return;
 			appendFileSync(join(dir, log), bytes);
 		} catch {
-			// The next sync asks again from wherever the copy stands.
+			// The next sync asks again.
 		}
 	}
 
@@ -151,14 +144,12 @@ export class Mirror {
 			if (entry.host === host && !open.has(entry.session)) rmSync(entry.path, { force: true });
 	}
 
-	/** Removes the copied entries of every machine that is not one of `hosts`. */
 	#forgetBut(hosts: ReadonlySet<string>): void {
 		for (const entry of entriesIn(join(this.#options.root, "live")))
 			if (!hosts.has(entry.host)) rmSync(entry.path, { force: true });
 	}
 }
 
-/** This machine's sessions in its presence index whose process runs. */
 function openHere(root: string, self: string): Shared["presence"] {
 	return entriesIn(join(root, "live")).flatMap(({ path, host, pid }) => {
 		if (host !== self || !runs(pid)) return [];
@@ -170,7 +161,6 @@ function openHere(root: string, self: string): Shared["presence"] {
 	});
 }
 
-/** Every room log here, with its size. */
 function roomSizes(root: string): Shared["rooms"] {
 	const rooms: Shared["rooms"] = {};
 	for (const room of namesIn(join(root, "rooms"))) {
@@ -182,7 +172,6 @@ function roomSizes(root: string): Shared["rooms"] {
 	return rooms;
 }
 
-/** The presence entries in `live`, with who wrote each. One that does not read is skipped. */
 function entriesIn(live: string): { path: string; session: string; host: string; pid: number }[] {
 	return namesIn(live)
 		.filter((name) => name.endsWith(".json"))
@@ -232,7 +221,6 @@ function sizeOf(path: string): number {
 	}
 }
 
-/** Whether a process runs, whoever owns it. */
 function runs(pid: number): boolean {
 	try {
 		process.kill(pid, 0);

@@ -12,7 +12,7 @@ export function openInBrowser(
 		child.on("error", () => {});
 		child.unref();
 	} catch {
-		// A command that cannot even start leaves the printed link as the way in.
+		// The printed link is still the way in.
 	}
 }
 

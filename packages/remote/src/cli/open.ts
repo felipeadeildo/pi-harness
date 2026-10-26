@@ -8,7 +8,6 @@ import { openInBrowser } from "../browser.ts";
 import { VERSION } from "../version.ts";
 import { envelopeOf, line, Lines } from "../wire/lines.ts";
 
-/** How long the command waits for the daemon. */
 const ANSWER_MS = 3_000;
 
 /** `tailnet` is the address the owner's devices open with no token. */
@@ -27,7 +26,6 @@ export function linkOf(answer: Envelope | undefined, silence: string): Link {
 	return { reason: silence };
 }
 
-/** Asks the daemon on the socket for a link. */
 export function requestLink(socketPath: string): Promise<Link> {
 	return new Promise((resolve) => {
 		const socket = connect(socketPath);
@@ -57,7 +55,6 @@ export function requestLink(socketPath: string): Promise<Link> {
 
 const NO_DAEMON = "no daemon answered; a pi in a terminal starts one, and so does pi-remote serve";
 
-/** Prints the link and opens it, or says why there is none. Returns the exit code. */
 export async function open(
 	socketPath: string,
 	out: (line: string) => void,

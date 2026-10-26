@@ -1,5 +1,3 @@
-// The remote's own settings: what the operator changes without reading code. They live beside the
-// extension because the daemon is the one that listens, and the bridge is the one that starts it.
 import { boolean, type Decoder, integer, setting } from "@adeildo/pi-kit";
 
 import { CLIENT_PORT, PORT_ID } from "./places.ts";

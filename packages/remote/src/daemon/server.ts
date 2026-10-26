@@ -31,39 +31,28 @@ import { type AskTailscale, Owners, type Tailnet } from "./tailnet.ts";
 
 /** A daemon a pi started exits after this long with no session. */
 const IDLE_EXIT_MS = 5 * 60_000;
-/** How often `current.json` is read for a newer version. */
 const CURRENT_POLL_MS = 2_000;
 
-/** Why the daemon stopped, for its exit and for the tests. */
 export type ExitReason = "idle" | "upgrade" | "stopped";
 
 export interface DaemonOptions {
 	/** Mode 0600, in a folder of mode 0700. */
 	socket: string;
-	/** What a hello and `current.json` are compared with. */
 	version: string;
-	/** Watched for a newer version, and unwatched when absent. */
 	current?: string;
-	/** `logins.json` beside the socket, unless a test says otherwise. */
 	logins?: string;
 	idleExitMs?: number;
 	/** `pi-remote serve` never exits for being idle. */
 	stayUp?: boolean;
 	/** Port 0 takes any free port. */
 	clientPort?: number;
-	/** The folder of the page's build. Without one, only the data routes. */
 	webDir?: string;
-	/** This machine on its tailnet, where clients reach the daemon too. Loopback only without it. */
 	tailnet?: Tailnet;
-	/** Where the owner's machines copy open sessions and rooms; nothing is shared without it. */
 	events?: string;
-	/** How the daemon asks `tailscale`, so a test can answer for it. */
 	ask?: AskTailscale;
-	/** This machine's name, as its bridges send it. The hostname, unless a test says otherwise. */
 	machine?: string;
 	/** Found on the tailnet unless a test brings its own. */
 	machines?: Machines;
-	/** Called once, after the daemon stopped listening and removed its socket. */
 	exited?(reason: ExitReason): void;
 	warn?(message: string): void;
 }
@@ -76,16 +65,13 @@ export class Daemon {
 	readonly #options: DaemonOptions;
 	#idle: ReturnType<typeof setTimeout> | undefined;
 	#stopping = false;
-	/** The inode of the socket this daemon put in place, so it never removes another daemon's. */
+	/** So it never removes another daemon's socket. */
 	#inode: number | undefined;
-	/** Each session's bridge, which a client's request for an opening goes to. */
 	readonly #bridges = new Map<string, Socket>();
 	#clients: Clients | undefined;
 	#machines: Machines | undefined;
 	#mirror: Mirror | undefined;
-	/** The port clients reach the daemon on, once it listens for them. */
 	clientPort: number | undefined;
-	/** Why no port is listening, worded for whoever has to fix it, once a listen failed. */
 	#noPort: string | undefined;
 
 	private constructor(server: Server, options: DaemonOptions) {
@@ -120,7 +106,6 @@ export class Daemon {
 		return daemon;
 	}
 
-	/** Stops accepting, closes every connection, removes the socket and reports why. */
 	stop(reason: ExitReason = "stopped"): void {
 		if (this.#stopping) return;
 		this.#stopping = true;
@@ -131,8 +116,7 @@ export class Daemon {
 		this.#machines?.stop();
 		this.#mirror?.stop();
 		this.#server.close(async () => {
-			// Another daemon may have put its socket there since. A freed inode can come back at once,
-			// so the file is removed only when it is this daemon's and nothing answers on it.
+			// A freed inode can come back at once, so the file goes only when it is this daemon's and nothing answers.
 			const path = this.#options.socket;
 			if (statOf(path)?.ino === this.#inode && !(await answers(path)))
 				rmSync(path, { force: true });
@@ -148,7 +132,6 @@ export class Daemon {
 		this.#sockets.add(socket);
 		socket.setEncoding("utf8");
 		let bridge: { session: string; epoch: string } | undefined;
-		/** The `pi-remote` command, which asks for tokens and registers no session. */
 		let cli = false;
 		const lines = new Lines(() => this.#warn("a bridge sent a line too long to read"));
 		socket.on("data", (chunk: string) => {
@@ -207,8 +190,7 @@ export class Daemon {
 		if (message.type !== "bridge") return refuse("hello first");
 		if (session === undefined || epoch === undefined || machine === undefined)
 			return refuse("a bridge names its machine, session and epoch");
-		// A newer bridge means a newer daemon is installed: this one makes way, and the bridge
-		// starts the new one when nothing answers.
+		// A newer bridge means a newer daemon is installed: this one makes way.
 		if (typeof data.version === "string" && newer(data.version, this.#options.version)) {
 			refuse("newer");
 			this.stop("upgrade");
@@ -218,7 +200,6 @@ export class Daemon {
 		return { session, epoch };
 	}
 
-	/** A command from a bridge or the `pi-remote` command, answered on the same id. */
 	#command(socket: Socket, message: Envelope): void {
 		const answer = (kind: "reply" | "error", data: object): void => {
 			socket.write(line(envelope(kind, message.type, data, { id: message.id })));
@@ -231,25 +212,21 @@ export class Daemon {
 				}`,
 			});
 		const { token, expiresAt } = this.logins.issue();
-		// The daemon names the port, since `serve --port` may have moved it. The token rides in the
-		// fragment, which no request carries to a server or a log.
+		// The daemon names the port, since `serve --port` may have moved it.
 		const tailnet = this.#clients?.tailnetUrl;
 		answer("reply", {
 			url: `http://127.0.0.1:${this.clientPort}/#token=${token}`,
 			expiresAt,
-			// No token: the owner's own devices log in on the tailnet by who they are.
 			...(tailnet === undefined ? {} : { tailnet }),
 		});
 	}
 
 	#bridgeSaid(bridge: { session: string; epoch: string }, message: Envelope): void {
-		// A bridge speaks for its own session and epoch only.
 		const own = message.session === bridge.session && message.epoch === bridge.epoch;
 		if (!own) return;
-		// An answer to a client's command goes back to the client that asked, not to every watcher.
 		if (message.kind === "reply" || message.kind === "error") {
 			if (message.id === undefined) {
-				// Nothing can route it, and the client it was for waits until its outbox window ends.
+				// Nothing can route it; the client waits until its outbox window ends.
 				this.#warn(`a ${message.kind} of ${message.type} came with no id and reached nobody`);
 				return;
 			}
@@ -265,8 +242,7 @@ export class Daemon {
 				return;
 			}
 			case "session.live":
-				// A session.live that does not read never counts as connected, and the daemon would
-				// then exit as idle and be started again, so it says why.
+				// Otherwise the daemon would exit as idle and be started again.
 				if (isLive(message.data)) {
 					this.sessions.live(message, message.data);
 				} else this.#warn("a session.live that does not read");
@@ -330,18 +306,14 @@ export class Daemon {
 				this.#mirror = new Mirror({ machines: this.#machines, root: events, self: machine });
 				this.#mirror.start();
 			}
-			// The socket is bound to a temporary name and renamed, so the only way to say who holds
-			// it is to write it down: the gate stops this process by pid.
 			try {
 				writeHolder(dirname(this.#options.socket), { pid: process.pid, port: listened.port });
 			} catch {
-				// A folder that cannot be written is a folder the launcher could not be written to
-				// either, and the daemon still serves.
+				// The daemon still serves without the file.
 			}
 		}
 	}
 
-	/** The sessions some client watches, each with how many. */
 	watched(): Map<string, number> {
 		return this.#clients?.hub.watched() ?? new Map();
 	}
@@ -366,7 +338,6 @@ export class Daemon {
 		return true;
 	}
 
-	/** With no session connected, the idle clock runs; a session going live stops it. */
 	#settle(): void {
 		if (this.#stopping || this.#options.stayUp === true) return;
 		if (this.sessions.connected() > 0) {
@@ -392,7 +363,6 @@ export class Daemon {
 	}
 }
 
-/** Whether version `a` is newer than `b`, comparing dotted numbers; anything after a `-` is ignored. */
 export function newer(a: string, b: string): boolean {
 	const [left, right] = [numbersOf(a), numbersOf(b)];
 	for (let index = 0; index < Math.max(left.length, right.length); index++) {
@@ -418,7 +388,7 @@ function listen(server: Server, path: string): Promise<boolean> {
 	});
 }
 
-/** A takeover lock older than this was left by a daemon that died while taking over. */
+/** Older than this, a takeover lock was left by a daemon that died mid-takeover. */
 const TAKEOVER_STALE_MS = 10_000;
 
 /** One daemon at a time holds the lock, so two cannot each remove the socket the other bound. */
@@ -434,7 +404,6 @@ async function takeOver(own: string, socket: string): Promise<boolean> {
 	}
 }
 
-/** Links the socket's path to the one this daemon listens on. It fails when the path exists. */
 function place(own: string, socket: string): boolean {
 	try {
 		linkSync(own, socket);
@@ -444,7 +413,6 @@ function place(own: string, socket: string): boolean {
 	}
 }
 
-/** Creates the lock file, or takes over one older than `TAKEOVER_STALE_MS`. */
 function claim(lock: string): boolean {
 	for (let attempt = 0; attempt < 2; attempt++) {
 		try {
@@ -463,7 +431,6 @@ function statOf(path: string): Stats | undefined {
 	return statSync(path, { throwIfNoEntry: false });
 }
 
-/** Whether a daemon answers on the socket, so a second one must leave it alone. */
 function answers(path: string): Promise<boolean> {
 	return new Promise((resolve) => {
 		const probe = connect(path);

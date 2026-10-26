@@ -1,5 +1,3 @@
-// The session's harness state as this bridge knows it: what the kit logs for this session, folded the
-// same way every reader folds it, so the opening it sends needs no replay behind it.
 import {
 	applyChange,
 	isStateChangeType,
@@ -40,9 +38,7 @@ export function forward(
 export class Harness {
 	#state: SessionState = emptySessionState();
 
-	/** Folds one event the session logged into the state an opening carries. */
 	saw(type: string, data: unknown): void {
-		// The forwarder hands whatever the log wrote; only a state change has an effect to fold.
 		if (isStateChangeType(type)) this.#state = applyChange(this.#state, type, data);
 	}
 
@@ -50,7 +46,6 @@ export class Harness {
 		return openQuestions(this.#state).map((ask) => ask.id);
 	}
 
-	/** The state as it stands, with what pi knows and the log does not. */
 	state(mode: unknown): SessionState {
 		return {
 			...this.#state,

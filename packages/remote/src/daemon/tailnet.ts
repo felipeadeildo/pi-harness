@@ -4,23 +4,17 @@ import { execFile } from "node:child_process";
 
 import { isObject } from "@adeildo/pi-remote-protocol";
 
-/** How long the daemon waits on `tailscale` before it acts as if there were no tailnet. */
 const ASK_MS = 2_000;
 
-/** How long an answer about one address is kept, so a phone's requests do not each start a process. */
+/** So a phone's requests do not each start a process. */
 const KEPT_MS = 60_000;
 
-/** The machine on its tailnet: the name a phone types, the address the daemon listens on, its owner. */
 export interface Tailnet {
-	/** The MagicDNS name, without the trailing dot. */
 	name: string;
-	/** The machine's IPv4 address on the tailnet. */
 	ip: string;
-	/** The tailnet user who owns this machine. */
 	user: number;
 }
 
-/** Runs `tailscale` with these arguments, and gives its output, or nothing when it failed or was slow. */
 export type AskTailscale = (args: readonly string[]) => Promise<string | undefined>;
 
 const askTailscale: AskTailscale = (args) =>
@@ -30,7 +24,6 @@ const askTailscale: AskTailscale = (args) =>
 		);
 	});
 
-/** This machine on its tailnet, or nothing when it is not on one. */
 export async function readTailnet(ask: AskTailscale = askTailscale): Promise<Tailnet | undefined> {
 	return nodeOf(parsed(await ask(["status", "--json"]))?.Self);
 }

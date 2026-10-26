@@ -31,43 +31,33 @@ import { forward, type Logged, Harness } from "./logged.ts";
 import { PRODUCERS, costOf } from "./producers.ts";
 import { LiveStream } from "./stream.ts";
 
-/** How many entries of the branch an opening carries. A client pages through older ones over HTTP. */
+/** Older entries are paged over HTTP. */
 export const STATE_ENTRIES = 50;
 
 /** A count, not a time: a long run holds its steers and follow-ups until its entries show. */
 export const REMEMBERED_SENDERS = 20;
 
-/** How often the terminal tells the daemon that someone typed there, in milliseconds. */
 export const TYPED_EVERY_MS = 2_000;
 
 export type SessionKind = SessionSummary["kind"];
 
-/** What pi gives the extension for the things only it can do. */
 export interface SessionApi {
 	rename(name: string): void;
-	/** Answers once it switched, or refuses with a reason. */
 	setModel(provider: string, id: string): Promise<void>;
 	setThinking(level: string): void;
-	/** Refuses with the reason a client shows. */
 	setMode(mode: string, by: By | undefined): void;
 	/** A steer goes in at once; a follow-up waits until the agent settles. */
 	send(text: string, deliverAs: "steer" | "followUp" | undefined): void;
-	/** What a follow-up waits for. */
 	busy(): boolean;
-	/** Says it in the terminal and in the log. */
 	arrived(text: string, by: By): void;
 }
 
 export interface BridgeOptions {
-	/** The socket the daemon listens on. */
 	path: string;
-	/** Where the harness's contracts are read. */
 	scope: EventScope;
-	/** Runs a client's command, built by whoever owns it. */
 	command: (message: Envelope) => void;
 	/** How often the terminal says someone typed, in milliseconds. A test sets it short. */
 	typedEveryMs?: number;
-	/** What only pi's extension API can do. */
 	api: SessionApi;
 	/** Asked when the session is announced: one that appears later waits for the next one. */
 	offered: () => readonly SessionCommand[];
@@ -78,18 +68,14 @@ export interface BridgeOptions {
 	seams?: Partial<ConnectionSeams>;
 }
 
-/** A line the kit logged, as far as the bridge reads it. */
-
 export class Bridge {
 	readonly stream: LiveStream;
 	readonly #changes = new Harness();
-	/** The wire to the daemon. The bridge owns its life; the wiring sends on it. */
 	readonly connection: BridgeConnection;
 	readonly #startedAt = Date.now();
 	#unfollow: (() => void) | undefined;
 	#stopTyping: (() => void) | undefined;
 	#typedAt = 0;
-	/** Prompts a client sent that have no entry on the branch yet, oldest first. */
 	#senders: { text: string; by: By }[] = [];
 
 	constructor(
@@ -137,7 +123,7 @@ export class Bridge {
 		this.connection.start();
 	}
 
-	/** Asks the daemon something, as `/remote` asks for a token. Nothing comes back without a daemon. */
+	/** Asks the daemon, as `/remote` asks for a token. */
 	readonly #asks = new OpenAsks();
 
 	request(type: string, data: unknown): Promise<Envelope | undefined> {
@@ -169,7 +155,6 @@ export class Bridge {
 		this.connection.event("prompt.from", change);
 	}
 
-	/** Refuses a question that is no longer open. */
 	answer(id: string, reply: unknown, by: By | undefined): void {
 		if (by === undefined) throw new Refused("an answer names who gave it");
 		if (!this.#asks.open.includes(id))
@@ -179,17 +164,14 @@ export class Bridge {
 		this.options.scope.events.emit(ANSWER, answer);
 	}
 
-	/** Closes every open question, so the extension waiting hears no instead of an error. */
 	cancelAsks(): void {
 		for (const id of this.#asks.open) this.options.scope.events.emit(CANCEL, { id });
 	}
 
-	/** The command ids already in the log, so a resend is not a second effect. */
 	ran(): string[] {
 		return this.#ran();
 	}
 
-	/** Forwards a state change the kit logged, and keeps what an opening needs of it. */
 	logged(line: Logged): void {
 		forward(line, this.ctx.sessionManager.getSessionId(), this.#changes, (type, data) =>
 			this.connection.event(type, data),
@@ -223,7 +205,7 @@ export class Bridge {
 			commands: this.options.offered(),
 		});
 		this.#open();
-		// Older or off-branch entries come from the file; what pi appends comes as it is written.
+		// Older or off-branch entries come from the file; appended ones as pi writes them.
 		this.#unfollow?.();
 		const last = manager.getEntries().at(-1)?.id;
 		this.#unfollow = this.source.follow(
@@ -244,18 +226,16 @@ export class Bridge {
 		this.connection.event("cost.changed", { cost: this.#cost() });
 	}
 
-	/** What the session has spent, in the wire's shape. The opening carries it, so a reconnect keeps it. */
+	/** The opening carries it, so a reconnect keeps it. */
 	#cost(): SessionState["cost"] {
 		return costOf(this.ctx.sessionManager.getEntries());
 	}
 
-	/** The queue changed: it folds into the state and goes out numbered, as one list for every client. */
 	queued(queue: readonly Letter[]): void {
 		this.#changes.saw("queue.changed", { queue });
 		this.connection.event("queue.changed", { queue });
 	}
 
-	/** The terminal opened or closed a dialog no client can answer, so clients say it waits. */
 	prompted(open: boolean, kind: PromptKind, title: string | undefined): void {
 		const change = { open, kind, ...(title === undefined ? {} : { title }) };
 		this.#changes.saw("terminal.prompted", change);
@@ -269,8 +249,7 @@ export class Bridge {
 	}
 
 	#ran(): string[] {
-		// The manager's methods need the manager: pi's own read the session id off it. A context with
-		// no folder behind it has no log either, and nothing ran there.
+		// A context with no folder has no log, so nothing ran there.
 		const manager = this.ctx.sessionManager;
 		if (typeof manager.getCwd !== "function") return [];
 		const session = manager.getSessionId();
@@ -307,7 +286,6 @@ export class Bridge {
 	}
 }
 
-/** The live state pi knows of the session, in the protocol's shape. The bridge adds the harness's. */
 function summaryOf(ctx: ExtensionContext, kind: SessionKind): SessionSummary {
 	const manager = ctx.sessionManager;
 	const usage = ctx.getContextUsage();
@@ -325,14 +303,12 @@ function summaryOf(ctx: ExtensionContext, kind: SessionKind): SessionSummary {
 	};
 }
 
-/** The part of an entry the bridge reads to tell a prompt's sender: its id, kind and, for a message, its role and words. */
 interface UserEntry {
 	id: string;
 	type: string;
 	message?: { role?: string; content?: unknown };
 }
 
-/** The words of a user message: a string, or the text parts of a list. */
 function userText(content: unknown): string {
 	if (typeof content === "string") return content.trim();
 	if (!Array.isArray(content)) return "";

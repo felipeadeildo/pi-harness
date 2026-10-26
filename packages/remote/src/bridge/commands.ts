@@ -4,45 +4,36 @@ import type { By, Letter } from "@adeildo/pi-kit";
 import type { Envelope } from "@adeildo/pi-remote-protocol";
 import { isCommand } from "@adeildo/pi-remote-protocol";
 
-/** How many ids a session remembers. A client that resends after this many others is on its own. */
+/** A client that resends after this many others is on its own. */
 export const KEPT_COMMANDS = 1_000;
 
-/** What a command does to the session, as the bridge reaches it. Kept narrow so it can be faked. */
 export interface CommandEffects {
 	abort(): void;
 	compact(instructions: string | undefined): void;
 	rename(name: string): void;
-	/** Closes open questions as a no, aborts the run and shuts the session down. */
 	stop(force: boolean): void;
-	/** Switches the model, and answers only once it did or refused to. */
 	setModel(provider: string, id: string): Promise<void>;
 	setThinking(level: string): void;
 	setMode(mode: string, by: By | undefined): void;
-	/** Answers a question a client is looking at, and refuses one that is no longer open. */
 	answerAsk(fields: Record<string, unknown>, by: By | undefined): void;
-	/** Puts a prompt in the session's inbox: a steer goes in at once, a follow-up waits for the settle. */
 	prompt(id: string, by: By | undefined, text: string, deliverAs: Letter["want"]): void;
-	/** Takes back what the inbox holds, which is what pi's Esc does with its queue. */
 	clearQueue(ids?: readonly string[]): Letter[];
 }
 
 export interface CommandOptions {
 	session: string;
 	effects: CommandEffects;
-	/** The ids this session already ran, newest last, read from its log when the bridge starts. */
+	/** Read from the log when the bridge starts. */
 	history?: readonly string[];
-	/** Answers the command on its id. */
 	answer(kind: "reply" | "error", type: string, data: Record<string, unknown>, id: string): void;
-	/** Logs the command with who asked, before it runs, so a restart still knows the id. */
+	/** Logged before it runs, so a restart still knows the id. */
 	received(id: string, command: string, by: By | undefined): void;
-	/** Logs how a command ended, when it did not run: what the client shows as the reason. */
+	/** Only when it did not run. */
 	outcome(id: string, command: string, by: By | undefined, outcome: "refused" | "failed"): void;
 }
 
-/** A command refused with the reason a client shows. */
 export class Refused extends Error {}
 
-/** The ids a `queue.clear` names, when it names any: absent means "the whole queue". */
 function idsOf(fields: Record<string, unknown>): string[] | undefined {
 	if (!Array.isArray(fields.ids)) return undefined;
 	return fields.ids.filter((id): id is string => typeof id === "string");
@@ -50,9 +41,8 @@ function idsOf(fields: Record<string, unknown>): string[] | undefined {
 
 export class Commands {
 	readonly #options: CommandOptions;
-	/** The ids already run, oldest first. */
 	readonly #ran: string[];
-	/** The commands waiting to run, so their effects land in the order the client sent them. */
+	/** Effects land in the order the client sent them. */
 	#pending: Promise<void> = Promise.resolve();
 
 	constructor(options: CommandOptions) {
@@ -60,7 +50,6 @@ export class Commands {
 		this.#ran = [...(options.history ?? [])].slice(-KEPT_COMMANDS);
 	}
 
-	/** Whether this id already ran, which makes the envelope a resend and not a second effect. */
 	ran(id: string): boolean {
 		return this.#ran.includes(id);
 	}
@@ -79,8 +68,7 @@ export class Commands {
 		}
 		this.#remember(id);
 		this.#options.received(id, type, by);
-		// A reply that cannot go out, or a log that throws, must not leave the next command unanswered:
-		// the chain carries the failure and goes on with the one behind it.
+		// A failed reply or log must not leave the next command unanswered.
 		this.#pending = this.#pending.then(
 			() => this.#execute(message),
 			() => this.#execute(message),
@@ -113,7 +101,6 @@ export class Commands {
 		if (this.#ran.length > KEPT_COMMANDS) this.#ran.splice(0, this.#ran.length - KEPT_COMMANDS);
 	}
 
-	/** Runs the effect and returns what a client reads in the reply, which is `{}` for most. */
 	async #effect(
 		type: string,
 		data: unknown,
@@ -156,11 +143,9 @@ export class Commands {
 				return {};
 			}
 			case "queue.clear":
-				// What was taken back is the answer, so a client draws the queue it now holds.
 				return { taken: effects.clearQueue(idsOf(fields)) };
 			default:
-				// A command of a type this session does not serve yet: the client hears "not yet"
-				// instead of a command that seems to work and does nothing.
+				// Refused rather than seeming to work and doing nothing.
 				throw new Refused(`${type} is not served by this session yet`);
 		}
 	}

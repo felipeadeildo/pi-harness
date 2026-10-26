@@ -19,11 +19,9 @@ type DialogOptions = Parameters<ExtensionUIContext["select"]>[2];
 
 export interface DialogsOptions {
 	events: Events;
-	/** The session whose log records the asks. */
 	ctx: AskOptions["ctx"];
-	/** Who the terminal is, as the author of an answer given there. */
 	terminal: () => By;
-	/** Read at each dialog, so the setting takes effect without a reload. */
+	/** Read at each dialog, so the setting applies without a reload. */
 	enabled: () => boolean;
 }
 
@@ -56,7 +54,6 @@ function typed(question: AskQuestion, value: string): AskResult {
 export function forwardDialogs(ui: Dialogs, options: DialogsOptions): () => void {
 	const original = { select: ui.select, confirm: ui.confirm, input: ui.input };
 
-	/** Asks the terminal and the clients at once, and settles on whichever answers first. */
 	async function race(
 		source: string,
 		question: AskQuestion,
@@ -65,8 +62,7 @@ export function forwardDialogs(ui: Dialogs, options: DialogsOptions): () => void
 	): Promise<AskReply> {
 		const id = crypto.randomUUID();
 		const terminal = new AbortController();
-		// A close the kit announces says why. The bridge's stop closes with no reason, and that one still
-		// needs the terminal's answer to end the wait.
+		// The bridge's stop closes with no reason and still needs the terminal's answer to end the wait.
 		let closed = false;
 		const stop = options.events.on(CANCEL, (data: unknown) => {
 			if (!isObject(data) || data.id !== id) return;
@@ -92,7 +88,6 @@ export function forwardDialogs(ui: Dialogs, options: DialogsOptions): () => void
 		}
 	}
 
-	/** The signal a dialog gets: the terminal's own, and the caller's when it passed one. */
 	const within = (dialog: DialogOptions, signal: AbortSignal): DialogOptions => ({
 		...dialog,
 		signal: dialog?.signal === undefined ? signal : AbortSignal.any([dialog.signal, signal]),

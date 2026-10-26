@@ -1,5 +1,3 @@
-// `pi-remote`, the command the launcher runs. It grows a subcommand with each slice of the remote,
-// and until a subcommand exists it says so instead of guessing.
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -14,7 +12,6 @@ import { open } from "./open.ts";
 
 const USAGE = "usage: pi-remote --version | open | serve [--dev] [--port <n>]";
 
-/** Runs one command line and returns the exit code, once the command is done. */
 export function run(
 	args: readonly string[],
 	out: (line: string) => void,
@@ -33,14 +30,12 @@ export function run(
 }
 
 export interface ServeOptions {
-	/** Resolves when `serve` should stop, as SIGINT and SIGTERM do. Injected so a test can stop it. */
+	/** Injected so a test can stop it. */
 	stopped?: Promise<void>;
 	env?: NodeJS.ProcessEnv;
-	/** The web app's export. Found next to this file by default. */
 	webDir?: string;
-	/** The idle wait a daemon a pi started would have, so a test sees `serve` outlast it. */
+	/** So a test sees `serve` outlast a pi-started daemon. */
 	idleExitMs?: number;
-	/** This machine on its tailnet, asked of `tailscale` by default. */
 	tailnet?: () => Promise<Tailnet | undefined>;
 }
 
@@ -51,7 +46,7 @@ async function serve(
 	err: (line: string) => void,
 	options: ServeOptions,
 ): Promise<number> {
-	// One owner for the port: the setting `pi` writes, unless the operator typed `--port` by hand.
+	// `--port` by hand wins over the setting.
 	const at = flags.indexOf("--port");
 	const port = at === -1 ? portFromSettings() : Number(flags[at + 1]);
 	if (!Number.isInteger(port) || port < 0 || port > 65_535) {
@@ -94,8 +89,7 @@ export function portFromSettings(): number {
 		return CLIENT_PORT;
 	}
 	if (typeof data !== "object" || data === null) return CLIENT_PORT;
-	// The file is nested (`{ "remote": { "port": … } }`), the id is dotted: walking it is the same
-	// lookup the kit does, written here because the built command may import only Node's modules.
+	// The same nested lookup the kit does.
 	let node: unknown = data;
 	for (const key of PORT_ID.split(".")) {
 		if (typeof node !== "object" || node === null) return CLIENT_PORT;
@@ -104,10 +98,9 @@ export function portFromSettings(): number {
 	return portOf(node) ?? CLIENT_PORT;
 }
 
-/** The daemon from `src/`, restarted by Bun on every save. Only a checkout of the repository has it. */
 function dev(port: number, err: (line: string) => void): Promise<number> {
 	const here = dirname(fileURLToPath(import.meta.url));
-	// From src/cli/ and from dist/, the package's root is two folders or one folder up.
+	// The package root is two folders up from src/cli/, one from dist/.
 	const entry = [join(here, "../daemon/main.ts"), join(here, "../src/daemon/main.ts")].find(
 		(path) => existsSync(path),
 	);

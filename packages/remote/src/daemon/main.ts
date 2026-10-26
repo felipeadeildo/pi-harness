@@ -8,16 +8,14 @@ import { findWebDir } from "./app.ts";
 import { Daemon } from "./server.ts";
 import { readTailnet } from "./tailnet.ts";
 
-/** How often the daemon looks at the tailnet for an address it does not listen on yet. */
 const TAILNET_EVERY_MS = 15_000;
 
-// Only as the entry: a module that imported this file would start a daemon in the operator's real
-// folder and port. The bundle keeps the check, as `require.main` for Node.
+// Only as the entry, or importing this file would start a daemon on the operator's real port.
 if (import.meta.main) {
 	const args = process.argv.slice(2);
 	if (args[0] === "--version") console.log(VERSION);
 	else {
-		// `--serve` is how `pi-remote serve --dev` runs this file: up until stopped, on its port.
+		// `pi-remote serve --dev` runs this file with `--serve`.
 		const at = args.indexOf("--port");
 		const port = at === -1 ? CLIENT_PORT : Number(args[at + 1]);
 		if (!Number.isInteger(port) || port < 0 || port > 65_535) {
@@ -26,7 +24,6 @@ if (import.meta.main) {
 		}
 		const tailnet = await readTailnet();
 		const stayUp = args.includes("--serve");
-		// When another daemon already answers on the socket, nothing is listening here and Node exits.
 		const daemon = await Daemon.start({
 			...daemonPaths(daemonDir()),
 			version: VERSION,

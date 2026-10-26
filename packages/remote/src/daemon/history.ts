@@ -2,16 +2,14 @@
 // never the entry, and reads in chunks, so a long session costs no memory the size of its file.
 import { type FileHandle, open } from "node:fs/promises";
 
-/** A page is at most this many entries, and a client asks for fewer when it needs fewer. */
 export const PAGE = 200;
 
-/** Past this many files, the one paged longest ago is dropped and built again if asked. */
+/** Past this many files, the one paged longest ago is dropped. */
 export const FILES = 16;
 
-/** Bytes read and parsed between two yields while an index is built. */
+/** Bytes parsed between yields while an index is built. */
 const CHUNK = 256 * 1024;
 
-/** An entry of a session file, with the two fields a page walks. */
 interface FileEntry {
 	id: string;
 	parentId?: string | null;
@@ -19,18 +17,14 @@ interface FileEntry {
 }
 
 export interface PageRequest {
-	/** Walking each entry's `parentId`. */
 	before?: string;
-	/** In the order pi wrote them. */
 	since?: string;
 	limit?: number;
 }
 
 export type Page =
 	| { entries: FileEntry[]; more: boolean }
-	/** The client drops what it holds of the session. */
 	| { unknown: string }
-	/** Its header names another session, or it cannot be read as one. */
 	| { foreign: true };
 
 interface Line {
@@ -42,13 +36,11 @@ interface Line {
 interface Index {
 	session: string;
 	ino: number;
-	/** Bytes indexed, always at the end of a line. */
 	size: number;
 	mtimeMs: number;
 	byId: Map<string, Line>;
-	/** The ids in the order pi wrote them. */
 	order: string[];
-	/** Whether the header named the session. Undefined until the header line is read. */
+	/** Undefined until the header line is read. */
 	header?: boolean;
 }
 
@@ -78,17 +70,14 @@ export class History {
 		}
 	}
 
-	/** How many files are indexed now. */
 	indexed(): number {
 		return this.#files.size;
 	}
 
-	/** The index of a file, brought up to what the file holds now. */
 	async #indexed(path: string, session: string, file: FileHandle): Promise<Index> {
 		const { ino, size, mtimeMs } = await file.stat();
 		let index = this.#files.get(path);
-		// Pi rewrites the whole file when it migrates it: a new inode, a shorter file, or a last line
-		// that no longer holds the entry it held starts over.
+		// Pi rewrites the file when it migrates it: a new inode, a shorter file or a moved last entry starts over.
 		if (
 			index === undefined ||
 			index.session !== session ||
@@ -97,7 +86,6 @@ export class History {
 			(mtimeMs !== index.mtimeMs && !(await stillHolds(file, index)))
 		)
 			index = { session, ino, size: 0, mtimeMs: 0, byId: new Map(), order: [] };
-		// Most recent last, so the first key is the file paged longest ago.
 		this.#files.delete(path);
 		this.#files.set(path, index);
 		if (this.#files.size > FILES) this.#files.delete(this.#files.keys().next().value ?? path);
@@ -108,7 +96,6 @@ export class History {
 	}
 }
 
-/** Whether the last entry indexed is still where the index says, which a rewrite in place breaks. */
 async function stillHolds(file: FileHandle, index: Index): Promise<boolean> {
 	const last = index.order.at(-1);
 	const line = last === undefined ? undefined : index.byId.get(last);
@@ -122,9 +109,7 @@ async function stillHolds(file: FileHandle, index: Index): Promise<boolean> {
 	}
 }
 
-/** Reads the lines the file gained since the index was last brought up to date. */
 async function extend(file: FileHandle, index: Index, size: number): Promise<void> {
-	// In chunks, so neither the memory nor a stall of the loop grows with the file.
 	let carry = Buffer.alloc(0);
 	let at = index.size;
 	while (at < size) {
@@ -153,7 +138,7 @@ async function extend(file: FileHandle, index: Index, size: number): Promise<voi
 		// oxlint-disable-next-line no-await-in-loop -- the yield is the point
 		await new Promise((resolve) => setImmediate(resolve));
 	}
-	// What is left after the last line break is a line still being written, read on the next page.
+	// What follows the last line break is still being written.
 }
 
 function addLine(index: Index, text: string, start: number, length: number): void {
@@ -186,8 +171,7 @@ async function pageIn(file: FileHandle, index: Index, request: PageRequest): Pro
 	if (from === undefined) return { entries: [], more: false };
 	const start = index.byId.get(from);
 	if (start === undefined) return { unknown: from };
-	// `before` names an entry the client holds, so its page starts at the parent. A file with a cycle
-	// in its parents would page forever, so an entry seen once ends the walk.
+	// A cycle in the parents would page forever, so an entry seen once ends the walk.
 	const seen = new Set<string>(request.before === undefined ? [] : [from]);
 	let next = request.before === undefined ? from : start.parent;
 	const ids: string[] = [];
@@ -202,7 +186,6 @@ async function pageIn(file: FileHandle, index: Index, request: PageRequest): Pro
 	return { entries: await read(file, index, ids.toReversed()), more };
 }
 
-/** The entries of `ids`, each read from its own line. */
 async function read(file: FileHandle, index: Index, ids: readonly string[]): Promise<FileEntry[]> {
 	const entries: FileEntry[] = [];
 	for (const id of ids) {

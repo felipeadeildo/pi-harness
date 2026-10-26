@@ -5,7 +5,6 @@ import {
 	type PermissionMode,
 	type FeatureScope,
 } from "@adeildo/pi-kit";
-/** pi's levels live in the protocol, so the screen that offers them and this check cannot disagree. */
 import { THINKING_LEVELS } from "@adeildo/pi-remote-protocol";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
@@ -17,7 +16,6 @@ export { THINKING_LEVELS };
 
 export type ThinkingLevel = (typeof THINKING_LEVELS)[number];
 
-/** The first line of what arrived, since a terminal note is one line. */
 function firstLine(text: string): string {
 	const line = text.split("\n")[0] ?? "";
 	return text.includes("\n") ? `${line} …` : line;
@@ -39,8 +37,7 @@ export function commandApi(scope: FeatureScope, ctx: ExtensionContext): SessionA
 		setModel: async (provider, id) => {
 			const model = ctx.modelRegistry.find(provider, id);
 			if (model === undefined) throw new Refused(`no model ${provider}/${id} on this machine`);
-			// pi answers false when it kept the model it had: a client that hears nothing would think it
-			// switched, so the answer says it did not.
+			// Pi answers false when it kept the model, so the client hears it did not switch.
 			if (!(await scope.setModel(model))) throw new Refused("the model stayed as it was");
 		},
 		setThinking: (level) => {
@@ -50,14 +47,13 @@ export function commandApi(scope: FeatureScope, ctx: ExtensionContext): SessionA
 		},
 		busy: () => !ctx.isIdle(),
 		send: (text, deliverAs) => {
-			// A text that starts with `/` is decided here, against the same list the phone shows: a name
-			// the session does not offer is refused instead of reaching the model as the words "/foo".
+			// Decided against the list the phone shows, so an unoffered name never reaches the model.
 			const slash = slashOf(text, commandsFor(scope.getCommands()));
 			if (slash === "refused") {
 				throw new Refused(`${firstLine(text)} is not a command this session offers`);
 			}
 			if (slash === "compact") {
-				// The same effect the `session.compact` command has, so the two paths cannot drift.
+				// The same effect as `session.compact`.
 				const instructions = compactInstructions(text);
 				void ctx.compact(
 					instructions === undefined ? undefined : { customInstructions: instructions },
@@ -71,14 +67,12 @@ export function commandApi(scope: FeatureScope, ctx: ExtensionContext): SessionA
 			});
 		},
 		arrived: (text, by) => {
-			// The state change is what a reader of the log needs; the line is what the person at the terminal
-			// needs, since the message itself already went in as an ordinary one.
+			// The log needs the state change; the terminal needs the line.
 			logFrom(ctx, scope.events, "prompt.received", { by });
 			ctx.ui.notify(`From ${by.name}: ${firstLine(text)}`, "info");
 		},
 		setMode: (mode, by) => {
-			// `full` runs every call without asking, and a rule or a stolen phone must not reach it: it
-			// is set at the terminal, where the person is looking at the session it applies to.
+			// `full` is set only at the terminal, so a stolen phone cannot reach it.
 			if (mode === "full") throw new Refused("full is only set at the terminal");
 			if (!isPermissionMode(mode)) throw new Refused(`${mode} is not a permission mode`);
 			const control = MODE_SET.current(scope);

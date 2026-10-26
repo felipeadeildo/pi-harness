@@ -11,10 +11,9 @@ import {
 	type SessionSummary,
 } from "@adeildo/pi-remote-protocol";
 
-/** Every session's replay together holds at most this many bytes of JSON. */
+/** Shared by every session's replay. */
 const REPLAY_BYTES = 8 * 1024 * 1024;
 
-/** Events that only matter while they happen. */
 const EPHEMERAL: ReadonlySet<string> = new Set([
 	"pi.message_update",
 	"pi.tool_execution_update",
@@ -24,42 +23,33 @@ const EPHEMERAL: ReadonlySet<string> = new Set([
 
 export type GoneReason = "exit" | "crash" | "unanswered" | "replaced";
 
-/** What `session.live` says about a session. */
 export interface SessionLive {
 	pid: number;
 	startedAt: number;
 	cwd: string;
 	name?: string;
 	kind: "terminal" | "background";
-	/** Once pi wrote one, where older entries come from. */
 	file?: string;
 }
 
 export interface LiveSession {
 	machine: string;
 	session: string;
-	/** The life of the last bridge that registered it. */
 	epoch: string;
 	live: SessionLive;
 	/** A lost bridge reconnects, so the session stays listed. */
 	connected: boolean;
-	/** Why it ended, once a bridge said so. */
 	gone?: GoneReason;
 	state: SessionState;
-	/** The last opening a bridge sent. */
 	opening?: Opening;
 }
 
-/** What the bridge's `state` event carries. */
 export interface Opening {
 	summary: SessionSummary;
-	/** The tail of the branch, oldest first. */
 	entries: unknown[];
-	/** The message being written, when one is. */
 	streaming?: unknown;
 }
 
-/** Where a client stopped reading. */
 export interface Cursor {
 	epoch: string;
 	seq: number;
@@ -72,12 +62,10 @@ interface Buffered {
 
 interface Entry {
 	state: LiveSession;
-	/** As its bridge sent it, so a client gets its epoch and seq too. */
 	opening?: Envelope;
 	replay: Buffered[];
-	/** What `replay` holds, in bytes of JSON. */
 	bytes: number;
-	/** The highest seq dropped from the replay buffer: a cursor at or below it has a gap. */
+	/** A cursor at or below it has a gap. */
 	evicted: number;
 }
 
@@ -87,7 +75,6 @@ export class Sessions {
 
 	constructor(private readonly budget = REPLAY_BYTES) {}
 
-	/** Every session a bridge registered, connected or not. */
 	list(): LiveSession[] {
 		return [...this.#entries.values()].map((entry) => entry.state);
 	}
@@ -96,12 +83,11 @@ export class Sessions {
 		return this.#entries.get(session)?.state;
 	}
 
-	/** How many sessions have a connected bridge. */
 	connected(): number {
 		return this.list().filter((state) => state.connected).length;
 	}
 
-	/** A new epoch renumbers, so the old replay goes and the state stays: it describes the session. */
+	/** A new epoch renumbers: the replay goes, the state stays. */
 	live(envelope: Envelope, live: SessionLive): LiveSession {
 		const { machine = "", session = "", epoch = "" } = envelope;
 		const known = this.#entries.get(session);
@@ -128,7 +114,6 @@ export class Sessions {
 		return state;
 	}
 
-	/** An event of a registered session: folded, and kept for replay unless ephemeral. */
 	event(envelope: Envelope): string | undefined {
 		const entry = this.#entries.get(envelope.session ?? "");
 		if (entry === undefined) return "an event for a session no bridge registered";
@@ -138,7 +123,7 @@ export class Sessions {
 			this.#rebase(entry, envelope, envelope.data);
 			return undefined;
 		}
-		// Only state changes fold: a delta or a bound travels for the client.
+		// Deltas and bindings travel without folding.
 		if (isStateChangeType(envelope.type))
 			entry.state.state = applyChange(entry.state.state, envelope.type, envelope.data);
 		if (EPHEMERAL.has(envelope.type) || envelope.seq === undefined) return undefined;
@@ -150,13 +135,11 @@ export class Sessions {
 		return undefined;
 	}
 
-	/** Its bridge's socket closed without saying the session ended. */
 	lost(session: string, epoch: string): void {
 		const entry = this.#entries.get(session);
 		if (entry !== undefined && entry.state.epoch === epoch) entry.state.connected = false;
 	}
 
-	/** Its bridge said the session ended. */
 	gone(session: string, epoch: string, reason: GoneReason): void {
 		const entry = this.#entries.get(session);
 		if (entry === undefined || entry.state.epoch !== epoch) return;
@@ -164,7 +147,6 @@ export class Sessions {
 		entry.state.gone = reason;
 	}
 
-	/** The events after `cursor`, or `undefined` when the buffer cannot fill the gap. */
 	after(session: string, cursor: Cursor): Envelope[] | undefined {
 		const entry = this.#entries.get(session);
 		if (entry === undefined || entry.state.epoch !== cursor.epoch) return undefined;
@@ -174,7 +156,6 @@ export class Sessions {
 			.map(({ envelope }) => envelope);
 	}
 
-	/** What a client with no usable cursor reads first: the last opening, then the events after it. */
 	opening(session: string): Envelope[] | undefined {
 		const entry = this.#entries.get(session);
 		const opening = entry?.opening;
@@ -184,7 +165,7 @@ export class Sessions {
 		return [this.#foldedInto(entry, opening), ...after];
 	}
 
-	/** An opening is the new base: a cursor older than it takes the opening instead of a replay. */
+	/** A cursor older than the opening takes the opening instead of a replay. */
 	#rebase(entry: Entry, envelope: Envelope, opening: Opening): void {
 		entry.state.opening = opening;
 		// The bridge's folded state seeds the daemon. An opening without one keeps the fold: absent
@@ -212,7 +193,7 @@ export class Sessions {
 		entry.bytes = 0;
 	}
 
-	/** Over the budget, the oldest event of the session that holds the most bytes goes first. */
+	/** The session holding the most bytes loses its oldest event first. */
 	#evict(): void {
 		while (this.#bytes > this.budget) {
 			let largest: Entry | undefined;

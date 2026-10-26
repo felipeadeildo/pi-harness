@@ -3,7 +3,6 @@ import { applyChange, type SessionState } from "@adeildo/pi-remote-protocol";
 // The state fields that come from the process rather than the log, each placed by its producer.
 import type { ExtensionContext, SessionEntry } from "@earendil-works/pi-coding-agent";
 
-/** What a producer may read: the scope's contracts, the branch's entries and pi's own context. */
 interface ProducerInput {
 	scope: EventScope;
 	entries: readonly SessionEntry[];
@@ -18,18 +17,14 @@ export function costOf(entries: readonly SessionEntry[]): SessionState["cost"] {
 		output: totals.output,
 		cacheRead: totals.cacheRead,
 		cacheWrite: totals.cacheWrite,
-		// The kit names the money `cost`; the wire has called it `total` since the field existed.
 		total: totals.cost,
 	};
 }
 
-/** One field of the state, and how to put its value on a state that came from the log. */
 export interface Producer {
-	/** The field of the state this producer owns, which is what a test names it by. */
 	field: keyof SessionState;
-	/** The state with this field set, or the state it was given when the value is not known. */
 	apply(state: SessionState, input: ProducerInput): SessionState;
-	/** The state change that publishes it when it moves on its own, for a field that changes mid-session. */
+	/** For a field that changes mid-session. */
 	change?: string;
 }
 
@@ -37,8 +32,7 @@ export interface Producer {
 export const PRODUCERS: readonly Producer[] = [
 	{
 		field: "theme",
-		// What the session wears: the accent of the theme it runs under, and the color the room gave it.
-		// The room is the only one that knows the color, and it names the session it is for.
+		// The room is the only one that knows the color.
 		apply: (state, { scope }) => {
 			const color = PEERS.current(scope)?.me?.color;
 			return {
@@ -49,8 +43,7 @@ export const PRODUCERS: readonly Producer[] = [
 	},
 	{
 		field: "board",
-		// The board the session keeps, cut and ordered by the feature that wrote it: this carries it and
-		// decides nothing, so a screen draws the writer's order and never one of its own.
+		// Cut and ordered by the board feature; screens draw that order.
 		apply: (state, { scope }) => {
 			const board = BOARD.current(scope);
 			return board === undefined ? state : { ...state, board: boardView(board) };
@@ -58,8 +51,7 @@ export const PRODUCERS: readonly Producer[] = [
 	},
 	{
 		field: "cost",
-		// What the session has spent so far, summed from pi's own per-message usage. Read from the branch
-		// rather than folded from events, so the opening always carries it and a reconnect keeps it.
+		// Read from the branch, so every opening carries it.
 		apply: (state, { entries }) => ({ ...state, cost: costOf(entries) }),
 	},
 	{
