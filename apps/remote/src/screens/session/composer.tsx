@@ -91,7 +91,7 @@ export function Composer({ client, view, ask, initialDraft }: ComposerProps): Re
 		takeDraft(send, draft, () => write(""), deliverAs);
 	const empty = draft.trim() === "";
 	// A command past the window waits for the person, and one inside it goes out on its own.
-	const held = new Set(
+	const heldIds = new Set(
 		client
 			.outbox()
 			.held()
@@ -141,8 +141,8 @@ export function Composer({ client, view, ask, initialDraft }: ComposerProps): Re
 			>
 				{outbox.length === 0 && lines.length === 0 ? null : (
 					<ScrollView testID="lists" style={{ maxHeight: LISTS_MAX }}>
-						<Outbox queue={outbox} held={held} client={client} />
-						<Held lines={lines} client={client} />
+						<Outbox queue={outbox} heldIds={heldIds} client={client} />
+						<QueueRows lines={lines} client={client} />
 					</ScrollView>
 				)}
 				<Pickers send={send} view={view} />
@@ -336,18 +336,18 @@ function Pickers({ send, view }: { send: Send; view: ComposerView }): ReactNode 
 /** What this device sent and the daemon has not settled, with the two acts a held command allows. */
 function Outbox({
 	queue,
-	held,
+	heldIds,
 	client,
 }: {
 	queue: readonly Outgoing[];
-	held: ReadonlySet<string>;
+	heldIds: ReadonlySet<string>;
 	client: Client;
 }): ReactNode {
 	const theme = useTheme();
 	return (
 		<>
 			{queue.map((command) => {
-				const line = outboxLine(command, held);
+				const line = outboxLine(command, heldIds);
 				return (
 					<View
 						key={command.id}
@@ -370,7 +370,7 @@ function Outbox({
 }
 
 /** The session's own queue, in the order it will run: two phones see the same lines. */
-function Held({ lines, client }: { lines: readonly QueuedLine[]; client: Client }): ReactNode {
+function QueueRows({ lines, client }: { lines: readonly QueuedLine[]; client: Client }): ReactNode {
 	const theme = useTheme();
 	return (
 		<>

@@ -135,10 +135,10 @@ export function stateOf(command: Outgoing): string {
  */
 export function outboxLine(
 	command: Outgoing,
-	held: ReadonlySet<string>,
+	heldIds: ReadonlySet<string>,
 ): { text: string; actionable: boolean } {
 	const waiting = command.state === "waiting";
-	if (waiting && !held.has(command.id))
+	if (waiting && !heldIds.has(command.id))
 		return { text: "goes out when the daemon answers", actionable: false };
 	return { text: stateOf(command), actionable: waiting };
 }

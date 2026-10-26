@@ -89,10 +89,10 @@ export function connect(options: ConnectionOptions): Client {
 	let transport: Transport | undefined;
 	let cancelWait: (() => void) | undefined;
 	const outbox = options.outbox ?? new Outbox();
-	let waiting = backoff.first;
+	let retryDelay = backoff.first;
 	let stopped = false;
-	/** Already waiting for the snapshot it asked for, so a chatty daemon cannot make it ask twice. */
-	let asking = false;
+	/** The tail was asked for and has not come, so a chatty daemon cannot make the client ask twice. */
+	let askedForTail = false;
 
 	/** What a screen needs, plus the queue: the visit after this one draws both. */
 	const save = (): void => {
@@ -156,8 +156,8 @@ export function connect(options: ConnectionOptions): Client {
 				const answer = readEnvelope(session, envelope);
 				if (answer.read === "skip") return;
 				if (answer.read === "state") {
-					if (asking) return;
-					asking = true;
+					if (askedForTail) return;
+					askedForTail = true;
 					// A hole or a new epoch cannot be put back, so the client asks for the whole tail:
 					// without `seq` the hello is that request.
 					const { seq: _seq, ...rest } = session.cursor;
@@ -169,15 +169,15 @@ export function connect(options: ConnectionOptions): Client {
 				}
 				// Reading is pure: the session it returns is the one everything else draws.
 				session = answer.session;
-				asking = false;
-				waiting = backoff.first;
+				askedForTail = false;
+				retryDelay = backoff.first;
 				changed();
 			},
 			() => {
 				transport = undefined;
 				if (stopped) return;
-				const delay = waiting;
-				waiting = Math.min(waiting * 2, backoff.max);
+				const delay = retryDelay;
+				retryDelay = Math.min(retryDelay * 2, backoff.max);
 				cancelWait = wait(delay, open);
 			},
 		);

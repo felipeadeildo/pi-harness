@@ -21,7 +21,7 @@ export interface SessionSource {
 }
 
 /** What a screen gets: the session, and why it has none when something stopped it. */
-export interface Held {
+export interface OpenSession {
 	session: ClientSession | undefined;
 	/** The connection itself, which is what a composer sends through and what its queue comes from. */
 	client: Client | undefined;
@@ -34,8 +34,12 @@ export interface Held {
  * source is asked for only once the screen is in a browser: the static export renders the route on
  * a server, where there is no storage and no socket.
  */
-export function useSession(key: SessionKey, source: () => Promise<SessionSource>): Held {
-	const [held, setHeld] = useState<Held>({ session: undefined, client: undefined, changes: 0 });
+export function useSession(key: SessionKey, source: () => Promise<SessionSource>): OpenSession {
+	const [opened, setOpened] = useState<OpenSession>({
+		session: undefined,
+		client: undefined,
+		changes: 0,
+	});
 	const { machine, session } = key;
 	useEffect(() => {
 		let open = true;
@@ -44,19 +48,19 @@ export function useSession(key: SessionKey, source: () => Promise<SessionSource>
 			.then((ready) => {
 				if (!open) return;
 				if (ready.why !== undefined) {
-					setHeld({ session: undefined, client: undefined, changes: 0, why: ready.why });
+					setOpened({ session: undefined, client: undefined, changes: 0, why: ready.why });
 					return;
 				}
 				const opened = openSession({ machine, session }, ready, (current) =>
-					setHeld((before) => ({ ...before, session: current, changes: before.changes + 1 })),
+					setOpened((before) => ({ ...before, session: current, changes: before.changes + 1 })),
 				);
 				stop = opened.stop;
-				setHeld((before) => ({ ...before, client: opened.client }));
+				setOpened((before) => ({ ...before, client: opened.client }));
 			})
 			// A screen with nothing to draw and nothing to say is a blank page, so a failure to even ask
 			// is a sentence too.
 			.catch(() =>
-				setHeld({
+				setOpened({
 					session: undefined,
 					client: undefined,
 					changes: 0,
@@ -68,7 +72,7 @@ export function useSession(key: SessionKey, source: () => Promise<SessionSource>
 			stop?.();
 		};
 	}, [machine, session, source]);
-	return held;
+	return opened;
 }
 
 /**
