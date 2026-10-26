@@ -1,5 +1,11 @@
 // What the chrome lists, apart from the views that draw it: a phone draws with views, and a test cannot.
-import type { SessionState, SessionTasks } from "@adeildo/pi-remote-protocol";
+import {
+	type BoardCard,
+	type BoardView,
+	blockedOf,
+	type SessionState,
+	type SessionTasks,
+} from "@adeildo/pi-remote-protocol";
 
 import { plain } from "../../render/index.ts";
 
@@ -11,6 +17,28 @@ export function openTasksOf(tasks: SessionTasks | undefined): { id: string; line
 	return (tasks?.tasks ?? [])
 		.filter((task) => OPEN.has(task.status))
 		.map((task) => ({ id: task.id, line: `${task.status} · ${plain(task.text)}` }));
+}
+
+/**
+ * The cards a panel draws, in the order their writer cut and ordered them. Nothing is sorted here: the
+ * board arrives that way, and a screen that reordered would be a second opinion about the same list.
+ */
+export function boardCards(
+	board: BoardView | undefined,
+): { id: string; line: string }[] | undefined {
+	// Absent is not empty: a session that never said what its board holds is not a session with no cards.
+	if (board === undefined) return undefined;
+	return board.open.map((card) => ({
+		id: card.id,
+		line: [card.column, plain(card.title), factOf(card)].filter((one) => one !== "").join(" · "),
+	}));
+}
+
+/** The one fact that goes with the card's column: what it waits on, or who reviews it. */
+function factOf(card: BoardCard): string {
+	if (card.blocked !== undefined) return blockedOf(card.blocked, "operator");
+	if (card.reviewer !== undefined) return `review: ${card.reviewer}`;
+	return "";
 }
 
 /**

@@ -5,7 +5,7 @@ import type { ClientSession } from "@adeildo/pi-remote-client";
 import { openQuestions } from "@adeildo/pi-remote-protocol";
 import { Fragment, type ReactNode } from "react";
 
-import { OpenQuestions, Tasks, TerminalWait } from "./chrome.tsx";
+import { Board, OpenQuestions, Tasks, TerminalWait } from "./chrome.tsx";
 import SessionDocument from "./session-document.tsx";
 import { viewOf } from "./session-view.ts";
 
@@ -14,6 +14,7 @@ export function SessionScreen({ session }: { session: ClientSession }): ReactNod
 	return (
 		<Fragment>
 			<Tasks tasks={state.tasks} />
+			<Board board={state.board} />
 			<OpenQuestions asks={openQuestions(state)} />
 			<TerminalWait prompt={state.prompt} />
 			{/* The document sizes itself, so the frame does not guess: a DOM component with no height
