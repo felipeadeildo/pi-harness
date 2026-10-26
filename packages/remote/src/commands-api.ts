@@ -10,6 +10,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import type { SessionApi } from "./bridge/bridge.ts";
 import { Refused } from "./bridge/commands.ts";
+import { PromptOrigins } from "./bridge/origins.ts";
 import { commandsFor, compactInstructions, slashOf } from "./bridge/slash.ts";
 
 export { THINKING_LEVELS };
@@ -29,7 +30,11 @@ function isPermissionMode(mode: string): mode is PermissionMode {
 	return PERMISSION_MODES.some((one) => one === mode);
 }
 
-export function commandApi(scope: FeatureScope, ctx: ExtensionContext): SessionApi {
+export function commandApi(
+	scope: FeatureScope,
+	ctx: ExtensionContext,
+	origins = new PromptOrigins(),
+): SessionApi {
 	return {
 		rename: (name) => {
 			scope.setSessionName(name);
@@ -67,9 +72,8 @@ export function commandApi(scope: FeatureScope, ctx: ExtensionContext): SessionA
 			});
 		},
 		arrived: (text, by) => {
-			// The log needs the state change; the terminal needs the line.
 			logFrom(ctx, scope.events, "prompt.received", { by });
-			ctx.ui.notify(`From ${by.name}: ${firstLine(text)}`, "info");
+			origins.add(text, by);
 		},
 		setMode: (mode, by) => {
 			// `full` is set only at the terminal, so a stolen phone cannot reach it.

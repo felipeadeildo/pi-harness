@@ -1,6 +1,6 @@
 // What the agent does right now, the git branch it works on and the first line of its last answer:
 // the list and the session's top bar read these without the transcript.
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync, watch } from "node:fs";
 import { dirname, isAbsolute, join, relative } from "node:path";
 
 import type { SessionActivity } from "@adeildo/pi-remote-protocol";
@@ -123,6 +123,34 @@ export function branchOf(cwd: string): string | undefined {
 		return ref?.[1] ?? head.slice(0, 7);
 	} catch {
 		return undefined;
+	}
+}
+
+/**
+ * Calls `moved` when the folder's HEAD is written, as a checkout or a switch in another terminal does.
+ * Git replaces the file, so the watch is on its folder.
+ */
+export function watchBranch(cwd: string, moved: () => void): () => void {
+	const git = gitDirOf(cwd);
+	if (git === undefined) return () => {};
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		const watcher = watch(git, (_kind, name) => {
+			if (name !== "HEAD" || timer !== undefined) return;
+			timer = setTimeout(() => {
+				timer = undefined;
+				moved();
+			}, 100);
+			timer.unref();
+		});
+		watcher.on("error", () => {});
+		watcher.unref();
+		return () => {
+			watcher.close();
+			if (timer !== undefined) clearTimeout(timer);
+		};
+	} catch {
+		return () => {};
 	}
 }
 

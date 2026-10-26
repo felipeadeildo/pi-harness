@@ -1,11 +1,18 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { SessionActivity } from "@adeildo/pi-remote-protocol";
 
-import { aboutOf, Activity, answerOf, branchOf, saidOf } from "../src/bridge/activity.ts";
+import {
+	aboutOf,
+	Activity,
+	answerOf,
+	branchOf,
+	saidOf,
+	watchBranch,
+} from "../src/bridge/activity.ts";
 
 function tracked(): { activity: Activity; sent: SessionActivity[] } {
 	let clock = 0;
@@ -109,5 +116,26 @@ describe("the branch", () => {
 
 	test("is absent outside a repository", () => {
 		expect(branchOf(root)).toBeUndefined();
+	});
+});
+
+describe("the branch", () => {
+	test("is read again when another terminal switches it", async () => {
+		const repo = mkdtempSync(join(tmpdir(), "pi-remote-branch-"));
+		mkdirSync(join(repo, ".git"));
+		writeFileSync(join(repo, ".git", "HEAD"), "ref: refs/heads/main\n");
+		const seen: (string | undefined)[] = [];
+		const stop = watchBranch(repo, () => seen.push(branchOf(repo)));
+		try {
+			// Git writes a lock and renames it over HEAD.
+			writeFileSync(join(repo, ".git", "HEAD.lock"), "ref: refs/heads/feat/x\n");
+			renameSync(join(repo, ".git", "HEAD.lock"), join(repo, ".git", "HEAD"));
+			const deadline = Date.now() + 2_000;
+			while (seen.length === 0 && Date.now() < deadline) await Bun.sleep(20);
+			expect(seen.at(-1)).toBe("feat/x");
+		} finally {
+			stop();
+			rmSync(repo, { recursive: true, force: true });
+		}
 	});
 });

@@ -138,8 +138,8 @@ describe("the commands' side of pi", () => {
 					data: { by: { kind: "client", name: "phone", machine: "here" } },
 				},
 			]);
-			// The terminal line is one line, and it says who it came from.
-			expect(notes).toEqual(["From phone: hello …"]);
+			// The transcript's frame says where it came from, so the terminal has no line of its own.
+			expect(notes).toEqual([]);
 		} finally {
 			if (events === undefined) delete process.env.PI_HARNESS_EVENTS;
 			else process.env.PI_HARNESS_EVENTS = events;

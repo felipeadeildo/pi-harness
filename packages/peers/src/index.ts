@@ -13,6 +13,7 @@ import {
 	boardView,
 	openView,
 	PEERS,
+	PROMPT_FROM,
 } from "@adeildo/pi-kit";
 import { Type } from "@earendil-works/pi-ai";
 import type {
@@ -302,8 +303,10 @@ export const peers = defineFeature({
 		scope.on("agent_start", () => rooms.started());
 		scope.on("agent_settled", () => rooms.settled());
 		scope.on("input", (event, ctx) => {
-			if (event.source !== "interactive" || event.text.startsWith("/"))
-				return { action: "continue" };
+			// A person typing on a phone mentions agents the way they do at the terminal.
+			const typed =
+				event.source === "interactive" || PROMPT_FROM.current(scope, event.text) !== undefined;
+			if (!typed || event.text.startsWith("/")) return { action: "continue" };
 			rooms.sync();
 			const route = rooms.chat(event.text);
 			switch (route.kind) {

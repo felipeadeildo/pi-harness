@@ -279,7 +279,7 @@ test("another package asks through the same dialog", async () => {
 	expect(await answered).toEqual({ id: "ask-1", by, result: PICKED_A });
 });
 
-test("a dialog a phone answered first closes, and says where it was answered", async () => {
+test("a dialog a phone answered first closes, and leaves where to the answer's frame", async () => {
 	const bus = createEventBus();
 	const fake = fakePi(bus);
 	const notes: string[] = [];
@@ -293,9 +293,10 @@ test("a dialog a phone answered first closes, and says where it was answered", a
 	await drawn(term);
 	const phone = { kind: "client", name: "phone", machine: "m" } as const;
 	bus.emit(ANSWER, { id: "ask-1", by: phone, result: PICKED_A });
-	await asker;
+	const reply = await asker;
 	await closed;
-	expect(notes).toEqual(["answered on phone"]);
+	expect(notes).toEqual([]);
+	expect(reply.by).toEqual(phone);
 	expect(term.draw(SLOT)).toBeUndefined();
 });
 

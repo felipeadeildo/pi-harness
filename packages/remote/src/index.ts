@@ -19,13 +19,14 @@ import {
 import { PROMPT_KINDS, type PromptKind } from "@adeildo/pi-remote-protocol";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { Activity, answerOf, branchOf, saidOf } from "./bridge/activity.ts";
+import { Activity, answerOf, branchOf, saidOf, watchBranch } from "./bridge/activity.ts";
 import { ClientAsks } from "./bridge/asks.ts";
 import { Bridge, type SessionKind } from "./bridge/bridge.ts";
 import { Commands, Refused } from "./bridge/commands.ts";
 import type { GoneReason } from "./bridge/connection.ts";
 import { forwardDialogs } from "./bridge/dialogs.ts";
 import { letterOf, SessionInbox } from "./bridge/inbox.ts";
+import { PromptOrigins } from "./bridge/origins.ts";
 import { remoteBoard } from "./bridge/producers.ts";
 import { commandsFor } from "./bridge/slash.ts";
 import { openInBrowser } from "./browser.ts";
@@ -82,6 +83,8 @@ export const remote = defineFeature({
 		let inbox: SessionInbox | undefined;
 		let commands: Commands | undefined;
 		let restoreDialogs: (() => void) | undefined;
+		let stopOrigins: (() => void) | undefined;
+		let stopBranch: (() => void) | undefined;
 		let activity: Activity | undefined;
 		let cwd: string | undefined;
 
@@ -101,7 +104,10 @@ export const remote = defineFeature({
 			} catch (error) {
 				scope.warn(`could not write the pi-remote launcher: ${String(error)}`);
 			}
-			const api = commandApi(scope, ctx);
+			const origins = new PromptOrigins();
+			stopOrigins?.();
+			stopOrigins = origins.provide(scope);
+			const api = commandApi(scope, ctx, origins);
 			inbox = new SessionInbox(scope, {
 				send: (text, deliverAs) => api.send(text, deliverAs),
 				busy: () => api.busy(),
@@ -124,6 +130,8 @@ export const remote = defineFeature({
 				warn: (message) => scope.warn(message),
 			});
 			bridge.branched(branchOf(ctx.cwd));
+			stopBranch?.();
+			stopBranch = watchBranch(ctx.cwd, () => bridge?.branched(branchOf(ctx.cwd)));
 			bridge.start();
 			commands = new Commands({
 				session: ctx.sessionManager.getSessionId(),
@@ -181,6 +189,10 @@ export const remote = defineFeature({
 		});
 
 		scope.onShutdown(() => {
+			stopOrigins?.();
+			stopOrigins = undefined;
+			stopBranch?.();
+			stopBranch = undefined;
 			asks?.stop();
 			asks = undefined;
 			restoreDialogs?.();

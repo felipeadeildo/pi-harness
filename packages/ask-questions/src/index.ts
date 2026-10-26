@@ -14,7 +14,6 @@ import {
 	decodeAskRequest,
 	defineFeature,
 	type FeatureScope,
-	isBy,
 	isObject,
 	oneAtATime,
 	openAboveEditor,
@@ -197,11 +196,8 @@ export const questions = defineFeature({
 		});
 		scope.events.on(CANCEL, (data: unknown) => {
 			if (!isObject(data) || typeof data.id !== "string") return;
-			// The terminal's own answer left `pending` before it was emitted, so what is still there
-			// was closed by someone else, and the reader sees where.
+			// The answer's frame says where it came from; the dialog only goes away.
 			const open = pending.get(data.id);
-			if (open !== undefined && isBy(data.by) && data.by.kind === "client")
-				session?.ui.notify(`answered on ${data.by.name}`, "info");
 			open?.abort();
 			pending.delete(data.id);
 		});
