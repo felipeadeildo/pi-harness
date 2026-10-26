@@ -1,18 +1,20 @@
 #!/usr/bin/env bun
 // Fails on the comments CONTRIBUTING rules out: history, pull request numbers, and blocks too long to
 // be a comment.
+import { readFileSync } from "node:fs";
+
 import { $ } from "bun";
 
 const LONGEST = 6;
 const HISTORY = /\b(used to|anymore|previously|was renamed)\b/i;
-// `#123` alone is a pull request; `owner/repo#123` and a URL name something outside this repository.
+// A bare `#` and a number is a pull request; `owner/repo#N` and a URL name something outside.
 const PULL_REQUEST = /(^|[^\w/])#\d{2,}\b/;
 
 const files = (await $`git ls-files '*.ts' '*.tsx'`.text()).split("\n").filter(Boolean);
 const problems: string[] = [];
 
 for (const file of files) {
-	const lines = (await Bun.file(file).text()).split("\n");
+	const lines = readFileSync(file, "utf8").split("\n");
 	let start = -1;
 	let block = false;
 	lines.forEach((line, index) => {
