@@ -133,6 +133,14 @@ function stateOf(daemon: FakeDaemon): { permissions: { serves?: boolean } } {
 	return data?.summary?.state ?? { permissions: {} };
 }
 
+/** The state the last snapshot carried, whole. */
+function snapshotState(daemon: FakeDaemon): Record<string, unknown> {
+	const data = daemon.received.findLast((one) => one.type === "state")?.data as
+		| { summary?: { state?: Record<string, unknown> } }
+		| undefined;
+	return data?.summary?.state ?? {};
+}
+
 /** The models the last snapshot carried in its state, or nothing when it carried none. */
 function modelsOf(daemon: FakeDaemon): unknown[] | undefined {
 	const data = daemon.received.findLast((one) => one.type === "state")?.data as
@@ -1261,6 +1269,23 @@ describe("one bridge", () => {
 		await start(fake);
 		await until(() => types(serving).includes("state"));
 		expect(stateOf(serving).permissions.serves).toBe(true);
+	});
+
+	test("the opening carries the model and the thinking level the session is on", async () => {
+		const daemon = await listening();
+		await start(mounted(), session());
+		await until(() => types(daemon).includes("state"));
+		const state = snapshotState(daemon);
+		expect(state.model).toEqual({ provider: "rig", id: "scripted" });
+		expect(state.thinkingLevel).toBe("high");
+	});
+
+	test("a session pi has given no model says none, so the opening has no model to draw", async () => {
+		const daemon = await listening();
+		const ctx = Object.assign(session(), { model: undefined });
+		await start(mounted(), ctx);
+		await until(() => types(daemon).includes("state"));
+		expect("model" in snapshotState(daemon)).toBe(false);
 	});
 
 	describe("whose prompt it was", () => {

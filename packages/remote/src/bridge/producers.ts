@@ -76,4 +76,17 @@ export const PRODUCERS: readonly Producer[] = [
 			return applyChange(state, "models.listed", { models });
 		},
 	},
+	{
+		// The model and the thinking level the session is on now, from pi's context. They arrive on
+		// `session.live` too, but the opening is the new base and drops what came before it, so a
+		// client that opens after a restart would find neither. A session pi has given no model to
+		// has not said one, so the field stays absent.
+		apply: (state, { ctx }) => ({
+			...state,
+			...(ctx.model === undefined
+				? {}
+				: { model: { provider: ctx.model.provider, id: ctx.model.id } }),
+			...(ctx.thinkingLevel === undefined ? {} : { thinkingLevel: ctx.thinkingLevel }),
+		}),
+	},
 ];
