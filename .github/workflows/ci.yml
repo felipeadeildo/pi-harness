@@ -47,8 +47,8 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run app:export
       - run: bun run csp:check
-      # The phone's bundle breaks in ways the web one does not: a screen that imports a DOM component
-      # by accident builds on the web and fails here.
+      # The phone's bundle can break where the web one does not, as it did before #353, and nothing
+      # else here builds it. It clears Metro's cache, which other checkouts on a machine share.
       - run: bun run app:export:android
 
   # The gate: the app in a real browser, with a real daemon and a real pi session behind it. The
