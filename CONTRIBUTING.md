@@ -30,11 +30,12 @@ packages/
   providers/        # @adeildo/pi-providers: Claude plan billing and accounts
   ask-questions/    # @adeildo/pi-ask-questions: the ask_questions tool and its dialog
   skills/           # @adeildo/pi-skills: /skill: references anywhere in a message
-  board/            # @adeildo/pi-board: the Alt+T panel over the kit's board
   compact/          # @adeildo/pi-compact: hides old tool output, writes the compaction summary
   peers/            # @adeildo/pi-peers: agents in one folder, board and room
-  harness/          # @adeildo/pi-harness: every piece above, one extension each
-  kit/              # @adeildo/pi-kit: app builder, feature scope, settings, events
+  remote/           # @adeildo/pi-remote: the bridge, the daemon and the pi-remote command
+  remote-protocol/  # @adeildo/pi-remote-protocol: the wire's shapes and reducers, and the client
+  harness/          # @adeildo/pi-harness: every piece above, one extension each, and the board
+  kit/              # @adeildo/pi-kit: app builder, feature scope, settings, events, the board
 ```
 
 Tooling lives at the root: one `tsconfig.json`, one oxlint and oxfmt config, one lockfile. The pi SDK versions are pinned in the root `package.json`, and the Newest pi workflow bumps them when verify passes against a new release. Packages declare the pi SDK as `peerDependencies` with `"*"`, and internal dependencies use `workspace:*`.

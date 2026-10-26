@@ -1,8 +1,10 @@
-// The Alt+T panel reads the board: one line per open card, the column in a fixed width, the wait
-// named by the kit's translation. It only reads; the agent writes the board with the tool.
-import { boardLines, boardView, emptyBoard, type Board } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, matchesKey } from "@earendil-works/pi-tui";
+
+// The Alt+T panel reads the board: one line per open card, the column in a fixed width, the wait
+// named by the kit's translation. It only reads; the agent writes the board with the tool.
+import { boardLines } from "./lines.ts";
+import { boardView, emptyBoard, type Board } from "./model.ts";
 
 export interface BoardPanelOptions {
 	theme: Theme;

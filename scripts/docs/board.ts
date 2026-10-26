@@ -2,7 +2,7 @@
 // shows what the panel draws and not a hand-made mockup.
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
-import { BoardPanel } from "../../packages/board/src/board-panel.ts";
+import { BoardPanel } from "../../packages/kit/src/board/board-panel.ts";
 import { type BoardOp, foldBoard } from "../../packages/kit/src/index.ts";
 import { WIDTH } from "./drive.ts";
 

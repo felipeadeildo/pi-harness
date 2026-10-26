@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { applyBoard, emptyBoard, type Board, type BoardOp } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
-import { BoardPanel } from "../src/board-panel.ts";
+import { BoardPanel } from "../src/board/board-panel.ts";
 
 const plain = {
 	fg: (_color: string, text: string) => text,

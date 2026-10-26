@@ -1,5 +1,4 @@
-import { boardPanel } from "@adeildo/pi-board";
-import { board, createApp, names } from "@adeildo/pi-kit";
+import { board, boardPanel, createApp, names } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 export default function harnessBoard(pi: ExtensionAPI): void {
