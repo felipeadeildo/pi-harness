@@ -143,6 +143,12 @@ export function Composer({
 			case "rename": {
 				const name = ask?.("Name this session")?.trim();
 				if (name !== undefined && name !== "") send("session.rename", { name });
+				return;
+			}
+			default: {
+				// A menu id with no case is a button that does nothing: the compiler says so here.
+				const unhandled: never = id;
+				return unhandled;
 			}
 		}
 	};
