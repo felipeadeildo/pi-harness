@@ -19,7 +19,7 @@
 	],
 	"type": "module",
 	"scripts": {
-		"check": "tsc --noEmit",
+		"check": "tsc --noEmit && tsc --noEmit -p packages/remote/web && tsc --noEmit -p packages/remote/web/tsconfig.test.json",
 		"lint": "oxlint",
 		"lint:fix": "oxlint --fix",
 		"fmt": "oxfmt",

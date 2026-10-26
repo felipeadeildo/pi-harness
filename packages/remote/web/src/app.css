@@ -1,0 +1,121 @@
+/* The page's one stylesheet. Colors, space and type are variables, light and dark under the same names:
+   a rule asks for a name and never for a value. The surfaces and labels are the system's own, and the
+   accent is the one pi's theme gives its accent (src/ui/pi-colors.ts holds the same values for the
+   names the daemon sends, and its test compares them with pi's theme files). */
+:root {
+	--bg: #ffffff;
+	--surface: #f2f2f7;
+	--elevated: #ffffff;
+	--border: #c6c6c8;
+	--text: #000000;
+	--muted: #6c6c70;
+	--faint: #8e8e93;
+	--accent: #7459b4;
+	--ok: #248a3d;
+	--warn: #b25000;
+	--danger: #d70015;
+
+	--s1: 2px;
+	--s2: 4px;
+	--s3: 8px;
+	--s4: 12px;
+	--s5: 16px;
+	--s6: 24px;
+	--radius-1: 6px;
+	--radius-2: 10px;
+	--radius-3: 16px;
+	/* The smallest side of anything a thumb presses: no control undercuts it, in either scheme. */
+	--hit: 44px;
+	--font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+	--mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+	color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--bg: #000000;
+		--surface: #1c1c1e;
+		--elevated: #2c2c2e;
+		--border: #38383a;
+		--text: #ffffff;
+		--muted: #a1a1a6;
+		--faint: #8e8e93;
+		--accent: #a798d7;
+		--ok: #30d158;
+		--warn: #ff9f0a;
+		--danger: #ff453a;
+	}
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+	height: 100%;
+	margin: 0;
+}
+
+body {
+	background: var(--bg);
+	color: var(--text);
+	font: 15px/1.5 var(--font);
+	-webkit-text-size-adjust: 100%;
+}
+
+a {
+	color: var(--accent);
+}
+
+.page {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s3);
+	padding: var(--s5);
+	min-height: 100%;
+}
+
+.quiet {
+	color: var(--muted);
+	font-size: 13px;
+	font-weight: 500;
+}
+
+/* The list of sessions: a row is a link, the whole line is the target, and a row that waits is marked
+   in place by its edge and never moved. */
+.sessions {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s3);
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.row {
+	display: block;
+	min-height: var(--hit);
+	padding: var(--s4) var(--s5);
+	border-radius: var(--radius-2);
+	background: var(--surface);
+	color: var(--text);
+	text-decoration: none;
+}
+
+.row.waits {
+	border-left: 2px solid var(--warn);
+}
+
+.row .name {
+	font-size: 17px;
+	font-weight: 600;
+}
+
+.row .line {
+	display: flex;
+	gap: var(--s4);
+}
