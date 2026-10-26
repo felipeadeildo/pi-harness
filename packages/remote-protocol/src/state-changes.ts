@@ -1,9 +1,8 @@
 // The shapes the harness writes to its log, copied here because the client reads them without the
-// kit. A copy is only safe while a test proves it matches, which `test/conformance.test.ts` does.
+// kit. A copy is only safe while a test proves it matches, which `test/conformance.test.ts` does. The
+// map of every state change is read from the reducer's table, where each shape sits with its check.
 
-import { type By } from "./by.ts";
-import type { SessionCost } from "./reduce/state.ts";
-import type { QueuedMessage } from "./summary.ts";
+export type { StateChangeMap, StateChangeType } from "./reduce/entry.ts";
 
 /**
  * How hard pi is asked to think, in pi's own order and words. One list, because the screen that offers
@@ -94,53 +93,3 @@ export interface ModelOption {
 	id: string;
 	name: string;
 }
-
-/** Every state change the client reduces, with the shape each carries. */
-export interface StateChangeMap {
-	"ask.opened": { id: string; source: string; questions: AskQuestion[]; expiresAt?: number };
-	"ask.closed": { id: string; by?: By; result: AskResult };
-	"call.ruled": { toolCallId: string; ruling: CallRuling; by?: By };
-	"mode.changed": { mode: PermissionMode };
-	"session.renamed": { from: string; to: string; by?: By };
-	"session.status": { status: (typeof SESSION_STATES)[number] };
-	"session.live": {
-		pid?: number;
-		startedAt?: number;
-		cwd?: string;
-		name?: string;
-		kind: "terminal" | "background";
-		/** The model this session answers with, and how hard it thinks, as pi reports them live. */
-		model?: { provider: string; id: string };
-		thinkingLevel?: string;
-		/**
-		 * pi's session file, which the daemon pages older entries from. pi knows the path from the
-		 * start, but writes the file only with the first message, so until then a page finds nothing:
-		 * `ENOENT` means no older entries yet. Absent only with `--no-session`.
-		 */
-		file?: string;
-		/** What a client may run by typing `/`, which this session offers at this instant. */
-		commands?: SessionCommand[];
-	};
-	"session.gone": { reason: "exit" | "crash" | "unanswered" | "replaced" };
-	/** The bridge numbers each message it streams, from 1 in each epoch; `pi.message_start` carries the same number. */
-	"stream.bound": { messages: { stream: number; entry: string }[] };
-	/** The entry the branch ends at, or null when a `/tree` move goes back to the root. */
-	"leaf.changed": { leaf: string | null };
-	/** Always written with who sent it, since that is the whole state change; read leniently, see `isStateChange`. */
-	"prompt.received": { by: By };
-	/**
-	 * Which client a prompt came from, by the entry it became. The bridge writes it when the entry shows
-	 * on the branch and it is sure whose it is: a prompt typed at the terminal never has one.
-	 */
-	"prompt.from": { entry: string; by: By };
-	/** The whole queue as it stands: it waits in the session, so every client sees the same list. */
-	"queue.changed": { queue: QueuedMessage[] };
-	/** The terminal waits on a dialog a client cannot answer, or stops waiting on it. */
-	"terminal.prompted": { open: boolean; kind: PromptKind; title?: string };
-	/** The models the session could switch to, from pi's registry when the bridge built its opening. */
-	"models.listed": { models: ModelOption[] };
-	/** What the session has cost so far, summed by the bridge from pi's per-message usage. */
-	"cost.changed": { cost: SessionCost };
-}
-
-export type StateChangeType = keyof StateChangeMap;
