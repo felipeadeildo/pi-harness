@@ -21,7 +21,7 @@
     },
     "packages/ask-permission": {
       "name": "@adeildo/pi-ask-permission",
-      "version": "5.15.0",
+      "version": "6.0.0",
       "dependencies": {
         "@adeildo/pi-ask-questions": "workspace:*",
         "@adeildo/pi-kit": "workspace:*",
@@ -35,7 +35,7 @@
     },
     "packages/ask-questions": {
       "name": "@adeildo/pi-ask-questions",
-      "version": "5.15.0",
+      "version": "6.0.0",
       "dependencies": {
         "@adeildo/pi-kit": "workspace:*",
       },
@@ -47,7 +47,7 @@
     },
     "packages/compact": {
       "name": "@adeildo/pi-compact",
-      "version": "5.15.0",
+      "version": "6.0.0",
       "dependencies": {
         "@adeildo/pi-kit": "workspace:*",
       },
@@ -59,7 +59,7 @@
     },
     "packages/harness": {
       "name": "@adeildo/pi-harness",
-      "version": "5.15.0",
+      "version": "6.0.0",
       "dependencies": {
         "@adeildo/pi-ask-permission": "workspace:*",
         "@adeildo/pi-ask-questions": "workspace:*",
@@ -79,7 +79,7 @@
     },
     "packages/kit": {
       "name": "@adeildo/pi-kit",
-      "version": "5.15.0",
+      "version": "6.0.0",
       "peerDependencies": {
         "@earendil-works/pi-ai": "*",
         "@earendil-works/pi-coding-agent": "*",
@@ -88,7 +88,7 @@
     },
     "packages/look": {
       "name": "@adeildo/pi-look",
-      "version": "5.15.0",
+      "version": "6.0.0",
       "dependencies": {
         "@adeildo/pi-kit": "workspace:*",
       },
@@ -100,7 +100,7 @@
     },
     "packages/peers": {
       "name": "@adeildo/pi-peers",
-      "version": "5.15.0",
+      "version": "6.0.0",
       "dependencies": {
         "@adeildo/pi-kit": "workspace:*",
       },
@@ -112,7 +112,7 @@
     },
     "packages/providers": {
       "name": "@adeildo/pi-providers",
-      "version": "5.15.0",
+      "version": "6.0.0",
       "dependencies": {
         "@adeildo/pi-kit": "workspace:*",
       },
@@ -124,7 +124,7 @@
     },
     "packages/remote": {
       "name": "@adeildo/pi-remote",
-      "version": "5.15.0",
+      "version": "6.0.0",
       "dependencies": {
         "@adeildo/pi-kit": "workspace:*",
         "@adeildo/pi-remote-protocol": "workspace:*",
@@ -156,7 +156,7 @@
     },
     "packages/skills": {
       "name": "@adeildo/pi-skills",
-      "version": "5.15.0",
+      "version": "6.0.0",
       "dependencies": {
         "@adeildo/pi-kit": "workspace:*",
       },
