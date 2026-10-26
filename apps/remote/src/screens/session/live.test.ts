@@ -60,6 +60,17 @@ describe("what the pickers start on", () => {
 	});
 });
 
+describe("the model list the composer is handed", () => {
+	test("the models and how many the registry listed reach the view, so the sheet can say it was cut", () => {
+		const session = sessionOf({ machine: "box", session: "abcdef12" });
+		const models = [{ provider: "anthropic", id: "opus", name: "Opus" }];
+		session.state = { ...session.state, models, modelsTotal: 301 };
+		const view = composerOf(session);
+		expect(view.models).toEqual(models);
+		expect(view.modelsTotal).toBe(301);
+	});
+});
+
 describe("when a run is going", () => {
 	test("a session that works or waits on a person is running, and the rest are not", () => {
 		for (const status of ["working", "blocked"] as const) expect(runningOf(status)).toBe(true);

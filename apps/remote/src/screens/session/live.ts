@@ -13,18 +13,26 @@ export interface Live {
 }
 
 /**
- * Everything the composer takes from the session, in one place. The route spreads this instead of
- * naming each field: a route that names `mode` by hand is a route that can name the snapshot's `mode`
- * again, and no test would notice because the screen would still draw.
+ * Everything the composer takes from the session. It is built from the state in `composerOf` and nowhere
+ * else, and the composer takes it whole: a screen that names `mode` by hand is a screen that can name the
+ * snapshot's `mode` again, and no test would notice because it would still draw.
  */
-export function composerOf(session: ClientSession): Live & {
+export interface ComposerView extends Live {
+	/** What the session holds for the agent to finish, which every client sees the same way. */
 	waiting: ClientSession["state"]["queue"];
+	/** What a phone may run by typing `/`, as the session last said. */
 	commands: ClientSession["state"]["commands"];
+	/** Whether the session takes `mode.set`; absent until it says. */
 	serves: boolean | undefined;
+	/** Whether a run is going, which is when Abort and Steer mean something. */
 	running: boolean;
+	/** The models the session could switch to; absent until the bridge says. */
 	models: ClientSession["state"]["models"];
+	/** How many models the registry listed, when `models` holds fewer. */
 	modelsTotal: ClientSession["state"]["modelsTotal"];
-} {
+}
+
+export function composerOf(session: ClientSession): ComposerView {
 	return {
 		...liveOf(session),
 		waiting: session.state.queue,
