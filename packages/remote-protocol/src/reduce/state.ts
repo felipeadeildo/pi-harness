@@ -1,5 +1,6 @@
 // The state of one session, folded by the same function on the server and on every client.
 
+import type { BoardView } from "../board-view.ts";
 import type { By } from "../by.ts";
 import type { QueuedMessage } from "../summary.ts";
 import { applyOne, isStateChangeType } from "./entry.ts";
@@ -53,6 +54,8 @@ export interface SessionState {
 	};
 	/** The last rename, for a mention of the older handle. */
 	renamed?: { from: string; to: string; by?: By };
+	/** What the session's board holds. Absent when no feature provides one, which is not an empty board. */
+	board?: BoardView;
 	/** What waits to be delivered, in the order it will go in. Empty when nothing waits. */
 	queue: QueuedMessage[];
 	/** What the session is doing, in pi's program status words. */
