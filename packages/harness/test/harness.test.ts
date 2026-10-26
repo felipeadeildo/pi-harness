@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import piAskPermission from "@adeildo/pi-ask-permission";
 import { fakeContext, fakePi } from "@adeildo/pi-kit/testing";
-import { createEventBus } from "@earendil-works/pi-coding-agent";
+import { createEventBus, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import harnessBoard from "../src/board.ts";
 import harnessCompact from "../src/compact.ts";
@@ -58,6 +58,87 @@ describe("the harness", () => {
 			const schema = JSON.parse(JSON.stringify(tool.parameters)) as Record<string, unknown>;
 			expect({ tool: tool.name, type: schema.type }).toEqual({ tool: tool.name, type: "object" });
 		}
+	});
+
+	// What each piece of the harness registers that no other piece does, in the order of what is lost
+	// when it silently fails to mount: a permission gate that is gone asks nothing, while a missing board
+	// fails loudly at the provider.
+	const MOUNTS: {
+		name: string;
+		mount: (pi: ExtensionAPI) => void;
+		read: (fake: ReturnType<typeof fakePi>) => unknown;
+		expected: unknown;
+	}[] = [
+		{
+			name: "permission asks before a call",
+			mount: harnessPermission,
+			read: (fake) => ({
+				gate: fake.count("tool_call") > 0,
+				mode: fake.shortcuts.includes("alt+m"),
+			}),
+			expected: { gate: true, mode: true },
+		},
+		{
+			name: "questions give the model its tool",
+			mount: harnessQuestions,
+			read: toolsOf,
+			expected: ["ask_questions"],
+		},
+		{
+			name: "peers give the model the room",
+			mount: harnessPeers,
+			read: toolsOf,
+			expected: ["peers"],
+		},
+		{
+			name: "the board and its panel",
+			mount: harnessBoard,
+			read: (fake) => ({ tools: toolsOf(fake), panel: fake.shortcuts.includes("alt+t") }),
+			expected: { tools: ["board"], panel: true },
+		},
+		{
+			name: "compact writes the summary",
+			mount: harnessCompact,
+			read: (fake) => fake.count("session_before_compact") > 0,
+			expected: true,
+		},
+		{
+			name: "providers rewrite the request",
+			mount: harnessProviders,
+			read: (fake) => fake.commands.has("accounts"),
+			expected: true,
+		},
+		{
+			name: "remote opens the sessions elsewhere",
+			mount: harnessRemote,
+			read: (fake) => fake.commands.has("remote"),
+			expected: true,
+		},
+		{
+			name: "skills read the message",
+			mount: harnessSkills,
+			read: (fake) => fake.count("input") > 0,
+			expected: true,
+		},
+		{
+			name: "look draws the end of a run",
+			mount: harnessLook,
+			read: (fake) => fake.count("agent_end") > 0,
+			expected: true,
+		},
+	];
+
+	test.each(MOUNTS)("$name", ({ mount, read, expected }) => {
+		const fake = fakePi(createEventBus());
+		mount(fake.pi);
+		expect(read(fake)).toEqual(expected);
+	});
+
+	test("every piece the package lists is in the table above", () => {
+		const pkg = JSON.parse(readFileSync(join(import.meta.dir, "..", "package.json"), "utf8")) as {
+			pi: { extensions: string[] };
+		};
+		expect(MOUNTS.length).toBe(pkg.pi.extensions.length);
 	});
 
 	test("mounts every feature, one extension each", () => {
@@ -128,3 +209,7 @@ describe("the harness", () => {
 		);
 	});
 });
+
+function toolsOf(fake: ReturnType<typeof fakePi>): string[] {
+	return fake.tools.map((tool) => tool.name);
+}
