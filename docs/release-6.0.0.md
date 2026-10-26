@@ -1,26 +1,32 @@
 # 6.0.0
 
-What this release adds is a way to reach a session from a phone, a browser or another machine, and
-what it asks of anyone who wrote against 5.x is a set of renamed shapes and two changed defaults.
+What this release adds is a way to reach a session from a browser, and what it asks of anyone who
+wrote against 5.x is a set of renamed shapes and two changed defaults.
 
 Draft notes for the release pull request. The pending section of `CHANGELOG.md` is rebuilt on every
 push to `main`, so this file is where the writing happens and the merge is where it is pasted.
 
-## From the phone
+## From a browser
 
-- **Your sessions, in a browser and in an app.** `pi-remote` starts a daemon on the machine where a pi
-  runs, and the app lists what is open, shows the transcript as it streams, and takes a prompt. The
-  session keeps running when the terminal closes.
+- **Your sessions, in a browser.** The first pi on a machine starts a daemon, and `pi-remote open`
+  opens the app: it lists what is open, shows the transcript as it streams, and takes a prompt. The
+  app is written for iOS and Android too, and no native build is published yet.
+- **On this machine, or through an SSH tunnel.** The daemon listens on `127.0.0.1` and answers only to
+  loopback names, so another computer or a phone reaches it through a tunnel such as
+  `ssh -L 7878:127.0.0.1:7878`. Reaching it through Tailscale, a Cloudflare tunnel or a reverse proxy,
+  with a login of its own, is designed in `docs/remote.md` and not built.
+- **A session lives as long as its pi.** Closing the terminal ends it. Sessions that keep running
+  with no terminal, through a runner, are designed in `docs/remote.md` and not built.
 - **Questions and dialogs answer from there.** A permission gate or a question from the model reaches
-  the phone, and the answer reaches the terminal, marked with where it came from. A session with no
+  the browser, and the answer reaches the terminal, marked with where it came from. A session with no
   terminal sends its questions to the clients instead of a dialog nobody can see.
-- **`/` commands from the phone.** The list is the one the session offers, so a command that appears in
+- **`/` commands from the browser.** The list is the one the session offers, so a command that appears in
   the terminal appears there, and one that is not offered is refused with a reason.
 - **Rooms and the board.** A session can work beside other agents, in a room one folder can hold, and a
   board of deliverables is written by the agent and read by everyone in the room. The `board` tool
   shows the open cards each other session has, under the name of the session that wrote them.
 - **The cost, in the live state.** A session's spending is part of what a client reads while the
-  session runs, so a phone shows the number the terminal shows.
+  session runs, so the browser shows the number the terminal shows.
 
 ## In the terminal
 
@@ -60,8 +66,8 @@ and `done`, each blocked on you, on another agent or on something outside, with 
 model runs for it, so it costs nothing per turn.
 
 Everything that read the tasks reads the board now: the compaction summary ("Where the session
-stands"), the look's strip, the peers' room and the bids, and the phone. Nothing writes a session
-title any more. A session is its handle, and the name you give it with `/name` or from the phone.
+stands"), the look's strip, the peers' room and the bids, and the browser. Nothing writes a session
+title any more. A session is its handle, and the name you give it with `/name` or from the browser.
 
 | 5.x                                                          | 6.0.0                                                         |
 | ------------------------------------------------------------ | ------------------------------------------------------------- |
@@ -75,7 +81,7 @@ title any more. A session is its handle, and the name you give it with `/name` o
 | a title on `session.named`, on a peer and in presence        | the handle only                                               |
 
 Upgrade the daemon and the clients together. The shape of `SessionState` changed, and a 5.x client
-does not know `board.changed`, so a phone on 5.x reading a 6.0.0 daemon shows no board.
+does not know `board.changed`, so a 5.x client reading a 6.0.0 daemon shows no board.
 
 A session written with 5.x opens as it was. Its tasks' paid model calls still count in its cost, and
 it keeps the handle the tasks gave it.
