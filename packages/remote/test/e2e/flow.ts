@@ -234,13 +234,13 @@ async function marksTheChosenOption(page: Page): Promise<Result> {
 		const row = sheet.getByRole("radio", { checked: true });
 		const rows = await sheet.getByRole("radio").count();
 		const bars = await sheet.getByTestId("option-bar").count();
-		const pointer = (await row.first().textContent({ timeout: 5_000 }))?.includes("\u276F");
+		const marked = (await row.first().getByTestId("option-bar").count()) === 1;
 		await sheet.getByRole("button", { name: "Close", exact: true }).click({ timeout: 10_000 });
-		return rows > 1 && bars === 1 && pointer === true
+		return rows > 1 && bars === 1 && marked
 			? { ok: true }
 			: {
 					ok: false,
-					why: `of ${rows} rows the sheet has ${bars} bars and the chosen one ${pointer ? "has" : "lacks"} its pointer`,
+					why: `of ${rows} rows the sheet has ${bars} marks and the chosen one ${marked ? "has" : "lacks"} it`,
 				};
 	} catch (error) {
 		return { ok: false, why: `the permission dial did not open a sheet (${short(error)})` };
@@ -296,7 +296,7 @@ async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
 		while (entries() <= before && Date.now() < deadline) await Bun.sleep(100);
 		if (entries() > before) {
 			const origin = page
-				.locator("li.remote-you", { hasText: "say hello from the gate" })
+				.locator(".remote-you", { hasText: "say hello from the gate" })
 				.locator(".remote-from");
 			const marked = Date.now() + 20_000;
 			let said = "";
@@ -313,16 +313,21 @@ async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
 				return { ok: false, why: `the prompt the browser sent says no origin (read "${said}")` };
 			// The label of what the person said wears the theme's accent: the page is light, and pi's light
 			// accent is #7459b4. The state carries the name; only the app knows the value.
-			const who =
-				(await page
-					.locator("li.remote-you", { hasText: "say hello from the gate" })
-					.locator(".remote-who")
-					.first()
-					.getAttribute("style")) ?? "";
-			if (!who.includes("color: rgb(116, 89, 180)"))
+			const who = await page
+				.locator(".remote-you", { hasText: "say hello from the gate" })
+				.locator(".remote-who")
+				.first()
+				// Runs in the page, where `getComputedStyle` is a global this file's types do not know.
+				.evaluate(
+					(label) =>
+						(
+							globalThis as unknown as { getComputedStyle(of: unknown): { color: string } }
+						).getComputedStyle(label).color,
+				);
+			if (who !== "rgb(116, 89, 180)")
 				return {
 					ok: false,
-					why: `the label of the prompt the browser sent is styled "${who}", not with the accent`,
+					why: `the label of the prompt the browser sent is colored ${who}, not the accent`,
 				};
 			const searched = await searchesModels(page);
 			return searched.ok ? await marksTheChosenOption(page) : searched;

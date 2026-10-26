@@ -8,6 +8,13 @@ export interface LivePart {
 	/** For a tool call: its id and name, known from the start. */
 	id?: string;
 	name?: string;
+	/** A tool call's arguments as an object, when the client joined after they began: the deltas
+	 * that follow cannot be appended to it, so the part keeps what it had. */
+	settled?: boolean;
+	/** This client's clock: when the part began and when it last grew. Unknown for a part the
+	 * client found already started. */
+	since?: number;
+	until?: number;
 }
 
 export interface LiveMessage {
@@ -30,6 +37,8 @@ export interface LiveTool {
 export interface Live {
 	message?: LiveMessage;
 	tools: Record<string, LiveTool>;
+	/** How long each thought this client saw took, by `<entry id>:<part index>`. */
+	thought?: Record<string, number>;
 }
 
 export const NOTHING_LIVE: Live = { tools: {} };
@@ -49,13 +58,21 @@ export function foldLive(live: Live, type: string, data: unknown, now: number): 
 				: live;
 		case "pi.message_update": {
 			if (live.message === undefined) return live;
-			const message = updated(live.message, data.assistantMessageEvent);
+			const message = updated(live.message, data.assistantMessageEvent, now);
 			return message === live.message ? live : { ...live, message };
 		}
-		case "pi.message_end":
-			return live.message === undefined
-				? live
-				: { ...live, message: messageOf(live.message.stream, data.message, true) };
+		case "pi.message_end": {
+			if (live.message === undefined) return live;
+			const held = live.message.parts;
+			const ended = messageOf(live.message.stream, data.message, true);
+			const parts = ended.parts.map((part, index) => {
+				const was = held[index];
+				return was?.since === undefined
+					? part
+					: { ...part, since: was.since, until: was.until ?? now };
+			});
+			return { ...live, message: { ...ended, parts } };
+		}
 		case "pi.tool_execution_start":
 			return typeof data.toolCallId === "string"
 				? withTool(live, {
@@ -103,8 +120,14 @@ export function settledBy(live: Live, entry: unknown): Live {
 	if (!isObject(entry) || entry.type !== "message" || !isObject(entry.message)) return live;
 	const message = entry.message;
 	if (message.role === "assistant" && live.message !== undefined) {
-		const { message: _written, ...rest } = live;
-		return rest;
+		const { message: written, ...rest } = live;
+		const thought = { ...rest.thought };
+		written.parts.forEach((part, index) => {
+			if (part.kind === "thinking" && part.since !== undefined && typeof entry.id === "string")
+				thought[`${entry.id}:${index}`] = (part.until ?? part.since) - part.since;
+		});
+		const kept = Object.entries(thought).slice(-KEPT_THOUGHTS);
+		return kept.length === 0 ? rest : { ...rest, thought: Object.fromEntries(kept) };
 	}
 	if (message.role === "toolResult" && typeof message.toolCallId === "string") {
 		if (live.tools[message.toolCallId] === undefined) return live;
@@ -130,10 +153,12 @@ function partOf(part: unknown): LivePart[] {
 	if (part.type === "thinking" && typeof part.thinking === "string")
 		return [{ kind: "thinking", text: part.thinking }];
 	if (part.type === "toolCall") {
+		const raw = typeof part.partialJson === "string" ? part.partialJson : undefined;
 		return [
 			{
 				kind: "toolCall",
-				text: JSON.stringify(part.arguments ?? {}),
+				text: raw ?? JSON.stringify(part.arguments ?? {}),
+				...(raw === undefined ? { settled: true } : {}),
 				...(typeof part.id === "string" ? { id: part.id } : {}),
 				...(typeof part.name === "string" ? { name: part.name } : {}),
 			},
@@ -143,7 +168,9 @@ function partOf(part: unknown): LivePart[] {
 }
 
 /** Pi's `assistantMessageEvent`: a `*_start` opens part `contentIndex`, a `*_delta` appends to it. */
-function updated(message: LiveMessage, event: unknown): LiveMessage {
+const KEPT_THOUGHTS = 200;
+
+function updated(message: LiveMessage, event: unknown, now: number): LiveMessage {
 	if (!isObject(event) || typeof event.type !== "string") return message;
 	const index = typeof event.contentIndex === "number" ? event.contentIndex : -1;
 	if (index < 0) return message;
@@ -152,16 +179,21 @@ function updated(message: LiveMessage, event: unknown): LiveMessage {
 	const parts = [...message.parts];
 	const held = parts[index];
 	if (event.type.endsWith("_start") || held === undefined) {
-		parts[index] = {
-			kind,
-			text: held?.kind === kind ? held.text : "",
-			...(typeof event.id === "string" ? { id: event.id } : {}),
-			...(typeof event.toolName === "string" ? { name: event.toolName } : {}),
-		};
+		parts[index] =
+			held?.kind === kind
+				? held
+				: {
+						kind,
+						text: "",
+						since: now,
+						...(typeof event.id === "string" ? { id: event.id } : {}),
+						...(typeof event.toolName === "string" ? { name: event.toolName } : {}),
+					};
 	}
 	if (event.type.endsWith("_delta") && typeof event.delta === "string") {
 		const part = parts[index];
-		if (part !== undefined) parts[index] = { ...part, text: part.text + event.delta };
+		if (part !== undefined && part.settled !== true)
+			parts[index] = { ...part, text: part.text + event.delta, until: now };
 	}
 	return { ...message, parts };
 }

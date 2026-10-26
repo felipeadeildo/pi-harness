@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { ListedSession } from "@adeildo/pi-remote-protocol/client";
 
-import { countOf, groupsOf, keyOf, nameOf, rowsOf } from "./rows.ts";
+import { countOf, groupsOf, keyOf, matchRows, nameOf, rowsOf } from "./rows.ts";
 
 const live = { pid: 1, startedAt: 1, cwd: "/work", kind: "terminal" as const };
 
@@ -50,33 +50,37 @@ describe("the list of sessions", () => {
 		expect(rows[0]).toMatchObject({
 			name: "the rig",
 			folder: "pi-harness",
-			doing: "working",
+			path: "~/Projects/pi-harness",
+			word: "working",
 			model: "claude-opus",
 			mark: "working",
 			color: "syntaxKeyword",
 		});
 	});
 
-	test("a session that has not said how it is doing gets no word and no color it was not given", () => {
+	test("a session that has not said how it is doing reads as idle, with no color it was not given", () => {
 		const [quiet] = draw([row()]);
-		expect(quiet?.doing).toBe("");
+		expect(quiet?.word).toBe("idle");
 		expect(quiet?.mark).toBe("idle");
 		expect(Object.keys(quiet ?? {})).not.toContain("color");
 	});
 
-	test("the rows sit under their machine, and the line over them counts what waits", () => {
+	test("the rows sit under what they need, and the line over them counts what waits on you", () => {
 		const rows = draw([
 			row({ machine: "laptop", session: "a" }),
 			row({ machine: "vps", session: "b", summary: { status: "blocked" } as never }),
-			row({ machine: "laptop", session: "c" }),
+			row({ machine: "laptop", session: "c", state: { ...row().state, status: "working" } }),
+			row({ machine: "laptop", session: "d", gone: "exit" }),
 		]);
-		expect(
-			groupsOf(rows).map((group) => [group.machine, group.rows.map((one) => one.session)]),
-		).toEqual([
-			["vps", ["b"]],
-			["laptop", ["a", "c"]],
-		]);
-		expect(countOf(rows)).toBe("3 open on 2 machines, 1 waiting on you");
+		expect(groupsOf(rows).map((group) => [group.id, group.rows.map((one) => one.session)])).toEqual(
+			[
+				["you", ["b"]],
+				["working", ["c"]],
+				["idle", ["a"]],
+				["closed", ["d"]],
+			],
+		);
+		expect(countOf(rows)).toBe("3 open on 2 machines, 1 needs you");
 		expect(countOf(rows.filter((one) => one.machine === "laptop"))).toBe("2 open");
 	});
 
@@ -93,8 +97,8 @@ describe("the list of sessions", () => {
 			row({ session: "asking", summary: { status: "blocked" } as never }),
 		]);
 		expect(rows[0]?.session).toBe("asking");
-		expect(rows[0]).toMatchObject({ mark: "waits", doing: "waits on you" });
-		expect(rows[1]).toMatchObject({ mark: "idle", doing: "idle" });
+		expect(rows[0]).toMatchObject({ mark: "waits", word: "waits on you" });
+		expect(rows[1]).toMatchObject({ mark: "idle", word: "idle" });
 	});
 
 	test("a kept order holds its places when one of them starts waiting, and a fresh list sorts", () => {
@@ -118,5 +122,43 @@ describe("the list of sessions", () => {
 		expect(held[1]?.mark).toBe("waits");
 
 		expect(rowsOf([blocked, other])[0]?.session).toBe("aaaa");
+	});
+
+	test("what the agent does, where, and what it last said travel to the row", () => {
+		const [one] = draw([
+			row({
+				summary: {
+					cwd: "/Users/me/work/api",
+					context: { tokens: 250_000, window: 1_000_000 },
+				} as never,
+				state: {
+					...row().state,
+					status: "working",
+					branch: "feat/x",
+					activity: { what: "tool", tool: "bash", about: "bun test", since: 5 },
+					said: { text: "All green.", at: 9 },
+					cost: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, total: 1.5 },
+				},
+			}),
+		]);
+		expect(one).toMatchObject({
+			path: "~/work/api",
+			branch: "feat/x",
+			context: 0.25,
+			cost: "$1.50",
+			activity: { tool: "bash", about: "bun test" },
+			said: "All green.",
+			at: 9,
+		});
+	});
+
+	test("a search keeps the rows whose name, folder or branch has every word", () => {
+		const rows = draw([
+			row({ session: "a", summary: { handle: "kestrel", cwd: "/home/me/hedy" } as never }),
+			row({ session: "b", summary: { handle: "locust", cwd: "/home/me/pi-harness" } as never }),
+		]);
+		expect(matchRows(rows, "HEDY").map((one) => one.session)).toEqual(["a"]);
+		expect(matchRows(rows, "locust pi").map((one) => one.session)).toEqual(["b"]);
+		expect(matchRows(rows, "  ")).toHaveLength(2);
 	});
 });

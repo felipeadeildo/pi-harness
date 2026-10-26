@@ -1,6 +1,7 @@
 // One entry per state change: its shape, its wire check and its fold. `StateChangeMap` is read from
 // this table, so an entry without both a check and a fold does not compile.
 
+import { type BoardView, isBoardView } from "../board-view.ts";
 import { type By, isBy, isObject } from "../by.ts";
 import {
 	type AskQuestion,
@@ -245,6 +246,10 @@ export const CHANGES = {
 		// A `NaN` would be drawn as `$NaN`.
 		check: (data): data is { cost: SessionCost } => isObject(data) && isCost(data.cost),
 		apply: (state, data) => ({ ...state, cost: data.cost }),
+	}),
+	"board.changed": entry({
+		check: (data): data is { board: BoardView } => isObject(data) && isBoardView(data.board),
+		apply: (state, data) => ({ ...state, board: data.board }),
 	}),
 	"activity.changed": entry({
 		check: (data): data is { activity: SessionActivity } =>

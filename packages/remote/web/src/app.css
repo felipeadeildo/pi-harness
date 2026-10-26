@@ -1,694 +1,242 @@
-/* The page's one stylesheet. Colors, space and type are variables, light and dark under the same names:
-   a rule asks for a name and never for a value. The surfaces and labels are the system's own, and the
-   accent is the one pi's theme gives its accent (src/ui/pi-colors.ts holds the same values for the
-   names the daemon sends, and its test compares them with pi's theme files). */
-:root {
-	--bg: #ffffff;
-	--surface: #f2f2f7;
-	--elevated: #ffffff;
-	--border: #c6c6c8;
-	--rule: #e5e5ea;
-	--text: #000000;
-	--muted: #6c6c70;
-	--faint: #8e8e93;
-	--accent: #7459b4;
-	--ok: #248a3d;
-	--warn: #b25000;
-	--danger: #d70015;
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./styles/shadcn.css";
+@import "@fontsource-variable/mona-sans/wdth.css";
 
-	--s1: 2px;
-	--s2: 4px;
-	--s3: 8px;
-	--s4: 12px;
-	--s5: 16px;
-	--s6: 24px;
-	--radius-1: 6px;
-	--radius-2: 10px;
-	--radius-3: 16px;
-	/* The smallest side of anything a thumb presses: no control undercuts it, in either scheme. */
-	--hit: 44px;
-	--font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-	--mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+@custom-variant dark (@media (prefers-color-scheme: dark));
+
+@font-face {
+	font-family: "Paper Mono";
+	font-style: normal;
+	font-display: swap;
+	font-weight: 100 900;
+	src: url("./assets/fonts/paper-mono.woff2") format("woff2-variations");
+}
+
+@theme inline {
+	--font-sans: "Mona Sans Variable", ui-sans-serif, system-ui, sans-serif;
+	--font-heading: var(--font-sans);
+	--font-mono: "Paper Mono", ui-monospace, "SF Mono", Menlo, monospace;
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-pi: var(--pi);
+	--color-dim: var(--dim);
+	--color-raised: var(--raised);
+	--color-waits: var(--waits);
+	--color-ok: var(--ok);
+	--color-added: var(--added);
+	--color-removed: var(--removed);
+	--radius-sm: calc(var(--radius) * 0.6);
+	--radius-md: calc(var(--radius) * 0.8);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) * 1.4);
+	--radius-2xl: calc(var(--radius) * 1.8);
+	--radius-3xl: calc(var(--radius) * 2.2);
+	--radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* Pi's own colors: `--pi` is the theme's accent (src/ui/pi-colors.ts), the rest are its status roles. */
+:root {
 	color-scheme: light dark;
+	--radius: 0.5rem;
+	--background: #ffffff;
+	--foreground: #111111;
+	--raised: #f5f5f4;
+	--card: #ffffff;
+	--card-foreground: #111111;
+	--popover: #ffffff;
+	--popover-foreground: #111111;
+	--primary: #111111;
+	--primary-foreground: #ffffff;
+	--secondary: #f0f0ef;
+	--secondary-foreground: #111111;
+	--muted: #f0f0ef;
+	--muted-foreground: #5f5f5c;
+	--dim: #8b8b87;
+	--accent: #ecebea;
+	--accent-foreground: #111111;
+	--border: #e4e4e2;
+	--input: #d9d9d6;
+	--ring: #7459b4;
+	--pi: #7459b4;
+	--waits: #a35f00;
+	--ok: #1d7f3c;
+	--destructive: #c4302b;
+	--added: #1d7f3c;
+	--removed: #c4302b;
 }
 
 @media (prefers-color-scheme: dark) {
 	:root {
-		--bg: #000000;
-		--surface: #1c1c1e;
-		--elevated: #2c2c2e;
-		--border: #38383a;
-		--rule: #2c2c2e;
-		--text: #ffffff;
-		--muted: #a1a1a6;
-		--faint: #8e8e93;
-		--accent: #a798d7;
-		--ok: #30d158;
-		--warn: #ff9f0a;
-		--danger: #ff453a;
+		--background: #000000;
+		--foreground: #ececec;
+		--raised: #121212;
+		--card: #0c0c0c;
+		--card-foreground: #ececec;
+		--popover: #161616;
+		--popover-foreground: #ececec;
+		--primary: #ececec;
+		--primary-foreground: #000000;
+		--secondary: #1c1c1c;
+		--secondary-foreground: #ececec;
+		--muted: #1a1a1a;
+		--muted-foreground: #a3a3a3;
+		--dim: #6e6e6e;
+		--accent: #1f1f1f;
+		--accent-foreground: #ececec;
+		--border: #222222;
+		--input: #2c2c2c;
+		--ring: #a798d7;
+		--pi: #a798d7;
+		--waits: #e8b04b;
+		--ok: #5cc27a;
+		--destructive: #f0645c;
+		--added: #5cc27a;
+		--removed: #f0645c;
 	}
 }
 
-*,
-*::before,
-*::after {
-	box-sizing: border-box;
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+	html {
+		@apply font-sans antialiased;
+		font-optical-sizing: auto;
+		-webkit-text-size-adjust: 100%;
+	}
+	body {
+		@apply bg-background text-foreground;
+		margin: 0;
+	}
+	html,
+	body,
+	#root {
+		height: 100%;
+	}
+	code,
+	kbd,
+	pre,
+	samp {
+		@apply font-mono;
+	}
+	:focus-visible {
+		@apply outline-2 outline-offset-2 outline-ring;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		*,
+		*::before,
+		*::after {
+			animation-duration: 0.01ms !important;
+			animation-iteration-count: 1 !important;
+			transition-duration: 0.01ms !important;
+		}
+	}
 }
 
-html,
-body,
-#root {
-	height: 100%;
-	margin: 0;
+@utility wide {
+	font-stretch: 112.5%;
 }
 
-body {
-	background: var(--bg);
-	color: var(--text);
-	font: 15px/1.5 var(--font);
-	-webkit-text-size-adjust: 100%;
-}
-
-a {
-	color: var(--accent);
-}
-
-.page {
-	display: flex;
-	flex-direction: column;
-	gap: var(--s3);
-	padding: var(--s5);
-	min-height: 100%;
-}
-
-.quiet {
-	color: var(--muted);
-	font-size: 13px;
-	font-weight: 500;
-}
-
-/* The list of sessions, under the machine each runs on. A row is a link and the whole line is the
-   target; it wears the terminal's marks, and one that waits gets the bar the terminal gives the row
-   that wants you, in place, never moved. */
-.list-head h1 {
-	margin: 0;
-	font-size: 28px;
-	line-height: 1.15;
-	letter-spacing: -0.01em;
-}
-
-.list-head p {
-	margin: var(--s1) 0 0;
-	font-size: 15px;
-}
-
-.empty {
-	margin: var(--s5) 0 0;
-	color: var(--muted);
-}
-
-.machine h2 {
-	margin: var(--s6) 0 var(--s2);
-	color: var(--muted);
-	font-size: 13px;
-	font-weight: 600;
-}
-
-.sessions {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-	border-top: 1px solid var(--rule);
-}
-
-.sessions li {
-	border-bottom: 1px solid var(--rule);
-}
-
-.row {
-	position: relative;
-	display: grid;
-	grid-template-columns: var(--s5) 1fr;
-	column-gap: var(--s2);
-	row-gap: var(--s1);
-	min-height: var(--hit);
-	padding: var(--s4) 0 var(--s4) var(--s3);
-	color: var(--text);
-	text-decoration: none;
-}
-
-.row:active {
-	background: var(--surface);
-}
-
-.row.waits::before {
-	content: "";
-	position: absolute;
-	inset: var(--s3) auto var(--s3) 0;
-	width: 3px;
-	border-radius: 2px;
-	background: var(--warn);
-}
-
-.row-line {
-	grid-column: 2;
-	display: flex;
-	align-items: baseline;
-	gap: var(--s3);
-	min-width: 0;
-}
-
-.row .mark {
-	grid-column: 1;
-	grid-row: 1;
-	align-self: center;
-	color: var(--muted);
-	font-size: 13px;
-	text-align: center;
-}
-
-.row.working .mark {
-	color: var(--accent);
-}
-
-.row.waits .mark {
-	color: var(--warn);
-}
-
-.row .name {
-	font-size: 17px;
-	font-weight: 600;
-	white-space: nowrap;
-}
-
-.row .folder {
-	flex: 1;
-	min-width: 0;
-	overflow: hidden;
-	color: var(--muted);
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.row .cost {
-	color: var(--muted);
-	font-size: 13px;
+@utility tabular {
 	font-variant-numeric: tabular-nums;
 }
 
-.row .about {
-	color: var(--muted);
-	font-size: 13px;
-}
-
-.row.waits .doing {
-	color: var(--warn);
-	font-weight: 600;
-}
-
-[hidden] {
-	display: none !important;
-}
-
-button,
-input {
-	font: inherit;
-	color: inherit;
-}
-
-button {
-	cursor: pointer;
-	touch-action: manipulation;
-}
-
-button:disabled {
-	cursor: default;
-}
-
-:focus-visible {
-	outline: 2px solid var(--accent);
-	outline-offset: 2px;
-}
-
-.name {
-	font-weight: 600;
-}
-
-.dim {
-	color: var(--muted);
-}
-
-/* The session: a bar with the way back and who this is, a conversation that scrolls, and the composer
-   that does not. `dvh` follows the keyboard (the viewport meta asks for it), so the field stays above it. */
-.session {
-	display: flex;
-	flex-direction: column;
-	height: 100dvh;
-}
-
-.session-bar {
-	display: flex;
-	align-items: center;
-	gap: var(--s2);
-	padding: var(--s2) var(--s5) var(--s2) var(--s2);
-	border-bottom: 1px solid var(--rule);
-}
-
-.back {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	flex-shrink: 0;
-	width: var(--hit);
-	height: var(--hit);
-	font-size: 32px;
-	line-height: 1;
-	text-decoration: none;
-}
-
-.bar-title {
-	min-width: 0;
-}
-
-.bar-title h1 {
-	margin: 0;
-	overflow: hidden;
-	font-size: 17px;
-	line-height: 1.3;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.bar-title p {
-	margin: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.scroll {
-	flex: 1;
-	min-height: 0;
-	overflow-y: auto;
-	overscroll-behavior: contain;
-	padding: var(--s4) var(--s5) var(--s5);
-}
-
-.board h2,
-.sheet h2 {
-	margin: 0;
-	font-size: 15px;
-	font-weight: 600;
-}
-
-.board {
-	padding: var(--s3) 0;
-}
-
-.board p {
-	margin: var(--s2) 0 0;
-}
-
-.terminal-wait {
-	margin: 0;
-	padding: var(--s3) 0;
-	color: var(--warn);
-	font-size: 13px;
-	font-weight: 600;
-}
-
-/* The transcript. Who speaks is smaller and heavier than what they say. */
-.remote-transcript {
-	display: grid;
-	gap: var(--s4);
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
-.remote-transcript li {
-	min-width: 0;
+/* Answers from the model, set for reading. */
+@utility prose-pi {
+	@apply text-[15px] leading-[1.6] text-foreground;
 	overflow-wrap: anywhere;
+	& > * + * {
+		margin-top: 0.75em;
+	}
+	& h1,
+	& h2,
+	& h3,
+	& h4 {
+		@apply wide font-semibold leading-snug;
+		margin-top: 1.25em;
+	}
+	& h1 {
+		font-size: 1.2em;
+	}
+	& h2 {
+		font-size: 1.1em;
+	}
+	& h3,
+	& h4 {
+		font-size: 1em;
+	}
+	& a {
+		@apply text-pi underline decoration-pi/40 underline-offset-2;
+	}
+	& strong {
+		@apply font-semibold;
+	}
+	& ul,
+	& ol {
+		padding-left: 1.25em;
+	}
+	& ul {
+		list-style: disc;
+	}
+	& ol {
+		list-style: decimal;
+	}
+	& li + li {
+		margin-top: 0.25em;
+	}
+	& li::marker {
+		@apply text-dim;
+	}
+	& blockquote {
+		@apply border-l-2 border-border pl-3 text-muted-foreground;
+	}
+	& :not(pre) > code {
+		@apply rounded-sm bg-muted px-1 py-px text-[0.87em];
+	}
+	& hr {
+		@apply border-border;
+	}
 }
 
-.remote-who {
-	color: var(--muted);
-	font-size: 13px;
-	font-weight: 700;
+@utility scrollbar-thin {
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in oklch, var(--foreground) 22%, transparent) transparent;
 }
 
-.remote-from {
-	margin-left: var(--s3);
-	color: var(--muted);
-	font-size: 12px;
+@utility scrollbar-gutter-stable {
+	scrollbar-gutter: stable;
 }
 
-.remote-line {
-	color: var(--muted);
-	font-size: 13px;
+@utility scrollbar-thumb-transparent {
+	scrollbar-color: transparent transparent;
 }
 
-.remote-markdown > :first-child {
-	margin-top: var(--s2);
+@utility scrollbar-track-transparent {
+	scrollbar-color: color-mix(in oklch, var(--foreground) 22%, transparent) transparent;
 }
 
-.remote-markdown p,
-.remote-markdown ul,
-.remote-markdown h1,
-.remote-markdown h2,
-.remote-markdown h3 {
-	margin: var(--s3) 0 0;
-}
-
-.remote-markdown h1,
-.remote-markdown h2,
-.remote-markdown h3,
-.remote-markdown h4,
-.remote-markdown h5,
-.remote-markdown h6 {
-	font-size: 16px;
-}
-
-.remote-markdown code,
-.remote-transcript pre {
-	font-family: var(--mono);
-	font-size: 13px;
-}
-
-.remote-markdown code {
-	padding: 1px var(--s2);
-	border-radius: var(--s2);
-	background: var(--surface);
-}
-
-.remote-transcript pre {
-	margin: var(--s2) 0 0;
-	padding: var(--s3);
-	border-radius: var(--radius-1);
-	background: var(--surface);
-	overflow-x: auto;
-	white-space: pre-wrap;
-	overflow-wrap: anywhere;
-}
-
-.remote-markdown pre code {
-	padding: 0;
-	background: none;
-}
-
-.remote-thinking,
-.remote-transcript summary {
-	color: var(--muted);
-	font-size: 13px;
-}
-
-.remote-transcript summary {
-	min-height: var(--hit);
-	display: flex;
-	align-items: center;
-	cursor: pointer;
-}
-
-/* The composer: lists, pickers, then the field with its one filled button. */
-.composer {
-	display: flex;
-	flex-direction: column;
-	gap: var(--s3);
-	padding: var(--s4) var(--s5) calc(var(--s4) + env(safe-area-inset-bottom));
-	border-top: 1px solid var(--border);
-	background: var(--bg);
-}
-
-.lists {
-	max-height: calc(var(--hit) * 3);
-	overflow-y: auto;
-	touch-action: pan-y;
-}
-
-.list-row {
-	display: flex;
-	align-items: center;
-	gap: var(--s3);
-	padding: var(--s2) 0;
-}
-
-.grow {
-	flex: 1;
-	min-width: 0;
-	overflow-wrap: anywhere;
-}
-
-.pickers {
-	display: flex;
-	gap: var(--s3);
-}
-
-.field-row {
-	display: flex;
-	gap: var(--s3);
-	align-items: center;
-}
-
-.field {
-	position: relative;
-	flex: 1;
-	min-width: 0;
-}
-
-input[type="text"] {
-	width: 100%;
-	min-height: var(--hit);
-	padding: 0 var(--s4);
-	border: 1px solid var(--border);
-	border-radius: var(--radius-1);
-	background: var(--bg);
-	/* 16px is what keeps a phone browser from zooming the page when the field is focused. */
-	font-size: 16px;
-}
-
-.suggestions {
-	position: absolute;
-	bottom: 100%;
-	left: 0;
-	right: 0;
-	display: flex;
-	flex-direction: column;
-	max-height: calc(var(--hit) * 3);
-	margin-bottom: var(--s2);
-	overflow-y: auto;
-	border: 1px solid var(--border);
-	border-radius: var(--radius-1);
-	background: var(--elevated);
-}
-
-.suggestions button {
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	min-height: var(--hit);
-	padding: var(--s2) var(--s4);
-	border: 0;
-	background: none;
-	text-align: left;
-}
-
-.primary,
-.action,
-.trigger {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	gap: var(--s2);
-	min-height: var(--hit);
-	min-width: var(--hit);
-	border-radius: var(--radius-1);
-	font-size: 15px;
-	font-weight: 600;
-}
-
-.primary {
-	padding: 0 var(--s5);
-	border: 0;
-	background: var(--accent);
-	color: var(--bg);
-}
-
-.primary.danger {
-	background: var(--danger);
-}
-
-.primary:disabled {
-	background: var(--border);
-	color: var(--faint);
-}
-
-.action {
-	padding: 0 var(--s4);
-	border: 1px solid var(--border);
-	background: none;
-}
-
-.action:disabled {
-	color: var(--faint);
-}
-
-/* A picker says what it picks above what is picked, so three of them fit a phone's width. */
-.trigger {
-	flex: 1 1 0;
-	min-width: 0;
-	flex-direction: column;
-	align-items: flex-start;
-	gap: 0;
-	padding: var(--s2) var(--s4);
-	border: 1px solid var(--border);
-	border-radius: var(--radius-2);
-	background: none;
-	line-height: 1.25;
-	text-align: left;
-}
-
-.trigger-word {
-	color: var(--muted);
-	font-size: 12px;
-	font-weight: 500;
-}
-
-.trigger-pick {
-	display: flex;
-	gap: var(--s2);
-	max-width: 100%;
-}
-
-.trigger-value {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-/* The sheets: a layer over the page, rising from the bottom edge. */
-.sheet-layer {
-	position: fixed;
-	inset: 0;
-	z-index: 10;
-	display: flex;
-	flex-direction: column;
-	justify-content: flex-end;
-}
-
-.shade {
-	flex: 1;
-	border: 0;
-	background: rgba(0, 0, 0, 0.3);
-}
-
-.sheet {
-	display: flex;
-	flex-direction: column;
-	gap: var(--s3);
-	max-height: 70dvh;
-	padding: var(--s4) var(--s4) calc(var(--s4) + env(safe-area-inset-bottom));
-	border-radius: var(--radius-3) var(--radius-3) 0 0;
-	background: var(--elevated);
-	animation: rise 0.2s ease-out;
-}
-
-@keyframes rise {
+@keyframes rail {
 	from {
-		transform: translateY(100%);
+		transform: translateX(-100%);
 	}
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.sheet {
-		animation: none;
+	to {
+		transform: translateX(300%);
 	}
-}
-
-.sheet-body {
-	display: flex;
-	flex-direction: column;
-	gap: var(--s2);
-	overflow-y: auto;
-	touch-action: pan-y;
-}
-
-/* A list where one row is on: a bar, `❯`, and bold, so the choice does not rest on color alone. */
-.option {
-	position: relative;
-	display: flex;
-	align-items: center;
-	gap: var(--s3);
-	min-height: var(--hit);
-	padding: 0 var(--s4);
-	cursor: pointer;
-}
-
-.option .bar {
-	position: absolute;
-	inset: 0 auto 0 0;
-	width: 3px;
-	background: var(--accent);
-}
-
-.option .pointer {
-	width: var(--s5);
-	color: var(--accent);
-}
-
-.option .label {
-	font-weight: 400;
-}
-
-.option.chosen .label {
-	font-weight: 700;
-}
-
-.option .hint {
-	color: var(--muted);
-	font-size: 12px;
-}
-
-/* The question the agent waits on, in the composer's place. */
-.question {
-	border-top: 1px solid var(--border);
-	padding-bottom: env(safe-area-inset-bottom);
-}
-
-.question-panel {
-	display: flex;
-	flex-direction: column;
-	gap: var(--s3);
-	padding: var(--s5);
-}
-
-.question-panel p {
-	margin: 0;
-}
-
-.question-head {
-	display: flex;
-	justify-content: space-between;
-}
-
-.choice {
-	display: flex;
-	flex-direction: column;
-	gap: var(--s1);
-	min-height: var(--hit);
-	padding: var(--s4);
-	border: 1px solid var(--border);
-	border-radius: var(--radius-2);
-	background: none;
-	text-align: left;
-}
-
-.choice.chosen {
-	border-color: var(--accent);
-	background: var(--surface);
-}
-
-.question-actions {
-	display: flex;
-	gap: var(--s3);
-	justify-content: flex-end;
 }

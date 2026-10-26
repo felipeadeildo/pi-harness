@@ -14,6 +14,21 @@ export function plain(text: string): string {
 	);
 }
 
+/** Like `plain`, but keeps the color codes (SGR), for output a highlighter reads as ANSI. */
+export function colored(text: string): string {
+	const kept: string[] = [];
+	// A private-use character survives `plain`, so it holds each color code's place.
+	const marked = text.replace(
+		// eslint-disable-next-line no-control-regex -- the escape is what is kept.
+		/\u001b\[[0-9;]*m/g,
+		(code) => `\u{E000}${kept.push(code) - 1}\u{E000}`,
+	);
+	return plain(marked).replace(
+		/\u{E000}(\d+)\u{E000}/gu,
+		(_, index: string) => kept[Number(index)] ?? "",
+	);
+}
+
 export function siteOf(url: string): string | undefined {
 	try {
 		const parsed = new URL(url);

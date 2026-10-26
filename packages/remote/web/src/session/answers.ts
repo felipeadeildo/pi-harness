@@ -7,9 +7,11 @@ export interface Draft {
 	picks: Record<number, string[]>;
 	/** When they typed instead of picking. */
 	typed: Record<number, string>;
+	/** By question, then by option: why yes or why not. */
+	notes: Record<number, Record<string, string>>;
 }
 
-export const EMPTY: Draft = { picks: {}, typed: {} };
+export const EMPTY: Draft = { picks: {}, typed: {}, notes: {} };
 
 /** A single-answer question replaces what was there. */
 export function pick(
@@ -31,6 +33,13 @@ export function type(draft: Draft, index: number, text: string): Draft {
 	return { ...draft, typed: { ...draft.typed, [index]: text } };
 }
 
+export function note(draft: Draft, index: number, option: string, text: string): Draft {
+	return {
+		...draft,
+		notes: { ...draft.notes, [index]: { ...draft.notes[index], [option]: text } },
+	};
+}
+
 export function ready(ask: OpenAsk, draft: Draft): boolean {
 	return ask.questions.every((_, index) => {
 		const typed = draft.typed[index]?.trim() ?? "";
@@ -47,7 +56,9 @@ export function answerOf(ask: OpenAsk, draft: Draft): AskResult {
 				header: one.header,
 				picked: typed.length > 0 ? [] : (draft.picks[index] ?? []),
 				...(typed.length > 0 ? { typed } : {}),
-				notes: [],
+				notes: Object.entries(draft.notes[index] ?? {})
+					.map(([option, said]) => ({ option, note: said.trim() }))
+					.filter((one) => one.note !== ""),
 			};
 		}),
 		cancelled: false,
