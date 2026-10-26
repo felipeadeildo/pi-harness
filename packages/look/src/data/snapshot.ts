@@ -49,13 +49,11 @@ export interface Snapshot {
 	run: RunView | undefined;
 	averages: Averages;
 	statuses: ReadonlyMap<string, string>;
-	/** What the session is doing, when a board feature keeps it. */
+	/** When a board feature keeps it. */
 	board: Board | undefined;
-	/** The other sessions in this folder, when a peers feature keeps them. */
+	/** When a peers feature keeps them. */
 	peers: PeerMark[];
-	/** Messages a peer sent this session that its agent has not read yet. */
 	peersUnread: number;
-	/** Who is writing to whom right now, drawn beside the peers. */
 	peersWriting: WritingMark[];
 }
 

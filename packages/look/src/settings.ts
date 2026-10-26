@@ -32,7 +32,7 @@ export const below: readonly SegmentId[] = ["cost", "tokens", "cache", "average"
 /** The plan's quota: what each window spent, and when it resets. */
 export const belowRight: readonly SegmentId[] = ["quota"];
 
-/** Where each piece of the screen comes from. The docs fixture draws with the same map. */
+/** The docs fixture draws with the same map. */
 export const SLOTS: Record<SlotName, readonly SegmentId[]> = {
 	strip,
 	stripRight,

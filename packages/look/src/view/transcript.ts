@@ -40,13 +40,12 @@ const BUILT_IN = {
 
 export interface TranscriptOptions {
 	tui: TUI;
-	/** The viewed session's folder, which pi's tools show paths against. */
+	/** Pi's tools show paths against it. */
 	cwd: string;
-	/** Tool outputs and summaries drawn whole, as `ctrl+o` does in pi. */
+	/** As `ctrl+o` does in pi. */
 	expanded: boolean;
 }
 
-/** The components for the branch that ends at `leafId`, or at the last entry without one. */
 export function transcriptOf(
 	entries: readonly SessionEntry[],
 	leafId: string | undefined,
@@ -151,11 +150,10 @@ export function transcriptOf(
 	return components;
 }
 
-/** Pi's own renderers for a tool it ships, under the ones the harness registered. */
+/** Under the ones the harness registered. */
 function renderersOf(name: string, cwd: string): ToolRenderers | undefined {
 	return resolveToolRenderers(name, () => {
 		if (!Object.hasOwn(BUILT_IN, name)) return undefined;
-		// A definition's renderers take its own arguments, which are what the component hands them.
 		return BUILT_IN[name as keyof typeof BUILT_IN](cwd) as ToolRenderers;
 	});
 }

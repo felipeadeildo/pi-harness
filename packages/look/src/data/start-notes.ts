@@ -1,14 +1,11 @@
-// What the start screen says under the folder and the model: only what changed or waits on you since
-// the last session here. On a quiet day the list is empty and the screen says so in one line.
+// Under the folder and the model, only what changed or waits on you since the last session here.
 import { formatClock, GLYPH } from "@adeildo/pi-kit";
 
 import type { GithubState } from "./github.ts";
 import type { Snapshot } from "./snapshot.ts";
 
-/** Plans used past this percent show on the start screen. */
 const PLAN_LIMIT = 70;
 
-/** The last session in this folder, as the start screen remembers it. */
 export interface LastVisit {
 	at: number;
 	version: string;
@@ -16,7 +13,6 @@ export interface LastVisit {
 
 export interface StartNote {
 	mark: string;
-	/** A theme color for the mark. */
 	color: string;
 	text: string;
 	detail?: string;
@@ -98,7 +94,7 @@ function peerState(state: "running" | "idle" | "waiting"): string {
 	}
 }
 
-/** Local time, hours and minutes, or the day when it was not today. */
+/** Local time, or the day when it was not today. */
 export function since(at: number, now: number): string {
 	const then = new Date(at);
 	const time = formatClock(at);

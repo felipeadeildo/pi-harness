@@ -1,5 +1,4 @@
-// The start screen says what changed since the last session in a folder, so it remembers when that
-// was and which harness version ran it. One small file for every folder.
+// The start screen says what changed since the last session in a folder, so it remembers when that was.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
@@ -9,7 +8,7 @@ import type { LastVisit } from "./start-notes.ts";
 
 type Visits = Record<string, LastVisit>;
 
-/** The last visit to `cwd`, and records this one. */
+/** Records this visit too. */
 export function visit(
 	file: string,
 	cwd: string,

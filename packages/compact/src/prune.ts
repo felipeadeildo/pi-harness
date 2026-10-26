@@ -25,7 +25,7 @@ export interface Hidden {
 export interface PrunePlan {
 	edits: ContextEditEntryDraft[];
 	hidden: Hidden[];
-	/** Estimated, like `total`: compare them, never `freed` with tokens the API reported. */
+	/** Estimated, like `total`: never compare it with tokens the API reported. */
 	freed: number;
 	total: number;
 }
@@ -121,7 +121,7 @@ export function clearAtLeast(above: number): number {
 	return Math.round(MIN_FREED_SHARE * above);
 }
 
-/** The context's size after `plan`, in the tokens the API reported for it before. */
+/** In the tokens the API reported before. */
 export function sizeAfter(plan: PrunePlan, contextTokens: number): number {
 	return Math.round(contextTokens - plan.freed * scale(plan, contextTokens));
 }
@@ -212,9 +212,8 @@ function shortened(args: ToolCall["arguments"]): ToolCall["arguments"] {
 	};
 }
 
-/** The key of the note an old call carries in place of its long arguments. */
 const PRUNED_KEY = "_pruned";
-/** How cut values read before: an agent that saw them wrote its own arguments that way. */
+/** How cut values once read; an agent that saw them wrote its own arguments that way. */
 const OLD_MARKER = /characters, hidden to save context\)/u;
 
 /** The model copied a pruned call instead of writing its arguments. */

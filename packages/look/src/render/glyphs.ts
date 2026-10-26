@@ -37,7 +37,7 @@ export interface Glyphs {
 	empty: string;
 	levels: readonly string[];
 	ellipsis: string;
-	/** Between the agents of the folder and those of each shared room. */
+	/** Between the folder's agents and each shared room's. */
 	apart: string;
 }
 

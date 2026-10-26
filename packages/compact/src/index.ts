@@ -55,7 +55,7 @@ import {
 } from "./settings.ts";
 import { summarize } from "./summary.ts";
 
-/** Past this share of the model's window a turn prunes at once, before pi's own compaction. */
+/** Past this share of the window a turn prunes at once, before pi's own compaction. */
 const NEAR_WINDOW = 0.8;
 
 export const compact = defineFeature({
@@ -90,7 +90,6 @@ export const compact = defineFeature({
 			onServerFor(ctx) ? withServerClearing(event.payload, pruneAbove.get(scope)) : undefined,
 		);
 
-		/** The last answer's usage, measured at the end of the run. */
 		let lastUsage: Billed | undefined;
 
 		scope.on("turn_end", (event, ctx) => {
@@ -136,7 +135,6 @@ export const compact = defineFeature({
 			return pruneNowAt(event.entries, event.context.contextEntries, before, usage, ctx);
 		});
 
-		/** Hides old output if it pays, or always after /prune, and records what it hid. */
 		function pruneNowAt(
 			entries: readonly SessionBoundaryDraft[],
 			context: TurnEndEvent["context"]["contextEntries"],
@@ -171,7 +169,6 @@ export const compact = defineFeature({
 				...cost,
 			};
 			for (const { call } of plan.hidden) hidden.add(call);
-			// The next request is smaller for the edit, not for a server clear.
 			lastPrompt = undefined;
 			return {
 				entries: [
@@ -197,7 +194,7 @@ export const compact = defineFeature({
 
 		scope.on("session_before_compact", async (event, ctx) => {
 			if (!summary.get(scope)) return undefined;
-			// With nothing on the board there is nothing to put on top, and pi writes its own summary.
+			// With nothing on the board, pi writes its own summary.
 			const board = BOARD.current(scope) ?? boardOf(event.branchEntries);
 			if (describeBoard(board) === "") return undefined;
 			const { preparation } = event;
@@ -271,7 +268,6 @@ export const compact = defineFeature({
 	},
 });
 
-// Recites the board after a prune or a clear, so the agent keeps its goals.
 function note(board: Board, server: boolean): CustomMessageEntryDraft {
 	const parts = [
 		server

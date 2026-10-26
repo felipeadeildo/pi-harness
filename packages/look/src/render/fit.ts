@@ -5,7 +5,7 @@ export interface Piece {
 	text: string;
 	compact?: string | undefined;
 	priority: number;
-	/** How the piece fits in less room than its compact form, when it is alone on the line. */
+	/** When it is alone on the line. */
 	shrink?: (width: number) => string;
 }
 

@@ -22,7 +22,7 @@ export interface SummaryRequest {
 	instructions?: string;
 }
 
-/** pi's compaction from the first model that answers, or undefined when none does. */
+/** Undefined when no model answers. */
 export async function summarize(
 	request: SummaryRequest,
 	models: readonly ChatModel[],
@@ -51,7 +51,6 @@ export async function summarize(
 	return undefined;
 }
 
-/** The board and your last words, as they are. */
 export function standing({ board, preparation }: SummaryRequest): string {
 	const parts: string[] = [];
 	const stands = describeBoard(board, { done: 20, decisions: 20 });

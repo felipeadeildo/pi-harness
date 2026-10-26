@@ -8,7 +8,6 @@ import { stripTerminalSequences } from "@earendil-works/pi-tui";
 
 import { tabs } from "./format.ts";
 
-/** What the frame shows inside, and the counts it adds to the bottom rule. */
 export interface Stream {
 	lines: string[];
 	progress: string[];
@@ -17,17 +16,15 @@ export interface Stream {
 interface StreamContext {
 	cwd: string;
 	expanded: boolean;
-	/** The model is still writing the call, so the cursor shows and the last key may be cut short. */
+	/** The cursor shows and the last key may be cut short. */
 	writing: boolean;
-	/** Shared by every render of one call, which keeps what was read from disk. */
+	/** Keeps what was read from disk across renders of one call. */
 	state: { streamTarget?: Target };
 }
 
 type Streamer = (args: unknown, theme: Theme, context: StreamContext) => Stream | undefined;
 
-/** How many of the last lines a write shows while it streams. */
 const WRITE_TAIL = 8;
-/** How many lines of the diff an edit shows while it streams. */
 const EDIT_TAIL = 10;
 const CURSOR = GLYPH.cursor;
 /** Larger files are not read to count their lines. */
@@ -38,7 +35,6 @@ export const STREAMERS: Readonly<Record<string, Streamer>> = {
 	edit: editStream,
 };
 
-/** What a write is about to replace. */
 interface Target {
 	path: string;
 	lines?: number;
@@ -46,12 +42,12 @@ interface Target {
 }
 
 function writeStream(args: unknown, theme: Theme, context: StreamContext): Stream | undefined {
-	// The model may write the content before the path, so the stream does not wait for the path.
+	// The model may write the content before the path.
 	const content = field(args, "content");
 	if (content === undefined) return undefined;
 	const path = pathOf(args);
 
-	// A path still arriving is not read: it may name another file, or a folder, on the way.
+	// A path still arriving may name another file on the way.
 	const target =
 		path !== undefined && pathSettled(args, context) ? targetOf(path, context) : undefined;
 	const note = target === undefined ? "" : `  ${theme.fg("muted", replaces(target))}`;
@@ -87,7 +83,7 @@ function editStream(args: unknown, theme: Theme, context: StreamContext): Stream
 	const diff: string[] = [];
 	for (const [index, edit] of edits.entries()) {
 		if (index > 0) diff.push(theme.fg("dim", GLYPH.ellipsisAcross));
-		// Only the last edit can still be arriving, so only the others have a known end.
+		// Only the last edit can still be arriving.
 		const lines = editLines(edit, !context.writing || index < edits.length - 1);
 		for (const line of lines.before) diff.push(theme.fg("toolDiffContext", ` ${printable(line)}`));
 		for (const line of lines.out) diff.push(theme.fg("toolDiffRemoved", `-${printable(line)}`));
@@ -134,10 +130,9 @@ export function editLines(
 	};
 }
 
-/** The first line pi's own renderer draws, so nothing moves when it takes over. */
+/** Pi's own renderer draws the same first line, so nothing moves when it takes over. */
 function pathLine(tool: string, path: string | undefined, theme: Theme): string {
 	const title = theme.fg("toolTitle", theme.bold(tool));
-	// Pi's own stand-in for a path not written yet.
 	if (path === undefined) return `${title} ${theme.fg("toolOutput", "...")}`;
 	return `${title} ${theme.fg("accent", printable(tildify(path)))}`;
 }
@@ -148,7 +143,7 @@ function printable(line: string): string {
 	return tabs(stripTerminalSequences(line).replace(/[\u0000-\u0008\u000a-\u001f\u007f]/g, ""));
 }
 
-/** A key the model has moved past is complete, and so is every key once the call is written. */
+/** A key the model moved past is complete, and so is every key once the call is written. */
 function pathSettled(args: unknown, context: StreamContext): boolean {
 	if (!context.writing || !isObject(args)) return true;
 	const last = Object.keys(args).at(-1);
@@ -174,7 +169,7 @@ function replaces(target: Target): string {
 	return `replaces ${target.lines} line${target.lines === 1 ? "" : "s"}`;
 }
 
-/** Reads the file once per call, when the path is complete. */
+/** Once per call, when the path is complete. */
 function targetOf(path: string, context: StreamContext): Target {
 	const known = context.state.streamTarget;
 	if (known?.path === path) return known;
@@ -188,7 +183,7 @@ function targetOf(path: string, context: StreamContext): Target {
 			target.lines = text === "" ? 0 : text.replace(/\n$/, "").split("\n").length;
 		}
 	} catch (error) {
-		// A path that is not there is a new file; one that cannot be read is still a file.
+		// Missing is a new file; unreadable is still a file.
 		target = { path, exists: (error as NodeJS.ErrnoException).code !== "ENOENT" };
 	}
 	context.state.streamTarget = target;
@@ -217,7 +212,6 @@ export interface PartialEdit {
 	newText?: string;
 }
 
-/** The edits written so far. The last one may have its old text and nothing else yet. */
 function editsOf(args: unknown): PartialEdit[] {
 	if (!isObject(args)) return [];
 	const { edits } = args;

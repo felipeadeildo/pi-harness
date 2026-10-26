@@ -18,14 +18,12 @@ import { type Screen, type SlotName, slotPieces } from "../ui/screen.ts";
 import { ViewState, Viewport } from "./state.ts";
 import { transcriptOf } from "./transcript.ts";
 
-/** Rows the frame, the blank row over the editor box and the box take from the screen. */
 const CHROME = 6;
 const READ_ONLY = "Read only: write to this session through a room.";
 
 export interface ViewOptions {
 	tui: TUI;
 	theme: Theme;
-	/** Your screen, whose slots and glyphs the view's editor box is drawn with. */
 	screen: Screen;
 	source: SessionSource;
 	close(): void;
@@ -37,7 +35,7 @@ export class SessionView implements Component, Focusable {
 	readonly #state = new ViewState();
 	readonly #viewport = new Viewport();
 	readonly #stop: () => void;
-	/** The transcript's lines, drawn again only when the session or the width changed. */
+	/** Drawn again only when the session or the width changed. */
 	#drawn: { version: number; width: number; lines: string[] } | undefined;
 
 	constructor(options: ViewOptions) {
@@ -47,7 +45,6 @@ export class SessionView implements Component, Focusable {
 		});
 	}
 
-	/** Stops following the source. */
 	dispose(): void {
 		this.#stop();
 	}
@@ -79,7 +76,7 @@ export class SessionView implements Component, Focusable {
 		const body = [...Array.from({ length: height - shown.length }, () => ""), ...shown];
 		const snapshot = this.#state.snapshot;
 		const ended = this.#state.ended;
-		// A blank row sets the editor box apart from the transcript, as it is under your own.
+		// A blank row sets the editor box apart, as under your own.
 		return entryFrame([...body, "", ...this.#editor(inner, snapshot)], width, theme, {
 			top: titleOf(snapshot),
 			topRight: theme.fg(ended ? "dim" : "success", ended ? "ended" : "live"),
@@ -106,7 +103,6 @@ export class SessionView implements Component, Focusable {
 		return lines;
 	}
 
-	/** The editor box, with your slots filled from the viewed session. */
 	#editor(width: number, session: SessionSummary | undefined): string[] {
 		const { screen, theme } = this.#options;
 		const style = screen.frameStyle();
@@ -130,10 +126,9 @@ export class SessionView implements Component, Focusable {
 	}
 }
 
-/** The viewed session's title and machine, or its id until its file says more. */
 function titleOf(snapshot: SessionSummary | undefined): string {
 	if (snapshot === undefined) return "Opening the session";
-	// With no title yet, the name a room gives a session it has no handle for.
+	// With no title, the name a room gives a session without a handle.
 	const name = snapshot.name ?? `new-${snapshot.session.slice(-4)}`;
 	return `${name} @ ${snapshot.machine}`;
 }

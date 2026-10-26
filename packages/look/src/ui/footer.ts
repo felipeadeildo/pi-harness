@@ -6,7 +6,7 @@ import type { Paint } from "../render/paint.ts";
 import { type Screen, type SlotName, slotPieces } from "./screen.ts";
 
 const GAP = 3;
-/** Room reserved for the strip, so its changing width never moves the right side between lines. */
+/** So the strip's changing width never moves the right side. */
 const STRIP_ROOM = 56;
 /** A keystroke always redraws; nothing shown here reads differently 100 ms later. */
 const REDRAW_MS = 100;

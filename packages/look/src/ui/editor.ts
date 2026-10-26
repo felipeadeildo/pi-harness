@@ -16,7 +16,7 @@ import { type Screen, type SlotName, slotPieces } from "./screen.ts";
 
 type WorkingIndicator = Parameters<CustomEditor["setWorkingStatusIndicator"]>[0];
 
-/** Pi calls the border hooks inside its render; these mark where this class draws its own lines. */
+// Pi calls the border hooks inside its render; these mark where this class draws its own lines.
 const TOP = "\u0000look:top\u0000";
 const BOTTOM = "\u0000look:bottom\u0000";
 // oxlint-disable-next-line no-control-regex -- pi's software cursor is an escape sequence
@@ -49,7 +49,7 @@ export class LookEditor extends CustomEditor {
 		this.#screen = screen;
 	}
 
-	/** The frame owns the horizontal inset, so pi's padding setting would double it. */
+	/** The frame owns the horizontal inset, so pi's padding would double it. */
 	override setPaddingX(_padding: number): void {
 		super.setPaddingX(0);
 	}
@@ -60,7 +60,7 @@ export class LookEditor extends CustomEditor {
 		this.tui.requestRender();
 	}
 
-	/** Pi opens its palette on `/` only at the start of a message. Further in, `/` lists the skills. */
+	/** Pi opens its palette on `/` only at the start of a message; further in, `/` lists the skills. */
 	override handleInput(data: string): void {
 		super.handleInput(data);
 		if (data !== "/" || this.isShowingAutocomplete() || !this.#screen.skills()) return;
@@ -102,7 +102,7 @@ export class LookEditor extends CustomEditor {
 		const inner = Math.max(1, width - 2 * this.#inset);
 
 		const cursor = this.#screen.cursor();
-		// Pi puts its own cursor setting back after a reload, which would hide a bar cursor.
+		// Pi restores its own cursor setting after a reload, which would hide a bar cursor.
 		if (cursor !== "block" && !this.tui.getShowHardwareCursor()) applyCursor(this.tui, cursor);
 
 		this.#framing = true;
@@ -162,7 +162,7 @@ export class LookEditor extends CustomEditor {
 			}
 		}
 
-		// Every line here is drawn to the width already, and measuring is cheaper than cutting.
+		// Every line is drawn to the width already, and measuring is cheaper than cutting.
 		return result.map((line) =>
 			visibleWidth(line) > width ? truncateToWidth(line, width, "") : line,
 		);
@@ -177,7 +177,7 @@ export class LookEditor extends CustomEditor {
 	}
 }
 
-// The editor keeps the method that opens its list private. Nothing opens if a pi release renames it.
+/** The method is private; nothing opens if a pi release renames it. */
 function openAutocomplete(editor: CustomEditor): void {
 	const open: unknown = Reflect.get(editor, "tryTriggerAutocomplete");
 	if (typeof open === "function") open.call(editor);
@@ -190,7 +190,6 @@ function withoutSoftwareCursor(line: string): string {
 
 function fill(line: string, width: number): string {
 	const cells = visibleWidth(line);
-	// Measuring is cheap, and cutting a line that already fits is not.
 	if (cells <= width) return line + " ".repeat(width - cells);
 	const clipped = truncateToWidth(line, width, "");
 	return clipped + " ".repeat(Math.max(0, width - visibleWidth(clipped)));

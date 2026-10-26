@@ -1,5 +1,4 @@
-// The mark and the name a tool call is drawn with. The mark follows the icon set in the look's
-// settings, like every other glyph on the screen.
+// The mark follows the icon set in the look's settings.
 import { GLYPH, SPIN } from "@adeildo/pi-kit";
 
 import type { IconSet } from "./glyphs.ts";
@@ -79,7 +78,6 @@ const MARKS: Record<IconSet, Record<CallPhase, string>> = {
 	ascii: { writing: "~", waiting: ":", running: "...", done: "ok", failed: "!" },
 };
 
-/** A mark that moves while its phase lasts: frames, and how long each stays. */
 interface Motion {
 	frames: readonly string[];
 	stepMs: number;
@@ -92,7 +90,7 @@ const CLOCK = [0xf1456, ...Array.from({ length: 11 }, (_, hour) => 0xf144b + hou
 
 const MOTIONS: Record<IconSet, Partial<Record<CallPhase, Motion>>> = {
 	nerd: {
-		// Braille, in every font a Nerd Font is built on: the same spinner as an agent writing.
+		// The same spinner as an agent writing, in every font a Nerd Font is built on.
 		writing: { frames: SPIN.braille, stepMs: 100 },
 		waiting: { frames: ["\u{f251}", "\u{f252}", "\u{f253}"], stepMs: 400 }, // nf-fa-hourglass_start..end
 		running: { frames: CLOCK, stepMs: 110 }, // nf-md-clock_time_*_outline
@@ -107,7 +105,7 @@ const MOTIONS: Record<IconSet, Partial<Record<CallPhase, Motion>>> = {
 	},
 };
 
-/** The mark of a phase. A phase that lasts moves, so a call that is still going looks alive. */
+/** A phase that lasts moves, so a call still going looks alive. */
 export function stateMark(phase: CallPhase, set: IconSet, now: number = Date.now()): string {
 	const motion = MOTIONS[set][phase];
 	if (motion === undefined) return MARKS[set][phase];
@@ -118,7 +116,7 @@ export function toolIcon(toolName: string, set: IconSet): string {
 	return ICONS[set][toolKind(toolName)];
 }
 
-/** The name as it reads on the frame: an MCP tool says its server rather than `mcp__server__tool`. */
+/** An MCP tool says its server rather than `mcp__server__tool`. */
 export function toolLabel(toolName: string): string {
 	const mcp = toolName.match(/^mcp__([^_]+)__(.+)$/u);
 	return mcp === null ? toolName : `${mcp[1]}:${mcp[2]}`;

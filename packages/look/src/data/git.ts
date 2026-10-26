@@ -49,7 +49,7 @@ export async function readGit(
 			await run("git", ["-C", cwd, "status", "--porcelain=v2", "--branch", "--show-stash"]),
 		);
 	} catch {
-		// A folder that is not a repository, or a git that did not answer: the card says nothing.
+		// Not a repository, or git did not answer: the card says nothing.
 		return undefined;
 	}
 }

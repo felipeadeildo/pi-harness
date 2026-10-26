@@ -25,13 +25,10 @@ export interface Screen {
 	slot(name: SlotName): readonly SegmentId[];
 	frameStyle(): FrameStyle | "off";
 	cursor(): CursorStyle;
-	/** A line of what you type, with the skills it names colored. */
 	decorate(line: string): string;
-	/** True when a skills feature expands `/skill:` references. */
 	skills(): boolean;
 	/** Compared by anything that keeps a drawing, so a change does not wait for the next keystroke. */
 	revision(): number;
-	/** Records that something the screen draws changed, such as an event or a probe that answered. */
 	bump(): void;
 }
 

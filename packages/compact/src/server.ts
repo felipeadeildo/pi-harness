@@ -8,12 +8,12 @@ import { clearAtLeast, KEPT_TOOLS } from "./prune.ts";
 export const KEEP_TOOL_USES = 10;
 const BETA = "context-management-2025-06-27";
 
-/** Anthropic's own API only: other endpoints that speak it may refuse the beta. */
+/** Other endpoints that speak the API may refuse the beta. */
 export function clearsOnServer(model: { provider: string; api: string } | undefined): boolean {
 	return model?.provider === "anthropic" && model.api === "anthropic-messages";
 }
 
-/** Undefined leaves the payload as it is, like one another extension already manages. */
+/** Undefined leaves the payload alone, as one another extension already manages. */
 export function withServerClearing(payload: unknown, above: number): unknown {
 	if (!isObject(payload) || payload.context_management !== undefined) return undefined;
 	return {

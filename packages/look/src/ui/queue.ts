@@ -4,7 +4,7 @@ import { CUT, drawnByWidth, CHANGES_X, entryFrame } from "@adeildo/pi-kit";
 import { InteractiveMode, type Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
-/** The theme to draw with. Undefined leaves pi's list as it is. */
+/** Undefined leaves pi's list as it is. */
 export type QueuePaint = () => Theme | undefined;
 
 interface Queued {
@@ -29,8 +29,7 @@ export function frameQueue(source: QueuePaint): void {
 		updatePendingMessagesDisplay(): void;
 	};
 	const own = prototype.updatePendingMessagesDisplay;
-	// The same guard as `peers/src/cleared.ts`, for the same reason: pi has no hook for drawing the
-	// queued messages, so a pi that renames this method leaves the frame silently uninstalled.
+	// Same guard as `peers/src/cleared.ts`: fail loudly if pi renames this method.
 	if (typeof own !== "function")
 		throw new Error("pi has no InteractiveMode.updatePendingMessagesDisplay: write to the pi");
 	prototype.updatePendingMessagesDisplay = function update(this: Host) {
@@ -68,7 +67,6 @@ export function queueBlock(queued: Queued, key: string, theme: Theme): Component
 	});
 }
 
-/** The first line, cut to the room, with a mark when there is more. */
 function oneLine(text: string, room: number): string {
 	const lines = text.trim().split("\n");
 	const first = lines[0] ?? "";
