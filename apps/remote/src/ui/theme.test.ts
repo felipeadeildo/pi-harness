@@ -2,6 +2,7 @@
 // scale whose parts are ordered. What a screen picks is a step, never a number.
 import { describe, expect, test } from "bun:test";
 
+import { piColor } from "./pi-colors.ts";
 import { HIT, RADIUS, SPACE, type Scheme, themeFor } from "./theme.ts";
 
 const SCHEMES: Scheme[] = ["light", "dark"];
@@ -64,6 +65,14 @@ describe("the app's theme", () => {
 				expect(contrast(color.text, surface)).toBeGreaterThanOrEqual(4.5);
 				expect(contrast(color.muted, surface)).toBeGreaterThanOrEqual(4.5);
 			}
+		}
+	});
+
+	test("the accent is the one pi's theme gives its accent, and it reads as text on the background", () => {
+		for (const scheme of SCHEMES) {
+			const { color } = themeFor(scheme);
+			expect(color.accent).toBe(piColor(scheme, "accent"));
+			expect(contrast(color.accent, color.background)).toBeGreaterThanOrEqual(4.5);
 		}
 	});
 

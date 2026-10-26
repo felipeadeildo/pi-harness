@@ -260,6 +260,32 @@ async function carriesTheOpeningsState(page: Page): Promise<Result> {
  * a settle that never comes.
  */
 /**
+ * A sheet marks the row that is on the way the terminal marks its selected row: a bar in the accent, a
+ * pointer before the label, and the label in bold. The permission dial starts on `manual`, so that row
+ * is the one marked, and the others carry neither the bar nor the pointer.
+ */
+async function marksTheChosenOption(page: Page): Promise<Result> {
+	try {
+		await page.getByRole("button", { name: /^Permission mode: / }).click({ timeout: 20_000 });
+		const sheet = page.getByRole("dialog", { name: "Permission mode" });
+		await sheet.waitFor({ timeout: 20_000 });
+		const row = sheet.getByRole("radio", { checked: true });
+		const rows = await sheet.getByRole("radio").count();
+		const bars = await sheet.getByTestId("option-bar").count();
+		const pointer = (await row.first().textContent({ timeout: 5_000 }))?.includes("\u276F");
+		await sheet.getByRole("button", { name: "Close", exact: true }).click({ timeout: 10_000 });
+		return rows > 1 && bars === 1 && pointer === true
+			? { ok: true }
+			: {
+					ok: false,
+					why: `of ${rows} rows the sheet has ${bars} bars and the chosen one ${pointer ? "has" : "lacks"} its pointer`,
+				};
+	} catch (error) {
+		return { ok: false, why: `the permission dial did not open a sheet (${short(error)})` };
+	}
+}
+
+/**
  * The model chip opens a sheet of the models the session's registry lists, and the search narrows it.
  * The list comes from the opening, with no event after it, so a chip that opens has read the state
  * the bridge sent. The rig's registry is pi's own and its size depends on the machine's credentials,
@@ -349,7 +375,8 @@ async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
 					ok: false,
 					why: `the label of the prompt the browser sent is styled "${who}", not with the accent`,
 				};
-			return await searchesModels(page);
+			const searched = await searchesModels(page);
+			return searched.ok ? await marksTheChosenOption(page) : searched;
 		}
 		const seen = await rig
 			.until((line) => line.type === "prompt.received", 2_000)
