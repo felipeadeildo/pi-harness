@@ -74,7 +74,7 @@ describe("the leaf the bridge names", () => {
 		expect(session.cursor.entry).toBeUndefined();
 	});
 
-	test("a leaf the client never read asks for a snapshot, and keeps what it had", () => {
+	test("a leaf the client never read asks for an opening, and keeps what it had", () => {
 		let session = started();
 		session = read(session, envelope("entry", entry("a", null, "first"), 2));
 		session = read(session, envelope("entry", entry("b", "a", "second"), 3));
@@ -89,7 +89,7 @@ describe("the leaf the bridge names", () => {
 		expect(session.cursor.entry).toBe("b");
 	});
 
-	test("a snapshot that names its leaf is read from that leaf, not from its last entry", () => {
+	test("an opening that names its leaf is read from that leaf, not from its last entry", () => {
 		let session = sessionOf(key, {
 			key,
 			cursor: { epoch: "e1", seq: 1 },
@@ -131,14 +131,14 @@ describe("the leaf the bridge names", () => {
 	});
 });
 
-test("a state envelope whose snapshot is not a snapshot is skipped, so half a swap never lands", () => {
-	// The whole state is replaced at once. A `state` whose `snapshot` is a string would swap in an
+test("a state envelope whose summary is not a summary is skipped, so half a swap never lands", () => {
+	// The whole state is replaced at once. A `state` whose `summary` is a string would swap in an
 	// object nobody checked, and the screen would draw it as if it were the session's truth.
 	const session = sessionOf({ machine: "m", session: "s" });
 	const before = session.state;
 	const read = readEnvelope(
 		session,
-		envelope("state", { snapshot: "not a snapshot", entries: [] }, 1),
+		envelope("state", { summary: "not a summary", entries: [] }, 1),
 	);
 	expect(read).toEqual({ read: "skip" });
 	expect(session.state).toBe(before);

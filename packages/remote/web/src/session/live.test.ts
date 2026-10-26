@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 
 import { applyChange, emptySessionState, type Envelope } from "@adeildo/pi-remote-protocol";
-import { readEnvelope, sessionOf, type SnapshotData } from "@adeildo/pi-remote-protocol/client";
+import { readEnvelope, sessionOf, type OpeningData } from "@adeildo/pi-remote-protocol/client";
 
 import { modeChoices } from "./composer-data.ts";
 import { composerOf, liveOf, runningOf } from "./live.ts";
 
 describe("what the pickers start on", () => {
-	test("the live state wins over the photograph the snapshot took", () => {
-		// The bug: the pickers were controlled by `snapshot.mode`, so a `mode.set` changed the state and
+	test("the live state wins over the photograph the opening took", () => {
+		// The bug: the pickers were controlled by `opening.mode`, so a `mode.set` changed the state and
 		// React put the photographed value back on the next render.
 		const session = sessionOf({ machine: "box", session: "abcdef12" });
 		session.state = applyChange(session.state, "mode.changed", { mode: "edits" });
@@ -24,13 +24,13 @@ describe("what the pickers start on", () => {
 		});
 	});
 
-	test("nothing said is nothing shown, instead of a value the snapshot happened to carry", () => {
+	test("nothing said is nothing shown, instead of a value the opening happened to carry", () => {
 		const session = sessionOf({ machine: "box", session: "abcdef12" });
 		expect(liveOf(session)).toEqual({ mode: undefined, model: undefined, thinking: undefined });
 	});
 
 	test("the composer's props come from the state in one place, so a route cannot name the photograph", () => {
-		// The route spreads this instead of naming `mode` by hand: naming it is how `snapshot?.mode`
+		// The route spreads this instead of naming `mode` by hand: naming it is how `opening?.mode`
 		// got back into the select, and no test noticed because the screen still drew.
 		const session = sessionOf({ machine: "box", session: "abcdef12" });
 		session.state = applyChange(session.state, "mode.changed", { mode: "edits" });
@@ -82,7 +82,7 @@ describe("what an opening says about the mode dial", () => {
 	/** An opening as the bridge sends it, with the capability it computed. */
 	function opened(serves: boolean) {
 		const state = emptySessionState();
-		const opening: SnapshotData = {
+		const opening: OpeningData = {
 			summary: {
 				session: key.session,
 				machine: key.machine,

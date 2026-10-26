@@ -88,7 +88,7 @@ export class Daemon {
 	#stopping = false;
 	/** The inode of the socket this daemon put in place, so it never removes another daemon's. */
 	#inode: number | undefined;
-	/** Each session's bridge, which a client's request for a snapshot goes to. */
+	/** Each session's bridge, which a client's request for an opening goes to. */
 	readonly #bridges = new Map<string, Socket>();
 	#clients: Clients | undefined;
 	#machines: Machines | undefined;

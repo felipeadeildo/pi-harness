@@ -338,24 +338,24 @@ describe("the replay buffer", () => {
 		expect(sessions.after("s1", { epoch: "e1", seq: 1 })?.map((e) => e.seq)).toEqual([2, 3]);
 	});
 
-	test("a snapshot is the new base: kept for a client, and a cursor before it takes it", () => {
+	test("an opening is the new base: kept for a client, and a cursor before it takes it", () => {
 		const sessions = new Sessions();
 		sessions.live(event(0), live);
 		for (const seq of [1, 2]) sessions.event(event(seq));
-		const snapshot = {
+		const opening = {
 			summary: { session: "s1", machine: "laptop", cwd: "/", kind: "terminal" as const },
 			entries: [],
 		};
-		sessions.event(envelope("event", "state", snapshot, { ...ORIGIN, seq: 3 }));
+		sessions.event(envelope("event", "state", opening, { ...ORIGIN, seq: 3 }));
 		sessions.event(event(4));
-		expect(sessions.get("s1")?.opening).toEqual(snapshot);
+		expect(sessions.get("s1")?.opening).toEqual(opening);
 		expect(sessions.after("s1", { epoch: "e1", seq: 1 })).toBeUndefined();
 		expect(sessions.after("s1", { epoch: "e1", seq: 3 })?.map((e) => e.seq)).toEqual([4]);
 		sessions.event(envelope("event", "state", { entries: "no" }, { ...ORIGIN, seq: 5 }));
-		expect(sessions.get("s1")?.opening).toEqual(snapshot);
+		expect(sessions.get("s1")?.opening).toEqual(opening);
 	});
 
-	test("another epoch, or a gap the budget dropped, asks for a snapshot", () => {
+	test("another epoch, or a gap the budget dropped, asks for an opening", () => {
 		const sessions = new Sessions(JSON.stringify(event(10)).length * 2);
 		sessions.live(event(0), live);
 		for (const seq of [1, 2, 3, 4]) sessions.event(event(seq));
@@ -383,7 +383,7 @@ describe("a session's events", () => {
 		expect(sessions.event(mode("judge", "e1"))).toBeUndefined();
 		expect(sessions.get("s1")?.state.permissions.mode).toBe("judge");
 		const unread = envelope("event", "state", { entries: [] }, { ...ORIGIN, seq: 2 });
-		expect(sessions.event(unread)).toBe("a snapshot that does not read");
+		expect(sessions.event(unread)).toBe("an opening that does not read");
 	});
 });
 

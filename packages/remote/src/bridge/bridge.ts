@@ -31,7 +31,7 @@ import { forward, type Logged, Harness } from "./logged.ts";
 import { PRODUCERS, costOf } from "./producers.ts";
 import { LiveStream } from "./stream.ts";
 
-/** How many entries of the branch a snapshot carries. A client pages through older ones over HTTP. */
+/** How many entries of the branch an opening carries. A client pages through older ones over HTTP. */
 export const STATE_ENTRIES = 50;
 
 /**
@@ -106,7 +106,7 @@ export class Bridge {
 				path: options.path,
 				machine: HOST,
 				session: ctx.sessionManager.getSessionId(),
-				// Every runtime is a new epoch, so a client takes a snapshot instead of trusting a gap.
+				// Every runtime is a new epoch, so a client takes an opening instead of trusting a gap.
 				epoch: randomUUID(),
 				version: options.version,
 			},
@@ -233,7 +233,7 @@ export class Bridge {
 			// The same list the screen shows, so the field and the refusal agree.
 			commands: this.options.offered(),
 		});
-		this.#snapshot();
+		this.#open();
 		// Older or off-branch entries come from the file; what pi appends comes as it is written.
 		this.#unfollow?.();
 		const last = manager.getEntries().at(-1)?.id;
@@ -245,7 +245,7 @@ export class Bridge {
 					// already marked and is never drawn bare and then again.
 					this.#whose(item.entry as UserEntry);
 					this.connection.event("entry", item.entry);
-				} else if (item.kind === "reset") this.#snapshot();
+				} else if (item.kind === "reset") this.#open();
 			},
 		);
 	}
@@ -280,7 +280,7 @@ export class Bridge {
 
 	#heard(message: Envelope): void {
 		if (message.kind !== "command") return;
-		if (message.type === "state.get") return this.#snapshot();
+		if (message.type === "state.get") return this.#open();
 		this.options.command(message);
 	}
 
@@ -307,13 +307,13 @@ export class Bridge {
 	 * producer in `producers.ts` that rebuilds it here. A state change that does neither is lost on the
 	 * next reconnect, silently, so `bridge-changes.test.ts` reads this folder and says which one it is.
 	 */
-	#snapshot(): void {
+	#open(): void {
 		this.stream.flush();
 		const { scope, kind } = this.options;
 		const mode = MODE.current(scope);
 		this.connection.event("state", {
 			summary: {
-				...snapshotOf(this.ctx, kind),
+				...summaryOf(this.ctx, kind),
 				handle: handleOf(scope),
 				status: SESSION_STATUS.current(scope),
 				// Already folded, so a reader draws the session's state without a replay.
@@ -324,7 +324,7 @@ export class Bridge {
 							entries: this.ctx.sessionManager.getEntries(),
 							ctx: this.ctx,
 						}),
-					this.#changes.snapshot(mode),
+					this.#changes.state(mode),
 				),
 			},
 			entries: this.ctx.sessionManager.getBranch().slice(-STATE_ENTRIES),
@@ -334,7 +334,7 @@ export class Bridge {
 }
 
 /** The live state pi knows of the session, in the protocol's shape. The bridge adds the harness's. */
-function snapshotOf(ctx: ExtensionContext, kind: SessionKind): SessionSummary {
+function summaryOf(ctx: ExtensionContext, kind: SessionKind): SessionSummary {
 	const manager = ctx.sessionManager;
 	const usage = ctx.getContextUsage();
 	return {

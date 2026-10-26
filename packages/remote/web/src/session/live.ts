@@ -1,11 +1,11 @@
-// What the composer's pickers show: the session as it is now, not as the snapshot found it. The snapshot
+// What the composer's pickers show: the session as it is now, not as the opening found it. The opening
 // is a photograph taken when a client arrived; the state is folded from every event since, so a mode the
 // person changed a second ago is there and the photograph still says the old one.
 
 import type { PermissionMode, SessionState } from "@adeildo/pi-remote-protocol";
 import type { ClientSession } from "@adeildo/pi-remote-protocol/client";
 
-/** The three values the pickers start on, read from the live state with no fallback to the snapshot. */
+/** The three values the pickers start on, read from the live state with no fallback to the opening. */
 export interface Live {
 	mode?: PermissionMode;
 	model?: SessionState["model"];
@@ -15,7 +15,7 @@ export interface Live {
 /**
  * Everything the composer takes from the session. It is built from the state in `composerOf` and nowhere
  * else, and the composer takes it whole: a screen that names `mode` by hand is a screen that can name the
- * snapshot's `mode` again, and no test would notice because it would still draw.
+ * opening's `mode` again, and no test would notice because it would still draw.
  */
 export interface ComposerView extends Live {
 	/** What the session holds for the agent to finish, which every client sees the same way. */

@@ -19,7 +19,7 @@ import { until } from "./fakes.ts";
 useDaemon();
 
 describe("a client of the daemon", () => {
-	test("opens a session from the snapshot and the events after it, then follows it live", async () => {
+	test("opens a session from the opening and the events after it, then follows it live", async () => {
 		const { daemon, port, cookie } = await openDaemon();
 		const bridge = await bridgeOf("s1");
 		bridge.state([entry("a", null)]);
@@ -121,7 +121,7 @@ describe("a client of the daemon", () => {
 		await until(() => daemon.sessions.get("s1")?.state.queue.length === 1);
 
 		// The daemon applied it with the same function the client uses, so a client that resumes from a
-		// cursor before it reads the queue out of the replay instead of asking for a new snapshot.
+		// cursor before it reads the queue out of the replay instead of asking for a new opening.
 		const replayed = daemon.sessions.after("s1", { epoch: "e1", seq: 0 }) ?? [];
 		const queueEvent = replayed.find((one) => one.type === "queue.changed");
 		const queuedAgain = (queueEvent?.data as { queue: { id: string }[] } | undefined)?.queue ?? [];
@@ -148,7 +148,7 @@ describe("a client of the daemon", () => {
 		bridge.close();
 	});
 
-	test("a snapshot carries the harness state folded, and the daemon seeds its own with it", async () => {
+	test("an opening carries the harness state folded, and the daemon seeds its own with it", async () => {
 		const { daemon, port, cookie } = await openDaemon();
 		const bridge = await bridgeOf("s1");
 		bridge.send("mode.changed", { mode: "manual" });
@@ -161,11 +161,11 @@ describe("a client of the daemon", () => {
 		const response = await fetch(`http://127.0.0.1:${port}/sessions/laptop/s1/opening`, {
 			headers: { Cookie: cookie },
 		});
-		const snapshot = (await response.json()) as Envelope & {
+		const opening = (await response.json()) as Envelope & {
 			data: { summary: { state: Record<string, unknown> } };
 		};
 		// One shape for everyone: the mode the log ended on, and the question with its answer.
-		const state = snapshot.data.summary.state as {
+		const state = opening.data.summary.state as {
 			permissions: { mode?: string };
 			questions: Record<string, unknown>;
 		};
@@ -173,7 +173,7 @@ describe("a client of the daemon", () => {
 		expect(state.questions).toMatchObject({ q1: { closed: true } });
 	});
 
-	test("the HTTP routes: health, the session list, and a snapshot only for a known machine", async () => {
+	test("the HTTP routes: health, the session list, and an opening only for a known machine", async () => {
 		const { daemon, port, cookie } = await openDaemon();
 		const bridge = await bridgeOf("s1");
 		bridge.state([]);

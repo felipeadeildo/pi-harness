@@ -150,7 +150,7 @@ describe("the socket", () => {
 		expect(told.length).toBe(before);
 	});
 
-	test("lets the client say hello, read the snapshot and draw it", async () => {
+	test("lets the client say hello, read the opening and draw it", async () => {
 		const client = connect({
 			key: { machine: "box", session: "s1" },
 			cache: memoryCache(),
@@ -166,7 +166,7 @@ describe("the socket", () => {
 			type: "message",
 			message: { role: "user", content: "hi" },
 		};
-		const snapshot = {
+		const opening = {
 			v: 1,
 			kind: "event",
 			machine: "box",
@@ -180,7 +180,7 @@ describe("the socket", () => {
 			},
 			at: 0,
 		};
-		socket?.say(JSON.stringify(snapshot));
+		socket?.say(JSON.stringify(opening));
 		expect(client.session().entries).toHaveLength(1);
 		client.stop();
 		expect(socket?.closed).toBe(true);

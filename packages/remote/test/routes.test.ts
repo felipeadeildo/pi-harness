@@ -14,7 +14,7 @@ import { logIn } from "./login.ts";
 
 useDaemon();
 
-test("the HTTP routes: health, the session list, and a snapshot only for a known machine", async () => {
+test("the HTTP routes: health, the session list, and an opening only for a known machine", async () => {
 	const { daemon, port, cookie } = await openDaemon();
 	const bridge = await bridgeOf("s1");
 	bridge.state([]);
@@ -58,7 +58,7 @@ test("the client reads the list the daemon writes: the handle from the summary, 
 	expect(listed === undefined ? undefined : stateOf(listed)).toBe("blocked");
 });
 
-test("with no login, the session list, a snapshot, a page and the WebSocket answer 401, and health does not", async () => {
+test("with no login, the session list, an opening, a page and the WebSocket answer 401, and health does not", async () => {
 	const { port } = await openDaemon();
 	const origin = `http://127.0.0.1:${port}`;
 	expect((await fetch(`${origin}/sessions`)).status).toBe(401);

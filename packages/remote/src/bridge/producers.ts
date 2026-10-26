@@ -86,7 +86,7 @@ export const PRODUCERS: readonly Producer[] = [
 	{
 		field: "models",
 		// The models pi could switch to, read from the registry the terminal's `/model` lists. pi gives no
-		// signal when it changes, so this is read when a snapshot is built. A host with no registry has not
+		// signal when it changes, so this is read when an opening is built. A host with no registry has not
 		// said which models exist, which is not the same as none, so the field stays absent.
 		apply: (state, { ctx }) => {
 			const registry = ctx.modelRegistry as Partial<ExtensionContext["modelRegistry"]> | undefined;
