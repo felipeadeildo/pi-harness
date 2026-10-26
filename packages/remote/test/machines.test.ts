@@ -1,13 +1,22 @@
 // Two machines of one owner on a tailnet, each with its daemon, on two loopback addresses. A client
 // of one daemon lists the other's sessions, reads one, and talks to it, with no pairing between them.
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import {
+	appendFileSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { envelope, type Envelope } from "@adeildo/pi-remote-protocol";
 
 import { Machines } from "../src/daemon/machines.ts";
+import { Mirror } from "../src/daemon/mirror.ts";
 import { Daemon } from "../src/daemon/server.ts";
 import type { AskTailscale, Tailnet } from "../src/daemon/tailnet.ts";
 import { bridgeOf } from "./daemon-harness.ts";
@@ -61,6 +70,7 @@ async function start(name: string, tailnet: Tailnet, machines?: Machines): Promi
 		machine: name,
 		tailnet,
 		ask,
+		events: join(dir, name, "events"),
 		...(machines === undefined ? {} : { machines }),
 	});
 	if (daemon?.clientPort === undefined) throw new Error(`${name} did not start`);
@@ -133,4 +143,69 @@ test("a machine that stops answering leaves the list at the next look", async ()
 	await machines.look();
 	expect(machines.list()).toEqual([]);
 	expect(await get("/sessions")).toEqual([]);
+});
+
+/** A presence entry as the kit writes it, for a session of `host` whose process is this one. */
+function openOn(events: string, session: string, host: string): void {
+	mkdirSync(join(events, "live"), { recursive: true });
+	const entry = {
+		session,
+		pid: process.pid,
+		host,
+		cwd: "/repo",
+		state: "idle",
+		startedAt: 1,
+		at: 1,
+	};
+	writeFileSync(join(events, "live", `${session}.json`), JSON.stringify(entry));
+}
+
+test("the other machine's open sessions and its rooms are copied here, and only what is new", async () => {
+	const { machines } = await twoMachines();
+	const there = join(dir, "laptop", "events");
+	const here = join(dir, "desk", "events");
+	openOn(there, "s1", "laptop");
+	openOn(here, "d1", "desk");
+	mkdirSync(join(there, "rooms", "r1"), { recursive: true });
+	const log = join(there, "rooms", "r1", "s1.jsonl");
+	writeFileSync(log, '{"line":1}\n');
+	const mirror = new Mirror({ machines, root: here, self: "desk" });
+
+	await mirror.sync();
+	expect(JSON.parse(readFileSync(join(here, "live", "s1.json"), "utf8")).host).toBe("laptop");
+	expect(readFileSync(join(here, "rooms", "r1", "s1.jsonl"), "utf8")).toBe('{"line":1}\n');
+
+	appendFileSync(log, '{"line":2}\n');
+	await mirror.sync();
+	expect(readFileSync(join(here, "rooms", "r1", "s1.jsonl"), "utf8")).toBe(
+		'{"line":1}\n{"line":2}\n',
+	);
+
+	// What this machine writes is never copied back over itself, and its own entries stay.
+	expect(existsSync(join(there, "live", "d1.json"))).toBe(false);
+	expect(existsSync(join(here, "live", "d1.json"))).toBe(true);
+});
+
+test("a machine that leaves takes its open sessions with it, and the rooms stay", async () => {
+	const { laptop, machines } = await twoMachines();
+	const there = join(dir, "laptop", "events");
+	const here = join(dir, "desk", "events");
+	openOn(there, "s1", "laptop");
+	mkdirSync(join(there, "rooms", "r1"), { recursive: true });
+	writeFileSync(join(there, "rooms", "r1", "s1.jsonl"), '{"line":1}\n');
+	const mirror = new Mirror({ machines, root: here, self: "desk" });
+	await mirror.sync();
+	expect(existsSync(join(here, "live", "s1.json"))).toBe(true);
+
+	laptop.stop();
+	await machines.look();
+	await mirror.sync();
+	expect(existsSync(join(here, "live", "s1.json"))).toBe(false);
+	expect(existsSync(join(here, "rooms", "r1", "s1.jsonl"))).toBe(true);
+});
+
+test("a log is a name in a room, never a path", async () => {
+	const { get } = await twoMachines();
+	expect(await get("/rooms/..%2F..%2Flive/s1.json")).toEqual({ error: "no such log" });
+	expect(await get("/rooms/r1/.env")).toEqual({ error: "no such log" });
 });

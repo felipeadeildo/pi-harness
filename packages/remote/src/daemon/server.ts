@@ -26,6 +26,7 @@ import { loadWebApp } from "./app.ts";
 import { Logins } from "./auth.ts";
 import { Clients } from "./clients.ts";
 import { Machines } from "./machines.ts";
+import { Mirror } from "./mirror.ts";
 import { type GoneReason, type SessionLive, Sessions } from "./sessions.ts";
 import { type AskTailscale, Owners, type Tailnet } from "./tailnet.ts";
 
@@ -58,6 +59,11 @@ export interface DaemonOptions {
 	webDir?: string;
 	/** This machine on its tailnet, where clients reach the daemon too. Loopback only without it. */
 	tailnet?: Tailnet;
+	/**
+	 * The harness's logs on this machine, whose open sessions and rooms the owner's other machines copy,
+	 * and where theirs are copied. Nothing is shared without it.
+	 */
+	events?: string;
 	/** How the daemon asks `tailscale`, so a test can answer for it. */
 	ask?: AskTailscale;
 	/** This machine's name, as its bridges send it. The hostname, unless a test says otherwise. */
@@ -86,6 +92,7 @@ export class Daemon {
 	readonly #bridges = new Map<string, Socket>();
 	#clients: Clients | undefined;
 	#machines: Machines | undefined;
+	#mirror: Mirror | undefined;
 	/** The port clients reach the daemon on, once it listens for them. */
 	clientPort: number | undefined;
 	/** Why no port is listening, worded for whoever has to fix it, once a listen failed. */
@@ -137,6 +144,7 @@ export class Daemon {
 		for (const socket of this.#sockets) socket.destroy();
 		this.#clients?.close();
 		this.#machines?.stop();
+		this.#mirror?.stop();
 		this.#server.close(async () => {
 			// Another daemon may have put its socket there since. A freed inode can come back at once,
 			// so the file is removed only when it is this daemon's and nothing answers on it.
@@ -318,6 +326,7 @@ export class Daemon {
 			version: this.#options.version,
 			machine,
 			...(this.#machines === undefined ? {} : { machines: this.#machines }),
+			...(this.#options.events === undefined ? {} : { events: this.#options.events }),
 			command: (session, message) => this.#toBridge(session, message),
 			...(web === undefined ? {} : { web }),
 			warn: (message) => this.#warn(message),
@@ -336,6 +345,11 @@ export class Daemon {
 			this.clientPort = listened.port;
 			this.#clients = clients;
 			this.#machines?.start();
+			const events = this.#options.events;
+			if (this.#machines !== undefined && events !== undefined) {
+				this.#mirror = new Mirror({ machines: this.#machines, root: events, self: machine });
+				this.#mirror.start();
+			}
 			// The socket is bound to a temporary name and renamed, so the only way to say who holds
 			// it is to write it down: the gate stops this process by pid.
 			try {

@@ -4,7 +4,7 @@
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { CLIENT_PORT, daemonDir, daemonPaths } from "../places.ts";
+import { CLIENT_PORT, daemonDir, daemonPaths, eventsDir } from "../places.ts";
 import { VERSION } from "../version.ts";
 import { findWebDir } from "./app.ts";
 import { Daemon } from "./server.ts";
@@ -36,6 +36,7 @@ if (import.meta.main) {
 			stayUp,
 			webDir: findWebDir(dirname(fileURLToPath(import.meta.url))),
 			tailnet,
+			events: eventsDir(),
 			exited: () => process.exit(0),
 			warn: (message) => console.error(`pi-remote daemon: ${message}`),
 		});

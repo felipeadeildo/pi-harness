@@ -1,7 +1,16 @@
 // The sessions open on this machine, one small file each, so a reader finds who is open without
 // reading every folder's logs. It is an index, not a record: the logs stay the record, and nothing
-// replays this.
-import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+// replays this. The remote's daemon writes the open sessions of the owner's other machines here too,
+// again every few seconds while that machine answers.
+import {
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	renameSync,
+	rmSync,
+	statSync,
+	writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 
 import type { RoomActivity } from "../contracts/events.ts";
@@ -31,6 +40,12 @@ export interface PresenceEntry {
 /** Whether the process of an entry runs, given its pid and the start it recorded. */
 export type Lives = (pid: number, start: string | undefined) => boolean;
 
+/**
+ * How long an entry of another machine stays open after it was last written. The daemon writes them
+ * every two seconds while that machine answers, so an older one belongs to a machine out of contact.
+ */
+export const ELSEWHERE_FOR_MS = 15_000;
+
 export interface PresenceReading {
 	/** Judges the entries of this machine. Defaults to `processLives`. */
 	lives?: Lives;
@@ -38,6 +53,7 @@ export interface PresenceReading {
 	host?: string;
 	/** The events root the index lives under. Defaults to the harness's. */
 	root?: string;
+	now?: () => number;
 }
 
 function pathOf(session: string, root?: string): string {
@@ -81,10 +97,11 @@ function removeQuietly(path: string): void {
 
 /**
  * The sessions open now, oldest first. A session that crashed leaves its file behind, so an entry of
- * this machine whose process no longer runs is left out. Entries of other machines are kept.
+ * this machine whose process no longer runs is left out, and so is an entry of another machine that
+ * was not written again for `ELSEWHERE_FOR_MS`.
  */
 export function readPresence(reading: PresenceReading = {}): PresenceEntry[] {
-	const { lives = processLives, host = HOST, root } = reading;
+	const { lives = processLives, host = HOST, root, now = Date.now } = reading;
 	let names: string[];
 	try {
 		names = readdirSync(liveDir(root)).filter((name) => name.endsWith(".json"));
@@ -93,11 +110,23 @@ export function readPresence(reading: PresenceReading = {}): PresenceEntry[] {
 	}
 	return names
 		.flatMap((name) => {
-			const entry = parsed(join(liveDir(root), name));
+			const path = join(liveDir(root), name);
+			const entry = parsed(path);
 			if (entry === undefined) return [];
-			return entry.host === host && !lives(entry.pid, entry.start) ? [] : [entry];
+			if (entry.host === host) return lives(entry.pid, entry.start) ? [entry] : [];
+			return now() - writtenAt(path) < ELSEWHERE_FOR_MS ? [entry] : [];
 		})
 		.toSorted((a, b) => a.startedAt - b.startedAt || a.session.localeCompare(b.session));
+}
+
+/** The sessions open on the owner's other machines, as their daemons last said. */
+export function openElsewhere(reading: PresenceReading = {}): Set<string> {
+	const host = reading.host ?? HOST;
+	return new Set(
+		readPresence(reading)
+			.filter((entry) => entry.host !== host)
+			.map((entry) => entry.session),
+	);
 }
 
 /**
@@ -119,6 +148,14 @@ function isPresenceEntry(value: unknown): value is PresenceEntry {
 		optionalString(value.file) &&
 		optionalString(value.handle)
 	);
+}
+
+function writtenAt(path: string): number {
+	try {
+		return statSync(path).mtimeMs;
+	} catch {
+		return 0;
+	}
 }
 
 function parsed(path: string): PresenceEntry | undefined {

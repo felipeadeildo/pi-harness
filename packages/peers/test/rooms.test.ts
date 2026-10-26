@@ -200,6 +200,46 @@ describe("a shared room", () => {
 		).toContain("later");
 	});
 
+	test("a session of another machine, copied in by the daemon, is there while its machine says so", () => {
+		let open = new Set(["far"]);
+		const api = session("api", "backend", { elsewhere: () => open });
+		const id = api.rooms.create("across", [
+			{ folder: api.cwd },
+			{ session: "far", cwd: "/srv/frontend" },
+		]);
+		// What the daemon copies from the other machine: that session's own log in the room.
+		const far = { dir: roomDir(id), session: "far" };
+		logEvent(far, undefined, "session.started", { pid: 4242, host: "vps", cwd: "/srv/frontend" });
+		logEvent(far, undefined, "session.named", { handle: "far" });
+		now += 1_000;
+		sync(api);
+		expect(
+			api.rooms
+				.here(id)
+				?.live()
+				.map((peer) => peer.session),
+		).toEqual(["api", "far"]);
+
+		logEvent(far, undefined, "message.posted", {
+			id: "m1",
+			from: "agent",
+			to: ["api"],
+			text: "the contract is in the PR",
+		});
+		sync(api);
+		expect(api.sent.map((one) => one.text).join("\n")).toContain("the contract is in the PR");
+
+		open = new Set();
+		now += 2_000;
+		sync(api);
+		expect(
+			api.rooms
+				.here(id)
+				?.live()
+				.map((peer) => peer.session),
+		).toEqual(["api"]);
+	});
+
 	test("a session that joins a room later never gets what was said there before", () => {
 		const api = session("api", "backend");
 		const client = session("client", "frontend");

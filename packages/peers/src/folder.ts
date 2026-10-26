@@ -292,10 +292,24 @@ export class Folder {
 	}
 }
 
-/** Open sessions in the folder, oldest first. A session on this machine is open while its process runs. */
-export function livePeers(folder: Folder, lives: Lives, host: string): Peer[] {
+/**
+ * Open sessions in the folder, oldest first. A session on this machine is open while its process
+ * runs, and one on another machine while that machine says so, which `elsewhere` reads only when a
+ * peer of another machine is there to ask about.
+ */
+export function livePeers(
+	folder: Folder,
+	lives: Lives,
+	host: string,
+	elsewhere: () => ReadonlySet<string>,
+): Peer[] {
+	let open: ReadonlySet<string> | undefined;
 	return [...folder.peers.values()]
 		.filter((peer) => peer.endedAt === undefined && peer.pid !== undefined)
-		.filter((peer) => peer.host !== host || lives(peer.pid ?? -1, peer.start))
+		.filter((peer) => {
+			if (peer.host === undefined || peer.host === host) return lives(peer.pid ?? -1, peer.start);
+			open ??= elsewhere();
+			return open.has(peer.session);
+		})
 		.toSorted((a, b) => a.startedAt - b.startedAt || a.session.localeCompare(b.session));
 }

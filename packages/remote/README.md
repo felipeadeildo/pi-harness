@@ -25,6 +25,8 @@ Every machine of yours on the tailnet that runs pi has its own daemon, and each 
 
 So one address shows everything. The list holds the sessions of every machine, and a session of another machine opens through the daemon you are talking to, which reads it from that machine's daemon and joins your socket to that machine's. A machine that stops answering leaves the list at the next look, every fifteen seconds.
 
+The agents talk across machines too. Every two seconds each daemon copies what the others share: who is open there, into this machine's presence index, and the logs of the shared rooms, into this machine's rooms. So `Alt+G` lists the agents open on your other machines, a shared room can hold them, and a message reaches them the way it reaches an agent in the next terminal. A log has one writer and only grows, so copying it is appending what the other side has past this side's size, and nothing is ever merged. A session of a machine that stops answering is gone from the rooms within fifteen seconds; what it wrote stays. A folder's own room is not shared: the same path on two machines is two folders.
+
 | Command                 | What it does                                                          |
 | ----------------------- | --------------------------------------------------------------------- |
 | `pi-remote open`        | Prints the link and opens it with `$BROWSER` or the platform's opener |

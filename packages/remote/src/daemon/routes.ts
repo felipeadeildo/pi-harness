@@ -11,6 +11,7 @@ import { isAppFile, serveApp, type WebApp } from "./app.ts";
 import { type Asking, authorize, cookieOf, type Logins, loginCookie } from "./auth.ts";
 import { History, PAGE } from "./history.ts";
 import type { Machine, Machines } from "./machines.ts";
+import { roomBytes, sharedHere } from "./mirror.ts";
 import type { Sessions } from "./sessions.ts";
 import type { Owners } from "./tailnet.ts";
 
@@ -31,6 +32,8 @@ export interface RoutesOptions {
 	machine: string;
 	/** The owner's other machines on the tailnet, whose sessions the list holds too. */
 	machines?: Machines;
+	/** The harness's logs here, whose open sessions and rooms the other machines copy. */
+	events?: string;
 	/** The names this daemon answers to, once the port is known. Nothing answers before. */
 	hosts: () => ReadonlySet<string>;
 	/** When the daemon started, for `/health`. */
@@ -76,6 +79,25 @@ export class Routes {
 			// `here` is how another daemon asks, so two machines never ask each other in a circle.
 			if (url.searchParams.has("here")) return reply(response, 200, this.#list());
 			void this.#everywhere().then((list) => reply(response, 200, list));
+			return;
+		}
+		const events = this.#options.events;
+		if (path === "/shared" && events !== undefined)
+			return reply(response, 200, sharedHere(events, this.#options.machine));
+		const log = /^\/rooms\/([^/]+)\/([^/]+)$/.exec(path);
+		if (log !== null && events !== undefined) {
+			const bytes = roomBytes(
+				events,
+				log[1] ?? "",
+				log[2] ?? "",
+				Number(url.searchParams.get("from")) || 0,
+			);
+			if (bytes === undefined) return reply(response, 404, { error: "no such log" });
+			response.writeHead(200, {
+				"content-type": "application/octet-stream",
+				"cache-control": "no-store",
+			});
+			response.end(bytes);
 			return;
 		}
 		const route = /^\/sessions\/([^/]+)\/([^/]+)\/(opening|entries)$/.exec(path);
@@ -289,6 +311,8 @@ export function isRoute(path: string): boolean {
 		path === "/logout" ||
 		path === "/sessions" ||
 		path.startsWith("/sessions/") ||
+		path === "/shared" ||
+		path.startsWith("/rooms/") ||
 		path.startsWith("/.well-known/")
 	);
 }

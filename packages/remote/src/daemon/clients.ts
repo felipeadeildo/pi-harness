@@ -25,6 +25,8 @@ export interface ClientsOptions {
 	machine: string;
 	/** The owner's other machines on the tailnet. */
 	machines?: Machines;
+	/** The harness's logs here, which the other machines copy. */
+	events?: string;
 	/** False when no bridge is connected, and the client hears why on the command's id. */
 	command: (session: string, message: Envelope) => boolean;
 	/** Answered for every path the data routes leave. The only paths a browser loads before a login. */
@@ -66,6 +68,7 @@ export class Clients {
 			version: options.version,
 			machine: options.machine,
 			...(options.machines === undefined ? {} : { machines: options.machines }),
+			...(options.events === undefined ? {} : { events: options.events }),
 			started: this.#started,
 			hosts: () => this.#hosts,
 			...(options.web === undefined ? {} : { web: options.web }),
