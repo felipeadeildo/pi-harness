@@ -54,11 +54,10 @@ test("serve runs the daemon in the foreground until it is stopped, and says wher
 });
 
 test("serve serves the web app of a built package, as the daemon entry does", async () => {
-	// The build's own layout: the export next to the entry, as dist/web is next to dist/cli.js.
+	// The build's own layout: the page next to the entry, as dist/web is next to dist/cli.js.
 	const dist = join(dir, "dist");
 	mkdirSync(join(dist, "web"), { recursive: true });
 	writeFileSync(join(dist, "web", "index.html"), "<!doctype html><p>the app</p>");
-	writeFileSync(join(dist, "web", "files.json"), JSON.stringify(["/index.html"]));
 	const out: string[] = [];
 	const err: string[] = [];
 	let stop: () => void = () => {};
@@ -125,18 +124,18 @@ test("the port comes from the settings, and a value the decoder refuses falls ba
 	}
 });
 
-test("the export a setting names wins over the one beside the daemon, which is what the gate checks", () => {
+test("the build a setting names wins over the one beside the daemon, which is what the gate checks", () => {
 	// The gate asks this function before starting anything, so the candidate order it relies on is
 	// worth a test: a checkout with `PI_REMOTE_WEB` set must pass with no `dist/web` beside the daemon.
 	const beside = join(dir, "dist");
 	mkdirSync(join(beside, "web"), { recursive: true });
-	writeFileSync(join(beside, "web", "files.json"), JSON.stringify(["/index.html"]));
+	writeFileSync(join(beside, "web", "index.html"), "<!doctype html>");
 	const elsewhere = join(dir, "elsewhere");
 	mkdirSync(elsewhere, { recursive: true });
-	writeFileSync(join(elsewhere, "files.json"), JSON.stringify(["/index.html"]));
+	writeFileSync(join(elsewhere, "index.html"), "<!doctype html>");
 	expect(findWebDir(beside, {})).toBe(join(beside, "web"));
 	expect(findWebDir(beside, { PI_REMOTE_WEB: elsewhere })).toBe(elsewhere);
-	// A folder with no list of its own is not an export, whatever the setting says.
+	// A folder with no page of its own is not a build, whatever the setting says.
 	expect(findWebDir(beside, { PI_REMOTE_WEB: dir })).toBe(join(beside, "web"));
 });
 

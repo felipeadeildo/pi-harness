@@ -30,24 +30,13 @@ const BROWSERS = [
 	"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
 ];
 
-/**
- * The steps a run has to pass. A step becomes mandatory the day it passes and stays so; the ones
- * still red are reported and do not hold a merge, which is what keeps this file useful before the
- * last fix lands.
- */
-const MANDATORY: ReadonlySet<number> = new Set([1, 2, 3, 4, 5, 6, 7]);
-
-/** The steps with a body. The rest are named and not written: a report that says `fail` for them
- * claims a measurement nobody made, and a reader cannot tell that from a step that ran and broke. */
-const WRITTEN: ReadonlySet<number> = new Set([1, 2, 3, 4, 5, 6, 7]);
-
 const STEPS = [
 	"the daemon's link opens the app, and the session list is there",
 	"the list leads to the session's screen",
 	"a prompt sent to an idle session runs",
 	"a follow-up sent during a run waits in the queue, and can be taken back",
 	"a question the model asks is answered in the browser",
-	"after the daemon restarts, a reloaded page still draws tasks and mode",
+	"after the daemon restarts, a reloaded page still draws the session and its mode",
 	"a command typed offline goes out after the reload",
 ] as const;
 
@@ -89,13 +78,11 @@ async function main(): Promise<number> {
 	const port = await freePort();
 	const reports: Report[] = [];
 	try {
-		// The daemon serves the export it finds at startup, and a checkout has none until it builds.
+		// The daemon serves the page it finds at startup, and a checkout has none until it builds.
 		// Asking the daemon's own function keeps `PI_REMOTE_WEB` working and the message true if the
 		// candidates change; the failure it prevents is a red step 1 that reads like a broken screen.
 		if (findWebDir(join(import.meta.dir, "..", "..", "dist")) === undefined) {
-			console.error(
-				"gate: the app is not packaged beside the daemon; run `bun run --cwd packages/remote build` (`app:export` alone is not enough)",
-			);
+			console.error("gate: no page beside the daemon; run `bun run --cwd packages/remote build`");
 			return 1;
 		}
 		// The bridge starts the daemon when none answers, which is the path a user takes.
@@ -177,18 +164,14 @@ async function main(): Promise<number> {
 	}
 
 	for (const [at, name] of STEPS.entries()) {
-		if (!WRITTEN.has(at + 1)) {
-			console.log(`not written yet  ${at + 1}. ${name}`);
-			continue;
-		}
 		const report = reports.find((one) => one.step === at + 1);
 		const mark = report?.ok === true ? "pass" : "fail";
 		console.log(
 			`${mark}  ${at + 1}. ${name}${report?.why === undefined ? "" : ` — ${report.why}`}`,
 		);
 	}
-	const failed = reports.filter((one) => MANDATORY.has(one.step) && !one.ok);
-	return failed.length === 0 ? 0 : 1;
+	const passed = STEPS.every((_, at) => reports.some((one) => one.step === at + 1 && one.ok));
+	return passed && reports.every((one) => one.ok) ? 0 : 1;
 }
 
 /** The daemon the bridge started, found by the socket it leaves in the remote's folder. */

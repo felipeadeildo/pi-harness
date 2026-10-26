@@ -124,14 +124,13 @@ async function daemonOn(owner: boolean) {
 	const dir = mkdtempSync(join(tmpdir(), "pi-remote-tailnet-"));
 	writeFileSync(join(dir, "index.html"), "<!doctype html><title>app</title>");
 	writeFileSync(join(dir, "app.js"), "export {};");
-	writeFileSync(join(dir, "files.json"), JSON.stringify(["/index.html", "/app.js"]));
 	const tailnet: Tailnet = { name: "ghost.example.ts.net", ip: "127.0.0.2", user: OWNER };
 	const clients = new Clients({
 		sessions: new Sessions(),
 		logins: new Logins(join(dir, "logins.json")),
 		version: "1.2.0",
 		command: () => false,
-		web: { dir, files: new Set(["/index.html", "/app.js"]), dynamic: [] },
+		web: { dir, files: new Set(["/index.html", "/app.js"]) },
 		tailnet,
 		owners: new Owners(tailnet, async () => whois(owner ? OWNER : OTHER)),
 	});

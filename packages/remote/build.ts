@@ -4,8 +4,6 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import { packageWeb } from "./src/daemon/app.ts";
-
 const ENTRIES = {
 	"daemon.js": join(import.meta.dir, "src/daemon/main.ts"),
 	"cli.js": join(import.meta.dir, "src/cli/main.ts"),
@@ -71,17 +69,15 @@ export function foreign(outside: readonly string[], builtins: ReadonlySet<string
 	);
 }
 
-/** The page the daemon serves. */
-const PAGE = join(import.meta.dir, "web");
-
-/** Builds the page with Vite, then packages it next to the daemon. */
-export function buildWeb(outdir: string): string[] {
-	const result = spawnSync("bun", ["x", "vite", "build"], { cwd: PAGE, stdio: "inherit" });
+/** Builds the page with Vite into `web` next to the daemon, where the daemon looks for it. */
+function buildWeb(outdir: string): void {
+	const web = join(outdir, "web");
+	const result = spawnSync("bun", ["x", "vite", "build", "--outDir", web, "--emptyOutDir"], {
+		cwd: join(import.meta.dir, "web"),
+		stdio: "inherit",
+	});
 	if (result.status !== 0) throw new Error("the page's build failed");
-	const built = join(PAGE, "dist");
-	if (!existsSync(join(built, "index.html")))
-		throw new Error(`the build left no ${built}/index.html`);
-	return packageWeb(built, outdir);
+	if (!existsSync(join(web, "index.html"))) throw new Error(`the build left no ${web}/index.html`);
 }
 
 if (import.meta.main) {
@@ -92,5 +88,5 @@ if (import.meta.main) {
 		process.exit(1);
 	}
 	for (const file of Object.values(built.files)) console.log(file);
-	console.log(`${buildWeb(join(import.meta.dir, "dist")).length} files of the web app`);
+	buildWeb(join(import.meta.dir, "dist"));
 }

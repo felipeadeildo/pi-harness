@@ -14,8 +14,7 @@
 		"url": "git+https://github.com/felipeadeildo/pi-harness.git"
 	},
 	"workspaces": [
-		"packages/*",
-		"apps/*"
+		"packages/*"
 	],
 	"type": "module",
 	"scripts": {
@@ -27,7 +26,7 @@
 		"test": "bun test",
 		"perf": "bun test packages/*/test/perf.test.ts",
 		"bench:typing": "bun scripts/bench/typing.ts",
-		"verify": "bun run check && bun run lint && bun run fmt:check && bun run test && bun run knip && bun run app:check && bun run docs:check && bun run pi:defaults",
+		"verify": "bun run check && bun run lint && bun run fmt:check && bun run test && bun run knip && bun run docs:check && bun run pi:defaults",
 		"docs": "bun scripts/docs/index.ts",
 		"docs:check": "bun scripts/docs/index.ts --check",
 		"pi:defaults": "bun scripts/pi-defaults.ts",
@@ -36,10 +35,6 @@
 		"publish": "bun scripts/publish.ts",
 		"trust": "bun scripts/setup-npm-trust.ts",
 		"peers:live": "bun packages/peers/eval/live.ts",
-		"app:check": "bun run --cwd=apps/remote check",
-		"app:export": "bun run --cwd=apps/remote export",
-		"app:export:android": "bun run --cwd=apps/remote export:android",
-		"csp:check": "bun run --cwd=apps/remote csp",
 		"gate": "bun run --cwd packages/remote gate",
 		"knip": "knip"
 	},
