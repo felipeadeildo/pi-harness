@@ -137,6 +137,21 @@ test("a socket for the other machine's session reaches its bridge, and its event
 	ws.close();
 });
 
+test("a tailscale that does not answer keeps the machines found last", async () => {
+	const { machines, laptop } = await twoMachines();
+	let silenced = false;
+	const silent = new Machines({
+		self: "desk",
+		originOf: () => `http://127.0.0.3:${laptop.clientPort}`,
+		ask: async (args) => (silenced ? undefined : ask(args)),
+	});
+	await silent.look();
+	silenced = true;
+	await silent.look();
+	expect(silent.list().map((one) => one.name)).toEqual(machines.list().map((one) => one.name));
+	expect(silent.list().length).toBe(1);
+});
+
 test("a machine that stops answering leaves the list at the next look", async () => {
 	const { laptop, machines, get } = await twoMachines();
 	laptop.stop();

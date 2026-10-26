@@ -64,11 +64,15 @@ export class Machines {
 		return this.#found.get(name);
 	}
 
-	/** Asks the tailnet which of the owner's machines run a daemon now. */
+	/**
+	 * Asks the tailnet which of the owner's machines run a daemon now. A `tailscale` that does not
+	 * answer changes nothing: the machines found last stay until a look says otherwise.
+	 */
 	async look(): Promise<void> {
 		const tailnet = await readOwnTailnet(this.#options.ask);
+		if (tailnet === undefined) return;
 		const answered = await Promise.all(
-			(tailnet?.others ?? []).map((node) => this.#health(this.#options.originOf(node))),
+			tailnet.others.map((node) => this.#health(this.#options.originOf(node))),
 		);
 		const found = new Map<string, Machine>();
 		for (const machine of answered)
