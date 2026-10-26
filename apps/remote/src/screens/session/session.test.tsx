@@ -105,6 +105,14 @@ describe("the recording", () => {
 		expect(html).not.toContain("Read only.");
 	});
 
+	test("sets the line height as a multiple of the type, not as pixels that CSS would multiply", () => {
+		// `line-height: 22.5` with no unit is 22.5 times the font size, which made the title 495 px tall and
+		// pushed the rest of the document to the bottom of the screen.
+		const heights = [...draw(recorded()).matchAll(/line-height:([\d.]+)(?![\d.]*(?:px|em|rem))/g)];
+		expect(heights.length).toBeGreaterThan(0);
+		for (const [, value] of heights) expect(Number(value)).toBeLessThanOrEqual(2);
+	});
+
 	test("folds the model's thinking into one line", () => {
 		const html = draw(firstBranch());
 		expect(html).toMatch(/<li class="remote-thinking"><details><summary>thinking · /);

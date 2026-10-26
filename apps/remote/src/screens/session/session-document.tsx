@@ -60,7 +60,8 @@ export default function SessionDocument({ session, scheme }: SessionScreenProps)
 					fontFamily: theme.font,
 					padding: theme.space(4),
 					fontSize: theme.type.body.fontSize,
-					lineHeight: theme.type.body.fontSize * 1.5,
+					// A number with no unit is a multiple of the font size in CSS, so this is 1.5 times, not 22.5 px.
+					lineHeight: 1.5,
 				},
 			},
 			header(session, state.tasks, theme),
