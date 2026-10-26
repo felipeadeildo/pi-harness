@@ -1,6 +1,6 @@
 // Where a client stopped reading: entries by pi's entry id, and the live stream by (epoch, seq). A
 // cursor is what a reconnect sends.
-import type { Envelope } from "@adeildo/pi-remote-protocol";
+import type { Envelope } from "../index.ts";
 
 export interface Cursor {
 	/** The life of the pi process the client was reading. */

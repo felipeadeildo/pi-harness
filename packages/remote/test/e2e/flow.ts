@@ -11,7 +11,7 @@ import piQuestions from "@adeildo/pi-ask-questions";
 import { TOOL_NAME } from "@adeildo/pi-ask-questions";
 import { logPath, readTail, targetOf } from "@adeildo/pi-kit";
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
-import { GOES_ALONE } from "@adeildo/pi-remote-client";
+import { GOES_ALONE } from "@adeildo/pi-remote-protocol/client";
 import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import { type Browser, chromium, type Page } from "playwright-core";
 

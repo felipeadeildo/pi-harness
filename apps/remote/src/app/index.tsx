@@ -1,6 +1,6 @@
 // The way in: every session the daemon knows, each row opening one. The link that `/remote` prints
 // lands here, so this is the first thing a phone shows after the login.
-import { type ListedSession, listSessions } from "@adeildo/pi-remote-client";
+import { type ListedSession, listSessions } from "@adeildo/pi-remote-protocol/client";
 import type { Href } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { AppState, Text, View } from "react-native";

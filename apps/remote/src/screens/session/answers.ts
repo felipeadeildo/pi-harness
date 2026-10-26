@@ -2,8 +2,8 @@
 // `AskResult` the terminal produces. This file holds the draft and the result, without a screen: a
 // phone needs to be able to say "wait, I picked the wrong one" before anything is sent.
 
-import type { Client } from "@adeildo/pi-remote-client";
 import type { AskResult, OpenAsk } from "@adeildo/pi-remote-protocol";
+import type { Client } from "@adeildo/pi-remote-protocol/client";
 
 /** What the person has chosen so far, by question index. */
 export interface Draft {

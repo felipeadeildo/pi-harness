@@ -5,13 +5,13 @@
 // one is checked here against the same expected state.
 import { describe, expect, test } from "bun:test";
 
-import { type ClientSession, readEnvelope, sessionOf } from "@adeildo/pi-remote-client";
 import {
 	applyChange,
 	emptySessionState,
 	isStateChangeType,
 	type SessionState,
 } from "@adeildo/pi-remote-protocol";
+import { type ClientSession, readEnvelope, sessionOf } from "@adeildo/pi-remote-protocol/client";
 
 import { Harness } from "../src/bridge/logged.ts";
 import { Sessions } from "../src/daemon/sessions.ts";

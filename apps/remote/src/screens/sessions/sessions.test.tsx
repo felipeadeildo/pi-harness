@@ -2,7 +2,7 @@
 // rows are the only input, so a test says what the screen does rather than what the network did.
 import { describe, expect, test } from "bun:test";
 
-import type { ListedSession } from "@adeildo/pi-remote-client";
+import type { ListedSession } from "@adeildo/pi-remote-protocol/client";
 
 import { themeFor } from "../../ui/theme.ts";
 import { keyOf, nameOf, rowStyle, rowsOf } from "./rows.ts";

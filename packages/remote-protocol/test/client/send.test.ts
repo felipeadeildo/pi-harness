@@ -4,9 +4,9 @@ import { describe, expect, test } from "bun:test";
 
 import type { Envelope } from "@adeildo/pi-remote-protocol";
 
-import { memoryCache } from "../src/cache.ts";
-import { connect } from "../src/connection.ts";
-import { Outbox } from "../src/outbox.ts";
+import { memoryCache } from "../../src/client/cache.ts";
+import { connect } from "../../src/client/connection.ts";
+import { Outbox } from "../../src/client/outbox.ts";
 
 const key = { machine: "here", session: "s" };
 

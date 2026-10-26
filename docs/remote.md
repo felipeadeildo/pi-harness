@@ -890,7 +890,7 @@ style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-
 
 ### Shared code
 
-`@adeildo/pi-remote-client` holds the connection (login, reconnect with backoff, resume by `(epoch, seq)`), the outbox, the cache's interface, the reducers and the decoded types. It has no React in it. The Expo app and the viewing pi use it.
+`@adeildo/pi-remote-protocol/client` holds the connection (login, reconnect with backoff, resume by `(epoch, seq)`), the outbox and the cache's interface, next to the reducers and the decoded types of the protocol. It has no React in it. The web app and the viewing pi use it.
 
 ## Settings
 

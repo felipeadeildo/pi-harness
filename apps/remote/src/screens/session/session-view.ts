@@ -1,8 +1,12 @@
+import type { SessionState, TranscriptItem } from "@adeildo/pi-remote-protocol";
 // What a session screen derives from a session: the cached view, the title and the about line. It is
 // apart from the document because a `"use dom"` module may export one thing only, and the screen needs
 // these without loading a webview.
-import { type ClientSession, harnessOf, transcriptOfSession } from "@adeildo/pi-remote-client";
-import type { SessionState, TranscriptItem } from "@adeildo/pi-remote-protocol";
+import {
+	type ClientSession,
+	harnessOf,
+	transcriptOfSession,
+} from "@adeildo/pi-remote-protocol/client";
 
 import { plain } from "../../render/plain.ts";
 

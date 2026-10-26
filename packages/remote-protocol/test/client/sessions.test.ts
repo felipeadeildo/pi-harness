@@ -9,7 +9,7 @@ import {
 	listSessions,
 	stateOf,
 	wantsYou,
-} from "../src/sessions.ts";
+} from "../../src/client/sessions.ts";
 
 const live = { pid: 42, startedAt: 1, cwd: "/work", name: "the rig", kind: "terminal" };
 const folded = {

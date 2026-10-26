@@ -2,7 +2,7 @@
 // out by themselves after the reconnect, and older ones wait for the person to decide.
 import { describe, expect, test } from "bun:test";
 
-import { GOES_ALONE, Outbox } from "../src/outbox.ts";
+import { GOES_ALONE, Outbox } from "../../src/client/outbox.ts";
 
 function clock(start = 0) {
 	let now = start;

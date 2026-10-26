@@ -5,9 +5,9 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { type ClientSession, sessionOf } from "@adeildo/pi-remote-client";
 import { applyChange, emptySessionState, isStateChangeType } from "@adeildo/pi-remote-protocol";
 import { openQuestions } from "@adeildo/pi-remote-protocol";
+import { type ClientSession, sessionOf } from "@adeildo/pi-remote-protocol/client";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 

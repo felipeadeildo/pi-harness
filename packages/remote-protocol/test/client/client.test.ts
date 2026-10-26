@@ -7,20 +7,12 @@ import { join } from "node:path";
 import type { Entry, Envelope } from "@adeildo/pi-remote-protocol";
 import { applyChange, emptySessionState, isStateChangeType } from "@adeildo/pi-remote-protocol";
 
-import { memoryCache } from "../src/cache.ts";
-import { connect } from "../src/connection.ts";
-import { Outbox } from "../src/outbox.ts";
-import { harnessOf, type SnapshotData, transcriptOfSession } from "../src/session.ts";
+import { memoryCache } from "../../src/client/cache.ts";
+import { connect } from "../../src/client/connection.ts";
+import { Outbox } from "../../src/client/outbox.ts";
+import { harnessOf, type SnapshotData, transcriptOfSession } from "../../src/client/session.ts";
 
-const FIXTURE = join(
-	import.meta.dir,
-	"..",
-	"..",
-	"remote-protocol",
-	"test",
-	"fixtures",
-	"recording",
-);
+const FIXTURE = join(import.meta.dir, "..", "fixtures", "recording");
 const key = { machine: "here", session: "01a16b15" };
 
 function lines(name: string): Record<string, unknown>[] {

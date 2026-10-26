@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import type { Client } from "@adeildo/pi-remote-client";
 import type { OpenAsk } from "@adeildo/pi-remote-protocol";
+import type { Client } from "@adeildo/pi-remote-protocol/client";
 
 import { answerAsk, answerOf, EMPTY, pick, ready, type } from "./answers.ts";
 

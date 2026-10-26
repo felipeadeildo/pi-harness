@@ -2,7 +2,7 @@
 // in a request; the page trades it for a login cookie and takes the token out of the address, so it
 // does not stay in the history or in a screenshot. Only then does the socket open, because the cookie
 // is what the daemon accepts for `/ws`.
-import { type Cache, memoryCache } from "@adeildo/pi-remote-client";
+import { type Cache, memoryCache } from "@adeildo/pi-remote-protocol/client";
 
 /** Where the token rides in the link: after `#`, so no request ever carries it. */
 const TOKEN_KEY = "token";

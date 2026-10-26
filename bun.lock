@@ -30,7 +30,6 @@
       },
       "devDependencies": {
         "@adeildo/pi-remote": "workspace:*",
-        "@adeildo/pi-remote-client": "workspace:*",
         "@adeildo/pi-remote-protocol": "workspace:*",
         "@earendil-works/pi-coding-agent": "^1.4.0",
         "@expo/metro-runtime": "~58.0.15",
@@ -176,20 +175,12 @@
       "devDependencies": {
         "@adeildo/pi-ask-permission": "workspace:*",
         "@adeildo/pi-ask-questions": "workspace:*",
-        "@adeildo/pi-remote-client": "workspace:*",
         "playwright-core": "1.64.1",
       },
       "peerDependencies": {
         "@earendil-works/pi-ai": "*",
         "@earendil-works/pi-coding-agent": "*",
         "@earendil-works/pi-tui": "*",
-      },
-    },
-    "packages/remote-client": {
-      "name": "@adeildo/pi-remote-client",
-      "version": "0.0.0",
-      "dependencies": {
-        "@adeildo/pi-remote-protocol": "workspace:*",
       },
     },
     "packages/remote-protocol": {
@@ -239,8 +230,6 @@
     "@adeildo/pi-remote": ["@adeildo/pi-remote@workspace:packages/remote"],
 
     "@adeildo/pi-remote-app": ["@adeildo/pi-remote-app@workspace:apps/remote"],
-
-    "@adeildo/pi-remote-client": ["@adeildo/pi-remote-client@workspace:packages/remote-client"],
 
     "@adeildo/pi-remote-protocol": ["@adeildo/pi-remote-protocol@workspace:packages/remote-protocol"],
 

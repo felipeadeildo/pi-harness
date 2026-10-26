@@ -17,7 +17,6 @@
 	},
 	"devDependencies": {
 		"@adeildo/pi-remote": "workspace:*",
-		"@adeildo/pi-remote-client": "workspace:*",
 		"@adeildo/pi-remote-protocol": "workspace:*",
 		"@earendil-works/pi-coding-agent": "^1.4.0",
 		"@expo/metro-runtime": "~58.0.15",

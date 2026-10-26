@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { readEnvelope, sessionOf, type SnapshotData } from "@adeildo/pi-remote-client";
 import { applyChange, emptySessionState, type Envelope } from "@adeildo/pi-remote-protocol";
+import { readEnvelope, sessionOf, type SnapshotData } from "@adeildo/pi-remote-protocol/client";
 
 import { modeChoices } from "./composer-data.ts";
 import { composerOf, liveOf, runningOf } from "./live.ts";

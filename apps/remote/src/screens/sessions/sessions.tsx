@@ -6,7 +6,7 @@
 // `Link asChild` hands its props to the child through a Slot that spreads `style` as a plain object, so
 // an array there becomes `{0: …, 1: …}` and the browser throws setting `style[0]` before drawing. The
 // browser check in `scripts/csp.ts` is what catches this family, since static markup applies no style.
-import type { ListedSession } from "@adeildo/pi-remote-client";
+import type { ListedSession } from "@adeildo/pi-remote-protocol/client";
 import { type Href, Link } from "expo-router";
 import { FlatList, Pressable, Text, View } from "react-native";
 

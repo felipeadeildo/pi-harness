@@ -2,8 +2,8 @@
 // from. Each test holds one promise the route depends on, with fakes for the browser's pieces.
 import { describe, expect, test } from "bun:test";
 
-import { connect, memoryCache, type CachedSession } from "@adeildo/pi-remote-client";
 import { emptySessionState } from "@adeildo/pi-remote-protocol";
+import { connect, memoryCache, type CachedSession } from "@adeildo/pi-remote-protocol/client";
 
 import { KEPT, pageCache, storageCache, type StorageLike } from "./cache.ts";
 import { openSocket, type SocketLike, socketUrl } from "./transport.ts";

@@ -8,7 +8,7 @@ import {
 	type CachedSession,
 	memoryCache,
 	type SessionKey,
-} from "@adeildo/pi-remote-client";
+} from "@adeildo/pi-remote-protocol/client";
 
 /** The part of the Web Storage API the cache uses, which is also the shape `store.ts` gives native. */
 export interface StorageLike {

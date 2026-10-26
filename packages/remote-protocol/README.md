@@ -1,16 +1,17 @@
 # @adeildo/pi-remote-protocol
 
-The shapes that cross a process in pi-remote, and the reducers that turn a session's recording back
-into what a screen draws.
+What crosses a process in pi-remote, the reducers that turn a session's recording back into what a
+screen draws, and, under `/client`, what a client holds of it: the connection, the cache and the session
+rebuilt from the wire.
 
-It imports nothing: no pi, no kit, no `node:`. The daemon bundles it, the Expo app and the native app
-use it, and `remote-client` reads it.
+It imports nothing: no pi, no kit, no `node:`. The daemon bundles it, and the web app runs it in the
+browser.
 
 ```ts
-import { isEnvelope, reduceFacts, transcriptOf } from "@adeildo/pi-remote-protocol";
+import { foldLogged, isEnvelope, transcriptOf } from "@adeildo/pi-remote-protocol";
 
 const transcript = transcriptOf(entries, leaf); // the branch, from the leaf the bridge names
-const facts = reduceFacts(logged); // questions, rulings, mode, rename
+const state = foldLogged(logged); // questions, rulings, mode, board, cost, queue
 ```
 
 ## The envelope
@@ -29,16 +30,17 @@ sides check in the hello.
 
 `isEnvelope` checks one, and is the only thing a reader should trust before reading the rest.
 
-## Facts
+## State changes
 
-A fact is one thing the harness did, written to the session's log and sent as an event: a
-question opened or closed, a ruling on a call, the permission mode, the session's state, a rename, the
-number of a streamed message bound to its entry, a move in the tree.
+A state change is one thing the harness did, written to the session's log and sent as an event: a
+question opened or closed, a ruling on a call, the permission mode, the session's status, a rename, the
+number of a streamed message bound to its entry, a move in the tree, the queue, the cost.
 
-`StateChangeMap` is the shape of each and `STATE_CHANGES` is the closed list. `isStateChange` checks a fact against its
-type, and `reduceFact` folds that list into `SessionFacts`: the questions still
-open, the ruling of each call, the mode and the rename. `openAsks` is the questions a screen should
-draw.
+Each one is an entry of one table, with the shape its check names, the check, and what it does to the
+state, so `StateChangeMap` is read from the table and a change is added in one place. `STATE_CHANGES` is
+the closed list, `isStateChangeType` names one, and `applyChange` folds it into `SessionState`, skipping
+one whose shape does not check. `foldLogged` folds a whole log, and `openQuestions` is the questions a
+screen should draw.
 
 The list only grows. A field a later version adds is optional, so a daemon of a later version still reduces
 in a client of this one.
@@ -50,8 +52,8 @@ cost, queue, and the entry its branch ends at. `isSummary` checks it, and checks
 letter.
 
 A reconnect says where it stopped — the last entry it holds and the last `seq` of the epoch — and the
-daemon replays what came after, or answers with a snapshot when it cannot. The cursor itself belongs to
-the client; this package carries the snapshot and the envelopes that it resumes between.
+daemon replays what came after, or answers with an opening when it cannot. The cursor itself belongs to
+the client; this package carries the opening and the envelopes that it resumes between.
 
 ## Commands
 
@@ -67,6 +69,39 @@ running and doing nothing.
 `transcriptOf` walks a branch from its leaf back through each entry's parent, and returns the items a
 screen draws: messages in parts, compactions, branch summaries, model changes, and the entries a newer
 pi writes that this version keeps without inventing a shape.
+
+## The client
+
+`@adeildo/pi-remote-protocol/client` is what a client of pi-remote holds: the connection to the
+daemon, the cache it draws before the network answers, and the session rebuilt from the shapes above.
+There is no React in it.
+
+```ts
+import { connect, transcriptOfSession } from "@adeildo/pi-remote-protocol/client";
+
+const client = connect({ key, cache, open });
+await client.load(); // draws the cache, then sends the hello with its cursors
+client.on((session) => draw(transcriptOfSession(session), session.state));
+```
+
+`connect` takes the session key, a cache and the caller's transport. `load` draws the cache first and
+then opens the connection. `on` is called with the session after the cache and after every change, and
+`stop` ends the connection and stops reconnecting.
+
+A reconnect sends the cursor it stopped at. A new epoch, or a hole in the numbering, makes it ask for
+an opening instead, because nothing else can put back what it missed.
+
+`send` queues a command and returns it, and `outbox()` shows the commands that have not been answered
+yet. A command typed while the daemon is out of reach waits and goes out on the next connection, and a
+reply ends it as applied or refused.
+
+`listSessions` reads the daemon's `GET /sessions`, refuses a list where nothing decodes, and takes an
+optional `signal`. `wantsYou`, `stateOf` and `inOrder` put the sessions that need the operator first
+and give the list a stable order.
+
+The transport is the caller's, and so is the `Origin` header the daemon checks: a browser sets it, and a
+client that is not a browser sets its own, or the daemon refuses the socket. The same goes for the login
+cookie, which is why none of it lives here.
 
 ## The copied types
 

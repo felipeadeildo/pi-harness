@@ -1,5 +1,5 @@
-import type { ListedSession } from "@adeildo/pi-remote-client";
-import { inOrder, stateOf, wantsYou } from "@adeildo/pi-remote-client";
+import type { ListedSession } from "@adeildo/pi-remote-protocol/client";
+import { inOrder, stateOf, wantsYou } from "@adeildo/pi-remote-protocol/client";
 
 // What the list of sessions says, worked out apart from how it is drawn: the rows are plain data, so
 // a test reads them without a browser or a native host, and the screen has one shape to draw.

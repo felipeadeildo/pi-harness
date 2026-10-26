@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { connect as dial, type Socket } from "node:net";
 
-import { connect, memoryCache } from "@adeildo/pi-remote-client";
 import { envelope, type Envelope, PROTOCOL } from "@adeildo/pi-remote-protocol";
+import { connect, memoryCache } from "@adeildo/pi-remote-protocol/client";
 
 import { envelopeOf, line, Lines } from "../src/wire/lines.ts";
 import {

@@ -1,8 +1,8 @@
 // The question the agent asked, answerable from the phone: this is the case the whole remote exists
 // for ("the agent needs a decision while I am away"), so the screen has to be usable with one hand.
 
-import type { Client } from "@adeildo/pi-remote-client";
 import type { OpenAsk } from "@adeildo/pi-remote-protocol";
+import type { Client } from "@adeildo/pi-remote-protocol/client";
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 

@@ -4,8 +4,13 @@ import { EventEmitter } from "node:events";
 import { createServer, type Socket } from "node:net";
 
 import { HOST } from "@adeildo/pi-kit";
-import { connect, memoryCache, type Client, type Transport } from "@adeildo/pi-remote-client";
 import type { Envelope } from "@adeildo/pi-remote-protocol";
+import {
+	connect,
+	memoryCache,
+	type Client,
+	type Transport,
+} from "@adeildo/pi-remote-protocol/client";
 
 import { envelopeOf, Lines } from "../src/wire/lines.ts";
 

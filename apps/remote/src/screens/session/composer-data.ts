@@ -1,6 +1,3 @@
-// What the composer decides, apart from the views that show it: a phone draws with views, and a test
-// cannot load them. The rules stay here, and the screen only wires them.
-import type { Client, Outgoing } from "@adeildo/pi-remote-client";
 import {
 	type CommandMap,
 	type CommandType,
@@ -8,6 +5,9 @@ import {
 	type PermissionMode,
 	THINKING_LEVELS,
 } from "@adeildo/pi-remote-protocol";
+// What the composer decides, apart from the views that show it: a phone draws with views, and a test
+// cannot load them. The rules stay here, and the screen only wires them.
+import type { Client, Outgoing } from "@adeildo/pi-remote-protocol/client";
 
 /** The three modes a client may set: `full` runs everything unasked, so only a terminal may choose it. */
 export const CLIENT_MODES: readonly PermissionMode[] = ["manual", "edits", "judge"];
