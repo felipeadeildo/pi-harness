@@ -81,9 +81,10 @@ export function openSession(
 	source: SessionSource,
 	changed: (session: ClientSession) => void,
 ): { client: Client; stop: () => void } {
-	// The machine is the one the address names, which is the pi's: a page cannot know its own host.
-	// What the log needs is that a command has an author at all, and the name is the part this side
-	// can carry.
+	// The identity is the client's, not the session's: a phone looking at a desktop session is still the
+	// phone, so the name is the device's and not the session's. The machine is the one the address
+	// names, which is the pi's, because a page cannot know its own host. What the log needs is that a
+	// command has an author at all, and the name is the part this side can carry.
 	const client = connect({
 		key,
 		cache: source.cache,
