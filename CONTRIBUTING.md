@@ -146,6 +146,10 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
 - A review worktree under `/tmp` installs with `bun install --frozen-lockfile --ignore-scripts`, and
   that same install is what lets a commit or a push there run the hooks: without `node_modules` the
   `pre-push` exits 127 and git reports `failed to push some refs`, which reads like a conflict.
+- Metro keeps one cache for the whole machine, in `$TMPDIR/metro-cache`, and a DOM component's entry
+  is stored there with the path of the checkout that built it first. So an app export in a worktree
+  can fail with `Unable to resolve module …/<another worktree>/…` from `expo/dom/entry.js`, naming a
+  folder that is not yours. That is the cache, not the code: `expo export --clear` builds it again.
 
 ## Tests
 

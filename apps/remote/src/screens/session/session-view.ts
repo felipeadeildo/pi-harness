@@ -4,7 +4,7 @@
 import { type ClientSession, harnessOf, transcriptOfSession } from "@adeildo/pi-remote-client";
 import type { SessionState, TranscriptItem } from "@adeildo/pi-remote-protocol";
 
-import { plain } from "../../render/index.ts";
+import { plain } from "../../render/plain.ts";
 
 export interface View {
 	state: SessionState;

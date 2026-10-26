@@ -38,6 +38,7 @@
 		"peers:live": "bun packages/peers/eval/live.ts",
 		"app:check": "bun run --cwd=apps/remote check",
 		"app:export": "bun run --cwd=apps/remote export",
+		"app:export:android": "bun run --cwd=apps/remote export:android",
 		"csp:check": "bun run --cwd=apps/remote csp",
 		"gate": "bun run --cwd packages/remote gate",
 		"knip": "knip"
