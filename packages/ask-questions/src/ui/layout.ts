@@ -4,7 +4,6 @@ import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 export type Layout = "beside" | "below";
 
-/** The rule between the options and the panel, with a space on each side. */
 const DIVIDER = ` ${LINE.v} `;
 const DIVIDER_WIDTH = 3;
 

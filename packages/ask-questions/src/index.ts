@@ -72,11 +72,10 @@ export const questions = defineFeature({
 		let session: ExtensionContext | undefined;
 		let typing = new TypingMonitor();
 		const turns = oneAtATime();
-		/** The dialogs opened while the model writes their call, by tool call id. */
 		const live = new Map<string, LiveAsk>();
-		/** Every request this provider draws or holds in its queue, so a cancel reaches it. */
+		/** So a cancel reaches every request this provider draws or queues. */
 		const pending = new Map<string, AbortController>();
-		/** The tool's own requests, which wait for your typing and ring the bell. */
+		/** They wait for your typing and ring the bell. */
 		const fromTool = new Set<string>();
 
 		// Keys typed into a dialog are not typing in the editor.

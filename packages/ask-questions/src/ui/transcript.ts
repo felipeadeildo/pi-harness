@@ -85,7 +85,6 @@ function questionLines(
 	return lines;
 }
 
-/** The question being written, whole, with its options numbered under it as they arrive. */
 function writingQuestion(
 	lead: string,
 	row: { text: string; options: string[] },

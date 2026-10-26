@@ -62,16 +62,13 @@ const BAR_WIDTH = 2;
 /** A blank line and the line of the note editor, under the detail of an option. */
 const NOTE_EDITOR_ROWS = 2;
 
-/** The rows a body may use, and the rows its panel asks for. */
 interface BodySize {
 	inner: number;
 	wanted: number;
 	budget: number;
-	/** Whether the panel opens with the name of the focused row. */
 	titled: boolean;
 }
 
-/** A body with the options on the left and the panel on the right. */
 interface BesideSize extends BodySize {
 	left: number;
 	width: number;
@@ -79,13 +76,11 @@ interface BesideSize extends BodySize {
 
 interface Draft {
 	picked: Set<number>;
-	/** How a single choice was answered: an option, or the typed row. */
 	via: "option" | "typed" | undefined;
 	notes: Input[];
 	editor: Editor;
 }
 
-/** What the dialog asks of the screen it is drawn on. */
 export interface Screen {
 	requestRender(): void;
 	terminal: { rows: number };
@@ -132,19 +127,15 @@ export class QuestionDialog implements Component, Focusable {
 	/** Until when something still moves after the model stopped writing. */
 	private movingUntil = 0;
 
-	/** The question shown, or `questions.length` for the submit tab. */
 	private tab = 0;
-	/** The focused row: an option, or `options.length` for the typed row. */
 	private row = 0;
 	private noting = false;
 	private done = false;
 
-	/** Where the panel is scrolled to, for the row it was scrolled on. */
 	private panelTop = 0;
 	private panelFor = "";
 	private panelRoom = 1;
 	private overflow = false;
-	/** The selected option's line in the question, or -1 on the submit tab. */
 	private pickedLine = -1;
 
 	private focusedFlag = false;
@@ -202,7 +193,6 @@ export class QuestionDialog implements Component, Focusable {
 		this.tui.requestRender();
 	}
 
-	/** Closes the dialog as cancelled, when the call it belongs to will not run. */
 	close(): void {
 		if (!this.done) this.finish(true);
 	}
@@ -253,13 +243,12 @@ export class QuestionDialog implements Component, Focusable {
 		this.ticks = undefined;
 	}
 
-	/** The frame of the spinner on the question being written. */
 	private spinner(): string {
 		const frames = SPIN.braille;
 		return frames[Math.floor(this.now() / FRAME_MS) % frames.length] ?? frames[0];
 	}
 
-	/** The cursor where the words arrive, shown half the time, with a blank of its width otherwise. */
+	/** Shown half the time, with a blank of its width otherwise. */
 	private cursor(): string {
 		return Math.floor(this.now() / BLINK_MS) % 2 === 0 ? GLYPH.cursor : " ";
 	}
@@ -277,7 +266,6 @@ export class QuestionDialog implements Component, Focusable {
 		}
 	}
 
-	/** Whether this is the question the model is still writing. */
 	private isLive(question: Question | undefined): boolean {
 		return this.writing && question !== undefined && question === this.questions.at(-1);
 	}
@@ -295,7 +283,6 @@ export class QuestionDialog implements Component, Focusable {
 		return question !== undefined && this.arriving(question, this.row);
 	}
 
-	/** Several questions, or more on the way. */
 	private get tabbed(): boolean {
 		return this.questions.length > 1 || this.writing;
 	}
@@ -335,7 +322,6 @@ export class QuestionDialog implements Component, Focusable {
 		);
 	}
 
-	/** What the frame around the dialog says, for a host that draws the frame. */
 	chrome(): { title: string; status: string; keys: KeyHint[] } {
 		const count = this.tabbed
 			? this.theme.fg("dim", `${this.answeredCount()}/${this.questions.length}`)
@@ -343,7 +329,6 @@ export class QuestionDialog implements Component, Focusable {
 		return { title: this.title(), status: count, keys: this.hint() };
 	}
 
-	/** The body lines for a host that draws the frame, and the one the pointer is on. */
 	body(inner: number): { lines: string[]; selected: number } {
 		const lines: string[] = [];
 		// The tabs, or a blank line, so the question does not touch the title.
@@ -727,7 +712,6 @@ export class QuestionDialog implements Component, Focusable {
 		return [...options, rule, ...this.panel(question, draft, size.inner, rows, size.titled)];
 	}
 
-	/** One line per option, and the typed row last. */
 	private optionLines(question: Question, draft: Draft, width: number): string[] {
 		const rows = Array.from({ length: this.rowCountOf(question) }, (_, row) => row);
 		const lines = rows.map((row) => this.optionRow(question, draft, row, width));
@@ -786,7 +770,6 @@ export class QuestionDialog implements Component, Focusable {
 		return lit !== undefined && this.now() - lit < LIGHT_MS ? "muted" : "text";
 	}
 
-	/** The detail of an option: what it means, then what it looks like. */
 	private optionDetail(option: Option, width: number): string[] {
 		const lines = wrapTextWithAnsi(
 			option.description ?? "",
@@ -810,7 +793,6 @@ export class QuestionDialog implements Component, Focusable {
 		return tallest;
 	}
 
-	/** The detail with the notes under it, separated by a blank line when both exist. */
 	private withNotes(detail: string[], notes: string[]): string[] {
 		if (notes.length === 0) return detail;
 		if (detail.length === 0) return notes;
@@ -936,7 +918,6 @@ export class QuestionDialog implements Component, Focusable {
 		return lines;
 	}
 
-	/** An unanswered question that has notes, so the review shows them. */
 	private unanswered(index: number): AskAnswer | undefined {
 		const notes = this.notesOf(index);
 		const question = this.questions[index];

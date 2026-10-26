@@ -44,7 +44,6 @@ function userText(entry: unknown): string | undefined {
 	return contentText(entry.message.content).trim() || undefined;
 }
 
-/** A message holds a string, or parts where only the text ones say anything. */
 function contentText(content: unknown): string {
 	if (typeof content === "string") return content;
 	if (!Array.isArray(content)) return "";

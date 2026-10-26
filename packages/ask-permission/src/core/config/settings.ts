@@ -350,7 +350,6 @@ export function writeConfig(scope: SettingsScope, config: PermissionConfig): str
 	return scope.settings.setAll(toEntries(config));
 }
 
-/** The policy one MCP server follows, keeping the others. */
 export function setMcpPolicy(
 	scope: SettingsScope,
 	server: string,

@@ -685,7 +685,6 @@ function operatorOf(entry: ParseEntry | undefined): string | undefined {
 	return entry.op;
 }
 
-// Returns how many following tokens the redirect consumed.
 function safeRedirect(tokens: ParseEntry[], index: number): number | undefined {
 	const op = operatorOf(tokens[index]);
 	if (op === undefined) return undefined;

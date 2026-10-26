@@ -3,7 +3,6 @@ import { type AskAnswer, isAnswered, GLYPH } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
-/** The mark the dialog puts on an option with a note. */
 export const NOTE_MARK = GLYPH.chevron;
 const PICKED = `${GLYPH.check} `;
 const TYPED = `${GLYPH.pencil} `;

@@ -36,7 +36,6 @@ export interface Call {
 	target: CallDescriptor;
 	tool: ToolAdapter;
 	reach: Reach;
-	/** Set for a call to an MCP server. */
 	mcp?: McpCall;
 	/** What the tool declares about itself, whatever registered it. */
 	hints: ToolAnnotations;
@@ -44,7 +43,6 @@ export interface Call {
 	nested: boolean;
 	/** What an extension's tool says it does, unverified. Unset for the built-in tools. */
 	description?: string;
-	/** Where its relative paths start. */
 	cwd?: string;
 }
 
@@ -72,12 +70,10 @@ export interface GateState {
 
 const ALLOW: Verdict = { action: "allow" };
 
-/** What the caller knows about the tool itself, which the input does not say. */
 export interface CallExtras {
 	/** Adapters other extensions registered over `pi-ask-permission:tool`. */
 	custom?: CustomTools;
 	facts?: ToolFacts;
-	/** The call came from another tool. */
 	nested?: boolean;
 }
 

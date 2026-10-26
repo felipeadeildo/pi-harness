@@ -32,7 +32,6 @@ export function registerRulingLine(scope: FeatureScope, state: SessionState): vo
 	});
 }
 
-/** The line of a call still being decided. */
 export function showRuling(
 	scope: FeatureScope,
 	state: SessionState,
@@ -45,7 +44,6 @@ export function showRuling(
 	RULING.changed(scope, ruling, toolCallId);
 }
 
-/** The final line of a call, kept in the session. */
 export function keepRuling(
 	scope: FeatureScope,
 	state: SessionState,

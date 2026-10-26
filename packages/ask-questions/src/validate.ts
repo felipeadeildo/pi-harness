@@ -34,7 +34,7 @@ function normalizeOption(option: Option): Option {
 
 const RESERVED = new Set(RESERVED_LABELS.map((label) => label.toLowerCase()));
 
-/** What the schema cannot say. Undefined when the questions can be asked. */
+/** Undefined when the questions can be asked. */
 export function problemWith(params: QuestionParams): string | undefined {
 	const { questions } = params;
 	if (questions.length === 0) return "at least one question is required";

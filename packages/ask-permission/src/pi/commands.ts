@@ -1,4 +1,3 @@
-// Two keys for what a session changes the most. Everything else is on the settings screen.
 import type { FeatureScope } from "@adeildo/pi-kit";
 import { Key } from "@earendil-works/pi-tui";
 

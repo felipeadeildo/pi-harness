@@ -35,7 +35,6 @@ export type Reach =
 	| { kind: "outside"; path: string; paths: string[] }
 	| { kind: "unknown" };
 
-/** The folders the dialog offers to open, shallow to deep. */
 export interface FolderChoices {
 	folders: string[];
 	suggested: number;

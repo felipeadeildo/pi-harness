@@ -5,7 +5,6 @@ import { type AskOption, type AskQuestion, type AskResult, isObject } from "@ade
 import type { QuestionDialog } from "./ui/dialog.ts";
 import { normalizeText } from "./validate.ts";
 
-/** One call's dialog, from the first question the model writes until the tool answers. */
 export class LiveAsk {
 	questions: readonly AskQuestion[];
 	writing = true;
@@ -36,7 +35,6 @@ export class LiveAsk {
 	}
 }
 
-/** Whether the stream has enough to open on: the text of the first question. */
 export function opensEarly(questions: readonly AskQuestion[]): boolean {
 	return (questions[0]?.question ?? "").trim() !== "";
 }

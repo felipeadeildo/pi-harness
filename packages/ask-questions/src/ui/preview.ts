@@ -20,7 +20,7 @@ function isDrawing(text: string): boolean {
 	return !ANY_FENCE.test(text) && (DRAWING.test(text) || COLUMNS.test(text));
 }
 
-/** The previews, drawn once per width: markdown rendered, a drawing line by line. */
+/** Drawn once per width. */
 export class PreviewCache {
 	private readonly rendered = new Map<string, string[]>();
 
