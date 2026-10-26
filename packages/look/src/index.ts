@@ -3,9 +3,9 @@ import { dirname, join } from "node:path";
 import {
 	ACCOUNT,
 	type AccountState,
+	BOARD,
 	createApp,
 	PEERS,
-	TASKS,
 	defineFeature,
 	drawSkillRefs,
 	type FeatureScope,
@@ -346,7 +346,7 @@ function createScreen(
 				last: telemetry.last(),
 				run: telemetry.run(),
 				statuses: live.footerData?.getExtensionStatuses() ?? new Map(),
-				...tasksOf(scope),
+				...boardAndPeersOf(scope),
 			});
 			live.frame = snapshot;
 			queueMicrotask(() => {
@@ -385,12 +385,12 @@ function accountOf(scope: FeatureScope, provider: string | undefined): AccountSt
 	return provider === undefined ? undefined : ACCOUNT.current(scope, provider);
 }
 
-function tasksOf(
+function boardAndPeersOf(
 	scope: FeatureScope,
-): Pick<LiveInputs, "tasks" | "peers" | "peersUnread" | "peersWriting"> {
+): Pick<LiveInputs, "board" | "peers" | "peersUnread" | "peersWriting"> {
 	const peers = PEERS.current(scope);
 	return {
-		tasks: TASKS.current(scope)?.state,
+		board: BOARD.current(scope),
 		peers: peers?.peers,
 		peersUnread: peers?.unread,
 		peersWriting: peers?.writing,

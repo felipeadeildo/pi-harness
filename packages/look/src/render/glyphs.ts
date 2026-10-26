@@ -7,7 +7,7 @@ export interface Glyphs {
 	branch: string;
 	host: string;
 	session: string;
-	tasks: string;
+	board: string;
 	peers: string;
 	waiting: string;
 	queued: string;
@@ -60,7 +60,7 @@ export const NERD: Glyphs = {
 	branch: "\u{e0a0}", // nf-pl-branch
 	host: "\u{f108}", // nf-fa-desktop
 	session: "\u{f02b}", // nf-fa-tag
-	tasks: "\u{f04fe}", // nf-md-target
+	board: "\u{f04fe}", // nf-md-target
 	peers: "\u{f0c0}", // nf-fa-users
 	waiting: "\u{f024}", // nf-fa-flag
 	queued: "\u{f051f}", // nf-md-timer_sand
@@ -91,7 +91,7 @@ export const UNICODE: Glyphs = {
 	branch: "⎇",
 	host: "⌂",
 	session: "#",
-	tasks: "▸",
+	board: "▸",
 	peers: "◆",
 	waiting: "⚑",
 	queued: "⧗",
@@ -122,7 +122,7 @@ export const ASCII: Glyphs = {
 	branch: "",
 	host: "@",
 	session: "#",
-	tasks: ">",
+	board: ">",
 	peers: "@",
 	waiting: "",
 	queued: "",

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { applyTaskOps, emptyTasks, type TaskOp } from "@adeildo/pi-kit";
+import { type BoardOp, foldBoard } from "@adeildo/pi-kit";
 import {
 	type KeybindingsManager,
 	type ReadonlyFooterDataProvider,
@@ -167,13 +167,16 @@ describe("editor", () => {
 });
 
 function stripLines(data: ReturnType<typeof snapshot>): number {
-	return new StripComponent(screen(data, { slots: { stripRight: ["tasks"] } })).render(90).length;
+	return new StripComponent(screen(data, { slots: { stripRight: ["board"] } })).render(90).length;
 }
 
-/** A task under way, and the ones after it queued behind. */
-function tasksOf(doing: string, ...queued: string[]) {
-	const asks: TaskOp[] = [doing, ...queued].map((text) => ({ op: "ask", text }));
-	return applyTaskOps(emptyTasks(), asks, { at: 1, origin: "you" });
+/** A card being done, and the ones after it to do. */
+function boardOf(doing: string, ...todo: string[]) {
+	const ops: BoardOp[] = [
+		{ op: "add", title: doing, column: "doing", at: 1 },
+		...todo.map((title): BoardOp => ({ op: "add", title, at: 1 })),
+	];
+	return foldBoard(ops, "operator");
 }
 
 describe("strip and footer", () => {
@@ -186,28 +189,29 @@ describe("strip and footer", () => {
 		expect(new StripComponent(screen(data)).render(80).map(plain)).toEqual(["  answered in 0:09"]);
 	});
 
-	test("the tasks sit on the right of the strip when there is room, and under it when not", () => {
-		const tasks = tasksOf("draw the strip");
+	test("the board sits on the right of the strip when there is room, and under it when not", () => {
+		const board = boardOf("draw the strip");
 		const data = snapshot({
-			tasks,
+			board,
 			run: { running: false, elapsedMs: 9_000, requests: 1, cost: 0 },
 		});
-		const strip = new StripComponent(screen(data, { slots: { stripRight: ["tasks"] } }));
+		const strip = new StripComponent(screen(data, { slots: { stripRight: ["board"] } }));
 
 		const [wide = ""] = strip.render(100).map(plain);
 		expect(strip.render(100)).toHaveLength(1);
 		expect(wide).toMatch(/^ {2}answered in 0:09 +> draw the strip$/);
 		expect(wide).toHaveLength(98);
 
-		// Narrower than the room kept for the strip: the tasks get their own line, on the left.
+		// Narrower than the room kept for the strip: the board gets its own line, on the left.
 		expect(strip.render(70).map(plain)).toEqual(["  answered in 0:09", "  > draw the strip"]);
 	});
 
 	test("on its own line a long step uses the whole width, and its words give way before its counts", () => {
-		const step = "verify the tasks on the strip, its line of its own, and how it cuts a long step";
-		const tasks = tasksOf(step, "frame");
+		// A card title has at most eight words, so the long one is made of long words.
+		const step = "verifying standalone lines truncate exceptionally lengthy deliverable titles";
+		const board = boardOf(step, "frame");
 		const strip = new StripComponent(
-			screen(snapshot({ tasks }), { slots: { stripRight: ["tasks"] } }),
+			screen(snapshot({ board }), { slots: { stripRight: ["board"] } }),
 		);
 
 		expect(strip.render(100).map(plain)).toEqual(["", `  > ${step}  1 queued`]);
@@ -216,10 +220,10 @@ describe("strip and footer", () => {
 		expect(cut).toEndWith("...  1 queued");
 	});
 
-	test("beside a busy strip the tasks keep its counts, and the strip gives way", () => {
-		const tasks = tasksOf("draw the strip", "frame");
+	test("beside a busy strip the board keeps its counts, and the strip gives way", () => {
+		const board = boardOf("draw the strip", "frame");
 		const busy = snapshot({
-			tasks,
+			board,
 			run: { running: true, elapsedMs: 3_600_000, requests: 40, cost: 0 },
 			last: {
 				firstTokenMs: 6_600,
@@ -229,17 +233,17 @@ describe("strip and footer", () => {
 				elapsedMs: 9_000,
 			} as never,
 		});
-		const [line = ""] = new StripComponent(screen(busy, { slots: { stripRight: ["tasks"] } }))
+		const [line = ""] = new StripComponent(screen(busy, { slots: { stripRight: ["board"] } }))
 			.render(100)
 			.map(plain);
 		expect(line).toEndWith("> draw the strip  1 queued");
 	});
 
-	test("the strip's width does not move the tasks between lines", () => {
-		const tasks = tasksOf("draw the strip");
-		const idle = snapshot({ tasks });
+	test("the strip's width does not move the board between lines", () => {
+		const board = boardOf("draw the strip");
+		const idle = snapshot({ board });
 		const busy = snapshot({
-			tasks,
+			board,
 			run: { running: true, elapsedMs: 3_600_000, requests: 40, cost: 0 },
 		});
 		expect(stripLines(idle)).toBe(stripLines(busy));

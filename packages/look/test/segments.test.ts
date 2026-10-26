@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { applyTaskOps, emptyTasks } from "@adeildo/pi-kit";
+import { type BoardOp, emptyBoard, foldBoard } from "@adeildo/pi-kit";
 import { stripTerminalSequences as plainText } from "@earendil-works/pi-tui";
 
 import { emptyTotals } from "../src/data/totals.ts";
@@ -35,37 +35,24 @@ function text(ids: SegmentId[], data = snapshot(), extra: Partial<typeof options
 	return render(ids, data, extra).map((piece) => piece.text);
 }
 
-const YOU = { at: 1, origin: "you" } as const;
-const AGENT = { at: 2, origin: "agent" } as const;
+const at = 1;
 
 describe("segments", () => {
-	test("the tasks show what the agent is doing, with what waits, what is queued and what is done", () => {
-		let tasks = applyTaskOps(
-			emptyTasks(),
-			[
-				{ op: "title", text: "ship tasks" },
-				{ op: "ask", text: "write the contract" },
-			],
-			YOU,
-		);
-		tasks = applyTaskOps(tasks, [{ op: "done", id: "t1" }], AGENT);
-		tasks = applyTaskOps(
-			tasks,
-			[
-				{ op: "ask", text: "draw the segment" },
-				{ op: "ask", text: "compaction" },
-				{ op: "ask", text: "push" },
-			],
-			YOU,
-		);
-		tasks = applyTaskOps(tasks, [{ op: "wait", id: "t4", on: "you", why: "asks first" }], AGENT);
-		const [piece] = render(["tasks"], snapshot({ tasks }));
+	test("the board shows the card being done, with what is blocked, what is to do and what is done", () => {
+		const board = foldBoard([
+			{ op: "add", title: "write the contract", at },
+			{ op: "move", id: "c1", column: "done", at },
+			{ op: "add", title: "draw the segment", column: "doing", at },
+			{ op: "add", title: "compaction", at },
+			{ op: "add", title: "push", at, blocked: { on: "operator", why: "asks first" } },
+		]);
+		const [piece] = render(["board"], snapshot({ board }));
 		expect(piece?.text).toBe("> draw the segment  1 waiting  1 queued  1 done");
 		expect(plainText(piece?.shrink?.(38) ?? "")).toBe("> draw...  1 waiting  1 queued  1 done");
-		expect(claimedStatuses([["tasks"]])).toContain("pi-tasks");
+		expect(claimedStatuses([["board"]])).toContain("pi-tasks");
 
-		const [icons] = renderSegments(["tasks"], {
-			snapshot: snapshot({ tasks }),
+		const [icons] = renderSegments(["board"], {
+			snapshot: snapshot({ board }),
 			glyphs: NERD,
 			paint: PLAIN,
 			options,
@@ -109,25 +96,44 @@ describe("segments", () => {
 		expect(plainText(piece?.text ?? "")).toBe("@ oauth  @ migration  |  @ api");
 	});
 
-	test("with several tasks under way, the first shows and the rest count", () => {
-		let tasks = applyTaskOps(emptyTasks(), [{ op: "ask", text: "a" }], YOU);
-		tasks = applyTaskOps(tasks, [{ op: "ask", text: "b" }], { ...YOU, busy: true });
-		tasks = applyTaskOps(tasks, [{ op: "progress", id: "t2" }], AGENT);
-		expect(text(["tasks"], snapshot({ tasks }))).toEqual(["> a +1"]);
+	test("with several cards being done, the first shows and the rest count", () => {
+		const board = foldBoard([
+			{ op: "add", title: "a", column: "doing", at },
+			{ op: "add", title: "b", column: "doing", at },
+		]);
+		expect(text(["board"], snapshot({ board }))).toEqual(["> a +1"]);
 	});
 
-	test("with nothing under way, the tasks show the session, and nothing without one", () => {
-		const titled = applyTaskOps(emptyTasks(), [{ op: "title", text: "ship tasks" }], YOU);
-		expect(text(["tasks"], snapshot({ tasks: titled }))).toEqual(["> ship tasks"]);
-		expect(text(["tasks"], snapshot({ tasks: emptyTasks() }))).toEqual([]);
-
-		let between = applyTaskOps(emptyTasks(), [{ op: "ask", text: "a" }], YOU);
-		between = applyTaskOps(between, [{ op: "ask", text: "b" }], { ...YOU, busy: true });
-		between = applyTaskOps(between, [{ op: "done", id: "t1" }], AGENT);
-		expect(text(["tasks"], snapshot({ tasks: between }), { labels: true })).toEqual([
+	test("between cards the line stays with what waits and what was done, and an empty board shows nothing", () => {
+		const between: BoardOp[] = [
+			{ op: "add", title: "a", at },
+			{ op: "move", id: "c1", column: "done", at },
+			{ op: "add", title: "b", at },
+		];
+		expect(text(["board"], snapshot({ board: foldBoard(between) }), { labels: true })).toEqual([
 			"> idle  1 queued  1 done",
 		]);
-		expect(text(["tasks"])).toEqual([]);
+		expect(text(["board"], snapshot({ board: emptyBoard() }))).toEqual([]);
+		expect(text(["board"])).toEqual([]);
+	});
+
+	test("a card in the backlog, in review or dropped is in no count, a blocked card is counted once, and a done one no longer waits", () => {
+		const board = foldBoard(
+			[
+				{ op: "add", title: "someday", column: "backlog", at },
+				{ op: "add", title: "reviewed", at },
+				{ op: "move", id: "c2", column: "review", reviewer: "badger", at },
+				{ op: "add", title: "gone", at },
+				{ op: "drop", id: "c3", why: "not needed", at },
+				{ op: "add", title: "waits", at, blocked: { on: "outside", why: "the store" } },
+				{ op: "add", title: "shipped", at, blocked: { on: "outside", why: "the store" } },
+				{ op: "move", id: "c5", column: "done", at },
+			],
+			"operator",
+		);
+		expect(text(["board"], snapshot({ board }), { labels: true })).toEqual([
+			"> idle  1 waiting  1 done",
+		]);
 	});
 
 	test("the model comes after its provider, and the short form keeps only the name", () => {

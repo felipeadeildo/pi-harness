@@ -11,6 +11,7 @@ import {
 	type TUI,
 } from "@earendil-works/pi-tui";
 
+import { type Board, foldBoard } from "../../packages/kit/src/index.ts";
 import { emptySnapshot, type Snapshot } from "../../packages/look/src/data/snapshot.ts";
 import { emptyTotals } from "../../packages/look/src/data/totals.ts";
 import { NERD } from "../../packages/look/src/render/glyphs.ts";
@@ -34,7 +35,6 @@ import { LookEditor } from "../../packages/look/src/ui/editor.ts";
 import { FooterComponent, StripComponent } from "../../packages/look/src/ui/footer.ts";
 import { HeaderComponent } from "../../packages/look/src/ui/header.ts";
 import type { Screen, SlotName } from "../../packages/look/src/ui/screen.ts";
-import { shippingTasks } from "./tasks.ts";
 
 const WIDTH = 100;
 
@@ -90,9 +90,22 @@ function snapshot(theme: Theme): Snapshot {
 			estimated: false,
 		},
 		averages: { decode: 183, prefill: 49_000 },
-		tasks: shippingTasks(),
+		board: shippingBoard(),
 		statuses: new Map([["pi-ask-permission:mode", theme.fg("warning", "\u23f5 judge")]]),
 	};
+}
+
+/** The board on the look's strip: a fix made, and now being published. */
+function shippingBoard(): Board {
+	const at = 0;
+	return foldBoard([
+		{ op: "add", title: "Find where the answer wraps", at },
+		{ op: "move", id: "c1", column: "done", at },
+		{ op: "add", title: "Keep the answer on one line", at },
+		{ op: "move", id: "c2", column: "done", at },
+		{ op: "add", title: "Publish the one-line answer", column: "doing", at },
+		{ op: "add", title: "Say in the README how it fits", at },
+	]);
 }
 
 export function screen(theme: Theme): Screen {

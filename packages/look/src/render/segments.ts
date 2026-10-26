@@ -1,4 +1,4 @@
-import { type AccountWindow, formatClock, type PeerMark, tasksWith } from "@adeildo/pi-kit";
+import { type AccountWindow, type BoardCard, formatClock, type PeerMark } from "@adeildo/pi-kit";
 import { visibleWidth } from "@earendil-works/pi-tui";
 
 import type { Snapshot } from "../data/snapshot.ts";
@@ -27,7 +27,7 @@ export const SEGMENT_IDS = [
 	"branch",
 	"host",
 	"session",
-	"tasks",
+	"board",
 	"peers",
 	"version",
 	"clock",
@@ -67,7 +67,8 @@ export function isSegmentId(value: string): value is SegmentId {
 /** Status keys a builtin segment already draws, so the statuses segment skips them. */
 const CLAIMED_BY_SEGMENT: Partial<Record<BuiltinSegment, string>> = {
 	model: "pi-providers:account",
-	tasks: "pi-tasks",
+	// The tasks feature draws its own status until it is gone; the board's segment stands in for it.
+	board: "pi-tasks",
 	peers: "pi-peers",
 };
 
@@ -191,25 +192,27 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 			};
 		},
 	},
-	tasks: {
+	board: {
 		priority: 30,
 		describe:
-			"what the agent is doing, then ⚑ how many tasks wait on you or on something outside, ⧗ how many are queued and ✓ how many are done, from the tasks package",
-		// The counts outlive the task's words: a short line cuts the words.
+			"the card being done, then ⚑ how many open cards are blocked, ⧗ how many are to do and free to start, and ✓ how many are done, from the session's board",
+		// The counts outlive the card's words: a short line cuts the words.
 		render: ({ snapshot, glyphs, paint }) => {
-			const state = snapshot.tasks;
-			if (state === undefined) return undefined;
-			const doing = tasksWith(state, "doing");
-			const step = doing[0]?.text ?? state.title;
-			const more = doing.length > 1 ? paint.dim(` +${doing.length - 1}`) : "";
+			const cards = snapshot.board?.cards ?? [];
+			const doing = cards.filter((card) => card.column === "doing");
+			const blocked = cards.filter(blocks).length;
+			const todo = cards.filter((card) => card.column === "todo" && !blocks(card)).length;
+			const done = cards.filter((card) => card.column === "done").length;
 			const counts = [
-				tally(tasksWith(state, "waiting").length, glyphs.waiting, "waiting", paint),
-				tally(tasksWith(state, "queued").length, glyphs.queued, "queued", paint),
-				tally(tasksWith(state, "done").length, glyphs.done, "done", paint),
+				tally(blocked, glyphs.waiting, "waiting", paint),
+				tally(todo, glyphs.queued, "queued", paint),
+				tally(done, glyphs.done, "done", paint),
 			].filter((part) => part !== "");
+			const step = doing[0]?.title;
 			if (step === undefined && counts.length === 0) return undefined;
-			// Between tasks the line stays, so what was done and what waits do not vanish with them.
-			const icon = mark(glyphs.tasks, paint, "tasks");
+			const more = doing.length > 1 ? paint.dim(` +${doing.length - 1}`) : "";
+			// Between cards the line stays, so what was done and what waits do not vanish with them.
+			const icon = mark(glyphs.board, paint, "board");
 			const words = (room: number) =>
 				step === undefined ? paint.dim("idle") : paint.text(fitWidth(step, room, glyphs.ellipsis));
 			const tail = `${more}${counts.length === 0 ? "" : `  ${counts.join("  ")}`}`;
@@ -562,6 +565,11 @@ function mark(glyph: string, paint: Paint, role: Role): string {
 }
 
 /** `✓2` in the color of what it counts, like the branch's marks. ASCII icons have no glyph, so the word goes. */
+/** A card that waits on someone before it can move, counted there and not as to do. A closed card no longer waits. */
+function blocks(card: BoardCard): boolean {
+	return card.blocked !== undefined && card.column !== "done" && card.column !== "dropped";
+}
+
 function tally(
 	size: number,
 	glyph: string,
