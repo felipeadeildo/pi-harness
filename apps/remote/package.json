@@ -9,7 +9,9 @@
 		"csp": "bun scripts/csp.ts"
 	},
 	"dependencies": {
+		"@expo/vector-icons": "^15.0.2",
 		"expo-sqlite": "~58.0.14",
+		"expo-symbols": "~58.0.4",
 		"react-native-webview": "14.0.1"
 	},
 	"devDependencies": {

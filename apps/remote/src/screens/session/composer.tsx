@@ -201,7 +201,7 @@ function Overflow({
 	const [open, setOpen] = useState(false);
 	return (
 		<>
-			<Action label="More" onPress={() => setOpen(true)} />
+			<Action label="More" icon="more" onPress={() => setOpen(true)} />
 			{open ? (
 				<Sheet title="More" onClose={() => setOpen(false)}>
 					{items.map((item) => (
