@@ -133,6 +133,14 @@ function stateOf(daemon: FakeDaemon): { permissions: { serves?: boolean } } {
 	return data?.summary?.state ?? { permissions: {} };
 }
 
+/** The models the last snapshot carried in its state, or nothing when it carried none. */
+function modelsOf(daemon: FakeDaemon): unknown[] | undefined {
+	const data = daemon.received.findLast((one) => one.type === "state")?.data as
+		| { summary?: { state?: { models?: unknown[] } } }
+		| undefined;
+	return data?.summary?.state?.models;
+}
+
 function types(daemon: FakeDaemon): string[] {
 	return daemon.received.map((one) => one.type);
 }
@@ -1213,6 +1221,37 @@ describe("one bridge", () => {
 		await start(mounted());
 		await until(() => types(bare).includes("state"));
 		expect(stateOf(bare).permissions.serves).toBe(false);
+	});
+
+	test("the models pi lists reach the state, as a provider, an id and a name and nothing of how they are reached", async () => {
+		const daemon = await listening();
+		const ctx = Object.assign(session(), {
+			modelRegistry: {
+				getAvailable: () => [
+					{
+						provider: "anthropic",
+						id: "opus",
+						name: "Opus",
+						baseUrl: "https://example.test",
+						cost: { input: 1, output: 2 },
+					},
+					{ provider: "rig", id: "scripted", name: "Scripted" },
+				],
+			},
+		});
+		await start(mounted(), ctx);
+		await until(() => types(daemon).includes("state"));
+		expect(modelsOf(daemon)).toEqual([
+			{ provider: "anthropic", id: "opus", name: "Opus" },
+			{ provider: "rig", id: "scripted", name: "Scripted" },
+		]);
+	});
+
+	test("a host with no registry has not said which models exist, which is not the same as none", async () => {
+		const daemon = await listening();
+		await start(mounted(), session());
+		await until(() => types(daemon).includes("state"));
+		expect(modelsOf(daemon)).toBeUndefined();
 	});
 
 	test("a session that takes mode.set says so, before any mode was chosen", async () => {

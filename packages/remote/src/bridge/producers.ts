@@ -1,14 +1,19 @@
 import { BOARD, boardView, MODE_SET, totalsOf, type EventScope } from "@adeildo/pi-kit";
-import type { SessionState } from "@adeildo/pi-remote-protocol";
+import { applyChange, type SessionState } from "@adeildo/pi-remote-protocol";
 // The fields of a session's state that come from the process rather than from the log: a capability, the
 // money spent, who sent a prompt. Each one owns its field and knows how to place it, and the opening
 // reads them from here instead of naming each in the bridge.
-import type { SessionEntry } from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext, SessionEntry } from "@earendil-works/pi-coding-agent";
 
 /** One field of the state, and how to put its value on a state that came from the log. */
 export interface Producer {
 	/** The state with this field set, or the state it was given when the value is not known. */
-	apply(state: SessionState, scope: EventScope, entries: readonly SessionEntry[]): SessionState;
+	apply(
+		state: SessionState,
+		scope: EventScope,
+		entries: readonly SessionEntry[],
+		ctx: ExtensionContext,
+	): SessionState;
 	/** The state change that publishes it when it moves on its own, for a field that changes mid-session. */
 	change?: string;
 }
@@ -55,5 +60,18 @@ export const PRODUCERS: readonly Producer[] = [
 			...state,
 			permissions: { ...state.permissions, serves: MODE_SET.current(scope) !== undefined },
 		}),
+	},
+	{
+		// The models pi could switch to, read from the registry the terminal's `/model` lists. pi gives no
+		// signal when it changes, so this is read when a snapshot is built. A host with no registry has not
+		// said which models exist, which is not the same as none, so the field stays absent.
+		apply: (state, _scope, _entries, ctx) => {
+			const registry = ctx.modelRegistry as Partial<ExtensionContext["modelRegistry"]> | undefined;
+			if (typeof registry?.getAvailable !== "function") return state;
+			const models = registry
+				.getAvailable()
+				.map(({ provider, id, name }) => ({ provider, id, name }));
+			return applyChange(state, "models.listed", { models });
+		},
 	},
 ];
