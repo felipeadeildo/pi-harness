@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -68,6 +68,18 @@ describe("the page's build", () => {
 		// Only what was there when the daemon read the folder: a file written later is not served.
 		writeFileSync(join(dir, "web", "secret.txt"), "no");
 		expect(isAppFile(app, "/secret.txt")).toBe(false);
+	});
+
+	test("a new build while the daemon runs is served whole, and the old one's files are gone", () => {
+		const app = appOf();
+		const root = join(dir, "web");
+		rmSync(join(root, "assets"), { recursive: true });
+		mkdirSync(join(root, "assets"));
+		writeFileSync(join(root, "assets", "index-5678.js"), "console.log(2)");
+		writeFileSync(join(root, "index.html"), PAGE.replace("1234", "5678"));
+		utimesSync(join(root, "index.html"), new Date(), new Date(Date.now() + 60_000));
+		expect(fileFor(app, "/assets/index-5678.js")).toBe("/assets/index-5678.js");
+		expect(fileFor(app, "/assets/index-1234.js")).toBeUndefined();
 	});
 
 	test("every file comes with the policy, a hashed asset is cached for good, and the page is not", () => {

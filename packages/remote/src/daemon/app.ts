@@ -1,5 +1,5 @@
-// The page's build, listed once at startup, so a made-up path never reaches the filesystem.
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+// The page's build, listed when its page changes, so a made-up path never reaches the filesystem.
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join, relative, sep } from "node:path";
 
 const TYPES: Record<string, string> = {
@@ -32,6 +32,8 @@ export const POLICY = [
 export interface WebApp {
 	dir: string;
 	files: ReadonlySet<string>;
+	/** The listed build's `index.html`; another one is a new build, with new hashed names. */
+	page: number;
 }
 
 export interface Served {
@@ -48,16 +50,30 @@ export function findWebDir(from: string, env: NodeJS.ProcessEnv = process.env): 
 }
 
 export function loadWebApp(dir: string): WebApp | undefined {
-	if (!existsSync(join(dir, "index.html"))) return undefined;
+	const page = pageOf(dir);
+	if (page === undefined) return undefined;
+	return { dir, files: listed(dir), page };
+}
+
+function pageOf(dir: string): number | undefined {
+	return statSync(join(dir, "index.html"), { throwIfNoEntry: false })?.mtimeMs;
+}
+
+function listed(dir: string): Set<string> {
 	const files = readdirSync(dir, { recursive: true, withFileTypes: true })
 		.filter((entry) => entry.isFile())
 		.map((entry) => `/${relative(dir, join(entry.parentPath, entry.name)).split(sep).join("/")}`);
-	return { dir, files: new Set(files) };
+	return new Set(files);
 }
 
 /** `index.html` for `/` and the page's routes; undefined otherwise, so other paths reach the routes. */
 export function fileFor(app: WebApp, path: string): string | undefined {
 	if (path === "/" || ROUTES.some((route) => route.test(path))) return "/index.html";
+	const page = pageOf(app.dir);
+	if (page !== undefined && page !== app.page) {
+		app.files = listed(app.dir);
+		app.page = page;
+	}
 	return app.files.has(path) ? path : undefined;
 }
 

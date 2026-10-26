@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { requestLink } from "../src/cli/open.ts";
+import { loadWebApp } from "../src/daemon/app.ts";
 import { Logins } from "../src/daemon/auth.ts";
 import { Clients } from "../src/daemon/clients.ts";
 import { Daemon } from "../src/daemon/server.ts";
@@ -165,7 +166,7 @@ async function daemonOn(owner: boolean) {
 		version: "1.2.0",
 		machine: "ghost",
 		command: () => false,
-		web: { dir, files: new Set(["/index.html", "/app.js"]) },
+		web: loadWebApp(dir),
 		tailnet,
 		owners: new Owners(tailnet, async () => whois(owner ? OWNER : OTHER)),
 	});
