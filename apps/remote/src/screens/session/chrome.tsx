@@ -1,11 +1,16 @@
 // The chrome beside the transcript: what the session is doing and what it waits on. It is React Native
 // because a phone draws it with views, and nothing here is a document.
-import { type OpenAsk, type SessionState, type SessionTasks } from "@adeildo/pi-remote-protocol";
+import {
+	type BoardView,
+	type OpenAsk,
+	type SessionState,
+	type SessionTasks,
+} from "@adeildo/pi-remote-protocol";
 import { Text, View } from "react-native";
 
 import { plain } from "../../render/index.ts";
 import { theme } from "../../ui/theme.ts";
-import { openTasksOf, terminalWait } from "./panel-data.ts";
+import { boardCards, openTasksOf, terminalWait } from "./panel-data.ts";
 
 export function Tasks({ tasks }: { tasks: SessionTasks | undefined }): React.ReactNode {
 	const open = openTasksOf(tasks);
@@ -16,6 +21,22 @@ export function Tasks({ tasks }: { tasks: SessionTasks | undefined }): React.Rea
 			{open.map((task) => (
 				<Text key={task.id} style={{ ...theme.type.body, color: theme.color.text }}>
 					{task.line}
+				</Text>
+			))}
+		</View>
+	);
+}
+
+/** The board the session keeps, as cards: absent means nothing is drawn, not an empty board. */
+export function Board({ board }: { board: BoardView | undefined }): React.ReactNode {
+	const cards = boardCards(board);
+	if (cards.length === 0) return null;
+	return (
+		<View style={{ gap: theme.space(2), paddingVertical: theme.space(3) }}>
+			<Text style={{ ...theme.type.label, color: theme.color.text }}>Board</Text>
+			{cards.map((card) => (
+				<Text key={card.id} style={{ ...theme.type.body, color: theme.color.text }}>
+					{card.line}
 				</Text>
 			))}
 		</View>
