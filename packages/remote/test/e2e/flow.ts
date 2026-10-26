@@ -268,7 +268,11 @@ async function carriesTheOpeningsState(page: Page): Promise<Result> {
  */
 async function searchesModels(page: Page): Promise<Result> {
 	try {
-		await page.getByRole("button", { name: /^Model(: |$)/ }).click({ timeout: 20_000 });
+		// The rig's model is `rig/scripted`. The opening is the only thing that carries it to a page that
+		// opens after the session started, so a chip that names it has read the opening.
+		const chip = page.getByRole("button", { name: /^Model: scripted/ });
+		await chip.waitFor({ timeout: 20_000 });
+		await chip.click({ timeout: 20_000 });
 		const sheet = page.getByRole("dialog", { name: "Model" });
 		await sheet.waitFor({ timeout: 20_000 });
 		const all = await sheet.getByRole("radio").count();

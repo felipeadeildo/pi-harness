@@ -5,15 +5,17 @@ import { applyChange, type SessionState } from "@adeildo/pi-remote-protocol";
 // reads them from here instead of naming each in the bridge.
 import type { ExtensionContext, SessionEntry } from "@earendil-works/pi-coding-agent";
 
+/** What a producer may read: the scope's contracts, the branch's entries and pi's own context. */
+interface ProducerInput {
+	scope: EventScope;
+	entries: readonly SessionEntry[];
+	ctx: ExtensionContext;
+}
+
 /** One field of the state, and how to put its value on a state that came from the log. */
 export interface Producer {
 	/** The state with this field set, or the state it was given when the value is not known. */
-	apply(
-		state: SessionState,
-		scope: EventScope,
-		entries: readonly SessionEntry[],
-		ctx: ExtensionContext,
-	): SessionState;
+	apply(state: SessionState, input: ProducerInput): SessionState;
 	/** The state change that publishes it when it moves on its own, for a field that changes mid-session. */
 	change?: string;
 }
@@ -29,7 +31,7 @@ export const PRODUCERS: readonly Producer[] = [
 	{
 		// The board the session keeps, cut and ordered by the feature that wrote it: this carries it and
 		// decides nothing, so a screen draws the writer's order and never one of its own.
-		apply: (state, scope) => {
+		apply: (state, { scope }) => {
 			const board = BOARD.current(scope);
 			return board === undefined ? state : { ...state, board: boardView(board) };
 		},
@@ -37,7 +39,7 @@ export const PRODUCERS: readonly Producer[] = [
 	{
 		// What the session has spent so far, summed from pi's own per-message usage. Read from the branch
 		// rather than folded from events, so the opening always carries it and a reconnect keeps it.
-		apply: (state, _scope, entries) => {
+		apply: (state, { entries }) => {
 			const totals = totalsOf(entries);
 			return {
 				...state,
@@ -56,7 +58,7 @@ export const PRODUCERS: readonly Producer[] = [
 		// Whether the session takes a mode at all. A capability, not a value: the mode itself comes from
 		// the log, and this says only whether there is a dial to turn. A live bridge always knows, so it
 		// answers both ways; only the empty state before any bridge spoke has no opinion.
-		apply: (state, scope) => ({
+		apply: (state, { scope }) => ({
 			...state,
 			permissions: { ...state.permissions, serves: MODE_SET.current(scope) !== undefined },
 		}),
@@ -65,7 +67,7 @@ export const PRODUCERS: readonly Producer[] = [
 		// The models pi could switch to, read from the registry the terminal's `/model` lists. pi gives no
 		// signal when it changes, so this is read when a snapshot is built. A host with no registry has not
 		// said which models exist, which is not the same as none, so the field stays absent.
-		apply: (state, _scope, _entries, ctx) => {
+		apply: (state, { ctx }) => {
 			const registry = ctx.modelRegistry as Partial<ExtensionContext["modelRegistry"]> | undefined;
 			if (typeof registry?.getAvailable !== "function") return state;
 			const models = registry
@@ -73,5 +75,18 @@ export const PRODUCERS: readonly Producer[] = [
 				.map(({ provider, id, name }) => ({ provider, id, name }));
 			return applyChange(state, "models.listed", { models });
 		},
+	},
+	{
+		// The model and the thinking level the session is on now, from pi's context. They arrive on
+		// `session.live` too, but the opening is the new base and drops what came before it, so a
+		// client that opens after a restart would find neither. A session pi has given no model to
+		// has not said one, so the field stays absent.
+		apply: (state, { ctx }) => ({
+			...state,
+			...(ctx.model === undefined
+				? {}
+				: { model: { provider: ctx.model.provider, id: ctx.model.id } }),
+			...(ctx.thinkingLevel === undefined ? {} : { thinkingLevel: ctx.thinkingLevel }),
+		}),
 	},
 ];
