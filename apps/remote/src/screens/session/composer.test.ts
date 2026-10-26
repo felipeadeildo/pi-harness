@@ -8,10 +8,13 @@ import type { CommandType } from "@adeildo/pi-remote-protocol";
 import {
 	CLIENT_MODES,
 	dropNow,
+	isCurrentModel,
 	levelChoices,
+	matchModels,
 	modeChoices,
 	menuItems,
 	modelLabel,
+	modelsNote,
 	outboxLine,
 	primaryAct,
 	sendNow,
@@ -73,7 +76,8 @@ describe("the pickers", () => {
 
 	test("the model line names the model, and says so when there is none", () => {
 		expect(modelLabel({ provider: "anthropic", id: "opus" })).toBe("opus");
-		expect(modelLabel(undefined)).toBe("no model");
+		// Not said yet is not "no model": the chip shows its own name until the session says which.
+		expect(modelLabel(undefined)).toBe("");
 	});
 });
 
@@ -159,5 +163,57 @@ describe("the field's row", () => {
 		expect(
 			menuItems({ running: false, empty: true, canRename: false }).map((one) => one.id),
 		).not.toContain("rename");
+	});
+});
+
+describe("the model sheet", () => {
+	const models = [
+		{ provider: "anthropic", id: "claude-opus", name: "Opus" },
+		{ provider: "anthropic", id: "claude-haiku", name: "Haiku" },
+		{ provider: "openai", id: "gpt-opus-like", name: "GPT Large" },
+	];
+
+	test("nothing typed leaves the whole list, in the order the session gave it", () => {
+		expect(matchModels(models, "").map((one) => one.id)).toEqual([
+			"claude-opus",
+			"claude-haiku",
+			"gpt-opus-like",
+		]);
+		expect(matchModels(models, "   ")).toHaveLength(3);
+	});
+
+	test("a word is found in the name, the id or the provider, whatever the case", () => {
+		expect(matchModels(models, "HAIKU").map((one) => one.id)).toEqual(["claude-haiku"]);
+		expect(matchModels(models, "openai").map((one) => one.id)).toEqual(["gpt-opus-like"]);
+		// "opus" is in a name and in the id of another provider's model, and both are listed.
+		expect(matchModels(models, "opus").map((one) => one.id)).toEqual([
+			"claude-opus",
+			"gpt-opus-like",
+		]);
+	});
+
+	test("every word has to match, in any order", () => {
+		expect(matchModels(models, "opus anthropic").map((one) => one.id)).toEqual(["claude-opus"]);
+		expect(matchModels(models, "anthropic opus").map((one) => one.id)).toEqual(["claude-opus"]);
+		expect(matchModels(models, "opus nothing")).toEqual([]);
+	});
+
+	test("the model the session is on is told by provider and id together, not by id alone", () => {
+		const current = { provider: "anthropic", id: "claude-opus" };
+		expect(models.map((one) => isCurrentModel(one, current))).toEqual([true, false, false]);
+		// The same id under another provider is another model.
+		expect(isCurrentModel({ provider: "other", id: "claude-opus", name: "Opus" }, current)).toBe(
+			false,
+		);
+		expect(models.map((one) => isCurrentModel(one, undefined))).toEqual([false, false, false]);
+	});
+});
+
+describe("when the list is shorter than the registry", () => {
+	test("the sheet says how many it holds of how many, and says nothing when it holds them all", () => {
+		expect(modelsNote(300, 301)).toBe("300 of 301 models, refine the search");
+		expect(modelsNote(300, 300)).toBeUndefined();
+		// A list nobody counted is not a short one.
+		expect(modelsNote(300, undefined)).toBeUndefined();
 	});
 });

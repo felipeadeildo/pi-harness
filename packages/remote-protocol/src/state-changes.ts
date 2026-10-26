@@ -132,6 +132,17 @@ export const SESSION_STATES = ["working", "blocked", "done", "error", "idle"] as
 export const PROMPT_KINDS = ["editor", "custom"] as const;
 export type PromptKind = (typeof PROMPT_KINDS)[number];
 
+/**
+ * A model the session could switch to, as far as a client needs to pick one: `provider` and `id` are what
+ * `model.set` takes, `name` is what the person reads and searches. Nothing about how the provider is
+ * reached: the list goes to every client signed in.
+ */
+export interface ModelOption {
+	provider: string;
+	id: string;
+	name: string;
+}
+
 /** Every state change the client reduces, with the shape each carries. */
 export interface StateChangeMap {
 	"tasks.changed": { state: SessionTasks };
@@ -175,6 +186,8 @@ export interface StateChangeMap {
 	"queue.changed": { queue: QueuedMessage[] };
 	/** The terminal waits on a dialog a client cannot answer, or stops waiting on it. */
 	"terminal.prompted": { open: boolean; kind: PromptKind; title?: string };
+	/** The models the session could switch to, from pi's registry when the bridge built its opening. */
+	"models.listed": { models: ModelOption[] };
 	/** What the session has cost so far, summed by the bridge from pi's per-message usage. */
 	"cost.changed": { cost: SessionCost };
 }

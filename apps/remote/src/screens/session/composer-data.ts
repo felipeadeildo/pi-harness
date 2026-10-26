@@ -4,6 +4,7 @@ import type { Client, Outgoing } from "@adeildo/pi-remote-client";
 import {
 	type CommandMap,
 	type CommandType,
+	type ModelOption,
 	type PermissionMode,
 	THINKING_LEVELS,
 } from "@adeildo/pi-remote-protocol";
@@ -83,9 +84,22 @@ export function menuItems(state: {
 	return items;
 }
 
-/** The model the session is on, as the one line the picker shows. */
+/**
+ * The model the session is on, as the one line the picker shows. Before the session has said which one,
+ * the line is empty and the chip shows its own name: "no model" would say there is none.
+ */
 export function modelLabel(model: { provider: string; id: string } | undefined): string {
-	return model === undefined ? "no model" : model.id;
+	return model === undefined ? "" : model.id;
+}
+
+/**
+ * What the sheet says when the list it holds is shorter than the registry's: the search covers only
+ * those, and a list cut without a word reads as the whole registry.
+ */
+export function modelsNote(held: number, total: number | undefined): string | undefined {
+	return total !== undefined && total > held
+		? `${held} of ${total} models, refine the search`
+		: undefined;
 }
 
 /** Sends a held command now: it keeps its id, so the far side reads it as the same one. */
@@ -140,4 +154,28 @@ export function takeDraft(
 	if (text === "") return;
 	send("prompt.send", { text, deliverAs });
 	clear();
+}
+
+/**
+ * The models a search leaves. Every word typed has to be in the name, the id or the provider, in any
+ * order and whatever the case, so "opus anth" finds Anthropic's Opus. Nothing typed leaves the whole
+ * list, in the order the session gave it: the screen does not rank.
+ */
+export function matchModels(models: readonly ModelOption[], query: string): ModelOption[] {
+	const words = query
+		.toLowerCase()
+		.split(/\s+/)
+		.filter((word) => word !== "");
+	return models.filter((model) => {
+		const haystack = `${model.name} ${model.id} ${model.provider}`.toLowerCase();
+		return words.every((word) => haystack.includes(word));
+	});
+}
+
+/** Whether a listed model is the one the session is on. */
+export function isCurrentModel(
+	model: ModelOption,
+	current: { provider: string; id: string } | undefined,
+): boolean {
+	return current !== undefined && model.provider === current.provider && model.id === current.id;
 }

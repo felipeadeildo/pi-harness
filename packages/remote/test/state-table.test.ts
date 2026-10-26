@@ -157,6 +157,60 @@ const ROWS: Row[] = [
 		}),
 	},
 	{
+		name: "the models a bridge listed are kept, each with its provider, id and name",
+		events: [
+			{
+				type: "models.listed",
+				data: { models: [{ provider: "anthropic", id: "opus", name: "Opus" }] },
+			},
+		],
+		expects: [{ provider: "anthropic", id: "opus", name: "Opus" }],
+		leaves: (state) => state.models,
+	},
+	{
+		name: "a list with one model that has no name is not read, so a model that cannot be read is never offered",
+		events: [
+			{
+				type: "models.listed",
+				data: {
+					models: [
+						{ provider: "anthropic", id: "opus", name: "Opus" },
+						{ provider: "anthropic", id: "haiku" },
+					],
+				},
+			},
+		],
+		expects: undefined,
+		leaves: (state) => state.models,
+	},
+	{
+		name: "an empty list is a list: the bridge said there is no model, and that is not silence",
+		events: [{ type: "models.listed", data: { models: [] } }],
+		expects: [],
+		leaves: (state) => state.models,
+	},
+	{
+		name: "the state keeps the first three hundred models of a registry and lets the rest go",
+		events: [
+			{
+				type: "models.listed",
+				data: {
+					models: Array.from({ length: 301 }, (_, at) => ({
+						provider: "p",
+						id: `m${at}`,
+						name: `M${at}`,
+					})),
+				},
+			},
+		],
+		expects: { count: 300, last: "m299", total: 301 },
+		leaves: (state) => ({
+			count: state.models?.length,
+			last: state.models?.at(-1)?.id,
+			total: state.modelsTotal,
+		}),
+	},
+	{
 		name: "a dialog a client can answer is not a wait on the terminal",
 		events: [{ type: "terminal.prompted", data: { open: true, kind: "select", title: "Pick" } }],
 		expects: undefined,

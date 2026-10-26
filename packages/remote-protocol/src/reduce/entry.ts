@@ -25,6 +25,9 @@ const unchanged = (state: SessionState): SessionState => state;
  */
 export const KEPT_CLOSED = 100;
 
+/** How many models the state keeps of what a registry lists. A registry is a third party's data. */
+const KEPT_MODELS = 300;
+
 /** How many prompts' senders the state keeps. The number is a choice, not a measurement. */
 const KEPT_PROMPTS = 100;
 
@@ -192,6 +195,28 @@ export const CHANGES: { [K in StateChangeType]: Entry<StateChangeMap[K]> } = {
 			promptFrom: Object.fromEntries(
 				Object.entries({ ...state.promptFrom, [data.entry]: data.by }).slice(-KEPT_PROMPTS),
 			),
+		}),
+	},
+	"models.listed": {
+		// One entry without a provider, an id or a name makes the whole list unreadable: a list that
+		// names a model a client cannot pick, or cannot read, is worse than the list not arriving.
+		check: (data): data is StateChangeMap["models.listed"] =>
+			isObject(data) &&
+			Array.isArray(data.models) &&
+			data.models.every(
+				(model) =>
+					isObject(model) &&
+					typeof model.provider === "string" &&
+					model.provider !== "" &&
+					typeof model.id === "string" &&
+					model.id !== "" &&
+					typeof model.name === "string" &&
+					model.name !== "",
+			),
+		apply: (state, data) => ({
+			...state,
+			models: data.models.slice(0, KEPT_MODELS),
+			modelsTotal: data.models.length,
 		}),
 	},
 	"queue.changed": {

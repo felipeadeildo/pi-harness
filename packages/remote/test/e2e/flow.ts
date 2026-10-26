@@ -260,6 +260,35 @@ async function carriesTheOpeningsState(page: Page): Promise<Result> {
  * a settle that never comes.
  */
 /**
+ * The model chip opens a sheet of the models the session's registry lists, and the search narrows it.
+ * The list comes from the opening, with no event after it, so a chip that opens has read the state
+ * the bridge sent. The rig's registry is pi's own and its size depends on the machine's credentials,
+ * so the step needs one model at least: it proves the sheet reads the state, a search nothing matches
+ * empties it, and clearing the search brings every row back.
+ */
+async function searchesModels(page: Page): Promise<Result> {
+	try {
+		await page.getByRole("button", { name: /^Model(: |$)/ }).click({ timeout: 20_000 });
+		const sheet = page.getByRole("dialog", { name: "Model" });
+		await sheet.waitFor({ timeout: 20_000 });
+		const all = await sheet.getByRole("radio").count();
+		await sheet.getByRole("textbox", { name: "Search models" }).fill("zzzz-no-such-model");
+		const none = await sheet.getByRole("radio").count();
+		await sheet.getByRole("textbox", { name: "Search models" }).fill("");
+		const back = await sheet.getByRole("radio").count();
+		await sheet.getByRole("button", { name: "Close", exact: true }).click({ timeout: 10_000 });
+		return all >= 1 && none === 0 && back === all
+			? { ok: true }
+			: {
+					ok: false,
+					why: `the model sheet listed ${all}, then ${none} for a search nothing matches, then ${back}`,
+				};
+	} catch (error) {
+		return { ok: false, why: `the model chip did not open a sheet (${short(error)})` };
+	}
+}
+
+/**
  * A prompt typed in the browser, and the three things that have to happen for it to count: the field
  * takes the text, the screen sends it, and the session's branch grows. Each has its own sentence,
  * because "the branch did not grow" covered three different failures for an afternoon.
@@ -301,9 +330,9 @@ async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
 				).trim();
 				if (!said.startsWith("from ")) await Bun.sleep(100);
 			}
-			return said.startsWith("from ")
-				? { ok: true }
-				: { ok: false, why: `the prompt the browser sent says no origin (read "${said}")` };
+			if (!said.startsWith("from "))
+				return { ok: false, why: `the prompt the browser sent says no origin (read "${said}")` };
+			return await searchesModels(page);
 		}
 		const seen = await rig
 			.until((line) => line.type === "prompt.received", 2_000)
