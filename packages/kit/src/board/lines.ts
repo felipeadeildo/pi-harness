@@ -7,8 +7,11 @@ import { truncateToWidth } from "@earendil-works/pi-tui";
 import { CUT } from "../ui/glyphs.ts";
 import { BOARD_COLUMNS, blockedText, type BoardCard, type BoardView } from "./model.ts";
 
-/** The widest column word is the width of the field, so a title starts in the same place on every line. */
-const WIDTH = Math.max(...BOARD_COLUMNS.map((one) => one.column.length));
+/**
+ * The widest column word the panel draws is the width of the field, so a title starts in the same place
+ * on every line. Only the open columns count: a column the panel never draws must not widen it.
+ */
+const WIDTH = Math.max(...BOARD_COLUMNS.filter((one) => one.open).map((one) => one.column.length));
 
 /** What the panel shows of the board: the open cards, the backlog's count and the last done. */
 export function boardLines(
