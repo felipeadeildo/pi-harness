@@ -11,10 +11,7 @@ interface Drawn {
 	handleInput(data: string): void;
 }
 
-/**
- * A host that behaves like pi's terminal: the widget factory is called when the widget is set, the
- * input handler is called for every key, and the editor keeps its own text.
- */
+/** Behaves like pi's terminal: the factory runs on set, every key reaches the handler, the editor keeps its text. */
 function host(editor = "") {
 	let drawn: Drawn | undefined;
 	// pi gives every key to every listener, and the answer that consumes it is the one that counts.

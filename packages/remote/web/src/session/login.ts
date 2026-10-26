@@ -1,7 +1,5 @@
-// The login a link carries. A link has a one-time token in its fragment, which never reaches a server
-// in a request; the page trades it for a login cookie and takes the token out of the address, so it
-// does not stay in the history or in a screenshot. Only then does the socket open, because the cookie
-// is what the daemon accepts for `/ws`.
+// A link's one-time token travels in the fragment, is traded for a cookie, then removed from the
+// address so it stays out of history and screenshots. The socket opens after that.
 import { type Cache, memoryCache } from "@adeildo/pi-remote-protocol/client";
 
 /** Where the token rides in the link: after `#`, so no request ever carries it. */
@@ -14,12 +12,7 @@ export function tokenOf(hash: string): string | undefined {
 	return token === null || token === "" ? undefined : token;
 }
 
-/**
- * A URL without its fragment, and with its query kept: our own routes carry `?since=` and `?limit=`,
- * which a report may need, while the login rides in the fragment by design. Anything that serializes
- * a URL for the outside world passes it through here, including the navigation timing entry, whose
- * `name` keeps the whole URL from the start of the load and is not cleaned by `replaceState`.
- */
+/** Strips the login from any URL sent out, including the navigation timing entry. */
 export function withoutFragment(url: string): string {
 	const at = url.indexOf("#");
 	return at === -1 ? url : url.slice(0, at);
@@ -44,10 +37,6 @@ export interface Exchange {
 	login(token: string): Promise<{ ok: boolean; status: number }>;
 }
 
-/**
- * The exchange over `fetch`, with the cookie made explicit. The browser already sends it for the
- * page's own origin, and saying so keeps it true if a wrapper ever defaults to `omit`.
- */
 export const fetchLogin: Exchange = {
 	async login(token) {
 		const answer = await fetch("/login", {
@@ -60,11 +49,7 @@ export const fetchLogin: Exchange = {
 	},
 };
 
-/**
- * Trades the token for the cookie, once. A 204 means the browser now holds the login and the socket
- * will be let in. A refusal is final for this link: a token is spent or late, and asking again with
- * the same one cannot work, so the page says so instead of retrying.
- */
+/** A refusal is final for this link: a spent or late token never works again. */
 export async function logIn(
 	location: { pathname: string; search: string; hash: string; replaceState: (url: string) => void },
 	options: { exchange: Exchange; cache: Cache },

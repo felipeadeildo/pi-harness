@@ -26,10 +26,7 @@ export interface Wait {
 /** The runs the table below was measured on. */
 export const MEASURED_RUNS = 1688;
 
-/**
- * The chance of a message in the 4.5 minutes after a refresh, for refreshes sent less than `until`
- * minutes after the last request, measured on `MEASURED_RUNS` runs. Used until enough is learned.
- */
+/** Measured on `MEASURED_RUNS` runs; used until enough is learned. */
 const MEASURED: readonly (readonly [until: number, chance: number])[] = [
 	[9, 0.28],
 	[13.5, 0.12],
@@ -82,10 +79,7 @@ function chanceIn(counts: readonly number[], minutes: number, window: number): n
 	return sum(counts.slice(from, to)) / waiting;
 }
 
-/**
- * The waits in one session file. A run ends on an assistant message without tool calls, and its
- * wait lasts until the next request; a run nothing followed waited forever.
- */
+/** A run ends on an assistant message without tool calls; a run nothing followed waited forever. */
 export function waitsIn(file: string, since: number): Wait[] {
 	const requests: AgentRequest[] = [];
 	for (const line of file.split("\n")) addRequest(requests, line, since);
@@ -163,10 +157,7 @@ export function endsOnQuestion(content: readonly Part[]): boolean {
 	return texts.findLast((text) => text !== "")?.endsWith("?") ?? false;
 }
 
-/**
- * Reads every session file changed in the last `LEARN_DAYS`, one file and one line at a time, so
- * neither a month of sessions nor one long session is ever in memory at once.
- */
+/** One file and one line at a time, so no month of sessions is ever in memory. */
 export async function learnReturns(root: string, now: number): Promise<Returns> {
 	const since = now - LEARN_DAYS * 86_400_000;
 	const returns = emptyReturns();

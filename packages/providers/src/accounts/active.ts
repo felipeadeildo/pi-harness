@@ -3,10 +3,7 @@ import type { Pins } from "./pins.ts";
 import type { AccountStore } from "./store.ts";
 import type { Account } from "./types.ts";
 
-/**
- * The account a request uses: the session pin, else the store's choice, else the first account. A
- * provider with accounts always has one in use; undefined means it has none.
- */
+/** The session pin, else the store's choice, else the first account. */
 export function activeAccount(
 	store: AccountStore,
 	pins: Pins,

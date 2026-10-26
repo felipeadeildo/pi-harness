@@ -1,8 +1,6 @@
-// On Anthropic models, Anthropic clears old tool output on its side with clear_tool_uses. Its
-// clearing never drops the agent's thinking, where an edit to the context drops the thinking of
-// every later turn: platform.claude.com/docs/en/build-with-claude/context-editing
-// The calls stay: with their parameters cleared too, an agent in a test took its own earlier
-// reports for invented.
+// On Anthropic models, `clear_tool_uses` clears old tool output server-side and keeps the thinking,
+// unlike a context edit (platform.claude.com/docs/en/build-with-claude/context-editing). The calls
+// stay, since agents took their own reports for invented when the parameters went too.
 import { isObject, mergeBetas } from "@adeildo/pi-kit";
 
 import { clearAtLeast, KEPT_TOOLS } from "./prune.ts";
@@ -35,10 +33,7 @@ export function withServerClearing(payload: unknown, above: number): unknown {
 	};
 }
 
-/**
- * pi does not pass on what the server cleared, so a request whose context shrank by half the
- * clearing minimum counts as cleared. A turn adds far less than that.
- */
+/** Pi does not pass on what the server cleared, so a drop of half the clearing minimum counts. */
 export function serverCleared(previous: number, prompt: number, above: number): boolean {
 	return previous - prompt >= clearAtLeast(above) / 2;
 }

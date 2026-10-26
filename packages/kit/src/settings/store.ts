@@ -1,6 +1,4 @@
-// One store per app, reading only the settings its own features declared. A value comes from the
-// first layer with a valid one: project (for settings that accept it, in a trusted project),
-// global, default.
+// A value comes from the first layer that has a valid one: project (when allowed and trusted), global, default.
 import { formatProblems } from "../decode.ts";
 import {
 	assign,
@@ -119,11 +117,7 @@ export class SettingsStore {
 		return this.setAll([[entry, value]]);
 	}
 
-	/**
-	 * Writes several values in one pass, keeping the rest of the file. A value that already reads the
-	 * same is not written, so the file ends up holding what was decided and not a copy of every
-	 * default, which would freeze them.
-	 */
+	/** A value equal to the current one is not written, so the file never freezes a default. */
 	setAll(entries: readonly (readonly [Setting<unknown>, unknown])[]): string | undefined {
 		for (const [entry] of entries) this.#assertKnown(entry);
 		const changed = entries.filter(([entry, value]) => !same(this.#globalOf(entry), value));

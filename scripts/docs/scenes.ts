@@ -109,11 +109,6 @@ function questionsReview(theme: Theme): string[] {
 	return dialog.render(WIDTH);
 }
 
-/**
- * The model is still writing the call. The call keeps to one line in the chat, and the dialog under
- * it is already open: the first question answered, the second with one option you can pick and the
- * next one halfway through its label.
- */
 function questionsWriting(theme: Theme): string[] {
 	const [whole, next] = SCOPE.options;
 	const arriving = { label: (next?.label ?? "").slice(0, 7) };

@@ -1,7 +1,4 @@
-// Over the editor, while another agent writes to the room: who, to whom, and the words as they
-// arrive. A draft has not happened yet, so it wears the dashed frame the send queue wears. Once sent
-// to this agent, the frame stays and says when the agent gets it, until its model reads it and it
-// lands in the chat.
+// Over the editor while another agent writes to the room, in the send queue's dashed frame.
 import { basename } from "node:path";
 
 import { CHANGES_X, entryFrame, formatClock } from "@adeildo/pi-kit";
@@ -18,11 +15,6 @@ import { FRAME_MS } from "./motion.ts";
 
 export const PEERS_TYPING = "pi-peers-typing";
 
-/**
- * A message waiting for the agent shows this many lines of its words. The frame over the editor is
- * this many lines plus the two dashed ones around them: a line added here changes the height the
- * tests pin, so the assertion and the constant move together.
- */
 export const WAITING_SHOWN = 3;
 
 const WHEN: Record<Waiting["mode"], string> = {

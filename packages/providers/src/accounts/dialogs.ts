@@ -85,10 +85,7 @@ export async function pickAccount(accounts: Accounts, ctx: ExtensionContext): Pr
 	ctx.ui.notify(`${NAME}: ${provider} uses ${choice.label}`, "info");
 }
 
-/**
- * /accounts: the accounts of a provider, the current model's unless one is named. Enter uses one,
- * here and in the sessions that start after; the list renames, removes and adds them too.
- */
+/** /accounts for the current model's provider unless one is named. */
 export async function manageAccounts(
 	accounts: Accounts,
 	args: string,
@@ -200,10 +197,7 @@ function emptyText(providerId: string, provider: string): string {
 	return `No ${provider} accounts yet. Adding one keeps your current ${kind} login as an account too.`;
 }
 
-/**
- * Names a new credential and runs the provider's own login. The first account makes the provider
- * ours, so pi's own login comes along under a name of its own: from then on only accounts are read.
- */
+/** The first account brings pi's own login along under its own name. */
 async function addAccount(
 	accounts: Accounts,
 	providerId: string,

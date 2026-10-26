@@ -100,10 +100,7 @@ export class Hub {
 		this.#send(ws, message);
 	}
 
-	/**
-	 * A client opens a session. Only `(epoch, seq)` is read from its cursor: a cursor this life can
-	 * resume from gets the events after it, and anything else gets the opening.
-	 */
+	/** A cursor this epoch can resume from gets the events after it; anything else gets the opening. */
 	#hello(connection: Connection, ws: WebSocket, message: Envelope): void {
 		const session = message.session ?? "";
 		const sessions = this.#options.sessions;

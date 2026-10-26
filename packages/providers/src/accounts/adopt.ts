@@ -12,11 +12,7 @@ import type { Pins } from "./pins.ts";
 import type { AccountStore } from "./store.ts";
 import type { Account } from "./types.ts";
 
-/**
- * Pi's login just produced a credential; ask where it belongs and keep it. Pi's own copy is no
- * account, so a login that went nowhere would be lost: closing the dialog keeps it as a new account
- * under the provider's name, which `/accounts` can rename or remove.
- */
+/** Closing the dialog keeps the credential as a new account, since pi's own copy is not one. */
 export async function adoptAccount(
 	scope: FeatureScope,
 	store: AccountStore,

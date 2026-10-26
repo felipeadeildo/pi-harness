@@ -1,6 +1,4 @@
-// What the bridge sends of pi's own events: the assistant message being written, the tools running,
-// and at the end of each turn the entry that message became. Everything else reaches a client as an
-// entry. The shapes are those of pi's JSON mode, plus a `stream` number naming each message written.
+// Pi's own events as the bridge sends them, in the shapes of pi's JSON mode plus a `stream` number.
 import type {
 	MessageEndEvent,
 	MessageStartEvent,
@@ -39,10 +37,7 @@ export interface Streaming {
 
 const DELTAS: ReadonlySet<string> = new Set(["text_delta", "thinking_delta", "toolcall_delta"]);
 
-/**
- * pi's JSON form of an update: no cumulative message and no `partial`, so the stream grows with the
- * text and not with its square. A tool call's start keeps the id and name its partial held.
- */
+/** Without the cumulative message, so the stream grows with the text and not with its square. */
 function wireUpdate(event: MessageUpdateEvent): WireUpdate {
 	const usage = "usage" in event.message ? event.message.usage : undefined;
 	return {
@@ -60,10 +55,7 @@ function wireInner(inner: Inner): WireInner {
 	return call?.type === "toolCall" ? { ...rest, id: call.id, toolName: call.name } : rest;
 }
 
-/**
- * The end of a tool's output as text, which is what a screen shows of a call while it runs. Images
- * and details stay behind: the whole result is in the call's entry, and over HTTP.
- */
+/** The end of a running tool's output as text. The whole result is in the call's entry. */
 export function outputTail(result: unknown): { text: string; truncated: boolean } {
 	const text = contentOf(result).map(textOf).join("");
 	if (text.length <= OUTPUT_TAIL) return { text, truncated: false };
@@ -214,10 +206,7 @@ export class LiveStream {
 		if (this.#open !== undefined) this.send("stream.resync", { ...this.#open });
 	}
 
-	/**
-	 * Sends what the window holds now. Whatever copies the message being written, such as an opening,
-	 * flushes first, since the copy already holds those deltas and the window would send them again.
-	 */
+	/** Anything that copies the message being written flushes first, or the deltas go out twice. */
 	flush(): void {
 		clearTimeout(this.#flushTimer);
 		this.#flushTimer = undefined;

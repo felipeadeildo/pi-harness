@@ -17,10 +17,7 @@ const TYPES: Record<string, string> = {
 /** The addresses the page draws with its router, each answered by its one `index.html`. */
 const ROUTES = [/^\/session\/[^/]+\/[^/]+\/?$/];
 
-/**
- * The page's own scripts and nothing else. The build inlines no script, so none is hashed here; one
- * that did would not run, which the gate's browser sees.
- */
+/** The build inlines no script, so none is hashed. */
 export const POLICY = [
 	"default-src 'self'",
 	"script-src 'self'",
@@ -48,10 +45,7 @@ export interface Served {
 	body: Buffer | string;
 }
 
-/**
- * Where the build is, for code that lives in `from`: `web` next to a built file, the package's last
- * build for code run from `src/<folder>/`, or `PI_REMOTE_WEB`. Undefined when none has a page.
- */
+/** `web` next to a built file, the last build when run from `src/`, or `PI_REMOTE_WEB`. */
 export function findWebDir(from: string, env: NodeJS.ProcessEnv = process.env): string | undefined {
 	const candidates = [env.PI_REMOTE_WEB, join(from, "web"), join(from, "..", "..", "dist", "web")];
 	return candidates.find((dir) => dir !== undefined && existsSync(join(dir, "index.html")));
@@ -66,11 +60,7 @@ export function loadWebApp(dir: string): WebApp | undefined {
 	return { dir, files: new Set(files) };
 }
 
-/**
- * The build's file for a request path: the file itself, or `index.html` for `/` and for an address
- * the page's router draws. Undefined for anything else, so a made-up path (`/login`, `/sessions`,
- * `/x.js`) still reaches the daemon's own routes or a 404.
- */
+/** `index.html` for `/` and the page's routes; undefined otherwise, so other paths reach the routes. */
 export function fileFor(app: WebApp, path: string): string | undefined {
 	if (path === "/" || ROUTES.some((route) => route.test(path))) return "/index.html";
 	return app.files.has(path) ? path : undefined;

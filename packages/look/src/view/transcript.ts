@@ -1,6 +1,4 @@
-// Another session's entries as the components pi draws its own with, built the way pi's interactive
-// mode builds them when it loads a session. The look frames pi's components in the whole process,
-// and the kit hands over the renderers the harness registered, so the view draws what pi would.
+// Another session's entries, built as pi's interactive mode builds a loaded session.
 import { messageRendererFor, resolveToolRenderers } from "@adeildo/pi-kit";
 import {
 	AssistantMessageComponent,

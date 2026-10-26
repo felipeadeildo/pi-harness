@@ -1,6 +1,4 @@
-// How a bridge and its daemon talk over the unix socket: one JSON envelope per line, split on LF
-// only. JSON escapes every LF inside a string, so a line never holds part of two messages. The
-// daemon bundles this file, so it imports only the protocol package, which imports nothing.
+// One JSON envelope per line. JSON escapes every LF inside a string, so lines never mix messages.
 import { type Envelope, isEnvelope } from "@adeildo/pi-remote-protocol";
 
 /** A line longer than this is a bug on the other side, and is dropped instead of held. */
@@ -20,10 +18,7 @@ export function envelopeOf(text: string): Envelope | undefined {
 	}
 }
 
-/**
- * Cuts a stream of text into lines. It holds what follows the last LF until the rest arrives, and
- * drops a line that grows past `max`, up to its LF, so one bad message never takes the memory.
- */
+/** Drops a line that grows past `max`, so one bad message cannot take the memory. */
 export class Lines {
 	#pending = "";
 	#dropping = false;

@@ -9,11 +9,8 @@ import {
 	type SessionState,
 } from "@adeildo/pi-remote-protocol";
 
-/**
- * The log's state changes a client reduces. The log's own `session.state` is peers' running or idle, a
- * `RoomActivity` from another package, and it never crosses: the wire's `session.status` is pi's
- * program status, written by the bridge.
- */
+// The log's `session.state` is peers' running or idle and never crosses; the wire's
+// `session.status` is pi's, written by the bridge.
 const FORWARDED: ReadonlySet<string> = new Set([
 	"ask.opened",
 	"ask.closed",
@@ -28,11 +25,7 @@ export interface Logged {
 	data: unknown;
 }
 
-/**
- * Forwards a state change the kit logged for this session, and keeps what an opening needs of it. Only this
- * session's events cross, and only the ones in `FORWARDED`: the log carries state changes of other sessions
- * and types that are peers' business, and both would be wrong on the wire.
- */
+/** Forwards only this session's events, and only the types in `FORWARDED`. */
 export function forward(
 	logged: Logged,
 	session: string,
@@ -45,10 +38,6 @@ export function forward(
 }
 
 export class Harness {
-	/**
-	 * The state as the log has written it so far. It is the same shape a client reduces and the same
-	 * shape the daemon seeds itself with, so there is one reducer and one bound, here and everywhere.
-	 */
 	#state: SessionState = emptySessionState();
 
 	/** Folds one event the session logged into the state an opening carries. */

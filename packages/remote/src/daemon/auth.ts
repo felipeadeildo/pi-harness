@@ -1,6 +1,5 @@
-// Who may talk to the daemon over TCP. A pi asks for a token good once and for 60 seconds, opens the
-// app with it in the fragment, which no request carries, and the app trades it for an HttpOnly
-// cookie that every request needs. Loopback is no exception: any process here reaches 127.0.0.1.
+// A token good once for 60 seconds travels in the URL fragment and is traded for an HttpOnly
+// cookie. Loopback needs it too: any local process reaches 127.0.0.1.
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 
@@ -81,10 +80,7 @@ export class Logins {
 		return true;
 	}
 
-	/**
-	 * Writes the logins down. A disk that refuses keeps the login in memory until the daemon restarts,
-	 * which beats failing the request that made it.
-	 */
+	/** A disk that refuses keeps the login in memory until restart. */
 	#save(): void {
 		const now = this.#now();
 		const kept = this.#logins.filter((login) => now - login.seenAt <= LOGIN_MS);
@@ -152,11 +148,8 @@ const OPEN_ROUTES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Whether a request reaches this daemon on purpose. A `Host` the daemon does not answer to is a page
- * that resolved its own name to 127.0.0.1, so it gets 421. A WebSocket, or a request that changes
- * something, needs an `Origin` of the daemon's own, since any page can open one or post a form. A
- * client that is not a browser, such as the client library in a test or a native app, sends that
- * `Origin` too, or reads 403 on its first WebSocket.
+ * An unknown `Host` is DNS rebinding (421). A WebSocket or a request that changes something needs
+ * the daemon's own `Origin` (403), since any page can open one or post a form.
  */
 export function checkPlace(request: Asking, hosts: ReadonlySet<string>): Verdict {
 	const host = request.host?.toLowerCase();
@@ -174,12 +167,7 @@ export function checkPlace(request: Asking, hosts: ReadonlySet<string>): Verdict
 	return { ok: true };
 }
 
-/**
- * Decides one request: the checks of `checkPlace` first, then a login cookie for everything but the
- * app's files and the open routes. `isAppFile` is the only thing between a data route and a request
- * with no cookie, so it answers from the list of files the web build exported, never from the shape of
- * a path.
- */
+/** `checkPlace` first, then a login cookie for all but the page's files and the open routes. */
 export function authorize(
 	request: Asking,
 	place: { hosts: ReadonlySet<string>; logins: Logins; isAppFile(path: string): boolean },

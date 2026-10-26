@@ -1,13 +1,5 @@
-// The drain the compaction needs, with a real pi: a client sends a follow-up while pi is writing the
-// summary, and the message has to reach pi after the compaction, not sit in the bridge's queue until
-// the next run. The two timestamps are pi's own, from its branch: the compaction entry, and the user
-// message that carried the follow-up.
-//
-// What this does not separate: a send that escaped the compaction entirely would reach pi while it is
-// idle and still land after the summary, so `t2 > t1` alone cannot tell the queue from a race won. The
-// model writing at ten tokens a second covers it in practice; the assertion that proves it waits —
-// the letter in the bridge's queue while `compacting` is pending — arrives with the queue in the
-// session state.
+// A follow-up sent while pi writes a compaction summary reaches pi after the compaction, not at the
+// next run. The timestamps are pi's own: the compaction entry and the user message.
 import { afterEach, beforeEach, expect, setDefaultTimeout, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -24,9 +16,7 @@ import { VERSION } from "../src/version.ts";
 import { clientOf, until } from "./fakes.ts";
 import { logIn } from "./login.ts";
 
-// A real pi, a summary streaming in and a round trip over the socket: seconds, not milliseconds.
-// The typical pass is 2.5 s; the failure the mutant produces waits out `SLOW`, which is why the
-// ceiling is twice `SLOW` rather than the 5 s the suite uses by default.
+// A real pi and a streamed summary: about 2.5 s; a failure waits out `SLOW`.
 setDefaultTimeout(30_000);
 
 let root = "";
@@ -62,11 +52,7 @@ async function startDaemon(): Promise<{ daemon: Daemon; cookie: string }> {
 	return { daemon, cookie: await logIn(daemon, daemon.clientPort) };
 }
 
-/**
- * A real pi whose scripted model writes slowly, so the summary takes long enough for the follow-up
- * to arrive in the middle of it. The first request of a compaction asks for a summary as well, which
- * is why every answer comes from the factory and not from a list of replies.
- */
+/** The model writes slowly so the follow-up lands mid-summary; the factory answers the summary request too. */
 async function openRig(): Promise<Rig> {
 	let turn = 0;
 	const opened = await createRig({
@@ -123,9 +109,7 @@ test("a follow-up sent while pi compacts reaches pi after the compaction", async
 	// arrive while pi is inside it, which is the whole point of the test.
 	const compacting = rig.session.compact();
 	client.send("prompt.send", { text: "after the compaction" });
-	// While pi compacts it takes no prompt, so the message waits in the session's queue — the list the
-	// clients draw, and the reason a screen can show it and take it back. A send that escaped the
-	// compaction would never appear here, and `t2 > t1` alone could not tell the two apart.
+	// While pi compacts, the message waits in the session's queue.
 	await until(() => opened.client.session().state.queue.length === 1, SLOW);
 	expect(opened.client.session().state.queue[0]?.text).toBe("after the compaction");
 	await compacting;

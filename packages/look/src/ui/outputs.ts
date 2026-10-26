@@ -1,6 +1,4 @@
-// Alt+O: a tool call's whole output in a frame you scroll, newest call first. Pi only shows a long
-// output cut in the transcript, and Ctrl+O opens every call at once; here one call opens at a time,
-// and the arrows move between calls.
+// Alt+O: one tool call's whole output in a scrollable frame, newest first; the arrows move between calls.
 import { callTarget, CUT, frame, frameInner, FRAME_Y, GLYPH, type KeyHint } from "@adeildo/pi-kit";
 import type { SessionEntry, Theme } from "@earendil-works/pi-coding-agent";
 import {

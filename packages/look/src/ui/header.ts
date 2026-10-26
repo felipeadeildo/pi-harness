@@ -59,10 +59,7 @@ const REDRAW_MS = 1000;
 /** The harness's version, read once from the package that ships it. */
 export const HARNESS_VERSION = harnessVersion();
 
-/**
- * The start screen: the π, the folder and the model, and under them only what changed or waits on
- * you since the last session here. See DESIGN.md.
- */
+/** See DESIGN.md. */
 export class HeaderComponent implements Component {
 	readonly #screen: Screen;
 	readonly #source: HeaderSource;

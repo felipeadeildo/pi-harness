@@ -1,6 +1,5 @@
-// Opens a link in the operator's browser. `$BROWSER` wins, as most tools honor it, and then the
-// platform's opener. It never waits and never throws: a machine with no browser, such as one reached
-// over SSH, still shows the link, which is what the caller prints next.
+// Opens a link with `$BROWSER` or the platform's opener. Never waits and never throws: the caller
+// prints the link anyway.
 import { spawn } from "node:child_process";
 
 export function openInBrowser(

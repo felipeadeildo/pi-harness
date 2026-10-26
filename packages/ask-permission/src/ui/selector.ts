@@ -60,10 +60,7 @@ export async function askViaSelector(
 const ONE = "1".charCodeAt(0);
 const NINE = "9".charCodeAt(0);
 
-/**
- * The permission asked above the editor, where the reader is already typing: a dialog that took the
- * editor's place would hide the command the question is about.
- */
+/** Above the editor, so the command in question stays visible. */
 async function overEditor(
 	ctx: ExtensionContext,
 	title: string,

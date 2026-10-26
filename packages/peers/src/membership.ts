@@ -63,11 +63,7 @@ export class Membership {
 		return this.modeOf(session, cwd) !== "out";
 	}
 
-	/**
-	 * How a session stands here: out when the room is closed or the session was taken out, listening
-	 * when it asked to hear only what names it, and taking part otherwise. A folder member brings
-	 * every session opened in it in as taking part.
-	 */
+	/** A folder member brings every session opened in it as taking part. */
 	modeOf(session: string, cwd: string): RoomMode {
 		if (this.closed || this.out.has(session)) return "out";
 		if (!this.sessions.has(session) && !this.folders.has(cwd)) return "out";

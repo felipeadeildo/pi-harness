@@ -89,10 +89,6 @@ function entries(count: number): Entry[] {
 	}));
 }
 
-/**
- * A session pi titled, with the entries given and the branch through them, in a terminal unless
- * `mode` says otherwise.
- */
 /** Whether a run is in flight in the fake session, which is what a follow-up waits for. */
 let running = false;
 
@@ -337,9 +333,7 @@ describe("the bridge", () => {
 	test("a compaction that ends as the session goes away leaves nothing running behind it", async () => {
 		const fake = mounted();
 		let stale = false;
-		// The context pi refuses once the session it belonged to is gone: the next turn of the loop is
-		// exactly when that can happen, and the error lands outside any test, which is how it reached
-		// the main with the suite green.
+		// The next turn of the loop is exactly when pi may refuse a context whose session is gone.
 		const ctx = {
 			...session(),
 			isIdle: () => {

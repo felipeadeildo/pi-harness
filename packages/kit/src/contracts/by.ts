@@ -1,6 +1,4 @@
-// Who caused a state change. One a person or an agent can cause carries this on disk, on the wire and
-// inside the process, so a reader tells the operator at the terminal from the operator on a phone,
-// and both from an agent.
+// Who caused a state change: the operator at the terminal, the operator on a phone, or an agent.
 import { isObject } from "../decode.ts";
 
 export interface By {

@@ -1,6 +1,5 @@
-// The answers GitHub gives the start card: the last run of CI on this branch, and your own open pull
-// requests with something waiting on you. The card asks once per launch, in the background, and shows
-// nothing when gh is missing, the network is down, or the folder is not on GitHub.
+// CI's last run on this branch and your open pull requests that wait on you, asked once per launch.
+// Shows nothing without gh, network or a GitHub remote.
 import { isObject } from "@adeildo/pi-kit";
 
 import { processRunner, type Runner } from "./runner.ts";
@@ -30,10 +29,7 @@ export interface GithubState {
 	pr: OpenPullRequest | undefined;
 }
 
-/**
- * What GitHub knows about this folder. It never rejects: every question that cannot be answered
- * leaves its note out. `since` is the last session in the folder, the bar for a comment to be news.
- */
+/** Never rejects. `since` is the last session here, the bar for a comment to be news. */
 export async function readGithub(
 	cwd: string,
 	since: number | undefined,

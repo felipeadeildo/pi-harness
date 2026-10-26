@@ -1,8 +1,4 @@
-// The transcript and what heads it. Everything here is text from elsewhere, so it goes through the
-// markdown renderer and never through raw HTML.
-//
-// A model's thinking folds into one line, a `<details>` the reader opens, so a long chain of thought
-// does not push the answer off the screen. A tool's output shows its first lines and folds the rest.
+// The transcript. Text from elsewhere goes through the markdown renderer, never raw HTML.
 import {
 	type ChatMessage,
 	type SessionState,
@@ -172,10 +168,7 @@ function thought(key: string, text: string): ReactNode {
 	);
 }
 
-/**
- * A tool's output: its first lines, each cut at a width, and the whole of it in a fold under them
- * when anything was left out. A single line can be a whole JSON dump, so lines are cut as well.
- */
+/** The first lines, each cut, with the rest in a fold. */
 function output(text: string): ReactNode {
 	const lines = plain(text).split("\n");
 	// Nearly every output ends with a newline, which is no line of its own.
@@ -220,9 +213,6 @@ function Block({
 	children: ReactNode;
 }): ReactNode {
 	const { accent, agent } = useContext(WornContext);
-	// Who is speaking is smaller and heavier than what they say, as it is in the terminal: the person's
-	// `❯` takes the theme's accent and the agent's name its own color. A name with no color keeps the
-	// muted one, so no label wears a color nobody chose.
 	const color = who === "you" ? accent : who === "pi" ? agent : undefined;
 	const style: CSSProperties | undefined = color === undefined ? undefined : { color };
 	return (

@@ -1,6 +1,5 @@
-// One room's conversation, the right side of the panel: what was said, newest at the bottom, and the
-// line you write in under it. The panel keeps one per room, so a half-written line waits in its room
-// while you look at another.
+// One room's conversation and the line you write in. The panel keeps one per room, so a draft waits
+// in its room.
 import { type KeyHint, pointer, rule, spread, formatClock, GLYPH } from "@adeildo/pi-kit";
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { Input, Key, matchesKey, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
@@ -243,10 +242,7 @@ export class RoomView {
 		);
 	}
 
-	/**
-	 * Who the words are for. Reads the mentions the way the send path does, so a group mention is not
-	 * drawn as a mistake and a file after the `@` is not read as an agent.
-	 */
+	/** Reads mentions the way the send path does. */
 	#destination(text: string, names: Names): string {
 		const { theme } = this.#options;
 		const mentioned = mentionedNames(text);

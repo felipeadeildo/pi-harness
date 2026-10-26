@@ -5,10 +5,7 @@ import type { QueuedMessage } from "@adeildo/pi-remote-protocol";
 
 export interface InboxSession {
 	send(text: string, deliverAs: "steer" | "followUp" | undefined): void;
-	/**
-	 * Whether a run is in flight. Holding a follow-up in an idle session waits for an event that never
-	 * comes, and the prompt sits in the queue until someone types at the terminal.
-	 */
+	/** A follow-up held in an idle session would wait for an event that never comes. */
 	busy(): boolean;
 	arrived(text: string, by: By): void;
 	queued(queue: QueuedMessage[]): void;
@@ -45,14 +42,9 @@ export class SessionInbox {
 
 	/** A message with the one shape the inbox takes: a client's, or one another feature sends. */
 	put(letter: Letter): void {
-		// A repeat is not a second message: the inbox refuses it, and nothing goes to pi. This guard is
-		// the instance's memory, for a re-delivery or a steer the terminal handed back. What survives a
-		// restart is `Commands`, which keeps the ids from the log: those are command ids, and it is a
-		// mistake to dedupe here by letter, since then the guarantee depends on the two being equal.
+		// Dedupes by letter for this instance; ids that survive a restart are `Commands`' job.
 		if (!this.#inbox.put(letter)) return;
-		// A message that did not come from this terminal says so, as the design's `From <client>: …`.
-		// It says it on arrival, not on delivery: a follow-up still waits here, and the person at the
-		// terminal is the one who can take it back, so they are the one who must see it.
+		// Said on arrival, not on delivery, so the terminal can take a waiting follow-up back.
 		if (letter.by.kind === "client") this.#session.arrived(letter.text, letter.by);
 		if (letter.want === "steer") this.#session.send(letter.text, "steer");
 		else if (!this.#session.busy()) {
@@ -77,11 +69,7 @@ export class SessionInbox {
 		return this.#inbox.queue();
 	}
 
-	/**
-	 * The agent settled, so what waited goes in, one run: the operator's words before an agent's, and
-	 * the rest of the run as follow-ups. Nothing waits after this, so the queue is empty until a new
-	 * letter arrives.
-	 */
+	/** Delivers what waited as one run: the operator's words first, the rest as follow-ups. */
 	settle(): void {
 		const letters = this.#inbox.settle();
 		if (letters.length === 0) return;
@@ -91,10 +79,6 @@ export class SessionInbox {
 		this.#publish();
 	}
 
-	/**
-	 * A run started, so the letter that was sent to start it is out of the queue: the proof is pi's
-	 * own event, not a tick of the loop.
-	 */
 	started(): void {
 		if (this.#pending === undefined) return;
 		// The letter leaves the queue, and the reason the deadline may have written goes with it.
@@ -106,10 +90,7 @@ export class SessionInbox {
 		this.#publish();
 	}
 
-	/**
-	 * The deadline passed without a run: the letter stays where it is and gains the reason, which is
-	 * the fact and not a guess, because pi never said it started. `started()` clears it by taking the letter.
-	 */
+	/** No run started in time: the letter stays and carries the reason. */
 	#expire(): void {
 		// A start that arrived first took the letter, and there is nothing left to say about it.
 		const pending = this.#pending;

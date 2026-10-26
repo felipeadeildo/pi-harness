@@ -49,10 +49,7 @@ export class Presence {
 		this.#announce(session);
 	}
 
-	/**
-	 * A connection says who it is, without claiming the input. Opening a session is not typing in it:
-	 * a client that just arrived is a viewer, and the mark stays with whoever typed last.
-	 */
+	/** Opening a session is not typing in it: the input mark stays with whoever typed last. */
 	name(session: string, connection: Connection, by: By): void {
 		if (this.#watching.get(session)?.includes(connection) !== true) return;
 		this.#by.set(connection, by);
@@ -73,10 +70,6 @@ export class Presence {
 		this.#by.delete(connection);
 	}
 
-	/**
-	 * The terminal of a session typed, so it is one of the session's viewers and the one with the last
-	 * input. The bridge says who it is; the daemon does not guess a handle it cannot see.
-	 */
 	typed(session: string, by: By): void {
 		this.#terminal.set(session, by);
 		this.#latest.set(session, TERMINAL);
@@ -106,10 +99,6 @@ export class Presence {
 		return [...(this.#watching.get(session) ?? [])];
 	}
 
-	/**
-	 * A session ended, so nothing of it is kept: a relaunch with the same id starts with no viewers,
-	 * no mark, and no terminal from the life before it.
-	 */
 	forget(session: string): void {
 		const watching = this.#watching.get(session) ?? [];
 		this.#watching.delete(session);
@@ -128,10 +117,7 @@ export class Presence {
 		return new Map([...this.#watching].map(([session, watching]) => [session, watching.length]));
 	}
 
-	/**
-	 * Announces a change once. Two changes that leave a session looking the same are one event, because
-	 * what a client draws did not change either.
-	 */
+	/** Two changes that leave a session looking the same are one event. */
 	#announce(session: string): void {
 		const presence = this.of(session);
 		// Nobody to name is nothing to say, and a watcher that named nobody changed nothing.

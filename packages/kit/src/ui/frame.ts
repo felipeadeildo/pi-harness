@@ -1,6 +1,4 @@
-// The one frame every dialog of the harness wears: a rounded line on the terminal's own background,
-// the title and a status in the top edge, the keys in the bottom edge. No surface paints a background,
-// so nothing clashes with the terminal's theme. See DESIGN.md.
+// The frame every harness dialog wears. No surface paints a background. See DESIGN.md.
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
@@ -86,10 +84,7 @@ export function frame(
 	return [top, ...head, ...rows, frameBottom(theme, width, options)];
 }
 
-/**
- * The tabs, the current one in the accent. When they do not fit, the ones before the current give way
- * first, so the tab you are on always shows.
- */
+/** When they do not fit, the tabs before the current one give way first. */
 function tabsLine(theme: Theme, tabs: FrameTabs, inner: number): string {
 	const gap = "   ";
 	const drawn = tabs.titles.map((title, index) =>
@@ -132,10 +127,7 @@ export function frameBottom(theme: Theme, width: number, options: BottomOptions 
 	return edge(theme, border, width, LINE.bottomLeft, LINE.bottomRight, hints, note, cross);
 }
 
-/**
- * Whole keys only: when they do not fit, the ones before the last go first, so the way out (the last,
- * by convention `esc`) always shows.
- */
+/** Whole keys only; the last one, the way out, always shows. */
 function fitKeys(theme: Theme, keys: readonly KeyHint[], room: number): KeyHint[] {
 	const kept = [...keys];
 	while (kept.length > 1 && visibleWidth(keyHints(theme, kept)) > room)
@@ -192,11 +184,6 @@ function junction(split: number | undefined, char: string): Junction | undefined
 	return split === undefined ? undefined : { at: FRAME_PAD + split + 1, char };
 }
 
-/**
- * An edge of the frame: the corners, a label after the first, a note before the last, and where a
- * column line meets it. The label sits at the left when it fits before the column line, and right
- * after it when it does not; the note gives way first when room runs out.
- */
 function edge(
 	theme: Theme,
 	color: ThemeColor,

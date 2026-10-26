@@ -45,10 +45,7 @@ export async function openDaemon(): Promise<{ daemon: Daemon; port: number; cook
 	return { daemon, port, cookie: await logIn(daemon, port) };
 }
 
-/**
- * The events after a cursor, refusing the gap the replay cannot fill: `after` answers `undefined`
- * for it, which no amount of waiting turns into a page, so waiting on it hangs instead of failing.
- */
+/** Fails on a gap the replay cannot fill instead of hanging. */
 export function missed(daemon: Daemon, session: string, cursor: Cursor): Envelope[] {
 	const events = daemon.sessions.after(session, cursor);
 	if (events === undefined)
@@ -56,10 +53,6 @@ export function missed(daemon: Daemon, session: string, cursor: Cursor): Envelop
 	return events;
 }
 
-/**
- * A bridge as the daemon sees one: a hello, `session.live`, events with a seq, and an answer to
- * `state.get`, which tells whether the daemon asked for one.
- */
 export async function bridgeOf(session: string, epoch = "e1", file?: string, path = socket) {
 	const at = { machine: "laptop", session, epoch };
 	const client: Socket = dial(path);

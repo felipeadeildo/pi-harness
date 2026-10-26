@@ -1,6 +1,5 @@
-// The whole path with a real pi: the bridge in a rig session, the daemon, and the client library over
-// a WebSocket. A client that loses its connection, or the daemon, in the middle of a run must end with
-// the branch pi wrote: every entry once, none missing.
+// A real pi, the daemon and the client: losing the connection or the daemon mid-run still ends with
+// every entry once.
 import { afterEach, beforeEach, expect, setDefaultTimeout, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -54,11 +53,6 @@ async function startDaemon(): Promise<{ daemon: Daemon; cookie: string }> {
 	return { daemon, cookie: await logIn(daemon, daemon.clientPort) };
 }
 
-/**
- * The client library over a real WebSocket to whichever daemon is up, with a handle to drop the
- * connection the way a network does. The client then reconnects on its own, from its cursor.
- */
-
 async function openRig(): Promise<Rig> {
 	let turn = 0;
 	const opened = await createRig({
@@ -102,9 +96,7 @@ test("a client that loses its connection mid-run ends with the branch, every ent
 	await rig.prompt("first");
 	await until(() => opened.client.session().cursor.seq !== undefined, SLOW);
 
-	// Then the connection goes before the second turn's first event is applied, and may not come back
-	// until that turn ends. So the replay certainly holds numbered events after the cursor, which is
-	// the case a delta's number breaks and a delta without one does not.
+	// Drop before the second turn's first event, so the replay holds numbered events after the cursor.
 	opened.arm();
 	opened.hold();
 	await rig.prompt("second");
@@ -119,11 +111,7 @@ test("a client that loses its connection mid-run ends with the branch, every ent
 	expect(opened.opens()).toBeGreaterThan(1);
 	// The model really did write for a while, so the drop had a stream to land in.
 	expect(opened.deltas()).toBeGreaterThan(1);
-	// It came back from its cursor: the replay filled the gap, and no second opening was needed.
-	// That rule is guarded deterministically where it is produced and where it is read,
-	// `connection.test.ts` ("a delta takes no number") and `client.test.ts` ("a delta with no number
-	// between two numbered events asks for nothing and moves no cursor"). Here it is the whole path,
-	// a real pi included, which no unit test covers.
+	// The replay filled the gap without a second opening.
 	expect(opened.openings()).toBe(1);
 });
 
@@ -147,10 +135,7 @@ test("a daemon that restarts mid-run hands the client the branch through a new o
 	await until(() => heldIds(opened.client).join(" ") === want.join(" "), SLOW);
 	expect(heldIds(opened.client)).toEqual(want);
 	expect(opened.opens()).toBeGreaterThan(1);
-	// A new daemon holds no replay of what came before it, so the client had to take an opening: the
-	// first one, the bridge's when it reconnected, the daemon's answer to the client's hello, and the
-	// state the daemon pushes to a client that was waiting when the bridge came back. More than that is
-	// a client and a daemon asking each other in a loop.
+	// A new daemon has no replay, so the client takes openings; more than a few is a loop.
 	expect(opened.openings()).toBeGreaterThan(1);
 	expect(opened.openings()).toBeLessThanOrEqual(4);
 	// The new daemon learned the session from the bridge, which reconnected on its own.

@@ -1,7 +1,5 @@
-// What the page keeps of each session between visits, so a reload draws at once from what it had.
-// It lives in `localStorage`, one item per session; an item that does not read is a cold open.
-// The store is small and shared with nothing else of ours, so it keeps the sessions written last and
-// lets the oldest go, instead of filling up and turning every next visit into a cold open.
+// Each session as it was last drawn, one `localStorage` item per session, so a reload draws at once.
+// The oldest items go first when the store fills.
 import {
 	type Cache,
 	type CachedSession,
@@ -69,10 +67,7 @@ export function storageCache(storage: StorageLike, kept = KEPT): Cache {
 	};
 }
 
-/**
- * The page's storage, or a cache that lasts as long as the page when the browser refuses storage:
- * reading `localStorage` throws when it is blocked for the page, and the screen still opens.
- */
+/** Falls back to memory when the browser blocks storage. */
 export function pageCache(storage: () => StorageLike): Cache {
 	try {
 		return storageCache(storage());

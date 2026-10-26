@@ -115,10 +115,7 @@ const SETTLE_MS = 300;
 export class QuestionDialog implements Component, Focusable {
 	private readonly theme: Theme;
 	private questions: readonly Question[];
-	/**
-	 * The last question is still being written. You can answer it already, except for its last
-	 * option, which may still change.
-	 */
+	/** The last question is still being written; its last option may still change. */
 	private writing: boolean;
 	private readonly drafts: Draft[] = [];
 	private readonly newEditor: () => Editor;
@@ -184,10 +181,7 @@ export class QuestionDialog implements Component, Focusable {
 		this.animate();
 	}
 
-	/**
-	 * The questions as the model has written them so far. What you already answered stays, by
-	 * position: a question the model finished does not change, and the one being written only grows.
-	 */
+	/** Answers stay by position: finished questions do not change and the one being written only grows. */
 	update(questions: readonly Question[], writing: boolean): void {
 		// A dialog with no question has nothing to draw, so a stream that lost them keeps the last.
 		if (this.done || questions.length === 0) return;
@@ -232,10 +226,6 @@ export class QuestionDialog implements Component, Focusable {
 		}
 	}
 
-	/**
-	 * Whether you answered everything and sat on the question being written until the model
-	 * finished it, so what is left is to send.
-	 */
 	private finishedWaiting(live: number): boolean {
 		if (this.writing || live < 0 || this.tab !== live || this.noting || this.onTypedRow)
 			return false;
@@ -246,10 +236,7 @@ export class QuestionDialog implements Component, Focusable {
 		return !this.done && (this.writing || this.now() < this.movingUntil);
 	}
 
-	/**
-	 * Redraws every frame while the model writes and while what it wrote last settles, then stops.
-	 * A still dialog draws nothing on its own.
-	 */
+	/** A still dialog draws nothing on its own. */
 	private animate(): void {
 		if (!this.moving) return this.stopTicks();
 		if (this.ticks !== undefined) return;
@@ -295,10 +282,6 @@ export class QuestionDialog implements Component, Focusable {
 		return this.writing && question !== undefined && question === this.questions.at(-1);
 	}
 
-	/**
-	 * Whether this option is still arriving. In the question being written, every option but the last
-	 * is whole, since the model started the next one. The last may still change, so it waits.
-	 */
 	private arriving(question: Question, row: number): boolean {
 		return this.isLive(question) && row === question.options.length - 1;
 	}
@@ -504,10 +487,7 @@ export class QuestionDialog implements Component, Focusable {
 		this.row = (this.row + delta + this.rowCount) % this.rowCount;
 	}
 
-	/**
-	 * Half a panel at a time. Fullscreen pi takes page up and down for the transcript, so shift and
-	 * the arrows are the keys that always reach the dialog.
-	 */
+	/** Fullscreen pi takes page up and down, so shift and the arrows always reach the dialog. */
 	private scrollKey(data: string): boolean {
 		let direction = 0;
 		if (matchesKey(data, Key.shift("up")) || matchesKey(data, Key.pageUp)) direction = -1;
@@ -557,10 +537,7 @@ export class QuestionDialog implements Component, Focusable {
 		this.goTo(this.nextOpen(this.tab));
 	}
 
-	/**
-	 * The first question after `from` that you can answer and have not. With none, the one being
-	 * written, so you watch it arrive, or the submit tab.
-	 */
+	/** With none left, the one being written, or the submit tab. */
 	private nextOpen(from: number): number {
 		const total = this.questions.length;
 		return this.openAfter(from) ?? (this.writing ? total - 1 : total);
@@ -603,10 +580,7 @@ export class QuestionDialog implements Component, Focusable {
 		return answers;
 	}
 
-	/**
-	 * What the question has now. Whether it counts as answered comes from what is in it, not from
-	 * having pressed enter: a multi-select with ticks is answered even if you moved on with the arrows.
-	 */
+	/** A multi-select with ticks is answered even if enter was never pressed. */
 	private answerOf(index: number): AskAnswer | undefined {
 		const question = this.questions[index];
 		const draft = this.drafts[index];
@@ -825,11 +799,7 @@ export class QuestionDialog implements Component, Focusable {
 		return lines;
 	}
 
-	/**
-	 * The panel is as tall as the tallest detail of the question, so moving around cannot resize it.
-	 * An option's detail is its description and preview, then its note, or the editor of the note
-	 * while you write one.
-	 */
+	/** As tall as the question's tallest detail, so moving around never resizes it. */
 	private tallestPanel(question: Question, draft: Draft, width: number): number {
 		let tallest = this.typedRow(question) ? TYPED_NEED : 0;
 		for (const [row, option] of question.options.entries()) {

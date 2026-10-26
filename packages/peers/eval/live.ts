@@ -1,5 +1,4 @@
-// A live test with a real pi: one session runs with only the peers tool, a script plays the colleague
-// in the same folder, and the two exchange a message with no prompt from anyone.
+// A real pi with only the peers tool exchanges a message with a scripted colleague.
 // bun packages/peers/eval/live.ts [--model anthropic/claude-haiku-4-5]
 import { spawn } from "node:child_process";
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";

@@ -1,6 +1,5 @@
-// Where the remote lives on this machine: its folder, its socket, its files and its port. The
-// extension, the daemon and the command all read them from here, so the three meet in the same place,
-// and none of them imports pi to find it.
+// Where the remote lives on this machine. The extension, the daemon and the command read it from
+// here without importing pi.
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -23,10 +22,7 @@ export function daemonDir(env: NodeJS.ProcessEnv = process.env): string {
 	return join(agent || join(homedir(), ".pi", "agent"), "harness", "remote");
 }
 
-/**
- * The harness's logs, which the kit writes: `PI_HARNESS_EVENTS`, or `harness/events` under pi's agent
- * folder. The kit owns them; this is the path, spelled the same way.
- */
+/** The kit's events folder, spelled the same way without importing the kit. */
 export function eventsDir(env: NodeJS.ProcessEnv = process.env): string {
 	if (env.PI_HARNESS_EVENTS !== undefined && env.PI_HARNESS_EVENTS !== "")
 		return env.PI_HARNESS_EVENTS;
@@ -34,10 +30,7 @@ export function eventsDir(env: NodeJS.ProcessEnv = process.env): string {
 	return join(agent || join(homedir(), ".pi", "agent"), "harness", "events");
 }
 
-/**
- * The settings file pi writes, for the daemon and the command, which run outside pi and may import
- * only Node's own modules. The kit owns the format; this is the path, spelled the same way.
- */
+/** Pi's settings file, for the daemon and the command, which import only Node's modules. */
 export function settingsPath(env: NodeJS.ProcessEnv = process.env): string {
 	const agent = env.PI_CODING_AGENT_DIR?.replace(/^~(?=\/|$)/, homedir());
 	return join(

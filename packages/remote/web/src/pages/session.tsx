@@ -1,6 +1,4 @@
-// The route of one session: it reads which one from the address and draws what the client holds. The
-// conversation scrolls and the composer does not: a long transcript must not push the field off the
-// screen, because the field is where the thumb is.
+// One session. The conversation scrolls and the composer does not, so the field stays under the thumb.
 import { openQuestions } from "@adeildo/pi-remote-protocol";
 import { harnessOf } from "@adeildo/pi-remote-protocol/client";
 import { type ReactNode, useEffect, useRef } from "react";

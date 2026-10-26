@@ -21,10 +21,7 @@ export interface CachedSession {
 	leaf?: string | null;
 	/** Who was watching when the page closed, so a warm open does not draw nobody. */
 	presence?: Presence;
-	/**
-	 * What the person typed and has not been answered yet. A phone kills the tab without asking, and
-	 * losing a prompt that was typed offline is losing the reason the queue exists.
-	 */
+	/** Kept because a phone kills the tab without asking. */
 	outbox?: Outgoing[];
 }
 

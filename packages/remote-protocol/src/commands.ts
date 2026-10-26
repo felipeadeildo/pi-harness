@@ -39,10 +39,7 @@ export const COMMAND_TYPES: readonly CommandType[] = [
 	"tree.get",
 ];
 
-/**
- * Whether a command carries the fields it needs. Only the fields whose absence would break the run
- * are checked: a command from a newer client still runs while the old fields are there.
- */
+/** Checks only the fields whose absence would break the run, so newer clients still work. */
 export function isCommand(type: string, data: unknown): boolean {
 	if (!isObject(data)) return false;
 	switch (type) {

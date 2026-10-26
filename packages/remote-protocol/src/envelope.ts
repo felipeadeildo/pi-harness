@@ -37,10 +37,7 @@ export const KINDS: readonly EnvelopeKind[] = [
 	"error",
 ];
 
-/**
- * Whether a value is an envelope this version reads. A message from a newer version is refused here,
- * where the reason can still be shown, instead of failing somewhere the shape is used.
- */
+/** Refuses a newer version here, where the reason can still be shown. */
 export function isEnvelope(value: unknown): value is Envelope {
 	return (
 		isObject(value) &&

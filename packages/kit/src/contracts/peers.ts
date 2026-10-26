@@ -22,10 +22,7 @@ export interface WritingMark {
 
 export interface PeersState {
 	peers: PeerMark[];
-	/**
-	 * This session's own mark, as the room draws it. Absent when the session is not in a room yet, which
-	 * is not the same as a session with no color.
-	 */
+	/** Absent when the session is in no room yet, which differs from a session with no color. */
 	me?: PeerMark;
 	/** Messages a peer sent to this session that its agent has not read yet. */
 	unread: number;

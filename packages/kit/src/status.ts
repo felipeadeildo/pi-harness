@@ -1,7 +1,5 @@
-// What a session is doing, in the words of pi's program status protocol: working, blocked, done,
-// error and idle. pi reports them to the terminal (its `ProgramStatusReporter`) but not to
-// extensions, so the kit follows the same events with the same rules, for the bridge to publish and
-// for a client to push on.
+// Pi's program status (working, blocked, done, error, idle), which pi reports only to the terminal,
+// rebuilt from the same events with the same rules.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { defineContract, type EventScope } from "./contract.ts";
@@ -44,10 +42,6 @@ export interface CompactionEnd {
 	failed: boolean;
 }
 
-/**
- * Folds a session's events into its status, with the rules of pi's reporter. It holds no pi, so a
- * test drives it directly.
- */
 export class StatusTracker {
 	#running = false;
 	#compacting = false;
@@ -86,10 +80,7 @@ export class StatusTracker {
 		this.#compacting = true;
 	}
 
-	/**
-	 * A compaction during a run changes how the run ends only when it fails. One with no run under it
-	 * is the session's ending: a manual one shows done or error, and any one stopped shows idle.
-	 */
+	/** A compaction with no run under it ends the session's turn: done or error if manual, idle if stopped. */
 	compactionEnded(end: CompactionEnd): void {
 		this.#compacting = false;
 		if (this.#running) {
@@ -106,22 +97,14 @@ export class StatusTracker {
 		this.#prompts = Math.max(0, this.#prompts + (open ? 1 : -1));
 	}
 
-	/**
-	 * A harness question opened or closed. The session stays blocked until the asker closes it, so
-	 * this relies on the kit's client, which emits `harness:ask.cancel` for every question it opened.
-	 */
+	/** Relies on the kit's client emitting `harness:ask.cancel` for every question it opened. */
 	ask(id: string, open: boolean): void {
 		if (open) this.#asks.add(id);
 		else this.#asks.delete(id);
 	}
 }
 
-/**
- * Follows this process's session and answers `SESSION_STATUS`, announcing each change. Only the
- * first caller on a bus follows, so the bridge and any other feature can both call it. Asking who
- * follows, and not who provides the status, keeps a test or a feature that provides one of its own
- * from silently stopping the follower.
- */
+/** Only the first caller on a bus follows. */
 export function followSessionStatus(
 	pi: ExtensionAPI,
 	warn: (message: string) => void = () => {},

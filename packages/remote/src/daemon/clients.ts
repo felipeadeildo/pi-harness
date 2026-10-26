@@ -1,7 +1,4 @@
-// The port clients reach: the server, the upgrade into the hub, and the HTTP requests the routes
-// answer. The sockets and their marks are the hub's, the names and the logins are the routes', and
-// what lives here is the server, the port it took, and the one place a `session.gone` clears both. A
-// socket for a session of another machine is joined to that machine's daemon, untouched.
+// The HTTP port: the server, the upgrade into the hub, and the one place `session.gone` clears both.
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
@@ -114,11 +111,7 @@ export class Clients {
 		return served;
 	}
 
-	/**
-	 * Listens on loopback at `port`, and on the tailnet address at the port loopback got, and resolves
-	 * the port, which tells a test where `0` landed. The tailnet is an extra: a machine whose tailnet
-	 * address refuses still answers on loopback, and says why it does not on the tailnet.
-	 */
+	/** Loopback first; the tailnet address is extra and its failure is reported, not fatal. */
 	async listen(port: number): Promise<ListenResult> {
 		const looped = await listenOn(this.#server, port, "127.0.0.1");
 		if ("why" in looped) return looped;
@@ -150,10 +143,6 @@ export class Clients {
 		this.#tailnetServer?.close();
 	}
 
-	/**
-	 * The session ended: the one place that clears what the daemon kept of it, in both halves. The
-	 * sockets and the commands in flight are the hub's; the index of the session's file is the routes'.
-	 */
 	forget(session: string): { watching: number; file: string | undefined } {
 		// Both halves, and what each of them let go of, so a test can say a relaunch starts clean.
 		const watching = this.hub.forget(session);

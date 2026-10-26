@@ -20,10 +20,6 @@ export interface FileSourceOptions {
 	every?: number;
 }
 
-/**
- * The source for `address`: a provider's, such as remote's, or else the session's file when it is on
- * this machine. Undefined when neither can show it.
- */
 export function sourceFor(
 	events: ExtensionAPI["events"],
 	address: SourceAddress,

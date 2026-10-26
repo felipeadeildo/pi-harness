@@ -1,7 +1,5 @@
-// The queue of what is waiting to go into a session, kept apart from pi so it can be tested alone and
-// mirrored by a client: a steer goes in at once, a follow-up waits here until the agent settles, and
-// what waits can be taken back. The order is the operator's first, then the agents', and it is the
-// order they were written in inside each group.
+// What waits to go into a session: a steer goes in at once, a follow-up waits for the agent to
+// settle. The operator's letters go before the agents', each group in the order written.
 import type { Letter } from "./letter.ts";
 
 export class Inbox {
@@ -14,13 +12,7 @@ export class Inbox {
 	/** `queue` is the order it goes in, which is not the order it arrived in. */
 	readonly #held: Letter[] = [];
 	readonly #sent: Letter[] = [];
-	/**
-	 * Ids already taken in this run, so a client's resend is not delivered twice. This is memory
-	 * of this instance, not the authority: the authority is the log, which the command runner reads
-	 * back when it starts, so a resend across a restart is still a repeat. What has to be recorded
-	 * is the command's id, not the letter's: if a command's id changed on its way in, two guards
-	 * would disagree after a restart and nothing would catch it.
-	 */
+	/** This instance's memory only; the command runner rereads ids from the log after a restart. */
 	readonly #done = new Set<string>();
 
 	/** Letters waiting for the agent to settle, in the order they go in. */
@@ -38,11 +30,7 @@ export class Inbox {
 		return this.#done.has(id);
 	}
 
-	/**
-	 * Takes a letter in and answers whether it did: one already carried or held is not taken twice. The
-	 * inbox is what tells when a letter arrived, since a writer need not carry a clock, and a client
-	 * that does is on another machine's clock anyway.
-	 */
+	/** The inbox stamps arrival, since a writer may have no clock or another machine's. */
 	put(letter: Letter): boolean {
 		if (this.#done.has(letter.id) || this.#held.some((one) => one.id === letter.id)) return false;
 		if (this.#sent.some((one) => one.id === letter.id)) return false;
@@ -54,10 +42,6 @@ export class Inbox {
 		return true;
 	}
 
-	/**
-	 * Takes the held letters named, or all of them: what is drained into a run, or taken back. A steer
-	 * is not here, because it is already inside pi.
-	 */
 	take(ids?: readonly string[]): Letter[] {
 		const taken = this.queue().filter((one) => ids === undefined || ids.includes(one.id));
 		for (const letter of taken) {
@@ -67,11 +51,7 @@ export class Inbox {
 		return taken;
 	}
 
-	/**
-	 * The run that starts now takes what waited, in the order it goes in. Only the held letters are
-	 * answered: a steer was handed to pi when it was put, and answering it again would send it twice.
-	 * The steers on their way are forgotten, because the run they went into has begun.
-	 */
+	/** Only held letters are returned: a steer is already inside pi. */
 	settle(): Letter[] {
 		const letters = this.queue();
 		this.#sent.length = 0;
@@ -83,10 +63,7 @@ export class Inbox {
 		return letters;
 	}
 
-	/**
-	 * Holds a letter that is not ready to go yet, with the reason the client reads. A letter already
-	 * held keeps its place and gains the reason: the reason can be learned later than the holding.
-	 */
+	/** A letter already held keeps its place and gains the reason. */
 	holdFor(letter: Letter, why: Letter["why"]): void {
 		// A letter already carried is never put back: a late reason must not resurrect a message that
 		// a run is already answering.
@@ -97,11 +74,7 @@ export class Inbox {
 		else this.#held[at] = held;
 	}
 
-	/**
-	 * pi emptied the queue it was handed, as Esc and taking your queued messages back both do, and the
-	 * steers in it went with it. A run that goes on gets them again, as steers; one that stopped leaves
-	 * them waiting for the next run, with the reason. The inbox sends nothing: the caller does.
-	 */
+	/** Pi emptied its queue (Esc): a run still going gets the steers again, a stopped one holds them. */
 	cleared(letters: readonly Letter[], running: boolean): { resend: Letter[]; held: Letter[] } {
 		const gone = letters.filter((one) => one.want === "steer");
 		this.#sent.length = 0;
@@ -113,10 +86,7 @@ export class Inbox {
 		return { resend: [], held };
 	}
 
-	/**
-	 * Puts held letters back that a run carried and pi no longer holds, as pi's queue shows what it
-	 * has. The order of arrival comes back with them, so a letter written before another is still first.
-	 */
+	/** Restores arrival order. */
 	hold(letters: readonly Letter[]): void {
 		for (const letter of letters) {
 			if (letter.want !== "followUp" || !this.#done.has(letter.id)) continue;

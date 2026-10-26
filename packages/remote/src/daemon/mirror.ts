@@ -1,8 +1,5 @@
-// What the owner's machines share besides their sessions: who is open on each, and the shared rooms.
-// Every daemon copies the other machines' open sessions into this machine's presence index, where
-// peers finds who is open, and their rooms' logs into this machine's rooms, where peers reads them.
-// A log has one writer and only grows, so the longer copy of a file is the newer one, and copying it
-// is appending what the other side has past this side's size. Nothing is merged.
+// Copies the other machines' open sessions and room logs into this machine's events. A log has one
+// writer and only grows, so syncing appends what the other side has past this side's size.
 import {
 	appendFileSync,
 	closeSync,
@@ -138,10 +135,7 @@ export class Mirror {
 		}
 	}
 
-	/**
-	 * Writes another machine's open sessions into this machine's index, each written again on every
-	 * sync, so a reader can tell by its age that the machine stopped answering.
-	 */
+	/** Rewritten on every sync, so its age tells a reader the machine stopped answering. */
 	#copyPresence(host: string, entries: Shared["presence"]): void {
 		const live = join(this.#options.root, "live");
 		mkdirSync(live, { recursive: true });

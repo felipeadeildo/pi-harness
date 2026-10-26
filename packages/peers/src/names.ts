@@ -4,11 +4,7 @@ import type { ThemeColor } from "@earendil-works/pi-coding-agent";
 
 import type { Peer } from "./folder.ts";
 
-/**
- * Theme colors with distinct hues in dark and light themes alike. The footer already spends amber on
- * warning, green on success, red on error and purple on accent, so a peer never wears those. With more
- * than four sessions in one folder two share a color, and the name is what tells them apart.
- */
+/** Hues distinct in dark and light themes, avoiding the footer's warning, success, error and accent. */
 export const PEER_COLORS = [
 	"syntaxKeyword",
 	"syntaxString",
@@ -31,10 +27,7 @@ export interface Names {
 	readonly bySession: ReadonlyMap<string, Named>;
 }
 
-/**
- * Names for the open sessions, oldest first. A name two sessions share gets a number on the
- * newer one, and a session not titled yet is `new` and the end of its id.
- */
+/** A shared name gets a number on the newer session. */
 export function namesOf(live: readonly Peer[]): Names {
 	const names = new Map<string, Named>();
 	const taken = new Set<string>();

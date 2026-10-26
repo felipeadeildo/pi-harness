@@ -1,6 +1,5 @@
-// The remote's part inside every pi, the bridge. It keeps the launcher current, so `pi-remote`
-// always runs the version of the pi that started last, and it publishes this session to the daemon,
-// starting the daemon when none answers.
+// The bridge inside every pi: keeps the launcher pointing at the newest pi and publishes the session
+// to the daemon, starting one when none answers.
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -37,10 +36,7 @@ import { VERSION } from "./version.ts";
 /** The built daemon and command, next to this package's sources. */
 const DIST = fileURLToPath(new URL("../dist/", import.meta.url));
 
-/**
- * Which sessions the remote shows: one in a terminal, and one in RPC mode whose starter set
- * `PI_REMOTE_SHARE=1`, as the runner does. A `pi -p` or a subagent leaves no trace.
- */
+/** A terminal, or RPC with `PI_REMOTE_SHARE=1`. `pi -p` and subagents are not shown. */
 export function sessionKind(mode: string): SessionKind | undefined {
 	if (mode === "tui") return "terminal";
 	if (mode === "rpc" && process.env.PI_REMOTE_SHARE === "1") return "background";
@@ -206,12 +202,8 @@ export const remote = defineFeature({
 		scope.on("ui_prompt_end", (event) => {
 			if (onlyTerminal(event.kind)) bridge?.prompted(false, event.kind, undefined);
 		});
-		/**
-		 * A compaction is the other moment a follow-up is held for, and it ends no run: pi emits this
-		 * before it clears the flag that makes a send throw, so the queue is drained on the next turn
-		 * of the loop, once the flag is gone, and only if pi would take a prompt then. The app owns
-		 * that turn: a session that ends first takes the deferral with it.
-		 */
+		// Pi emits this before it clears the flag that makes a send throw, so the queue drains on the
+		// next turn of the loop.
 		const afterCompaction = (_event: unknown, ctx: ExtensionContext): void => {
 			scope.defer(() => {
 				if (ctx.isIdle()) inbox?.settle();

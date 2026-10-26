@@ -1,6 +1,5 @@
-// One entry per state change: the shape it carries, the check that reads it off the wire, and what it
-// does to the state. `StateChangeMap` is read from this table, so a change is added in one place, and an
-// entry does not compile without both: a shape nobody folds, or a fold that trusts the wire, is refused.
+// One entry per state change: its shape, its wire check and its fold. `StateChangeMap` is read from
+// this table, so an entry without both a check and a fold does not compile.
 
 import { type By, isBy, isObject } from "../by.ts";
 import {
@@ -29,10 +28,7 @@ function entry<T>(written: Entry<T>): Entry<T> {
 
 const unchanged = (state: SessionState): SessionState => state;
 
-/**
- * The state lives in the daemon for the whole life of a session, so what is already answered must not
- * accumulate. Open questions never leave. The number is a choice, not a measurement.
- */
+/** The daemon holds the state for the session's life, so answered questions must not pile up. */
 export const KEPT_CLOSED = 100;
 
 /** How many models the state keeps of what a registry lists. A registry is a third party's data. */
@@ -146,11 +142,7 @@ export const CHANGES = {
 			/** The model this session answers with, and how hard it thinks, as pi reports them live. */
 			model?: { provider: string; id: string };
 			thinkingLevel?: string;
-			/**
-			 * pi's session file, which the daemon pages older entries from. pi knows the path from the
-			 * start, but writes the file only with the first message, so until then a page finds nothing:
-			 * `ENOENT` means no older entries yet. Absent only with `--no-session`.
-			 */
+			/** Pi writes the file only at the first message, so `ENOENT` means no older entries yet. Absent with `--no-session`. */
 			file?: string;
 			/** What a client may run by typing `/`, which this session offers at this instant. */
 			commands?: SessionCommand[];
@@ -210,10 +202,7 @@ export const CHANGES = {
 		check: (data): data is { by: By } => isObject(data) && isBy(data.by),
 		apply: unchanged,
 	}),
-	/**
-	 * Which client a prompt came from, by the entry it became. The bridge writes it when the entry shows
-	 * on the branch and it is sure whose it is: a prompt typed at the terminal never has one.
-	 */
+	/** Written only when the bridge is sure; a prompt typed at the terminal has none. */
 	"prompt.from": entry({
 		check: (data): data is { entry: string; by: By } =>
 			isObject(data) && typeof data.entry === "string" && isBy(data.by),

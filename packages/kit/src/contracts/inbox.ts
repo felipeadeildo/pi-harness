@@ -1,6 +1,3 @@
-// The inbox as the other features see it. The queue and the steers on their way are shared state, so
-// they go through a contract like the tasks and the mode: one provider per process, and every reader
-// sees the same letters without importing the owner.
 import type { EventScope } from "../contract.ts";
 import { defineContract } from "../contract.ts";
 import { type Decoder, type Problem, isObject, pass } from "../decode.ts";

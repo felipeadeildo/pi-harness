@@ -1,8 +1,5 @@
-// The daemon's own HTTP routes: health, the session list, a session's opening and pages, the login
-// that trades a token for a cookie, and the web app for everything the data routes leave. A device of
-// the machine's owner that comes through the tailnet logs in by who it is, with no token. The list
-// holds the sessions of the owner's other machines too, and a session of another machine is read from
-// its daemon, so a client needs one address for all of them.
+// The daemon's HTTP routes. The session list includes the owner's other machines, and their
+// sessions are read from their daemons, so a client needs one address.
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
@@ -38,10 +35,7 @@ export interface RoutesOptions {
 	hosts: () => ReadonlySet<string>;
 	/** When the daemon started, for `/health`. */
 	started: number;
-	/**
-	 * The web app, answered for every path the data routes leave. Its files are the only paths a
-	 * browser loads before it holds a login. None in a daemon built without it.
-	 */
+	/** The only paths a browser loads before it holds a login. */
 	web?: WebApp;
 	now?: () => number;
 	/** The machine's tailnet address, and who owns the devices that reach it. */
@@ -142,11 +136,7 @@ export class Routes {
 		void this.#ownerLogin(request).then(write, () => write());
 	}
 
-	/**
-	 * A login for a device that came through the tailnet and belongs to the user who owns this machine.
-	 * Nothing for any other request: one on loopback, a device another user shares into the tailnet, or
-	 * a `whois` that failed or was slow.
-	 */
+	/** Only for a tailnet device of this machine's owner; any doubt, including a slow `whois`, is a no. */
 	async #ownerLogin(request: IncomingMessage): Promise<string | undefined> {
 		const tailnet = this.#options.tailnet;
 		if (tailnet === undefined) return undefined;
@@ -156,10 +146,6 @@ export class Routes {
 		return this.#options.logins.grant();
 	}
 
-	/**
-	 * The session ended, so the index of its paged file goes with it: a relaunch under the same id
-	 * would otherwise page through what the session before it wrote.
-	 */
 	forget(session: string): string | undefined {
 		const file = this.#options.sessions.get(session)?.live.file;
 		if (file !== undefined) this.#history.forget(file);
@@ -201,10 +187,7 @@ export class Routes {
 		reply(response, 200, page);
 	}
 
-	/**
-	 * Trades the token in the body for a login cookie. The token never travels in the query, which
-	 * access logs keep, and a used, unknown or late one gets nothing.
-	 */
+	/** The token comes in the body, never the query, which access logs keep. */
 	#login(request: IncomingMessage, response: ServerResponse): void {
 		let body = "";
 		let cut = false;
@@ -252,10 +235,7 @@ export class Routes {
 		response.end();
 	}
 
-	/**
-	 * This machine's sessions, then each other machine's. A machine that does not answer in time is
-	 * left out of this read, and the next one asks it again.
-	 */
+	/** A machine that does not answer in time is left out of this read. */
 	async #everywhere(): Promise<unknown[]> {
 		const machines = this.#options.machines;
 		const theirs = await Promise.all(

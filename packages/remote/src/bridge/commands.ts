@@ -1,7 +1,5 @@
-// The commands a client sends to a session, run in the session's own process. Each one is answered on
-// the envelope's id, and an id that already ran is answered as a repeat instead of running twice: the
-// ids are kept in memory and read back from the log when the bridge starts, so a resend across a
-// restart is a repeat too.
+// A client's commands, run in the session's process and answered on the envelope's id. An id that
+// already ran, here or in the log before a restart, is answered as a repeat.
 import type { By, Letter } from "@adeildo/pi-kit";
 import type { Envelope } from "@adeildo/pi-remote-protocol";
 import { isCommand } from "@adeildo/pi-remote-protocol";
@@ -41,10 +39,7 @@ export interface CommandOptions {
 	outcome(id: string, command: string, by: By | undefined, outcome: "refused" | "failed"): void;
 }
 
-/**
- * A command the session does not run, with the reason a client shows. An effect throws it to refuse
- * something the command's shape allows, such as a forced stop that needs a runner.
- */
+/** A command refused with the reason a client shows. */
 export class Refused extends Error {}
 
 /** The ids a `queue.clear` names, when it names any: absent means "the whole queue". */
@@ -70,11 +65,7 @@ export class Commands {
 		return this.#ran.includes(id);
 	}
 
-	/**
-	 * Runs one command and answers it. The id is checked and remembered before it runs, so a resend
-	 * right behind a slow one is a repeat; the effects themselves run one at a time, in the order the
-	 * client sent them, so two commands never land out of order.
-	 */
+	/** Remembers the id before running, so a resend behind a slow command is a repeat. Effects run in order. */
 	run(message: Envelope): Promise<void> {
 		const { id, type, by } = message;
 		if (id === undefined) return Promise.resolve();

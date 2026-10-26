@@ -1,6 +1,4 @@
-// Decoders for everything that comes from outside: settings files and event payloads from other
-// packages. The only module that inspects `typeof`, and no decoder throws. `control` is how the
-// settings screen edits the value.
+// Decoders for everything from outside. No decoder throws, and only this module inspects `typeof`.
 import type { Control } from "./control.ts";
 
 export interface Problem {

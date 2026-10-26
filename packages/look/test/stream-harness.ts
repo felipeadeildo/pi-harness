@@ -1,6 +1,4 @@
-// Drives pi's own tool component and pi's own write and edit renderers through the frame, in the
-// order pi's interactive mode does it: the extensions hear each update first, then pi hands every
-// call of the message its arguments again, and the end of the message completes them all.
+// Drives pi's tool component and renderers through the frame in the order pi's interactive mode does.
 import { createApp } from "@adeildo/pi-kit";
 import { fakePi } from "@adeildo/pi-kit/testing";
 import { parseStreamingJson } from "@earendil-works/pi-ai";

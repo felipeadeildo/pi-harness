@@ -35,10 +35,7 @@ import { registerEvents } from "#pi/events.ts";
 import { setSessionMode } from "#pi/mode.ts";
 import type { SessionState } from "#pi/session.ts";
 
-/**
- * An alwaysAsk rule makes the judge answer without a backend, so these
- * tests exercise the real `runJudge` path with no network or API key.
- */
+/** An alwaysAsk rule answers without a backend, so `runJudge` runs with no network. */
 function judgeThatAsks(): SessionState["config"] {
 	const config = defaultConfig();
 	return { ...config, judge: { ...config.judge, alwaysAsk: ["*"] } };
@@ -94,11 +91,7 @@ function choiceFor(labels: string[], answer: DialogAnswer): string | undefined {
 	return labels.find((label) => /^\d+\. yes$/.test(label));
 }
 
-/**
- * A context whose host answers through its own selector, which is where the gate asks when no
- * questions feature draws the dialog. `onDialog` runs when the question opens, before it is
- * answered, and receives the choices it shows.
- */
+/** `onDialog` runs when the question opens, with the choices it shows. */
 function fakeContext(
 	onDialog: (labels: string[]) => void = () => {},
 	answer: DialogAnswer = { decision: "allow" },

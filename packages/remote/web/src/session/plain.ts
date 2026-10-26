@@ -1,8 +1,4 @@
-// What reaches the screen from elsewhere, with nothing of the terminal in it. A session's text comes
-// from a model, a tool, or another machine, so it is drawn, never interpreted.
-//
-// The escape sequences are the terminal's: colour, cursor moves, and the operating-system commands
-// that a terminal would run. The app is not a terminal, and none of it should survive the trip.
+// Strips terminal escape sequences from text that came from elsewhere.
 
 // CSI, OSC and the two-character escapes, including the OSC terminator that carries a command.
 // eslint-disable-next-line no-control-regex -- the control characters are the thing being removed.

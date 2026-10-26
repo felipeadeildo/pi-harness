@@ -1,6 +1,5 @@
-// What a call to an MCP server means for the gate. Pi registers each server tool as
-// `mcp__<server>__<tool>` and reports the server's own annotations beside it, so the policy here
-// decides per server, and a hint the server declares can stand in for the mode.
+// Pi names server tools `mcp__<server>__<tool>` with the server's annotations, so policy is per
+// server and a declared hint can stand in for the mode.
 import type { ToolAnnotations, ToolInfo } from "@earendil-works/pi-coding-agent";
 
 const MCP_PREFIX = "mcp__";
@@ -23,10 +22,7 @@ export const MCP_POLICY_TEXT: Record<McpPolicy, { label: string; description: st
 	deny: { label: "deny", description: "every call is blocked" },
 };
 
-/**
- * The tools that drive other tools. Their own call is a script or a search, and every call inside
- * reaches the gate on its own, so asking for the wrapper would ask twice for the same thing.
- */
+/** Every call inside them reaches the gate on its own, so the wrapper is not asked about. */
 const ORCHESTRATORS = new Set(["codemode", "tool_search"]);
 
 export interface McpCall {

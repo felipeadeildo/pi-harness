@@ -1,6 +1,4 @@
-// This pi's own session as a source, for whoever publishes it, such as remote's bridge. Pi appends
-// entries only, so each follower keeps how many it has seen and reads the rest after each event that
-// may have added one.
+// This pi's own session as a source. Pi only appends entries, so each follower reads past what it saw.
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import type { SessionSummary, SessionSource, SourceItem } from "../contracts/sources.ts";
@@ -14,10 +12,7 @@ interface Follower {
 	sent: string | undefined;
 }
 
-/**
- * Registers its handlers on `pi`, so it is made while the extension loads, like any `pi.on`. Its
- * followers end with the session, because pi makes a new extension runtime for the next one.
- */
+/** Made while the extension loads, like any `pi.on`. */
 export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 	let ctx: ExtensionContext | undefined;
 	let pending = false;
@@ -37,11 +32,7 @@ export function piSource(pi: Pick<ExtensionAPI, "on">): SessionSource {
 		followers.clear();
 	}
 
-	/**
-	 * Reads the session, and treats pi's refusal as what it is: the context belongs to a session that
-	 * is not this one any more, because it was replaced, reloaded or is going away. Some hosts do not
-	 * emit `session_shutdown` before that, so the refusal is the only notice there is.
-	 */
+	/** Pi's refusal is the only notice of a replaced or reloaded context on some hosts. */
 	function read(follower: Follower, current: ExtensionContext): void {
 		try {
 			catchUp(follower, current);

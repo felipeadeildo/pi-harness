@@ -17,10 +17,6 @@ export function typingCommand(draft: string): boolean {
 	return /^\/[^\s]*$/.test(draft);
 }
 
-/**
- * The commands that match what was typed, in the order the host gave them. A draft that is not a slash
- * command matches nothing: the field is a prompt, and a prompt with a `/` in the middle is not one.
- */
 export function suggested(draft: string, commands: readonly SessionCommand[]): Suggestion[] {
 	if (!typingCommand(draft)) return [];
 	const typed = draft.slice(1).toLowerCase();
@@ -33,10 +29,6 @@ export function suggested(draft: string, commands: readonly SessionCommand[]): S
 		}));
 }
 
-/**
- * The draft after choosing a command: the command, a space, and nothing else. The instruction beside a
- * command is part of the prompt: `/compact keep the tests` is one message to the same effect.
- */
 export function chosen(name: string): string {
 	return `${name} `;
 }

@@ -1,6 +1,4 @@
-// The frame an entry of the transcript wears: what it is in the top edge, what became of it in the
-// bottom one, the content one column in from the sides. The model's own words have none. Tool calls,
-// your messages, other agents' messages and pi's own entries all share it. See DESIGN.md.
+// The frame a transcript entry wears. See DESIGN.md.
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { type Component, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
@@ -69,10 +67,7 @@ export function entryFrame(
 	];
 }
 
-/**
- * A component drawn once per width. The transcript draws every entry on every keystroke, so an
- * entry that draws itself again each time slows typing down as the session grows.
- */
+/** The transcript redraws every entry on each keystroke, so an entry draws once per width. */
 export function drawnByWidth(draw: (width: number) => string[]): Component {
 	let drawn: { width: number; lines: string[] } | undefined;
 	return {

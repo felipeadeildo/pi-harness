@@ -1,9 +1,7 @@
 import { basename } from "node:path";
 
-// The `Alt+G` panel, over the whole screen. On the left, the rooms this session is in, the folder's
-// first, with the open one's agents under its name. On the right, the open room's conversation and the
-// line you write in. The two sides never move or change width, whatever is open, so switching rooms
-// only changes what is in them.
+// The `Alt+G` panel: rooms and their agents on the left, the open room's conversation on the right.
+// Neither side changes width, so switching rooms only changes what is in them.
 import {
 	FRAME_X,
 	FRAME_Y,
@@ -60,11 +58,7 @@ export interface PanelOptions {
 	close: () => void;
 	requestRender: () => void;
 	rows: () => number;
-	/**
-	 * Shows a session over the screen, the panel staying under it. False when nothing can show it,
-	 * and then `enter` writes to the agent instead. The hint says `enter view` whenever this is
-	 * given, so an agent that closed between two redraws gets written to under that hint.
-	 */
+	/** False when nothing can show it, and then `enter` writes to the agent instead. */
 	show?: (session: string) => boolean;
 	/** Injected so the docs pictures do not depend on when or where they are drawn. */
 	now?: () => number;

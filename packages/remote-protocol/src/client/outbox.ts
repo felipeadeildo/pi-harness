@@ -1,6 +1,5 @@
-// What the operator typed while the daemon was out of reach. A command keeps the time it was typed,
-// because that is what decides whether it still goes on its own after a reconnect: the last two
-// minutes go out in order, and anything older waits for the person to send, edit or drop it.
+// What was typed while the daemon was out of reach. Commands from the last two minutes go out in
+// order after a reconnect; older ones wait for the person to send, edit or drop them.
 import type { CommandType } from "../index.ts";
 
 /** How long a command typed offline still goes out by itself, once the daemon answers again. */
@@ -49,10 +48,7 @@ export class Outbox {
 		return command;
 	}
 
-	/**
-	 * What a previous visit left, put back in the order it was typed. A command already in the queue
-	 * wins, because this queue is the one the person is typing into now.
-	 */
+	/** A command already in the queue wins: it is the one being typed into now. */
 	restore(commands: readonly Outgoing[] | undefined): void {
 		if (commands === undefined) return;
 		const known = new Set(this.#commands.map((command) => command.id));
@@ -85,23 +81,14 @@ export class Outbox {
 		this.#move(id, "sent");
 	}
 
-	/**
-	 * A new connection opened: whatever was sent and never answered goes out again. The id makes the
-	 * resend a repeat on the far side, so nothing is applied twice.
-	 */
+	/** Resends what was never answered; the id makes it a repeat on the far side. */
 	resume(): void {
 		for (const command of this.#commands) {
 			if (command.state === "sent") command.state = "waiting";
 		}
 	}
 
-	/**
-	 * The person chose to send a command that had waited past the window. It keeps its id, so it is
-	 * still the same command and still a repeat if it already went out once.
-	 *
-	 * No screen calls this: marking the command ready is not sending it, and a screen that does it,
-	 * does nothing. `client.release` is the act — it changes the queue and puts the command on the wire.
-	 */
+	/** Use `client.release`, which also puts the command on the wire. */
 	release(id: string): boolean {
 		const command = this.#find(id);
 		if (command === undefined) return false;
@@ -125,10 +112,7 @@ export class Outbox {
 		command.why = why;
 	}
 
-	/**
-	 * The person dropped it. No screen calls this either: it leaves the queue, but only `client.drop`
-	 * tells the screen, which is what makes the line disappear.
-	 */
+	/** Use `client.drop`, which also tells the screen. */
 	drop(id: string): boolean {
 		const at = this.#commands.findIndex((command) => command.id === id);
 		if (at === -1) return false;

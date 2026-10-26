@@ -1,7 +1,5 @@
-// The owner's other machines whose daemon answers on the tailnet. `tailscale status` names the
-// owner's nodes that are online, and each one's daemon is asked for its health at the same port as
-// this one. Nothing is paired: the other daemon logs this one in the way it logs in the owner's
-// phone, because its `whois` says this machine belongs to the same person.
+// The owner's other machines whose daemon answers on the tailnet, at this daemon's port. Nothing
+// is paired: each daemon logs the other in by `whois`, as it does the owner's phone.
 import { isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
 import { WebSocket } from "ws";
 
@@ -60,10 +58,7 @@ export class Machines {
 		return this.#found.get(name);
 	}
 
-	/**
-	 * Asks the tailnet which of the owner's machines run a daemon now. A `tailscale` that does not
-	 * answer changes nothing: the machines found last stay until a look says otherwise.
-	 */
+	/** A `tailscale` that does not answer keeps the machines found last. */
 	async look(): Promise<void> {
 		const tailnet = await readOwnTailnet(this.#options.ask);
 		if (tailnet === undefined) return;

@@ -8,10 +8,7 @@ import {
 
 import { plain } from "./plain.ts";
 
-/**
- * The cards a panel draws, in the order their writer cut and ordered them. Nothing is sorted here: the
- * board arrives that way, and a screen that reordered would be a second opinion about the same list.
- */
+/** In the writer's order; the screen does not sort. */
 export function boardCards(
 	board: BoardView | undefined,
 ): { id: string; line: string }[] | undefined {
@@ -30,11 +27,7 @@ function factOf(card: BoardCard): string {
 	return "";
 }
 
-/**
- * The line for a dialog only the terminal can answer, or nothing when the terminal waits on none. The
- * title is text from another extension, so it goes through `plain`; a dialog with no title is named by
- * what it is, because "waiting in the terminal" alone leaves the person asking for what.
- */
+/** The title comes from another extension, so it goes through `plain`. */
 export function terminalWait(prompt: SessionState["prompt"]): string | undefined {
 	if (prompt === undefined) return undefined;
 	const title = prompt.title === undefined ? "" : plain(prompt.title).trim();

@@ -1,6 +1,4 @@
-// A real pi session inside a test, with a scripted model. What a slice of the remote work needs to
-// prove: pi's real events, the real session file and the real harness log, with no network, no
-// tokens spent and nothing from anyone's history in the repository.
+// A real pi session inside a test, with a scripted model: real events, session file and log, no network.
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -30,30 +28,17 @@ export interface RigOptions {
 	extensions?: readonly ExtensionFactory[];
 	/** What the model answers, in order. */
 	replies?: readonly FauxResponseStep[];
-	/**
-	 * What the model answers to every request, read from the request itself. A run asks more than
-	 * once: a tool call asks again with the result, and a compaction asks for a summary. A script that
-	 * only lists replies runs out in the middle of one.
-	 */
+	/** A run asks more than once (tool results, compaction), so answer from the request. */
 	answer?: FauxResponseFactory;
-	/**
-	 * How fast the scripted model writes, in tokens a second. Without it the answer arrives in one
-	 * microtask, and a test of what happens while the model writes has nothing to hold on to.
-	 */
+	/** Without it the answer arrives in one microtask. */
 	tokensPerSecond?: number;
 	/** Where the session file, the log and the working folder go. A temporary folder otherwise. */
 	root?: string;
 	/** Where the session works. A folder under the root otherwise. */
 	cwd?: string;
-	/**
-	 * The harness's settings for this run, written where the features read them. A run without them
-	 * gets the harness defaults, never the settings of the machine it happens to run on.
-	 */
+	/** Never the settings of the machine running the test. */
 	settings?: Record<string, unknown>;
-	/**
-	 * What the terminal answers when a feature asks, in order. The dialogs a run cannot answer come
-	 * back as cancelled, the way Esc leaves them, so a feature never hangs a test.
-	 */
+	/** Dialogs the script does not answer come back cancelled, as Esc leaves them. */
 	says?: RigSays;
 }
 
@@ -117,20 +102,11 @@ export interface Rig {
 	sessions: string;
 	/** What the features told the terminal, in the order they said it: `ctx.ui.notify`, as it reads. */
 	notified: { message: string; level: string }[];
-	/**
-	 * What an extension threw where pi could not show it: a handler that failed, or a promise it never
-	 * awaited — both go through the same channel, `runner.emitError`. Without this the run looks like
-	 * nothing happened, which is what a swallowed rejection is: the reason a feature can be silent in a
-	 * test and loud in a terminal. `error` is the message as pi formatted it, not an `Error`.
-	 */
+	/** What extensions threw where pi could not show it, as pi formatted it. */
 	errors: { event: string; error: string; stack?: string }[];
 	/** Sends a prompt and waits for the run it starts to settle. */
 	prompt(text: string): Promise<void>;
-	/**
-	 * Waits until the log holds a line the predicate accepts, and answers every line written so far.
-	 * A feature that asks a model of its own writes after the run settles, so a test that reads the
-	 * log as the run ends races it.
-	 */
+	/** A feature that calls its own model writes after the run settles. */
 	until(
 		match: (line: { type: string; data: Record<string, unknown> }) => boolean,
 		ms?: number,
@@ -139,10 +115,6 @@ export interface Rig {
 	dispose(): void;
 }
 
-/**
- * The screen a scripted run answers through. It holds only what a feature asks: the dialogs, which
- * come from the script, and no drawing at all.
- */
 function scriptedUI(
 	says: RigSays,
 	notified: { message: string; level: string }[],
@@ -187,11 +159,7 @@ function scriptedUI(
 	};
 }
 
-/**
- * A pi session with the harness's extensions and a model that answers from a script. One at a time:
- * the two variables a feature reads its log's folder and its settings from are process-wide, so a
- * second rig open beside the first would write into the wrong folder.
- */
+/** One at a time: the log folder and settings come from process-wide variables. */
 export async function createRig(options: RigOptions = {}): Promise<Rig> {
 	if (open !== undefined) {
 		throw new Error(`a rig is already open on ${open}; dispose it before opening another`);

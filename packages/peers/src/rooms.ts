@@ -1,8 +1,5 @@
-// Every room this session is in: its folder's, and the shared ones whose members include it. Each
-// room is a directory of logs where every member writes its own file, so the rules inside a room
-// stay what they are in a folder. This holds them together for one session: it watches them, joins
-// and leaves as the `room.*` lines say, writes what the session does into each, and hands what
-// arrives from all of them to the agent at once.
+// Every room this session is in. Each room is a directory where every member writes its own log;
+// this joins and leaves as `room.*` lines say, and hands what arrives from all of them to the agent.
 import { realpathSync } from "node:fs";
 import { basename, isAbsolute, resolve } from "node:path";
 
@@ -368,10 +365,6 @@ export class Rooms implements RoomsView {
 		this.sync();
 	}
 
-	/**
-	 * How this session stands in a room. `listening` hears only what names it and never takes a
-	 * request to everyone; `in` takes part. The folder's room takes the same line as the others.
-	 */
 	setMode(room: string | undefined, mode: RoomMode): void {
 		if (this.#session === undefined) return;
 		const member = { session: this.#session, cwd: this.#cwd };
@@ -440,11 +433,7 @@ export class Rooms implements RoomsView {
 		};
 	}
 
-	/**
-	 * The rooms some names point at. Each name is one agent: a name two rooms give to two sessions
-	 * is unclear. An agent in several rooms with this session is reached in the folder's room when it
-	 * is there, else where the two last talked, else in the oldest room they share.
-	 */
+	/** An agent in several shared rooms is reached in the folder's room, else where you last talked, else the oldest. */
 	route(names: readonly string[], room?: string): Route {
 		const rooms = room === undefined ? this.joined() : [this.roomNamed(room)];
 		const only = rooms[0];
@@ -541,11 +530,7 @@ export class Rooms implements RoomsView {
 		);
 	}
 
-	/**
-	 * An agent's call that the permission gate let through: brings the sessions open in a folder now
-	 * into a shared room, a new one unless `room` names one this session is in. Never a folder: a
-	 * folder brings sessions that do not exist yet, and a lasting change is the operator's.
-	 */
+	/** Never a folder: a folder brings future sessions, and a lasting change is the operator's. */
 	link(request: LinkRequest): { text: string; room?: string } {
 		const me = this.#session;
 		if (me === undefined) return { text: "Not in a session." };
@@ -707,11 +692,7 @@ export class Rooms implements RoomsView {
 		this.#emit({ kind: "left", room: info, reason });
 	}
 
-	/**
-	 * What the room would have seen had this session been there all along: its name, its state, its
-	 * board and the files it edited last. Every line carries the time of the join, since
-	 * names and tie-breaks go by who came first.
-	 */
+	/** Writes what the room would have seen had this session been there, stamped with the join time. */
 	#snapshot(here: Here): void {
 		const me =
 			this.#session === undefined ? undefined : this.#home?.folder.peers.get(this.#session);

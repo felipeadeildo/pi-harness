@@ -30,10 +30,6 @@ export interface Peer {
 	stateAt: number;
 	/** The operator wrote here at least once. Until then nothing from the room wakes it. */
 	prompted?: boolean;
-	/**
-	 * The board the session last wrote into this room. A room has no board of its own: a reader draws
-	 * the board of the session it chose, and nothing is merged.
-	 */
 	board?: BoardView;
 	edited: Map<string, number>;
 	ran: { command: string; ok: boolean; at: number }[];
@@ -64,21 +60,14 @@ export interface Posted {
 	takenBy?: string;
 }
 
-/**
- * Whether a message reaches the session: one sent to it, or one sent to everyone. An agent's message
- * to everyone does not come back to its own session; yours does, so the agent there knows it too.
- */
+/** An agent's message to everyone does not come back to its own session; yours does. */
 export function reaches(message: Posted, session: string): boolean {
 	if (message.to === "any") return false;
 	if (message.to === "all") return !(message.from === "agent" && message.session === session);
 	return message.to.includes(session);
 }
 
-/**
- * Whether a session standing in `mode` takes this message. Taking part takes what `reaches` says;
- * listening takes only what names the session, and nothing addressed to the room, because
- * `@everyone` and `@anyone` are addresses of the ones taking part; out takes nothing.
- */
+/** Listening takes only what names the session: `@everyone` and `@anyone` address those taking part. */
 export function receivesFor(mode: RoomMode, message: Posted, session: string): boolean {
 	if (mode === "out") return false;
 	if (mode === "listening")
@@ -86,10 +75,6 @@ export function receivesFor(mode: RoomMode, message: Posted, session: string): b
 	return reaches(message, session);
 }
 
-/**
- * The sessions a message went to. One to everyone went to every session it reaches: those that got
- * it, and those open now.
- */
 export function addressees(message: Posted, live: readonly Peer[]): string[] {
 	if (message.to === "any") return [];
 	if (message.to !== "all") return message.to;
@@ -134,10 +119,7 @@ export class Folder {
 	readonly room: RoomItem[] = [];
 	/** Who counts in this room, folded from its `room.*` events. */
 	readonly membership = new Membership();
-	/**
-	 * A room of one folder. The folder is its first member, so a session opened there is in before
-	 * any `room.added` says so, and the rule for how a session stands lives in one place.
-	 */
+	/** The folder is the room's first member, so a session opened there is in before any `room.added`. */
 	constructor(folder?: string) {
 		if (folder !== undefined) this.membership.folders.set(folder, 0);
 	}
@@ -312,11 +294,7 @@ export class Folder {
 	}
 }
 
-/**
- * Open sessions in the folder, oldest first. A session on this machine is open while its process
- * runs, and one on another machine while that machine says so, which `elsewhere` reads only when a
- * peer of another machine is there to ask about.
- */
+/** Another machine's session is open while that machine says so. */
 export function livePeers(
 	folder: Folder,
 	lives: Lives,

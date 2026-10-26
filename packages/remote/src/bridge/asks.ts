@@ -68,10 +68,7 @@ export class ClientAsks {
 		// Two producers meant two copies, and the second erased the author.
 	}
 
-	/**
-	 * What a closed question owes everyone else: the `CANCEL` the session's status watches to leave
-	 * `blocked`. The state change is the log's, except for the one a shutdown writes.
-	 */
+	/** Sends the `CANCEL` the session status waits for to leave `blocked`. */
 	#close(id: string, _result: AskResult, by?: By): void {
 		// The `CANCEL` stays: the state change is the log's, with the same answer and the same author.
 		this.#options.events.emit(CANCEL, { id, ...(by === undefined ? {} : { by }) });

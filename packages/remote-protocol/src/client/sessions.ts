@@ -31,10 +31,7 @@ export interface ListedSession {
 	state: SessionState;
 }
 
-/**
- * Asks the daemon for its sessions. A row that does not decode is dropped rather than drawn half
- * way: the list is a menu, and a menu entry that opens nothing is worse than one that is missing.
- */
+/** A row that does not decode is dropped: a menu entry that opens nothing is worse than none. */
 export async function listSessions(
 	base: string,
 	speaks: typeof fetch = fetch,
@@ -48,10 +45,7 @@ export async function listSessions(
 	const body: unknown = await answer.json();
 	if (!Array.isArray(body)) throw new DaemonAnswer(200, "a body that is not a list");
 	const kept = body.filter(isListed);
-	// A list with rows and none of them readable is a shape this client does not know, and an empty
-	// screen would say "no session is open", which is the opposite of what happened. One readable row
-	// among unreadable ones is delivered alone: a newer daemon may add fields, and a list with one
-	// session is better than none.
+	// Rows that all fail to decode are an unknown shape, not an empty list.
 	if (kept.length === 0 && body.length > 0) {
 		throw new DaemonAnswer(200, "a list this client cannot read");
 	}
@@ -92,20 +86,14 @@ function isListed(value: unknown): value is ListedSession {
 	);
 }
 
-/**
- * How a session reads in one word: gone, reconnecting, or pi's own status word, from the state the
- * daemon folded and then from the summary. A session that has not said one yet reads as nothing.
- */
+/** Empty until the session has said something. */
 export function stateOf(session: ListedSession): string {
 	if (session.gone !== undefined) return session.gone;
 	if (!session.connected) return "reconnecting";
 	return session.state.status ?? session.summary?.status ?? "";
 }
 
-/**
- * Whether this session is waiting on the person looking. The signal is a question nobody answered:
- * the permission mode says how a session will behave when it edits, not that it is stuck now.
- */
+/** An unanswered question; the permission mode alone does not mean it waits. */
 export function wantsYou(session: ListedSession): boolean {
 	const state = stateOf(session);
 	return state === "blocked" || state === "error" || openQuestions(session.state).length > 0;

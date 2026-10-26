@@ -4,11 +4,8 @@ import type {
 	ModelOption,
 	PermissionMode,
 } from "@adeildo/pi-remote-protocol";
-// The controls under the transcript, in the order a thumb reaches them: the lists above, then one strip
-// of pickers (mode, thinking, model), then the field with its one filled button. Two strips at rest.
-// Each picker shows its value and opens a sheet; the acts that do not belong to every moment sit behind
-// an overflow control, so the page does not grow when a run starts. What each control decides lives
-// in `composer-data.ts`; this file wires it.
+// The controls under the transcript: the lists, one strip of pickers, then the field and its button.
+// What each control decides lives in `composer-data.ts`.
 import type { Client, Outgoing } from "@adeildo/pi-remote-protocol/client";
 import { type ReactNode, useEffect, useState } from "react";
 
@@ -166,10 +163,7 @@ function Overflow({
 	);
 }
 
-/**
- * What `/` offers, drawn over the transcript's edge and not in the flow: the list opens above the field
- * and the conversation stays where it was. Choosing one writes the command and keeps the field.
- */
+/** Drawn over the transcript's edge, so the conversation does not move. */
 function Suggestions({
 	offering,
 	write,

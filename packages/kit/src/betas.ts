@@ -1,7 +1,5 @@
-// The betas an Anthropic request carries. Pi drops its own list the moment an extension sets the
-// header, so every feature that needs one grows the payload's list instead, and each name appears
-// once. The list comes back with the names ours added, so a payload that needed nothing goes on as
-// the same object, which is what the caller reads as "no change".
+// Pi drops its own beta list once an extension sets the header, so features add to the payload's
+// list instead. A payload that needed nothing comes back as the same object.
 
 export interface Betas {
 	betas: string[];

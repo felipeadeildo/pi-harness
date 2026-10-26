@@ -1,6 +1,4 @@
-// The way in: every session on every machine of the owner's, each row opening one, under the machine it
-// runs on. The link `/remote` prints lands here, so this is the first thing the page shows after the
-// login. What a row says is worked out in `rows.ts`, which is plain data and is what a test reads.
+// Every session on every machine of the owner, grouped by machine. Rows are worked out in `rows.ts`.
 import { type ListedSession, listSessions } from "@adeildo/pi-remote-protocol/client";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";

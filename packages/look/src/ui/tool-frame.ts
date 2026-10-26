@@ -48,9 +48,7 @@ export function registerToolFrames(scope: FeatureScope): void {
 	const set = glyphsOf(() => icons.get(scope));
 	CALLS_FRAMED.provide(scope, () => true);
 	RULING.onChanged(scope, (_ruling, toolCallId) => redraws.get(toolCallId)?.());
-	// Pi completes every call of a message only when the message ends, so a call the model finished
-	// before writing the next one would go on writing. The provider says when each one ends. Pi tells
-	// the extensions first and hands every call its arguments right after, which draws the frame.
+	// Pi completes a message's calls only when the message ends; the provider says when each one ends.
 	scope.on("message_update", (event) => {
 		const update = event.assistantMessageEvent;
 		if (update.type === "toolcall_end") written.set(update.toolCall.id, Date.now());
@@ -84,9 +82,7 @@ function framed(
 	const call = base?.renderCall ?? genericCall;
 	const result = base?.renderResult ?? genericResult;
 
-	// A renderer of pi's own mutates the component it returned last time, which sits inside the
-	// frame, so it gets that one back instead of the frame. A frame that showed the stream instead
-	// holds no component of pi's.
+	// Pi's renderers mutate the component they returned last time, so they get that one back, not the frame.
 	const inner = new WeakMap<Component, Component | undefined>();
 	const passed = (last: Component | undefined): Component | undefined =>
 		last === undefined || !inner.has(last) ? last : inner.get(last);
@@ -199,10 +195,6 @@ function framed(
 	};
 }
 
-/*
- * The stand-in for a tool that brings no renderer of its own: the arguments, under the top rule
- * that already names the tool, and the text of the result.
- */
 const genericCall: NonNullable<ToolRenderers["renderCall"]> = (args, theme, context) =>
 	new Text(callText(args, theme, context.expanded), 0, 0);
 
@@ -214,10 +206,7 @@ const RUNNING_WORDS: Readonly<Record<string, string>> = {
 	ask_questions: "waiting for your answer",
 };
 
-/**
- * The phase the call closes with while it still has no result: writing the arguments, then waiting
- * to run. A call with a result, live or replayed, stays open for the result half to close.
- */
+/** Without a result: writing the arguments, then waiting to run. */
 function phaseOf(
 	context: { isPartial: boolean; executionStarted: boolean },
 	writing: boolean,
@@ -362,10 +351,7 @@ function drawnBody(drawn: readonly string[]): Component {
 	return { render: () => [...drawn], invalidate: () => {} };
 }
 
-/**
- * Pi's own body, or the stream while pi's body is only its first line, as when an edit's diff is
- * still being read from the file after the model finished writing.
- */
+/** The stream while pi's body is still only its first line. */
 function orStream(own: Component, stream: Stream | undefined): Component {
 	if (stream === undefined) return own;
 	return {

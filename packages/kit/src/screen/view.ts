@@ -478,10 +478,6 @@ export class ScreenView implements Component {
 		return out;
 	}
 
-	/**
-	 * The list, and under it what the selected value looks like, when the setting draws one and there
-	 * is room left. While picking, the preview follows the highlighted value.
-	 */
 	#withPreview(listed: string[], width: number): string[] {
 		const mode = this.#mode;
 		// Only browsing and picking have a highlighted row; the other modes have no preview.

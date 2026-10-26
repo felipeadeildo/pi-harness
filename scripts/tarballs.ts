@@ -47,11 +47,8 @@ export async function checkTarballs(
 	return problems.flat();
 }
 
-// Four ways a package breaks without anyone noticing. A `workspace:` range left unresolved. A
-// dependency on a workspace package at a version other than the one being released, which is what
-// happens when release-please bumps the package.json files and bun.lock still has the old
-// versions, because `bun pm pack` takes the version from the lockfile. And a `pi` manifest
-// pointing at a file the tarball does not carry, or a folder of `files` it does not carry.
+// Unresolved `workspace:` ranges, workspace dependencies at another version than the release (bun.lock
+// lagging release-please), and `pi` manifests or `files` entries the tarball does not carry.
 async function checkTarball(
 	packed: PackedPackage,
 	versions: ReadonlyMap<string, string>,

@@ -25,11 +25,7 @@ export interface Choice<T extends string> {
 	chosen: boolean;
 }
 
-/**
- * The modes the dial offers, with the session's own on. Serving the mode is a capability and having a
- * value is state: a session that says it takes none gets no dial, because one that can only be refused
- * is worse than none, and one that has not said yet gets the dial, so it does not blink in.
- */
+/** No dial for a session that takes no mode; one that has not said yet gets it, so it does not blink in. */
 export function modeChoices(
 	mode: PermissionMode | undefined,
 	serves: boolean | undefined,
@@ -48,11 +44,7 @@ export function levelChoices(thinking: string | undefined): Choice<string>[] {
 	return THINKING_LEVELS.map((value) => ({ value, chosen: value === (thinking ?? "off") }));
 }
 
-/**
- * What the one filled button does. Typing always sends. With nothing typed it is a dead button, except
- * during a run, where it becomes Abort in the same place: the button keeps its footprint and the field
- * does not move when a run starts.
- */
+/** With nothing typed during a run, the button becomes Abort in the same place. */
 export function primaryAct(running: boolean, empty: boolean): "send" | "abort" {
 	return running && empty ? "abort" : "send";
 }
@@ -64,11 +56,7 @@ export interface MenuItem {
 	enabled: boolean;
 }
 
-/**
- * The acts behind the overflow control. Each is there always and enabled when it can mean something, so
- * the menu has the same rows every time it opens: steering needs text and a run, aborting needs a run,
- * and renaming needs a screen that can ask for a name.
- */
+/** Every item is always listed, enabled when it can mean something, so the menu never changes shape. */
 export function menuItems(state: {
 	running: boolean;
 	empty: boolean;
@@ -84,18 +72,11 @@ export function menuItems(state: {
 	return items;
 }
 
-/**
- * The model the session is on, as the one line the picker shows. Before the session has said which one,
- * the line is empty and the chip shows its own name: "no model" would say there is none.
- */
+/** Empty until the session says, since "no model" would claim there is none. */
 export function modelLabel(model: { provider: string; id: string } | undefined): string {
 	return model === undefined ? "" : model.id;
 }
 
-/**
- * What the sheet says when the list it holds is shorter than the registry's: the search covers only
- * those, and a list cut without a word reads as the whole registry.
- */
 export function modelsNote(held: number, total: number | undefined): string | undefined {
 	return total !== undefined && total > held
 		? `${held} of ${total} models, refine the search`
@@ -128,11 +109,7 @@ export function stateOf(command: Outgoing): string {
 	}
 }
 
-/**
- * What the outbox says of one command, and whether the person can act on it. Only a command that
- * waited past the window is theirs to send or drop: one inside it goes out on its own, and the line
- * has to say which, or a prompt typed offline three minutes ago looks like one in flight.
- */
+/** Only a command past the window is the person's to send or drop. */
 export function outboxLine(
 	command: Outgoing,
 	heldIds: ReadonlySet<string>,
@@ -156,11 +133,7 @@ export function takeDraft(
 	clear();
 }
 
-/**
- * The models a search leaves. Every word typed has to be in the name, the id or the provider, in any
- * order and whatever the case, so "opus anth" finds Anthropic's Opus. Nothing typed leaves the whole
- * list, in the order the session gave it: the screen does not rank.
- */
+/** Every word typed must be in the name, id or provider, in any order and case. */
 export function matchModels(models: readonly ModelOption[], query: string): ModelOption[] {
 	const words = query
 		.toLowerCase()

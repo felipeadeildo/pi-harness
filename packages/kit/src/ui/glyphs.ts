@@ -1,6 +1,4 @@
-// Every character the harness draws with, by name, so code says `GLYPH.check` instead of `\u2713`.
-// These are plain Unicode and show in any terminal font. Marks that need a Nerd Font, and their
-// fallbacks, live in the look package's icon sets.
+// Every character the harness draws with, by name. Nerd Font marks live in look's icon sets.
 
 /** Marks in running text. */
 export const GLYPH = {
@@ -87,10 +85,7 @@ export const SPIN = {
 	pencil: ["\u270e", "\u270f", "\u2710", "\u270f"],
 } as const;
 
-/**
- * The mark a cut line ends with. Three dots, not the `…` glyph: every font and every icon set has
- * them, and the terminal width of one dot is one column everywhere.
- */
+/** Three dots rather than `…`, which is one column in every font. */
 export const CUT = "...";
 
 /** The lines frames, rules and scroll bars are drawn with. */

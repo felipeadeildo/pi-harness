@@ -44,11 +44,7 @@ export function keyOf(session: ListedSession): string {
 	return `${session.machine}/${session.session}`;
 }
 
-/**
- * The list as lines. The order is the one the screen kept when it was mounted, so a session that starts
- * waiting does not jump under the thumb reaching for another one; only a list drawn for the first time
- * sorts itself, and that is the one the person expects to see ordered.
- */
+/** Keeps the order the screen mounted with, so a row never jumps under the thumb. */
 export function rowsOf(sessions: readonly ListedSession[], kept?: readonly string[]): Row[] {
 	return ordered(sessions, kept).map((session) => {
 		const waits = wantsYou(session);
@@ -83,10 +79,6 @@ export function countOf(rows: readonly Row[]): string {
 	return waiting === 0 ? open : `${open}, ${waiting} waiting on you`;
 }
 
-/**
- * The sessions in the order the screen kept, with anything new appended where the list would put it. A
- * refresh never moves a row the person is already looking at: what changes is the mark, not the place.
- */
 function ordered(sessions: readonly ListedSession[], kept?: readonly string[]): ListedSession[] {
 	if (kept === undefined) return inOrder(sessions);
 	const place = (session: ListedSession): number => {

@@ -20,9 +20,6 @@ afterEach(() => {
 	rig = undefined;
 });
 
-/**
- * What the model answers. The first turn calls the board tool; the next one closes the run.
- */
 function scriptedBoard(): (context: unknown) => AssistantMessage {
 	let calls = 0;
 	return () => {

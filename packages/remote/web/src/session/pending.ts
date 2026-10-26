@@ -1,6 +1,5 @@
-// Two lists wait on the same screen and they are not the same thing: the outbox is what this device
-// sent and the daemon has not answered, the queue is what the session itself is holding for the agent
-// to finish. A message moves from one to the other when the answer names it, and it is never in both.
+// The outbox is what this device sent and the daemon has not answered; the queue is what the session
+// holds. A message is never in both.
 
 import type { QueuedMessage } from "@adeildo/pi-remote-protocol";
 import type { Client } from "@adeildo/pi-remote-protocol/client";
@@ -29,10 +28,7 @@ export function queuedLines(queue: readonly QueuedMessage[]): QueuedLine[] {
 	}));
 }
 
-/**
- * Takes one message back out of the session's queue. The ids go with the command, so the act names what
- * it removes: a `queue.clear` without them empties the list every client is looking at.
- */
+/** Sends the id, since a `queue.clear` without ids empties everyone's queue. */
 export function withdraw(client: Client, id: string): void {
 	client.send("queue.clear", { ids: [id] });
 }

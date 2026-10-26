@@ -1,6 +1,4 @@
-// Where the branch ends is the bridge's word, not the client's guess. A `/tree` move, including the
-// one back to the root, has to change what the screen draws, and the client has to keep the word for
-// the next visit instead of recomputing it from the last entry it happens to hold.
+// The bridge says where the branch ends; the client keeps that word instead of guessing from its last entry.
 import { describe, expect, test } from "bun:test";
 
 import { emptySessionState } from "@adeildo/pi-remote-protocol";

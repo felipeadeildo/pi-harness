@@ -34,10 +34,7 @@ export interface AskOptions {
 	cancelledBy?: By;
 	/** The session whose log gets `ask.opened` and `ask.closed`. Without it, nothing is logged. */
 	ctx?: { sessionManager: Partial<LogSession> };
-	/**
-	 * The request's id, when the caller already has one, such as the tool call's. Keeping it unique is
-	 * the caller's job: two open asks with one id would both close on the first answer.
-	 */
+	/** Must be unique: two open asks with one id both close on the first answer. */
 	id?: string;
 	/** The asker draws the question in its own terminal, so the questions feature leaves it alone. */
 	drawn?: true;
@@ -48,12 +45,7 @@ function aborted(): AskResult {
 	return { answers: [], cancelled: true };
 }
 
-/**
- * Asks, and resolves with the first answer. Check `canAsk` first: with no provider listening and no
- * signal, the promise never settles. A provider that is listening always answers, even when it
- * fails. Once the question closes, by an answer or by `signal`, `harness:ask.cancel` tells every
- * other provider to close its dialog.
- */
+/** Check `canAsk` first: with no provider and no signal, the promise never settles. */
 export function askQuestions(
 	events: Events,
 	questions: readonly AskQuestion[],

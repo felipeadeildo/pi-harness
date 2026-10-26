@@ -1,6 +1,5 @@
-// What every feature does goes into one log per session, so another session, a bridge or a web UI
-// can follow it live and replay it later. Only the session itself writes its file, and all the
-// harness's extensions share one thread, so lines never interleave and nothing needs a lock.
+// One log per session, followed live by other sessions and replayed later. Only the session writes
+// its file and the extensions share one thread, so lines never interleave.
 import {
 	appendFileSync,
 	existsSync,
@@ -64,10 +63,7 @@ export function eventsDir(cwd: string, root = eventsRoot()): string {
 	return join(root, `--${cwd.replace(/^[/\\]+/, "").replace(/[/\\:]+/g, "-")}--`);
 }
 
-/**
- * Where shared rooms live, one directory each. A folder's directory always starts with `--`, so this
- * never takes a folder's name.
- */
+/** A folder's directory starts with `--`, so a room never takes its name. */
 export function roomsDir(root = eventsRoot()): string {
 	return join(root, "rooms");
 }
@@ -189,11 +185,7 @@ export function pruneLogs(dir: string, root = eventsRoot(), now = Date.now()): v
 	}
 }
 
-/**
- * The last events of a log, read from its tail. A session's log grows for as long as the session
- * lives, and a reader that needs only the newest lines, such as the ids of the commands it ran,
- * should not read the whole file to find them.
- */
+/** Reads only the end of a log, for readers that need the newest lines. */
 export function readTail(path: string, bytes = TAIL_BYTES): LoggedEvent[] {
 	let fd: number;
 	try {
@@ -224,10 +216,7 @@ export function readTail(path: string, bytes = TAIL_BYTES): LoggedEvent[] {
 /** Enough of a log's tail for the last commands of a long session, at a few hundred bytes each. */
 const TAIL_BYTES = 512 * 1024;
 
-/**
- * Whether a line of the log is an event. It is written by whichever version was running, so the reader
- * checks the shape instead of trusting the version number alone.
- */
+/** Checks the shape, since any version may have written the line. */
 function isLoggedEvent(value: unknown): value is LoggedEvent {
 	return (
 		isObject(value) &&

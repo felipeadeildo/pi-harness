@@ -154,9 +154,7 @@ describe("the index of open sessions", () => {
 	});
 
 	test("a file this version cannot read is not an entry, so the list keeps drawing", () => {
-		// The entry is written by whichever version was running, and the reader is a later one. A field
-		// it cannot read is the whole entry's problem: reading it as an entry would put a state nobody
-		// wrote into a list a person chooses from.
+		// A field this version cannot read makes the whole entry unreadable.
 		writePresence(entry("fits"), root);
 		writePresence({ ...entry("other-state"), state: "away" } as never, root);
 		writePresence({ ...entry("no-handle"), handle: 7 } as never, root);

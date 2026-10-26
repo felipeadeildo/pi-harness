@@ -29,12 +29,7 @@ export function usageLimitLine(
 	return `${message.provider} · ${label}: usage limit reached${when} (quota exceeded)`;
 }
 
-/**
- * Follows the `accounts.onLimit` policy: ask, switch, or stop, and pins the account it moves to.
- * Once you stop on an account, its next limits in this session fail without asking again: the next
- * turn, and the calls other packages make in the background, would open the same dialog over and
- * over. `declined` forgets the account when it answers again.
- */
+/** After a stop, the account's next limits fail without asking again this session. */
 export async function afterLimit(
 	scope: FeatureScope,
 	store: AccountStore,
@@ -192,10 +187,7 @@ function markLimited(
 	return refused;
 }
 
-/**
- * Every other account that has not refused in this session, in the ring order after the current one.
- * The ones a reading says are still spent go last, so a switch on its own does not land on them.
- */
+/** Ring order after the current one; accounts still spent go last. */
 function limitCandidates(
 	list: readonly Account[],
 	currentId: string,

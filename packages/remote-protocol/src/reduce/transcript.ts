@@ -1,6 +1,4 @@
-// The transcript of one branch: pi's entries are the conversation, and the live stream only carries
-// the message being written. So a reader puts the branch back together by `parentId` and draws it in
-// the order pi wrote it, which is what makes a reconnect show nothing twice.
+// The branch is rebuilt from pi's entries by `parentId`, so a reconnect shows nothing twice.
 
 /** An entry, read by the fields the tree needs. The rest travels untouched. */
 export interface Entry {
@@ -48,22 +46,12 @@ export interface Transcript {
 	leaf?: string;
 }
 
-/**
- * One field of an entry, read by name. `Reflect.get` reads the same property `entry.x` would, without
- * the cast to a record the protocol never promised. Every caller reaches it from a branch that already
- * read `entry.type`, so the value is an object by then: the transcript's defence against a malformed
- * line is at the boundary, where the entry is taken for what it says it is.
- */
 function field<T>(entry: Entry, name: string): T | undefined {
 	const value: unknown = Reflect.get(entry, name);
 	return value === undefined ? undefined : (value as T);
 }
 
-/**
- * The entries from the root to `leaf`, in order. Without a leaf it takes the last entry, which is
- * where pi left the session. An entry whose parent is missing ends the walk, so a file that lost
- * entries in a migration still yields the part it kept.
- */
+/** Without a leaf, the last entry. A missing parent ends the walk, so a damaged file still yields what it kept. */
 export function branchOf(entries: readonly Entry[], leaf?: string): Entry[] {
 	const byId = new Map(entries.map((entry) => [entry.id, entry]));
 	const start = leaf === undefined ? entries.at(-1) : byId.get(leaf);

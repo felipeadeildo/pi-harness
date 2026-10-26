@@ -1,6 +1,4 @@
-// One question and what you answered, drawn the same in the review tab and in the transcript. Each
-// part says what it is: a tick for an option you picked, "your words" for what you typed, "note"
-// for a note, and an empty circle for a question left without an answer.
+// One question and its answer, the same in the review tab and the transcript.
 import { type AskAnswer, isAnswered, GLYPH } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
@@ -17,11 +15,7 @@ export interface Asked {
 	header: string;
 }
 
-/**
- * The header, the question under it, then the answer: each pick with its notes, your own words,
- * and the notes on options you did not pick. `number` counts the questions when there are several.
- * `whole` wraps the question instead of cutting it to one line.
- */
+/** `number` counts the questions when there are several; `whole` wraps the question instead of cutting it. */
 export function answerBlock(
 	asked: Asked,
 	answer: AskAnswer | undefined,

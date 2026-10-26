@@ -1,7 +1,5 @@
-// The machine's place on a tailnet, so a phone on it reaches the daemon with nothing to set up. Both
-// answers come from the `tailscale` command: the machine's name and address once, when the daemon
-// starts, and who another address belongs to, when a device asks to log in. A machine without
-// Tailscale, or one where the command fails or is slow, reaches the daemon on loopback only.
+// The machine's place on a tailnet, from the `tailscale` command. Without it, or when it fails or
+// is slow, the daemon listens on loopback only.
 import { execFile } from "node:child_process";
 
 import { isObject } from "@adeildo/pi-remote-protocol";
@@ -37,10 +35,7 @@ export async function readTailnet(ask: AskTailscale = askTailscale): Promise<Tai
 	return nodeOf(parsed(await ask(["status", "--json"]))?.Self);
 }
 
-/**
- * This machine on its tailnet and the owner's other machines that are online, each by its address.
- * A node another user shares into the tailnet is not one of them.
- */
+/** Nodes other users share into the tailnet are left out. */
 export async function readOwnTailnet(
 	ask: AskTailscale = askTailscale,
 ): Promise<{ self: Tailnet; others: Tailnet[] } | undefined> {
@@ -66,11 +61,7 @@ function nodeOf(value: unknown): Tailnet | undefined {
 	return { name, ip, user };
 }
 
-/**
- * Whether an address on the tailnet belongs to the user who owns this machine: the operator's own
- * phone does, and a node another user shares into the tailnet does not. Anything that is not a clear
- * yes is a no, and the device logs in with a link instead.
- */
+/** Anything but a clear yes from `whois` is a no, and the device logs in with a link. */
 export class Owners {
 	readonly #known = new Map<string, { owned: boolean; until: number }>();
 

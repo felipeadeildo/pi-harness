@@ -9,11 +9,7 @@ export interface Offered {
 	source: string;
 }
 
-/**
- * The commands a client may run: skills and templates, plus what this harness answers itself. An
- * extension command is left out because `expandPromptTemplates` would run it at the terminal's
- * privilege from a phone.
- */
+/** Skills, templates and the harness's own commands. Extension commands would run at the terminal's privilege. */
 export function commandsFor(offered: readonly Offered[]): SessionCommand[] {
 	const commands: SessionCommand[] = offered
 		.filter((one) => one.source === "skill" || one.source === "prompt")
@@ -34,11 +30,7 @@ export type Slash = "compact" | "expand" | "refused";
 
 const COMPACT = /^\/compact(?:\s+([\s\S]*))?$/;
 
-/**
- * Reads one text: without a `/` it is a prompt, and the caller tells the two apart. A name is accepted
- * only if the session offers it, so a command that appeared after the list was sent is refused
- * instead of being expanded into the model.
- */
+/** A name is accepted only if the session offers it, so an unknown one is never expanded into the model. */
 export function slashOf(text: string, offered: readonly SessionCommand[]): Slash {
 	if (!text.startsWith("/")) return "expand";
 	const typed = text.slice(1).split(/\s/, 1)[0] ?? "";

@@ -29,12 +29,8 @@ const BLOCKED = Type.Object(
 	{ description: "Who the card waits on. For add and edit." },
 );
 
-/**
- * One object whose `op` says which operation, and whose other fields each name the operations that read
- * them. It is not a union of one shape per operation: a tool's schema has to be an object at the top, and
- * a provider that gets `anyOf` there refuses the tool, so the session fails on its first call. What each
- * operation needs is checked by `missingFor`, before the board changes.
- */
+// One object rather than a union: a provider refuses a tool whose top-level schema is `anyOf`.
+// `missingFor` checks each operation's fields.
 export const BOARD_PARAMETERS = Type.Object({
 	op: oneOf(["add", "move", "edit", "drop", "decide", "find"], "What to do."),
 	title: Type.Optional(TITLE),

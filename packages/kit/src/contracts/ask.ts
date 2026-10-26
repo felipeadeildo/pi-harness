@@ -1,8 +1,4 @@
-// One dialog for every question: the permission and the agent both ask here, and the questions
-// feature draws it.
-//
-// The bus is synchronous, so a request carries an id and the answer arrives on a second channel,
-// like the screen's `run` does.
+// One dialog for every question. The bus is synchronous, so the answer comes on a second channel.
 import { isObject } from "../decode.ts";
 import { GLYPH } from "../ui/glyphs.ts";
 import type { By } from "./by.ts";
@@ -11,12 +7,8 @@ import type { By } from "./by.ts";
 export const AVAILABLE = "harness:ask:available";
 export const ASK = "harness:ask";
 export const ANSWER = "harness:ask:answer";
-/**
- * The question closed: someone answered it, or the asker gave up. Only the asker's client emits it,
- * since it decides the race. A provider drawing the question closes its dialog, and one still holding
- * it in a queue drops it without drawing. A provider whose dialog closes on its own, as on Esc,
- * answers with `cancelled: true` and never emits this: without that answer the asker waits forever.
- */
+// Only the asker emits it. A provider whose dialog closes on its own answers `cancelled: true`
+// instead, or the asker waits forever.
 export const CANCEL = "harness:ask.cancel";
 
 export interface AskOption {

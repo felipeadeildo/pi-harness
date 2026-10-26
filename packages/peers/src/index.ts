@@ -136,9 +136,7 @@ export const peers = defineFeature({
 		"Agents in the same folder see each other's work, talk in a room, and split what you ask everyone",
 	settings: PEERS_SETTINGS,
 	setup(scope) {
-		// A subagent holds a session of its own inside this one. It never joins the room, publishes a
-		// board or reads the notes, because a woke message would collide with the prompt that already
-		// started its run, and pi refuses the message.
+		// A subagent never joins the room: a woken message would collide with the prompt that started it.
 		if (inSubagent()) return;
 		let session: ExtensionContext | undefined;
 		/** Held messages a run that was not yours took, by id, so their line says so. */
@@ -197,9 +195,7 @@ export const peers = defineFeature({
 		function showTyping(): void {
 			const ctx = session;
 			if (ctx === undefined || ctx.mode !== "tui") return;
-			// Only what waits for this session takes a frame over the editor. Another agent's draft is
-			// not addressed here, so it goes to the footer: a frame that comes and goes moves whatever
-			// you were typing.
+			// Another agent's draft goes to the footer: a frame that comes and goes moves what you type.
 			const writing = rooms.queued().length > 0;
 			if (writing === typingShown) return;
 			typingShown = writing;
@@ -215,10 +211,6 @@ export const peers = defineFeature({
 		}
 		const pending = new Map<string, { path?: string; command?: string }>();
 
-		/**
-		 * The look's footer keeps one mark per other session, and how many wait for an answer. The
-		 * bridge hears the same marks when they change.
-		 */
 		let announced: string | undefined;
 		function showStatus(): void {
 			const summary = rooms.summary();
@@ -460,10 +452,7 @@ export const peers = defineFeature({
 				const me = rooms.session;
 				if (me === undefined) return reply("Not in a session.");
 				if (params.action === "board") {
-					// The board this session folded, drawn the way the panel draws it, plus who else is
-					// in the room and what they are on.
-					// The model reads text, not the panel's drawing: the kit writes this one, and it is the
-					// same the board tool answers with.
+					// The same text the board tool answers with, plus who else is in the room.
 					const board = BOARD.current(scope);
 					const lines = [
 						...(board === undefined ? [] : [boardOfKit(board)]),

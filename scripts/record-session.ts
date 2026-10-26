@@ -1,7 +1,5 @@
 #!/usr/bin/env bun
-// Records one scripted run of a real pi: its session file and its harness log, into a folder. The
-// recording is the fixture the protocol's reducers rebuild, so it carries pi's real order of events
-// and nothing private: the model is scripted, the folder is temporary and the clock starts at zero.
+// Records a scripted pi run (session file and harness log) as the fixture the reducers rebuild.
 //
 //   bun scripts/record-session.ts [folder]
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -26,10 +24,7 @@ const out =
 
 let runs = 0;
 
-/**
- * Takes this machine out of a recording: the folders it ran in, the home it read from, and the
- * paths pi prints for its own packages. Longest first, since the home folder holds the rest.
- */
+/** Longest first, since the home folder holds the rest. */
 export function scrub(text: string, parts: readonly string[]): string {
 	let scrubbed = text;
 	for (const part of parts) scrubbed = scrubbed.replaceAll(part, "/session");
@@ -40,10 +35,7 @@ export function scrub(text: string, parts: readonly string[]): string {
 	return scrubbed;
 }
 
-/**
- * What must never reach the repository, whatever the run did. The bare folders are here as well as
- * the home of whoever records: the check travels to machines the recording never ran on.
- */
+/** Checked on every machine, not only the one that recorded. */
 export const PRIVATE = [
 	homedir(),
 	"pi-rig-",
@@ -87,9 +79,7 @@ async function record(): Promise<void> {
 		const first = rig.session.sessionManager.getBranch()[0];
 		// A second turn, plain.
 		await rig.prompt("Now read the log.");
-		// A move in the tree and a turn after it. `branch` only moves the leaf, so without the third
-		// turn nothing in the file says the tree moved: the entries written next hang from the older
-		// one.
+		// `branch` only moves the leaf, so a third turn is needed for the file to show the move.
 		if (first !== undefined) rig.session.sessionManager.branch(first.id);
 		await rig.prompt("What did the first turn leave?");
 		// An aborted turn and a compaction need timing the scripted model does not control. They are

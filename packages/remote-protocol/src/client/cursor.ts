@@ -19,11 +19,7 @@ export type Next =
 	/** Read the opening first: the stream restarted, or the client is new. */
 	| { read: "state"; why: "new" | "epoch" | "gap" };
 
-/**
- * What to do with an envelope of a session the client already has. A new epoch always means a
- * opening, because the seq numbering started over. A hole in the numbering means the same, since
- * nothing else can put back what was dropped.
- */
+/** A new epoch or a hole in the numbering needs an opening. */
 export function decide(cursor: Cursor, envelope: Envelope): Next {
 	if (cursor.epoch === undefined) return { read: "state", why: "new" };
 	if (envelope.epoch !== undefined && envelope.epoch !== cursor.epoch) {

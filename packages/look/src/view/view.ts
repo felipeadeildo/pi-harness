@@ -1,6 +1,4 @@
-// Another session over the whole screen: its transcript, then an editor box whose edges say its
-// folder, model and context as yours do, all inside one frame. A source that only reads, such as a
-// session file, has a line in place of the editor.
+// Another session over the whole screen. A read-only source has a line in place of the editor.
 import { entryFrame, type SessionSummary, type SessionSource } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
@@ -140,10 +138,7 @@ function titleOf(snapshot: SessionSummary | undefined): string {
 	return `${name} @ ${snapshot.machine}`;
 }
 
-/**
- * What your slots read, filled from the viewed session. What it does not publish, such as its git
- * state, its account and its costs, stays empty, so those segments draw nothing.
- */
+/** What the viewed session does not publish (git, account, costs) stays empty. */
 export function lookSnapshot(yours: Snapshot, session: SessionSummary | undefined): Snapshot {
 	if (session === undefined) return { ...emptySnapshot(), now: yours.now, home: yours.home };
 	const window = session.context?.window;

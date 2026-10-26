@@ -1,5 +1,4 @@
-// What reaches this session's agent, from every room it is in. A session is one agent however many
-// rooms it reads, so the depth of its chain and the way a message reaches it belong here, and what
+// What reaches this session's agent from all its rooms. One agent, so one chain depth, and what
 // arrives from several rooms at once is one turn.
 import { Inbox as KitInbox, type By, type Delivery, type Letter } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -53,10 +52,7 @@ export interface InboxHooks {
 	busyDelivery?: () => BusyDelivery;
 	/** Agent replies in a chain before it stops waking anyone. 0 never stops it. */
 	chainLimit?: () => number;
-	/**
-	 * What waited for the next prompt went in with a run that did not start from one: `by` is the
-	 * colleague whose message started it, when one did.
-	 */
+	/** `by` is the colleague whose message started the run, when one did. */
 	wentIn?(ids: readonly string[], by: string | undefined): void;
 	idle(): boolean;
 }
@@ -69,10 +65,7 @@ export interface Sender {
 	handed(messages: readonly Posted[], mode: Delivery): void;
 }
 
-/**
- * The same words as a letter of the kit, which is what the queue holds once it moves there. The kit
- * reads `want`, the peers reads `mode`: one is how it goes in, the other is when.
- */
+/** The kit reads `want` (how it goes in), peers reads `mode` (when). */
 export function letterOf(message: Posted, by: By, mode: Waiting["mode"]): Letter {
 	return {
 		id: message.id,
@@ -105,10 +98,7 @@ export class Inbox {
 	>();
 	/** The operator has written to this session: before that, a colleague's message waits for it. */
 	#awake = false;
-	/**
-	 * Held deliveries in pi's next-turn list. Pi gives that list to whatever run starts next, which is
-	 * not always yours, so the inbox keeps them until a run takes them and says which.
-	 */
+	/** Pi gives its next-turn list to whichever run starts next, so the inbox tracks which one took them. */
 	#held: Arrival[][] = [];
 	/** The run about to start is one you started, with a prompt here or from another session. */
 	#yours = false;
@@ -136,10 +126,6 @@ export class Inbox {
 		if (this.#hooks.idle()) this.#yours = true;
 	}
 
-	/**
-	 * A run started, and took what waited for the next prompt. Your run is the one those were held
-	 * for. Any other run took them too, so the room's receipts, the chain and the screen say so.
-	 */
 	started(): void {
 		// The run that starts now takes what waited, so the queue is emptied in the same place it is
 		// kept: the kit's, which is the one the screen and the receipts read.
@@ -196,11 +182,8 @@ export class Inbox {
 	}
 
 	/**
-	 * Pi emptied the agent's queue, which Esc and taking your queued messages back both do, and the
-	 * colleagues' messages in it went too. They are not dropped: the room already logged them as
-	 * received, so the writer counts on this agent reading them, and you stopped your own run, not the
-	 * conversation. A run that goes on gets them again the same way; one you stopped leaves them for
-	 * your next prompt, shown with why, and the room's receipt says so.
+	 * Pi emptied the queue (Esc). The room already logged colleagues' messages as received, so they are
+	 * not dropped: a running run gets them again, a stopped one leaves them for your next prompt.
 	 */
 	cleared(running: boolean): void {
 		const queued = [...this.#shown.values()];
@@ -371,10 +354,7 @@ function inOrder(arrivals: readonly Arrival[]): { from: Sender; message: Posted 
 		.toSorted((a, b) => a.message.at - b.message.at);
 }
 
-/**
- * How deep a run this message starts is. Your own words start a chain; a colleague's message adds
- * one, and the chain limit of those is where agents that only answer each other stop waking.
- */
+/** Your words start a chain; a colleague's message adds one. */
 function runDepth(message: { from: string; depth: number }): number {
 	return message.from === "you" ? 0 : message.depth + 1;
 }

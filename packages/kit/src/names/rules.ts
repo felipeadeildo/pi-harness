@@ -1,26 +1,15 @@
-// The rules a word list must hold: short, one word, one first three letters each so Tab completes it,
-// two edits apart so a typo cannot turn one handle into another, and never a word that reads as code
-// or as a command. The list's test asserts them here, and scripts/names/check.ts prints the counts a
-// candidate list gets under each one.
+// The word list's rules: short, one word, unique first three letters for Tab, two edits apart, and
+// nothing that reads as code or a command. `scripts/names/check.ts` reports a candidate list.
 
 /** The fewest letters and the most a handle may have, so `@` plus the word stays easy to type. */
 export const SHORTEST = 3;
 export const LONGEST = 8;
-/**
- * Two words this many edits apart, the most the list can hold: short animal names crowd, so at three
- * edits 1,057 candidates leave 484 words, and 600 are needed; at two they leave 607. One typo still
- * cannot turn one handle into another; Tab may offer a second word when the typo lands one edit
- * from it.
- */
+/** Three edits would leave 484 of 1,057 candidates; 600 are needed. */
 export const APART = 2;
 /** A week of reserved handles at about 70 sessions a week leaves most of the list free. */
 export const FEWEST = 600;
 
-/**
- * Words that read as code, as an instruction or as a command of pi or of the harness. A few are
- * animals too, `bat`, `dog` and `pig`, and they stay out because a handle that reads as a command
- * would be taken for one in a message; their prefixes go to `bateleur`, `dogfish` and `pigeon`.
- */
+/** Animals that read as commands (`bat`, `dog`, `pig`) stay out too. */
 const DENIED = new Set([
 	"add",
 	"api",
@@ -180,11 +169,7 @@ export function distance(a: string, b: string): number {
 	return before[b.length] ?? 0;
 }
 
-/**
- * The words that can be kept, in alphabetical order. The order of the candidate file must not
- * change the answer, since the first word of a shared prefix wins and the chosen word is what the
- * list ends up with. A word that breaks a rule is left out and the ones after it still count.
- */
+/** Alphabetical, so the candidate file's order cannot change which word of a shared prefix wins. */
 export function audit(candidates: readonly string[]): Audit {
 	const removed: Record<string, number> = { shape: 0, denied: 0, letters: 0, close: 0 };
 	const left: Audit["left"] = [];

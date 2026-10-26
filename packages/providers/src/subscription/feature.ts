@@ -27,10 +27,7 @@ export const betas = setting({
 	},
 });
 
-/**
- * A value pi decides: the screen shows it and does not open an editor, because a decoder with no
- * control is read only. A settings file that disagrees is reported and ignored.
- */
+/** Read only: a file that disagrees is reported and ignored. */
 function pinned(version: string): Decoder<string> {
 	return {
 		decode: (input, path) =>

@@ -8,10 +8,7 @@ export interface ThumbRange {
 	size: number;
 }
 
-/**
- * The thumb for a viewport `height` rows tall over `total` rows, scrolled to `scroll`. Undefined when
- * everything fits, which is also when a bar is not drawn at all.
- */
+/** Undefined when everything fits. */
 export function thumbRange(total: number, height: number, scroll: number): ThumbRange | undefined {
 	if (total <= height) return undefined;
 	const size = Math.max(1, Math.round((height * height) / total));

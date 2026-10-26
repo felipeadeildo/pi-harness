@@ -44,10 +44,7 @@ export interface ServeOptions {
 	tailnet?: () => Promise<Tailnet | undefined>;
 }
 
-/**
- * `serve` runs the daemon in the foreground, and it never exits for being idle. `--dev` runs it from
- * `src/` under `bun --watch`, which restarts it on every save.
- */
+/** Runs the daemon in the foreground, never idling out. `--dev` runs `src/` under `bun --watch`. */
 async function serve(
 	flags: readonly string[],
 	out: (line: string) => void,
@@ -88,11 +85,7 @@ async function serve(
 	return 0;
 }
 
-/**
- * The port the settings file names, or the default when it names none this command can use. The file
- * is read here rather than through the kit because the built command may import only Node's modules,
- * and the kit reaches the pi runtime. The key and the range are the setting's, spelled the same.
- */
+/** Read without the kit, because the built command may import only Node's modules. */
 export function portFromSettings(): number {
 	let data: unknown;
 	try {

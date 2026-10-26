@@ -1,8 +1,5 @@
-// A message you type that mentions another agent goes to that agent and not to yours. `@name` sends
-// it to one agent. `@everyone` sends it to every agent in the folder, yours included. `@anyone` asks
-// them all, and the one that fits it best takes it while the others see who did. Pi also uses
-// `@` to attach files, so only the name of an open session counts, and the list that opens after
-// `@` shows the agents above the files.
+// `@name` sends to one agent, `@everyone` to all of them, `@anyone` to the best bidder. Pi also uses
+// `@` for files, so only an open session's name counts.
 import {
 	type AutocompleteItem,
 	type AutocompleteProvider,
@@ -36,9 +33,6 @@ const GROUPS: Record<string, string> = {
 /** An `@` and the start of a name, right before the cursor. */
 const TYPING_PATTERN = /(?:^|[\s([{<`])(@[a-z0-9-]*)$/i;
 
-/**
- * The name being typed after an `@` right before the cursor, in lower case, or undefined when none is.
- */
 export function typingMention(text: string): string | undefined {
 	return TYPING_PATTERN.exec(text)?.[1]?.slice(1).toLowerCase();
 }
@@ -50,10 +44,7 @@ export function groupIn(mentioned: readonly string[]): "all" | "any" | undefined
 	return undefined;
 }
 
-/**
- * The agents a message goes to: "all" for `@everyone`, "any" for `@anyone`. Undefined when it
- * mentions no other agent, so it goes to yours.
- */
+/** Undefined when the message mentions no other agent, so it goes to yours. */
 export function recipientsOf(
 	names: Names,
 	me: string | undefined,

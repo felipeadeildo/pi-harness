@@ -5,11 +5,7 @@ import { isStateChangeType } from "@adeildo/pi-remote-protocol";
 
 import { PRODUCERS } from "../src/bridge/producers.ts";
 
-/**
- * The two sets are read from the source, not kept by hand: the event list, the fold list and the
- * allowlist would otherwise be three copies that drift, and the drift only shows on a reconnect that
- * loses a field.
- */
+/** Read from the source, so the event list, the fold list and the allowlist cannot drift. */
 const dir = new URL("../src/bridge/", import.meta.url);
 const source = readdirSync(dir)
 	.filter((name) => name.endsWith(".ts"))
@@ -24,11 +20,7 @@ const folded = new Set(
 	[...source.matchAll(/saw\("([a-z.]+)"/g)].flatMap((m) => (m[1] ? [m[1]] : [])),
 );
 
-/**
- * The state changes the bridge sends without folding them, because a producer rebuilds the value for
- * the opening instead of replaying the change. Each one names the producer that covers it, so a stale
- * entry fails below when its producer goes away.
- */
+/** Each names the producer that rebuilds it for the opening, so a stale entry fails when the producer goes. */
 const REBUILT: Readonly<Record<string, string>> = {
 	"cost.changed": "cost",
 	"session.live": "model",

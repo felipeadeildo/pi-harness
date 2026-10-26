@@ -94,10 +94,7 @@ export function clearedEntries(branch: readonly unknown[]): Set<string> {
 	return entries;
 }
 
-/**
- * The last request's prompt, so the first clear after a reload is seen. Undefined after an edit or
- * a compaction, which shrink the next request on their own.
- */
+/** Undefined after an edit or a compaction, which shrink the next request on their own. */
 export function lastPromptOf(branch: readonly unknown[]): number | undefined {
 	for (const entry of branch.toReversed()) {
 		if (!isObject(entry) || entry.type === "compaction" || entry.type === "context_edit")

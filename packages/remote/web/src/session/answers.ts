@@ -1,6 +1,4 @@
-// The person on the phone answers the question the agent asked, and the answer travels as the same
-// `AskResult` the terminal produces. This file holds the draft and the result, without a screen: a
-// phone needs to be able to say "wait, I picked the wrong one" before anything is sent.
+// The answer to an agent's question, as the same `AskResult` the terminal produces.
 
 import type { AskResult, OpenAsk } from "@adeildo/pi-remote-protocol";
 import type { Client } from "@adeildo/pi-remote-protocol/client";
@@ -44,10 +42,7 @@ export function ready(ask: OpenAsk, draft: Draft): boolean {
 	});
 }
 
-/**
- * The answer as pi expects it: one entry per question, in the order asked. A note is what the person
- * added to a picked option, and there is none until the screen offers the field.
- */
+/** One entry per question, in the order asked. */
 export function answerOf(ask: OpenAsk, draft: Draft): AskResult {
 	return {
 		answers: ask.questions.map((one, index) => {
@@ -64,10 +59,7 @@ export function answerOf(ask: OpenAsk, draft: Draft): AskResult {
 	};
 }
 
-/**
- * Sends the answer the person built. Nothing is drawn from this: the outcome arrives as an event, like
- * every other change on this screen.
- */
+/** The outcome arrives as an event. */
 export function answerAsk(client: Client, ask: OpenAsk, draft: Draft): void {
 	client.send("ask.answer", { ask: ask.id, result: answerOf(ask, draft) });
 }

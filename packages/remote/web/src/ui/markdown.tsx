@@ -1,7 +1,4 @@
-// The one renderer for text that comes from somewhere else: a model's answer, a tool's output.
-//
-// It never renders raw HTML. What looks like a tag comes out as text, so `<script>` is the eight
-// characters a model wrote, and a link only shows its address when it is http or https.
+// Never renders raw HTML, and a link shows its address only for http and https.
 import { type ReactNode } from "react";
 
 import { plain, siteOf } from "../session/plain.ts";

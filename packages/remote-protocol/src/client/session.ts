@@ -82,19 +82,11 @@ export function cachedOf(session: ClientSession, outbox: Outbox): CachedSession 
 	};
 }
 
-/**
- * Reads one envelope. The answer says whether the client can draw it now or has to ask for a
- * opening first, and the session is only changed in the first case.
- */
 function isSummaryData(value: unknown): value is OpeningData {
 	return isObject(value) && isSummary(value.summary) && Array.isArray(value.entries);
 }
 
-/**
- * What reading an envelope did. `now` carries the session **after** it: reading never mutates the session
- * it was given, so two readers holding one session cannot change each other, and a view that memoises by
- * identity sees a new object exactly when something changed.
- */
+/** Reading never mutates the session it was given; `now` is a new object exactly when something changed. */
 export type Read =
 	| { read: "skip" }
 	| { read: "state"; why: "new" | "epoch" | "gap" }

@@ -123,12 +123,7 @@ export function feedView(
 	return { lines: [theme.fg("dim", empty)], heads: [undefined], older };
 }
 
-/**
- * A message is a header (who wrote it to whom, the time on the right), its words two columns in, and
- * what became of it under them, quiet. No box: the blank line between messages already sets them
- * apart, and the panel's own frame is the only one on screen. An answer first quotes the line it
- * answers.
- */
+/** A header, the words two columns in, then what became of it. An answer quotes its question first. */
 function messageLines(
 	message: Posted,
 	answered: Posted | undefined,

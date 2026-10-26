@@ -1,6 +1,4 @@
-// The words a session draws its handle from: animals with character, one first three letters
-// each, and two edits apart. `bun scripts/names/check.ts` holds the file to the rules in
-// `names/rules.ts`, and the operator fixes the list.
+// Checked against `names/rules.ts` by `bun scripts/names/check.ts`.
 export const WORDS = [
 	"aardvark",
 	"abalone",

@@ -2,10 +2,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 /**
- * Point npm's trusted publisher at this repository's release workflow, for every package.
- *
- * Run this locally, not in CI: `npm trust` asks for two-factor auth. The first call prompts, and
- * on the npm site you can skip 2FA for the next few minutes so the rest run unattended.
+ * Points npm's trusted publisher at the release workflow. Run locally: `npm trust` asks for 2FA.
  *
  * Usage: bun scripts/setup-npm-trust.ts [--list] [--dry-run] [--only a,b]
  */

@@ -1,6 +1,4 @@
-// Colleagues' messages that wait for your next prompt, drawn when they arrive: the same frames as a
-// delivery, and one line under them that says why the agent did not get them yet, or, once a run
-// that was not yours took them, which run that was.
+// Colleagues' messages waiting for your next prompt, with why the agent has not got them yet.
 import { drawnByWidth, CHANGES_X, isObject } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, wrapTextWithAnsi } from "@earendil-works/pi-tui";

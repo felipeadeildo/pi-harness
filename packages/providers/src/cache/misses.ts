@@ -1,7 +1,5 @@
-// Why a request wrote the prompt cache again instead of reading it, from the session's own entries.
-// A request reads the cache up to where the last one wrote it, as long as nothing before that point
-// changed and the cache was still alive. So each miss has one of a few causes, and the entries
-// between it and the request before it say which.
+// Why a request wrote the prompt cache instead of reading it, found in the entries between it and
+// the request before it.
 import { formatCost, formatTokens, PRUNE_CHANGES } from "@adeildo/pi-kit";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 

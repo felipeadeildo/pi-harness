@@ -80,11 +80,7 @@ export function Trigger({
 	);
 }
 
-/**
- * One row of a list where exactly one is on, marked the way the terminal marks its selected row: a bar
- * in the accent against the left edge, `❯` before the label, and the label in bold. The rows that are
- * not on keep the column of the pointer empty, so nothing shifts when the choice moves.
- */
+/** Marked like the terminal's selected row. Unselected rows keep the pointer column empty. */
 export function Option({
 	label,
 	hint,

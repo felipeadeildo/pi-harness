@@ -1,6 +1,5 @@
-// What the daemon knows about each session a bridge registered: who it is, whether its bridge is
-// connected, the state changes reduced from its events, and a replay buffer so a client that missed a few
-// events catches up from its cursor instead of taking a new opening.
+// What the daemon knows of each session: its bridge, its folded state, and a replay buffer so a
+// client that missed a few events catches up without a new opening.
 import {
 	emptySessionState,
 	type Envelope,
@@ -188,20 +187,14 @@ export class Sessions {
 	/** An opening is the new base: a cursor older than it takes the opening instead of a replay. */
 	#rebase(entry: Entry, envelope: Envelope, opening: Opening): void {
 		entry.state.opening = opening;
-		// The bridge folds the state it sends, so this is the truth from here: the daemon seeds itself
-		// with it instead of rebuilding, and a daemon that just started learns the session in one event.
-		// An opening without a state comes from a bridge that does not know it, so the folded state
-		// stays: absence means "unchanged", as it does everywhere else in this protocol.
+		// The bridge's folded state seeds the daemon. An opening without one keeps the fold: absent
+		// means unchanged across the protocol.
 		entry.state.state = opening.summary.state ?? entry.state.state;
 		entry.opening = envelope;
 		this.#drop(entry);
 		entry.evicted = Math.max(entry.evicted, envelope.seq ?? -1);
 	}
 
-	/**
-	 * The opening as a client reads it, with the fold this daemon holds. A bridge that does not know
-	 * the session sends an opening without a state, and the daemon knows more than it does.
-	 */
 	#foldedInto(entry: Entry, opening: Envelope): Envelope {
 		const data = opening.data;
 		if (!isObject(data) || !isObject(data.summary) || data.summary.state !== undefined)

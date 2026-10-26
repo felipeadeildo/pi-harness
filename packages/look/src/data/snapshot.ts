@@ -158,9 +158,7 @@ export class SnapshotReader {
 	}
 
 	#derive(ctx: ExtensionContext): Derived {
-		// Every entry is appended at the leaf, so the leaf moving is the only way the sums change. The
-		// context also depends on the model's window. Pi counts it over the whole branch, which is too
-		// slow to do on every keystroke.
+		// Entries are appended at the leaf, so the sums change only when the leaf or the model does.
 		const key = `${ctx.sessionManager.getLeafId() ?? ""}\u0000${ctx.model?.provider}/${ctx.model?.id}`;
 		if (this.#derived !== undefined && key === this.#key) return this.#derived;
 

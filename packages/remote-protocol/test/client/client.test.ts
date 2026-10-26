@@ -169,9 +169,7 @@ describe("a client of a session", () => {
 	});
 
 	test("a cache written before the cursor lost its facts field still resumes", async () => {
-		// The cursor used to carry a position in the log, which nothing reads now. A tab that closed
-		// before this version kept one; the field is unknown, and the rest of the cursor is what the
-		// hello sends, so the client resumes instead of starting over.
+		// An unknown cursor field is ignored, and the rest of the cursor still resumes.
 		const cache = memoryCache();
 		await cache.write({
 			key,
@@ -200,9 +198,7 @@ describe("a client of a session", () => {
 	});
 
 	test("an opening alone is enough: the state arrives folded, not as facts to fold", async () => {
-		// The restart case, and the reason the wire changed: the client opens and the daemon answers
-		// with one message carrying the state the bridge held. Nothing follows it — if the client only
-		// read a list of facts, this session would draw with no tasks, no mode and no question.
+		// A restart: the daemon answers the hello with one message carrying the bridge's state, and nothing follows.
 		let hello: Envelope | undefined;
 		const client = connect({
 			key,

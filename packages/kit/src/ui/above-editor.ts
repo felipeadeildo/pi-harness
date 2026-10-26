@@ -1,15 +1,6 @@
-// The one row that belongs to nobody: the line above the editor, where a dialog asks something while
-// the reader keeps the text they were typing. The editor stays where it is, visible and usable, and
-// the dialog borrows the keys only while it has the focus.
-//
-// Each feature brings its own view. This owns the slot: who has the keys, the frame that says so, the
-// text the reader had typed, and that only one dialog is open at a time.
-//
-// The host's keybindings do not arrive through the widget factory, which receives only the terminal
-// and the theme, and a view that answers to the application's own keys needs them. The host installs
-// its own as the process's (`setKeybindings(KeybindingsManager.create())` at startup), so
-// `getKeybindings()` hands the same manager here, overrides included. A key the reader changes in the
-// settings reaches the view from the next dialog, not from the one already open.
+// The row above the editor, where a dialog asks while the editor keeps its text. One dialog at a
+// time; it holds the keys until `Alt+E` hands them back. The keybindings come from
+// `getKeybindings()`, since the widget factory does not pass them.
 import type { ExtensionUIContext, Theme } from "@earendil-works/pi-coding-agent";
 import { isKeyRelease, type KeyId, matchesKey } from "@earendil-works/pi-tui";
 
@@ -68,18 +59,11 @@ export interface AboveEditorOptions {
 	title?: string;
 	/** How recently the reader typed for the editor to keep the focus. */
 	recentMs?: number;
-	/**
-	 * Who reads Escape while the dialog has the keys. By default the slot closes the dialog; a view
-	 * that uses Escape to step back, and ends with what it has collected, asks to read it itself.
-	 */
+	/** `view` lets a view use Escape to step back. */
 	escape?: "close" | "view";
 }
 
-/**
- * What belongs to one host: the row it holds, the dialog open in it, and when a key last went to its
- * editor. It is per host, not per module, so a host that is gone cannot decide anything for the next
- * one — and a dialog left unfinished in one suite cannot block the queue of another.
- */
+/** Per host, so a host that is gone decides nothing for the next one. */
 interface Host {
 	/** Only one dialog holds the row: a second one waits for the first to finish. */
 	queue: Promise<unknown>;
@@ -102,12 +86,7 @@ function hostOf(ui: ExtensionUIContext): Host {
 	return host;
 }
 
-/**
- * Keeps the time of the last key the editor got. It belongs at session start, not at the first
- * dialog: a reader already typing when a question arrives must keep the keys. A new host gets its own
- * listener, because after a session change the old one is gone and a tracker bound to it would freeze
- * the time at "nobody is typing".
- */
+/** Called at session start, so a reader already typing when a question arrives keeps the keys. */
 export function watchEditor(ui: ExtensionUIContext): void {
 	// A host with no input to listen to (print, json) has no editor to keep the focus for.
 	if (typeof ui.onTerminalInput !== "function") return;
@@ -121,11 +100,6 @@ export function watchEditor(ui: ExtensionUIContext): void {
 	});
 }
 
-/**
- * Opens a dialog in the row above the editor. The editor keeps its text and stays usable: the dialog
- * holds the keys until `Alt+E` hands them over, and takes them back the same way. The view is told how
- * many rows it has, so it fits inside them rather than being cut where it matters.
- */
 export function openAboveEditor<T>(
 	ui: ExtensionUIContext,
 	make: (tools: AboveEditorTools<T>) => AboveEditorView,
@@ -224,9 +198,7 @@ export function openAboveEditor<T>(
 		host.active = { focused: () => focused };
 		stop = ui.onTerminalInput((data) => {
 			if (finished) return undefined;
-			// A terminal that reports releases sends each key twice, and a listener gets both, where
-			// pi's own components get only the press. Read as a key, the release types every letter
-			// twice and moves the pointer two rows.
+			// A terminal that reports key releases would type every letter twice.
 			if (isKeyRelease(data)) return focused ? { consume: true } : undefined;
 			if (matchesKey(data, ABOVE_EDITOR_FOCUS_KEY as KeyId)) {
 				focused = !focused;

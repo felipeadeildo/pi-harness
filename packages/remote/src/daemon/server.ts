@@ -1,5 +1,4 @@
-// The daemon's side of the unix socket. A bridge says hello as `bridge` first, and only then does the
-// daemon read its events. Binding the socket is the lock: of two daemons started at once, the second
+// The daemon's unix socket. Binding it is the lock: of two daemons started together, the second
 // finds the first answering and leaves.
 import {
 	chmodSync,
@@ -50,28 +49,19 @@ export interface DaemonOptions {
 	idleExitMs?: number;
 	/** `pi-remote serve` never exits for being idle. */
 	stayUp?: boolean;
-	/**
-	 * Where clients reach the daemon over HTTP and WebSocket. Always on loopback until login exists.
-	 * Port 0 takes any free port, which `clientPort` then says.
-	 */
+	/** Port 0 takes any free port. */
 	clientPort?: number;
 	/** The folder of the page's build. Without one, only the data routes. */
 	webDir?: string;
 	/** This machine on its tailnet, where clients reach the daemon too. Loopback only without it. */
 	tailnet?: Tailnet;
-	/**
-	 * The harness's logs on this machine, whose open sessions and rooms the owner's other machines copy,
-	 * and where theirs are copied. Nothing is shared without it.
-	 */
+	/** Where the owner's machines copy open sessions and rooms; nothing is shared without it. */
 	events?: string;
 	/** How the daemon asks `tailscale`, so a test can answer for it. */
 	ask?: AskTailscale;
 	/** This machine's name, as its bridges send it. The hostname, unless a test says otherwise. */
 	machine?: string;
-	/**
-	 * The owner's other machines. Found on the tailnet at this daemon's port when it has a tailnet,
-	 * unless a test brings its own.
-	 */
+	/** Found on the tailnet unless a test brings its own. */
 	machines?: Machines;
 	/** Called once, after the daemon stopped listening and removed its socket. */
 	exited?(reason: ExitReason): void;
@@ -106,19 +96,14 @@ export class Daemon {
 		});
 	}
 
-	/**
-	 * Listens on the socket, or resolves undefined when another daemon already answers on it or is
-	 * taking it over. A socket file with nothing behind it, left by a daemon that died, is removed and
-	 * bound again by the one daemon that holds the takeover lock.
-	 */
+	/** Undefined when another daemon answers or is taking over. A dead daemon's socket is rebound. */
 	static async start(options: DaemonOptions): Promise<Daemon | undefined> {
 		mkdirSync(dirname(options.socket), { recursive: true, mode: 0o700 });
 		const server = createServer();
 		const daemon = new Daemon(server, options);
 		server.on("connection", (socket) => daemon.#accept(socket));
-		// Node unlinks the path it bound when the server closes, whoever owns that path by then. So
-		// the daemon binds a path of its own and links the socket to it: the link is the lock, and
-		// closing removes only the private path.
+		// Node unlinks the path it bound on close, whoever owns it by then, so the daemon binds a
+		// private path and links the socket to it.
 		const own = `${options.socket}.${process.pid}.${Date.now()}`;
 		if (!(await listen(server, own))) return undefined;
 		chmodSync(own, 0o600);
@@ -198,10 +183,7 @@ export class Daemon {
 		});
 	}
 
-	/**
-	 * The first message must be a hello in this protocol, from a bridge or from the `pi-remote`
-	 * command. Anything else is refused. Only a process of this user reaches the socket, mode 0600.
-	 */
+	/** Anything but a hello in this protocol is refused. The socket is mode 0600. */
 	#hello(
 		socket: Socket,
 		message: Envelope,
@@ -277,9 +259,7 @@ export class Daemon {
 		if (message.kind !== "event") return;
 		switch (message.type) {
 			case "presence.here": {
-				// The terminal of this session typed: it is watching, and it has the last input. It is
-				// told to the clients as `presence.changed` and never forwarded as itself, which they
-				// have no shape for.
+				// Told to clients as `presence.changed`, never forwarded as itself.
 				const typist = isObject(message.data) ? message.data.by : undefined;
 				if (isBy(typist)) this.#clients?.hub.typed(bridge.session, typist);
 				return;
@@ -366,10 +346,7 @@ export class Daemon {
 		return this.#clients?.hub.watched() ?? new Map();
 	}
 
-	/**
-	 * Writes a client's command to the session's bridge, stamped with the session and the life of the
-	 * process it belongs to, so a bridge only ever reads commands meant for it.
-	 */
+	/** Stamped with the session and its epoch, so a bridge reads only commands meant for it. */
 	#toBridge(session: string, message: Envelope): boolean {
 		const socket = this.#bridges.get(session);
 		const live = this.sessions.get(session);
@@ -444,11 +421,7 @@ function listen(server: Server, path: string): Promise<boolean> {
 /** A takeover lock older than this was left by a daemon that died while taking over. */
 const TAKEOVER_STALE_MS = 10_000;
 
-/**
- * Binds a socket left by a dead daemon. Only one daemon at a time holds the lock, so two that start
- * together cannot each remove the file the other just bound. The one without the lock gives up, and
- * the bridge that started it finds the winner on its next try.
- */
+/** One daemon at a time holds the lock, so two cannot each remove the socket the other bound. */
 async function takeOver(own: string, socket: string): Promise<boolean> {
 	const lock = `${socket}.lock`;
 	if (!claim(lock)) return false;
@@ -523,11 +496,7 @@ function isLive(value: unknown): value is SessionLive {
 	);
 }
 
-/**
- * What a refused port means, worded for whoever has to fix it. The cause is the error `listen` gave,
- * because "taken by another program" and "needs privilege" are the same silence to the caller and
- * very different to the operator; both end where the port is changed.
- */
+/** Names the cause: a taken port and a privileged one need different fixes. */
 export function portRefused(port: number, why: string | undefined): string {
 	return `${portCause(port, why)}; the port is set in Alt+S › Remote`;
 }

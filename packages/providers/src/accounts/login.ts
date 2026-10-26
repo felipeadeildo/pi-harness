@@ -6,10 +6,7 @@ import type {
 } from "@earendil-works/pi-ai";
 import { readStoredCredential } from "@earendil-works/pi-coding-agent";
 
-/**
- * The credential pi's own `/login` wrote for a provider. Read once, when the provider gets its first
- * account, so that login becomes an account too. After that the store is the only one consulted.
- */
+/** Read once, when the provider gets its first account. */
 export function piLogin(providerId: string): Credential | undefined {
 	return readStoredCredential(providerId);
 }

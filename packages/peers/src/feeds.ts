@@ -1,9 +1,5 @@
-// The rooms on this machine, as the disk has them: one folder feed per room, watched, and the
-// folder each one folds to. It decides nothing about who is in a room; it says what exists and when
-// it changed, and the caller reconciles.
-//
-// A room's logs are read whether or not this session is in it: that is how a session learns it was
-// added to one.
+// One feed per room on disk, watched. A room's logs are read even when this session is not in it:
+// that is how it learns it was added.
 import { readdirSync } from "node:fs";
 
 import { eventsRoot, FolderFeed, roomDir, roomsDir } from "@adeildo/pi-kit";

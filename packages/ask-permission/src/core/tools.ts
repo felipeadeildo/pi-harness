@@ -19,10 +19,7 @@ export interface ToolAdapter {
 	/** Never writes, whatever the input. Unlike `readOnly`, it does not pass the read-only bash layer. */
 	onlyReads?: boolean;
 	readOnly?(input: ToolInput): boolean;
-	/**
-	 * This call always comes to you, in every mode and past any always yes. A tool says so for the
-	 * calls its own settings keep with you, like an agent asking to talk to another folder.
-	 */
+	/** Always asks, in every mode and past any always-yes. */
 	alwaysAsks?(input: ToolInput): boolean;
 }
 

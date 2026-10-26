@@ -6,11 +6,7 @@ import { CLIENT_PORT, PORT_ID } from "./places.ts";
 
 const REMOTE_SECTION = "Remote";
 
-/**
- * The port clients reach the daemon on. It is a setting and not a flag because the address a phone or
- * an installed web app remembers has to stay the same across restarts, and because a port already
- * taken by another program is a fault the operator has to be able to fix without a shell.
- */
+/** A setting, not a flag: the address a phone remembers must survive restarts. */
 const portRule: Decoder<number> = integer(1, 65_535);
 
 export const port = setting<number>({

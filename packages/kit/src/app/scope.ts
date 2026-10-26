@@ -108,11 +108,7 @@ export function createScope(state: AppState, featureId: string): FeatureScope {
 	} as FeatureScope;
 }
 
-/**
- * pi's words when a renderer, a hook or a scope call uses a context the host no longer owns. Read from
- * `@earendil-works/pi-coding-agent@1.4.0`, `dist/core/extensions/runner.js:482`, where the message
- * comes from whoever invalidated the context.
- */
+/** Pi's message for a stale context (`dist/core/extensions/runner.js` in 1.4.0). */
 const STALE = "stale after session replacement or reload";
 
 /** Whether the host refused a context, which is how a session that ended announces itself. */

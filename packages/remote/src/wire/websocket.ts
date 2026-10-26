@@ -10,11 +10,7 @@ export type { WebSocket };
 /** A message larger than this closes the connection: a client sends commands, never files. */
 const MAX_MESSAGE = 1024 * 1024;
 
-/**
- * How often the server asks whether the other end is there. A socket whose peer died holds what it was
- * watching until TCP notices, which can be never on a phone that lost signal: a beat with no pong is
- * what turns that into a close, and the beat after it terminates.
- */
+/** A phone that lost signal may never close its TCP socket; a ping with no pong closes it. */
 export const PING_EVERY_MS = 10_000;
 
 export interface WebSocketHandlers {
@@ -27,10 +23,6 @@ export function server(): WebSocketServer {
 	return new WebSocketServer({ noServer: true, maxPayload: MAX_MESSAGE });
 }
 
-/**
- * Answers an upgrade request the caller already judged. A socket that never answered its ping is
- * terminated, so a peer that vanished does not hold what it was watching.
- */
 export function accept(
 	wss: WebSocketServer,
 	request: IncomingMessage,
@@ -62,10 +54,7 @@ export function accept(
 	});
 }
 
-/**
- * Answers an upgrade by joining it to a socket of another daemon: what one end says the other hears,
- * and either end closing closes both. What the client says before the other daemon answers waits.
- */
+/** Pipes an upgrade to another daemon's socket; either end closing closes both. */
 export function join(
 	wss: WebSocketServer,
 	request: IncomingMessage,

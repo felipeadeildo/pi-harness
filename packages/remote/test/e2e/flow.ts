@@ -1,6 +1,5 @@
-// The gate, in a real browser: the daemon the bridge starts, the app it serves, and the flow the plan
-// calls done. One line per step, so a step a fix turns green shows up here instead of staying hidden
-// behind the ones still failing. Run it with the package's `bun run gate`.
+// The gate, in a real browser: the daemon a bridge starts, the page it serves, and the flow. One line
+// per step. Run it with `bun run gate`.
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
@@ -72,15 +71,10 @@ async function main(): Promise<number> {
 	root = mkdtempSync(join(tmpdir(), "pi-remote-gate-"));
 	process.env.PI_REMOTE_DIR = root;
 	process.env.PI_REMOTE_SHARE = "1";
-	// A port of its own: two runs at once, or a daemon left behind, would fight for 7878 and the
-	// loser would report a taken port as if it were a bug. It goes through the rig's settings file,
-	// which is the one pi reads, nested the way that file groups an id.
+	// Its own port, so two runs or a leftover daemon cannot collide on 7878.
 	const port = await freePort();
 	const reports: Report[] = [];
 	try {
-		// The daemon serves the page it finds at startup, and a checkout has none until it builds.
-		// Asking the daemon's own function keeps `PI_REMOTE_WEB` working and the message true if the
-		// candidates change; the failure it prevents is a red step 1 that reads like a broken screen.
 		if (findWebDir(join(import.meta.dir, "..", "..", "dist")) === undefined) {
 			console.error("gate: no page beside the daemon; run `bun run --cwd packages/remote build`");
 			return 1;
@@ -90,9 +84,8 @@ async function main(): Promise<number> {
 			// The permission feature owns the session mode, and the composer offers it: without it the picker
 			// would promise a change the session cannot make.
 			extensions: [piRemote, piQuestions, permission],
-			// A prompt that says "ask me" gets a question back, and its answer goes on as words. Every
-			// other prompt is words, and slow enough that a run is still going when the next step types:
-			// a follow-up is only a follow-up while something else runs.
+			// "ask me" gets a question back; every other prompt answers slowly, so a run is still going when
+			// the next step types.
 			answer: (context) =>
 				lastSaid(context).includes("slow answer")
 					? fauxAssistantMessage(`${"Answered, one word after another. ".repeat(60)}`.trim())
@@ -217,11 +210,7 @@ async function opensSession(page: Page): Promise<Result> {
 	}
 }
 
-/**
- * The page has what the opening computed, before any turn has ended: the session's cost is in the
- * state it keeps. No `cost.changed` has been sent yet (that waits for a turn), so only the opening can
- * have put it there, and a client that does not read the opening's state never has it.
- */
+/** No `cost.changed` has been sent yet, so only the opening can have put the cost there. */
 async function carriesTheOpeningsState(page: Page): Promise<Result> {
 	const deadline = Date.now() + 20_000;
 	let seen = "no cached state";
@@ -237,16 +226,6 @@ async function carriesTheOpeningsState(page: Page): Promise<Result> {
 	return { ok: false, why: `the page holds no cost the opening carried: ${seen}` };
 }
 
-/**
- * A prompt sent from the browser reaches the session and the model answers. The session is idle when
- * the prompt arrives, which is the case #188 fixed: the letter goes in at once instead of waiting for
- * a settle that never comes.
- */
-/**
- * A sheet marks the row that is on the way the terminal marks its selected row: a bar in the accent, a
- * pointer before the label, and the label in bold. The permission dial starts on `manual`, so that row
- * is the one marked, and the others carry neither the bar nor the pointer.
- */
 async function marksTheChosenOption(page: Page): Promise<Result> {
 	try {
 		await page.getByRole("button", { name: /^Permission mode: / }).click({ timeout: 20_000 });
@@ -268,13 +247,7 @@ async function marksTheChosenOption(page: Page): Promise<Result> {
 	}
 }
 
-/**
- * The model chip opens a sheet of the models the session's registry lists, and the search narrows it.
- * The list comes from the opening, with no event after it, so a chip that opens has read the state
- * the bridge sent. The rig's registry is pi's own and its size depends on the machine's credentials,
- * so the step needs one model at least: it proves the sheet reads the state, a search nothing matches
- * empties it, and clearing the search brings every row back.
- */
+/** The registry's size depends on the machine's credentials, so the step needs one model at least. */
 async function searchesModels(page: Page): Promise<Result> {
 	try {
 		// The rig's model is `rig/scripted`. The opening is the only thing that carries it to a page that
@@ -301,11 +274,7 @@ async function searchesModels(page: Page): Promise<Result> {
 	}
 }
 
-/**
- * A prompt typed in the browser, and the three things that have to happen for it to count: the field
- * takes the text, the screen sends it, and the session's branch grows. Each has its own sentence,
- * because "the branch did not grow" covered three different failures for an afternoon.
- */
+/** Each of the three steps (typed, sent, branch grew) fails with its own sentence. */
 async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
 	try {
 		// Counted before the click, not after: the scripted model answers at once, so a run that starts
@@ -326,9 +295,6 @@ async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
 		const deadline = Date.now() + 20_000;
 		while (entries() <= before && Date.now() < deadline) await Bun.sleep(100);
 		if (entries() > before) {
-			// The prompt came from the browser, so the message says "you" and, beside it, where it was typed:
-			// the origin is on the message that holds these words, and a message the bridge could not
-			// attribute would carry no origin at all.
 			const origin = page
 				.locator("li.remote-you", { hasText: "say hello from the gate" })
 				.locator(".remote-from");
@@ -376,11 +342,6 @@ async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
 	}
 }
 
-/**
- * A message sent while a run is going waits in the session's queue, and the person can take it back.
- * Both halves are read where the person reads them: the row in the composer, and its withdrawal. The
- * queue is the property; the announcement that it changed is only how the screen hears of it.
- */
 async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
 	try {
 		const box = page.getByRole("textbox", { name: "Prompt" });
@@ -398,9 +359,7 @@ async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
 		while (!busy() && Date.now() < deadline) await Bun.sleep(50);
 		if (!busy()) return { ok: false, why: "the run never started" };
 
-		// A message only waits while a run is going. Recording both sides here is what tells the
-		// failure apart: a run that ended first means the message went in at once, not that the queue
-		// is broken.
+		// A run that ended first means the message went in at once, not that the queue is broken.
 		const sentWhileBusy = busy();
 		const before = rig.session.sessionManager.getBranch().length;
 		// The row is told by its id, which the screen carries as the DOM id: an earlier row can still
@@ -437,11 +396,7 @@ async function queuesFollowUp(page: Page, rig: Rig): Promise<Result> {
 	}
 }
 
-/**
- * A question the model asks is answered in the browser. The question is the tool call the scripted
- * model returns; the answer goes back through the daemon to the session, and the proof is the
- * question closing — in the state the session carries — and the run going on to its words.
- */
+/** The proof is the question closing in the session state and the run going on. */
 async function answersQuestion(page: Page, rig: Rig): Promise<Result> {
 	try {
 		const box = page.getByRole("textbox", { name: "Prompt" });
@@ -484,11 +439,7 @@ async function answersQuestion(page: Page, rig: Rig): Promise<Result> {
 	}
 }
 
-/**
- * Whether a tool already answered since the person last typed. The model asks the question once per
- * prompt: without this it saw the same prompt as the last user message after every tool result and
- * asked again, so the page always had an open question a second after the last one was answered.
- */
+/** The model asks once per prompt, or it would ask again after every tool result. */
 function answeredSince(context: { messages: readonly { role?: string }[] }): boolean {
 	const lastUser = context.messages.map((one) => one.role).lastIndexOf("user");
 	return context.messages.slice(lastUser + 1).some((one) => one.role === "toolResult");
@@ -506,10 +457,7 @@ function lastSaid(context: { messages: readonly { role?: string; content?: unkno
 		.join(" ");
 }
 
-/**
- * A command typed with no wire goes out after the reload. The proof is the session's own branch: the
- * line on the screen says it was queued, and the branch says it arrived.
- */
+/** The screen says it was queued; the branch says it arrived. */
 async function sentWhileOffline(page: Page, rig: Rig): Promise<Result> {
 	try {
 		const before = rig.session.sessionManager.getBranch().length;
@@ -539,13 +487,8 @@ async function sentWhileOffline(page: Page, rig: Rig): Promise<Result> {
 		while (rig.session.sessionManager.getBranch().length <= before && Date.now() < arrived)
 			await Bun.sleep(200);
 		if (rig.session.sessionManager.getBranch().length > before) return { ok: true };
-		// Where the command stopped tells the two failures apart: still in the device's storage means
-		// the reload did not drain the outbox, gone means the client sent it and the session lost it.
-		// Four numbers say where it stopped: `ready` and `held` are the queue's own reading of a waiting
-		// command (inside the window or past it), `sent` is the connection having taken it, and
-		// `received` is the session's log saying the daemon's command arrived. `sent` without
-		// `received` is a write that never got there; `received` without an applied command is the
-		// session not applying it.
+		// Where the command stopped tells the failures apart: `ready`/`held` is the queue's reading, `sent`
+		// the connection took it, `received` the session's log has it.
 		const kept = await page.evaluate(() => {
 			const found: { key: string; id?: string; state?: string; at?: number }[] = [];
 			for (let at = 0; at < localStorage.length; at++) {
@@ -585,12 +528,7 @@ async function sentWhileOffline(page: Page, rig: Rig): Promise<Result> {
 	}
 }
 
-/**
- * What the page last kept of the session's state, read from the cache it writes after every change:
- * the questions with whether each is closed, and what the state says of the permission mode. It is the
- * state the page draws from, not what the daemon sent, which is the question a failing step cannot
- * answer by itself.
- */
+/** The state the page draws from, not what the daemon sent. */
 async function cachedState(page: Page): Promise<string> {
 	return page.evaluate(() => {
 		for (let at = 0; at < localStorage.length; at++) {
@@ -613,10 +551,6 @@ async function cachedState(page: Page): Promise<string> {
 	});
 }
 
-/**
- * The daemon restarts and a reloaded page draws the session again, from the state the session sends:
- * the mode the person picked, and the question answered in step 5, which stays closed.
- */
 async function survivesRestart(page: Page): Promise<Result> {
 	try {
 		const dial = page.getByRole("button", { name: /^Permission mode: / });
@@ -643,10 +577,7 @@ async function survivesRestart(page: Page): Promise<Result> {
 
 		await page.reload({ waitUntil: "domcontentloaded" });
 		await page.getByTestId("composer").waitFor({ timeout: 60_000 });
-		// The page draws from the state the session sends, and that state arrives when the bridge
-		// registers with the new daemon: the daemon pushes it to whoever was waiting.
-		// Both halves wait the same way: the mode and the closed question arrive with the same state,
-		// so reading one of them once is a race the test loses now and then.
+		// The mode and the closed question arrive together; reading one once is a race.
 		const settled = Date.now() + 60_000;
 		const stillOpen = async (): Promise<boolean> =>
 			(await page.getByRole("button", { name: /^Ship it/ }).count()) > 0;
@@ -665,14 +596,9 @@ async function survivesRestart(page: Page): Promise<Result> {
 	}
 }
 
-/**
- * The daemon the bridge started is detached and outlives this process, so the run that leaves one
- * behind makes the next run fail on a port it cannot have. It is found by the socket it holds.
- */
+/** The detached daemon outlives this process and would hold the port for the next run. */
 function stopDaemon(): void {
-	// The socket is bound to a temporary name and renamed, so `lsof` on its path finds nothing: the
-	// daemon writes the pid it has in `current.json`, and the pid is what stops it. `lsof` stays as the
-	// reserve for a daemon from an older build, which never wrote one.
+	// The socket is renamed after binding, so `lsof` on its path finds nothing; use the pid it wrote.
 	const holder = readCurrent(root)?.pid;
 	if (holder !== undefined) {
 		try {

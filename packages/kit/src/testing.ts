@@ -148,11 +148,7 @@ export interface FakeScopeOptions {
 	screenGroups?: ScreenGroup[];
 }
 
-/**
- * A feature scope over a fake pi, for calling a feature's own modules directly. Session hooks
- * registered through it run when `fire("session_start")` or `fire("session_shutdown")` is called.
- * It does not add the app's error attribution, which the kit tests on its own.
- */
+/** Session hooks run on `fire("session_start")` and `fire("session_shutdown")`. */
 export function fakeScope(options: FakeScopeOptions = {}): FeatureScope {
 	const fake = options.pi ?? fakePi();
 	const notes = options.notes ?? [];
@@ -226,11 +222,6 @@ export interface FakeTerminal {
 	built: number;
 }
 
-/**
- * Gives a context the parts of a terminal that draw above the editor: `setWidget` builds the view
- * and keeps it, `onTerminalInput` keeps the listener, and the editor holds a text. A test answers
- * a dialog by pressing the keys a reader would.
- */
 export function fakeTerminal(ctx: ExtensionContext): FakeTerminal {
 	const ui = ctx.ui as unknown as Record<string, unknown>;
 	const listen = ui.onTerminalInput as (handler: (data: string) => unknown) => () => void;

@@ -1,5 +1,4 @@
-// pi-tui leaves a picture's line out when it composes an overlay, and the terminal paints the picture
-// over the overlay. Remove this file, its calls and its test once
+// pi-tui paints pictures over overlays. Delete this file and its calls once
 // https://github.com/earendil-works/pi/issues/10863 is fixed.
 import type { TUI } from "@earendil-works/pi-tui";
 

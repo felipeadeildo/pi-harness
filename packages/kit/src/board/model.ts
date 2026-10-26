@@ -1,16 +1,11 @@
-// The board is the deliverable each session keeps: what it is doing now, what waits for whom, and
-// what it already delivered. It is a fold of operations, one writer per session, so a `/tree` or a
-// fork carries the board with it and no operation has to be merged.
+// A session's board is a fold of its operations, so `/tree` and forks carry it and nothing merges.
 import type { By } from "../contracts/by.ts";
 import { isBy } from "../contracts/by.ts";
 import { isObject } from "../decode.ts";
 
 export type BoardColumn = "backlog" | "todo" | "doing" | "review" | "done" | "dropped";
 
-/**
- * Why a card waits, and for whom. The value names the thing, never the reader: `operator` reads as
- * "you" only on the operator's screen, and "the operator" in every other session's prompt.
- */
+/** Names the thing, never the reader: `operator` reads "you" only on the operator's screen. */
 export type BoardBlocker = { why: string } & (
 	| { on: "operator" }
 	| { on: "outside" }
@@ -79,11 +74,6 @@ export function emptyBoard(): Board {
 	return { next: 1, cards: [], decisions: [] };
 }
 
-/**
- * The columns a board has, in the order a reader draws them: the word, and whether a card in it is
- * still open. Every list of columns in the kit comes from here, so a column that changes its name or
- * its openness changes in one place.
- */
 export const BOARD_COLUMNS: readonly {
 	column: BoardColumn;
 	/** What a reader draws for it. */

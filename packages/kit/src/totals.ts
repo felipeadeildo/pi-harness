@@ -1,6 +1,4 @@
-// What a session has spent, summed from what pi records on each message. It lives here because two
-// readers want the same number: the terminal's footer and the phone's session list. A copy in each
-// would be two owners of one sum, which is how the two of them came to disagree.
+// One sum for the terminal's footer and the phone's list, so the two cannot disagree.
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 
 import { tasksUsageOf } from "./legacy-tasks.ts";

@@ -1,6 +1,4 @@
-// What a view holds of the session it shows, folded from its source, and where its reader is
-// scrolled. Kept apart from drawing so the rules a reader feels (the end followed, a place kept while
-// reading back, a session that ended) are tested without a terminal.
+// A viewed session's folded state and scroll position, kept apart from drawing so it tests without a terminal.
 import type { SessionSummary, SourceItem } from "@adeildo/pi-kit";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 
@@ -58,10 +56,7 @@ export class ViewState {
 	}
 }
 
-/**
- * Where a reader is in lines too many for the screen, counted from the end. At the end, it follows
- * what arrives; scrolled back, it keeps the lines it is reading where they are as more arrive below.
- */
+/** Counted from the end. At the end it follows; scrolled back, the lines being read stay put. */
 export class Viewport {
 	#fromEnd = 0;
 	#total = 0;

@@ -1,7 +1,5 @@
-// Before mounting a feature, an app asks the other apps on pi.events whether one already runs it,
-// which is how the harness and a standalone copy of the same package avoid running it twice. The
-// answer is a field written on the payload, which works because pi's bus is synchronous. An app
-// answers only while it is live, and pi fires `session_shutdown` before a reload builds the next.
+// An app asks the others on pi.events whether one already runs a feature, so the harness and a
+// standalone copy never run it twice. The bus is synchronous, so the answer is written on the payload.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { isObject, object, string } from "../decode.ts";

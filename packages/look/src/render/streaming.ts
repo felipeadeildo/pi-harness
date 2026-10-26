@@ -1,9 +1,7 @@
 import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
-// While the model writes an edit or a write, pi shows the path, or the first lines of the file,
-// which stopped changing long ago. These show the end instead: the lines arriving, with a cursor
-// where the model is writing, and what it has written so far on the bottom rule.
+// While the model writes an edit or a write, these show the lines arriving, with a cursor.
 import { GLYPH, isObject, tildify } from "@adeildo/pi-kit";
 import { getLanguageFromPath, highlightCode, type Theme } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences } from "@earendil-works/pi-tui";
@@ -110,11 +108,7 @@ function editStream(args: unknown, theme: Theme, context: StreamContext): Stream
 	};
 }
 
-/**
- * The lines an edit takes out and puts in. The model repeats the lines around the change in both
- * texts, so the lines both start with, and the lines both end with once the edit is complete, are
- * context. A line the new text has not repeated yet counts as taken out until it does.
- */
+/** Lines both texts start and end with are context; a line not repeated yet counts as taken out. */
 export function editLines(
 	edit: PartialEdit,
 	complete: boolean,
@@ -148,10 +142,7 @@ function pathLine(tool: string, path: string | undefined, theme: Theme): string 
 	return `${title} ${theme.fg("accent", printable(tildify(path)))}`;
 }
 
-/**
- * A line as the terminal can print it inside the frame: a carriage return would send the cursor
- * back over the border, and a colour code or a bell in the file would reach the terminal.
- */
+/** A carriage return would cross the border, and escape codes would reach the terminal. */
 function printable(line: string): string {
 	// oxlint-disable-next-line no-control-regex -- control characters are what this removes
 	return tabs(stripTerminalSequences(line).replace(/[\u0000-\u0008\u000a-\u001f\u007f]/g, ""));

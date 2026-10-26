@@ -1,10 +1,5 @@
-// A session's history from its file. The opening carries the tail of the branch; a client scrolling
-// up asks for the page before the oldest entry it holds, and one back from a while away asks for what
-// was appended after the newest.
-//
-// The daemon indexes each file it paged: the line and parent of every entry, never the entries. It
-// reads in chunks and yields after each, so a long session holds nobody up and costs no memory the
-// size of its file.
+// A session's history read from its file, in pages. The index keeps each entry's line and parent,
+// never the entry, and reads in chunks, so a long session costs no memory the size of its file.
 import { type FileHandle, open } from "node:fs/promises";
 
 /** A page is at most this many entries, and a client asks for fewer when it needs fewer. */
@@ -60,21 +55,12 @@ interface Index {
 export class History {
 	readonly #files = new Map<string, Index>();
 
-	/**
-	 * Drops what was indexed for a session file. The index is keyed by path, not by session, so a
-	 * session that ends hands the file it was read from: a relaunch with the same id pages a file that
-	 * may not be the same one, and a stale index would answer from the old bytes.
-	 */
+	/** Keyed by path: a relaunch with the same id may page a different file. */
 	forget(path: string): void {
 		this.#files.delete(path);
 	}
 
-	/**
-	 * A page of the session file at `path`. Without a cursor, the tail of the branch at the last
-	 * entry. The path comes from the session's bridge, so the file must be that session's: its header
-	 * names it. Pi names the file when the session opens and writes it at the first message, so a file
-	 * not there yet gives an empty page.
-	 */
+	/** The file's header must name the session. A file pi has not written yet gives an empty page. */
 	async page(path: string, session: string, request: PageRequest = {}): Promise<Page> {
 		let file: FileHandle;
 		try {

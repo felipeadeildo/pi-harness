@@ -15,12 +15,7 @@ export interface Transport {
 export interface ConnectionOptions {
 	key: SessionKey;
 	cache: Cache;
-	/**
-	 * Opens one attempt, calling back for what arrives and for a close that is not the client's. The
-	 * caller owns the transport, which is where the daemon's `Origin` check is satisfied: a browser
-	 * sends it by itself, and a client that is not a browser has to send its own, or the daemon
-	 * refuses the socket.
-	 */
+	/** A client that is not a browser must send the daemon's `Origin` itself, or the socket is refused. */
 	open(onMessage: (envelope: unknown) => void, onClose: () => void): Transport;
 	/** How long to wait before the next attempt, growing to a cap. */
 	backoff?: { first: number; max: number };
@@ -28,11 +23,7 @@ export interface ConnectionOptions {
 	wait?: (ms: number, run: () => void) => () => void;
 	/** The queue of commands typed while the daemon was away, so a test can read it. */
 	outbox?: Outbox;
-	/**
-	 * Who this client is, which travels in every command it sends: `kind: "client"` with the device's
-	 * name, or whatever the caller calls itself. Without it the session shows "a client" and the
-	 * answer cannot say where it came from.
-	 */
+	/** Sent with every command, so the session can say where an answer came from. */
 	by?: By;
 }
 
@@ -43,22 +34,10 @@ export interface Client {
 	on(handle: (session: ClientSession) => void): () => void;
 	/** Draws the cache, then connects and catches up. */
 	load(): Promise<void>;
-	/**
-	 * Sends a command. It keeps the time it was typed, waits in the outbox while the daemon is out of
-	 * reach, and its reply moves it from sent to applied or refused.
-	 */
-	/**
-	 * Queues a command for the session. The payload is typed by the command, so a caller cannot send
-	 * `mode.set` with a level or `ask.answer` without a result: the protocol already says which fields
-	 * each command carries, and this is the place a screen meets it.
-	 */
+	/** Kept with the time it was typed; waits in the outbox while the daemon is out of reach. */
 	send<K extends CommandType>(type: K, data: CommandMap[K]): Outgoing;
 	outbox(): Outbox;
-	/**
-	 * Sends a command that waited past the window, because the person said so. Only the connection can
-	 * put it on the wire: marking it ready in the queue and trusting the connection to notice is how
-	 * "Send now" did nothing.
-	 */
+	/** Sends a command that waited past the window. Only the connection can put it on the wire. */
 	release(id: string): boolean;
 	/** Drops a command that never went out, so it leaves the queue and nothing is sent. */
 	drop(id: string): boolean;
@@ -70,10 +49,7 @@ const defaultWait = (ms: number, run: () => void): (() => void) => {
 	return () => clearTimeout(timer);
 };
 
-/**
- * A client of one session. `load` answers once the cache is drawn and the first hello is out, not
- * when the stream catches up: a screen should never wait for the network to show what it already had.
- */
+/** `load` resolves once the cache is drawn and the hello is out, not when the stream catches up. */
 export function connect(options: ConnectionOptions): Client {
 	const listeners = new Set<(session: ClientSession) => void>();
 	const backoff = options.backoff ?? { first: 100, max: 5_000 };

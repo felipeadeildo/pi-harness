@@ -1,7 +1,5 @@
-// A provider with accounts is re-registered so the accounts own it: every way pi asks for auth answers
-// with the account in use, and each stream injects it again so a failure can move to the next one. One
-// provider keeps one model list. The auth methods of the native provider do the work, so this file
-// never speaks OAuth.
+// A provider with accounts is re-registered so every auth request answers with the account in use,
+// and each stream can move to the next account on failure. Uses the native provider's auth methods.
 import {
 	defaultProviderAuthContext,
 	lazyStream,
@@ -143,10 +141,7 @@ function accountStream(
 	);
 }
 
-/**
- * A re-login or a move after an auth failure costs an attempt. A move after a limit does not: the
- * account that refused leaves the candidates, so those moves end when the accounts do.
- */
+/** Moves after a limit are free: the account leaves the candidates, so they end with the accounts. */
 const MAX_ATTEMPTS = 3;
 
 async function* attempts(
@@ -169,8 +164,7 @@ async function* attempts(
 		let failure: AssistantMessage | undefined;
 		let thrown: unknown;
 		try {
-			// The auth resolution is inside the try too: a refresh that fails is an auth failure, and it
-			// must be able to move to the next account like any other.
+			// A failed refresh is an auth failure too, so it moves to the next account.
 			// oxlint-disable-next-line no-await-in-loop -- an attempt starts only after the one before it.
 			const withAuth = await authFor(provider, session, refreshing, account, model, options);
 			const source = call(provider, kind, withAuth.model, context, {
@@ -385,11 +379,8 @@ function mergeHeaders(
 	return merged;
 }
 
-// Pi resolves a request's auth from the credential it stored for the provider, before the stream runs.
-// Every one of those paths answers with the account in use here, so a classifier, an image or a
-// deferred call bills the same account a chat does, and pi never refreshes its own copy: when that
-// copy expires, the refresh renews an account and hands pi the result. Pi keeps that copy only because
-// it decides at startup, before any extension runs, which providers are logged in.
+// Pi resolves auth from its stored credential before the stream runs, so every path answers with the
+// account in use. Pi keeps that copy only because it decides at startup which providers are logged in.
 function liftedAuth(
 	provider: Provider,
 	session: AccountSession,

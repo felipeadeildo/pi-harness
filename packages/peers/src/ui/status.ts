@@ -3,10 +3,7 @@ import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 
 import type { BoardMark } from "../here.ts";
 
-/**
- * The status other interfaces read, from the RPC client to a remote bridge. The look draws its own
- * segment from the peers contract, so this is the plain text form of the same summary.
- */
+/** For RPC clients and the remote bridge. */
 export function statusLine(
 	summary: { others: BoardMark[]; unread: number },
 	theme: Theme,

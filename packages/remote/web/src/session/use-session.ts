@@ -1,6 +1,4 @@
-// One open session for a screen: the client connects when the screen mounts, draws the cache first,
-// and stops when the screen goes. The client changes its session in place, so the screen is told to
-// draw again by a count of the changes, not by a new object.
+// The client changes its session in place, so the screen redraws on a change count.
 import {
 	type Cache,
 	type Client,
@@ -72,20 +70,13 @@ export function useSession(key: SessionKey, source: () => Promise<SessionSource>
 	return opened;
 }
 
-/**
- * Connects to one session and tells `changed` about it: once the cache is read, even when it held
- * nothing, so a cold open shows the frame of the screen while the daemon answers, and after each
- * change. What it returns ends the connection and stops the telling, which is a screen's unmount.
- */
+/** Calls `changed` once the cache is read, even when empty, then after each change. */
 export function openSession(
 	key: SessionKey,
 	source: SessionSource,
 	changed: (session: ClientSession) => void,
 ): { client: Client; stop: () => void } {
-	// The identity is the client's, not the session's: a phone looking at a desktop session is still the
-	// phone, so the name is the device's and not the session's. The machine is the one the address
-	// names, which is the pi's, because a page cannot know its own host. What the log needs is that a
-	// command has an author at all, and the name is the part this side can carry.
+	// The author is the device, not the session.
 	const client = connect({
 		key,
 		cache: source.cache,

@@ -1,9 +1,7 @@
 import { readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-// This session in one room, its folder's or a shared one: what it logs there, what it reads, and
-// what is due for its agent. Every decision goes through the rules over the room, so the others
-// reach the same. What reaches the agent goes through the session's inbox, shared by its rooms.
+// This session in one room: what it logs, what it reads, and what is due for its agent.
 import {
 	type Delivery,
 	FolderFeed,
@@ -78,10 +76,7 @@ export interface Hooks extends InboxHooks {
 	roomGrace?(): number;
 	/** How a session the operator adds to a room stands there: taking part, or only listening. */
 	opening?(): Exclude<RoomMode, "out">;
-	/**
-	 * Work that belongs to the session, and stops with it: the app owns the lifetime. Required, so a
-	 * caller cannot forget it and land back on a timer that outlives the session.
-	 */
+	/** Required, so no timer outlives the session. */
 	defer(run: () => void, ms?: number): void;
 }
 
@@ -176,11 +171,7 @@ export class Here implements Sender {
 		return this.#openedAt;
 	}
 
-	/**
-	 * The sessions still open. Every drawing of the panel and of each `peers` row asks, and the answer
-	 * checks a process per peer, so it is worked out again only when the folder changed or a second
-	 * went by, which is how soon a session that died without a word shows as gone.
-	 */
+	/** Rechecks processes only when the folder changed or a second went by. */
 	live(): Peer[] {
 		const key = `${this.#folder.version}:${Math.floor(this.#now() / LIVE_FOR_MS)}`;
 		if (this.#live?.key !== key) {
@@ -415,10 +406,6 @@ export class Here implements Sender {
 		}
 	}
 
-	/**
-	 * How this session stands in this room: taking part, listening, or out. It decides what reaches it and
-	 * whether the agent bids, and both readers of that gate are outside this method.
-	 */
 	mode(): RoomMode {
 		if (this.session === undefined) return "in";
 		return this.#folder.membership.modeOf(this.session, this.#cwd);
@@ -461,10 +448,7 @@ export class Here implements Sender {
 		};
 	}
 
-	/**
-	 * Tells the agent who else is here, so it knows without being asked and nobody has to carry the
-	 * message. The note waits for the next prompt: it never starts a run and never interrupts one.
-	 */
+	/** The note waits for the next prompt; it never starts or interrupts a run. */
 	#announce(): void {
 		const names = this.names().bySession;
 		const live = this.live().filter((peer) => peer.session !== this.session);
@@ -664,10 +648,7 @@ export class Here implements Sender {
 	}
 }
 
-/**
- * Whether a session has shown anything worth telling the agent about: a name, a title, work, or a
- * message. One with none of it may be a bench or a tool that opens pi for a moment.
- */
+/** A session that shows nothing may be a tool opening pi for a moment. */
 function worthTelling(peer: Peer): boolean {
 	return (
 		peer.handle !== undefined ||

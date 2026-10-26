@@ -1,7 +1,5 @@
-// Follows a JSONL file whose records carry an `id`, such as a pi session file, reading only what was
-// appended. Pi rewrites the whole file when it migrates it, keeping the ids, so the follower notices a
-// rewrite and reads again from the start without handing over a record twice. The daemon bundles
-// this file, so it imports nothing but `node:*`.
+// Follows a JSONL file of records with an `id`. Pi rewrites the whole file when it migrates it, so a
+// rewrite is detected and read again without repeating a record. Imports only `node:*`.
 import { closeSync, fstatSync, openSync, readSync, watch } from "node:fs";
 import { dirname } from "node:path";
 
@@ -9,10 +7,6 @@ import { dirname } from "node:path";
 export interface FollowState {
 	/** Bytes read, always at the end of a line. */
 	offset: number;
-	/**
-	 * The id of the last record read, which ends at `offset` unless lines without an id follow it. Then
-	 * the next read takes the file for rewritten and reads it from the start, still sending nothing twice.
-	 */
 	lastId: string | undefined;
 	ino: number;
 	size: number;
@@ -25,10 +19,7 @@ export interface FileRecord {
 	[field: string]: unknown;
 }
 
-/**
- * A record, or `reset`: the file was rewritten and the last record read is gone from it, so drop
- * what came before. Every record of the file follows it.
- */
+/** `reset`: the file was rewritten; drop what came before. */
 export type TailItem = { kind: "record"; record: FileRecord } | { kind: "reset" };
 
 const START: FollowState = { offset: 0, lastId: undefined, ino: 0, size: 0, mtimeMs: 0 };
@@ -86,11 +77,7 @@ export class FileTail {
 	}
 }
 
-/**
- * Calls `on` with what the file gains, as it gains it, until the returned function is called. What
- * the file already holds comes before `followFile` returns. It waits for a file that does not exist
- * yet. `every` is the poll that backs up the directory watch, which some filesystems never fire.
- */
+/** `every` is the poll behind the directory watch, which some filesystems never fire. */
 export function followFile(
 	path: string,
 	on: (items: TailItem[]) => void,

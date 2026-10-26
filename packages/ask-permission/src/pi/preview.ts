@@ -53,11 +53,7 @@ export async function previewEdit(
 	return { ...written, diff: generateDiffString(before, written.after).diff };
 }
 
-/**
- * A tool runs with a context that can call other tools. The preview runs from a `tool_call` handler,
- * which has none, and a dry run must not start real calls, so it gets no tools and any call fails
- * the preview. The session context stays the prototype, so its getters keep reading live state.
- */
+/** A dry run must not start real calls, so the preview gets no tools. */
 function previewContext(ctx: ExtensionContext): ExtensionToolContext {
 	return Object.assign(Object.create(ctx) as ExtensionContext, {
 		tools: [],

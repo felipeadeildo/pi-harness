@@ -5,17 +5,9 @@ export interface DescribeBoardOptions {
 	decisions?: number;
 }
 
-/**
- * The sections the summary draws: the board's own order, and the backlog with them because it is what
- * the person will pick up even though no cap counts it.
- */
 const SECTIONS = BOARD_COLUMNS.filter((one) => one.open || one.column === "backlog");
 
-/**
- * Where the session stands, for a prompt the agent reads after its history is cut. The ids stay,
- * because the agent moves its cards by them. Cards keep the board's order, and the cut on done cards
- * and decisions keeps the last ones in that order, as the view other sessions read does.
- */
+/** Keeps card ids, since the agent moves cards by them. */
 export function describeBoard(board: Board, options: DescribeBoardOptions = {}): string {
 	const lines: string[] = [];
 	const section = (title: string, cards: readonly BoardCard[]) => {

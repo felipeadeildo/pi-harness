@@ -1,6 +1,5 @@
-// Sessions written while the tasks feature existed still carry its entries. Two readers need them:
-// the cost, because the tasks' model calls were paid and pi does not count them, and the names,
-// because an older session keeps the handle the tasks gave it.
+// Entries of the removed tasks feature: their model calls still count toward cost, and their handle
+// names old sessions.
 import { isObject } from "./decode.ts";
 
 /** Each change the tasks wrote, with the list it left and the call that made it. */

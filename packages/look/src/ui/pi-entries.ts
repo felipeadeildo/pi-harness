@@ -1,8 +1,5 @@
-// Pi's own entries in the transcript wear the harness's frame: your messages, compactions, branch
-// summaries, skills, `!` commands and the messages of extensions that bring no renderer. Pi sets them
-// apart with a background and blank rows; the frame does that job here, so the text keeps its colour,
-// loses the background, and sits against the edges. Pi has no hook for drawing these, so this wraps
-// the render of each component.
+// Pi's own transcript entries in the harness frame instead of a background. Pi has no hook for
+// drawing them, so this wraps each component's render.
 import { CHANGES_CUT, CHANGES_X, entryFrame, type EntryFrame, GLYPH } from "@adeildo/pi-kit";
 import {
 	BashExecutionComponent,

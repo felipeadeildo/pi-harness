@@ -1,6 +1,4 @@
-// `pi-remote open`: asks the daemon for a link good once for a minute, prints it and opens it. It
-// speaks to the daemon over the same unix socket as a bridge, says hello as `cli`, and leaves as soon
-// as the daemon answers. Without a daemon it says so.
+// `pi-remote open`: asks the daemon over the unix socket for a one-minute link, prints it and opens it.
 import { randomUUID } from "node:crypto";
 import { connect } from "node:net";
 
@@ -13,16 +11,10 @@ import { envelopeOf, line, Lines } from "../wire/lines.ts";
 /** How long the command waits for the daemon. */
 const ANSWER_MS = 3_000;
 
-/**
- * A login link, or why there is none. `tailnet` is where the owner's own devices open the app on the
- * tailnet, with no token, when the daemon listens there.
- */
+/** `tailnet` is the address the owner's devices open with no token. */
 export type Link = { url: string; tailnet?: string } | { reason: string };
 
-/**
- * Reads the daemon's answer to `token.issue`, for `/remote` and for this command alike. The daemon
- * builds the link, since only it knows the port it listens on. `silence` words a missing answer.
- */
+/** The daemon builds the link, since only it knows its port. */
 export function linkOf(answer: Envelope | undefined, silence: string): Link {
 	const data = isObject(answer?.data) ? answer.data : {};
 	if (answer?.kind === "reply" && typeof data.url === "string") {

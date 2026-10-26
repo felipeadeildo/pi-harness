@@ -1,8 +1,4 @@
-// The peers tool in the chat of the agent that calls it: the message as the model writes it, then what
-// became of it. A message to a few agents gets a line per agent, a tick that turns into two when it
-// arrives and lights up when it is read. One to everyone fans out into a row of names, each wearing
-// its own ticks, under a count of who read it. One to anyone shows the bids, the countdown, and who
-// took it.
+// The peers tool in the calling agent's chat: the message, then what became of it.
 import { CUT, GLYPH } from "@adeildo/pi-kit";
 import type { Delivery } from "@adeildo/pi-kit";
 import type { AgentToolResult, Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
@@ -84,13 +80,8 @@ export function audienceOf(to: string | undefined): "all" | "any" | string[] {
 	return wanted;
 }
 
-/**
- * Rows to redraw when the folder changes, by call, so a tick turns into two while you watch.
- *
- * Pi hands each drawing a new `row`, and that row holds the component drawn before it. A component
- * that kept the row would keep every component the row ever drew, so the components here keep only
- * the row's state and its redraw, and the one drawn last is updated instead of replaced.
- */
+// Pi hands each drawing a new `row` that holds the component drawn before it, so components keep
+// only the row's state and the last one drawn is updated, not replaced.
 export function toolRenderers(places: Places, rows: Map<string, () => void>) {
 	return {
 		renderCall: (args: Args, theme: Theme, row: Row): Component => {
@@ -147,10 +138,7 @@ class CallRow implements Component {
 	}
 }
 
-/**
- * What became of the message, read from the room. Pi draws every row on every frame, so the lines
- * are kept until the room changes, the second turns, or the width does.
- */
+/** Lines are kept until the room changes, the second turns or the width does. */
 class ResultRow implements Component {
 	#result: AgentToolResult<SentDetails | undefined> | undefined;
 	#expanded = false;
@@ -350,10 +338,6 @@ class Receipts {
 		});
 	}
 
-	/**
-	 * A message to everyone: how far it got in one line, then every agent as a name with its own ticks,
-	 * those that read it first. Expanding the row gives the line per agent.
-	 */
 	fanOut(width: number): string[] {
 		const theme = this.#theme;
 		const to = this.#addressees();
@@ -431,10 +415,7 @@ class Receipts {
 		];
 	}
 
-	/**
-	 * The group's ticks are the furthest every agent got, as a group chat shows them: lit only when all
-	 * of them read it. The words count each stage.
-	 */
+	/** Lit only when every agent read it, as a group chat shows it. */
 	#tally(stages: readonly Stage[]): string {
 		const theme = this.#theme;
 		const count = (stage: Stage) => stages.filter((one) => one === stage).length;

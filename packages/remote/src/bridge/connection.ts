@@ -1,6 +1,5 @@
-// A bridge's connection to its daemon. Nothing here may hold pi up: a send never waits, a daemon
-// that is gone is retried in the background, and what it missed comes back through what the bridge
-// sends on every connect. The state changes reach the disk on their own, so only deltas are ever dropped.
+// The bridge's socket to its daemon. Nothing here may block pi: sends never wait, and a lost daemon
+// is retried in the background. State changes are on disk, so only deltas are ever dropped.
 import { randomUUID } from "node:crypto";
 import { connect, type Socket } from "node:net";
 
@@ -92,11 +91,8 @@ export class BridgeConnection {
 	}
 
 	/**
-	 * Sends an event of this session, numbered in its epoch. A droppable one, a delta, takes no number,
-	 * since it only matters live and the message's end replaces it, so a replay never has a hole where
-	 * a delta was. A delta is also what is dropped while the socket is backed up, and the bridge is
-	 * asked for a resync once it drains. Past the larger bound the socket is opened again. Returns
-	 * whether the event went out, and never throws.
+	 * Sends an event numbered in its epoch. A delta takes no number, so a replay has no holes, and is
+	 * dropped while the socket is backed up. Never throws.
 	 */
 	event(type: string, data: unknown, options: { droppable?: boolean } = {}): boolean {
 		const socket = this.#socket;
@@ -117,10 +113,7 @@ export class BridgeConnection {
 		return true;
 	}
 
-	/**
-	 * Asks the daemon something and waits for the reply that carries the same id. Resolves with
-	 * nothing after `timeoutMs`, when the socket is lost, or when no daemon answers now.
-	 */
+	/** Resolves with nothing on timeout, on a lost socket or with no daemon. */
 	request(type: string, data: unknown, timeoutMs = REQUEST_MS): Promise<Envelope | undefined> {
 		const socket = this.#socket;
 		if (!this.#up || socket === undefined || socket.destroyed) return Promise.resolve(undefined);
@@ -139,10 +132,6 @@ export class BridgeConnection {
 		});
 	}
 
-	/**
-	 * Answers a command on its id, in the shape the daemon sent it, so the daemon routes it back to
-	 * the client that asked. Returns whether the answer went out.
-	 */
 	answer(kind: "reply" | "error", type: string, data: unknown, id: string): boolean {
 		const socket = this.#socket;
 		if (!this.#up || socket === undefined || socket.destroyed) return false;
@@ -151,10 +140,7 @@ export class BridgeConnection {
 		return true;
 	}
 
-	/**
-	 * Stops for good. With a reason, the daemon hears the session is gone before the socket ends.
-	 * Resolves once the socket is closed, or after a short wait when the daemon does not read.
-	 */
+	/** With a reason, the daemon hears the session is gone before the socket closes. */
 	close(reason?: GoneReason): Promise<void> {
 		this.#closed = true;
 		clearTimeout(this.#retry);

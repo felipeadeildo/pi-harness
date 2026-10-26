@@ -119,10 +119,7 @@ export function agentLines(
 	return { lines, selectedAt, selectedEnd };
 }
 
-/**
- * Under the name and its state: what waits on you, what it is on, and the files it edited. The card
- * wraps instead of being cut, since a cut title says nothing.
- */
+/** The card wraps rather than being cut, since a cut title says nothing. */
 function details(peer: Peer, theme: Theme, width: number, selected: boolean): string[] {
 	const most = selected ? CARD_LINES_OPEN : CARD_LINES_CLOSED;
 	const lines: string[] = [];

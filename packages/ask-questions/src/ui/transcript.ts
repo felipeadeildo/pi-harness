@@ -17,10 +17,7 @@ import { type Asked, answerBlock } from "./answered.ts";
 
 type Streamed = NonNullable<Partial<QuestionParams>["questions"]>;
 
-/**
- * What the tool registers, and what the docs draw. While the dialog is open on a call the model is
- * still writing, the transcript keeps one line, since the dialog under it shows the questions.
- */
+/** While the dialog is open on a call being written, the transcript keeps one line. */
 export function askRenderers(dialogOpen: (toolCallId: string) => boolean) {
 	return {
 		renderCall: (
@@ -37,11 +34,7 @@ export function askRenderers(dialogOpen: (toolCallId: string) => boolean) {
 	};
 }
 
-/**
- * While the model writes, one line for each question and the last one whole, its options arriving
- * under a cursor, so you can read them before the dialog opens. Once written, one line with the
- * headers: the dialog under it shows the questions whole, and so do the answers after it.
- */
+/** While written: a line per question, the last one whole. Once written: one line of headers. */
 export function renderCall(
 	params: Partial<QuestionParams>,
 	theme: Theme,

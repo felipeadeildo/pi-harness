@@ -1,6 +1,4 @@
-// Whether the process that wrote an entry still runs. A pid alone cannot say: the system gives a
-// freed pid to the next process it starts, so a writer also records when its process started, and a
-// pid running with another start belongs to someone else.
+// A pid alone cannot say a process still runs, since pids are reused, so writers record the start.
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
@@ -8,12 +6,7 @@ import { readFileSync } from "node:fs";
 const MAC_LISTING_MS = 2_000;
 let macListing: { starts: Map<number, string>; at: number } | undefined;
 
-/**
- * When a process started, as the system reports it, or undefined when no such process runs or the
- * system has no way to say. The value is for comparing with another reading, never for parsing. On
- * macOS one listing of every process answers for 2 s, so a pid reused within that window still reads
- * the old start, and a screen asking for many pids spawns `ps` once.
- */
+/** Only for comparing. On macOS one `ps` listing answers for 2 s. */
 export function processStart(pid: number): string | undefined {
 	if (!isPid(pid)) return undefined;
 	if (process.platform === "linux") return linuxStart(pid);
@@ -39,11 +32,7 @@ function linuxStart(pid: number): string | undefined {
 	return startFromStat(stat);
 }
 
-/**
- * Field 22 of `/proc/<pid>/stat`: the start, in clock ticks after boot. The command name in field 2
- * may hold spaces and parentheses, so the fields are counted after its last `)`. A zombie, state `Z`,
- * has exited and only waits for its parent, so it has no start to compare.
- */
+/** Field 22 of `/proc/<pid>/stat`, counted after the last `)`. A zombie has no start. */
 export function startFromStat(stat: string): string | undefined {
 	const close = stat.lastIndexOf(")");
 	if (close < 0) return undefined;
@@ -80,12 +69,7 @@ export function startsFromPs(listing: string): Map<number, string> {
 	return starts;
 }
 
-/**
- * Whether the process that wrote an entry runs. With the start the writer recorded, the pid must run
- * with that same start. An entry with no start, written before starts were recorded, falls back to
- * the pid alone, where another user's process counts as running, and so does a reader on a system
- * that reports no starts at all.
- */
+/** Without a recorded start, falls back to the pid alone. */
 export function processLives(
 	pid: number,
 	start: string | undefined,

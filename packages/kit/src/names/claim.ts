@@ -1,6 +1,5 @@
-// One file per word: the claim is the file, and `link` fails when the word is already taken. A
-// session that crashes leaves its claim behind; the draw judges it against presence, so the word
-// comes back instead of staying lost.
+// One file per word, created with `link`, which fails when the word is taken. A crashed session's
+// claim is judged against presence, so its word comes back.
 import {
 	linkSync,
 	mkdirSync,
@@ -79,10 +78,7 @@ export function claims(dir: string): Claim[] {
 		.toSorted((a, b) => a.at - b.at || a.word.localeCompare(b.word));
 }
 
-/**
- * The word a session holds now, or let go less than the reservation ago, so a resumed session keeps
- * the handle it had.
- */
+/** Includes a word let go within the reservation, so a resumed session keeps its handle. */
 export function wordOf(dir: string, session: string, now = Date.now()): string | undefined {
 	return claims(dir).find(
 		(claim) =>
@@ -92,11 +88,8 @@ export function wordOf(dir: string, session: string, now = Date.now()): string |
 }
 
 /**
- * Takes `word` for `session`, or says it is taken. A new claim is written to a temporary file and
- * hard linked into place, so the file appears with its content and `link` fails when the word is
- * already there. Only three claims are replaced: one whose session no longer runs, one reserved long
- * enough ago, and one whose file cannot be read. A live session never loses its word. The whole path
- * is synchronous, so two draws in one process take turns and never both create.
+ * Replaces only a claim whose session is gone, whose reservation expired, or whose file is unreadable.
+ * Synchronous, so two draws in one process never both create.
  */
 export function claimWord(
 	claiming: Claiming,
@@ -142,9 +135,7 @@ function attemptClaim(claiming: Claiming, word: string, session: string, machine
 	};
 	if (!stale()) return false;
 
-	// Only one reclaimer holds the lock, and the stale claim is judged again with the lock in hand:
-	// without it, two processes both saw the old file and the second removed the claim the first had
-	// just written.
+	// Judge the stale claim again under the lock, or a second reclaimer removes the first one's claim.
 	const lock = lockWord(dir, word, now);
 	if (lock === undefined) return false;
 	try {
@@ -188,11 +179,7 @@ export function releaseWord(dir: string, word: string, session: string, now = Da
 	writeAtomically(pathOf(dir, word), { ...held, released: now });
 }
 
-/**
- * A word nobody holds or reserved, or one a session that no longer runs left behind. With every word
- * held, it adds a number once (`kestrel-2`) and keeps it. The session's own word comes back first, so
- * a resumed session draws nothing.
- */
+/** With every word held, adds a number once (`kestrel-2`). The session's own word comes first. */
 export function drawWord(
 	claiming: Claiming,
 	words: readonly string[],
@@ -234,11 +221,7 @@ function pathOf(dir: string, word: string): string {
 	return join(dir, `${word}.json`);
 }
 
-/**
- * Creates the file with its claim, or says that someone else got there first. The claim is written to
- * a temporary file and hard linked into place, so a reader never sees an empty file and mistakes a
- * live claim for a broken one; `link` fails with EEXIST, as `wx` does.
- */
+/** Written to a temporary file and linked into place, so no reader sees an empty claim. */
 function createFile(path: string, value: unknown): "taken" | "exists" {
 	const temporary = `${path}.${process.pid}.${temporaries++}.tmp`;
 	writeFileSync(temporary, `${JSON.stringify(value)}\n`, { mode: 0o600 });

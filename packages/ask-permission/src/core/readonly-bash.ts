@@ -467,9 +467,8 @@ const VARIABLE_SETTERS = new Set([
 ]);
 const GROUPING_OPS = new Set(["(", ")", ";;", "<(", ">("]);
 
-// `D=/x; cat "$D/a"` sets a shell variable and reads with it, so the value goes back in like a loop
-// word. Only where bash surely ran the assignment and nothing else could change the variable after:
-// otherwise the value read here may not be the one bash uses, and that hides a write or a path.
+// `D=/x; cat "$D/a"`: the value is substituted only where bash surely ran the assignment and
+// nothing could change it after, or a write or a path could hide behind it.
 function expandAssignments(tokens: ParseEntry[], env: NodeJS.ProcessEnv): ParseEntry[] {
 	if (!canTrackAssignments(tokens, env)) return tokens;
 
@@ -512,9 +511,8 @@ function canTrackAssignments(tokens: ParseEntry[], env: NodeJS.ProcessEnv): bool
 	});
 }
 
-// Only at the start or after `;` did it surely run: `a && D=x` and `a || D=x` depend on `a`. After
-// it, `;` or `&&`, since an assignment always succeeds. The value is a literal word with no space,
-// flag or reference, so an unquoted `$D` cannot split or turn into a flag the check never saw.
+// Surely ran only at the start or after `;`. The value is a literal word with no space, flag or
+// reference, so an unquoted `$D` cannot split or become a flag.
 function isTrackedAssignment(
 	tokens: ParseEntry[],
 	index: number,
@@ -531,10 +529,6 @@ function isTrackedAssignment(
 	return before && after;
 }
 
-/**
- * The words a parsed token carries: a plain token is its own text, and a pattern token carries its
- * pattern. Anything else yields nothing, which each caller reads as absent or as empty.
- */
 function wordsOf(token: ParseEntry): string | undefined {
 	if (typeof token === "string") return token;
 	return "pattern" in token ? token.pattern : undefined;

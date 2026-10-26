@@ -1,6 +1,3 @@
-// What the commands need from pi's extension API, built where both the feature scope and the session
-// context are at hand. The bridge holds the context, which aborts and compacts; renaming and the two
-// settings go through the API, and each one answers or refuses with a reason a client can show.
 import {
 	logFrom,
 	MODE_SET,
@@ -69,9 +66,7 @@ export function commandApi(scope: FeatureScope, ctx: ExtensionContext): SessionA
 			}
 			scope.sendUserMessage(text, {
 				...(deliverAs === undefined ? {} : { deliverAs }),
-				// Only a slash text expands, which is what makes `/skill:x` and a template work from the
-				// phone. A plain prompt goes out exactly as typed. Extension commands never reach this
-				// flag, because the list above does not carry them.
+				// Only a slash text expands, so `/skill:x` works from the phone and a prompt goes out as typed.
 				...(text.startsWith("/") ? { expandPromptTemplates: true } : {}),
 			});
 		},

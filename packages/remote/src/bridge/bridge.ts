@@ -34,11 +34,7 @@ import { LiveStream } from "./stream.ts";
 /** How many entries of the branch an opening carries. A client pages through older ones over HTTP. */
 export const STATE_ENTRIES = 50;
 
-/**
- * How many prompts from clients the bridge remembers while it waits for their entries. A run that
- * lasts holds steers and follow-ups for as long as it lasts, so the number is a count and not a time:
- * a time would let a legitimate prompt expire before its entry shows. A choice, not a measurement.
- */
+/** A count, not a time: a long run holds its steers and follow-ups until its entries show. */
 export const REMEMBERED_SENDERS = 20;
 
 /** How often the terminal tells the daemon that someone typed there, in milliseconds. */
@@ -148,21 +144,14 @@ export class Bridge {
 		return this.connection.request(type, data);
 	}
 
-	/**
-	 * A client's prompt went to pi, and its entry is not on the branch yet: it shows a tick later, or
-	 * when pi consumes a steer or a follow-up. The bridge remembers who sent it until the entry shows.
-	 */
+	/** Remembers who sent a prompt until its entry reaches the branch. */
 	sentBy(text: string, by: By): void {
 		// A prompt with no words would match every entry with none, and says nothing about whose it is.
 		if (text.trim() === "") return;
 		this.#senders = [...this.#senders, { text: text.trim(), by }].slice(-REMEMBERED_SENDERS);
 	}
 
-	/**
-	 * Says whose a new entry is, only when it is sure. A user entry that is not a remembered prompt is
-	 * the terminal's, and gets no mark. Two remembered prompts with the same words cannot be told
-	 * apart by what they say, and a wrong mark is worse than none, so neither is marked.
-	 */
+	/** Marks an entry only when sure: two remembered prompts with the same words mark neither. */
 	#whose(entry: {
 		id: string;
 		type: string;
@@ -250,12 +239,7 @@ export class Bridge {
 		);
 	}
 
-	/**
-	 * A turn ended, so what the session has cost so far is known and worth sending: the number changes
-	 * during the session, and a reader that opened it at the first turn would otherwise draw that
-	 * turn's figure for the rest of the day. Summed from pi's own per-message usage, by the function
-	 * the terminal's footer calls, so the phone and the terminal cannot disagree about the number.
-	 */
+	/** Sends the cost at the end of each turn, summed by the same function as pi's footer. */
 	charged(): void {
 		this.connection.event("cost.changed", { cost: this.#cost() });
 	}
@@ -284,10 +268,6 @@ export class Bridge {
 		this.options.command(message);
 	}
 
-	/**
-	 * The command ids this session already ran, from its own log: a client that resends after the
-	 * bridge restarted gets a repeat instead of a second effect.
-	 */
 	#ran(): string[] {
 		// The manager's methods need the manager: pi's own read the session id off it. A context with
 		// no folder behind it has no log either, and nothing ran there.
@@ -299,14 +279,8 @@ export class Bridge {
 			.map((event) => (event.data as { id: string }).id);
 	}
 
-	/**
-	 * The opening a client draws first. If this throws, the client draws nothing, and the throw becomes a
-	 * warning two frames up: the failure has to name itself, and today it does not.
-	 *
-	 * Every type in `STATE_CHANGES` that this bridge sends either folds through `#changes.saw` or has a
-	 * producer in `producers.ts` that rebuilds it here. A state change that does neither is lost on the
-	 * next reconnect, silently, so `bridge-changes.test.ts` reads this folder and says which one it is.
-	 */
+	// Every state change this bridge sends folds through `#changes.saw` or has a producer in
+	// `producers.ts`; `bridge-changes.test.ts` checks it, since a missing one is lost on reconnect.
 	#open(): void {
 		this.stream.flush();
 		const { scope, kind } = this.options;

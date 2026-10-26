@@ -114,9 +114,7 @@ export const compact = defineFeature({
 					entries: [...event.entries, ...clearedOnServer(event, ctx, previous, message.usage)],
 				};
 			}
-			// A prune makes the next request write the whole prompt again. At the end of the run that
-			// lands on your next message, which pays it anyway when the cache went cold. Mid-run only
-			// when pi's own compaction is close, which a prune here usually spares.
+			// A prune makes the next request rewrite the prompt. Mid-run only when pi's own compaction is close.
 			const window = ctx.model?.contextWindow ?? 0;
 			if (forced || window === 0 || prompt < NEAR_WINDOW * window) return undefined;
 			const outputs = event.toolResults.reduce((sum, result) => sum + estimateTokens(result), 0);

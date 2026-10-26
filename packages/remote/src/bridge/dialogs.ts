@@ -1,7 +1,5 @@
-// The dialogs of pi and of other extensions, in a terminal session. `select`, `confirm` and `input`
-// open in the terminal as they always did, and the same question goes to the clients as an ask the
-// terminal already draws. The first answer wins: a client's closes the terminal's dialog through the
-// signal pi gives each dialog, and the terminal's answers the clients' ask.
+// Pi's dialogs in a terminal session also go to the clients as an ask. The first answer wins: a
+// client's closes the terminal dialog through its signal, and the terminal's closes the ask.
 import {
 	ANSWER,
 	type AskOptions,
@@ -54,10 +52,7 @@ function typed(question: AskQuestion, value: string): AskResult {
 	return { answers: [answer], cancelled: false };
 }
 
-/**
- * Wraps the three dialogs on the shared `ui`, and returns what puts the originals back. The editor is
- * left alone: pi gives it no signal, so a client's answer could not close the terminal's.
- */
+/** Returns what restores the originals. The editor is left alone: pi gives it no signal. */
 export function forwardDialogs(ui: Dialogs, options: DialogsOptions): () => void {
 	const original = { select: ui.select, confirm: ui.confirm, input: ui.input };
 

@@ -1,10 +1,5 @@
-// The colors of pi's own theme that a session can wear, by the name pi gives them, in the two schemes.
-// The bridge sends a name (`accent`, `syntaxKeyword`), never a value, so the app owns the values and
-// the dark and the light both have one. A name this table does not hold has no color here, and the
-// screen draws the label in its own text color: a color nobody chose is not invented.
-//
-// The values are the ones pi's `dark` and `light` themes resolve to; `pi-colors.test.ts` reads those
-// files and fails when they move, so this table cannot diverge from the terminal in silence.
+// Pi's theme colors by name, for dark and light. A name not in the table gets no color.
+// `pi-colors.test.ts` fails when pi's theme files change.
 /** The two schemes of the system, which the page follows with `prefers-color-scheme`. */
 export type Scheme = "light" | "dark";
 

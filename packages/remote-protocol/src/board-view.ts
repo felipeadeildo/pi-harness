@@ -32,10 +32,7 @@ export interface BoardView {
 	done: BoardCard[];
 }
 
-/**
- * Why a card waits, in the words of the reader. `operator` reads as "you" only where the reader is the
- * operator, which is why the reader is a parameter and not a property of the card.
- */
+/** `operator` reads as "you" only for the operator, so the reader is a parameter. */
 export function blockedOf(blocked: BoardBlocker, reader: "operator" | "agent"): string {
 	if (blocked.on === "operator")
 		return `${reader === "operator" ? "você" : "o operador"}: ${blocked.why}`;

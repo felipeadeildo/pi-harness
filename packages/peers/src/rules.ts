@@ -9,12 +9,7 @@ import type { Peer, Posted } from "./folder.ts";
 export const BID_WINDOW_MS = 6_000;
 /** How long the winner has to take it before the next one in line does. */
 export const TAKE_MS = 8_000;
-/**
- * Agent replies in a chain, each waking the next. That many without you is a loop, not a
- * conversation, and `peers.chainLimit` changes the number. It holds only messages sent to an agent:
- * a message to the whole room always goes through, by the operator's choice, so agents that only
- * talk to everyone are not stopped by it.
- */
+/** Counts only messages to an agent: messages to the whole room always go through. */
 export const CHAIN_LIMIT = 20;
 /** Colleagues' messages one run takes while it works; past that, they wait for the next prompt. */
 export const STEERS_PER_RUN = 8;
@@ -25,10 +20,7 @@ export type Award =
 	| { kind: "ranked"; order: string[]; closedAt: number }
 	| { kind: "taken"; by: string };
 
-/**
- * Idle before busy, the best fit, the fewest open cards, the oldest session. A request nobody idle
- * bid on waits, and the first session to finish its run and bid takes it.
- */
+/** Idle before busy, best fit, fewest open cards, oldest session. */
 export function award(request: Posted, live: readonly Peer[], now: number): Award {
 	if (request.takenBy !== undefined) return { kind: "taken", by: request.takenBy };
 	// A session the operator has not written in yet does not bid, so it is not waited for either.
@@ -70,11 +62,7 @@ export function turnToTake(ranking: Award, session: string): number | undefined 
 export const BUSY_DELIVERIES = ["steered", "after-run", "next-turn"] as const;
 export type BusyDelivery = (typeof BUSY_DELIVERIES)[number];
 
-/**
- * An idle agent wakes for anything that is not a chain too deep. A busy one takes it the way the
- * setting says, and `urgent` always attaches between calls, without ending the run. Agents that only
- * answer each other stop waking after the chain limit, until someone at a keyboard starts a run again.
- */
+/** `urgent` attaches between calls without ending the run. */
 export function deliveryFor(options: {
 	busy: boolean;
 	urgent: boolean;

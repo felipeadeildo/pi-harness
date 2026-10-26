@@ -100,12 +100,7 @@ export function held(): { sockets: HeldSocket[]; dial: () => Socket } {
 	};
 }
 
-/**
- * The client library over a real WebSocket, with handles a test needs: dropping the connection the
- * way a network does, holding the reconnect, and watching the reconnect, the openings and the
- * deltas. A connection that went dead stops applying what already arrived, as a real socket does,
- * and a reconnect waits on `hold` so a test can let a run finish first.
- */
+/** Drops the connection as a network does; a reconnect waits on `hold`. */
 export function clientOf(
 	session: string,
 	port: () => number,
@@ -154,9 +149,7 @@ export function clientOf(
 				const message = JSON.parse(String(event.data)) as { type?: string };
 				if (message.type === "state") openings += 1;
 				if (message.type === "pi.message_update") deltas += 1;
-				// The network goes before the event is applied, on the first of the kind named. A delta
-				// is the one the client sees live and the replay does not give back, so dropping on it
-				// tells a numbered delta from one that never takes a number.
+				// Dropping on a delta tells a numbered delta from one that never takes a number.
 				if (dead) return;
 				if (armed && message.type === dropAt && !dropped) {
 					dropped = true;
