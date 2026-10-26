@@ -46,6 +46,8 @@ jobs:
           ref: ${{ fromJSON(needs.release.outputs.pr).headBranchName }}
 
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
 
       - run: bun install
 
@@ -77,16 +79,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
 
       - run: bun install --frozen-lockfile
 
-      # One retry, unlike `CI`: this job does not pin Bun, so the probe that cleared the retry in
-      # `CI` says nothing about the version running here. Pinning it, and dropping this with the
-      # probe's answer, is its own change. A second failure is real, and the release stops.
-      - run: |
-          if bun run verify; then exit 0; fi
-          echo "::warning::verify failed, retrying once"
-          bun run verify
+      - run: bun run verify
 
       # Packs every package, installs the tarballs outside the repository and loads them, so a
       # missing file or an unresolved workspace dependency fails before anything is published.
@@ -103,6 +101,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
 
       - run: bun install --frozen-lockfile
 

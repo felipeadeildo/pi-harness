@@ -15,18 +15,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Pinned, and not to latest on purpose: a new Bun changes how the CI behaves without a
-      # commit. Bumping this is a pull request, so the change has a diff and a run, and
-      # `probe-bash-timer.yml` re-checks the spawn behaviour on the new version.
+      # Pinned, here and in every workflow: a new Bun changes how the CI behaves without a commit, so
+      # bumping it is a pull request with a diff and a run.
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
       - run: bun install --frozen-lockfile
-      # No retry. One lived here from 04/10 because Bun sometimes failed to spawn the shell in the
-      # bash timer tests on the runner; the two test flakes found on 24/10 were fixed in #93 and
-      # #104, and the spawn bug did not reproduce in 50 runs on the pinned Bun 1.4.4 (run
-      # 40099027756, `probe-bash-timer.yml`). Run that probe after a Bun bump: if it reports a
-      # failure, the retry comes back with the reason.
       - run: bun run verify
 
   # The gate: the page in a real browser, with a real daemon and a real pi session behind it, served
