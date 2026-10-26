@@ -400,7 +400,7 @@ export const SCENES: readonly Scene[] = [
 		draw: drawView,
 	},
 	{
-		name: "board/panel",
+		name: "harness/board",
 		caption: "Alt+T: the session's board, and what waits on you.",
 		alt: "The session's board over the chat: a line saying three cards are open, one is in the backlog and one is done, then one card per line with its column first: one being done with what it is on now, one in review with its reviewer, and one to do that waits on you, with the reason.",
 		draw: boardPanel,

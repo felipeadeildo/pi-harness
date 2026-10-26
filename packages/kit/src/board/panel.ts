@@ -1,10 +1,13 @@
-// The Alt+T panel lives here: it opens the session's board. The board is the kit's feature; this
-// module only gives the panel a key and wires it to the contract.
-import { BOARD, defineFeature, emptyBoard, hideImagesUnderOverlays } from "@adeildo/pi-kit";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Key } from "@earendil-works/pi-tui";
 
+// The Alt+T panel: it opens the session's board. The board is its own feature; this one only gives the
+// panel a key and wires it to the contract, so a host can keep the board and leave the panel out.
+import { defineFeature } from "../app/feature.ts";
+import { BOARD } from "../contracts/board.ts";
+import { hideImagesUnderOverlays } from "../overlay-images.ts";
 import { BoardPanel } from "./board-panel.ts";
+import { emptyBoard } from "./model.ts";
 
 export const boardPanel = defineFeature({
 	id: "board-panel",

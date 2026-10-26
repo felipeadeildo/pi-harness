@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -14,6 +14,7 @@ import harnessPeers from "../src/peers.ts";
 import harnessPermission from "../src/permission.ts";
 import harnessProviders from "../src/providers.ts";
 import harnessQuestions from "../src/questions.ts";
+import harnessRemote from "../src/remote.ts";
 import harnessSkills from "../src/skills.ts";
 
 let dir = "";
@@ -44,6 +45,7 @@ describe("the harness", () => {
 			harnessPeers,
 			harnessPermission,
 			harnessQuestions,
+			harnessRemote,
 			harnessSkills,
 		].map((mount) => {
 			const fake = fakePi(bus);
@@ -72,6 +74,28 @@ describe("the harness", () => {
 		expect(providers.count("before_provider_request")).toBe(1);
 		expect(providers.shortcuts).toContain("alt+a");
 		expect(providers.commands.has("accounts")).toBe(true);
+	});
+
+	test("pi loads every piece: each extension file is in the package's list", () => {
+		const pkg = JSON.parse(readFileSync(join(import.meta.dir, "..", "package.json"), "utf8")) as {
+			pi: { extensions: string[] };
+		};
+		const pieces = readdirSync(join(import.meta.dir, "..", "src"))
+			.filter((file) => file !== "setup.ts")
+			.map((file) => `./src/${file}`);
+		expect(pkg.pi.extensions.toSorted()).toEqual(pieces.toSorted());
+	});
+
+	test("mounts the remote and the board's panel, so one package is the whole install", () => {
+		const bus = createEventBus();
+		const remote = fakePi(bus);
+		const board = fakePi(bus);
+		harnessRemote(remote.pi);
+		harnessBoard(board.pi);
+
+		expect(remote.commands.has("remote")).toBe(true);
+		expect(board.shortcuts).toContain("alt+t");
+		expect(board.tools.map((tool) => tool.name)).toContain("board");
 	});
 
 	test("the first extension draws the settings screen, and only it", () => {

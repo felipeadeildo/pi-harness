@@ -53,11 +53,6 @@
 				},
 				{
 					"type": "json",
-					"path": "packages/board/package.json",
-					"jsonpath": "$.version"
-				},
-				{
-					"type": "json",
 					"path": "packages/compact/package.json",
 					"jsonpath": "$.version"
 				},

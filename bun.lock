@@ -106,12 +106,12 @@
       "dependencies": {
         "@adeildo/pi-ask-permission": "workspace:*",
         "@adeildo/pi-ask-questions": "workspace:*",
-        "@adeildo/pi-board": "workspace:*",
         "@adeildo/pi-compact": "workspace:*",
         "@adeildo/pi-kit": "workspace:*",
         "@adeildo/pi-look": "workspace:*",
         "@adeildo/pi-peers": "workspace:*",
         "@adeildo/pi-providers": "workspace:*",
+        "@adeildo/pi-remote": "workspace:*",
         "@adeildo/pi-skills": "workspace:*",
       },
       "peerDependencies": {
