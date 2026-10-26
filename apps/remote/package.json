@@ -5,6 +5,7 @@
 	"main": "expo-router/entry",
 	"scripts": {
 		"export": "expo export -p web",
+		"export:android": "expo export -p android --output-dir dist-android",
 		"check": "expo customize tsconfig.json > /dev/null && tsc --noEmit",
 		"csp": "bun scripts/csp.ts"
 	},

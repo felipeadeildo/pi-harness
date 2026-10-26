@@ -6,7 +6,7 @@ import {
 	type SessionState,
 } from "@adeildo/pi-remote-protocol";
 
-import { plain } from "../../render/index.ts";
+import { plain } from "../../render/plain.ts";
 
 /**
  * The cards a panel draws, in the order their writer cut and ordered them. Nothing is sorted here: the
