@@ -110,8 +110,9 @@ function session(id: string, folder: string, extra: Partial<Hooks> = {}) {
 		};
 		rooms.board(view);
 	}
+	/** What the names feature writes: the handle, and no title, since nothing writes one now. */
 	function name(handle: string) {
-		logEvent(targetOf(source), events, "session.named", { handle, title: handle }, undefined, now);
+		logEvent(targetOf(source), events, "session.named", { handle }, undefined, now);
 	}
 	function renamed(from: string, to: string) {
 		logEvent(targetOf(source), events, "session.renamed", { from, to, by: "you" }, undefined, now);
