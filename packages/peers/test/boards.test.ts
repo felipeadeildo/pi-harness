@@ -28,12 +28,25 @@ const view = (...titles: string[]): BoardView => ({
 	done: [],
 });
 
+/** A view whose done cards are these titles, in this order. */
+const done = (...titles: string[]): BoardView => ({
+	open: [],
+	backlog: 0,
+	done: titles.map((title, index) => ({ id: `d${index + 1}`, title, column: "done", at: 1 })),
+});
+
+/** What the room says was finished, oldest first. */
+const finished = (folder: Folder) =>
+	folder.room.flatMap((item) =>
+		item.kind === "happening" && item.happening.kind === "finished" ? [item.happening.title] : [],
+	);
+
 describe("the board a room carries", () => {
 	test("each session's board is kept under its own name, and neither overwrites the other", () => {
 		const folder = new Folder();
 		folder.apply([line("a", view("from a")), line("b", view("from b"), 2)]);
-		expect(folder.boards.get("a")?.open.map((card) => card.title)).toEqual(["from a"]);
-		expect(folder.boards.get("b")?.open.map((card) => card.title)).toEqual(["from b"]);
+		expect(folder.peers.get("a")?.board?.open.map((card) => card.title)).toEqual(["from a"]);
+		expect(folder.peers.get("b")?.board?.open.map((card) => card.title)).toEqual(["from b"]);
 	});
 
 	test("a session that writes again replaces only its own board", () => {
@@ -41,7 +54,19 @@ describe("the board a room carries", () => {
 		folder.apply([line("a", view("first")), line("b", view("other"))]);
 		folder.apply([line("a", view("second", "third"), 2)]);
 		// The order the writer gave is the order a reader draws: nothing here sorts or reverses.
-		expect(folder.boards.get("a")?.open.map((card) => card.title)).toEqual(["second", "third"]);
-		expect(folder.boards.get("b")?.open.map((card) => card.title)).toEqual(["other"]);
+		expect(folder.peers.get("a")?.board?.open.map((card) => card.title)).toEqual([
+			"second",
+			"third",
+		]);
+		expect(folder.peers.get("b")?.board?.open.map((card) => card.title)).toEqual(["other"]);
+	});
+
+	test("a card that enters the done ones is finished in the room, once, and the first board is not news", () => {
+		const folder = new Folder();
+		folder.apply([line("a", done("already shipped"))]);
+		expect(finished(folder)).toEqual([]);
+		folder.apply([line("a", done("already shipped", "the login"), 2)]);
+		folder.apply([line("a", done("already shipped", "the login"), 3)]);
+		expect(finished(folder)).toEqual(["the login"]);
 	});
 });

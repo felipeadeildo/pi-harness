@@ -28,10 +28,11 @@ import {
 	visibleWidth,
 } from "@earendil-works/pi-tui";
 
+import { stateOf } from "../cards.ts";
 import type { Peer } from "../folder.ts";
 import type { Here } from "../here.ts";
 import type { LiveSession, Room, RoomsView } from "../model.ts";
-import { agentLines, inOrder, MARKS, stateOf } from "./agents.ts";
+import { agentLines, inOrder, MARKS } from "./agents.ts";
 import { FRAME_MS } from "./motion.ts";
 import { Picker, scrolled, sessionRow } from "./picker.ts";
 import { printable, RoomView } from "./room.ts";

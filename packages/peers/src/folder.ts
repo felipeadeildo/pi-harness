@@ -8,8 +8,6 @@ import {
 	type LoggedEvent,
 	type RoomActivity,
 	type RoomMode,
-	type SessionTasks,
-	tasksWith,
 } from "@adeildo/pi-kit";
 
 import { Membership } from "./membership.ts";
@@ -35,7 +33,11 @@ export interface Peer {
 	stateAt: number;
 	/** The operator wrote here at least once. Until then nothing from the room wakes it. */
 	prompted?: boolean;
-	tasks?: SessionTasks;
+	/**
+	 * The board the session last wrote into this room. A room has no board of its own: a reader draws
+	 * the board of the session it chose, and nothing is merged.
+	 */
+	board?: BoardView;
 	edited: Map<string, number>;
 	ran: { command: string; ok: boolean; at: number }[];
 	commits: { sha: string; subject: string; at: number }[];
@@ -98,11 +100,11 @@ export function addressees(message: Posted, live: readonly Peer[]): string[] {
 	return [...sessions].filter((session) => reaches(message, session));
 }
 
-/** A line of the room that is not a message: someone came, left, committed or finished a task. */
+/** A line of the room that is not a message: someone came, left, committed or finished a card. */
 export type Happening =
 	| { kind: "joined" | "left"; session: string; at: number }
 	| { kind: "committed"; session: string; at: number; sha: string; subject: string }
-	| { kind: "finished"; session: string; at: number; task: string }
+	| { kind: "finished"; session: string; at: number; title: string }
 	| { kind: "took"; session: string; at: number; request: string };
 
 export type RoomItem =
@@ -115,12 +117,6 @@ export class Folder {
 	readonly room: RoomItem[] = [];
 	/** Who counts in this room, folded from its `room.*` events. */
 	readonly membership = new Membership();
-	/**
-	 * The board each session last wrote into this room, by session. A room has no board of its own: a
-	 * reader draws the board of a session it chose, and nothing is merged here.
-	 */
-	readonly boards = new Map<string, BoardView>();
-
 	/**
 	 * A room of one folder. The folder is its first member, so a session opened there is in before
 	 * any `room.added` says so, and the rule for how a session stands lives in one place.
@@ -185,16 +181,10 @@ export class Folder {
 			case "session.prompted":
 				peer.prompted = true;
 				return;
-			case "board.changed": {
-				const { view } = event.data as LoggedEvent<"board.changed">["data"];
-				this.boards.set(event.session, view);
-				return;
-			}
-			case "tasks.changed":
-			case "tasks.board":
-				return this.#tasks(
+			case "board.changed":
+				return this.#board(
 					peer,
-					(event.data as LoggedEvent<"tasks.changed">["data"]).state,
+					(event.data as LoggedEvent<"board.changed">["data"]).view,
 					event.at,
 				);
 			case "activity":
@@ -256,16 +246,16 @@ export class Folder {
 		this.room.push({ kind: "message", message });
 	}
 
-	#tasks(peer: Peer, state: SessionTasks, at: number): void {
-		const before = new Set(
-			peer.tasks === undefined ? [] : tasksWith(peer.tasks, "done").map((task) => task.id),
-		);
-		// The first snapshot is where the session was, not something it just finished.
-		if (peer.tasks !== undefined)
-			for (const task of tasksWith(state, "done"))
-				if (!before.has(task.id))
-					this.#happen({ kind: "finished", session: peer.session, at, task: task.text });
-		peer.tasks = state;
+	#board(peer: Peer, view: BoardView, at: number): void {
+		// The first board is where the session was, not something it just finished. The view carries
+		// the last done cards only, so a card is finished when it enters them.
+		if (peer.board !== undefined) {
+			const before = new Set(peer.board.done.map((card) => card.id));
+			for (const card of view.done)
+				if (!before.has(card.id))
+					this.#happen({ kind: "finished", session: peer.session, at, title: card.title });
+		}
+		peer.board = view;
 	}
 
 	#activity(peer: Peer, activity: Activity, at: number): void {

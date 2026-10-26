@@ -1,6 +1,5 @@
 // How well this session fits a request to everyone, judged by a small model from what the session
 // is doing and what it touched. The agent itself is never interrupted to bid.
-import { describeTasks } from "@adeildo/pi-kit";
 import { type Api, type Model, type Tool, Type } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
@@ -64,13 +63,13 @@ export async function fitFor(
 	return NO_MODEL;
 }
 
-/** What the model reads of the session: its tasks, then the files and commits behind them. */
+/** What the model reads of the session: its board, then the files and commits behind them. */
 function aboutSession(me: Peer): string {
-	const lines = [
-		me.tasks === undefined
-			? "The session has no tasks yet."
-			: describeTasks(me.tasks, { done: 5, decisions: 5 }),
-	];
+	const cards = [...(me.board?.open ?? []), ...(me.board?.done ?? [])];
+	const lines =
+		cards.length === 0
+			? ["The session has nothing on its board yet."]
+			: cards.map((card) => `- ${card.column}: ${card.title}`);
 	const edited = [...me.edited]
 		.toSorted(([, a], [, b]) => b - a)
 		.slice(0, 10)

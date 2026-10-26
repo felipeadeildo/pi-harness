@@ -1,16 +1,17 @@
-import { pointer, CUT, spread, type Task, tasksWith, GLYPH } from "@adeildo/pi-kit";
+import { type BoardCard, pointer, CUT, spread, GLYPH } from "@adeildo/pi-kit";
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
+import { doing, stateOf, waiting } from "../cards.ts";
 import type { Peer } from "../folder.ts";
 import type { Named } from "../names.ts";
 import { spin } from "./motion.ts";
 
 export const MARKS = { idle: GLYPH.diamondEmpty, waiting: GLYPH.flag } as const;
 
-/** Lines a task may wrap to: the selected agent shows it whole, the others a glance. */
-const TASK_LINES_OPEN = 4;
-const TASK_LINES_CLOSED = 2;
+/** Lines a card may wrap to: the selected agent shows it whole, the others a glance. */
+const CARD_LINES_OPEN = 4;
+const CARD_LINES_CLOSED = 2;
 const EDITED_SHOWN = 3;
 
 export interface AgentsOptions {
@@ -25,13 +26,6 @@ export interface AgentsOptions {
 	compact?: boolean;
 	/** Columns in front of every line, under whatever the list sits in. */
 	indent?: number;
-}
-
-export type AgentState = "running" | "idle" | "waiting";
-
-export function stateOf(peer: Peer): AgentState {
-	if (peer.tasks !== undefined && tasksWith(peer.tasks, "waiting").length > 0) return "waiting";
-	return peer.state === "running" ? "running" : "idle";
 }
 
 export function markOf(peer: Peer, color: ThemeColor, theme: Theme, now: number): string {
@@ -126,19 +120,15 @@ export function agentLines(
 }
 
 /**
- * Under the name and its state: what waits on you, what it is on, and the files it edited. The task
- * wraps instead of being cut, since a cut task says nothing.
+ * Under the name and its state: what waits on you, what it is on, and the files it edited. The card
+ * wraps instead of being cut, since a cut title says nothing.
  */
 function details(peer: Peer, theme: Theme, width: number, selected: boolean): string[] {
-	const tasks = peer.tasks;
-	const most = selected ? TASK_LINES_OPEN : TASK_LINES_CLOSED;
+	const most = selected ? CARD_LINES_OPEN : CARD_LINES_CLOSED;
 	const lines: string[] = [];
-	if (tasks !== undefined) {
-		const waiting = tasksWith(tasks, "waiting");
-		const doing = tasksWith(tasks, "doing");
-		lines.push(...task(theme, waiting, width, most, "warning"));
-		if (selected || waiting.length === 0) lines.push(...task(theme, doing, width, most, "text"));
-	}
+	const waits = waiting(peer);
+	lines.push(...card(theme, waits, width, most, "warning"));
+	if (selected || waits.length === 0) lines.push(...card(theme, doing(peer), width, most, "text"));
 	const edited = [...peer.edited.keys()].slice(-EDITED_SHOWN).map(base);
 	if (edited.length > 0)
 		lines.push(theme.fg("dim", truncateToWidth(`edited ${edited.join(", ")}`, width, CUT)));
@@ -148,35 +138,32 @@ function details(peer: Peer, theme: Theme, width: number, selected: boolean): st
 
 /** What an agent waits on or does, cut to one line. */
 function glance(peer: Peer, theme: Theme, width: number): string[] {
-	const tasks = peer.tasks;
-	if (tasks === undefined) return [];
-	const waiting = tasksWith(tasks, "waiting")[0];
-	const doing = tasksWith(tasks, "doing")[0];
-	const first = waiting ?? doing;
+	const waits = waiting(peer)[0];
+	const first = waits ?? doing(peer)[0];
 	if (first === undefined) return [];
 	return [
-		theme.fg(waiting === undefined ? "dim" : "warning", truncateToWidth(first.text, width, CUT)),
+		theme.fg(waits === undefined ? "dim" : "warning", truncateToWidth(first.title, width, CUT)),
 	];
 }
 
-/** The first task wrapped to at most `most` lines, and how many others there are. */
-function task(
+/** The first card wrapped to at most `most` lines, and how many others there are. */
+function card(
 	theme: Theme,
-	tasks: readonly Task[],
+	cards: readonly BoardCard[],
 	width: number,
 	most: number,
 	tone: ThemeColor,
 ): string[] {
-	const first = tasks[0];
+	const first = cards[0];
 	if (first === undefined) return [];
-	let lines = wrapTextWithAnsi(first.text, width);
+	let lines = wrapTextWithAnsi(first.title, width);
 	if (lines.length > most)
 		lines = [
 			...lines.slice(0, most - 1),
 			truncateToWidth(lines.slice(most - 1).join(" "), width, CUT),
 		];
 	const out = lines.map((line) => theme.fg(tone, line));
-	if (tasks.length > 1) out.push(theme.fg("dim", `and ${tasks.length - 1} more`));
+	if (cards.length > 1) out.push(theme.fg("dim", `and ${cards.length - 1} more`));
 	return out;
 }
 

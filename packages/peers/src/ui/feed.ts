@@ -295,7 +295,7 @@ function happeningLine(group: readonly Happening[], options: FeedOptions): strin
 			line = `${theme.fg("syntaxNumber", GLYPH.dot)} ${names} ${theme.fg("dim", "committed")} ${theme.fg("syntaxNumber", first.sha.slice(0, 7))} ${theme.fg("muted", first.subject)}`;
 			break;
 		case "finished":
-			line = `${theme.fg("success", GLYPH.check)} ${names} ${theme.fg("dim", "finished")} ${theme.fg("muted", first.task)}`;
+			line = `${theme.fg("success", GLYPH.check)} ${names} ${theme.fg("dim", "finished")} ${theme.fg("muted", first.title)}`;
 			break;
 		case "took":
 			return "";

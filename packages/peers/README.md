@@ -149,8 +149,9 @@ An agent asks for a room with `link` in the `peers` tool, which brings sessions 
 folder itself: a folder is a lasting change, and those are yours. The setting "When an agent asks for a room"
 decides who lets it through: the permission mode, always you (even in `full`), or you alone, from `Alt+G`.
 
-A shared room gets the part of the tasks the board shows, not every change to them, so a busy session does not
-fill every room it is in.
+A shared room gets the part of each session's board that others read: its open cards, how many wait in the
+backlog, and the last three done. An unchanged board is not written again, so a busy session does not fill every
+room it is in.
 
 ## How a message travels
 
@@ -207,12 +208,12 @@ others', so the room, the bids and the receipts are the same lines read by every
 A request to anyone goes to the idle agent that fits it best, and every session works out the same winner
 from the same logs. No session coordinates the others, so if one exits the rest keep going.
 
-Each session bids with its own side model, which reads its tasks, the files it touched and its decisions. The
+Each session bids with its own side model, which reads its board, the files it touched and what it committed. The
 agent itself is never interrupted to bid, and a bid costs less than a cent. Busy sessions bid too, and cannot
 win while they are busy, so a request waits for the first one that finishes instead of pulling anyone off their
 work.
 
-The rule, in order: idle before busy, the highest fit, the fewest open tasks, the session that opened first. If
+The rule, in order: idle before busy, the highest fit, the fewest open cards, the session that opened first. If
 the winner does not take the request within a few seconds, the next one in line does.
 
 ## When a message reaches the agent
