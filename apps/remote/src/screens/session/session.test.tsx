@@ -11,6 +11,8 @@ import { openQuestions } from "@adeildo/pi-remote-protocol";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { piColor } from "../../ui/pi-colors.ts";
+import { themeFor } from "../../ui/theme.ts";
 import { openTasksOf } from "./panel-data.ts";
 import SessionDocument from "./session-document.tsx";
 import { aboutOf, titleOf, viewOf } from "./session-view.ts";
@@ -195,10 +197,49 @@ describe("what the recording does not hold", () => {
 			(one) => one[1] ?? "",
 		);
 		expect(items).toHaveLength(2);
-		for (const item of items) expect(item).toContain('<span class="remote-who">you</span>');
+		for (const item of items) expect(item).toMatch(/class="remote-who"[^>]*>\u276F you<\/span>/);
 		expect(items[0]).toContain(">from phone</span>");
 		// No mark is not a claim about the terminal: the message says only that it is yours.
 		expect(items[1]).not.toContain("remote-from");
+	});
+
+	test("who speaks wears the session's colors: the accent for you, the agent's own for pi", () => {
+		const session = handmade([
+			message("e1", null, "user", "hello"),
+			message("e2", "e1", "assistant", [{ type: "text", text: "hi" }]),
+		]);
+		session.state = { ...session.state, theme: { accent: "accent", color: "syntaxKeyword" } };
+		const label = (html: string, who: string): string =>
+			html.match(
+				new RegExp(`<li class="remote-${who}"><span class="remote-who" style="([^"]*)"`),
+			)?.[1] ?? "";
+		const dark = renderToStaticMarkup(createElement(SessionDocument, { session, scheme: "dark" }));
+		const light = renderToStaticMarkup(
+			createElement(SessionDocument, { session, scheme: "light" }),
+		);
+		expect(label(dark, "you")).toContain(`color:${piColor("dark", "accent")}`);
+		expect(label(dark, "pi")).toContain(`color:${piColor("dark", "syntaxKeyword")}`);
+		expect(label(light, "you")).toContain(`color:${piColor("light", "accent")}`);
+		expect(label(light, "pi")).toContain(`color:${piColor("light", "syntaxKeyword")}`);
+	});
+
+	test("a session that has not said its colors draws the label in the muted text color, not in one", () => {
+		const session = handmade([
+			message("e1", null, "user", "hello"),
+			message("e2", "e1", "assistant", [{ type: "text", text: "hi" }]),
+		]);
+		const html = renderToStaticMarkup(createElement(SessionDocument, { session, scheme: "dark" }));
+		const muted = themeFor("dark").color.muted;
+		for (const who of ["you", "pi"])
+			expect(html).toContain(
+				`<li class="remote-${who}"><span class="remote-who" style="font-size:13px;font-weight:700;color:${muted}"`,
+			);
+		// A name the app does not hold is no color either.
+		session.state = { ...session.state, theme: { accent: "accent", color: "somethingNew" } };
+		const other = renderToStaticMarkup(createElement(SessionDocument, { session, scheme: "dark" }));
+		expect(other).toContain(
+			`<li class="remote-pi"><span class="remote-who" style="font-size:13px;font-weight:700;color:${muted}"`,
+		);
 	});
 
 	test("a short output is not folded", () => {
