@@ -66,70 +66,51 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
 
 ## Branches and commits
 
-- Everything on GitHub is in English: pull request titles and bodies, reviews, and commit subjects. Behavior, wording and scope are discussed in the room before they are decided.
+- Everything on GitHub is in English: pull request titles and bodies, reviews, and commit subjects.
 - A branch starts from `main` and is named by its type and what it changes, in kebab case: `feat/<area>-<what>`, `fix/...`, `refactor/...` or `chore/...`.
 - A pull request's title is a conventional subject under 72 characters with the area in the scope, such as `feat(kit): tell a reused pid from the process that wrote an entry`. The squash merge makes it the one commit on `main`, so the title is that commit. Commits inside the branch take the same form: one line, no body and no trailer.
-- The type says what the change is. `feat` only when someone who uses pi notices something new, `fix` when something wrong starts working, `refactor` when the code changes and the behavior does not, and `test` for tests, fixtures such as the rig's recording, and test tools. `perf`, `docs`, `build`, `ci` and `chore` cover the rest. A `fix` takes the scope where the wrong behavior was seen; a `refactor` changes nothing a user of that package notices. The reviewer checks the type with the title.
-- One pull request holds one logical change and the test that fails without it. A slice too large to review in one sitting goes in several pull requests, each green on its own.
+- The type says what the change is. `feat` only when someone who uses pi notices something new, `fix` when something wrong starts working, `refactor` when the code changes and the behavior does not, and `test` for tests, fixtures such as the rig's recording, and test tools. `perf`, `docs`, `build`, `ci` and `chore` cover the rest. A `fix` takes the scope where the wrong behavior was seen; a `refactor` changes nothing a user of that package notices.
+- One pull request holds one logical change and the test that fails without it. A change too large to read in one sitting goes in several pull requests, each green on its own.
 - A dependency is added with the package manager, never by writing `package.json`: `bun add <package>` for a runtime dependency and `bun add -d` for a dev one, with `--ignore-scripts` in a worktree. A package only depends on what its users run, so tools and builds are dev dependencies. A tool the whole repository runs, such as `typescript`, `oxlint` and `oxfmt`, lives at the root only, and moving it to a new major is its own pull request.
 
 ## A pull request
 
-- A slice is ticked in the commit that lands it. A pull request that cannot tick it says why in the
-  body, and the next one ticks it.
-- The body is a few lines: what changes, the command that shows it working with its result, the
-  slice it ticks and `Closes #N` for each issue it closes. No account of the investigation; the code
-  and the tests carry it. It ends with the footer
-  `<p align="right"><sub><model> (<effort> effort) [<name>] @ adeildo's pi</sub></p>`, with the agent's
-  own name in brackets. Each agent picks that name and says it in the room.
-- An agent is named the way the footer names it, `[badger]`, or as a plain word in the sentence, and
-  never with an `@`. On GitHub `@badger` is a person with that handle: they get the notification, and
-  the agent does not. This holds for bodies, reviews, comments, commit messages and issues.
-- The reviewer runs `bun run verify` on the head in a worktree of their own, never the author's, which
-  may be in the middle of an edit. They read the code with the `simplify` and `unslop` skills, and
-  answer with `gh pr review --comment`, ending with the same footer. The account is shared and cannot
-  approve its own pull request, so the approval is written in the review and said in the room.
-- The author, before asking for a review, and the reviewer, before approving, check the head through
-  the API: `gh pr view <n> --json headRefOid`. The review names the sha it measured, the command it
-  ran and the number that came out, then one line per finding, and nothing more.
-- A test that compares two outputs also states the value. The comparison proves both derive from the
-  same source; the value proves the source is right, and equality alone passes with both sides empty:
-  `undefined === undefined` is green and says nothing. The two lines together are the test, and the
-  mutant that empties the source only falls on the second one.
+- The body is a few lines: what changes, the command that shows it working with its result, and
+  `Closes #N` for each issue it closes. No account of the investigation; the code and the tests carry
+  it. It ends with the footer `<p align="right"><sub><model> (<effort> effort) [<name>] @ adeildo's pi</sub></p>`.
+  An agent is named in brackets, `[badger]`, never with an `@`: on GitHub `@badger` is a person.
+- Before the merge the author reads the whole diff once more with the `simplify` skill, runs
+  `bun run verify`, and proves a screen change in a browser: the gate step that covers it, or the
+  screenshots at a phone's width in both schemes.
+- The merge is a read of the object: `gh pr view <n> --json mergeStateStatus,statusCheckRollup` with
+  `CLEAN` and the checks of that head at `SUCCESS`, then `gh pr merge <n> --squash --match-head-commit
+<sha>`. A refused merge means the pull request is not ready, and `--admin` never applies.
+  `--no-verify` skips the hook that would have caught the problem; when it fails in a fresh worktree,
+  the missing piece is the install above.
 - A state comes from the object, never from a sentence: `gh pr view <n> --json state,isDraft` for a
-  pull request and `git show origin/main:<path>` for what `main` has. Approved is not merged, and a
-  held branch is not a held merge. A `nearly:` that claims a merge which did not happen is worse than
-  an empty box: the box asks for work, and the wrong sentence reports progress that is not there.
-- Absent is not a value, on both sides of the wire: the producer does not write what it does not
-  know, and the screen does not draw the absence as if it were one. An empty state answering
-  `serves: false` hid the mode dial, and a sheet that opens to an empty list tells the person
-  there are no models. The test to pin is not "an absent field does not break the screen" but
-  "the screen does not present the absence as a value": the dial is there, the sheet is closed,
-  no board is drawn. A test that passes with `undefined` and with the empty value proves half.
-- The merge is a read of the same object: `gh pr view <n> --json mergeStateStatus,statusCheckRollup`
-  with `CLEAN` and the checks of that head at `SUCCESS`. A refused merge means the pull request is
-  not ready, and `--admin` never applies. The reviewer reads the checks of the head before
-  approving, so a red pull request gets "red" and not an approval. `--no-verify` skips the hook that
-  would have caught what the reviewer is about to read; when it fails in a fresh worktree, the
-  missing piece is the install above.
-- A hold lives on the pull request, not in the room: whoever stops a merge runs
-  `gh pr ready <n> --undo` and says why in a review. The author marks it ready when the point is in.
-  Every agent pushes from the same account, so a requested change cannot block a merge; a draft can.
-- A new test fails when the code it justifies is taken out, and the reviewer runs that removal
-  instead of trusting the description: the one line, not the whole suite.
+  pull request and `git show origin/main:<path>` for what `main` has.
+
+## Tests that prove something
+
+- A new test fails when the code it justifies is taken out. Take the one line out and run it: the
+  line, not the whole suite.
 - A test asserts what only the right path produces: the event, not the state left after the effect.
   "It is idle now" does not say a run started, and a count read after the click does not say what
   the click did. The healthy path has its own test, not only the failure path: a heartbeat tested
   against the pair that never answers passes while closing every connection that does.
-- A screen change is proved in a browser. The author names the gate step that covers it or shows the
-  screen, and the reviewer opens the screen before approving.
-- Before reviewing, read `gh pr view <n> --json reviews` and its comments. A pull request that already
-  has a review waits for the merge, not for a second one: a second read is welcome, and it goes in the
-  same thread as a comment, which is how two of today's findings were caught. Whoever reviews claims
-  it on the pull request with a short comment, so the next person sees it where the work happens and
-  the room only carries the notice that someone took it. Of two claims posted at the same moment, the
-  first is the reviewer and the second backs off.
-- The author merges once a review approves, CI is green and nothing conflicts.
+- A test that compares two outputs also states the value. The comparison proves both derive from the
+  same source; the value proves the source is right, and equality alone passes with both sides empty:
+  `undefined === undefined` is green and says nothing.
+- Absent is not a value, on both sides of the wire: the producer does not write what it does not
+  know, and the screen does not draw the absence as if it were one. An empty state answering
+  `serves: false` hid the mode dial, and a sheet that opens to an empty list tells the person
+  there are no models. The test to pin is "the screen does not present the absence as a value".
+- A shape that crosses a process is tested where it is written and read together: the daemon's
+  answer decoded by the client that reads it. Two halves each tested against its own fixture passed
+  while the list read a field the daemon had renamed.
+
+## Merging and the checkout
+
 - A pull request stacked on another one's branch moves its base to `main` with `gh pr edit <n> --base main` before the one below merges. Deleting a branch closes every open pull request based on it, and GitHub reopens none of them.
 - The merge needs no checkout: `gh pr merge` runs on GitHub, and it touches the local repository
   only to delete the branch it names, which is why a worktree holding that branch is detached
@@ -143,7 +124,10 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
   `git switch -c`. A branch is never checked out there, only repaired back to `main`. A tree there
   that does not compile does not break a pull request, it breaks the session the operator is about to
   start, and `pi` says nothing more than a load that failed.
-- A review worktree under `/tmp` installs with `bun install --frozen-lockfile --ignore-scripts`, and
+- The checkout's daemon runs `packages/remote/dist/daemon.js`, so a merge that changes the daemon or
+  the page reaches it after `bun run --cwd packages/remote build` there and a restart: stop the
+  daemon's process, and a bridge starts the new one within ten seconds.
+- A new worktree installs with `bun install --frozen-lockfile --ignore-scripts`, and
   that same install is what lets a commit or a push there run the hooks: without `node_modules` the
   `pre-push` exits 127 and git reports `failed to push some refs`, which reads like a conflict.
 

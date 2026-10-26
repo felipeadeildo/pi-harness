@@ -1,27 +1,27 @@
 # 6.0.0
 
-What this release adds is a way to reach a session from a browser, on the machine or across your
-tailnet, and what it asks of anyone who wrote against 5.x is a set of renamed shapes and two changed
-defaults.
+What this release adds is a way to reach every session of every machine of yours from a phone, over
+your tailnet, and agents that talk across machines. What it asks of anyone who wrote against 5.x is a
+set of renamed shapes and two changed defaults.
 
 Draft notes for the release pull request. The pending section of `CHANGELOG.md` is rebuilt on every
 push to `main`, so this file is where the writing happens and the merge is where it is pasted.
 
-## From a browser
+## From your phone
 
 - **Your sessions, in a browser.** The first pi on a machine starts a daemon, and `/remote` or
-  `pi-remote open` opens the app: it lists what is open, shows the transcript as it streams, and takes
-  a prompt. The app is a web page the daemon serves, made for a phone's screen first.
-- **On this machine, and on your tailnet.** The daemon listens on `127.0.0.1`, and on a machine in a
-  Tailscale tailnet also on its tailnet address, at the same port. `/remote` names that address, and a
-  phone or a computer of yours on the tailnet opens it with no link: the daemon asks `tailscale whois`
-  who the device belongs to, and a device of the machine's owner gets its login with the first page.
-  A device another user shares into the tailnet needs a link like any other. Nothing is set up for
-  it. Without Tailscale, a phone reaches the daemon through a tunnel such as
-  `ssh -L 7878:127.0.0.1:7878`. HTTPS through `tailscale serve`, a Cloudflare tunnel or a reverse
-  proxy is designed in `docs/remote.md` and not built.
-- **A session lives as long as its pi.** Closing the terminal ends it. Sessions that keep running
-  with no terminal, through a runner, are designed in `docs/remote.md` and not built.
+  `pi-remote open` opens the page: it lists what is open, shows the transcript as it streams, and takes
+  a prompt. The page is made for a phone's screen first, and the daemon serves it.
+- **Every machine of yours, from one address.** On a machine in a Tailscale tailnet the daemon also
+  listens on its tailnet address, and a phone or a computer of yours opens it with no link: the daemon
+  asks `tailscale whois` who the device belongs to. The daemons of your machines find each other the
+  same way, with nothing paired, so the list holds the sessions of all of them and any of them opens
+  through the address you used. Without Tailscale, a phone reaches a daemon through a tunnel such as
+  `ssh -L 7878:127.0.0.1:7878`.
+- **Agents talk across machines.** The daemons copy who is open on each machine and the logs of the
+  shared rooms, so `Alt+G` lists the agents on your other machines and a room can hold them.
+- **A session lives as long as its pi.** Closing the terminal ends it. Sessions with no terminal,
+  notifications and HTTPS through `tailscale serve` are not built; `docs/remote.md` says what is.
 - **Questions and dialogs answer from there.** A permission gate or a question from the model reaches
   the browser, and the answer reaches the terminal, marked with where it came from. A session with no
   terminal sends its questions to the clients instead of a dialog nobody can see.
@@ -43,8 +43,8 @@ push to `main`, so this file is where the writing happens and the merge is where
 
 ## What 6.0.0 asks of you
 
-All but one of these are renames: the shape keeps its meaning and changes the word for it. The last
-row is not a rename, and it is the only one that changes what happens.
+All but two of these are renames: the shape keeps its meaning and changes the word for it. The last
+two rows change what happens.
 
 | 5.x                                            | 6.0.0                                                                   |
 | ---------------------------------------------- | ----------------------------------------------------------------------- |
@@ -56,6 +56,7 @@ row is not a rename, and it is the only one that changes what happens.
 | `SessionSource.snapshot()`                     | `SessionSource.open()`                                                  |
 | `SourceItem` of kind `"snapshot"`              | kind `"summary"`                                                        |
 | `mode.set` offered to every session            | offered only when the session reports `permissions.serves`              |
+| the harness's `/name`, `session.renamed`       | gone: a session's handle never changes, and pi's own `/name` names it   |
 
 Two defaults change, and both are worth checking against your own setup:
 
