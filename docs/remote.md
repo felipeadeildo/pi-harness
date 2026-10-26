@@ -126,8 +126,9 @@ command carries an id, and the bridge answers a repeat as a repeat.
   terminal waits on one, with its title.
 - **No locks.** One person is never in two places, so the client with the latest input is the active
   one, and the daemon tells every client who has the session open.
-- **What a client may not do:** set the permission mode to `full`, grant an "always yes" that outlives
-  the session, or change the remote's settings. A stolen phone must not turn the approvals off.
+- **What a client may not do:** grant an "always yes" that outlives the session, or change the
+  remote's settings. It may set the mode to `full` after a confirm: a client that answers every
+  approval already has that reach, and the confirm is there for a mis-tap.
 - **The agent on the machine** runs as you, so it reaches the daemon's socket and port like you do. The
   permission feature always asks before a call that touches them, whatever the mode but `full`.
 

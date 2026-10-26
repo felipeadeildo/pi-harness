@@ -86,15 +86,12 @@ describe("the commands' side of pi", () => {
 		]);
 	});
 
-	test("refuses full from a client: it runs every call, and it is set at the terminal", () => {
+	test("takes full from a client: a client that answers every approval already has that reach", () => {
 		const { api: commands, scope } = api();
 		const asked: string[] = [];
 		MODE_SET.provide(scope, () => ({ set: (mode) => asked.push(mode) }));
-		expect(() => commands.setMode("full", undefined)).toThrow("full is only set at the terminal");
-		// With a client saying it, which is the path a phone takes, and the one the rule is for.
-		const phone = { kind: "client", name: "phone", machine: "laptop" } as const;
-		expect(() => commands.setMode("full", phone)).toThrow("full is only set at the terminal");
-		expect(asked).toEqual([]);
+		commands.setMode("full", { kind: "client", name: "phone", machine: "laptop" });
+		expect(asked).toEqual(["full"]);
 	});
 
 	test("refuses a mode pi does not have, and a session with no permission feature", () => {

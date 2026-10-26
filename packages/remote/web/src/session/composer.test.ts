@@ -32,8 +32,8 @@ const command = (state: Outgoing["state"], over: Partial<Outgoing> = {}): Outgoi
 });
 
 describe("the pickers", () => {
-	test("the mode dial offers the three modes a client may set, never the full one", () => {
-		expect(CLIENT_MODES).toEqual(["manual", "edits", "judge"]);
+	test("the mode dial offers every mode, full last", () => {
+		expect(CLIENT_MODES).toEqual(["manual", "edits", "judge", "full"]);
 		expect(modeChoices("edits", true).map((one) => one.value)).toEqual([...CLIENT_MODES]);
 	});
 

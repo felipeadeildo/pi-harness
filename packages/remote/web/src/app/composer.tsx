@@ -329,13 +329,18 @@ function Summary({ view, onPress }: { view: ComposerView; onPress: () => void })
 	);
 }
 
-type View = "root" | "mode" | "thinking" | "model";
+type View = "root" | "mode" | "full" | "thinking" | "model";
 
 const TITLES: Record<View, string> = {
 	root: "Session",
 	mode: "Permission mode",
+	full: "Turn the approvals off?",
 	thinking: "Thinking",
 	model: "Model",
+};
+
+const NOTES: Partial<Record<View, string>> = {
+	full: "pi runs every call without asking, until the mode changes again.",
 };
 
 /** How the session runs, with a view for each list. */
@@ -363,8 +368,8 @@ function SettingsSheet({
 			open={open}
 			onOpenChange={(next) => (next ? onOpenChange(true) : close())}
 			title={TITLES[at]}
-			{...(at === "mode" ? { description: MODE_NOTE } : {})}
-			{...(at === "root" ? {} : { back: () => go("root") })}
+			{...(NOTES[at] === undefined ? {} : { description: NOTES[at] })}
+			{...(at === "root" ? {} : { back: () => go(at === "full" ? "mode" : "root") })}
 		>
 			{at === "root" ? (
 				<Group>
@@ -383,10 +388,27 @@ function SettingsSheet({
 				<Choices
 					choices={modes}
 					onPick={(value) => {
+						if (value === "full" && mode !== "full") return go("full");
 						close();
 						send("mode.set", { mode: value as PermissionMode });
 					}}
 				/>
+			) : null}
+			{at === "full" ? (
+				<div className="flex gap-2">
+					<Button variant="secondary" className="h-11 flex-1 rounded-xl" onClick={() => go("mode")}>
+						Cancel
+					</Button>
+					<Button
+						className="h-11 flex-1 rounded-xl bg-waits text-background hover:bg-waits/90"
+						onClick={() => {
+							close();
+							send("mode.set", { mode: "full" });
+						}}
+					>
+						Use full
+					</Button>
+				</div>
 			) : null}
 			{at === "thinking" ? (
 				<Choices
@@ -411,8 +433,6 @@ function SettingsSheet({
 		</Panel>
 	);
 }
-
-const MODE_NOTE = "Full, which runs every call without asking, is set in the terminal.";
 
 /** What can be done to the session, and the commands it offers, which go into the field. */
 function ActionsSheet({

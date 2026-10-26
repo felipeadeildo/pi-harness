@@ -142,7 +142,7 @@ describe("a command from a client", () => {
 		const { instance, answers } = commands({
 			effects: {
 				setMode: (mode: string) => {
-					if (mode === "full") throw new Refused("full is only set at the terminal");
+					if (mode === "full") throw new Refused("this session has no permission feature");
 					seen.push(mode);
 				},
 			},

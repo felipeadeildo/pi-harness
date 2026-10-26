@@ -8,13 +8,13 @@ import {
 // What the composer decides, apart from the views, so a test can read it.
 import type { Client, Outgoing } from "@adeildo/pi-remote-protocol/client";
 
-/** `full` runs everything unasked, so only a terminal may choose it. */
-export const CLIENT_MODES: readonly PermissionMode[] = ["manual", "edits", "judge"];
+export const CLIENT_MODES: readonly PermissionMode[] = ["manual", "edits", "judge", "full"];
 
-const MODE_HINT: Partial<Record<PermissionMode, string>> = {
+const MODE_HINT: Record<PermissionMode, string> = {
 	manual: "asks before every action",
 	edits: "runs edits without asking",
 	judge: "a judge decides what runs",
+	full: "runs every call without asking",
 };
 
 export interface Choice<T extends string> {

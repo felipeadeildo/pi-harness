@@ -76,8 +76,6 @@ export function commandApi(
 			origins.add(text, by);
 		},
 		setMode: (mode, by) => {
-			// `full` is set only at the terminal, so a stolen phone cannot reach it.
-			if (mode === "full") throw new Refused("full is only set at the terminal");
 			if (!isPermissionMode(mode)) throw new Refused(`${mode} is not a permission mode`);
 			const control = MODE_SET.current(scope);
 			if (control === undefined)

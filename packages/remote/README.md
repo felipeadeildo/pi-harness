@@ -58,7 +58,7 @@ Clients reach the daemon on `127.0.0.1:7878`, and on the tailnet's name and addr
 
 A client that opens the stream says the cursor it stopped at, and gets what the daemon still holds after it, or the opening and what follows. A delta never leaves a hole, because a delta carries no sequence number: it only matters live, and the end of the message replaces it. A page of entries costs a few milliseconds after the first, which is the one that indexes the file.
 
-A session also takes commands, and each one runs in its own process: a prompt, abort, compact, rename, stop, and the model, the thinking level and the permission mode. Each is answered on its id, and an id that already ran is answered as a repeat, so a command resent after a reconnect is not a second effect. `full` is refused from a client: that mode runs every call without asking, and it is set at the terminal.
+A session also takes commands, and each one runs in its own process: a prompt, abort, compact, rename, stop, and the model, the thinking level and the permission mode. Each is answered on its id, and an id that already ran is answered as a repeat, so a command resent after a reconnect is not a second effect. `full` runs every call without asking, so the page asks before it sets it.
 
 ## The page
 
