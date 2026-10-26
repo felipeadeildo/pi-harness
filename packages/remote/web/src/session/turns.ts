@@ -3,6 +3,8 @@
 import type { ChatMessage, SessionState, TranscriptItem } from "@adeildo/pi-remote-protocol";
 import type { Live, LivePart } from "@adeildo/pi-remote-protocol/client";
 
+import { originOf } from "./session-view.ts";
+
 /** `writing`: its arguments still stream; `pending`: written, and no result came. */
 type ToolStatus = "writing" | "pending" | "running" | "done" | "error";
 
@@ -357,12 +359,4 @@ function textOf(parts: readonly Part[]): string {
 		.filter((part) => part.type === "text")
 		.map((part) => part.text ?? "")
 		.join("\n");
-}
-
-/** The device a message came from; absent does not mean the terminal. */
-function originOf(promptFrom: SessionState["promptFrom"], entry: string): string | undefined {
-	const by = promptFrom?.[entry];
-	if (by === undefined) return undefined;
-	const name = by.name.trim();
-	return name === "" ? "from a client" : `from ${name}`;
 }
