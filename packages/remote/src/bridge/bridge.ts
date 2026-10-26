@@ -310,6 +310,10 @@ export class Bridge {
 	/**
 	 * The opening a client draws first. If this throws, the client draws nothing, and the throw becomes a
 	 * warning two frames up: the failure has to name itself, and today it does not.
+	 *
+	 * Every type in `STATE_CHANGES` that this bridge sends either folds through `#changes.saw` or has a
+	 * producer in `producers.ts` that rebuilds it here. A state change that does neither is lost on the
+	 * next reconnect, silently, so `bridge-changes.test.ts` reads this folder and says which one it is.
 	 */
 	#snapshot(): void {
 		this.stream.flush();
