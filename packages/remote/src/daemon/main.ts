@@ -4,11 +4,14 @@
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { CLIENT_PORT, daemonDir, daemonPaths } from "../places.ts";
+import { CLIENT_PORT, daemonDir, daemonPaths, eventsDir } from "../places.ts";
 import { VERSION } from "../version.ts";
 import { findWebDir } from "./app.ts";
 import { Daemon } from "./server.ts";
 import { readTailnet } from "./tailnet.ts";
+
+/** How often the daemon looks at the tailnet for an address it does not listen on yet. */
+const TAILNET_EVERY_MS = 15_000;
 
 // Only as the entry: a module that imported this file would start a daemon in the operator's real
 // folder and port. The bundle keeps the check, as `require.main` for Node.
@@ -23,16 +26,28 @@ if (import.meta.main) {
 			console.error("pi-remote daemon: --port takes a port number");
 			process.exit(2);
 		}
+		const tailnet = await readTailnet();
+		const stayUp = args.includes("--serve");
 		// When another daemon already answers on the socket, nothing is listening here and Node exits.
-		await Daemon.start({
+		const daemon = await Daemon.start({
 			...daemonPaths(daemonDir()),
 			version: VERSION,
 			clientPort: port,
-			stayUp: args.includes("--serve"),
+			stayUp,
 			webDir: findWebDir(dirname(fileURLToPath(import.meta.url))),
-			tailnet: await readTailnet(),
+			tailnet,
+			events: eventsDir(),
 			exited: () => process.exit(0),
 			warn: (message) => console.error(`pi-remote daemon: ${message}`),
 		});
+		// A machine that joins its tailnet after the daemon started, or comes back on another address,
+		// gets a daemon that listens there: this one makes way, and a bridge starts the next one. A
+		// daemon kept up by hand has no bridge to start it again, so it stays.
+		if (daemon !== undefined && !stayUp) {
+			setInterval(async () => {
+				const now = await readTailnet();
+				if (now !== undefined && now.ip !== tailnet?.ip) daemon.stop();
+			}, TAILNET_EVERY_MS).unref();
+		}
 	}
 }

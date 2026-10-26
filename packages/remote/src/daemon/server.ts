@@ -15,6 +15,7 @@ import {
 	watchFile,
 } from "node:fs";
 import { connect, createServer, type Server, type Socket } from "node:net";
+import { hostname } from "node:os";
 import { dirname, join } from "node:path";
 
 import { envelope, type Envelope, isBy, isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
@@ -24,8 +25,10 @@ import { envelopeOf, line, Lines } from "../wire/lines.ts";
 import { loadWebApp } from "./app.ts";
 import { Logins } from "./auth.ts";
 import { Clients } from "./clients.ts";
+import { Machines } from "./machines.ts";
+import { Mirror } from "./mirror.ts";
 import { type GoneReason, type SessionLive, Sessions } from "./sessions.ts";
-import { Owners, type Tailnet } from "./tailnet.ts";
+import { type AskTailscale, Owners, type Tailnet } from "./tailnet.ts";
 
 /** A daemon a pi started exits after this long with no session. */
 const IDLE_EXIT_MS = 5 * 60_000;
@@ -52,10 +55,24 @@ export interface DaemonOptions {
 	 * Port 0 takes any free port, which `clientPort` then says.
 	 */
 	clientPort?: number;
-	/** The folder of the web app's export, with its `files.json`. Without one, only the data routes. */
+	/** The folder of the page's build. Without one, only the data routes. */
 	webDir?: string;
 	/** This machine on its tailnet, where clients reach the daemon too. Loopback only without it. */
 	tailnet?: Tailnet;
+	/**
+	 * The harness's logs on this machine, whose open sessions and rooms the owner's other machines copy,
+	 * and where theirs are copied. Nothing is shared without it.
+	 */
+	events?: string;
+	/** How the daemon asks `tailscale`, so a test can answer for it. */
+	ask?: AskTailscale;
+	/** This machine's name, as its bridges send it. The hostname, unless a test says otherwise. */
+	machine?: string;
+	/**
+	 * The owner's other machines. Found on the tailnet at this daemon's port when it has a tailnet,
+	 * unless a test brings its own.
+	 */
+	machines?: Machines;
 	/** Called once, after the daemon stopped listening and removed its socket. */
 	exited?(reason: ExitReason): void;
 	warn?(message: string): void;
@@ -74,6 +91,8 @@ export class Daemon {
 	/** Each session's bridge, which a client's request for a snapshot goes to. */
 	readonly #bridges = new Map<string, Socket>();
 	#clients: Clients | undefined;
+	#machines: Machines | undefined;
+	#mirror: Mirror | undefined;
 	/** The port clients reach the daemon on, once it listens for them. */
 	clientPort: number | undefined;
 	/** Why no port is listening, worded for whoever has to fix it, once a listen failed. */
@@ -124,6 +143,8 @@ export class Daemon {
 		if (this.#options.current !== undefined) unwatchFile(this.#options.current);
 		for (const socket of this.#sockets) socket.destroy();
 		this.#clients?.close();
+		this.#machines?.stop();
+		this.#mirror?.stop();
 		this.#server.close(async () => {
 			// Another daemon may have put its socket there since. A freed inode can come back at once,
 			// so the file is removed only when it is this daemon's and nothing answers on it.
@@ -288,16 +309,33 @@ export class Daemon {
 		const web = dir === undefined ? undefined : loadWebApp(dir);
 		if (dir !== undefined && web === undefined)
 			this.#warn(`no web app in ${dir}: serving data only`);
+		const tailnet = this.#options.tailnet;
+		const machine = this.#options.machine ?? hostname();
+		this.#machines =
+			this.#options.machines ??
+			(tailnet === undefined
+				? undefined
+				: new Machines({
+						self: machine,
+						originOf: (node) => `http://${node.ip}:${this.clientPort ?? port}`,
+						...(this.#options.ask === undefined ? {} : { ask: this.#options.ask }),
+					}));
 		const clients = new Clients({
 			sessions: this.sessions,
 			logins: this.logins,
 			version: this.#options.version,
+			machine,
+			...(this.#machines === undefined ? {} : { machines: this.#machines }),
+			...(this.#options.events === undefined ? {} : { events: this.#options.events }),
 			command: (session, message) => this.#toBridge(session, message),
 			...(web === undefined ? {} : { web }),
 			warn: (message) => this.#warn(message),
 			...(this.#options.tailnet === undefined
 				? {}
-				: { tailnet: this.#options.tailnet, owners: new Owners(this.#options.tailnet) }),
+				: {
+						tailnet: this.#options.tailnet,
+						owners: new Owners(this.#options.tailnet, this.#options.ask),
+					}),
 		});
 		const listened = await clients.listen(port);
 		if ("why" in listened) {
@@ -306,6 +344,12 @@ export class Daemon {
 		} else {
 			this.clientPort = listened.port;
 			this.#clients = clients;
+			this.#machines?.start();
+			const events = this.#options.events;
+			if (this.#machines !== undefined && events !== undefined) {
+				this.#mirror = new Mirror({ machines: this.#machines, root: events, self: machine });
+				this.#mirror.start();
+			}
 			// The socket is bound to a temporary name and renamed, so the only way to say who holds
 			// it is to write it down: the gate stops this process by pid.
 			try {

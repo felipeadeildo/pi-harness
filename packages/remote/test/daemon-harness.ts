@@ -60,9 +60,9 @@ export function missed(daemon: Daemon, session: string, cursor: Cursor): Envelop
  * A bridge as the daemon sees one: a hello, `session.live`, events with a seq, and an answer to
  * `state.get`, which tells whether the daemon asked for one.
  */
-export async function bridgeOf(session: string, epoch = "e1", file?: string) {
+export async function bridgeOf(session: string, epoch = "e1", file?: string, path = socket) {
 	const at = { machine: "laptop", session, epoch };
-	const client: Socket = dial(socket);
+	const client: Socket = dial(path);
 	await new Promise<void>((resolve) => client.once("connect", () => resolve()));
 	const asked: Envelope[] = [];
 	const lines = new Lines();

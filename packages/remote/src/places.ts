@@ -24,6 +24,17 @@ export function daemonDir(env: NodeJS.ProcessEnv = process.env): string {
 }
 
 /**
+ * The harness's logs, which the kit writes: `PI_HARNESS_EVENTS`, or `harness/events` under pi's agent
+ * folder. The kit owns them; this is the path, spelled the same way.
+ */
+export function eventsDir(env: NodeJS.ProcessEnv = process.env): string {
+	if (env.PI_HARNESS_EVENTS !== undefined && env.PI_HARNESS_EVENTS !== "")
+		return env.PI_HARNESS_EVENTS;
+	const agent = env.PI_CODING_AGENT_DIR?.replace(/^~(?=\/|$)/, homedir());
+	return join(agent || join(homedir(), ".pi", "agent"), "harness", "events");
+}
+
+/**
  * The settings file pi writes, for the daemon and the command, which run outside pi and may import
  * only Node's own modules. The kit owns the format; this is the path, spelled the same way.
  */

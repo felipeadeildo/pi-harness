@@ -11,7 +11,13 @@ import { Logins } from "../src/daemon/auth.ts";
 import { Clients } from "../src/daemon/clients.ts";
 import { Daemon } from "../src/daemon/server.ts";
 import { Sessions } from "../src/daemon/sessions.ts";
-import { type AskTailscale, Owners, readTailnet, type Tailnet } from "../src/daemon/tailnet.ts";
+import {
+	type AskTailscale,
+	Owners,
+	readOwnTailnet,
+	readTailnet,
+	type Tailnet,
+} from "../src/daemon/tailnet.ts";
 
 const OWNER = 6629714470969663;
 const OTHER = 1234;
@@ -46,6 +52,34 @@ describe("the machine on its tailnet", () => {
 		expect(
 			await readTailnet(async () => JSON.stringify({ Self: { DNSName: "" } })),
 		).toBeUndefined();
+	});
+});
+
+describe("the owner's other machines", () => {
+	test("are the nodes of the same user that are online, and not one another user shares", async () => {
+		const node = (name: string, ip: string, user: number, online: boolean) => ({
+			DNSName: `${name}.curl-enigmatic.ts.net.`,
+			TailscaleIPs: [ip, "fd7a::1"],
+			UserID: user,
+			Online: online,
+		});
+		const status = JSON.stringify({
+			...JSON.parse(STATUS),
+			Peer: {
+				a: node("vps", "100.64.0.2", OWNER, true),
+				b: node("tablet", "100.64.0.3", OWNER, false),
+				c: node("friend", "100.64.0.4", OTHER, true),
+			},
+		});
+		const read = await readOwnTailnet(async () => status);
+		expect(read?.self.ip).toBe("100.104.113.100");
+		expect(read?.others).toEqual([
+			{ name: "vps.curl-enigmatic.ts.net", ip: "100.64.0.2", user: OWNER },
+		]);
+	});
+
+	test("are nothing when this machine is not on a tailnet", async () => {
+		expect(await readOwnTailnet(async () => undefined)).toBeUndefined();
 	});
 });
 
@@ -129,6 +163,7 @@ async function daemonOn(owner: boolean) {
 		sessions: new Sessions(),
 		logins: new Logins(join(dir, "logins.json")),
 		version: "1.2.0",
+		machine: "ghost",
 		command: () => false,
 		web: { dir, files: new Set(["/index.html", "/app.js"]) },
 		tailnet,

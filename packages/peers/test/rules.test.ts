@@ -32,12 +32,15 @@ function folderOf(...events: LoggedEvent[]): Folder {
 }
 
 const everyoneAlive = () => true;
+const nothingElsewhere = () => new Set<string>();
 
 describe("the folder", () => {
 	test("a session is open while its process runs, and leaves when it ends", () => {
 		const folder = folderOf(started("a", 10), started("b", 20), event("b", "session.ended", {}));
-		expect(livePeers(folder, everyoneAlive, "here").map((open) => open.session)).toEqual(["a"]);
-		expect(livePeers(folder, (pid) => pid !== 10, "here")).toEqual([]);
+		expect(
+			livePeers(folder, everyoneAlive, "here", nothingElsewhere).map((open) => open.session),
+		).toEqual(["a"]);
+		expect(livePeers(folder, (pid) => pid !== 10, "here", nothingElsewhere)).toEqual([]);
 		expect(folder.room.map((item) => item.kind === "happening" && item.happening.kind)).toEqual([
 			"joined",
 			"joined",
@@ -53,7 +56,23 @@ describe("the folder", () => {
 			[20, "200"],
 		]);
 		const lives = (pid: number, start: string | undefined) => running.get(pid) === start;
-		expect(livePeers(folder, lives, "here").map((open) => open.session)).toEqual(["b"]);
+		expect(livePeers(folder, lives, "here", nothingElsewhere).map((open) => open.session)).toEqual([
+			"b",
+		]);
+	});
+
+	test("a session of another machine is open while that machine says so, whatever its pid", () => {
+		const there = event("b", "session.started", { pid: 10, host: "vps" });
+		const folder = folderOf(started("a", 10), there);
+		const open = (elsewhere: string[]) =>
+			livePeers(
+				folder,
+				() => false,
+				"here",
+				() => new Set(elsewhere),
+			).map((peer) => peer.session);
+		expect(open(["b"])).toEqual(["b"]);
+		expect(open([])).toEqual([]);
 	});
 
 	test("a finished card shows in the room, but not what a session had done before it joined", () => {
@@ -145,7 +164,7 @@ describe("who takes a request", () => {
 		for (const [session, fit, idle] of bids)
 			events.push(event(session, "request.bid", { request: "r1", fit, reason: "", idle }));
 		const folder = folderOf(...events);
-		return { folder, at, live: livePeers(folder, everyoneAlive, "here") };
+		return { folder, at, live: livePeers(folder, everyoneAlive, "here", nothingElsewhere) };
 	}
 
 	test("bidding stays open until everyone bid or the window closes", () => {

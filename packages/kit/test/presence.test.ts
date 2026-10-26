@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+	ELSEWHERE_FOR_MS,
+	openElsewhere,
 	ownStart,
 	type PresenceEntry,
 	processLives,
@@ -126,11 +128,17 @@ describe("the index of open sessions", () => {
 		).toEqual(["open"]);
 	});
 
-	test("keeps another machine's sessions, which only their machine can judge", () => {
+	test("keeps another machine's sessions while its daemon keeps writing them, whatever the pid", () => {
 		writePresence(entry("far", { host: "server", start: "90" }), root);
-		expect(
-			readPresence({ lives: () => false, host: "laptop", root }).map((open) => open.session),
-		).toEqual(["far"]);
+		const written = statSync(join(root, "live", "far.json")).mtimeMs;
+		const read = (at: number) =>
+			readPresence({ lives: () => false, host: "laptop", root, now: () => at }).map(
+				(open) => open.session,
+			);
+		expect(read(written + ELSEWHERE_FOR_MS - 1)).toEqual(["far"]);
+		expect(read(written + ELSEWHERE_FOR_MS)).toEqual([]);
+		expect([...openElsewhere({ host: "laptop", root, now: () => written })]).toEqual(["far"]);
+		expect([...openElsewhere({ host: "server", root, now: () => written })]).toEqual([]);
 	});
 
 	test("orders by when the session opened, and forgets a removed one", () => {

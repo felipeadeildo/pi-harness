@@ -13,7 +13,8 @@ import { useEffect, useState } from "react";
 
 export interface SessionSource {
 	cache: Cache;
-	open: ConnectionOptions["open"];
+	/** How to reach one session, which can be on another machine than the page's. */
+	open: (key: SessionKey) => ConnectionOptions["open"];
 	/** What to call this client in the log. The machine is the session's, until a device brings its own. */
 	clientName?: string;
 	/** Set when the page cannot open the socket at all, as a refused login leaves it. */
@@ -88,7 +89,7 @@ export function openSession(
 	const client = connect({
 		key,
 		cache: source.cache,
-		open: source.open,
+		open: source.open(key),
 		by: { kind: "client", name: source.clientName ?? "browser", machine: key.machine },
 	});
 	let open = true;

@@ -13,6 +13,7 @@ import {
 	type LogTarget,
 	type Lives,
 	ownStart,
+	openElsewhere,
 	processLives,
 	targetOf,
 	tildify,
@@ -63,6 +64,8 @@ export interface Hooks extends InboxHooks {
 	now?(): number;
 	/** Whether a process of this machine runs, given its pid and the start it recorded. */
 	alive?: Lives;
+	/** The sessions open on the owner's other machines. */
+	elsewhere?(): ReadonlySet<string>;
 	/** How long, in milliseconds, a shared room keeps a member with no open agent. */
 	roomGrace?(): number;
 	/** How a session the operator adds to a room stands there: taking part, or only listening. */
@@ -173,7 +176,12 @@ export class Here implements Sender {
 	live(): Peer[] {
 		const key = `${this.#folder.version}:${Math.floor(this.#now() / LIVE_FOR_MS)}`;
 		if (this.#live?.key !== key) {
-			const peers = livePeers(this.#folder, this.#hooks.alive ?? processLives, HOST);
+			const peers = livePeers(
+				this.#folder,
+				this.#hooks.alive ?? processLives,
+				HOST,
+				this.#hooks.elsewhere ?? openElsewhere,
+			);
 			this.#live = { key, peers, names: undefined };
 		}
 		return this.#live.peers;

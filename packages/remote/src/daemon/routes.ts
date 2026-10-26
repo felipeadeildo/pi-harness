@@ -1,6 +1,8 @@
 // The daemon's own HTTP routes: health, the session list, a session's opening and pages, the login
 // that trades a token for a cookie, and the web app for everything the data routes leave. A device of
-// the machine's owner that comes through the tailnet logs in by who it is, with no token.
+// the machine's owner that comes through the tailnet logs in by who it is, with no token. The list
+// holds the sessions of the owner's other machines too, and a session of another machine is read from
+// its daemon, so a client needs one address for all of them.
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
@@ -8,6 +10,8 @@ import { isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
 import { isAppFile, serveApp, type WebApp } from "./app.ts";
 import { type Asking, authorize, cookieOf, type Logins, loginCookie } from "./auth.ts";
 import { History, PAGE } from "./history.ts";
+import type { Machine, Machines } from "./machines.ts";
+import { roomBytes, sharedHere } from "./mirror.ts";
 import type { Sessions } from "./sessions.ts";
 import type { Owners } from "./tailnet.ts";
 
@@ -24,6 +28,12 @@ export interface RoutesOptions {
 	sessions: Sessions;
 	logins: Logins;
 	version: string;
+	/** This machine's name, as its sessions carry it. */
+	machine: string;
+	/** The owner's other machines on the tailnet, whose sessions the list holds too. */
+	machines?: Machines;
+	/** The harness's logs here, whose open sessions and rooms the other machines copy. */
+	events?: string;
 	/** The names this daemon answers to, once the port is known. Nothing answers before. */
 	hosts: () => ReadonlySet<string>;
 	/** When the daemon started, for `/health`. */
@@ -62,14 +72,44 @@ export class Routes {
 		if (request.method !== "GET") return reply(response, 405, { error: "GET only" });
 		if (path === "/health") {
 			const uptime = (this.#options.now ?? Date.now)() - this.#options.started;
-			return reply(response, 200, { version: this.#options.version, protocol: PROTOCOL, uptime });
+			const { version, machine } = this.#options;
+			return reply(response, 200, { version, protocol: PROTOCOL, machine, uptime });
 		}
-		if (path === "/sessions") return reply(response, 200, this.#list());
+		if (path === "/sessions") {
+			// `here` is how another daemon asks, so two machines never ask each other in a circle.
+			if (url.searchParams.has("here")) return reply(response, 200, this.#list());
+			void this.#everywhere().then((list) => reply(response, 200, list));
+			return;
+		}
+		const events = this.#options.events;
+		if (path === "/shared" && events !== undefined)
+			return reply(response, 200, sharedHere(events, this.#options.machine));
+		const log = /^\/rooms\/([^/]+)\/([^/]+)$/.exec(path);
+		if (log !== null && events !== undefined) {
+			const bytes = roomBytes(
+				events,
+				log[1] ?? "",
+				log[2] ?? "",
+				Number(url.searchParams.get("from")) || 0,
+			);
+			if (bytes === undefined) return reply(response, 404, { error: "no such log" });
+			response.writeHead(200, {
+				"content-type": "application/octet-stream",
+				"cache-control": "no-store",
+			});
+			response.end(bytes);
+			return;
+		}
 		const route = /^\/sessions\/([^/]+)\/([^/]+)\/(opening|entries)$/.exec(path);
 		if (route !== null) {
 			const [machine, session] = route.slice(1, 3).map(decoded);
 			if (machine === undefined || session === undefined)
 				return reply(response, 400, { error: "a machine and a session, percent-encoded" });
+			const elsewhere = this.#options.machines?.named(machine);
+			if (elsewhere !== undefined) {
+				void this.#relay(response, elsewhere, `${path}${url.search}`);
+				return;
+			}
 			const known = this.#options.sessions.get(session);
 			if (known?.machine !== machine) return reply(response, 404, { error: "no such session" });
 			if (route[3] === "entries") {
@@ -212,6 +252,41 @@ export class Routes {
 		response.end();
 	}
 
+	/**
+	 * This machine's sessions, then each other machine's. A machine that does not answer in time is
+	 * left out of this read, and the next one asks it again.
+	 */
+	async #everywhere(): Promise<unknown[]> {
+		const machines = this.#options.machines;
+		const theirs = await Promise.all(
+			(machines?.list() ?? []).map(async (machine) => {
+				try {
+					const answer = await machines?.get(machine, "/sessions?here");
+					const list: unknown = await answer?.json();
+					return Array.isArray(list) ? list : [];
+				} catch {
+					return [];
+				}
+			}),
+		);
+		return [...this.#list(), ...theirs.flat()];
+	}
+
+	/** A request for another machine's session, answered by that machine's daemon. */
+	async #relay(response: ServerResponse, machine: Machine, path: string): Promise<void> {
+		try {
+			const answer = await this.#options.machines?.get(machine, path);
+			if (answer === undefined) return reply(response, 502, { error: "no machine to ask" });
+			response.writeHead(answer.status, {
+				"content-type": answer.headers.get("content-type") ?? "application/json",
+				"cache-control": "no-store",
+			});
+			response.end(Buffer.from(await answer.arrayBuffer()));
+		} catch {
+			reply(response, 502, { error: `${machine.name} did not answer` });
+		}
+	}
+
 	/** The session list: who each session is and how it is doing, without its entries. */
 	#list(): unknown[] {
 		return this.#options.sessions.list().map((one) => ({
@@ -236,6 +311,8 @@ export function isRoute(path: string): boolean {
 		path === "/logout" ||
 		path === "/sessions" ||
 		path.startsWith("/sessions/") ||
+		path === "/shared" ||
+		path.startsWith("/rooms/") ||
 		path.startsWith("/.well-known/")
 	);
 }
