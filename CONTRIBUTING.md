@@ -63,6 +63,8 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
   line does.
 - No history in the code: no "used to", no "now" or "no longer" set against an earlier version, no
   pull request numbers or dates. Git keeps that.
+- `bun run comments` (part of `verify`) fails on a pull request number, a phrase of history, or a
+  comment block longer than six lines.
 
 ## Branches and commits
 
