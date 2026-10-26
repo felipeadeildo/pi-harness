@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
 	applyBoard,
+	BOARD_COLUMNS,
 	blockedText,
 	boardView,
 	emptyBoard,
@@ -277,5 +278,17 @@ describe("the board tool's answer", () => {
 		const answer = boardCall(applied(many), { op: "find", text: "card" });
 		expect(answer.ok).toBe(true);
 		expect(answer.ok && answer.text).toContain("More:");
+	});
+});
+
+describe("the columns a board has", () => {
+	test("every column has a word, and only the open ones count against the open cap", () => {
+		const words = BOARD_COLUMNS.map((one) => one.label);
+		expect(words.every((word) => word.trim() !== "")).toBe(true);
+		expect(BOARD_COLUMNS.filter((one) => one.open).map((one) => one.column)).toEqual([
+			"doing",
+			"review",
+			"todo",
+		]);
 	});
 });

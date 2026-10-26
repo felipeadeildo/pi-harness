@@ -1,16 +1,15 @@
-import { blockedText, type Board, type BoardCard, type BoardColumn } from "./model.ts";
+import { BOARD_COLUMNS, blockedText, labelOf, type Board, type BoardCard } from "./model.ts";
 
 export interface DescribeBoardOptions {
 	done?: number;
 	decisions?: number;
 }
 
-const SECTIONS: readonly [BoardColumn, string][] = [
-	["doing", "Doing"],
-	["review", "In review"],
-	["todo", "To do"],
-	["backlog", "Backlog"],
-];
+/**
+ * The sections the summary draws: the board's own order, and the backlog with them because it is what
+ * the person will pick up even though no cap counts it.
+ */
+const SECTIONS = BOARD_COLUMNS.filter((one) => one.open || one.column === "backlog");
 
 /**
  * Where the session stands, for a prompt the agent reads after its history is cut. The ids stay,
@@ -22,13 +21,13 @@ export function describeBoard(board: Board, options: DescribeBoardOptions = {}):
 	const section = (title: string, cards: readonly BoardCard[]) => {
 		if (cards.length > 0) lines.push(`${title}:`, ...cards.map(cardLine));
 	};
-	for (const [column, title] of SECTIONS)
+	for (const { column, label } of SECTIONS)
 		section(
-			title,
+			label,
 			board.cards.filter((card) => card.column === column),
 		);
 	const done = board.cards.filter((card) => card.column === "done");
-	section("Done", done.slice(-(options.done ?? Infinity)));
+	section(labelOf("done"), done.slice(-(options.done ?? Infinity)));
 	const decisions = board.decisions.slice(-(options.decisions ?? Infinity));
 	if (decisions.length > 0)
 		lines.push("Decided:", ...decisions.map((decision) => `- ${decision.id} ${decision.text}`));

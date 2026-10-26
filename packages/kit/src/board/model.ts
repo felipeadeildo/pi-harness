@@ -79,7 +79,34 @@ export function emptyBoard(): Board {
 	return { next: 1, cards: [], decisions: [] };
 }
 
-const OPEN_COLUMNS: ReadonlySet<BoardColumn> = new Set(["todo", "doing", "review"]);
+/**
+ * The columns a board has, in the order a reader draws them: the word, and whether a card in it is
+ * still open. Every list of columns in the kit comes from here, so a column that changes its name or
+ * its openness changes in one place.
+ */
+export const BOARD_COLUMNS: readonly {
+	column: BoardColumn;
+	/** What a reader draws for it. */
+	label: string;
+	/** Whether a card in it is open, which is what the open cap and the panel count. */
+	open: boolean;
+}[] = [
+	{ column: "doing", label: "Doing", open: true },
+	{ column: "review", label: "In review", open: true },
+	{ column: "todo", label: "To do", open: true },
+	{ column: "backlog", label: "Backlog", open: false },
+	{ column: "done", label: "Done", open: false },
+	{ column: "dropped", label: "Dropped", open: false },
+];
+
+const OPEN_COLUMNS: ReadonlySet<BoardColumn> = new Set(
+	BOARD_COLUMNS.filter((one) => one.open).map((one) => one.column),
+);
+
+/** The word a reader draws for a column. */
+export function labelOf(column: BoardColumn): string {
+	return BOARD_COLUMNS.find((one) => one.column === column)?.label ?? column;
+}
 
 export function applyBoard(board: Board, op: BoardOp, writer: BoardWriter = "agent"): BoardResult {
 	switch (op.op) {
@@ -275,14 +302,7 @@ export function foldBoard(ops: readonly BoardOp[], writer: BoardWriter = "agent"
 	return board;
 }
 
-const COLUMNS: ReadonlySet<string> = new Set([
-	"backlog",
-	"todo",
-	"doing",
-	"review",
-	"done",
-	"dropped",
-]);
+const COLUMNS: ReadonlySet<string> = new Set(BOARD_COLUMNS.map((one) => one.column));
 
 /** Whether a value is a board this version wrote. A shape it cannot read is skipped, never guessed. */
 export function isBoard(value: unknown): value is Board {

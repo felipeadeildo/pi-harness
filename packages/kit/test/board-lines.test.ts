@@ -6,7 +6,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 
 import { boardLines } from "../src/board/lines.ts";
-import type { BoardCard, BoardView } from "../src/board/model.ts";
+import { BOARD_COLUMNS, type BoardCard, type BoardView } from "../src/board/model.ts";
 
 const plain = {
 	fg: (_color: string, text: string) => text,
@@ -41,6 +41,12 @@ describe("the board in the panel", () => {
 		};
 		expect(at("todo")).toBe(at("doing"));
 		expect(at("review")).toBe(at("doing"));
+		// The width is the widest column the panel draws, plus the space after it. A column it never
+		// draws must not widen the field, which is what this number would catch.
+		const widest = Math.max(
+			...BOARD_COLUMNS.filter((one) => one.open).map((one) => one.column.length),
+		);
+		expect(at("todo")).toBe(widest + 1);
 	});
 
 	test("the blocker is the kit's sentence for this reader", () => {

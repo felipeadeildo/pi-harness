@@ -5,11 +5,13 @@ import { truncateToWidth } from "@earendil-works/pi-tui";
 // changes its own line and no other line changes place. The words come from the kit: the column is
 // its name and the blocker is the one translation, so the panel cannot disagree with the board.
 import { CUT } from "../ui/glyphs.ts";
-import { blockedText, type BoardCard, type BoardColumn, type BoardView } from "./model.ts";
+import { BOARD_COLUMNS, blockedText, type BoardCard, type BoardView } from "./model.ts";
 
-/** The open columns, widest word first, so the column is a fixed-width field and titles never move. */
-const COLUMNS: readonly BoardColumn[] = ["todo", "doing", "review"];
-const WIDTH = Math.max(...COLUMNS.map((column) => column.length));
+/**
+ * The widest column word the panel draws is the width of the field, so a title starts in the same place
+ * on every line. Only the open columns count: a column the panel never draws must not widen it.
+ */
+const WIDTH = Math.max(...BOARD_COLUMNS.filter((one) => one.open).map((one) => one.column.length));
 
 /** What the panel shows of the board: the open cards, the backlog's count and the last done. */
 export function boardLines(
