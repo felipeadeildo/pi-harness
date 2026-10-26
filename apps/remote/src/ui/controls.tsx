@@ -4,6 +4,8 @@
 import { type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 
+import type { IconName } from "./icon-names.ts";
+import { Icon } from "./icon.tsx";
 import { useTheme } from "./use-theme.ts";
 
 interface ControlProps {
@@ -23,6 +25,7 @@ export function Primary({
 	danger,
 }: ControlProps & { danger?: boolean }): ReactNode {
 	const theme = useTheme();
+	const live = danger === true ? theme.color.danger : theme.color.accent;
 	return (
 		<Pressable
 			role="button"
@@ -37,12 +40,7 @@ export function Primary({
 				borderRadius: theme.radius(1),
 				alignItems: "center",
 				justifyContent: "center",
-				backgroundColor:
-					disabled === true
-						? theme.color.border
-						: danger === true
-							? theme.color.danger
-							: theme.color.accent,
+				backgroundColor: disabled === true ? theme.color.border : live,
 			}}
 		>
 			<Text
@@ -57,9 +55,18 @@ export function Primary({
 	);
 }
 
-/** A quiet action: text in the muted color, a line around it, no fill. */
-export function Action({ label, onPress, disabled }: ControlProps): ReactNode {
+/**
+ * A quiet action: a line around it, no fill. It shows its label, or an icon when it has one: the label
+ * is still what a screen reader says, so an icon-only control never loses its name.
+ */
+export function Action({
+	label,
+	onPress,
+	disabled,
+	icon,
+}: ControlProps & { icon?: IconName }): ReactNode {
 	const theme = useTheme();
+	const color = disabled === true ? theme.color.faint : theme.color.text;
 	return (
 		<Pressable
 			role="button"
@@ -77,14 +84,11 @@ export function Action({ label, onPress, disabled }: ControlProps): ReactNode {
 				justifyContent: "center",
 			}}
 		>
-			<Text
-				style={{
-					...theme.type.label,
-					color: disabled === true ? theme.color.faint : theme.color.text,
-				}}
-			>
-				{label}
-			</Text>
+			{icon === undefined ? (
+				<Text style={{ ...theme.type.label, color }}>{label}</Text>
+			) : (
+				<Icon name={icon} size={theme.type.heading.fontSize} color={color} />
+			)}
 		</Pressable>
 	);
 }
@@ -122,10 +126,17 @@ export function Trigger({
 				justifyContent: "center",
 			}}
 		>
-			<Text numberOfLines={1} style={{ ...theme.type.label, color: theme.color.text }}>
-				{value === "" ? title : value}
-				{onPress === undefined ? "" : " \u25BE"}
-			</Text>
+			<View style={{ flexDirection: "row", alignItems: "center", gap: theme.space(2) }}>
+				<Text
+					numberOfLines={1}
+					style={{ ...theme.type.label, color: theme.color.text, flexShrink: 1 }}
+				>
+					{value === "" ? title : value}
+				</Text>
+				{onPress === undefined ? null : (
+					<Icon name="chevron" size={theme.type.caption.fontSize} color={theme.color.muted} />
+				)}
+			</View>
 		</Pressable>
 	);
 }
