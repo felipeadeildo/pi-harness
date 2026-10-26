@@ -70,6 +70,11 @@
 					"type": "json",
 					"path": "packages/remote/package.json",
 					"jsonpath": "$.version"
+				},
+				{
+					"type": "json",
+					"path": "packages/remote-protocol/package.json",
+					"jsonpath": "$.version"
 				}
 			]
 		}
