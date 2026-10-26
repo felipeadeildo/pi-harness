@@ -10,10 +10,12 @@ import { browserSource } from "../session/browser.ts";
 import { Board, TerminalWait } from "../session/chrome.tsx";
 import { Composer } from "../session/composer.tsx";
 import { composerOf } from "../session/live.ts";
+import { plain } from "../session/plain.ts";
 import { QuestionDialog } from "../session/questions.tsx";
-import { viewOf } from "../session/session-view.ts";
+import { aboutOf, titleOf, viewOf } from "../session/session-view.ts";
 import { Transcript } from "../session/transcript.tsx";
 import { useSession } from "../session/use-session.ts";
+import { piColor } from "../ui/pi-colors.ts";
 import { useScheme } from "../ui/use-scheme.ts";
 
 /** How close to the end the reader is still counted as being at it, in pixels. */
@@ -43,12 +45,21 @@ export function Component(): ReactNode {
 	// The oldest comes first: whoever asked first has been waiting longest.
 	const asked = openQuestions(harnessOf(session))[0];
 	const { state } = viewOf(session);
+	const agent = piColor(scheme, state.theme?.color);
 	return (
 		<div className="session">
-			{/* The way back, because a phone opened this page from a list and has no browser chrome. */}
-			<Link className="back" to="/">
-				All sessions
-			</Link>
+			<header className="session-bar">
+				{/* The way back, because a phone opened this page from a list and has no browser chrome. */}
+				<Link className="back" to="/" aria-label="All sessions">
+					‹
+				</Link>
+				<div className="bar-title">
+					<h1 style={agent === undefined ? undefined : { color: agent }}>
+						{plain(titleOf(session))}
+					</h1>
+					<p className="quiet">{plain(aboutOf(session).join(" · "))}</p>
+				</div>
+			</header>
 			<div
 				ref={scroller}
 				className="scroll"

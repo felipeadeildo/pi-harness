@@ -51,10 +51,13 @@ export function Action({
 /** A picker that shows what is chosen and opens the list: "Permission mode: edits" to a screen reader. */
 export function Trigger({
 	title,
+	word,
 	value,
 	onPress,
 }: {
 	title: string;
+	/** The quiet word before the value that says what the value is: `mode` before `manual`. */
+	word: string;
 	value: string;
 	onPress?: () => void;
 }): ReactNode {
@@ -66,8 +69,13 @@ export function Trigger({
 			disabled={onPress === undefined}
 			onClick={onPress}
 		>
-			<span className="trigger-value">{value === "" ? title : value}</span>
-			{onPress === undefined ? null : <span aria-hidden="true">⌄</span>}
+			<span className="trigger-word" aria-hidden="true">
+				{word}
+			</span>
+			<span className="trigger-pick">
+				<span className="trigger-value">{value === "" ? "…" : value}</span>
+				{onPress === undefined ? null : <span aria-hidden="true">⌄</span>}
+			</span>
 		</button>
 	);
 }

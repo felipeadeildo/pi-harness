@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { ListedSession } from "@adeildo/pi-remote-protocol/client";
 
-import { keyOf, nameOf, rowsOf } from "./rows.ts";
+import { countOf, groupsOf, keyOf, nameOf, rowsOf } from "./rows.ts";
 
 const live = { pid: 1, startedAt: 1, cwd: "/work", kind: "terminal" as const };
 
@@ -27,20 +27,57 @@ describe("the list of sessions", () => {
 		expect(draw([])).toEqual([]);
 	});
 
-	test("a row carries the name, where it runs and how it is doing", () => {
+	test("a row carries the name, its folder, how it is doing and with what", () => {
 		const rows = draw([
 			row({
 				summary: {
 					session: "s1",
 					machine: "here",
-					cwd: "/w",
+					cwd: "/home/me/Projects/pi-harness/",
 					kind: "terminal",
 					name: "the rig",
 					status: "working",
 				} as never,
+				state: {
+					questions: {},
+					permissions: { rulings: {} },
+					queue: [],
+					model: { provider: "anthropic", id: "claude-opus" },
+					theme: { accent: "accent", color: "syntaxKeyword" },
+				},
 			}),
 		]);
-		expect(rows[0]).toMatchObject({ name: "the rig", where: "here", doing: "working" });
+		expect(rows[0]).toMatchObject({
+			name: "the rig",
+			folder: "pi-harness",
+			doing: "working",
+			model: "claude-opus",
+			mark: "working",
+			color: "syntaxKeyword",
+		});
+	});
+
+	test("a session that has not said how it is doing gets no word and no color it was not given", () => {
+		const [quiet] = draw([row()]);
+		expect(quiet?.doing).toBe("");
+		expect(quiet?.mark).toBe("idle");
+		expect(Object.keys(quiet ?? {})).not.toContain("color");
+	});
+
+	test("the rows sit under their machine, and the line over them counts what waits", () => {
+		const rows = draw([
+			row({ machine: "laptop", session: "a" }),
+			row({ machine: "vps", session: "b", summary: { status: "blocked" } as never }),
+			row({ machine: "laptop", session: "c" }),
+		]);
+		expect(
+			groupsOf(rows).map((group) => [group.machine, group.rows.map((one) => one.session)]),
+		).toEqual([
+			["vps", ["b"]],
+			["laptop", ["a", "c"]],
+		]);
+		expect(countOf(rows)).toBe("3 open on 2 machines, 1 waiting on you");
+		expect(countOf(rows.filter((one) => one.machine === "laptop"))).toBe("2 open");
 	});
 
 	test("the name is the title, then the handle, then the name the bridge gave it", () => {
@@ -56,8 +93,8 @@ describe("the list of sessions", () => {
 			row({ session: "asking", summary: { status: "blocked" } as never }),
 		]);
 		expect(rows[0]?.session).toBe("asking");
-		expect(rows[0]?.waits).toBe(true);
-		expect(rows[1]?.waits).toBe(false);
+		expect(rows[0]).toMatchObject({ mark: "waits", doing: "waits on you" });
+		expect(rows[1]).toMatchObject({ mark: "idle", doing: "idle" });
 	});
 
 	test("a kept order holds its places when one of them starts waiting, and a fresh list sorts", () => {
@@ -78,7 +115,7 @@ describe("the list of sessions", () => {
 		});
 		const held = rowsOf([blocked, other], kept);
 		expect(held.map((one) => one.session)).toEqual(["bbbb", "aaaa"]);
-		expect(held[1]?.waits).toBe(true);
+		expect(held[1]?.mark).toBe("waits");
 
 		expect(rowsOf([blocked, other])[0]?.session).toBe("aaaa");
 	});

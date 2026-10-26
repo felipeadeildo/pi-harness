@@ -14,7 +14,7 @@ import { createContext, type CSSProperties, type ReactNode, useContext } from "r
 import { Markdown } from "../ui/markdown.tsx";
 import { type Scheme, piColor } from "../ui/pi-colors.ts";
 import { plain } from "./plain.ts";
-import { aboutOf, originOf, titleOf, viewOf } from "./session-view.ts";
+import { originOf, viewOf } from "./session-view.ts";
 
 /** How many lines of a tool's output show before the rest folds. */
 const OUTPUT_LINES = 8;
@@ -45,10 +45,6 @@ export function Transcript({
 	};
 	return (
 		<WornContext.Provider value={worn}>
-			<header className="remote-head">
-				<h1>{plain(titleOf(session))}</h1>
-				<p className="remote-about">{plain(aboutOf(session).join(" · "))}</p>
-			</header>
 			{/* A transcript is a sequence of messages, not a numbered procedure: the index says nothing. */}
 			<ol className="remote-transcript">
 				{items.flatMap((item) => itemNodes(item, state.promptFrom))}

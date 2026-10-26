@@ -46,14 +46,15 @@ export function titleOf(session: ClientSession): string {
 }
 
 /**
- * What the header says about the session beside its name: the machine, what it is doing and the model it
- * answers with. It is text, and typed as text on purpose: this array goes to a `join`, and an
- * `unknown[]` let the folded state object through to become `[object Object]` without a word from the
- * compiler. The status is the field for "what it is doing"; the folded `state` is the whole picture.
+ * What the header says about the session beside its name: its folder, the machine, what it is doing and
+ * the model it answers with. It is text, and typed as text on purpose: this array goes to a `join`, and
+ * an `unknown[]` let the folded state object through to become `[object Object]` without a word from
+ * the compiler. The status is the field for "what it is doing"; the folded `state` is the whole picture.
  */
 export function aboutOf(session: ClientSession): string[] {
-	const { state } = session;
-	return [session.key.machine, state.status, state.model?.id].filter(
+	const { state, summary } = session;
+	const folder = summary?.cwd.split("/").findLast((part) => part !== "");
+	return [folder, session.key.machine, state.status, state.model?.id].filter(
 		(part): part is string => part !== undefined,
 	);
 }
