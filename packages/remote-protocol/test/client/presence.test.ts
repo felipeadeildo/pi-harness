@@ -115,6 +115,24 @@ describe("who has the session open", () => {
 		expect(warm.presence?.viewers[0]?.name).toBe("phone");
 	});
 
+	test("the opening's summary travels with the cache, so a warm open that only replays events still knows the folder", async () => {
+		const opened = read(
+			started(),
+			envelope(
+				"state",
+				{
+					summary: { session: "s", machine: "here", cwd: "/repo", kind: "terminal" },
+					entries: [],
+				},
+				2,
+			),
+		);
+		const cache = memoryCache();
+		await cache.write(cachedOf(opened, new Outbox()));
+		const warm = sessionOf(key, await cache.read(key));
+		expect(warm.summary?.cwd).toBe("/repo");
+	});
+
 	test("the cache keeps who was watching and not who was typing", async () => {
 		// `active` says someone is typing now, and a cache can be days old: it comes back from the
 		// opening or the next event, never from a file.

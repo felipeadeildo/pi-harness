@@ -66,7 +66,9 @@ export function Component(): ReactNode {
 	const status = statusOf(session, listed);
 	const waits = asked !== undefined || status === "blocked";
 	const activity = state.activity ?? listed?.state.activity;
-	const doing = doingOf(activity, status, waits);
+	const parts = session.live.message?.ended === false ? session.live.message.parts : [];
+	const writing = parts.findLast((part) => part.kind === "toolCall")?.name;
+	const doing = doingOf(activity, status, waits, writing);
 	const mark = markFor(status, waits);
 	const cards = openCards(state.board);
 	const wait = terminalWait(state.prompt);

@@ -1,6 +1,6 @@
 // Keyed by machine, session and cursor; the screen draws it before the network answers.
 
-import type { SessionState, Presence } from "../index.ts";
+import type { SessionState, SessionSummary, Presence } from "../index.ts";
 import type { Cursor } from "./cursor.ts";
 import type { Outgoing } from "./outbox.ts";
 
@@ -19,6 +19,8 @@ export interface CachedSession {
 	leaf?: string | null;
 	/** So a warm open does not draw nobody. */
 	presence?: Presence;
+	/** The last opening's, so a warm open that only replays events still knows the folder. */
+	summary?: SessionSummary;
 	/** Kept because a phone kills the tab without asking. */
 	outbox?: Outgoing[];
 }

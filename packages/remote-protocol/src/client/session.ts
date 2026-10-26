@@ -57,6 +57,7 @@ export function sessionOf(key: SessionKey, cached?: CachedSession): ClientSessio
 		entries: (cached?.entries ?? []) as Entry[],
 		state: cached?.state ?? emptySessionState(),
 		leaf: cached?.leaf,
+		...(cached?.summary === undefined ? {} : { summary: cached.summary }),
 		// A cache can be days old, so a stored `active` is dropped.
 		presence: cached?.presence === undefined ? undefined : { viewers: cached.presence.viewers },
 		live: NOTHING_LIVE,
@@ -81,6 +82,7 @@ export function cachedOf(session: ClientSession, outbox: Outbox): CachedSession 
 		state: session.state,
 		leaf: session.leaf,
 		presence: session.presence,
+		...(session.summary === undefined ? {} : { summary: session.summary }),
 		...(outbox === undefined || outbox.all().length === 0 ? {} : { outbox: outbox.all() }),
 	};
 }

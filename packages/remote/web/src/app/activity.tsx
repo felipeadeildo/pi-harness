@@ -31,6 +31,8 @@ export function doingOf(
 	activity: SessionActivity | undefined,
 	status: SessionState["status"] | undefined,
 	waits: boolean,
+	/** The tool whose call the model is writing, which this client sees and the bridge does not name. */
+	writing?: string,
 ): Doing {
 	if (waits) return { icon: Flag02Icon, verb: "Waiting on you", live: false, tone: "waits" };
 	if (status === "error")
@@ -42,7 +44,9 @@ export function doingOf(
 			case "thinking":
 				return { icon: AiBrain01Icon, verb: "Thinking", live: true, tone: "pi", ...at };
 			case "writing":
-				return { icon: PencilEdit02Icon, verb: "Writing", live: true, tone: "pi", ...at };
+				return writing === undefined
+					? { icon: PencilEdit02Icon, verb: "Writing", live: true, tone: "pi", ...at }
+					: { icon: toolIcon(writing), verb: `Writing ${writing}`, live: true, tone: "pi", ...at };
 			case "compacting":
 				return { icon: ArchiveIcon, verb: "Compacting", live: true, tone: "pi", ...at };
 			case "tool":
