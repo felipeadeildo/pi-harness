@@ -125,11 +125,6 @@ export const CHANGES = {
 			permissions: { ...state.permissions, mode: data.mode },
 		}),
 	}),
-	"session.renamed": entry({
-		check: (data): data is { from: string; to: string; by?: By } =>
-			isObject(data) && (data.by === undefined || isBy(data.by)),
-		apply: (state, data) => ({ ...state, renamed: data }),
-	}),
 	"session.status": entry({
 		// pi's program status words only: the log's own `session.state` is peers' running or idle, and a
 		// line of it must never read as a status.

@@ -13,10 +13,8 @@ import {
 
 const live = { pid: 42, startedAt: 1, cwd: "/work", name: "the rig", kind: "terminal" };
 const folded = {
-	tasks: undefined,
 	questions: {},
 	permissions: { rulings: {} },
-	renamed: undefined,
 };
 
 const row = (over: Record<string, unknown> = {}): Record<string, unknown> => ({

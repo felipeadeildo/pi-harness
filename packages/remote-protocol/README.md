@@ -33,8 +33,8 @@ sides check in the hello.
 ## State changes
 
 A state change is one thing the harness did, written to the session's log and sent as an event: a
-question opened or closed, a ruling on a call, the permission mode, the session's status, a rename, the
-number of a streamed message bound to its entry, a move in the tree, the queue, the cost.
+question opened or closed, a ruling on a call, the permission mode, the session's status, the number
+of a streamed message bound to its entry, a move in the tree, the queue, the cost.
 
 Each one is an entry of one table, with the shape its check names, the check, and what it does to the
 state, so `StateChangeMap` is read from the table and a change is added in one place. `STATE_CHANGES` is

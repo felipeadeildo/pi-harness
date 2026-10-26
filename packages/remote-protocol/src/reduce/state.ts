@@ -51,8 +51,6 @@ export interface SessionState {
 		 */
 		serves?: boolean;
 	};
-	/** The last rename, for a mention of the older handle. */
-	renamed?: { from: string; to: string; by?: By };
 	/** What the session's board holds. Absent when no feature provides one, which is not an empty board. */
 	board?: BoardView;
 	/**

@@ -46,11 +46,6 @@ export interface LogEventMap {
 	 * may carry only the title the tasks wrote, and then it names nothing.
 	 */
 	"session.named": { handle?: string };
-	/**
-	 * A handle moved. The word the session had stays an alias for a week, so a mention written before
-	 * the rename still reaches it, unless another live session holds that word.
-	 */
-	"session.renamed": { from: string; to: string; by?: "you" | "agent" };
 	/** What a session's board holds, as the sessions that read it draw it. */
 	"board.changed": { view: BoardView };
 	"session.state": { state: RoomActivity };
