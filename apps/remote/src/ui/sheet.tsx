@@ -5,7 +5,7 @@ import { type ReactNode } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 
 import { Action } from "./controls.tsx";
-import { theme } from "./theme.ts";
+import { useTheme } from "./use-theme.ts";
 
 export function Sheet({
 	title,
@@ -16,6 +16,7 @@ export function Sheet({
 	onClose: () => void;
 	children: ReactNode;
 }): ReactNode {
+	const theme = useTheme();
 	return (
 		<Modal transparent animationType="slide" onRequestClose={onClose}>
 			<Pressable

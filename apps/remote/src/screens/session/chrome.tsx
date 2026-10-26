@@ -9,10 +9,11 @@ import {
 import { Text, View } from "react-native";
 
 import { plain } from "../../render/index.ts";
-import { theme } from "../../ui/theme.ts";
+import { useTheme } from "../../ui/use-theme.ts";
 import { boardCards, openTasksOf, terminalWait } from "./panel-data.ts";
 
 export function Tasks({ tasks }: { tasks: SessionTasks | undefined }): React.ReactNode {
+	const theme = useTheme();
 	const open = openTasksOf(tasks);
 	if (open.length === 0) return null;
 	return (
@@ -29,6 +30,7 @@ export function Tasks({ tasks }: { tasks: SessionTasks | undefined }): React.Rea
 
 /** The board the session keeps, as cards: absent means nothing is drawn, not an empty board. */
 export function Board({ board }: { board: BoardView | undefined }): React.ReactNode {
+	const theme = useTheme();
 	const cards = boardCards(board);
 	if (cards === undefined) return null;
 	return (
@@ -45,6 +47,7 @@ export function Board({ board }: { board: BoardView | undefined }): React.ReactN
 
 /** A question the session waits on, with its options, read from the state. */
 export function OpenQuestions({ asks }: { asks: readonly OpenAsk[] }): React.ReactNode {
+	const theme = useTheme();
 	if (asks.length === 0) return null;
 	return (
 		<View style={{ gap: theme.space(3), paddingVertical: theme.space(3) }}>
@@ -79,6 +82,7 @@ export function OpenQuestions({ asks }: { asks: readonly OpenAsk[] }): React.Rea
 
 /** The terminal is waiting on a dialog this screen cannot answer: it says so, and where to go. */
 export function TerminalWait({ prompt }: { prompt: SessionState["prompt"] }): React.ReactNode {
+	const theme = useTheme();
 	const line = terminalWait(prompt);
 	if (line === undefined) return null;
 	return (
