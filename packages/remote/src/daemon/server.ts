@@ -190,10 +190,12 @@ export class Daemon {
 		};
 		if (message.kind !== "hello") return refuse("hello first");
 		if (data.protocol !== PROTOCOL) return refuse(`protocol ${String(data.protocol)}`);
-		if (message.type === "cli") {
+		const greet = () =>
 			socket.write(
 				line(envelope("hello", "daemon", { protocol: PROTOCOL, version: this.#options.version })),
 			);
+		if (message.type === "cli") {
+			greet();
 			return "cli";
 		}
 		if (message.type !== "bridge") return refuse("hello first");
@@ -206,9 +208,7 @@ export class Daemon {
 			this.stop("upgrade");
 			return undefined;
 		}
-		socket.write(
-			line(envelope("hello", "daemon", { protocol: PROTOCOL, version: this.#options.version })),
-		);
+		greet();
 		return { session, epoch };
 	}
 
@@ -359,7 +359,6 @@ export class Daemon {
 	}
 }
 
-/** Where the daemon keeps its socket and reads the launcher's `current.json`. */
 /** Whether version `a` is newer than `b`, comparing dotted numbers; anything after a `-` is ignored. */
 export function newer(a: string, b: string): boolean {
 	const [left, right] = [numbersOf(a), numbersOf(b)];
@@ -386,7 +385,6 @@ function listen(server: Server, path: string): Promise<boolean> {
 	});
 }
 
-/** Whether a daemon answers on the socket, so a second one must leave it alone. */
 /** A takeover lock older than this was left by a daemon that died while taking over. */
 const TAKEOVER_STALE_MS = 10_000;
 
@@ -436,6 +434,7 @@ function statOf(path: string): Stats | undefined {
 	return statSync(path, { throwIfNoEntry: false });
 }
 
+/** Whether a daemon answers on the socket, so a second one must leave it alone. */
 function answers(path: string): Promise<boolean> {
 	return new Promise((resolve) => {
 		const probe = connect(path);
@@ -474,13 +473,18 @@ function isLive(value: unknown): value is SessionLive {
  * very different to the operator; both end where the port is changed.
  */
 export function portRefused(port: number, why: string | undefined): string {
-	const cause =
-		why === "EADDRINUSE"
-			? `port ${port} is already in use by another program`
-			: why === "EACCES"
-				? `port ${port} needs privilege to be opened`
-				: `port ${port} could not be opened (${why ?? "no reason given"})`;
-	return `${cause}; the port is set in Alt+S › Remote`;
+	return `${portCause(port, why)}; the port is set in Alt+S › Remote`;
+}
+
+function portCause(port: number, why: string | undefined): string {
+	switch (why) {
+		case "EADDRINUSE":
+			return `port ${port} is already in use by another program`;
+		case "EACCES":
+			return `port ${port} needs privilege to be opened`;
+		default:
+			return `port ${port} could not be opened (${why ?? "no reason given"})`;
+	}
 }
 
 function goneReason(value: unknown): GoneReason {

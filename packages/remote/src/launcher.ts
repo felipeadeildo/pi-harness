@@ -64,7 +64,6 @@ export function writeLauncher(dir: string, current: Current): void {
 	}
 }
 
-/** What `current.json` names, or nothing when it is missing or not what a pi wrote. */
 /**
  * Says which process holds the socket and on what port, for whoever has to stop it. The daemon writes
  * its own pid here: the socket is bound to a temporary name and renamed, so finding the process by the
@@ -77,6 +76,7 @@ export function writeHolder(dir: string, holder: { pid: number; port: number }):
 	writeAtomically(join(dir, "current.json"), `${JSON.stringify(current, null, "\t")}\n`);
 }
 
+/** What `current.json` names, or nothing when it is missing or not what a pi wrote. */
 export function readCurrent(dir: string): Current | undefined {
 	let value: unknown;
 	try {
