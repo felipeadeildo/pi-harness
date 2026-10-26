@@ -13,9 +13,8 @@ bun run verify     # all of the above, the docs check and the pi defaults
 bun run docs       # redraw the pictures in the docs from the code
 ```
 
-`check` covers `packages` and `apps/remote/scripts`; `app:check` covers the screen, with the app's own
-`tsconfig`; `verify` runs both. A missing type import in `apps/remote` passes `check` and fails
-`app:check`, so "check is clean" says nothing about the app.
+`check` also type-checks the remote's page with its own `tsconfig` (browser types only), so an import
+of a Node module there fails it.
 
 Lefthook formats and lints staged files on commit, type-checks the repository, and runs the full verify before a push. The perf check (see [Tests](#tests)) runs on a commit too, and only then.
 
@@ -147,10 +146,6 @@ Build it with `defineFeature` and `createApp` from `@adeildo/pi-kit`. The harnes
 - A review worktree under `/tmp` installs with `bun install --frozen-lockfile --ignore-scripts`, and
   that same install is what lets a commit or a push there run the hooks: without `node_modules` the
   `pre-push` exits 127 and git reports `failed to push some refs`, which reads like a conflict.
-- Metro keeps one cache for the whole machine, in `$TMPDIR/metro-cache`, and a DOM component's entry
-  is stored there with the path of the checkout that built it first. So an app export in a worktree
-  can fail with `Unable to resolve module …/<another worktree>/…` from `expo/dom/entry.js`, naming a
-  folder that is not yours. That is the cache, not the code: `expo export --clear` builds it again.
 
 ## Tests
 

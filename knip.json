@@ -33,13 +33,9 @@
 				"web/src/**/*.test.ts"
 			]
 		},
-		"apps/remote": {
-			"entry": ["src/app/**/*.tsx", "src/session/browser.ts", "scripts/*.ts"]
-		},
 		".": {
 			"entry": ["scripts/**/*.ts"]
 		}
 	},
-	"ignoreDependencies": ["babel-plugin-react-compiler", "expo-updates"],
 	"ignoreBinaries": ["script", "rsvg-convert", "tailscale"]
 }

@@ -29,45 +29,16 @@ jobs:
       # failure, the retry comes back with the reason.
       - run: bun run verify
 
-  # The web app's done-when is a browser, so it gets its own job: the export takes about twenty
-  # seconds and the check needs a Chrome, and neither belongs in the verify every PR pays for. The
-  # runner's own Chrome is used, so nothing is downloaded.
-  app:
-    runs-on: ubuntu-latest
-    env:
-      # The check refuses to skip here: a job that prints "skipped" and stays green runs nothing.
-      CI: "true"
-    steps:
-      - uses: actions/checkout@v4
-      # Pinned, not latest: the export and the browser check must run on the Bun the rest of the CI
-      # runs, and a new Bun changes how they behave without a commit. Bumping this is a pull request.
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.4
-      - run: bun install --frozen-lockfile
-      - run: bun run app:export
-      - run: bun run csp:check
-      # The phone's bundle can break where the web one does not, as it did before #353, and nothing
-      # else here builds it. It clears Metro's cache, which other checkouts on a machine share.
-      - run: bun run app:export:android
-
-  # The gate: the app in a real browser, with a real daemon and a real pi session behind it. The
-  # CSP check cannot be this guard — it serves the export with no daemon and no login, so the list
-  # screen takes its error path and draws text instead of breaking. Only this job has a session, and
-  # only this job sees the page throw.
+  # The gate: the page in a real browser, with a real daemon and a real pi session behind it, served
+  # with the daemon's policy. The runner's own Chrome is used, so nothing is downloaded.
   gate:
     runs-on: ubuntu-latest
-    # No `continue-on-error`: the script fails only on the steps that already pass (`MANDATORY` in
-    # packages/remote/test/e2e/flow.ts), so green here means the list drew and the row was followed.
-    # A job that reports green over a blank screen is the failure this exists to catch.
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
       - run: bun install --frozen-lockfile
-      # The daemon serves the export it reads at startup, so the build comes first: without it the
-      # page does not exist and step 1 fails for the wrong reason — the failure this gate exists to
-      # tell apart from a broken screen.
+      # The daemon serves the page it finds at startup, so the build comes first.
       - run: bun run --cwd packages/remote build
       - run: bun run gate

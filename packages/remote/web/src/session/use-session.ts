@@ -29,11 +29,7 @@ export interface OpenSession {
 	why?: string;
 }
 
-/**
- * The session as the client holds it, and how many changes it has seen, which keys a redraw. The
- * source is asked for only once the screen is in a browser: the static export renders the route on
- * a server, where there is no storage and no socket.
- */
+/** The session as the client holds it, and how many changes it has seen, which keys a redraw. */
 export function useSession(key: SessionKey, source: () => Promise<SessionSource>): OpenSession {
 	const [opened, setOpened] = useState<OpenSession>({
 		session: undefined,
