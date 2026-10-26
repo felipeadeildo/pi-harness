@@ -33,7 +33,9 @@ describe("the board as cards", () => {
 	test("draws the open cards in the order the writer cut them, and sorts nothing", () => {
 		// Two cards whose creation order disagrees with the order they arrive in: a comparator on `at`
 		// or on the id would reorder them, and this screen must not have an opinion.
-		const board = { open: [card("c2", "second", 1), card("c1", "first", 9)], backlog: 0, done: [] };
+		// The `at` runs against the arrival: the first card to arrive is the newest one. Sorting by `at`
+		// or by id would both reorder this list, and the screen must not have an opinion.
+		const board = { open: [card("c2", "second", 9), card("c1", "first", 1)], backlog: 0, done: [] };
 		expect(boardCards(board as never).map((one) => one.line)).toEqual([
 			"doing · second",
 			"doing · first",
