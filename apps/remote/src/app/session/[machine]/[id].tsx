@@ -11,14 +11,16 @@ import { QuestionDialog } from "../../../screens/session/questions.tsx";
 import { SessionScreen } from "../../../screens/session/session.tsx";
 import { browserSource } from "../../../session/browser.ts";
 import { useSession } from "../../../session/use-session.ts";
+import { useTheme } from "../../../ui/use-theme.ts";
 
 export default function SessionRoute() {
 	const { machine, id } = useLocalSearchParams<{ machine: string; id: string }>();
+	const theme = useTheme();
 	const { session, client, why } = useSession({ machine, session: id }, browserSource);
 	if (why !== undefined)
 		return (
 			<View style={{ flex: 1, justifyContent: "center", padding: 24 }}>
-				<Text>{why}</Text>
+				<Text style={{ color: theme.color.text }}>{why}</Text>
 			</View>
 		);
 	// One question at a time, and it sits above the composer: it is the thing the agent is waiting on.
@@ -30,7 +32,16 @@ export default function SessionRoute() {
 	return session === undefined || client === undefined ? null : (
 		<View style={{ flex: 1 }}>
 			{/* The way back, because a phone opened this page from a list and has no browser chrome. */}
-			<Link href="/" style={{ paddingHorizontal: 24, paddingVertical: 12 }}>
+			<Link
+				href="/"
+				style={{
+					...theme.type.label,
+					color: theme.color.accent,
+					minHeight: theme.hit,
+					paddingHorizontal: theme.space(6),
+					paddingVertical: theme.space(4),
+				}}
+			>
 				All sessions
 			</Link>
 			{/* The conversation scrolls and the composer does not: a long transcript used to push the

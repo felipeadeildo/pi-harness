@@ -26,7 +26,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Action, Option, Primary, Trigger } from "../../ui/controls.tsx";
 import { Sheet } from "../../ui/sheet.tsx";
-import { theme } from "../../ui/theme.ts";
+import { HIT } from "../../ui/theme.ts";
+import { useTheme } from "../../ui/use-theme.ts";
 import {
 	dropNow,
 	levelChoices,
@@ -73,7 +74,7 @@ export interface ComposerProps {
 }
 
 /** How tall the lists above the field may grow before they scroll, in points. */
-const LISTS_MAX = theme.hit * 3;
+const LISTS_MAX = HIT * 3;
 
 export function Composer({
 	client,
@@ -89,6 +90,7 @@ export function Composer({
 	modelsTotal,
 	initialDraft,
 }: ComposerProps): ReactNode {
+	const theme = useTheme();
 	// The queue changes without the session changing, so the composer hears the client itself.
 	const [, redraw] = useState(0);
 	useEffect(() => client.on(() => redraw((count) => count + 1)), [client]);
@@ -230,6 +232,7 @@ function Suggestions({
 	offering: readonly Suggestion[];
 	write: (text: string) => void;
 }): ReactNode {
+	const theme = useTheme();
 	if (offering.length === 0) return null;
 	return (
 		<View
@@ -272,6 +275,7 @@ function Row({
 	onPress: () => void;
 	children: ReactNode;
 }): ReactNode {
+	const theme = useTheme();
 	return (
 		<Pressable
 			role="button"
@@ -306,6 +310,7 @@ function Pickers({
 	modelsTotal: number | undefined;
 	thinking: string | undefined;
 }): ReactNode {
+	const theme = useTheme();
 	const [open, setOpen] = useState<"mode" | "thinking" | "model" | undefined>(undefined);
 	const modes = modeChoices(mode, serves);
 	const levels = levelChoices(thinking);
@@ -370,6 +375,7 @@ function Outbox({
 	held: ReadonlySet<string>;
 	client: Client;
 }): ReactNode {
+	const theme = useTheme();
 	return (
 		<>
 			{queue.map((command) => (
@@ -396,6 +402,7 @@ function Outbox({
 
 /** The session's own queue, in the order it will run: two phones see the same lines. */
 function Held({ lines, client }: { lines: readonly QueuedLine[]; client: Client }): ReactNode {
+	const theme = useTheme();
 	return (
 		<>
 			{lines.map((line) => (
@@ -432,6 +439,7 @@ function ModelSheet({
 	onClose: () => void;
 	onPick: (model: ModelOption) => void;
 }): ReactNode {
+	const theme = useTheme();
 	const [query, setQuery] = useState("");
 	const shown = matchModels(models, query);
 	const note = modelsNote(models.length, total);

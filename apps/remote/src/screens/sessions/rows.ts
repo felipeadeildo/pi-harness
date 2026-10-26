@@ -1,7 +1,9 @@
-// What the list of sessions says, worked out apart from how it is drawn: the rows are plain data, so
-// a test reads them without a browser or a native host, and the screen has one shape to draw.
 import type { ListedSession } from "@adeildo/pi-remote-client";
 import { inOrder, stateOf, wantsYou } from "@adeildo/pi-remote-client";
+
+// What the list of sessions says, worked out apart from how it is drawn: the rows are plain data, so
+// a test reads them without a browser or a native host, and the screen has one shape to draw.
+import type { Theme } from "../../ui/theme.ts";
 
 /** One line of the list, ready to draw and to read in a test. */
 export interface Row {
@@ -76,14 +78,15 @@ function costOf(session: ListedSession): string {
  * the document through a Slot that spreads props, and an array spread there becomes `{0: …}` which the
  * browser refuses to apply: the page threw before drawing a single row because of exactly that.
  */
-export function rowStyle(marked: boolean): Record<string, number | string> {
+export function rowStyle(marked: boolean, theme: Theme): Record<string, number | string> {
+	const row = {
+		minHeight: theme.hit,
+		paddingVertical: theme.space(4),
+		paddingHorizontal: theme.space(4),
+		borderRadius: theme.radius(2),
+		backgroundColor: theme.color.surface,
+	};
 	return marked
-		? {
-				paddingVertical: 12,
-				paddingHorizontal: 8,
-				borderRadius: 8,
-				borderLeftWidth: 3,
-				borderLeftColor: "#d97706",
-			}
-		: { paddingVertical: 12, paddingHorizontal: 8, borderRadius: 8 };
+		? { ...row, borderLeftWidth: theme.line.thick, borderLeftColor: theme.color.warn }
+		: row;
 }

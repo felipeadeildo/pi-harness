@@ -4,7 +4,7 @@
 import { type ReactNode } from "react";
 import { Pressable, Text } from "react-native";
 
-import { theme } from "./theme.ts";
+import { useTheme } from "./use-theme.ts";
 
 interface ControlProps {
 	label: string;
@@ -22,6 +22,7 @@ export function Primary({
 	disabled,
 	danger,
 }: ControlProps & { danger?: boolean }): ReactNode {
+	const theme = useTheme();
 	return (
 		<Pressable
 			role="button"
@@ -58,6 +59,7 @@ export function Primary({
 
 /** A quiet action: text in the muted color, a line around it, no fill. */
 export function Action({ label, onPress, disabled }: ControlProps): ReactNode {
+	const theme = useTheme();
 	return (
 		<Pressable
 			role="button"
@@ -101,6 +103,7 @@ export function Trigger({
 	value: string;
 	onPress?: () => void;
 }): ReactNode {
+	const theme = useTheme();
 	return (
 		<Pressable
 			role="button"
@@ -139,6 +142,7 @@ export function Option({
 	chosen: boolean;
 	onPress: () => void;
 }): ReactNode {
+	const theme = useTheme();
 	return (
 		<Pressable
 			role="radio"

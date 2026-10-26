@@ -3,8 +3,17 @@
 import { Stack } from "expo-router";
 
 import { useLoginOnce } from "../session/login-once.ts";
+import { useTheme } from "../ui/use-theme.ts";
 
 export default function Root() {
 	useLoginOnce();
-	return <Stack screenOptions={{ headerShown: false }} />;
+	const theme = useTheme();
+	return (
+		<Stack
+			screenOptions={{
+				headerShown: false,
+				contentStyle: { backgroundColor: theme.color.background },
+			}}
+		/>
+	);
 }

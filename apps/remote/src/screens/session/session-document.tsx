@@ -16,10 +16,10 @@ import {
 	type SessionTasks,
 	type TranscriptItem,
 } from "@adeildo/pi-remote-protocol";
-import { type ReactNode, createElement as h } from "react";
+import { type ReactNode, createContext, createElement as h, useContext } from "react";
 
 import { Markdown, plain } from "../../render/index.ts";
-import { theme } from "../../ui/theme.ts";
+import { type Scheme, type Theme, themeFor } from "../../ui/theme.ts";
 import { aboutOf, originOf, titleOf, viewOf } from "./session-view.ts";
 
 /** How many lines of a tool's output show before the rest folds. */
@@ -33,37 +33,52 @@ interface SessionScreenProps {
 	session: ClientSession;
 	/** What the DOM host needs on a phone, where the document has no page to size itself by. */
 	dom?: { matchContents?: boolean };
+	/**
+	 * The system's scheme, which the host reads and this document, a web view with no React Native
+	 * around it, cannot. Without it the document is light.
+	 */
+	scheme?: Scheme;
 }
 
-export default function SessionDocument({ session }: SessionScreenProps): ReactNode {
+const ThemeContext = createContext<Theme>(themeFor("light"));
+
+export default function SessionDocument({ session, scheme }: SessionScreenProps): ReactNode {
 	const { state, items } = viewOf(session);
+	const theme = themeFor(scheme ?? "light");
 	return h(
-		"main",
-		{
-			className: "remote-session",
-			// The document is text, so it takes the theme's type and colours instead of the browser's
-			// defaults: a serif title and a numbered list are what the page looks like without them.
-			style: {
-				background: theme.color.background,
-				color: theme.color.text,
-				fontSize: theme.type.body.fontSize,
-				lineHeight: theme.type.body.fontSize * 1.5,
-			},
-		},
-		header(session, state.tasks),
+		ThemeContext.Provider,
+		{ value: theme },
 		h(
-			"ol",
+			"main",
 			{
-				className: "remote-transcript",
-				// A transcript is a sequence of messages, not a numbered procedure: the index says nothing.
-				style: { listStyle: "none", margin: 0, padding: 0, display: "grid", gap: theme.space(3) },
+				className: "remote-session",
+				// The document is text, so it takes the theme's type and colours instead of the browser's
+				// defaults: a serif title and a numbered list are what the page looks like without them.
+				style: {
+					background: theme.color.background,
+					color: theme.color.text,
+					fontFamily: theme.font,
+					padding: theme.space(4),
+					fontSize: theme.type.body.fontSize,
+					// A number with no unit is a multiple of the font size in CSS, so this is 1.5 times, not 22.5 px.
+					lineHeight: 1.5,
+				},
 			},
-			...items.flatMap((item) => itemNodes(item, state.promptFrom)),
+			header(session, state.tasks, theme),
+			h(
+				"ol",
+				{
+					className: "remote-transcript",
+					// A transcript is a sequence of messages, not a numbered procedure: the index says nothing.
+					style: { listStyle: "none", margin: 0, padding: 0, display: "grid", gap: theme.space(3) },
+				},
+				...items.flatMap((item) => itemNodes(item, state.promptFrom)),
+			),
 		),
 	);
 }
 
-function header(session: ClientSession, tasks: SessionTasks | undefined): ReactNode {
+function header(session: ClientSession, tasks: SessionTasks | undefined, theme: Theme): ReactNode {
 	const about = aboutOf(session);
 	return h(
 		"header",
@@ -220,9 +235,22 @@ function argsOf(args: unknown): string {
 }
 
 function block(key: string, who: string, body: ReactNode, origin?: string): ReactNode {
+	return h(Block, { key, who, origin, children: body });
+}
+
+function Block({
+	who,
+	origin,
+	children,
+}: {
+	who: string;
+	origin: string | undefined;
+	children: ReactNode;
+}): ReactNode {
+	const theme = useContext(ThemeContext);
 	return h(
 		"li",
-		{ key, className: `remote-${who}` },
+		{ className: `remote-${who}` },
 		h("span", { className: "remote-who" }, who),
 		origin === undefined
 			? null
@@ -234,7 +262,7 @@ function block(key: string, who: string, body: ReactNode, origin?: string): Reac
 					},
 					origin,
 				),
-		body,
+		children,
 	);
 }
 

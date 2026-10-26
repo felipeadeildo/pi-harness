@@ -2,7 +2,10 @@
 // value they hold. A screen picks a step, never a number, so the screens agree with each other and a
 // change of scale is one file.
 //
-// One palette for now. A second one is a map of the same names, and nothing here reads a raw hex.
+// Two palettes, light and dark, under the same names, and nothing here reads a raw hex outside them. The
+// surfaces and labels are the values iOS and Android give their own system colors, so a screen sits
+// beside the system's. They are fixed values and not `PlatformColor`, because the web build and the DOM
+// component read them too and a device is what a `PlatformColor` is proven on.
 // No React Native import: the values are data, and a test reads them without a device.
 /** Steps of the spacing scale, in pixels: 0, 2, 4, 8, 12, 16, 24. */
 export const SPACE = [0, 2, 4, 8, 12, 16, 24] as const;
@@ -37,35 +40,63 @@ export interface Theme {
 		mono: { fontSize: number; fontFamily: string };
 	};
 	line: { hairline: number; thick: number };
+	/** The system face, for the document, which a web view draws with a serif unless told. */
+	font: string;
 	/** The smallest side of anything a thumb presses, in points. */
 	hit: number;
 }
 
-export const theme: Theme = {
-	color: {
+/** The smallest side of anything a thumb presses, in points: no control undercuts it, in either scheme. */
+export const HIT = 44;
+
+export type Scheme = "light" | "dark";
+
+const PALETTE: Record<Scheme, Theme["color"]> = {
+	light: {
 		background: "#ffffff",
-		surface: "#f7f7f8",
+		surface: "#f2f2f7",
 		elevated: "#ffffff",
-		border: "#dcdce0",
-		text: "#141416",
-		muted: "#5b5b63",
-		faint: "#8e8e97",
-		accent: "#2563eb",
-		ok: "#15803d",
-		warn: "#b45309",
-		danger: "#b91c1c",
+		border: "#c6c6c8",
+		text: "#000000",
+		muted: "#6c6c70",
+		faint: "#8e8e93",
+		accent: "#007aff",
+		ok: "#248a3d",
+		warn: "#b25000",
+		danger: "#d70015",
 	},
-	space: (step) => SPACE[step],
-	radius: (step) => RADIUS[step],
-	type: {
-		title: { fontSize: 22, fontWeight: "700" },
-		heading: { fontSize: 17, fontWeight: "600" },
-		body: { fontSize: 15, fontWeight: "400" },
-		label: { fontSize: 13, fontWeight: "500" },
-		caption: { fontSize: 12, fontWeight: "400" },
-		mono: { fontSize: 13, fontFamily: "monospace" },
+	dark: {
+		background: "#000000",
+		surface: "#1c1c1e",
+		elevated: "#2c2c2e",
+		border: "#38383a",
+		text: "#ffffff",
+		muted: "#a1a1a6",
+		faint: "#8e8e93",
+		accent: "#0a84ff",
+		ok: "#30d158",
+		warn: "#ff9f0a",
+		danger: "#ff453a",
 	},
-	// The thinnest line a screen may draw. A device rounds it to its own pixel grid.
-	line: { hairline: 0.5, thick: 2 },
-	hit: 44,
 };
+
+/** The theme for a scheme: the system's, which a screen asks for with `useTheme`. */
+export function themeFor(scheme: Scheme): Theme {
+	return {
+		color: PALETTE[scheme],
+		space: (step) => SPACE[step],
+		radius: (step) => RADIUS[step],
+		type: {
+			title: { fontSize: 22, fontWeight: "700" },
+			heading: { fontSize: 17, fontWeight: "600" },
+			body: { fontSize: 15, fontWeight: "400" },
+			label: { fontSize: 13, fontWeight: "500" },
+			caption: { fontSize: 12, fontWeight: "400" },
+			mono: { fontSize: 13, fontFamily: "monospace" },
+		},
+		// The thinnest line a screen may draw. A device rounds it to its own pixel grid.
+		line: { hairline: 0.5, thick: 2 },
+		font: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+		hit: HIT,
+	};
+}
