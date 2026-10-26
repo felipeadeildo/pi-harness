@@ -207,11 +207,22 @@ function Pickers({ send, view }: { send: Send; view: ComposerView }): ReactNode 
 	return (
 		<div className="pickers">
 			{modes.length === 0 ? null : (
-				<Trigger title="Permission mode" value={current(modes)} onPress={() => setOpen("mode")} />
+				<Trigger
+					title="Permission mode"
+					word="mode"
+					value={current(modes)}
+					onPress={() => setOpen("mode")}
+				/>
 			)}
-			<Trigger title="Thinking" value={current(levels)} onPress={() => setOpen("thinking")} />
+			<Trigger
+				title="Thinking"
+				word="thinking"
+				value={current(levels)}
+				onPress={() => setOpen("thinking")}
+			/>
 			<Trigger
 				title="Model"
+				word="model"
 				value={modelLabel(model)}
 				// Only a list that has something to pick opens: an absent list is not said yet, and an
 				// empty one has nothing to offer, so neither is a button that opens an empty sheet.
@@ -247,6 +258,11 @@ function Pickers({ send, view }: { send: Send; view: ComposerView }): ReactNode 
 							}}
 						/>
 					))}
+					{open === "mode" ? (
+						<p className="quiet">
+							Full, which runs every call without asking, is set in the terminal.
+						</p>
+					) : null}
 				</Sheet>
 			)}
 		</div>

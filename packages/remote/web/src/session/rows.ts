@@ -1,25 +1,34 @@
+// What the list of sessions says, worked out apart from how it is drawn: the rows are plain data, so
+// a test reads them without a browser, and the screen has one shape to draw.
 import type { ListedSession } from "@adeildo/pi-remote-protocol/client";
 import { inOrder, stateOf, wantsYou } from "@adeildo/pi-remote-protocol/client";
 
-// What the list of sessions says, worked out apart from how it is drawn: the rows are plain data, so
-// a test reads them without a browser or a native host, and the screen has one shape to draw.
+/** The mark before a row, the terminal's own: filled while it works, hollow while not, a flag when it waits. */
+export type Mark = "working" | "idle" | "waits";
 
 /** One line of the list, ready to draw and to read in a test. */
 export interface Row {
-	/** The session itself, which is what the link needs to build its address. */
-	listed: ListedSession;
 	machine: string;
 	session: string;
-	/** The name the row shows: the title, then the handle, then the id it was given. */
+	/** The name the row shows: the name it was given, then its handle, then the end of its id. */
 	name: string;
-	/** Where it runs, which tells two sessions with the same name apart. */
-	where: string;
-	/** How it is doing, in words: working, blocked, done, error, idle. */
+	/** The folder it works in, by its last part, which tells two sessions apart at a glance. */
+	folder: string;
+	/** How it is doing, in pi's words, or "waits on you"; empty when it has not said. */
 	doing: string;
+	/** The model it answers with, by its id. */
+	model: string;
 	/** What it has cost, when the daemon says; empty otherwise. */
 	cost: string;
-	/** Whether this one is waiting on the person, which the row marks. */
-	waits: boolean;
+	mark: Mark;
+	/** The name of the color the room gave it, which the screen resolves in its scheme. */
+	color?: string;
+}
+
+/** The rows of one machine, under its name. */
+export interface Group {
+	machine: string;
+	rows: Row[];
 }
 
 /** What the row calls the session: the name it was given, then its handle, then the end of its id. */
@@ -41,16 +50,37 @@ export function keyOf(session: ListedSession): string {
  * sorts itself, and that is the one the person expects to see ordered.
  */
 export function rowsOf(sessions: readonly ListedSession[], kept?: readonly string[]): Row[] {
-	return ordered(sessions, kept).map((session) => ({
-		listed: session,
-		machine: session.machine,
-		session: session.session,
-		name: nameOf(session),
-		where: session.machine,
-		doing: stateOf(session),
-		cost: costOf(session),
-		waits: wantsYou(session),
-	}));
+	return ordered(sessions, kept).map((session) => {
+		const waits = wantsYou(session);
+		const doing = stateOf(session);
+		const color = session.state.theme?.color;
+		return {
+			machine: session.machine,
+			session: session.session,
+			name: nameOf(session),
+			folder: folderOf(session.summary?.cwd ?? session.live.cwd),
+			doing: waits ? "waits on you" : doing,
+			model: session.state.model?.id ?? "",
+			cost: costOf(session),
+			mark: markOf(waits, doing),
+			...(color === undefined ? {} : { color }),
+		};
+	});
+}
+
+/** The rows under the machine each runs on, the machines in the order their first row comes. */
+export function groupsOf(rows: readonly Row[]): Group[] {
+	const groups = new Map<string, Row[]>();
+	for (const row of rows) groups.set(row.machine, [...(groups.get(row.machine) ?? []), row]);
+	return [...groups].map(([machine, grouped]) => ({ machine, rows: grouped }));
+}
+
+/** The line over the list: how many are open, on how many machines, and how many wait on you. */
+export function countOf(rows: readonly Row[]): string {
+	const machines = new Set(rows.map((row) => row.machine)).size;
+	const waiting = rows.filter((row) => row.mark === "waits").length;
+	const open = `${rows.length} open${machines > 1 ? ` on ${machines} machines` : ""}`;
+	return waiting === 0 ? open : `${open}, ${waiting} waiting on you`;
 }
 
 /**
@@ -64,6 +94,15 @@ function ordered(sessions: readonly ListedSession[], kept?: readonly string[]): 
 		return at === -1 ? kept.length : at;
 	};
 	return [...inOrder(sessions)].sort((left, right) => place(left) - place(right));
+}
+
+function markOf(waits: boolean, doing: string): Mark {
+	if (waits) return "waits";
+	return doing === "working" ? "working" : "idle";
+}
+
+function folderOf(cwd: string): string {
+	return cwd.split("/").findLast((part) => part !== "") ?? cwd;
 }
 
 /** What the session has cost, as the state says; before the first turn ends, nothing. */
