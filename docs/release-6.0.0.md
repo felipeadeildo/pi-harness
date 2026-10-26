@@ -52,5 +52,27 @@ Two defaults change, and both are worth checking against your own setup:
 - **The daemon speaks WebSocket through `ws`**, bundled into `dist/daemon.js`, with a liveness ping
   every ten seconds. Nothing to install, and a peer that misses a beat is gone within twenty.
 
-The board replaces the smaller model the tasks feature kept for its own state, so a task has one shape
-wherever it is read.
+## The tasks are gone, and the board takes their place
+
+In 5.x a small model kept the session's tasks from your words and the agent's work. In 6.0.0 the agent
+keeps a board with the `board` tool instead: cards it can be asked about, in `todo`, `doing`, `review`
+and `done`, each blocked on you, on another agent or on something outside, with the reason. No side
+model runs for it, so it costs nothing per turn.
+
+Everything that read the tasks reads the board now: the compaction summary ("Where the session
+stands"), the look's strip, the peers' room and the bids, and the phone. Nothing writes a session
+title any more. A session is its handle, and the name you give it with `/name` or from the phone.
+
+| 5.x                                                          | 6.0.0                                                         |
+| ------------------------------------------------------------ | ------------------------------------------------------------- |
+| `packages/tasks`, the tasks feature and its model            | `packages/board`: the `Alt+T` panel over the kit's board      |
+| `Alt+S` › Tasks, and the `tasks` settings                    | gone; the board's limits are fixed, 3 in progress and 15 open |
+| feature id `tasks`                                           | `names`, `board` and `board-panel`                            |
+| `TASKS`, `SessionTasks`, `describeTasks`, `tasksFromEntries` | `BOARD`, `Board`, `describeBoard`, `boardOf`                  |
+| `tasks.changed` and `tasks.board` in the log                 | `board.changed`, and the board's own `pi-board:op` entries    |
+| `SessionState.tasks` on the wire                             | `SessionState.board`                                          |
+| the look's `tasks` segment                                   | `board`                                                       |
+| a title on `session.named`, on a peer and in presence        | the handle only                                               |
+
+A session written with 5.x opens as it was. Its tasks' paid model calls still count in its cost, and
+it keeps the handle the tasks gave it.
