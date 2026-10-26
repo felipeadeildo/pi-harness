@@ -336,6 +336,19 @@ async function sendsPrompt(page: Page, rig: Rig): Promise<Result> {
 			}
 			if (!said.startsWith("from "))
 				return { ok: false, why: `the prompt the browser sent says no origin (read "${said}")` };
+			// The label of what the person said wears the theme's accent: the page is light, and pi's light
+			// accent is #7459b4. The state carries the name; only the app knows the value.
+			const who =
+				(await page
+					.locator("li.remote-you", { hasText: "say hello from the gate" })
+					.locator(".remote-who")
+					.first()
+					.getAttribute("style")) ?? "";
+			if (!who.includes("color: rgb(116, 89, 180)"))
+				return {
+					ok: false,
+					why: `the label of the prompt the browser sent is styled "${who}", not with the accent`,
+				};
 			return await searchesModels(page);
 		}
 		const seen = await rig

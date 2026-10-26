@@ -19,6 +19,7 @@ import {
 import { type ReactNode, createContext, createElement as h, useContext } from "react";
 
 import { Markdown, plain } from "../../render/index.ts";
+import { piColor } from "../../ui/pi-colors.ts";
 import { type Scheme, type Theme, themeFor } from "../../ui/theme.ts";
 import { aboutOf, originOf, titleOf, viewOf } from "./session-view.ts";
 
@@ -40,14 +41,28 @@ interface SessionScreenProps {
 	scheme?: Scheme;
 }
 
-const ThemeContext = createContext<Theme>(themeFor("light"));
+/** What a block draws with: the theme, and the colors the session wears when it has said which. */
+interface Worn {
+	theme: Theme;
+	/** The accent of the theme the session runs under, for what the person said. */
+	accent?: string;
+	/** The color the room gave the session, for what the agent said. */
+	agent?: string;
+}
+
+const WornContext = createContext<Worn>({ theme: themeFor("light") });
 
 export default function SessionDocument({ session, scheme }: SessionScreenProps): ReactNode {
 	const { state, items } = viewOf(session);
 	const theme = themeFor(scheme ?? "light");
+	const worn: Worn = {
+		theme,
+		accent: piColor(scheme ?? "light", state.theme?.accent),
+		agent: piColor(scheme ?? "light", state.theme?.color),
+	};
 	return h(
-		ThemeContext.Provider,
-		{ value: theme },
+		WornContext.Provider,
+		{ value: worn },
 		h(
 			"main",
 			{
@@ -247,11 +262,26 @@ function Block({
 	origin: string | undefined;
 	children: ReactNode;
 }): ReactNode {
-	const theme = useContext(ThemeContext);
+	const { theme, accent, agent } = useContext(WornContext);
+	// Who is speaking is smaller and heavier than what they say, as it is in the terminal: the person's
+	// `❯` takes the theme's accent and the agent's name its own color. A name with no color is drawn in the
+	// text color, so no label wears a color nobody chose.
+	const color = who === "you" ? accent : who === "pi" ? agent : undefined;
 	return h(
 		"li",
 		{ className: `remote-${who}` },
-		h("span", { className: "remote-who" }, who),
+		h(
+			"span",
+			{
+				className: "remote-who",
+				style: {
+					...theme.type.label,
+					fontWeight: "700",
+					color: color ?? theme.color.muted,
+				},
+			},
+			who === "you" ? "\u276F you" : who,
+		),
 		origin === undefined
 			? null
 			: h(
