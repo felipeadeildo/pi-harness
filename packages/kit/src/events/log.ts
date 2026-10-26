@@ -3,12 +3,15 @@
 // harness's extensions share one thread, so lines never interleave and nothing needs a lock.
 import {
 	appendFileSync,
+	existsSync,
 	mkdirSync,
 	readdirSync,
 	readSync,
 	openSync,
 	closeSync,
 	fstatSync,
+	rmSync,
+	statSync,
 	watch,
 } from "node:fs";
 import { join } from "node:path";
@@ -134,7 +137,14 @@ export function logFrom<K extends EventType>(
 export { HOST } from "../host.ts";
 
 /** Reads the whole events written after `offset`. A line still being written waits for the next read. */
-export function readFrom(path: string, offset: number): { events: LoggedEvent[]; offset: number } {
+/** Which event types a reader folds; the others are skipped before they are parsed. */
+export type Wanted = (type: string) => boolean;
+
+export function readFrom(
+	path: string,
+	offset: number,
+	wanted?: Wanted,
+): { events: LoggedEvent[]; offset: number } {
 	let fd: number;
 	try {
 		fd = openSync(path, "r");
@@ -152,10 +162,30 @@ export function readFrom(path: string, offset: number): { events: LoggedEvent[];
 		const events = text
 			.slice(0, end)
 			.split("\n")
-			.flatMap((line) => parsed(line));
+			.flatMap((line) => (wanted === undefined || wanted(typeOf(line)) ? parsed(line) : []));
 		return { events, offset: offset + Buffer.byteLength(text.slice(0, end + 1)) };
 	} finally {
 		closeSync(fd);
+	}
+}
+
+/** How long the log of a session that is not open stays in its folder. */
+export const KEEP_LOGS_MS = 7 * 24 * 60 * 60_000;
+
+/** Deletes the logs of sessions that are not open and have written nothing for `KEEP_LOGS_MS`. */
+export function pruneLogs(dir: string, root = eventsRoot(), now = Date.now()): void {
+	let names: string[];
+	try {
+		names = readdirSync(dir);
+	} catch {
+		return;
+	}
+	for (const name of names) {
+		if (!name.endsWith(".jsonl")) continue;
+		if (existsSync(join(liveDir(root), `${name.slice(0, -".jsonl".length)}.json`))) continue;
+		const path = join(dir, name);
+		const written = statSync(path, { throwIfNoEntry: false })?.mtimeMs ?? now;
+		if (now - written > KEEP_LOGS_MS) rmSync(path, { force: true });
 	}
 }
 
@@ -211,6 +241,16 @@ function isLoggedEvent(value: unknown): value is LoggedEvent {
 	);
 }
 
+const TYPE_KEY = '"type":"';
+
+/** The type of a line as `logEvent` writes it, where `type` comes before `data`. */
+function typeOf(line: string): string {
+	const at = line.indexOf(TYPE_KEY);
+	if (at === -1) return "";
+	const from = at + TYPE_KEY.length;
+	return line.slice(from, line.indexOf('"', from));
+}
+
 function parsed(line: string): LoggedEvent[] {
 	try {
 		const value: unknown = JSON.parse(line);
@@ -226,10 +266,12 @@ function parsed(line: string): LoggedEvent[] {
 /** Every session's log in a folder, read from where it was left: new events, oldest first. */
 export class FolderFeed {
 	readonly #dir: string;
+	readonly #wanted: Wanted | undefined;
 	readonly #offsets = new Map<string, number>();
 
-	constructor(dir: string) {
+	constructor(dir: string, wanted?: Wanted) {
 		this.#dir = dir;
+		this.#wanted = wanted;
 	}
 
 	get dir(): string {
@@ -246,7 +288,7 @@ export class FolderFeed {
 		const fresh: LoggedEvent[] = [];
 		for (const name of files) {
 			const path = join(this.#dir, name);
-			const { events, offset } = readFrom(path, this.#offsets.get(path) ?? 0);
+			const { events, offset } = readFrom(path, this.#offsets.get(path) ?? 0, this.#wanted);
 			this.#offsets.set(path, offset);
 			fresh.push(...events);
 		}

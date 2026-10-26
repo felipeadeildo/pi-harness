@@ -8,7 +8,7 @@ import { readdirSync } from "node:fs";
 
 import { eventsRoot, FolderFeed, roomDir, roomsDir } from "@adeildo/pi-kit";
 
-import { Folder } from "./folder.ts";
+import { Folder, folds } from "./folder.ts";
 
 /** One room as this process holds it. */
 export interface RoomOnDisk {
@@ -43,7 +43,7 @@ export class RoomFeeds {
 		}
 		for (const id of ids) {
 			if (this.#rooms.has(id)) continue;
-			const feed = new FolderFeed(roomDir(id, root));
+			const feed = new FolderFeed(roomDir(id, root), folds);
 			const folder = new Folder();
 			folder.apply(feed.read());
 			this.#rooms.set(id, { id, feed, folder, stop: feed.watch(() => this.#changed()) });

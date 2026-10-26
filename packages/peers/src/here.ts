@@ -23,7 +23,15 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import type { Fit } from "./bid.ts";
 import { doing, stateOf, waiting } from "./cards.ts";
-import { Folder, livePeers, type Peer, type Posted, reaches, receivesFor } from "./folder.ts";
+import {
+	Folder,
+	folds,
+	livePeers,
+	type Peer,
+	type Posted,
+	reaches,
+	receivesFor,
+} from "./folder.ts";
 import { Inbox, type InboxHooks, type PeerMessageDetails, type Sender } from "./inbox.ts";
 import { type Names, namesOf } from "./names.ts";
 import { award, turnToTake } from "./rules.ts";
@@ -242,7 +250,7 @@ export class Here implements Sender {
 		this.#target = place.target;
 		this.#cwd = place.cwd;
 		this.#room = place.room;
-		this.#feed = place.feed ?? new FolderFeed(place.target.dir);
+		this.#feed = place.feed ?? new FolderFeed(place.target.dir, folds);
 		this.#folder = place.folder ?? new Folder(place.cwd);
 		if (place.folder === undefined) this.#folder.apply(this.#feed.read());
 		// Set before logging: the log reads the room, and what it finds is judged against this.

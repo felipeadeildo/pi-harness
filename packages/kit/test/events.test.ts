@@ -1,15 +1,27 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { appendFileSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+	appendFileSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	utimesSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
 	eventsDir,
 	FolderFeed,
+	KEEP_LOGS_MS,
+	liveDir,
 	LOGGED_EVENT,
 	logEvent,
 	logPath,
 	type LogTarget,
+	pruneLogs,
 	readFrom,
 } from "../src/events/log.ts";
 
@@ -91,4 +103,29 @@ test("a feed reads every session in the folder, oldest first, each event once", 
 	expect(feed.read()).toEqual([]);
 	logEvent(target("a"), undefined, "session.ended", {});
 	expect(feed.read().map((event) => event.type)).toEqual(["session.ended"]);
+});
+
+test("a folder drops the logs of sessions that are closed and quiet for a week, and keeps the rest", () => {
+	mkdirSync(dir, { recursive: true });
+	mkdirSync(liveDir(root), { recursive: true });
+	const now = Date.now();
+	const old = (now - KEEP_LOGS_MS - 1_000) / 1_000;
+	for (const session of ["closed", "open", "recent"]) writeFileSync(logPath(target(session)), "");
+	utimesSync(logPath(target("closed")), old, old);
+	utimesSync(logPath(target("open")), old, old);
+	writeFileSync(join(liveDir(root), "open.json"), "{}");
+
+	pruneLogs(dir, root, now);
+
+	expect(existsSync(logPath(target("closed")))).toBe(false);
+	expect(existsSync(logPath(target("open")))).toBe(true);
+	expect(existsSync(logPath(target("recent")))).toBe(true);
+});
+
+test("a feed that wants some types reads only those", () => {
+	const bus = { emit: () => {} };
+	logEvent(target("s1"), bus, "session.named", { handle: "kestrel" });
+	logEvent(target("s1"), bus, "activity", { state: "idle" } as never);
+	const read = new FolderFeed(dir, (type) => type === "session.named").read();
+	expect(read.map((event) => event.type)).toEqual(["session.named"]);
 });

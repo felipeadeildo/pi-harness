@@ -103,3 +103,18 @@ describe("what the composer promises", () => {
 		expect(drawn).toMatch(/❯ +everyone/);
 	});
 });
+
+describe("a room with weeks of messages", () => {
+	test("scrolling to the oldest line laid out brings older ones in and keeps the view still", () => {
+		const me = session("me");
+		for (let at = 0; at < 300; at++) me.post("all", `note ${at}`, "you");
+		const view = room(me);
+		const visible = () => stripTerminalSequences(view.lines(100, 20, false).join("\n"));
+		expect(visible()).toContain("note 299");
+		view.scroll(-10_000);
+		expect(visible()).toMatch(/note 100\n/);
+		view.scroll(-10_000);
+		view.scroll(-10_000);
+		expect(visible()).toContain("note 0");
+	});
+});
