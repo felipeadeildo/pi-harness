@@ -1,7 +1,8 @@
 # 6.0.0
 
-What this release adds is a way to reach a session from a browser, and what it asks of anyone who
-wrote against 5.x is a set of renamed shapes and two changed defaults.
+What this release adds is a way to reach a session from a browser, on the machine or across your
+tailnet, and what it asks of anyone who wrote against 5.x is a set of renamed shapes and two changed
+defaults.
 
 Draft notes for the release pull request. The pending section of `CHANGELOG.md` is rebuilt on every
 push to `main`, so this file is where the writing happens and the merge is where it is pasted.
@@ -11,10 +12,14 @@ push to `main`, so this file is where the writing happens and the merge is where
 - **Your sessions, in a browser.** The first pi on a machine starts a daemon, and `pi-remote open`
   opens the app: it lists what is open, shows the transcript as it streams, and takes a prompt. The
   app is written for iOS and Android too, and no native build is published yet.
-- **On this machine, or through an SSH tunnel.** The daemon listens on `127.0.0.1` and answers only to
-  loopback names, so another computer or a phone reaches it through a tunnel such as
-  `ssh -L 7878:127.0.0.1:7878`. Reaching it through Tailscale, a Cloudflare tunnel or a reverse proxy,
-  with a login of its own, is designed in `docs/remote.md` and not built.
+- **On this machine, and on your tailnet.** The daemon listens on `127.0.0.1`, and on a machine in a
+  Tailscale tailnet also on its tailnet address, at the same port. `/remote` names that address, and a
+  phone or a computer of yours on the tailnet opens it with no link: the daemon asks `tailscale whois`
+  who the device belongs to, and a device of the machine's owner gets its login with the first page.
+  A device another user shares into the tailnet needs a link like any other. Nothing is set up for
+  it. Without Tailscale, a phone reaches the daemon through a tunnel such as
+  `ssh -L 7878:127.0.0.1:7878`. HTTPS through `tailscale serve`, a Cloudflare tunnel or a reverse
+  proxy is designed in `docs/remote.md` and not built.
 - **A session lives as long as its pi.** Closing the terminal ends it. Sessions that keep running
   with no terminal, through a runner, are designed in `docs/remote.md` and not built.
 - **Questions and dialogs answer from there.** A permission gate or a question from the model reaches
