@@ -3,6 +3,14 @@ export type { By } from "../index.ts";
 export { type Client, type ConnectionOptions, connect, type Transport } from "./connection.ts";
 export { advance, type Cursor, decide, type Next } from "./cursor.ts";
 export {
+	foldLive,
+	type Live,
+	type LiveMessage,
+	type LivePart,
+	type LiveTool,
+	NOTHING_LIVE,
+} from "./live.ts";
+export {
 	DaemonAnswer,
 	inOrder,
 	type ListedSession,

@@ -17,6 +17,14 @@ import {
 } from "../index.ts";
 import type { CachedSession, SessionKey } from "./cache.ts";
 import { advance, decide, type Cursor } from "./cursor.ts";
+import {
+	foldLive,
+	isLiveType,
+	type Live,
+	liveFromOpening,
+	NOTHING_LIVE,
+	settledBy,
+} from "./live.ts";
 import type { Outbox } from "./outbox.ts";
 
 export const ENTRY = "entry";
@@ -25,6 +33,8 @@ export const STATE = "state";
 export interface OpeningData {
 	summary: SessionSummary;
 	entries: Entry[];
+	/** The answer being written when the opening was built. */
+	streaming?: unknown;
 }
 
 export interface ClientSession {
@@ -36,8 +46,7 @@ export interface ClientSession {
 	presence?: Presence;
 	/** `null` is the root; `undefined` means no opening said it yet and the last entry stands. */
 	leaf?: string | null;
-	/** By the bridge's stream number. */
-	streamed: Record<string, unknown>;
+	live: Live;
 }
 
 export function sessionOf(key: SessionKey, cached?: CachedSession): ClientSession {
@@ -49,7 +58,7 @@ export function sessionOf(key: SessionKey, cached?: CachedSession): ClientSessio
 		leaf: cached?.leaf,
 		// A cache can be days old, so a stored `active` is dropped.
 		presence: cached?.presence === undefined ? undefined : { viewers: cached.presence.viewers },
-		streamed: {},
+		live: NOTHING_LIVE,
 	};
 }
 
@@ -109,6 +118,7 @@ export function readEnvelope(session: ClientSession, value: unknown): Read {
 							},
 				entries: data.entries,
 				state: data.summary.state ?? session.state,
+				live: data.entries.reduce(settledBy, liveFromOpening(session.live, data.streaming)),
 				leaf,
 				cursor: { ...advance(session.cursor, value), entry: leaf ?? undefined },
 			},
@@ -124,8 +134,21 @@ export function readEnvelope(session: ClientSession, value: unknown): Read {
 			session: {
 				...session,
 				entries: held ? session.entries : [...session.entries, entry],
+				live: settledBy(session.live, entry),
 				leaf: entry.id,
 				cursor: { ...advance(session.cursor, value), entry: entry.id },
+			},
+		};
+	}
+	if (isLiveType(value.type)) {
+		const at = typeof value.at === "number" ? value.at : Date.now();
+		return {
+			read: "now",
+			session: {
+				...session,
+				live: foldLive(session.live, value.type, value.data, at),
+				state: piState(session.state, value.type, value.data),
+				cursor: advance(session.cursor, value),
 			},
 		};
 	}
@@ -157,6 +180,24 @@ export function readEnvelope(session: ClientSession, value: unknown): Read {
 		};
 	}
 	return { read: "now", session: { ...session, cursor: advance(session.cursor, value) } };
+}
+
+/** Pi's own changes of model, thinking level and name, in pi's JSON-mode shapes. */
+function piState(state: SessionState, type: string, data: unknown): SessionState {
+	if (!isObject(data)) return state;
+	if (type === "pi.model_select" && isObject(data.model)) {
+		const { provider, id } = data.model;
+		return typeof provider === "string" && typeof id === "string"
+			? { ...state, model: { provider, id } }
+			: state;
+	}
+	if (type === "pi.thinking_level_select" && typeof data.level === "string")
+		return { ...state, thinkingLevel: data.level };
+	if (type === "pi.session_info_changed") {
+		const { name: _old, ...rest } = state;
+		return typeof data.name === "string" ? { ...rest, name: data.name } : rest;
+	}
+	return state;
 }
 
 export function hello(session: ClientSession): Envelope {
