@@ -100,7 +100,7 @@ describe("the daemon's session list", () => {
 			row({ state: {} }),
 			row({ state: { permissions: { rulings: {} } } }),
 			row({ state: { questions: {} } }),
-			row({ snapshot: { session: "s1" } }),
+			row({ summary: { session: "s1" } }),
 		];
 		const sessions = await listSessions("http://127.0.0.1:7878", answering([...broken, row()]));
 		expect(sessions.map((one) => one.session)).toEqual(["s1"]);
@@ -126,10 +126,13 @@ describe("how a listed session reads", () => {
 		}) as unknown as ListedSession;
 
 	test("the state says where it is, and reconnecting is newer than the last word", () => {
-		expect(stateOf(listed())).toBe("working");
-		expect(stateOf(listed({ connected: false }))).toBe("reconnecting");
+		const blocked = { questions: {}, permissions: { rulings: {} }, status: "blocked" };
+		expect(stateOf(listed({ state: blocked }))).toBe("blocked");
+		expect(stateOf(listed({ summary: { status: "done" } }))).toBe("done");
+		expect(stateOf(listed({ state: blocked, connected: false }))).toBe("reconnecting");
 		expect(stateOf(listed({ gone: "crash" }))).toBe("crash");
-		expect(stateOf(listed({ live: { ...live, kind: "background" } }))).toBe("idle");
+		// A session that has not said how it is doing is not given a word.
+		expect(stateOf(listed())).toBe("");
 	});
 
 	test("a question nobody answered is what makes a session wait on you", () => {
@@ -142,8 +145,8 @@ describe("how a listed session reads", () => {
 
 	test("the permission mode is how a session behaves, not that it is stuck", () => {
 		// `manual` says what happens when the agent edits; a session in it is not waiting on anybody.
-		expect(wantsYou(listed({ snapshot: { status: "working" } }))).toBe(false);
-		expect(wantsYou(listed({ snapshot: { status: "blocked" } }))).toBe(true);
+		expect(wantsYou(listed({ summary: { status: "working" } }))).toBe(false);
+		expect(wantsYou(listed({ summary: { status: "blocked" } }))).toBe(true);
 	});
 
 	test("the ones that need you come first, then the running ones, then what ended", () => {
@@ -162,8 +165,8 @@ describe("how a listed session reads", () => {
 	test("two sessions with the same title keep their order by identity, not by what came first", () => {
 		const same = { name: "the rig" };
 		const order = inOrder([
-			listed({ machine: "b", session: "s2", snapshot: same }),
-			listed({ machine: "a", session: "s1", snapshot: same }),
+			listed({ machine: "b", session: "s2", summary: same }),
+			listed({ machine: "a", session: "s1", summary: same }),
 		]);
 		expect(order.map((one) => one.machine)).toEqual(["a", "b"]);
 	});

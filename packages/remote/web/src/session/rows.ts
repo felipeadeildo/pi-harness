@@ -22,11 +22,11 @@ export interface Row {
 	waits: boolean;
 }
 
-/** What the row calls the session: the title first, then the handle, then the id it was given. */
+/** What the row calls the session: the name it was given, then its handle, then the end of its id. */
 export function nameOf(session: ListedSession): string {
-	const snapshot = session.snapshot;
+	const summary = session.summary;
 	return (
-		snapshot?.name ?? snapshot?.handle ?? session.live.name ?? `new-${session.session.slice(-4)}`
+		summary?.name ?? summary?.handle ?? session.live.name ?? `new-${session.session.slice(-4)}`
 	);
 }
 

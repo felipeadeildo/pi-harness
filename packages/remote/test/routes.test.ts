@@ -3,6 +3,7 @@ import { appendFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { PROTOCOL } from "@adeildo/pi-remote-protocol";
+import { listSessions, stateOf } from "@adeildo/pi-remote-protocol/client";
 
 import { requestLink } from "../src/cli/open.ts";
 import { FILES, History, type Page } from "../src/daemon/history.ts";
@@ -33,6 +34,28 @@ test("the HTTP routes: health, the session list, and a snapshot only for a known
 	expect((await get("/sessions/laptop/%E0%A4%A/opening")).status).toBe(400);
 	expect((await get("/sessions/laptop/s%31/opening")).status).toBe(200);
 	expect((await get("/health")).status).toBe(200);
+});
+
+test("the client reads the list the daemon writes: the handle from the summary, the status from the state", async () => {
+	const { daemon, port, cookie } = await openDaemon();
+	const bridge = await bridgeOf("s1");
+	bridge.send("session.status", { status: "blocked" });
+	bridge.send("state", {
+		summary: {
+			session: "s1",
+			machine: "laptop",
+			cwd: "/repo",
+			kind: "terminal",
+			handle: "kestrel",
+		},
+		entries: [],
+	});
+	await until(() => daemon.sessions.get("s1")?.opening !== undefined);
+	const loggedIn = ((url: string | URL, init?: RequestInit) =>
+		fetch(url, { ...init, headers: { cookie } })) as typeof fetch;
+	const [listed] = await listSessions(`http://127.0.0.1:${port}`, loggedIn);
+	expect(listed?.summary?.handle).toBe("kestrel");
+	expect(listed === undefined ? undefined : stateOf(listed)).toBe("blocked");
 });
 
 test("with no login, the session list, a snapshot, a page and the WebSocket answer 401, and health does not", async () => {

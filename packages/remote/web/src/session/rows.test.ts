@@ -30,12 +30,13 @@ describe("the list of sessions", () => {
 	test("a row carries the name, where it runs and how it is doing", () => {
 		const rows = draw([
 			row({
-				snapshot: {
+				summary: {
 					session: "s1",
 					machine: "here",
 					cwd: "/w",
 					kind: "terminal",
 					name: "the rig",
+					status: "working",
 				} as never,
 			}),
 		]);
@@ -43,16 +44,16 @@ describe("the list of sessions", () => {
 	});
 
 	test("the name is the title, then the handle, then the name the bridge gave it", () => {
-		expect(nameOf(row({ snapshot: { name: "the rig", handle: "rig" } as never }))).toBe("the rig");
-		expect(nameOf(row({ snapshot: { handle: "rig" } as never }))).toBe("rig");
+		expect(nameOf(row({ summary: { name: "the rig", handle: "rig" } as never }))).toBe("the rig");
+		expect(nameOf(row({ summary: { handle: "rig" } as never }))).toBe("rig");
 		expect(nameOf(row({ live: { ...live, name: "from the bridge" } }))).toBe("from the bridge");
 		expect(nameOf(row({ session: "01a16b0a-8f6e-7249-9571-b11736957af9" }))).toBe("new-7af9");
 	});
 
 	test("a row that waits is marked, and the ones that wait come first", () => {
 		const rows = draw([
-			row({ session: "quiet", snapshot: { status: "idle" } as never }),
-			row({ session: "asking", snapshot: { status: "blocked" } as never }),
+			row({ session: "quiet", summary: { status: "idle" } as never }),
+			row({ session: "asking", summary: { status: "blocked" } as never }),
 		]);
 		expect(rows[0]?.session).toBe("asking");
 		expect(rows[0]?.waits).toBe(true);
@@ -60,11 +61,11 @@ describe("the list of sessions", () => {
 	});
 
 	test("a kept order holds its places when one of them starts waiting, and a fresh list sorts", () => {
-		const calm = row({ machine: "box", session: "aaaa", snapshot: { status: "working" } as never });
+		const calm = row({ machine: "box", session: "aaaa", summary: { status: "working" } as never });
 		const other = row({
 			machine: "box",
 			session: "bbbb",
-			snapshot: { status: "working" } as never,
+			summary: { status: "working" } as never,
 		});
 		const kept = [keyOf(other), keyOf(calm)];
 
@@ -73,7 +74,7 @@ describe("the list of sessions", () => {
 		const blocked = row({
 			machine: "box",
 			session: "aaaa",
-			snapshot: { status: "blocked" } as never,
+			summary: { status: "blocked" } as never,
 		});
 		const held = rowsOf([blocked, other], kept);
 		expect(held.map((one) => one.session)).toEqual(["bbbb", "aaaa"]);
