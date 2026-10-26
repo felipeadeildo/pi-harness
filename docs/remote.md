@@ -1,6 +1,6 @@
 # Remote: your sessions from anywhere
 
-This is the design for reaching pi sessions from a phone, a browser or a pi on another machine, for keeping sessions running with no terminal, and for agents on different machines to share a room. Nothing here ships yet. The phases live in [`ROADMAP.md`](../ROADMAP.md#from-anywhere), the slices of work in [`remote-plan.md`](remote-plan.md), and this document says how it works and why.
+This is the design for reaching pi sessions from a phone, a browser or a pi on another machine, for keeping sessions running with no terminal, and for agents on different machines to share a room. 6.0.0 ships the reading, the control, the questions, the commands, the rooms and the board, from one computer, in the browser and in the app. Three parts are design only: background sessions with no terminal (F4, the runner below), reaching past one computer (F3 and F5), and native apps with push (F6). The phases live in [`ROADMAP.md`](../ROADMAP.md#from-anywhere), the slices of work in [`remote-plan.md`](remote-plan.md), and this document says how it works and why.
 
 ## What it is for
 
@@ -42,7 +42,6 @@ Six things should work when this is done:
 | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | machine | A computer that runs the daemon. It has an id, the fingerprint of its key, and a name, its hostname unless renamed                                                                                       |
 | handle  | A session's call sign, one word drawn when it opens, such as `kestrel`. Agents mention it as `@kestrel`. See [Naming](#naming)                                                                           |
-| title   | What a session is about, such as "OAuth for the MCP server". The tasks feature writes it, and it is pi's session name                                                                                    |
 | daemon  | The process of one machine. It routes, caches, serves the web app, logs clients in, starts background sessions and keeps the links                                                                       |
 | bridge  | The extension in every pi process. It publishes the session's events and runs what the daemon forwards                                                                                                   |
 | runner  | `pi-remote run`, the process that holds a background session's `pi --mode rpc`                                                                                                                           |
@@ -141,7 +140,7 @@ A refused start answers with the reason, `starts-off`, `not-granted`, `outside-r
 | State                                                                       | Its owner                      | Where it persists                                                       |
 | --------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------- |
 | The conversation                                                            | The pi process                 | pi's session file, on its machine                                       |
-| The harness's state changes: tasks, rulings, questions, the room's messages | The session that wrote them    | That session's harness log, on its machine. Shared rooms are replicated |
+| The harness's state changes: board, rulings, questions, the room's messages | The session that wrote them    | That session's harness log, on its machine. Shared rooms are replicated |
 | Live state: the streamed message, open questions, the queue, mode, model    | The bridge                     | Nowhere. The daemon keeps a materialized copy for clients               |
 | Which sessions are open                                                     | The presence index, in the kit | `~/.pi/agent/harness/events/live/`, one file per session                |
 | The machine's identity, links, devices, credentials, settings               | The daemon                     | `~/.pi/agent/harness/remote/`                                           |
@@ -170,7 +169,7 @@ A name has to be short enough to type and say, stable enough that an agent can k
 | handle  | One word drawn from the harness's list when the session opens | The hostname, cleaned                | Only when the operator renames it                                                                |
 | aliases | Earlier handles                                               | Earlier names                        | Resolve while the session is live or closed less than 7 days ago, unless someone else holds them |
 
-A session also has a title, what it is about, which the tasks feature writes and which is pi's session name. People read `kestrel · OAuth for the MCP server`; agents write `@kestrel`. The handle is a call sign, never the only label: the title next to it says what the session is.
+A session is known by its handle, one word drawn when it opens, and by the name the person gives it with `/name` or from the phone. People read `kestrel`, and `kestrel · OAuth for the MCP server` once it is named; agents write `@kestrel`. The handle is a call sign, never the only label: the name next to it says what the session is. Nothing writes a name on its own, because what the session is doing is on its board.
 
 ### The word list
 
@@ -269,7 +268,9 @@ A pi process holds one session at a time, though not always the same one. `/relo
 
 ### The runner
 
-`pi-remote run [folder] [--handle h] [--title t] [--model m] [--session id] [--approve | --no-approve]` starts `pi --mode rpc` with those flags, the title as pi's `--name` and the handle as `--handle`, a flag the bridge registers. It then:
+F4, not built: nothing in `packages/remote` starts a pi session today. What follows is the design for it.
+
+`pi-remote run [folder] [--handle h] [--name n] [--model m] [--session id] [--approve | --no-approve]` starts `pi --mode rpc` with those flags, the name as pi's `--name` and the handle as `--handle`, a flag the bridge registers. It then:
 
 - keeps pi's stdin open, because closing it is how pi shuts down in RPC mode;
 - reads pi's stdout continuously, since a reader that stops can stall pi;
@@ -340,7 +341,7 @@ Everything that shows a session draws from a source, and the same shells draw wh
 ```
                 ┌ this pi                 pi.on, ctx                      ┐
 source ─────────┼ a session file here     read and followed, read only    ┼──► shells: transcript, header and footer,
-                ├ another pi here         the daemon's socket             │            editor, questions, tasks, peek
+                ├ another pi here         the daemon's socket             │            editor, questions, board, peek
                 └ another machine         the link                        ┘
 ```
 
@@ -382,7 +383,7 @@ sequenceDiagram
 ```
 
 - **Where.** Only on a machine whose policy accepts starts, and only in a folder under one of its roots, `~` by default, with symlinks resolved before the check. The folder picker lists the folders under each root, recent session folders first.
-- **How.** The daemon passes only the handle it drew, the title when the client gave one, `--model` and `--session`. Everything else comes from the folder's settings, and the trust question, when the folder needs one, is asked as [Trust](#trust) says.
+- **How.** The daemon passes only the handle it drew, the name when the client gave one, `--model` and `--session`. Everything else comes from the folder's settings, and the trust question, when the folder needs one, is asked as [Trust](#trust) says.
 - **Continuing a closed session.** The session list includes recent sessions no process holds. Opening one starts a runner with `--session <id>` on the machine that holds it.
 - **Stopping.** A client can ask any session to end with `session.stop`. The bridge closes the open questions as a no, with the reason `stopped` and the `by` of whoever asked to stop, aborts the run, then calls `ctx.shutdown()`, which waits for `agent_settled`; an open question nobody answers would otherwise keep the run from settling. With `force`, the runner gets SIGTERM, and SIGKILL 5 seconds later.
 - **A crashed background session** shows as crashed with a continue action. Nothing restarts it by itself, because a run that died mid-tool may have left work half done.
@@ -508,11 +509,11 @@ One name per state change, the same on disk, on the wire and inside the process.
 | ------------------ | ------------------------------------ | ------------------------------------------------------------------------ |
 | A state change     | `<subject>.<verb in the past>`       | `ask.opened`, `call.ruled`, `mode.changed`, `machine.linked`             |
 | A command          | `<subject>.<verb in the imperative>` | `prompt.send`, `ask.answer`, `model.set`, `session.stop`                 |
-| A state            | `<subject>`                          | `tasks`, `account`, `mode`, `peers`                                      |
+| A state            | `<subject>`                          | `board`, `account`, `mode`, `peers`                                      |
 | pi's own events    | `pi.<pi's name>`, unchanged          | `pi.message_update`, `pi.agent_settled`                                  |
-| Inside the process | `harness:` + the name                | `harness:tasks` to ask the state, `harness:tasks.changed` for its change |
+| Inside the process | `harness:` + the name                | `harness:board` to ask the state, `harness:board.changed` for its change |
 
-The log types already on disk keep their names, because readers depend on them: `activity`, `session.state`, `session.prompted`, `tasks.board`, `request.bid`. Inside the process, `defineContract` emits a change on both `harness:<name>.changed` and the older `harness:<name>:changed` while packages of earlier versions can be installed beside it.
+The log types already on disk keep their names, because a log written by an older session is still read: `activity`, `session.state`, `session.prompted`, `tasks.board`, `request.bid`. Of the five, `tasks.board` has no reader today. What an older session keeps is what it already spent: the kit's `legacy-tasks.ts` reads `pi-tasks:update`, `pi-tasks:usage` and their older `pi-goal` names for the cost of model calls pi does not count, and for the handle the tasks gave the session. Inside the process, `defineContract` emits a change on both `harness:<name>.changed` and the older `harness:<name>:changed` while packages of earlier versions can be installed beside it.
 
 Ephemeral events never reach the disk or the replay buffer beyond the message being streamed: `pi.message_update`, `pi.tool_execution_update`, `presence.changed`, `draft.typed`.
 
@@ -541,7 +542,7 @@ Ephemeral events never reach the disk or the replay buffer beyond the message be
 
 | Event              | Data                                                             | Logged |
 | ------------------ | ---------------------------------------------------------------- | ------ |
-| `tasks.changed`    | `SessionTasks`                                                   | yes    |
+| `board.changed`    | `BoardView`                                                      | yes    |
 | `call.ruled`       | `{ toolCallId, ruling: CallRuling }`                             | yes    |
 | `ask.opened`       | `{ id, source, questions: AskQuestion[], expiresAt? }`           | yes    |
 | `ask.closed`       | `{ id, by, result: AskResult }`                                  | yes    |
@@ -710,9 +711,9 @@ Each folder member of a shared room becomes the sessions open from that folder a
 
 - **Two groupings.** `g` switches the left list between rooms, as peers does today, and machines. The bottom edge names the one it switches to (`g by machine`, `g by room`). Without remote the machine grouping would hold one machine, so `g` is not offered.
 - **Machines.** Each machine is a header: its name, then a rule to the edge that says its link. A solid rule is live; a dashed one is out of contact, with the time of the last contact at its end. Dashed already means "not current" in the transcript, where it marks the queue. This machine's rule ends in `here`. This machine comes first, the others by name, so headers never move; `w` is how priority is reached. Machines carry no color: agents keep theirs, as everywhere.
-- **Sessions under a machine** are the rows of today: the state mark, the handle in the agent's color, the time, the title. The ones that wait on you come first. Under a dashed header they are `dim`, their spinners stop (motion means live), and the right side says "as of 14:02".
+- **Sessions under a machine** are the rows of today: the state mark, the handle in the agent's color, the time, its name. The ones that wait on you come first. Under a dashed header they are `dim`, their spinners stop (motion means live), and the right side says "as of 14:02".
 - **A machine selected** fills the right side with its state in plain text: since when it is in contact or out of it, how many sessions it holds and what they were at the last contact, and its policy in words (`starts on, ~/Projects`, or `starts off`). No charts: every number there is a single value.
-- **An agent selected** fills the right side with a live peek, read only, in the order it is read: the handle and title; what it waits on you for, in `warning`, when it waits; the tool running now and its last lines; its tasks; then, `dim`, the machine, folder and model, and who else has it open (`also open on phone`). There is nothing to type in it: a session is written to in its view, or through a room.
+- **An agent selected** fills the right side with a live peek, read only, in the order it is read: the handle and its name; what it waits on you for, in `warning`, when it waits; the tool running now and its last lines; its board; then, `dim`, the machine, folder and model, and who else has it open (`also open on phone`). There is nothing to type in it: a session is written to in its view, or through a room.
 - **The top edge** counts what waits on every machine (`⚑ 2 waits`) and how many machines there are. `warning` is the only color that asks for attention.
 
 **Keys and focus**
@@ -726,7 +727,7 @@ Each folder member of a shared room becomes the sessions open from that folder a
 
 - The cursor follows a session id or a machine id, never a row number, so a session moving to the top when it starts to wait does not move the cursor. When the selected session ends, the cursor goes to the next row of its group, else the previous one, else the group's header. A machine dropping out of contact under the cursor changes how its rows look and nothing else.
 - The peek subscribes to its session's stream once the cursor rests on it for 150 ms, and unsubscribes a second after it leaves, so holding ↓ starts no streams. Whatever arrives for a session no longer selected is dropped.
-- Everything another session wrote passes through one kit function before it is drawn: titles, messages, tasks, tool lines, paths, machine names. It is pi-tui's `stripTerminalSequences` followed by removing the control characters that one leaves (BEL, backspace and the rest, other than newline and tab), so no text from another session or machine can set the terminal's title, write to its clipboard or clear its screen. Peers needs this today, for its rooms.
+- Everything another session wrote passes through one kit function before it is drawn: names, messages, board cards, tool lines, paths, machine names. It is pi-tui's `stripTerminalSequences` followed by removing the control characters that one leaves (BEL, backspace and the rest, other than newline and tab), so no text from another session or machine can set the terminal's title, write to its clipboard or clear its screen. Peers needs this today, for its rooms.
 - With the `ascii` icon set the live rule is `-` and the dashed one `.`. Without color, the link reads from the rule's shape and the time, and a waiting session from `⚑` and the word `waits`.
 - Narrower than 72 columns the panel shows one side at a time, as today: the list, then `enter` opens the view directly, with no peek.
 
@@ -738,12 +739,12 @@ State tests for: the cursor staying on a session that moves to the top, the sele
 
 The harness publishes in two ways.
 
-1. **The log on disk**, one file per session under `~/.pi/agent/harness/events/<folder>/`, version 1, written by `logEvent` in `packages/kit/src/events/log.ts`. Today the peers and tasks features write to it.
+1. **The log on disk**, one file per session under `~/.pi/agent/harness/events/<folder>/`, version 1, written by `logEvent` in `packages/kit/src/events/log.ts`. Today the peers and board features write to it.
 2. **`pi.events` inside the process.** Every state contract is a `defineContract` in `packages/kit/src/contract.ts`: readers ask on `harness:<name>`, and the owner announces each change with the whole value.
 
 | Contract        | Channel                                                      | Announces a change                        |
 | --------------- | ------------------------------------------------------------ | ----------------------------------------- |
-| Tasks           | `harness:tasks`, and `harness:tasks:settled`                 | Yes                                       |
+| Board           | `harness:board`, and `harness:board.changed`                 | Yes                                       |
 | Rulings         | `harness:calls:ruling`, keyed by tool call                   | Yes                                       |
 | Peers           | `harness:peers`                                              | Yes                                       |
 | Account         | `harness:accounts:state`, keyed by provider                  | Yes                                       |
@@ -768,7 +769,7 @@ The harness publishes in two ways.
 | providers      | The turn's usage                                                                                                                                                                                                       | `account.switched`, `turn.used`                              |
 | compact        |                                                                                                                                                                                                                        | `context.pruned`                                             |
 | peers          | Reads presence, state and the inbox from the kit; marks undelivered messages                                                                                                                                           | (already writes)                                             |
-| tasks          |                                                                                                                                                                                                                        | (already writes `tasks.changed`)                             |
+| board          | The cards a session keeps, and the panel `Alt+T` draws, from `harness:board`                                                                                                                                           |
 | look           | Nothing: it only draws                                                                                                                                                                                                 |                                                              |
 
 New log types extend `LogEventMap` in `packages/kit/src/contracts/events.ts`, which keeps version 1.
@@ -868,8 +869,8 @@ Expo builds the web, iOS and Android from one React Native codebase, with React 
 
 | Screen               | Shows                                                                                                                                                                                |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Sessions             | Every session on every machine it sees, the ones that need you first, each with its title, machine, state, cost and last line                                                        |
-| Session              | The transcript, with thinking folded into a line ("thought for 12 s") that opens on a tap, the tasks, the question sheet when one is open, and the composer, with the outbox's items |
+| Sessions             | Every session on every machine it sees, the ones that need you first, each with its name, machine, state, cost and last line                                                         |
+| Session              | The transcript, with thinking folded into a line ("thought for 12 s") that opens on a tap, the board, the question sheet when one is open, and the composer, with the outbox's items |
 | New session          | Machine (those that refuse starts greyed, with the reason), folder under its roots, model, name, first message                                                                       |
 | Question             | The questions with their options, previews and notes, the way the terminal shows them                                                                                                |
 | Machines and devices | Linked machines with their state and policy, paired devices, notifications, versions                                                                                                 |
