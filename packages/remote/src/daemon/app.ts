@@ -22,6 +22,9 @@ const TYPES: Record<string, string> = {
 	".woff2": "font/woff2",
 };
 
+/** The paths the page draws with its router, each answered by `/index.html`. */
+const ROUTES = [/^\/session\/[^/]+\/[^/]+\/?$/];
+
 export interface WebApp {
 	/** The export's folder. */
 	dir: string;
@@ -79,7 +82,14 @@ export function fileFor(app: WebApp, path: string): string | undefined {
 	const clean = path.endsWith("/") ? `${path}index.html` : path;
 	for (const candidate of [clean, `${clean}.html`, `${clean}/index.html`])
 		if (app.files.has(candidate)) return candidate;
-	return app.dynamic.find(({ pattern }) => pattern.test(path))?.page;
+	const page = app.dynamic.find(({ pattern }) => pattern.test(path))?.page;
+	if (page !== undefined) return page;
+	// A route the page draws itself has no file: the browser asks for the address and the page's one
+	// `index.html` answers, then the router reads the address. Only the page's routes, so a made-up
+	// path (`/login`, `/sessions`, `/x.js`) still reaches the daemon's own routes or a 404.
+	return ROUTES.some((route) => route.test(path)) && app.files.has("/index.html")
+		? "/index.html"
+		: undefined;
 }
 
 /** Whether a path is one of the app's own files, which a browser fetches before it has a login. */
@@ -107,10 +117,11 @@ export function serveApp(app: WebApp, path: string): Served {
 		headers: {
 			// The page's hashes come from the same bytes that are sent, so the two cannot disagree.
 			"content-security-policy": html ? policyFor(body.toString("utf8")) : POLICY,
-			// Expo names its bundles by their hash, so they never change under the same name.
-			"cache-control": chosen.startsWith("/_expo/static/")
-				? "public, max-age=31536000, immutable"
-				: "no-cache",
+			// The bundles are named by their hash, so they never change under the same name.
+			"cache-control":
+				chosen.startsWith("/_expo/static/") || chosen.startsWith("/assets/")
+					? "public, max-age=31536000, immutable"
+					: "no-cache",
 			"x-content-type-options": "nosniff",
 		},
 		body,

@@ -1,20 +1,9 @@
 // How the page reaches its daemon: the page's own origin, with the login spent once. The page is
 // served by the daemon, so there is one address and it is `location`.
-import { type Cache } from "@adeildo/pi-remote-protocol/client";
-import type { ConnectionOptions } from "@adeildo/pi-remote-protocol/client";
-
 import { pageCache } from "./cache.ts";
 import { fetchLogin, logIn } from "./login.ts";
 import { openSocket, socketUrl } from "./transport.ts";
-
-interface SessionSource {
-	cache: Cache;
-	open: ConnectionOptions["open"];
-	/** What to call this client in the log. */
-	clientName?: string;
-	/** Set when the page cannot open the socket at all, as a refused login leaves it. */
-	why?: string;
-}
+import type { SessionSource } from "./use-session.ts";
 
 let made: Promise<SessionSource> | undefined;
 

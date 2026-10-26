@@ -6,7 +6,10 @@ import { createBrowserRouter, RouterProvider } from "react-router";
 
 import "./app.css";
 
-const router = createBrowserRouter([{ path: "/", lazy: () => import("./pages/sessions.tsx") }]);
+const router = createBrowserRouter([
+	{ path: "/", lazy: () => import("./pages/sessions.tsx") },
+	{ path: "/session/:machine/:id", lazy: () => import("./pages/session.tsx") },
+]);
 
 createRoot(document.getElementById("root") as HTMLElement).render(
 	<StrictMode>

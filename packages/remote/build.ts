@@ -71,17 +71,17 @@ export function foreign(outside: readonly string[], builtins: ReadonlySet<string
 	);
 }
 
-/** The Expo app, whose web export the daemon serves. */
-const APP = join(import.meta.dir, "..", "..", "apps", "remote");
+/** The page the daemon serves. */
+const PAGE = join(import.meta.dir, "web");
 
-/** Runs the app's web export, then packages it next to the daemon. */
+/** Builds the page with Vite, then packages it next to the daemon. */
 export function buildWeb(outdir: string): string[] {
-	const result = spawnSync("bun", ["run", "--cwd", APP, "export"], { stdio: "inherit" });
-	if (result.status !== 0) throw new Error("the app's web export failed");
-	const exported = join(APP, "dist");
-	if (!existsSync(join(exported, "index.html")))
-		throw new Error(`the export left no ${exported}/index.html`);
-	return packageWeb(exported, outdir);
+	const result = spawnSync("bun", ["x", "vite", "build"], { cwd: PAGE, stdio: "inherit" });
+	if (result.status !== 0) throw new Error("the page's build failed");
+	const built = join(PAGE, "dist");
+	if (!existsSync(join(built, "index.html")))
+		throw new Error(`the build left no ${built}/index.html`);
+	return packageWeb(built, outdir);
 }
 
 if (import.meta.main) {
