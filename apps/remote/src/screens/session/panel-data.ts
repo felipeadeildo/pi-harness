@@ -38,6 +38,6 @@ function factOf(card: BoardCard): string {
 export function terminalWait(prompt: SessionState["prompt"]): string | undefined {
 	if (prompt === undefined) return undefined;
 	const title = prompt.title === undefined ? "" : plain(prompt.title).trim();
-	const what = title !== "" ? title : prompt.kind === "editor" ? "an editor" : "a dialog";
-	return `Waiting in the terminal: ${what}`;
+	if (title !== "") return `Waiting in the terminal: ${title}`;
+	return `Waiting in the terminal: ${prompt.kind === "editor" ? "an editor" : "a dialog"}`;
 }
