@@ -323,8 +323,8 @@ export class Bridge {
 				status: SESSION_STATUS.current(scope),
 				// Already folded, so a reader draws the session's state without a replay.
 				state: PRODUCERS.reduce(
-					(state, producer) => producer.apply(state, scope),
-					this.#changes.snapshot(tasks, mode, this.#cost()),
+					(state, producer) => producer.apply(state, scope, this.ctx.sessionManager.getEntries()),
+					this.#changes.snapshot(tasks, mode),
 				),
 			},
 			entries: this.ctx.sessionManager.getBranch().slice(-STATE_ENTRIES),

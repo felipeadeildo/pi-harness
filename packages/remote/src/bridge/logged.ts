@@ -64,11 +64,10 @@ export class Harness {
 	}
 
 	/** The state as it stands, with what pi knows and the log does not. */
-	snapshot(tasks: unknown, mode: unknown, cost: SessionState["cost"]): SessionState {
+	snapshot(tasks: unknown, mode: unknown): SessionState {
 		return {
 			...this.#state,
 			...(tasks === undefined ? {} : { tasks: tasks as SessionState["tasks"] }),
-			...(cost === undefined ? {} : { cost }),
 			permissions: {
 				...this.#state.permissions,
 				...(mode === undefined ? {} : { mode: mode as PermissionMode }),
