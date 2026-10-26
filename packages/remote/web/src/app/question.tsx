@@ -3,6 +3,7 @@
 import type { AskOption, OpenAsk } from "@adeildo/pi-remote-protocol";
 import type { Client } from "@adeildo/pi-remote-protocol/client";
 import {
+	ArrowDown01Icon,
 	ArrowLeft01Icon,
 	ArrowRight01Icon,
 	CheckmarkCircle02Icon,
@@ -28,10 +29,16 @@ export function QuestionPanel({
 	ask,
 	client,
 	asker,
+	fill = false,
+	onFold,
 }: {
 	ask: OpenAsk;
 	client: Client;
 	asker: ReactNode;
+	/** Takes the screen's height, as on a phone where the question is the whole task. */
+	fill?: boolean;
+	/** Folds the question to a bar, to read the conversation. */
+	onFold?: () => void;
 }): ReactNode {
 	const [draft, setDraft] = useState<Draft>(EMPTY);
 	const [index, setIndex] = useState(0);
@@ -52,19 +59,33 @@ export function QuestionPanel({
 	return (
 		<section
 			aria-label="The agent's question"
-			className="flex max-h-[min(78dvh,46rem)] flex-col overflow-hidden rounded-2xl border bg-card shadow-lg"
+			className={cn(
+				"flex flex-col overflow-hidden rounded-2xl border bg-card",
+				fill ? "min-h-0 flex-1" : "max-h-[min(78dvh,46rem)] shadow-lg",
+			)}
 		>
-			<header className="flex items-center gap-2 border-b px-4 py-2.5">
+			<header className="flex shrink-0 items-center gap-2 border-b px-4 py-2.5">
 				<Icon icon={HelpCircleIcon} className="text-waits" />
 				<span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{asker} asks</span>
 				<span className="tabular text-xs text-dim">
 					{index + 1} of {ask.questions.length}
 				</span>
+				{onFold === undefined ? null : (
+					<Button
+						variant="ghost"
+						size="icon"
+						aria-label="Read the conversation"
+						className="-mr-2 size-8"
+						onClick={onFold}
+					>
+						<Icon icon={ArrowDown01Icon} />
+					</Button>
+				)}
 			</header>
 			{ask.questions.length > 1 ? (
 				<nav
 					aria-label="Questions"
-					className="flex gap-1 overflow-x-auto border-b px-2 py-1.5 no-scrollbar"
+					className="flex shrink-0 gap-1 overflow-x-auto border-b px-2 py-1.5 no-scrollbar"
 				>
 					{ask.questions.map((question, at) => (
 						<button
@@ -142,7 +163,7 @@ export function QuestionPanel({
 				</div>
 			</div>
 
-			<footer className="flex items-center gap-2 border-t px-4 py-2.5">
+			<footer className="flex shrink-0 items-center gap-2 border-t px-4 py-2.5">
 				{index === 0 ? (
 					<span className="flex-1" />
 				) : (
@@ -315,5 +336,31 @@ function Preview({ option }: { option: AskOption | undefined }): ReactNode {
 				{plain(option.preview)}
 			</pre>
 		</figure>
+	);
+}
+
+/** A question folded away: one line that says who asks and opens it again. */
+export function FoldedQuestion({
+	ask,
+	asker,
+	onOpen,
+}: {
+	ask: OpenAsk;
+	asker: ReactNode;
+	onOpen: () => void;
+}): ReactNode {
+	const count = ask.questions.length;
+	return (
+		<button
+			type="button"
+			onClick={onOpen}
+			className="flex w-full items-center gap-2 rounded-2xl border border-waits/40 bg-waits/10 px-4 py-3 text-left"
+		>
+			<Icon icon={HelpCircleIcon} className="text-waits" />
+			<span className="min-w-0 flex-1 truncate text-sm">
+				{asker} asks {count === 1 ? "a question" : `${count} questions`}
+			</span>
+			<span className="text-sm font-medium text-waits">Answer</span>
+		</button>
 	);
 }

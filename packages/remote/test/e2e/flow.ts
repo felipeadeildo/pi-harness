@@ -226,9 +226,17 @@ async function carriesTheOpeningsState(page: Page): Promise<Result> {
 	return { ok: false, why: `the page holds no cost the opening carried: ${seen}` };
 }
 
+/** The session's settings sheet, open on one of its rows. */
+async function openSetting(page: Page, row: RegExp): Promise<void> {
+	await page.getByRole("button", { name: /^Session settings: / }).click({ timeout: 20_000 });
+	await page.getByRole("dialog", { name: "Session" }).getByRole("button", { name: row }).click({
+		timeout: 20_000,
+	});
+}
+
 async function marksTheChosenOption(page: Page): Promise<Result> {
 	try {
-		await page.getByRole("button", { name: /^Permission mode: / }).click({ timeout: 20_000 });
+		await openSetting(page, /^Permission mode: /);
 		const sheet = page.getByRole("dialog", { name: "Permission mode" });
 		await sheet.waitFor({ timeout: 20_000 });
 		const row = sheet.getByRole("radio", { checked: true });
@@ -252,9 +260,10 @@ async function searchesModels(page: Page): Promise<Result> {
 	try {
 		// The rig's model is `rig/scripted`. The opening is the only thing that carries it to a page that
 		// opens after the session started, so a chip that names it has read the opening.
-		const chip = page.getByRole("button", { name: /^Model: scripted/ });
-		await chip.waitFor({ timeout: 20_000 });
-		await chip.click({ timeout: 20_000 });
+		await page.getByRole("button", { name: /^Session settings: model scripted/ }).waitFor({
+			timeout: 20_000,
+		});
+		await openSetting(page, /^Model: scripted/);
 		const sheet = page.getByRole("dialog", { name: "Model" });
 		await sheet.waitFor({ timeout: 20_000 });
 		const all = await sheet.getByRole("radio").count();
@@ -558,14 +567,14 @@ async function cachedState(page: Page): Promise<string> {
 
 async function survivesRestart(page: Page): Promise<Result> {
 	try {
-		const dial = page.getByRole("button", { name: /^Permission mode: / });
-		// A dial that is not on the page yet reads as "not edits", so a slow page is a wait and not a
+		const dial = page.getByRole("button", { name: /^Session settings: / });
+		// A field that is not on the page yet reads as "not edits", so a slow page is a wait and not a
 		// 30-second error that says nothing about which part was missing.
 		const isEdits = async (): Promise<boolean> =>
 			(
 				(await dial.getAttribute("aria-label", { timeout: 1_000 }).catch(() => null)) ?? ""
-			).endsWith(": edits");
-		await dial.click({ timeout: 20_000 });
+			).endsWith("permission mode edits");
+		await openSetting(page, /^Permission mode: /);
 		await page.getByRole("radio", { name: "edits", exact: true }).click({ timeout: 20_000 });
 		// The chip follows the state, so a mode that sticks is the state having taken it.
 		const chosen = Date.now() + 20_000;

@@ -162,3 +162,33 @@ describe("the list of sessions", () => {
 		expect(matchRows(rows, "  ")).toHaveLength(2);
 	});
 });
+
+describe("grouped by folder", () => {
+	test("each folder is a group with who needs you first, and closed sessions fold at the end", () => {
+		const at = (session: string, cwd: string, status?: string, gone?: string): ListedSession =>
+			row({
+				session,
+				live: { ...live, cwd },
+				...(status === undefined
+					? {}
+					: { summary: { session, machine: "here", cwd, kind: "terminal", status } as never }),
+				...(gone === undefined ? {} : { gone: gone as never }),
+			});
+		const groups = groupsOf(
+			rowsOf([
+				at("a", "/work/hedy", "idle"),
+				at("b", "/work/pi", "working"),
+				at("c", "/work/hedy", "blocked"),
+				at("d", "/work/pi", undefined, "exit"),
+			]),
+			"folder",
+		);
+		expect(groups.map((group) => [group.title, group.rows.map((one) => one.session)])).toEqual([
+			["hedy", ["c", "a"]],
+			["pi", ["b"]],
+			["Closed", ["d"]],
+		]);
+		expect(groups.at(-1)?.closed).toBe(true);
+		expect(groups[0]?.path).toBe("/work/hedy");
+	});
+});

@@ -2,6 +2,7 @@
 // rises from the bottom on a phone and slides in from the right on a wide screen.
 import {
 	AlertCircleIcon,
+	ArrowLeft01Icon,
 	Cancel01Icon,
 	Flag02Icon,
 	MinusSignCircleIcon,
@@ -138,6 +139,7 @@ export function Panel({
 	children,
 	className,
 	tall = false,
+	back,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -147,6 +149,8 @@ export function Panel({
 	className?: string;
 	/** A fixed height on a phone, for content that changes under the reader's finger. */
 	tall?: boolean;
+	/** A view inside the sheet goes back to the one it came from. */
+	back?: () => void;
 }): ReactNode {
 	const wide = useWide();
 	return (
@@ -164,6 +168,17 @@ export function Panel({
 				)}
 			>
 				<DrawerHeader className="flex-row items-start gap-3 pb-3 text-left group-data-[swipe-axis=y]/drawer-popup:text-left">
+					{back === undefined ? null : (
+						<Button
+							variant="ghost"
+							size="icon"
+							aria-label="Back"
+							className="-ml-2 -mt-1"
+							onClick={back}
+						>
+							<Icon icon={ArrowLeft01Icon} />
+						</Button>
+					)}
 					<div className="min-w-0 flex-1">
 						<DrawerTitle className="wide text-[17px] font-semibold">{title}</DrawerTitle>
 						{description === undefined ? null : (

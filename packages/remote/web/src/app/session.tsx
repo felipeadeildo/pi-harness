@@ -4,6 +4,7 @@ import { openQuestions } from "@adeildo/pi-remote-protocol";
 import {
 	ArrowLeft01Icon,
 	ComputerTerminal01Icon,
+	Folder01Icon,
 	GitBranchIcon,
 	InformationCircleIcon,
 	KanbanIcon,
@@ -16,7 +17,7 @@ import { Link, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { browserSource } from "@/session/browser.ts";
 import { contextShare, folderOf, shortPath } from "@/session/format.ts";
-import { listedOf } from "@/session/listed.ts";
+import { agentsNear, listedOf } from "@/session/listed.ts";
 import { composerOf } from "@/session/live.ts";
 import { terminalWait } from "@/session/panel-data.ts";
 import { plain } from "@/session/plain.ts";
@@ -30,8 +31,8 @@ import { DoingLine, doingOf } from "./activity.tsx";
 import { Board, openCards } from "./board.tsx";
 import { Composer } from "./composer.tsx";
 import { Details } from "./details.tsx";
-import { AgentName, Icon, Panel, StatusMark } from "./kit.tsx";
-import { QuestionPanel } from "./question.tsx";
+import { AgentName, Icon, Panel, useWide } from "./kit.tsx";
+import { FoldedQuestion, QuestionPanel } from "./question.tsx";
 import { Transcript } from "./transcript.tsx";
 
 type Side = "board" | "details" | undefined;
@@ -41,6 +42,9 @@ export function Component(): ReactNode {
 	const scheme = useScheme();
 	const { session, client, why } = useSession({ machine, session: id }, browserSource);
 	const [side, setSide] = useState<Side>(undefined);
+	// On a phone an open question takes the screen; folded, it is a bar over the conversation.
+	const [folded, fold] = useState<string | undefined>(undefined);
+	const wide = useWide();
 
 	if (why !== undefined)
 		return (
@@ -68,6 +72,7 @@ export function Component(): ReactNode {
 	const wait = terminalWait(state.prompt);
 	const cwd = session.summary?.cwd ?? listed?.summary?.cwd ?? listed?.live.cwd;
 	const branch = state.branch ?? listed?.state.branch;
+	const takeover = asked !== undefined && !wide && folded !== asked.id;
 
 	return (
 		<div className="flex h-full min-w-0 flex-1">
@@ -84,32 +89,36 @@ export function Component(): ReactNode {
 						<Icon icon={ArrowLeft01Icon} className="size-5" />
 					</Button>
 					<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-						<div className="flex min-w-0 items-center gap-2">
-							<StatusMark mark={mark} />
-							<h1 className="max-w-[65%] shrink-0 truncate text-[16px] leading-tight">
-								<AgentName name={name} color={color} />
-							</h1>
+						<h1 className="truncate text-[16px] leading-tight font-semibold">
+							<AgentName name={name} color={color} />
+						</h1>
+						<div className="flex min-w-0 items-center gap-2.5 overflow-hidden text-[12.5px] text-muted-foreground">
+							<DoingLine doing={doing} className="min-w-0 shrink overflow-hidden" />
 							{cwd === undefined ? null : (
 								<span
-									className="hidden min-w-0 truncate font-mono text-[12px] text-muted-foreground sm:inline"
+									className={cn(
+										"shrink-0 items-center gap-1 text-dim",
+										doing.live ? "hidden sm:flex" : "flex",
+									)}
 									title={cwd}
 								>
-									{shortPath(cwd)}
-								</span>
-							)}
-							{cwd === undefined ? null : (
-								<span className="truncate font-mono text-[12px] text-muted-foreground sm:hidden">
-									{folderOf(cwd)}
+									<Icon icon={Folder01Icon} className="size-3.5" />
+									<span className="sm:hidden">{folderOf(cwd)}</span>
+									<span className="hidden sm:inline">{shortPath(cwd)}</span>
 								</span>
 							)}
 							{branch === undefined ? null : (
-								<span className="hidden shrink-0 items-center gap-1 font-mono text-[12px] text-dim md:flex">
-									<Icon icon={GitBranchIcon} className="size-3" />
-									{branch}
+								<span
+									className={cn(
+										"min-w-0 shrink items-center gap-1 text-dim",
+										doing.live ? "hidden md:flex" : "flex",
+									)}
+								>
+									<Icon icon={GitBranchIcon} className="size-3.5" />
+									<span className="truncate">{branch}</span>
 								</span>
 							)}
 						</div>
-						<DoingLine doing={doing} className="ps-6 text-[12.5px] text-muted-foreground" />
 					</div>
 					<Button
 						variant="ghost"
@@ -148,16 +157,33 @@ export function Component(): ReactNode {
 					</div>
 				)}
 
-				<Transcript session={session} />
+				<div className={cn("flex min-h-0 flex-1 flex-col", takeover && "hidden")}>
+					<Transcript session={session} />
+				</div>
 
-				<div className="shrink-0 px-3 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
-					<div className="mx-auto w-full max-w-3xl">
-						{asked === undefined ? null : (
+				<div
+					className={cn(
+						"px-3 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6",
+						takeover ? "flex min-h-0 flex-1 flex-col pt-3" : "shrink-0",
+					)}
+				>
+					<div
+						className={cn("mx-auto w-full max-w-3xl", takeover && "flex min-h-0 flex-1 flex-col")}
+					>
+						{asked === undefined ? null : folded === asked.id ? (
+							<FoldedQuestion
+								ask={asked}
+								asker={<AgentName name={name} color={color} />}
+								onOpen={() => fold(undefined)}
+							/>
+						) : (
 							<QuestionPanel
 								key={asked.id}
 								ask={asked}
 								client={client}
 								asker={<AgentName name={name} color={color} />}
+								fill={takeover}
+								{...(wide ? {} : { onFold: () => fold(asked.id) })}
 							/>
 						)}
 						{/* The composer stays mounted behind a question, so the draft is there when it closes. */}
@@ -166,6 +192,7 @@ export function Component(): ReactNode {
 								client={client}
 								view={composerOf(session)}
 								name={name}
+								agents={agentsNear(machine, id)}
 								ask={(question) => window.prompt(question) ?? undefined}
 							/>
 						</div>

@@ -21,7 +21,7 @@ import { Code } from "./code.tsx";
 import { Icon } from "./kit.tsx";
 import { Markdown } from "./markdown.tsx";
 import { SkillsLoaded } from "./skills.tsx";
-import { RunningTools, Steps } from "./steps.tsx";
+import { RunningTools, SessionFolder, Steps } from "./steps.tsx";
 
 export function Transcript({
 	session,
@@ -38,33 +38,38 @@ export function Transcript({
 	);
 	const live = useMemo(() => liveBlocksOf(session.live), [session.live]);
 	const blocks = useMemo(() => joined(written, live), [written, live]);
-	const working = session.live.message !== undefined || Object.keys(session.live.tools).length > 0;
+	// The turn under way starts at the last thing you said; what came before reads as history.
+	const turn = blocks.findLastIndex((block) => block.kind === "you");
 	return (
-		<RunningTools.Provider value={session.live.tools}>
-			<MessageScrollerProvider autoScroll defaultScrollPosition="end">
-				<MessageScroller className="min-h-0 flex-1">
-					<MessageScrollerViewport>
-						<MessageScrollerContent className="mx-auto w-full max-w-3xl gap-5 px-4 pt-4 pb-8 sm:px-6">
-							{blocks.length === 0 ? (
-								<p className="py-16 text-center text-sm text-muted-foreground">Nothing said yet.</p>
-							) : null}
-							{blocks.map((block) => (
-								<MessageScrollerItem
-									key={block.id}
-									messageId={block.id}
-									scrollAnchor={block.kind === "you"}
-									className="[content-visibility:visible]"
-								>
-									<BlockView block={block} trailing={working && block === blocks.at(-1)} />
-								</MessageScrollerItem>
-							))}
-							{footer}
-						</MessageScrollerContent>
-					</MessageScrollerViewport>
-					<MessageScrollerButton />
-				</MessageScroller>
-			</MessageScrollerProvider>
-		</RunningTools.Provider>
+		<SessionFolder.Provider value={session.summary?.cwd}>
+			<RunningTools.Provider value={session.live.tools}>
+				<MessageScrollerProvider autoScroll defaultScrollPosition="end">
+					<MessageScroller className="min-h-0 flex-1">
+						<MessageScrollerViewport>
+							<MessageScrollerContent className="mx-auto w-full max-w-3xl gap-5 px-4 pt-4 pb-8 sm:px-6">
+								{blocks.length === 0 ? (
+									<p className="py-16 text-center text-sm text-muted-foreground">
+										Nothing said yet.
+									</p>
+								) : null}
+								{blocks.map((block, index) => (
+									<MessageScrollerItem
+										key={block.id}
+										messageId={block.id}
+										scrollAnchor={block.kind === "you"}
+										className="[content-visibility:visible]"
+									>
+										<BlockView block={block} current={index > turn} />
+									</MessageScrollerItem>
+								))}
+								{footer}
+							</MessageScrollerContent>
+						</MessageScrollerViewport>
+						<MessageScrollerButton />
+					</MessageScroller>
+				</MessageScrollerProvider>
+			</RunningTools.Provider>
+		</SessionFolder.Provider>
 	);
 }
 
@@ -87,10 +92,10 @@ function joined(written: readonly Block[], live: readonly Block[]): Block[] {
 
 const BlockView = memo(function BlockView({
 	block,
-	trailing,
+	current,
 }: {
 	block: Block;
-	trailing: boolean;
+	current: boolean;
 }): ReactNode {
 	switch (block.kind) {
 		case "you":
@@ -127,7 +132,7 @@ const BlockView = memo(function BlockView({
 				</div>
 			);
 		case "steps":
-			return <Steps lines={block.lines} trailing={trailing} />;
+			return <Steps lines={block.lines} current={current} />;
 		case "shell":
 			return (
 				<Code

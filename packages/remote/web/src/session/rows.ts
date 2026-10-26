@@ -36,12 +36,18 @@ export interface Row {
 }
 
 export interface Group {
-	id: "you" | "working" | "idle" | "closed";
+	id: string;
 	title: string;
 	rows: Row[];
+	/** Sessions that ended, folded at the bottom. */
+	closed?: boolean;
+	/** A folder's group keeps its path, for the title's tooltip. */
+	path?: string;
 }
 
-const GROUPS: readonly Omit<Group, "rows">[] = [
+export type GroupBy = "status" | "folder";
+
+const GROUPS: readonly { id: StatusGroup; title: string }[] = [
 	{ id: "you", title: "Needs you" },
 	{ id: "working", title: "Working" },
 	{ id: "idle", title: "Idle" },
@@ -94,11 +100,31 @@ export function rowsOf(sessions: readonly ListedSession[], kept?: readonly strin
 	});
 }
 
-export function groupsOf(rows: readonly Row[]): Group[] {
+export function groupsOf(rows: readonly Row[], by: GroupBy = "status"): Group[] {
+	if (by === "folder") return byFolder(rows);
 	return GROUPS.map((group) => ({
 		...group,
 		rows: rows.filter((row) => groupOf(row.mark) === group.id),
+		...(group.id === "closed" ? { closed: true } : {}),
 	})).filter((group) => group.rows.length > 0);
+}
+
+/** One group per folder, in the order the folders first appear; a folder's rows by who needs you first. */
+function byFolder(rows: readonly Row[]): Group[] {
+	const open = rows.filter((row) => row.mark !== "closed");
+	const folders = new Map<string, Row[]>();
+	for (const row of open) folders.set(row.path, [...(folders.get(row.path) ?? []), row]);
+	const rank = (row: Row): number => GROUPS.findIndex((group) => group.id === groupOf(row.mark));
+	const groups: Group[] = [...folders].map(([path, inside]) => ({
+		id: `folder:${path}`,
+		title: inside[0]?.folder ?? path,
+		path,
+		rows: inside.toSorted((left, right) => rank(left) - rank(right)),
+	}));
+	const closed = rows.filter((row) => row.mark === "closed");
+	return closed.length === 0
+		? groups
+		: [...groups, { id: "closed", title: "Closed", rows: closed, closed: true }];
 }
 
 export function countOf(rows: readonly Row[]): string {
@@ -121,7 +147,9 @@ export function matchRows(rows: readonly Row[], query: string): Row[] {
 	});
 }
 
-function groupOf(mark: Mark): Group["id"] {
+type StatusGroup = "you" | "working" | "idle" | "closed";
+
+function groupOf(mark: Mark): StatusGroup {
 	switch (mark) {
 		case "waits":
 		case "error":

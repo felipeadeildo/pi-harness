@@ -1,33 +1,22 @@
 // A run of the agent's steps: each thought and each tool call is one line that opens on what it did.
 import type { Live } from "@adeildo/pi-remote-protocol/client";
-import { AiBrain01Icon, AlertCircleIcon, WorkflowSquare03Icon } from "@hugeicons/core-free-icons";
+import {
+	AiBrain01Icon,
+	AlertCircleIcon,
+	ArrowRight01Icon,
+	Loading03Icon,
+	WorkflowSquare03Icon,
+} from "@hugeicons/core-free-icons";
 import { cn } from "cn";
 import { createContext, lazy, type ReactNode, Suspense, useContext, useState } from "react";
 
-import {
-	Trace,
-	TraceCollapsible,
-	TraceCollapsibleContent,
-	TraceCollapsibleTrigger,
-	TraceDescription,
-	TraceIcon,
-	TraceLine,
-	TraceTitle,
-} from "@/components/ui/trace";
 import { duration } from "@/session/format.ts";
 import { plain } from "@/session/plain.ts";
-import {
-	changesOf,
-	commandTitle,
-	countsOf,
-	firstLine,
-	isRunning,
-	spanOf,
-} from "@/session/steps.ts";
+import { changesOf, commandTitle, countsOf, firstLine, spanOf } from "@/session/steps.ts";
 import { type StepLine, type ThoughtLine, type ToolLine, withRunning } from "@/session/turns.ts";
 
 import { Code, languageOfPath } from "./code.tsx";
-import { Icon, useNow } from "./kit.tsx";
+import { Icon, Panel, useNow } from "./kit.tsx";
 import { Markdown } from "./markdown.tsx";
 import { toolIcon } from "./tool-icons.ts";
 
@@ -36,117 +25,148 @@ const Diff = lazy(() => import("./diff.tsx"));
 /** The tools still running, so a line pi wrote follows its call without the transcript redrawing. */
 export const RunningTools = createContext<Live["tools"]>({});
 
-/** A longer run reads as one line, "Worked for 1m 12s", that opens on its steps. */
-const GROUP_FROM = 4;
+/** The session's folder, so a path inside it reads from there. */
+export const SessionFolder = createContext<string | undefined>(undefined);
+
+function inside(path: string, folder: string | undefined): string {
+	if (folder === undefined || path === "") return path;
+	const base = folder.endsWith("/") ? folder : `${folder}/`;
+	return path.startsWith(base) ? path.slice(base.length) : path;
+}
 
 /**
- * A run of steps. Nothing opens or closes by itself, so the page never jumps: a running step says
- * what it does on its own line, and the reader opens what they want to read.
+ * A run of steps. The turn under way reads like the terminal: each call a block that shows what it
+ * runs and the end of what it prints, at a height that stops growing, so the page does not jump. An
+ * earlier turn is one line that opens its steps as a timeline.
  */
 export function Steps({
 	lines,
-	trailing,
+	current,
 }: {
 	lines: readonly StepLine[];
-	trailing: boolean;
+	current: boolean;
 }): ReactNode {
 	const tools = useContext(RunningTools);
 	const shown = lines.map((line) => (line.kind === "tool" ? withRunning(line, tools) : line));
-	const list = (
-		<Trace className="gap-1">
+	if (!current) return <Earlier lines={shown} />;
+	return (
+		<div className="flex flex-col gap-2">
 			{shown.map((line) =>
 				line.kind === "thought" ? (
 					<Thought key={line.id} line={line} />
 				) : (
-					<Tool key={line.id} line={line} />
+					<Block key={line.id} line={line} />
 				),
 			)}
-		</Trace>
-	);
-	if (shown.length < GROUP_FROM) return list;
-	return (
-		<Run lines={shown} trailing={trailing}>
-			{list}
-		</Run>
+		</div>
 	);
 }
 
-function Run({
-	lines,
-	trailing,
-	children,
-}: {
-	lines: readonly StepLine[];
-	trailing: boolean;
-	children: ReactNode;
-}): ReactNode {
-	// Open when it is what the agent is doing as the page opens, and it stays as the reader leaves it.
-	const [open, setOpen] = useState(trailing);
-	const running = lines.some(isRunning);
-	const now = useNow(1000, running);
-	const span = spanOf(lines, running ? now : undefined);
+/** An earlier turn's steps: what they did and how long, a tap away from each one. */
+function Earlier({ lines }: { lines: readonly StepLine[] }): ReactNode {
+	const [open, setOpen] = useState(false);
+	const span = spanOf(lines, undefined);
 	const failed = lines.some((line) => line.kind === "tool" && line.status === "error");
-	let title = running ? "Working" : "Worked";
-	if (span !== undefined) title += ` for ${duration(span)}`;
+	const counts = countsOf(lines);
+	const thoughts = lines.filter((line) => line.kind === "thought").length;
+	const said =
+		counts || (thoughts > 0 ? `thought ${thoughts === 1 ? "once" : `${thoughts} times`}` : "");
 	return (
-		<Trace>
-			<TraceCollapsible open={open} onOpenChange={setOpen}>
-				<TraceCollapsibleTrigger className="!w-full">
-					<TraceLine className="w-full" {...(running ? { status: "running" as const } : {})}>
-						<TraceIcon>
-							<Icon
-								icon={failed ? AlertCircleIcon : WorkflowSquare03Icon}
-								className={failed ? "text-destructive" : undefined}
-							/>
-						</TraceIcon>
-						<TraceTitle className="flex-none">{title}</TraceTitle>
-						<TraceDescription className="min-w-0 flex-1 truncate">
-							{countsOf(lines)}
-						</TraceDescription>
-					</TraceLine>
-				</TraceCollapsibleTrigger>
-				<TraceCollapsibleContent keepMounted className="pt-1.5 pl-1">
-					{children}
-				</TraceCollapsibleContent>
-			</TraceCollapsible>
-		</Trace>
+		<>
+			<button
+				type="button"
+				onClick={() => setOpen(true)}
+				className="group flex w-full min-w-0 items-center gap-2 rounded-lg py-1 text-left text-[13.5px] text-muted-foreground transition-colors hover:text-foreground"
+			>
+				<Icon
+					icon={failed ? AlertCircleIcon : WorkflowSquare03Icon}
+					className={failed ? "text-destructive" : "text-dim"}
+				/>
+				<span className="shrink-0">
+					{span === undefined ? "Worked" : `Worked for ${duration(span)}`}
+				</span>
+				<span className="min-w-0 truncate text-dim">{said}</span>
+				<Icon icon={ArrowRight01Icon} className="ml-auto size-3.5 text-dim" />
+			</button>
+			<Panel open={open} onOpenChange={setOpen} title="Steps" tall>
+				<ol className="relative flex flex-col gap-3 pb-2 before:absolute before:top-3 before:bottom-3 before:left-[11px] before:w-px before:bg-border">
+					{lines.map((line) => (
+						<li key={line.id} className="relative flex min-w-0 gap-3">
+							<span className="relative z-10 mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-popover">
+								<Icon
+									icon={line.kind === "thought" ? AiBrain01Icon : toolIcon(line.name)}
+									className={cn(
+										"size-3.5",
+										line.kind === "tool" && line.status === "error"
+											? "text-destructive"
+											: "text-muted-foreground",
+									)}
+								/>
+							</span>
+							<div className="min-w-0 flex-1">
+								{line.kind === "thought" ? <Thought line={line} /> : <Block line={line} bare />}
+							</div>
+						</li>
+					))}
+				</ol>
+			</Panel>
+		</>
 	);
 }
 
-/** The step's time, to the right of every line so the times read as a column. */
-function Took({ ms }: { ms: number | undefined }): ReactNode {
+/** The step's time, at the right edge so the times read as a column. */
+function Took({ ms, live }: { ms: number | undefined; live: boolean }): ReactNode {
 	if (ms === undefined) return null;
 	return (
-		<span className="ml-auto shrink-0 pl-2 text-[11.5px] text-dim tabular-nums">
+		<span
+			className={cn(
+				"ml-auto shrink-0 pl-2 text-[11.5px] tabular-nums",
+				live ? "text-muted-foreground" : "text-dim",
+			)}
+		>
 			{duration(ms)}
 		</span>
 	);
 }
 
+/** A thought: two lines of it, the last two while it thinks, and all of it a tap away. */
 function Thought({ line }: { line: ThoughtLine }): ReactNode {
+	const [open, setOpen] = useState(false);
 	const now = useNow(1000, line.streaming && line.since !== undefined);
-	const said = plain(line.text).trim();
-	// While it thinks, the line shows its latest sentence; once done, its first.
-	const preview = (line.streaming ? said.split("\n").at(-1) : said.split("\n")[0]) ?? "";
+	const said = plain(line.text)
+		.replace(/[*_`#]/g, "")
+		.trim();
+	const shown = line.streaming ? said.split("\n").filter(Boolean).slice(-2).join(" ") : said;
 	let took = line.durationMs;
 	if (line.streaming && line.since !== undefined) took = now - line.since;
 	return (
-		<Folding
-			head={
-				<TraceLine className="w-full" {...(line.streaming ? { status: "running" as const } : {})}>
-					<TraceIcon>
-						<Icon icon={AiBrain01Icon} />
-					</TraceIcon>
-					<TraceTitle className="flex-none">{line.streaming ? "Thinking" : "Thought"}</TraceTitle>
-					<TraceDescription className="min-w-0 flex-1 truncate">
-						{preview.replace(/[*_`#]/g, "")}
-					</TraceDescription>
-					<Took ms={took} />
-				</TraceLine>
-			}
-			body={<Markdown text={line.text} />}
-			className="text-[13.5px]"
-		/>
+		<div className="flex min-w-0 flex-col gap-1">
+			<button
+				type="button"
+				aria-expanded={open}
+				onClick={() => setOpen(!open)}
+				className="flex min-w-0 items-center gap-2 text-left text-[13.5px] text-muted-foreground transition-colors hover:text-foreground"
+			>
+				<Icon icon={AiBrain01Icon} className={line.streaming ? "text-pi" : "text-dim"} />
+				<span className={cn("shrink-0", line.streaming && "shimmer motion-reduce:shimmer-none")}>
+					{line.streaming
+						? "Thinking"
+						: took === undefined
+							? "Thought"
+							: `Thought for ${duration(took)}`}
+				</span>
+				{line.streaming ? <Took ms={took} live /> : null}
+			</button>
+			{open ? (
+				<div className="border-l-2 border-border pl-3 text-[13.5px] text-muted-foreground">
+					<Markdown text={line.text} streaming={line.streaming} />
+				</div>
+			) : shown === "" ? null : (
+				<p className="line-clamp-2 border-l-2 border-border pl-3 text-[13px] leading-snug text-dim">
+					{shown}
+				</p>
+			)}
+		</div>
 	);
 }
 
@@ -154,50 +174,19 @@ interface Shown {
 	title: ReactNode;
 	note?: string;
 	body?: ReactNode;
+	/** The few lines the block shows unopened: the end of the output, the start of a diff. */
+	peek?: { lines: string[]; tone?: "diff" | "error" };
 }
 
-function Tool({ line }: { line: ToolLine }): ReactNode {
-	const running = line.status === "running" || line.status === "writing";
-	const now = useNow(1000, running && line.startedAt !== undefined);
-	const shown = shownOf(line);
-	let took = line.durationMs;
-	if (running && line.startedAt !== undefined) took = now - line.startedAt;
-	const status = TRACE_STATUS[line.status];
-	const head = (
-		<TraceLine {...(status === undefined ? {} : { status })} className="w-full">
-			<TraceIcon>
-				<Icon icon={toolIcon(line.name)} />
-			</TraceIcon>
-			<TraceTitle
-				className={cn(
-					"min-w-0 flex-[0_1_auto]",
-					CODE_TITLES.has(line.name) && "font-mono text-[12.5px]",
-				)}
-			>
-				{shown.title}
-			</TraceTitle>
-			<TraceDescription className="min-w-0 flex-1 truncate font-mono text-[11.5px]">
-				{noteOf(line, shown)}
-			</TraceDescription>
-			<Took ms={took} />
-		</TraceLine>
-	);
-	if (shown.body === undefined) return head;
-	return <Folding head={head} body={shown.body} className="pr-0 text-foreground" />;
-}
-
-/** What a step says beside its name: what it found, or while it runs, how far it got. */
-function noteOf(line: ToolLine, shown: Shown): string | undefined {
-	if (line.status === "running" && line.name === "bash") {
-		const last = plain(line.output ?? "")
-			.trimEnd()
-			.split("\n")
-			.at(-1)
-			?.trim();
-		if (last !== undefined && last !== "") return last;
-	}
-	return shown.note;
-}
+/** Tools that only look, drawn as a line without a block. */
+const QUIET: ReadonlySet<string> = new Set([
+	"read",
+	"grep",
+	"find",
+	"ls",
+	"web_search",
+	"fetch_content",
+]);
 
 /** Tools whose subject is a command or a path, set in the code face. */
 const CODE_TITLES: ReadonlySet<string> = new Set([
@@ -210,30 +199,165 @@ const CODE_TITLES: ReadonlySet<string> = new Set([
 	"ls",
 ]);
 
-const TRACE_STATUS: Record<ToolLine["status"], "running" | "error" | "pending" | undefined> = {
-	writing: "running",
-	running: "running",
-	pending: "pending",
-	error: "error",
-	done: undefined,
-};
+const PEEK_LINES = 4;
 
-/** Closed until the reader opens it. */
-function Folding({
-	head,
-	body,
-	className,
-}: {
-	head: ReactNode;
-	body: ReactNode;
-	className?: string;
-}): ReactNode {
-	return (
-		<TraceCollapsible>
-			<TraceCollapsibleTrigger className="!w-full">{head}</TraceCollapsibleTrigger>
-			<TraceCollapsibleContent className={className}>{body}</TraceCollapsibleContent>
-		</TraceCollapsible>
+/**
+ * Writing is the model still typing the call: a dashed frame, a caret, no clock. Running is the
+ * tool at work: a solid frame, a spinner and the time it has taken.
+ */
+function Block({ line, bare = false }: { line: ToolLine; bare?: boolean }): ReactNode {
+	const [open, setOpen] = useState(false);
+	const folder = useContext(SessionFolder);
+	const writing = line.status === "writing";
+	const running = line.status === "running";
+	const now = useNow(1000, running && line.startedAt !== undefined);
+	const shown = shownOf(line, folder);
+	let took = writing ? undefined : line.durationMs;
+	if (running && line.startedAt !== undefined) took = now - line.startedAt;
+	const failed = line.status === "error";
+	const quiet = QUIET.has(line.name) && !failed;
+	const head = (
+		<span className="flex min-w-0 items-center gap-2">
+			<StatusIcon line={line} />
+			<span
+				className={cn(
+					"min-w-0 truncate",
+					CODE_TITLES.has(line.name) ? "font-mono text-[12.5px]" : "text-[13.5px]",
+					(running || writing) && "text-foreground",
+				)}
+			>
+				{shown.title}
+			</span>
+			{shown.note === undefined ? null : (
+				<span className="shrink-0 font-mono text-[11.5px] text-dim">{shown.note}</span>
+			)}
+			{writing ? (
+				<span className="ml-auto shrink-0 pl-2 text-[11.5px] text-pi">writing</span>
+			) : (
+				<Took ms={took} live={running} />
+			)}
+		</span>
 	);
+	const toggle = shown.body === undefined ? undefined : () => setOpen(!open);
+	if (quiet || bare)
+		return (
+			<div className="flex min-w-0 flex-col gap-1.5">
+				<button
+					type="button"
+					aria-expanded={toggle === undefined ? undefined : open}
+					disabled={toggle === undefined}
+					onClick={toggle}
+					className="min-w-0 text-left text-muted-foreground transition-colors hover:text-foreground disabled:hover:text-muted-foreground"
+				>
+					{head}
+				</button>
+				{open ? shown.body : null}
+			</div>
+		);
+	// A call being written shows its caret even before its first character.
+	const peeked = writing && shown.peek?.lines.length === 0 ? [""] : (shown.peek?.lines ?? []);
+	return (
+		<div
+			className={cn(
+				"overflow-hidden rounded-xl border bg-raised transition-colors",
+				writing && "border-dashed border-pi/50",
+				running && "border-pi/40",
+				failed && "border-destructive/40",
+			)}
+		>
+			<button
+				type="button"
+				aria-expanded={toggle === undefined ? undefined : open}
+				disabled={toggle === undefined}
+				onClick={toggle}
+				className="block w-full min-w-0 px-3 py-2 text-left text-muted-foreground"
+			>
+				{head}
+			</button>
+			{open ? (
+				<div className="border-t px-2 pt-2 pb-2">{shown.body}</div>
+			) : peeked.length === 0 ? null : (
+				<pre
+					className={cn(
+						"border-t px-3 py-2 font-mono text-[11.5px] leading-relaxed whitespace-pre-wrap break-all text-muted-foreground",
+						// Written text wraps, and its newest line with the caret stays in view.
+						writing && "flex max-h-28 flex-col justify-end overflow-hidden",
+					)}
+				>
+					{peeked.map((text, at) => (
+						<span
+							key={at}
+							className={cn("block", !writing && "truncate", peekTone(text, shown.peek?.tone))}
+						>
+							{text === "" && !writing ? " " : text}
+							{writing && at === peeked.length - 1 ? <Caret /> : null}
+						</span>
+					))}
+				</pre>
+			)}
+		</div>
+	);
+}
+
+function peekTone(text: string, tone: "diff" | "error" | undefined): string | undefined {
+	if (tone === "error") return "text-destructive/90";
+	if (tone !== "diff") return undefined;
+	if (text.startsWith("+")) return "text-ok";
+	if (text.startsWith("-")) return "text-destructive/90";
+	return undefined;
+}
+
+/** Where the model is typing. */
+function Caret(): ReactNode {
+	return (
+		<span
+			aria-hidden="true"
+			className="ml-px inline-block h-[1.1em] w-[0.55em] translate-y-[0.15em] animate-[caret_1s_steps(1)_infinite] bg-pi/80 motion-reduce:animate-none"
+		/>
+	);
+}
+
+function StatusIcon({ line }: { line: ToolLine }): ReactNode {
+	switch (line.status) {
+		case "writing":
+			return <Icon icon={toolIcon(line.name)} className="text-pi" />;
+		case "running":
+			return (
+				<Icon icon={Loading03Icon} className="animate-spin text-pi motion-reduce:animate-none" />
+			);
+		case "error":
+			return <Icon icon={toolIcon(line.name)} className="text-destructive" />;
+		case "pending":
+			return <Icon icon={toolIcon(line.name)} className="text-dim" />;
+		default:
+			return <Icon icon={toolIcon(line.name)} className="text-dim" />;
+	}
+}
+
+/** An edit's first changed lines, from pi's patch or, while it is written, from its arguments. */
+function changedLines(patch: string | undefined, edits: unknown): string[] {
+	if (patch !== undefined)
+		return patch
+			.split("\n")
+			.filter((one) => /^[+-]/.test(one) && !/^(\+\+\+|---)/.test(one))
+			.slice(0, PEEK_LINES);
+	const list = Array.isArray(edits) ? edits : [];
+	return list
+		.flatMap((one: unknown) => {
+			const { oldText, newText } = (one ?? {}) as { oldText?: unknown; newText?: unknown };
+			return [
+				...(typeof oldText === "string" ? oldText.split("\n").map((text) => `-${text}`) : []),
+				...(typeof newText === "string" ? newText.split("\n").map((text) => `+${text}`) : []),
+			];
+		})
+		.slice(0, PEEK_LINES);
+}
+
+/** The last lines a reader would look at: what a command printed last. */
+function tail(text: string | undefined): string[] {
+	if (text === undefined) return [];
+	const lines = plain(text).replace(/\s+$/, "").split("\n");
+	return lines.slice(-PEEK_LINES);
 }
 
 function text(value: unknown): string {
@@ -254,15 +378,21 @@ function output(line: ToolLine, language = "ansi"): ReactNode {
 	);
 }
 
-function shownOf(line: ToolLine): Shown {
+function shownOf(line: ToolLine, folder?: string): Shown {
 	const args = line.args;
-	const path = text(args.path) || text(args.file_path);
+	const full = text(args.path) || text(args.file_path);
+	const path = inside(full, folder);
 	switch (line.name) {
 		case "bash": {
 			const command = text(args.command);
 			const multiline = command.trim().includes("\n");
 			return {
 				title: commandTitle(command) || "bash",
+				// While it is written, the command as it comes; once it runs, what it prints last.
+				peek:
+					line.status === "writing"
+						? { lines: command.split("\n").slice(-PEEK_LINES) }
+						: { lines: tail(line.output), ...(line.status === "error" ? { tone: "error" } : {}) },
 				body: (
 					<div className="flex flex-col gap-2">
 						{multiline ? (
@@ -291,6 +421,7 @@ function shownOf(line: ToolLine): Shown {
 			return {
 				title: path || "edit",
 				...(patch === undefined ? {} : { note: changesOf(patch) }),
+				peek: { lines: changedLines(patch, args.edits), tone: "diff" },
 				body:
 					patch === undefined ? (
 						<EditsPreview edits={args.edits} path={path} following={line.status === "writing"} />
@@ -304,9 +435,15 @@ function shownOf(line: ToolLine): Shown {
 		case "write": {
 			const content = text(args.content);
 			const lines = content === "" ? 0 : content.split("\n").length;
+			const written = content.split("\n");
 			return {
 				title: path || "write",
 				note: `${lines} line${lines === 1 ? "" : "s"}`,
+				// While it is written, its newest lines; once written, its first.
+				peek: {
+					lines:
+						line.status === "writing" ? written.slice(-PEEK_LINES) : written.slice(0, PEEK_LINES),
+				},
 				body: (
 					<Code
 						code={content}
@@ -333,6 +470,7 @@ function shownOf(line: ToolLine): Shown {
 		case "codemode":
 			return {
 				title: "codemode",
+				peek: { lines: tail(line.output) },
 				body: (
 					<div className="flex flex-col gap-2">
 						<Code code={text(args.code)} language="javascript" size="sm" maxHeight="max-h-60" />

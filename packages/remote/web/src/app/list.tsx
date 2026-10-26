@@ -5,10 +5,16 @@ import {
 	ArrowDown01Icon,
 	Cancel01Icon,
 	ComputerIcon,
+	Flag02Icon,
+	Folder01Icon,
 	GitBranchIcon,
 	HelpCircleIcon,
+	Loading03Icon,
+	MinusSignCircleIcon,
+	PauseIcon,
 	Search01Icon,
 } from "@hugeicons/core-free-icons";
+import type { IconSvgElement } from "@hugeicons/react";
 import { cn } from "cn";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
@@ -20,6 +26,7 @@ import { rememberListed } from "@/session/listed.ts";
 import {
 	countOf,
 	type Group,
+	type GroupBy,
 	groupsOf,
 	keyOf,
 	matchRows,
@@ -85,17 +92,21 @@ function useSessions(): {
 export function SessionList({ current }: { current?: string }): ReactNode {
 	const { sessions, why, kept } = useSessions();
 	const [query, setQuery] = useState("");
+	const [by, groupBy] = useGroupBy();
 	const now = useNow(5000);
 	if (why !== undefined) return <p className="p-4 text-sm text-destructive">{why}</p>;
 	if (sessions === undefined) return <ListSkeleton />;
 	const rows = rowsOf(sessions, kept);
 	const shown = matchRows(rows, query);
-	const groups = groupsOf(shown);
+	const groups = groupsOf(shown, by);
 	return (
 		<div className="flex flex-col gap-3">
-			<p className="px-1 text-[13px] text-muted-foreground">
-				{rows.length === 0 ? "None open" : countOf(rows)}
-			</p>
+			<div className="flex items-center gap-2 px-1">
+				<p className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
+					{rows.length === 0 ? "None open" : countOf(rows)}
+				</p>
+				{rows.length > 1 ? <GroupSwitch by={by} onChange={groupBy} /> : null}
+			</div>
 			{rows.length > 3 ? (
 				<label className="flex h-10 items-center gap-2 rounded-xl border bg-raised px-3 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
 					<Icon icon={Search01Icon} className="text-dim" />
@@ -132,6 +143,7 @@ export function SessionList({ current }: { current?: string }): ReactNode {
 				<GroupView
 					key={group.id}
 					group={group}
+					by={by}
 					current={current}
 					now={now}
 					machines={new Set(rows.map((row) => row.machine)).size}
@@ -141,13 +153,71 @@ export function SessionList({ current }: { current?: string }): ReactNode {
 	);
 }
 
+const GROUP_KEY = "pi-remote:group-by";
+
+function useGroupBy(): [GroupBy, (by: GroupBy) => void] {
+	const [by, setBy] = useState<GroupBy>(() =>
+		localStorage.getItem(GROUP_KEY) === "folder" ? "folder" : "status",
+	);
+	return [
+		by,
+		(next) => {
+			localStorage.setItem(GROUP_KEY, next);
+			setBy(next);
+		},
+	];
+}
+
+function GroupSwitch({
+	by,
+	onChange,
+}: {
+	by: GroupBy;
+	onChange: (by: GroupBy) => void;
+}): ReactNode {
+	return (
+		<div
+			role="radiogroup"
+			aria-label="Group by"
+			className="flex shrink-0 rounded-lg bg-muted p-0.5"
+		>
+			{(["status", "folder"] as const).map((one) => (
+				<button
+					type="button"
+					role="radio"
+					aria-checked={by === one}
+					key={one}
+					onClick={() => onChange(one)}
+					className={cn(
+						"rounded-md px-2.5 py-1 text-xs transition-colors",
+						by === one
+							? "bg-background font-medium text-foreground shadow-sm"
+							: "text-muted-foreground",
+					)}
+				>
+					{one === "status" ? "Status" : "Folder"}
+				</button>
+			))}
+		</div>
+	);
+}
+
+const GROUP_ICON: Record<string, IconSvgElement> = {
+	you: Flag02Icon,
+	working: Loading03Icon,
+	idle: PauseIcon,
+	closed: MinusSignCircleIcon,
+};
+
 function GroupView({
 	group,
+	by,
 	current,
 	now,
 	machines,
 }: {
 	group: Group;
+	by: GroupBy;
 	current: string | undefined;
 	now: number;
 	machines: number;
@@ -161,21 +231,27 @@ function GroupView({
 						current={current === `${row.machine}/${row.session}`}
 						now={now}
 						showMachine={machines > 1}
+						showFolder={by === "status" || group.closed === true}
 					/>
 				</li>
 			))}
 		</ul>
 	);
+	const icon = group.path === undefined ? GROUP_ICON[group.id] : Folder01Icon;
 	const title = (
-		<span className="flex items-center gap-1.5 px-1 text-xs font-semibold text-muted-foreground">
+		<span
+			className="flex items-center gap-2 px-1 text-[13px] font-semibold text-foreground"
+			title={group.path}
+		>
+			{icon === undefined ? null : <Icon icon={icon} className="size-3.5 text-dim" />}
 			{group.title}
 			<span className="tabular font-normal text-dim">{group.rows.length}</span>
 		</span>
 	);
-	if (group.id !== "closed")
+	if (group.closed !== true)
 		return (
 			<section className="flex flex-col gap-1">
-				<h2>{title}</h2>
+				<h2 className="sticky top-0 z-10 -mx-1 bg-background/95 px-1 py-1.5">{title}</h2>
 				{rows}
 			</section>
 		);
@@ -198,11 +274,13 @@ function SessionRow({
 	current,
 	now,
 	showMachine,
+	showFolder,
 }: {
 	row: Row;
 	current: boolean;
 	now: number;
 	showMachine: boolean;
+	showFolder: boolean;
 }): ReactNode {
 	const scheme = useScheme();
 	const color = piColor(scheme, row.color);
@@ -221,7 +299,9 @@ function SessionRow({
 			<div className="flex min-w-0 flex-1 flex-col gap-1">
 				<div className="flex min-w-0 items-baseline gap-2">
 					<AgentName name={row.name} color={color} className="text-[15px]" />
-					<span className="min-w-0 truncate text-[13px] text-muted-foreground">{row.folder}</span>
+					{showFolder ? (
+						<span className="min-w-0 truncate text-[13px] text-muted-foreground">{row.folder}</span>
+					) : null}
 					{row.at === undefined ? null : (
 						<time className="tabular ms-auto shrink-0 text-xs text-dim">{ago(row.at, now)}</time>
 					)}

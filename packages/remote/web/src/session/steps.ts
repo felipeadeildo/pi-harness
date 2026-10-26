@@ -1,11 +1,6 @@
 // What a run of steps says about itself: how long it took, what it did, and each step's subject.
 import type { StepLine } from "./turns.ts";
 
-export function isRunning(line: StepLine): boolean {
-	if (line.kind === "thought") return line.streaming;
-	return line.status === "running" || line.status === "writing";
-}
-
 /** From the first step that started to the last that ended, or to now while one runs. */
 export function spanOf(lines: readonly StepLine[], now: number | undefined): number | undefined {
 	let first: number | undefined;
