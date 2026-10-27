@@ -12,7 +12,7 @@ content and hands the lines to `frame()`.
 ```
 ╭─ Title ──────────────────────────────── status ─╮
 │  content, two columns in from the side          │
-│▌ ❯ the selected row, its label in bold          │
+│  ❯ the selected row, its label in bold          │
 │  ────────────────────────────── a quiet rule    │
 │  more content                                   │
 ╰─ ↑↓ move   enter pick   esc close ───── note ──╯
@@ -39,16 +39,14 @@ color, weight and glyphs only.
 
 ## The selected row
 
-Three marks, always together:
+Two marks, always together:
 
 1. `❯ ` in the accent in front of it (`pointer()`); the other rows keep the two columns empty so
    nothing shifts.
 2. Its label in bold.
-3. The accent bar `▌` against the frame's left side (`{ text, selected: true }`), when the list is the
-   leftmost column.
 
-When the list does not have the keys, as the agents in the room while you write, the pointer turns
-`dim` and the bar goes away.
+The frame draws nothing of its own on the row. When the list does not have the keys, as the agents in
+the room while you write, the pointer turns `dim`.
 
 ## Shapes
 

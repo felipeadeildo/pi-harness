@@ -181,7 +181,6 @@ export class PeersPanel implements Component, Focusable {
 
 		const list = this.#listLines(rooms, open, side);
 		const shown = scrolled(list.lines, list.cursorAt, height);
-		const cursorRow = this.#pane === "rooms" ? list.cursorAt - shown.start : -1;
 		const right = this.#mainLines(open, main, height);
 
 		const column = theme.fg("borderMuted", LINE.v);
@@ -194,7 +193,7 @@ export class PeersPanel implements Component, Focusable {
 				const gap = " ".repeat(Math.max(0, side - visibleWidth(clipped)));
 				text = `${clipped}${gap} ${column} ${right[line] ?? ""}`;
 			} else text = showMain && !showList ? (right[line] ?? "") : left;
-			body.push({ text, selected: showList && line === cursorRow });
+			body.push(text);
 		}
 		return frame(theme, width, body, {
 			title: open?.name ?? "Peers",

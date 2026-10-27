@@ -14,20 +14,15 @@ const plain = {
 
 describe("the frame", () => {
 	test("title and status in the top edge, keys in the bottom, rows padded to the width", () => {
-		const lines = frame(
-			plain,
-			30,
-			["hello", { text: `${pointer(plain, true)}picked`, selected: true }],
-			{
-				title: "Tasks",
-				status: "3 done",
-				keys: [["esc", "close"]],
-			},
-		);
+		const lines = frame(plain, 30, ["hello", `${pointer(plain, true)}picked`], {
+			title: "Tasks",
+			status: "3 done",
+			keys: [["esc", "close"]],
+		});
 		expect(lines).toEqual([
 			"\u256d\u2500 Tasks \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 3 done \u2500\u256e",
 			"\u2502  hello                     \u2502",
-			"\u2502\u258c \u276f picked                  \u2502",
+			"\u2502  \u276f picked                  \u2502",
 			"\u2570\u2500 esc close \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f",
 		]);
 		for (const line of lines) expect(visibleWidth(line)).toBe(30);

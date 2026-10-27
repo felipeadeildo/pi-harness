@@ -150,7 +150,7 @@ export class AccountsView implements Component, Focusable {
 				row === undefined
 					? this.addLine()
 					: this.accountLine(row, columns, states.get(row.id) ?? "", inner);
-			lines.push({ text, selected: item === this.cursor });
+			lines.push(text);
 		}
 		const status = this.statusLine(rows);
 		if (status !== undefined) lines.push("", status);

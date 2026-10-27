@@ -108,10 +108,9 @@ export class FramedSelect implements Component {
 			start > 0 || end < this.options.length
 				? `${this.selected + 1}/${this.options.length}`
 				: undefined;
-		const rows = this.options.slice(start, end).map((option, index) => ({
-			text: this.row(option, start + index, inner),
-			selected: start + index === this.selected,
-		}));
+		const rows = this.options
+			.slice(start, end)
+			.map((option, index) => this.row(option, start + index, inner));
 		return frame(this.theme, width, rows, {
 			title: this.title,
 			keys: KEYS,

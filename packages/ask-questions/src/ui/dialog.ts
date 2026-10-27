@@ -135,7 +135,6 @@ export class QuestionDialog implements Component, Focusable {
 	private panelFor = "";
 	private panelRoom = 1;
 	private overflow = false;
-	private pickedLine = -1;
 
 	private focusedFlag = false;
 	get focused(): boolean {
@@ -312,13 +311,7 @@ export class QuestionDialog implements Component, Focusable {
 	}
 
 	render(width: number): string[] {
-		const { lines, selected } = this.body(frameInner(width));
-		return frame(
-			this.theme,
-			width,
-			lines.map((text, index) => ({ text, selected: index === selected })),
-			this.chrome(),
-		);
+		return frame(this.theme, width, this.body(frameInner(width)), this.chrome());
 	}
 
 	chrome(): { title: string; status: string; keys: KeyHint[] } {
@@ -328,18 +321,17 @@ export class QuestionDialog implements Component, Focusable {
 		return { title: this.title(), status: count, keys: this.hint() };
 	}
 
-	body(inner: number): { lines: string[]; selected: number } {
+	body(inner: number): string[] {
 		const lines: string[] = [];
 		// The tabs, or a blank line, so the question does not touch the title.
 		lines.push(this.tabbed ? this.tabBar(inner) : "");
 		this.overflow = false;
-		this.pickedLine = -1;
 		lines.push(
 			...(this.onSubmitTab
 				? this.submitLines(inner)
 				: this.questionLines(inner, this.tui.terminal.rows)),
 		);
-		return { lines, selected: this.pickedLine < 0 ? -1 : this.pickedLine + 1 };
+		return lines;
 	}
 
 	private get onSubmitTab(): boolean {
@@ -685,8 +677,6 @@ export class QuestionDialog implements Component, Focusable {
 			layout === "beside"
 				? this.besideBody(question, draft, { left, width, inner, wanted, budget, titled })
 				: this.belowBody(question, draft, { inner, wanted, budget, titled });
-		// The option still arriving gets no accent bar, since it cannot be picked yet.
-		this.pickedLine = this.onArriving ? -1 : asked.length + 1 + this.row;
 		return [...asked, "", ...body];
 	}
 

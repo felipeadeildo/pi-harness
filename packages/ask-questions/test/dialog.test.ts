@@ -236,6 +236,14 @@ describe("several questions", () => {
 });
 
 describe("drawing", () => {
+	test("the chosen option is marked once, by the pointer, with no bar on the edge", () => {
+		const { dialog } = open(AUTH);
+		const chosen = dialog.render(80).filter((line) => line.includes("\u276f"));
+		expect(chosen).toHaveLength(1);
+		expect(chosen[0]).toMatch(/^\u2502 {2}\u276f/);
+		expect(dialog.render(80).join("\n")).not.toContain("\u258c");
+	});
+
 	test("the question sits at the frame's padding, with no bar beside it", () => {
 		const { dialog } = open(AUTH);
 		const asked = dialog.render(80).find((line) => line.includes(AUTH.question));

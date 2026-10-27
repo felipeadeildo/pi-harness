@@ -10,12 +10,11 @@ export const FRAME_X = 2 + FRAME_PAD * 2;
 export const FRAME_Y = 2;
 
 export const POINTER = GLYPH.pointer;
-const BAR = GLYPH.bar;
 
 export type KeyHint = readonly [key: string, action: string];
 
-/** A selected line gets the bar on the left edge. */
-export type FrameLine = string | { text: string; selected?: boolean };
+/** The chosen row marks itself with `pointer`; the frame draws every row the same. */
+export type FrameLine = string;
 
 export interface FrameOptions extends BottomOptions {
 	title: string;
@@ -68,14 +67,10 @@ export function frame(
 		tabs === undefined
 			? []
 			: [
-					row(theme, border, width, tabsLine(theme, tabs, frameInner(width)), false),
+					row(theme, border, width, tabsLine(theme, tabs, frameInner(width))),
 					divider(theme, border, width, column),
 				];
-	const rows = body.map((line) =>
-		typeof line === "string"
-			? row(theme, border, width, line, false)
-			: row(theme, border, width, line.text, line.selected === true),
-	);
+	const rows = body.map((line) => row(theme, border, width, line));
 	return [top, ...head, ...rows, frameBottom(theme, width, options)];
 }
 
@@ -127,23 +122,14 @@ function fitKeys(theme: Theme, keys: readonly KeyHint[], room: number): KeyHint[
 	return kept;
 }
 
-function row(
-	theme: Theme,
-	border: ThemeColor,
-	width: number,
-	text: string,
-	selected: boolean,
-): string {
+function row(theme: Theme, border: ThemeColor, width: number, text: string): string {
 	const inner = frameInner(width);
 	const cells = visibleWidth(text);
 	const clipped = cells > inner ? truncateToWidth(text, inner, CUT) : text;
 	const shown = cells > inner ? visibleWidth(clipped) : cells;
 	const fill = " ".repeat(Math.max(0, inner - shown));
 	const side = theme.fg(border, LINE.v);
-	const lead = selected
-		? `${theme.fg("accent", BAR)}${" ".repeat(FRAME_PAD - 1)}`
-		: " ".repeat(FRAME_PAD);
-	return `${side}${lead}${clipped}${fill}${" ".repeat(FRAME_PAD)}${side}`;
+	return `${side}${" ".repeat(FRAME_PAD)}${clipped}${fill}${" ".repeat(FRAME_PAD)}${side}`;
 }
 
 export function rule(theme: Theme, width: number, note = ""): string {

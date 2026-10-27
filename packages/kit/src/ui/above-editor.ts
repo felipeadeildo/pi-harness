@@ -33,7 +33,6 @@ export interface AboveEditorChrome {
 	title: string;
 	status?: string;
 	keys?: readonly KeyHint[];
-	selected?: number;
 }
 
 export interface AboveEditorResult<T> {
@@ -156,23 +155,18 @@ export function openAboveEditor<T>(
 						const body = [...lines, ...Array.from({ length: tallest - lines.length }, () => "")];
 						const chrome = drawn.chrome?.();
 						const own = chrome?.keys ?? [];
-						return frame(
-							theme,
-							width,
-							body.map((text, index) => ({ text, selected: index === chrome?.selected })),
-							{
-								title: chrome?.title ?? options.title ?? "",
-								status: chrome?.status,
-								keys: [
-									...own,
-									...(options.escape === "view" || own.length > 0
-										? []
-										: [["esc", "close"] as [string, string]]),
-									[ABOVE_EDITOR_FOCUS_KEY, "editor"],
-								],
-								border: focused ? "accent" : "border",
-							},
-						);
+						return frame(theme, width, body, {
+							title: chrome?.title ?? options.title ?? "",
+							status: chrome?.status,
+							keys: [
+								...own,
+								...(options.escape === "view" || own.length > 0
+									? []
+									: [["esc", "close"] as [string, string]]),
+								[ABOVE_EDITOR_FOCUS_KEY, "editor"],
+							],
+							border: focused ? "accent" : "border",
+						});
 					},
 					handleInput(data: string): void {
 						drawn.handleInput(data);
