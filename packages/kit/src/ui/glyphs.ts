@@ -94,8 +94,18 @@ export const LINE = {
 	h: "\u2500",
 	/** │ */
 	v: "\u2502",
-	/** ┃ the thumb of a scroll bar. */
+	/** ┃ the thumb of a scroll bar, and the sides of what is chosen. */
 	vHeavy: "\u2503",
+	/** ━ */
+	hHeavy: "\u2501",
+	/** ┏ */
+	topLeftHeavy: "\u250f",
+	/** ┓ */
+	topRightHeavy: "\u2513",
+	/** ┗ */
+	bottomLeftHeavy: "\u2517",
+	/** ┛ */
+	bottomRightHeavy: "\u251b",
 	/** ┄ a frame around what has not happened yet. */
 	hDashed: "\u2504",
 	/** ┆ */

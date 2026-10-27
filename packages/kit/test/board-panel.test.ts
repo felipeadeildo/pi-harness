@@ -136,11 +136,25 @@ describe("the board panel", () => {
 			})),
 		);
 		const { drawn } = panel(tall, { rows: 20 });
-		expect(drawn.render(120).join("\n")).not.toContain("Card number 12");
+		const first = drawn.render(120).join("\n");
+		expect(first).not.toContain("Card number 12");
+		expect(first).toContain("\u2193 more below");
 		for (let step = 0; step < 11; step++) drawn.handleInput("j");
 		const text = drawn.render(120).join("\n");
 		expect(text).toContain("Card number 12");
 		expect(text).not.toContain("Card number 1 ");
+		expect(text).toContain("\u2191 more above");
+	});
+
+	test("the chosen card is drawn heavy, and only it", () => {
+		const two = applied(
+			{ op: "add", title: "First", column: "todo", at: 1 },
+			{ op: "add", title: "Second", column: "todo", at: 2 },
+		);
+		const lines = panel(two).drawn.render(120);
+		const heavy = lines.filter((line) => line.includes("\u250f"));
+		expect(heavy).toHaveLength(1);
+		expect(lines[lines.indexOf(heavy[0] ?? "") + 1]).toContain("First");
 	});
 
 	test("escape, q and Alt+T close it", () => {

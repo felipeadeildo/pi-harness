@@ -73,7 +73,11 @@ async function mounted(
 			setEditorText: (text: string) => (editor = text),
 			addAutocompleteProvider: () => {},
 			setWidget: () => {},
-			theme: { fg: (_color: string, text: string) => text, bold: (text: string) => text },
+			theme: {
+				fg: (_color: string, text: string) => text,
+				bg: (_color: string, text: string) => text,
+				bold: (text: string) => text,
+			},
 		},
 		isIdle: () => true,
 	});

@@ -7,6 +7,9 @@ import { Input, Key, matchesKey, wrapTextWithAnsi } from "@earendil-works/pi-tui
 
 import type { LiveSession, Room, RoomsView } from "../model.ts";
 
+/** The pointer's two cells. Headings start after them too, so a column has one left edge. */
+export const GUTTER = "  ";
+
 interface Row {
 	key: string;
 	member: Member;
@@ -118,13 +121,14 @@ export class Picker {
 		const rows = this.#rows();
 		this.#cursor = Math.max(0, Math.min(this.#cursor, rows.length - 1));
 		const label = "folder or name";
-		const [query = ""] = this.#query.render(Math.max(1, width - label.length - 2));
+		const inner = width - GUTTER.length;
+		const [query = ""] = this.#query.render(Math.max(1, inner - label.length - 2));
 		const picked = this.#picked.size;
 		const lines = [
-			theme.fg("accent", theme.bold(this.title())),
+			GUTTER + theme.fg("accent", theme.bold(this.title())),
 			"",
-			`${theme.fg("muted", label)}  ${query}`,
-			rule(theme, width, picked === 0 ? "" : theme.fg("muted", `${picked} picked`)),
+			`${GUTTER}${theme.fg("muted", label)}  ${query}`,
+			GUTTER + rule(theme, inner, picked === 0 ? "" : theme.fg("muted", `${picked} picked`)),
 		];
 		if (rows.length === 0)
 			return [
@@ -132,8 +136,8 @@ export class Picker {
 				...wrapped(
 					theme,
 					"Nothing open matches. A folder joins a room only while an agent is open in it.",
-					width,
-				),
+					inner,
+				).map((line) => GUTTER + line),
 			];
 		const listed = rows.map((row, index) => this.#row(row, index === this.#cursor, width));
 		return [...lines, ...scrolled(listed, this.#cursor, Math.max(1, height - lines.length)).lines];
@@ -145,11 +149,11 @@ export class Picker {
 		const [name = ""] = naming.render(Math.max(1, width - "name  ".length));
 		const who = [...this.#picked.values()].map((row) => row.label).join(", ");
 		return [
-			theme.fg("accent", theme.bold(this.title())),
+			GUTTER + theme.fg("accent", theme.bold(this.title())),
 			"",
-			`${theme.fg("muted", "name")}  ${name}`,
+			`${GUTTER}${theme.fg("muted", "name")}  ${name}`,
 			"",
-			...wrapped(theme, `with ${who}`, width),
+			...wrapped(theme, `with ${who}`, width - GUTTER.length).map((line) => GUTTER + line),
 		];
 	}
 
@@ -159,18 +163,13 @@ export class Picker {
 		const picked = covered || this.#picked.has(row.key);
 		const mark = picked ? theme.fg("accent", GLYPH.dot) : theme.fg("dim", GLYPH.ring);
 		const label = chosen ? theme.bold(row.label) : row.label;
-		if (row.folder === undefined)
-			return spread(
-				`${pointer(theme, chosen)}${mark} ${label}`,
-				theme.fg("dim", "the folder, every session in it"),
-				width,
-			);
-		const note = covered ? "with the folder" : "only this session";
-		return spread(
-			`${pointer(theme, chosen)}    ${mark} ${label}  ${theme.fg("dim", row.state)}`,
-			theme.fg("dim", note),
-			width,
-		);
+		const note = chosen ? theme.fg("dim", noteOf(row, covered)) : "";
+		// A session's mark sits under its folder's name.
+		const left =
+			row.folder === undefined
+				? `${pointer(theme, chosen)}${mark} ${label}`
+				: `${pointer(theme, chosen)}  ${mark} ${label}  ${theme.fg("dim", row.state)}`;
+		return spread(left, note, width);
 	}
 
 	#rows(): Row[] {
@@ -236,6 +235,12 @@ export class Picker {
 		this.#cursor = (this.#cursor + delta + count) % count;
 		this.#options.requestRender();
 	}
+}
+
+/** What picking the row brings, said on the row under the cursor only. */
+function noteOf(row: Row, covered: boolean): string {
+	if (row.folder === undefined) return "the folder, every session in it";
+	return covered ? "with the folder" : "only this session";
 }
 
 function wrapped(theme: Theme, text: string, width: number): string[] {

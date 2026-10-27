@@ -1,8 +1,7 @@
 import { basename } from "node:path";
 
-// The `Alt+G` panel: a tab per room along the top, the open room's conversation, and who is in it in
-// a column at the right. The line you write in always has the keys: tab goes to the next room, and
-// what acts on a room or an agent holds alt, so typing never reaches it.
+// The `Alt+G` panel. The line you write in always has the keys, so what acts on a room or an agent
+// holds alt.
 import {
 	FRAME_X,
 	FRAME_Y,
@@ -33,7 +32,7 @@ import type { Here } from "../here.ts";
 import type { LiveSession, Room, RoomsView } from "../model.ts";
 import { agentLines, inOrder, MARKS } from "./agents.ts";
 import { FRAME_MS } from "./motion.ts";
-import { Picker, scrolled, sessionRow } from "./picker.ts";
+import { GUTTER, Picker, scrolled, sessionRow } from "./picker.ts";
 import { RoomView } from "./room.ts";
 
 const FOLDER = "";
@@ -114,7 +113,6 @@ export class PeersPanel implements Component, Focusable {
 		return { handled: true };
 	}
 
-	/** The keys that act on the room and its agents hold alt, so typing never reaches them. */
 	#roomKey(data: string, open: Room | undefined): boolean {
 		const { view } = this.#options;
 		if (matchesKey(data, Key.alt("up"))) return this.#movePointer(-1);
@@ -159,8 +157,8 @@ export class PeersPanel implements Component, Focusable {
 		const rooms = this.#options.view.rooms();
 		const open = this.#openRoom();
 		const inner = Math.max(20, width - FRAME_X);
-		// The tabs and the line under them take two rows.
-		const height = Math.max(6, this.#options.rows() - FRAME_Y - 2);
+		// The tabs and the line under them take two rows, and one empty row opens both columns.
+		const height = Math.max(6, this.#options.rows() - FRAME_Y - 3);
 		const beside = inner >= BESIDE;
 		const side = beside ? Math.max(SIDE_MIN, Math.min(SIDE_MAX, Math.floor(inner * 0.28))) : 0;
 		const main = beside ? inner - side - 3 : inner;
@@ -176,7 +174,7 @@ export class PeersPanel implements Component, Focusable {
 
 		const column = theme.fg("borderMuted", LINE.v);
 		const body: FrameLine[] = [];
-		for (let line = 0; line < height; line++) {
+		for (let line = -1; line < height; line++) {
 			const text = left[line] ?? "";
 			if (!beside) {
 				body.push(text);
@@ -184,7 +182,7 @@ export class PeersPanel implements Component, Focusable {
 			}
 			const clipped = truncateToWidth(text, main, "");
 			const gap = " ".repeat(Math.max(0, main - visibleWidth(clipped)));
-			body.push(`${clipped}${gap} ${column} ${right[line] ?? ""}`);
+			body.push(`${clipped}${gap} ${column}${line < 0 ? "" : ` ${right[line] ?? ""}`}`);
 		}
 		const current = Math.max(
 			0,
@@ -200,7 +198,6 @@ export class PeersPanel implements Component, Focusable {
 		});
 	}
 
-	/** A room's tab: how this session stands in it, its name, and what waits there. */
 	#tab(room: Room, open: boolean): string {
 		const { theme } = this.#options;
 		const badge = this.#badge(room);
@@ -216,7 +213,7 @@ export class PeersPanel implements Component, Focusable {
 		const live = inOrder(here.live(), here.session);
 		const pointed = this.#pointed;
 		const selected = live.findIndex((peer) => peer.session === pointed);
-		const lines = ["", heading(theme, "Agents", live.length)];
+		const lines = [GUTTER + heading(theme, "Agents", live.length)];
 		const agents = agentLines(live, here.names().bySession, {
 			theme,
 			now: this.#now(),
@@ -230,7 +227,7 @@ export class PeersPanel implements Component, Focusable {
 		this.#pointedLine = selected >= 0 ? lines.length + agents.selectedAt : 0;
 		lines.push(...agents.lines);
 		const folders = open.id === undefined ? [] : open.folders;
-		if (folders.length > 0) lines.push("", heading(theme, "Folders", folders.length));
+		if (folders.length > 0) lines.push("", GUTTER + heading(theme, "Folders", folders.length));
 		for (const folder of folders) {
 			const isPointed = pointed === folderKey(folder.path);
 			if (isPointed) this.#pointedLine = lines.length;
@@ -240,12 +237,11 @@ export class PeersPanel implements Component, Focusable {
 		return lines;
 	}
 
-	/** What can be done to the open room, at the foot of the column, by the room it acts on. */
 	#actionLines(open: Room, width: number): string[] {
 		const { theme } = this.#options;
 		const key = (keys: string, does: string): string =>
-			truncateToWidth(`${theme.fg("muted", keys)} ${theme.fg("dim", does)}`, width, "");
-		const lines = ["", theme.bold(theme.fg("muted", "This room")), key("alt+m", modeKey(open))];
+			truncateToWidth(`${GUTTER}${theme.fg("muted", keys)} ${theme.fg("dim", does)}`, width, "");
+		const lines = ["", GUTTER + heading(theme, "This room"), key("alt+m", modeKey(open))];
 		if (open.id !== undefined)
 			lines.push(key("alt+a", "add someone"), key("alt+l", "leave"), key("alt+x", "close it"));
 		lines.push(key("alt+c", "new room"));
@@ -507,8 +503,9 @@ function folderKey(path: string): string {
 	return `folder ${path}`;
 }
 
-function heading(theme: Theme, label: string, count: number): string {
-	return `${theme.bold(theme.fg("muted", label))} ${theme.fg("dim", String(count))}`;
+function heading(theme: Theme, label: string, count?: number): string {
+	const title = theme.bold(theme.fg("muted", label));
+	return count === undefined ? title : `${title} ${theme.fg("dim", String(count))}`;
 }
 
 /** Exactly `height` lines, so what comes under them stays at the bottom. */

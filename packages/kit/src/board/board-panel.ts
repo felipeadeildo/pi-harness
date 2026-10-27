@@ -7,9 +7,7 @@ import {
 	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 
-// The Alt+T board, full screen and drawn as a board: a column each for doing, in review, to do and
-// done, every card in its own box, the backlog and the last decision in a strip at the foot. Enter
-// opens the chosen card in full. It only reads; the agent writes the board with the tool.
+// The Alt+T board. It only reads; the agent writes the board with the tool.
 import { FRAME_X, FRAME_Y, frame, type KeyHint } from "../ui/frame.ts";
 import { GLYPH, LINE } from "../ui/glyphs.ts";
 import {
@@ -55,7 +53,6 @@ export interface BoardPanelOptions {
 	close: () => void;
 	requestRender: () => void;
 	read?: () => Board;
-	/** The terminal's height; the panel fills it. */
 	rows?: () => number;
 	now?: () => number;
 }
@@ -97,10 +94,13 @@ export class BoardPanel implements Component {
 		const drawn = lanesLines(lanes, chosen?.id, theme, inner);
 		const empty = lanes.every((lane) => lane.cards.length === 0);
 		const body = empty ? emptyLines(theme, inner) : this.#scrolled(drawn.lines, drawn.chosen, room);
+		const above = !empty && this.#top > 0;
+		const below = !empty && this.#top + room < drawn.lines.length;
 		return frame(theme, width, ["", ...fit(body, room), "", ...foot], {
 			title: "Board",
 			status,
 			keys: this.#keys(empty),
+			footnote: theme.fg("dim", moreText(above, below)),
 			border: "borderMuted",
 		});
 	}
@@ -204,6 +204,14 @@ function countsOf(board: Board): string {
 	return parts.join("   ");
 }
 
+/** The board scrolls with the chosen card, so the foot says when it goes on past the screen. */
+function moreText(above: boolean, below: boolean): string {
+	if (above && below) return `${GLYPH.up}${GLYPH.down} more`;
+	if (above) return `${GLYPH.up} more above`;
+	if (below) return `${GLYPH.down} more below`;
+	return "";
+}
+
 /** The columns side by side, or one under another when the terminal is too narrow for four. */
 function lanesLines(
 	lanes: readonly Lane[],
@@ -245,9 +253,9 @@ function laneLines(
 	const [mark, color] = MARKS[lane.column];
 	const count =
 		lane.total === lane.cards.length ? `${lane.total}` : `${lane.cards.length} of ${lane.total}`;
-	const lines = [
-		pad(`${theme.fg(color, mark)} ${theme.bold(label)} ${theme.fg("dim", count)}`, width),
-	];
+	const here = lane.cards.some((card) => card.id === chosen);
+	const name = here ? theme.bold(label) : theme.fg("muted", label);
+	const lines = [pad(`${theme.fg(color, mark)} ${name} ${theme.fg("dim", count)}`, width)];
 	if (lane.cards.length === 0)
 		return { lines: [...lines, pad(theme.fg("dim", "  nothing here"), width)] };
 	let at: { from: number; to: number } | undefined;
@@ -259,7 +267,6 @@ function laneLines(
 	return at === undefined ? { lines } : { lines, chosen: at };
 }
 
-/** A card as a box: its mark and title, then what it is doing, waits on or delivered. */
 function boxLines(card: BoardCard, chosen: boolean, theme: Theme, width: number): string[] {
 	const inner = Math.max(4, width - 4);
 	const [mark, color] = card.blocked === undefined ? MARKS[card.column] : WAITING;
@@ -268,6 +275,17 @@ function boxLines(card: BoardCard, chosen: boolean, theme: Theme, width: number)
 		: card.blocked === undefined
 			? "borderMuted"
 			: "warning";
+	// The chosen card is drawn heavy, so it stands out by its shape and not only by its color.
+	const [h, v, tl, tr, bl, br] = chosen
+		? [
+				LINE.hHeavy,
+				LINE.vHeavy,
+				LINE.topLeftHeavy,
+				LINE.topRightHeavy,
+				LINE.bottomLeftHeavy,
+				LINE.bottomRightHeavy,
+			]
+		: [LINE.h, LINE.v, LINE.topLeft, LINE.topRight, LINE.bottomLeft, LINE.bottomRight];
 	const pr = card.pr === undefined ? "" : ` ${theme.fg("dim", `#${card.pr}`)}`;
 	const title = clipped(
 		wrapTextWithAnsi(`${card.title}${pr}`, inner - 2).map((line, index) =>
@@ -287,13 +305,13 @@ function boxLines(card: BoardCard, chosen: boolean, theme: Theme, width: number)
 					DETAIL_LINES,
 					inner,
 				);
-	const side = theme.fg(edge, LINE.v);
+	const side = theme.fg(edge, v);
 	const row = (text: string): string => `${side} ${pad(text, inner)} ${side}`;
 	return [
-		theme.fg(edge, `${LINE.topLeft}${LINE.h.repeat(width - 2)}${LINE.topRight}`),
+		theme.fg(edge, `${tl}${h.repeat(width - 2)}${tr}`),
 		...title.map(row),
 		...detail.map(row),
-		theme.fg(edge, `${LINE.bottomLeft}${LINE.h.repeat(width - 2)}${LINE.bottomRight}`),
+		theme.fg(edge, `${bl}${h.repeat(width - 2)}${br}`),
 	];
 }
 
@@ -306,7 +324,6 @@ function detailOf(card: BoardCard, theme: Theme): string | undefined {
 	return card.now === undefined ? undefined : theme.fg("muted", card.now);
 }
 
-/** The backlog and the last decision, one line each, under the columns. */
 function footLines(board: Board, theme: Theme, inner: number): string[] {
 	const lines: string[] = [];
 	const backlog = board.cards.filter((card) => card.column === "backlog");

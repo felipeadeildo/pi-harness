@@ -66,19 +66,31 @@ export function frame(
 	const head =
 		tabs === undefined
 			? []
-			: [
-					row(theme, border, width, tabsLine(theme, tabs, frameInner(width))),
-					divider(theme, border, width, column),
-				];
+			: [tabsRow(theme, border, width, tabs), divider(theme, border, width, column)];
 	const rows = body.map((line) => row(theme, border, width, line));
 	return [top, ...head, ...rows, frameBottom(theme, width, options)];
 }
 
-/** When they do not fit, the tabs before the current one give way first. */
+/** The tabs start one cell into the padding, so each tab's name lines up with the body under it. */
+function tabsRow(theme: Theme, border: ThemeColor, width: number, tabs: FrameTabs): string {
+	const inner = frameInner(width) + 2;
+	const line = truncateToWidth(tabsLine(theme, tabs, inner), inner, CUT);
+	const fill = " ".repeat(Math.max(0, inner - visibleWidth(line)));
+	const side = theme.fg(border, LINE.v);
+	const pad = " ".repeat(FRAME_PAD - 1);
+	return `${side}${pad}${line}${fill}${pad}${side}`;
+}
+
+/**
+ * The current tab sits on the selection color, so it reads as chosen in any theme. When they do not
+ * fit, the tabs before the current one give way first.
+ */
 function tabsLine(theme: Theme, tabs: FrameTabs, inner: number): string {
-	const gap = "   ";
+	const gap = " ";
 	const drawn = tabs.titles.map((title, index) =>
-		index === tabs.current ? theme.fg("accent", theme.bold(title)) : theme.fg("muted", title),
+		index === tabs.current
+			? theme.bg("selectedBg", theme.bold(` ${theme.fg("accent", title)} `))
+			: theme.fg("muted", ` ${title} `),
 	);
 	const more = theme.fg("dim", GLYPH.ellipsisAcross);
 	let start = 0;

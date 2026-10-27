@@ -7,7 +7,7 @@ import { frame, frameInner, pointer } from "../src/ui/frame.ts";
 
 const plain = {
 	fg: (_color: string, text: string) => text,
-	bg: (_color: string, text: string) => text,
+	bg: (color: string, text: string) => (color === "selectedBg" ? `[${text}]` : text),
 	bold: (text: string) => text,
 	italic: (text: string) => text,
 } as unknown as Theme;
@@ -60,7 +60,8 @@ describe("the frame", () => {
 		});
 		const column = lines[3]?.indexOf("\u2502", 1) ?? -1;
 		expect(lines[0]).not.toContain("\u252c");
-		expect(lines[1]).toBe("\u2502  home   shared   rooms     \u2502");
+		// The current tab sits on the selection color, and every name keeps its column.
+		expect(lines[1]).toBe("\u2502  home  [ shared ]  rooms   \u2502");
 		expect(lines[2]?.[0]).toBe("\u251c");
 		expect(lines[2]?.[column]).toBe("\u252c");
 		expect(lines[2]?.at(-1)).toBe("\u2524");
