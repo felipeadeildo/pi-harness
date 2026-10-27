@@ -45,7 +45,6 @@ import {
 import { PreviewCache } from "./preview.ts";
 
 const POINTER = `${GLYPH.pointer} `;
-const RAIL = "\u258e ";
 const CHECK = ` ${GLYPH.check}`;
 /** The name of the focused row in the panel, and the blank line under it. */
 const TITLE_ROWS = 2;
@@ -639,8 +638,7 @@ export class QuestionDialog implements Component, Focusable {
 	}
 
 	private questionBlock(question: Question, inner: number, terminalRows: number): string[] {
-		const rail = this.theme.fg("border", RAIL);
-		const wrapped = wrapTextWithAnsi(question.question, Math.max(1, inner - RAIL.length));
+		const wrapped = wrapTextWithAnsi(question.question, Math.max(1, inner));
 		const cap = questionRows(terminalRows);
 		const shown =
 			wrapped.length > cap
@@ -649,7 +647,7 @@ export class QuestionDialog implements Component, Focusable {
 						this.theme.fg("dim", `${CUT} ${wrapped.length - cap + 1} more lines`),
 					]
 				: wrapped;
-		return shown.map((line) => rail + this.theme.fg("text", line));
+		return shown.map((line) => this.theme.fg("text", line));
 	}
 
 	private questionLines(inner: number, terminalRows: number): string[] {

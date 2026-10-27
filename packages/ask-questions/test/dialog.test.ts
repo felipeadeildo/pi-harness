@@ -236,6 +236,12 @@ describe("several questions", () => {
 });
 
 describe("drawing", () => {
+	test("the question sits at the frame's padding, with no bar beside it", () => {
+		const { dialog } = open(AUTH);
+		const asked = dialog.render(80).find((line) => line.includes(AUTH.question));
+		expect(asked).toMatch(new RegExp(`^\u2502 {2}${AUTH.question}`));
+	});
+
 	test("every line is exactly the width, the typed row's editor included", () => {
 		const { dialog } = open(AUTH, FEATURES);
 		for (const width of [40, 80, 120]) {
