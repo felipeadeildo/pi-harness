@@ -115,8 +115,10 @@ export class HeaderComponent implements Component {
 		const snapshot = screen.snapshot();
 		const last = this.#source.lastVisit();
 
+		const name = this.#name(paint);
 		const right = [
 			"",
+			...(name === "" ? [] : [name]),
 			this.#segments(["path", "branch"], paint),
 			this.#segments(["model", "effort"], paint),
 			"",
@@ -219,7 +221,11 @@ export class HeaderComponent implements Component {
 	#compact(width: number, notes: readonly StartNote[]): string[] {
 		const paint = this.#screen.paint();
 		const separator = paint.dim(this.#screen.separator());
-		const first = [this.#title(paint), this.#segments(["model", "effort", "path", "branch"], paint)]
+		const first = [
+			this.#title(paint),
+			this.#name(paint),
+			this.#segments(["model", "effort", "path", "branch"], paint),
+		]
 			.filter((part) => part !== "")
 			.join(separator);
 		const last = this.#source.lastVisit();
@@ -234,6 +240,18 @@ export class HeaderComponent implements Component {
 	#title(paint: Paint): string {
 		const glyph = paint.bold(paint.role("brand", GLYPH.pi));
 		return `${glyph}${paint.bold("-harness")} ${paint.dim(HARNESS_VERSION)}`;
+	}
+
+	/** So the operator knows from the first screen what the room and the page call this session. */
+	#name(paint: Paint): string {
+		const { me, sessionName } = this.#screen.snapshot();
+		if (me === undefined) return "";
+		const word = paint.bold(
+			me.color === undefined ? paint.role("brand", me.handle) : paint.raw(me.color, me.handle),
+		);
+		return sessionName === undefined || sessionName === ""
+			? word
+			: `${word}  ${paint.dim(sessionName)}`;
 	}
 
 	#segments(ids: readonly SegmentId[], paint: Paint): string {

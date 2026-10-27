@@ -60,6 +60,7 @@ function snapshot(theme: Theme): Snapshot {
 		branch: "main",
 		git: { ahead: 1, behind: 0, staged: 0, modified: 2, untracked: 0, conflicted: 0, stashed: 0 },
 		host: "ghost",
+		me: { handle: "quokka", color: "syntaxString" },
 		model: { name: "Claude Opus 5.5", provider: "Anthropic", reasoning: true },
 		account: {
 			provider: "anthropic",

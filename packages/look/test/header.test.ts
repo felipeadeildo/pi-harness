@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { GithubState } from "../src/data/github.ts";
 import { HeaderComponent, type HeaderSource } from "../src/ui/header.ts";
-import { plain, screen } from "./helpers.ts";
+import { plain, screen, snapshot } from "./helpers.ts";
 
 function source(github: () => GithubState | undefined): HeaderSource {
 	return {
@@ -67,5 +67,40 @@ describe("what the start card says about GitHub", () => {
 		const first = header.render(100);
 		const second = header.render(100);
 		expect(second).toBe(first);
+	});
+});
+
+describe("the session's name on the start card", () => {
+	test("the word the room calls it by sits above the folder, with pi's own name beside it", () => {
+		const data = snapshot({ me: { handle: "quokka" }, sessionName: "fix the board" });
+		const lines = new HeaderComponent(
+			screen(data),
+			source(() => undefined),
+		)
+			.render(100)
+			.map(plain);
+		const name = lines.findIndex((line) => line.includes("quokka  fix the board"));
+		const folder = lines.findIndex((line) => line.includes("pi-harness") && line.includes("main"));
+		expect(name).toBeGreaterThan(0);
+		expect(folder).toBe(name + 1);
+	});
+
+	test("a session without a word yet draws no empty line for it", () => {
+		const lines = new HeaderComponent(
+			screen(),
+			source(() => undefined),
+		)
+			.render(100)
+			.map(plain);
+		const folder = lines.findIndex((line) => line.includes("pi-harness") && line.includes("main"));
+		expect(folder).toBe(2);
+	});
+
+	test("the short card names it after the harness", () => {
+		const style: HeaderSource = { ...source(() => undefined), style: () => "compact" };
+		const [first] = new HeaderComponent(screen(snapshot({ me: { handle: "quokka" } })), style)
+			.render(100)
+			.map(plain);
+		expect(first).toMatch(/π-harness .* · quokka · /);
 	});
 });

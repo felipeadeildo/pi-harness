@@ -11,6 +11,7 @@ import {
 	drawSkillRefs,
 	type FeatureScope,
 	hideImagesUnderOverlays,
+	NAMES,
 	SKILL_REF,
 	provideViews,
 	type SessionSource,
@@ -389,10 +390,13 @@ function accountOf(scope: FeatureScope, provider: string | undefined): AccountSt
 
 function boardAndPeersOf(
 	scope: FeatureScope,
-): Pick<LiveInputs, "board" | "peers" | "peersUnread" | "peersWriting"> {
+): Pick<LiveInputs, "board" | "me" | "peers" | "peersUnread" | "peersWriting"> {
 	const peers = PEERS.current(scope);
+	const handle = NAMES.current(scope)?.handle;
+	const color = peers?.me?.handle === handle ? peers?.me?.color : undefined;
 	return {
 		board: BOARD.current(scope),
+		me: handle === undefined ? undefined : { handle, ...(color === undefined ? {} : { color }) },
 		peers: peers?.peers,
 		peersUnread: peers?.unread,
 		peersWriting: peers?.writing,

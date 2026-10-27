@@ -35,6 +35,8 @@ export interface Snapshot {
 	git: GitState | undefined;
 	host: string | undefined;
 	sessionName: string | undefined;
+	/** The word the room calls this session by, in its color once it is in a room. */
+	me: { handle: string; color?: string } | undefined;
 	version: string;
 	model: ModelInfo | undefined;
 	account: AccountState | undefined;
@@ -66,6 +68,7 @@ export function emptySnapshot(): Snapshot {
 		git: undefined,
 		host: undefined,
 		sessionName: undefined,
+		me: undefined,
 		version: VERSION,
 		model: undefined,
 		account: undefined,
@@ -96,6 +99,7 @@ export interface LiveInputs {
 	run: RunView | undefined;
 	statuses: ReadonlyMap<string, string>;
 	board?: Board | undefined;
+	me?: { handle: string; color?: string } | undefined;
 	peers?: PeerMark[] | undefined;
 	peersUnread?: number | undefined;
 	peersWriting?: WritingMark[] | undefined;
@@ -126,6 +130,7 @@ export class SnapshotReader {
 			git: live.git,
 			host: this.#host,
 			sessionName: ctx.sessionManager.getSessionName(),
+			me: live.me,
 			version: VERSION,
 			model:
 				model === undefined
