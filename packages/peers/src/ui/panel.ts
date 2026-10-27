@@ -1,7 +1,8 @@
 import { basename } from "node:path";
 
-// The `Alt+G` panel: rooms and their agents on the left, the open room's conversation on the right.
-// Neither side changes width, so switching rooms only changes what is in them.
+// The `Alt+G` panel: a tab per room along the top, the open room's conversation, and who is in it in
+// a column at the right. The line you write in always has the keys: tab goes to the next room, and
+// what acts on a room or an agent holds alt, so typing never reaches it.
 import {
 	FRAME_X,
 	FRAME_Y,
@@ -33,16 +34,13 @@ import type { LiveSession, Room, RoomsView } from "../model.ts";
 import { agentLines, inOrder, MARKS } from "./agents.ts";
 import { FRAME_MS } from "./motion.ts";
 import { Picker, scrolled, sessionRow } from "./picker.ts";
-import { printable, RoomView } from "./room.ts";
+import { RoomView } from "./room.ts";
 
-const ACTIONS = new Set(["n", "a", "r", "l", "x"]);
 const FOLDER = "";
-const SIDE_MIN = 26;
-const SIDE_MAX = 38;
+const SIDE_MIN = 24;
+const SIDE_MAX = 34;
 /** Narrower than this, one side at a time. */
 const BESIDE = 72;
-
-type Pane = "rooms" | "write";
 
 type Entry =
 	| { kind: "room"; room: Room }
@@ -67,10 +65,12 @@ export class PeersPanel implements Component, Focusable {
 
 	readonly #options: PanelOptions;
 	readonly #rooms = new Map<string, RoomView>();
-	#pane: Pane = "write";
 	/** By key, so it stays put as rooms come and go. */
 	#open = FOLDER;
-	#cursor = FOLDER;
+	/** The agent or folder alt+↑↓ points at in the side column, by key; none while you only write. */
+	#pointed: string | undefined;
+	/** The pointed one's line in the side column, from the last drawing, so the column scrolls to it. */
+	#pointedLine = 0;
 	#closing: string | undefined;
 	#picker: Picker | undefined;
 
@@ -93,8 +93,18 @@ export class PeersPanel implements Component, Focusable {
 		if (matchesKey(data, Key.alt("g"))) return this.#options.close();
 		if (this.#picker !== undefined) return this.#picker.handleInput(data);
 		if (this.#closing !== undefined) return this.#confirm(data);
-		if (this.#pane === "write") return this.#writeInput(data);
-		this.#roomsInput(data);
+		const open = this.#openRoom();
+		const room = this.#roomView(open);
+		if (this.#roomKey(data, open)) return;
+		if (room?.picking() === true && room.handleInput(data)) return;
+		const agent = this.#pointedEntry();
+		if (matchesKey(data, Key.escape) && agent !== undefined) return this.#point(undefined);
+		if (matchesKey(data, Key.enter) && agent !== undefined && room?.empty() !== false)
+			return this.#enter(agent);
+		if (matchesKey(data, Key.tab)) return this.#switch(1);
+		if (matchesKey(data, Key.shift("tab"))) return this.#switch(-1);
+		if (room?.handleInput(data) === true) return;
+		if (matchesKey(data, Key.escape)) this.#options.close();
 	}
 
 	handleMouse(event: { type: string; wheelDelta?: number }): { handled: boolean } | undefined {
@@ -104,66 +114,43 @@ export class PeersPanel implements Component, Focusable {
 		return { handled: true };
 	}
 
-	#writeInput(data: string): void {
-		const room = this.#roomView(this.#openRoom());
-		if (room?.handleInput(data) === true) return;
-		if (matchesKey(data, Key.tab)) return this.#focus("rooms");
-		if (matchesKey(data, Key.escape)) this.#options.close();
-	}
-
-	#roomsInput(data: string): void {
-		const entries = this.#entries();
-		const at = Math.max(
-			0,
-			entries.findIndex((entry) => keyOfEntry(entry) === this.#cursor),
-		);
-		const entry = entries[at];
-		const room = entry?.room;
-		const shared = room?.id;
-		if (matchesKey(data, Key.escape)) return this.#options.close();
-		if (matchesKey(data, Key.tab)) return this.#focus("write");
-		if (matchesKey(data, Key.up)) return this.#move(entries, at - 1);
-		if (matchesKey(data, Key.down)) return this.#move(entries, at + 1);
-		if (matchesKey(data, Key.enter)) return this.#enter(entry);
-		if (matchesKey(data, Key.ctrl("f")) && entry?.kind === "agent") return this.#narrow(entry);
-		if (data === "@" && this.#other(entry)) return this.#writeTo(entry);
-		if (data === "n") return this.#pick(undefined);
-		if (data === "m" && entry?.kind === "room")
-			return this.#act(() => this.#options.view.setMode(entry.room.id, nextMode(entry.room)));
-		if (shared !== undefined && room !== undefined && this.#manage(data, shared, room, entry))
-			return;
-		// Typing on the list writes in the room; the keys that change rooms never type.
-		if (printable(data) && !ACTIONS.has(data)) {
-			this.#pane = "write";
-			this.#writeInput(data);
-		}
-	}
-
-	#manage(data: string, shared: string, room: Room, entry: Entry | undefined): boolean {
+	/** The keys that act on the room and its agents hold alt, so typing never reaches them. */
+	#roomKey(data: string, open: Room | undefined): boolean {
 		const { view } = this.#options;
-		switch (data) {
-			case "a":
-				this.#pick(room);
-				return true;
-			case "l":
-				this.#act(() => view.leave(shared));
-				return true;
-			case "m":
-				this.#act(() => view.setMode(shared, nextMode(room)));
-				return true;
-			case "x":
+		if (matchesKey(data, Key.alt("up"))) return this.#movePointer(-1);
+		if (matchesKey(data, Key.alt("down"))) return this.#movePointer(1);
+		if (matchesKey(data, Key.alt("c"))) return this.#did(() => this.#pick(undefined));
+		if (open === undefined) return false;
+		if (matchesKey(data, Key.alt("m")))
+			return this.#did(() => this.#act(() => view.setMode(open.id, nextMode(open))));
+		const agent = this.#pointedEntry();
+		if (matchesKey(data, Key.alt("o")) && agent?.kind === "agent")
+			return this.#did(() => this.#narrow(agent));
+		const shared = open.id;
+		if (shared === undefined) return false;
+		if (matchesKey(data, Key.alt("a"))) return this.#did(() => this.#pick(open));
+		if (matchesKey(data, Key.alt("l"))) return this.#did(() => this.#act(() => view.leave(shared)));
+		if (matchesKey(data, Key.alt("x")))
+			return this.#did(() => {
 				this.#closing = shared;
 				this.#options.requestRender();
-				return true;
-			case "r":
-				if (entry?.kind === "folder") this.#act(() => view.remove(shared, { folder: entry.path }));
-				else if (entry?.kind === "agent" && entry.peer.session !== this.#me()) {
-					const { session, cwd } = entry.peer;
-					this.#act(() => view.remove(shared, { session, cwd: cwd ?? "" }));
-				}
-				return true;
-			default:
-				return false;
+			});
+		if (matchesKey(data, Key.alt("r")) && agent !== undefined)
+			return this.#did(() => this.#remove(shared, agent));
+		return false;
+	}
+
+	#did(run: () => void): boolean {
+		run();
+		return true;
+	}
+
+	#remove(shared: string, entry: Entry): void {
+		const { view } = this.#options;
+		if (entry.kind === "folder") this.#act(() => view.remove(shared, { folder: entry.path }));
+		else if (entry.kind === "agent" && entry.peer.session !== this.#me()) {
+			const { session, cwd } = entry.peer;
+			this.#act(() => view.remove(shared, { session, cwd: cwd ?? "" }));
 		}
 	}
 
@@ -172,91 +159,97 @@ export class PeersPanel implements Component, Focusable {
 		const rooms = this.#options.view.rooms();
 		const open = this.#openRoom();
 		const inner = Math.max(20, width - FRAME_X);
-		const height = Math.max(6, this.#options.rows() - FRAME_Y);
+		// The tabs and the line under them take two rows.
+		const height = Math.max(6, this.#options.rows() - FRAME_Y - 2);
 		const beside = inner >= BESIDE;
-		const side = beside ? Math.max(SIDE_MIN, Math.min(SIDE_MAX, Math.floor(inner * 0.3))) : inner;
+		const side = beside ? Math.max(SIDE_MIN, Math.min(SIDE_MAX, Math.floor(inner * 0.28))) : 0;
 		const main = beside ? inner - side - 3 : inner;
-		const showList = beside || this.#pane === "rooms";
-		const showMain = beside || this.#pane === "write" || this.#picker !== undefined;
-
-		const list = this.#listLines(rooms, open, side);
-		const shown = scrolled(list.lines, list.cursorAt, height);
-		const right = this.#mainLines(open, main, height);
+		const left = this.#mainLines(open, main, height);
+		const actions = beside && open !== undefined ? this.#actionLines(open, side) : [];
+		const listed = height - actions.length;
+		const right = beside
+			? [
+					...fitted(scrolled(this.#sideLines(open, side), this.#pointedLine, listed).lines, listed),
+					...actions,
+				]
+			: [];
 
 		const column = theme.fg("borderMuted", LINE.v);
 		const body: FrameLine[] = [];
 		for (let line = 0; line < height; line++) {
-			const left = shown.lines[line] ?? "";
-			let text: string;
-			if (beside) {
-				const clipped = truncateToWidth(left, side, "");
-				const gap = " ".repeat(Math.max(0, side - visibleWidth(clipped)));
-				text = `${clipped}${gap} ${column} ${right[line] ?? ""}`;
-			} else text = showMain && !showList ? (right[line] ?? "") : left;
-			body.push(text);
+			const text = left[line] ?? "";
+			if (!beside) {
+				body.push(text);
+				continue;
+			}
+			const clipped = truncateToWidth(text, main, "");
+			const gap = " ".repeat(Math.max(0, main - visibleWidth(clipped)));
+			body.push(`${clipped}${gap} ${column} ${right[line] ?? ""}`);
 		}
+		const current = Math.max(
+			0,
+			rooms.findIndex((room) => open !== undefined && keyOf(room) === keyOf(open)),
+		);
 		return frame(theme, width, body, {
-			title: open?.name ?? "Peers",
+			title: "Rooms",
 			status: this.#status(open),
-			keys: this.#keys(),
-			split: beside ? side + 1 : undefined,
+			tabs: { titles: rooms.map((room, index) => this.#tab(room, index === current)), current },
+			keys: this.#keys(open),
+			split: beside ? main + 1 : undefined,
 			border: "borderMuted",
 		});
 	}
 
-	#listLines(
-		rooms: readonly Room[],
-		open: Room | undefined,
-		width: number,
-	): { lines: string[]; cursorAt: number } {
+	/** A room's tab: how this session stands in it, its name, and what waits there. */
+	#tab(room: Room, open: boolean): string {
 		const { theme } = this.#options;
-		const focused = this.#pane === "rooms";
-		const lines: string[] = [];
-		let cursorAt = 0;
-		for (const [index, room] of rooms.entries()) {
-			const key = keyOf(room);
-			const isOpen = open !== undefined && key === keyOf(open);
-			if (index > 0) lines.push("");
-			if (this.#cursor === key) cursorAt = lines.length;
-			const name = isOpen
-				? theme.fg("accent", theme.bold(room.name))
-				: theme.fg("muted", room.name);
-			// A room that changes how it stands keeps its name in place.
-			const mark = `${this.#mark(room.mode)} `;
-			lines.push(
-				spread(
-					`${pointer(theme, this.#cursor === key, focused)}${mark}${name}`,
-					this.#badge(room),
-					width,
-				),
-			);
-			if (!isOpen) continue;
-			const here = this.#options.view.here(room.id);
-			if (here === undefined) continue;
-			const live = inOrder(here.live(), here.session);
-			const selected = live.findIndex((peer) => peer.session === this.#cursor);
-			const agents = agentLines(live, here.names().bySession, {
-				theme,
-				now: this.#now(),
-				me: here.session,
-				selected,
-				width,
-				focused,
-				compact: true,
-				indent: 2,
-			});
-			if (selected >= 0) cursorAt = lines.length + agents.selectedAt;
-			lines.push(...agents.lines);
-			for (const folder of room.id === undefined ? [] : room.folders) {
-				const pointed = this.#cursor === folderKey(folder.path);
-				if (pointed) cursorAt = lines.length;
-				const left = `  ${pointer(theme, pointed, focused)}${theme.fg("muted", `${basename(folder.path)}/`)}`;
-				lines.push(spread(left, theme.fg("dim", `${folder.open} open`), width));
-			}
+		const badge = this.#badge(room);
+		const name = open ? theme.bold(theme.fg("accent", room.name)) : theme.fg("muted", room.name);
+		return `${this.#mark(room.mode)} ${name}${badge === "" ? "" : ` ${badge}`}`;
+	}
+
+	/** Who is in the open room, then its folders; alt+↑↓ points at one. */
+	#sideLines(open: Room | undefined, width: number): string[] {
+		const { theme } = this.#options;
+		const here = open === undefined ? undefined : this.#options.view.here(open.id);
+		if (open === undefined || here === undefined) return [];
+		const live = inOrder(here.live(), here.session);
+		const pointed = this.#pointed;
+		const selected = live.findIndex((peer) => peer.session === pointed);
+		const lines = ["", heading(theme, "Agents", live.length)];
+		const agents = agentLines(live, here.names().bySession, {
+			theme,
+			now: this.#now(),
+			me: here.session,
+			selected,
+			width,
+			focused: true,
+			compact: true,
+			indent: 0,
+		});
+		this.#pointedLine = selected >= 0 ? lines.length + agents.selectedAt : 0;
+		lines.push(...agents.lines);
+		const folders = open.id === undefined ? [] : open.folders;
+		if (folders.length > 0) lines.push("", heading(theme, "Folders", folders.length));
+		for (const folder of folders) {
+			const isPointed = pointed === folderKey(folder.path);
+			if (isPointed) this.#pointedLine = lines.length;
+			const left = `${pointer(theme, isPointed)}${theme.fg("muted", `${basename(folder.path)}/`)}`;
+			lines.push(spread(left, theme.fg("dim", `${folder.open} open`), width));
 		}
-		if (rooms.length === 1)
-			lines.push("", `  ${theme.fg("muted", "n")}  ${theme.fg("dim", "new room")}`);
-		return { lines, cursorAt };
+		return lines;
+	}
+
+	/** What can be done to the open room, at the foot of the column, by the room it acts on. */
+	#actionLines(open: Room, width: number): string[] {
+		const { theme } = this.#options;
+		const key = (keys: string, does: string): string =>
+			truncateToWidth(`${theme.fg("muted", keys)} ${theme.fg("dim", does)}`, width, "");
+		const lines = ["", theme.bold(theme.fg("muted", "This room")), key("alt+m", modeKey(open))];
+		if (open.id !== undefined)
+			lines.push(key("alt+a", "add someone"), key("alt+l", "leave"), key("alt+x", "close it"));
+		lines.push(key("alt+c", "new room"));
+		return lines;
 	}
 
 	#mark(mode: RoomMode): string {
@@ -273,8 +266,7 @@ export class PeersPanel implements Component, Focusable {
 		if (others.some((peer) => stateOf(peer) === "waiting"))
 			return theme.fg("warning", MARKS.waiting);
 		const unread = here.summary().unread;
-		if (unread > 0) return theme.fg("accent", `${unread} unread`);
-		return others.length === 0 ? "" : theme.fg("dim", String(others.length));
+		return unread > 0 ? theme.fg("accent", String(unread)) : "";
 	}
 
 	#mainLines(open: Room | undefined, width: number, height: number): string[] {
@@ -284,7 +276,7 @@ export class PeersPanel implements Component, Focusable {
 		}
 		const room = this.#roomView(open);
 		if (room === undefined) return [];
-		return room.lines(width, height, this.focused && this.#pane === "write");
+		return room.lines(width, height, this.focused);
 	}
 
 	#status(open: Room | undefined): string {
@@ -308,46 +300,79 @@ export class PeersPanel implements Component, Focusable {
 			: `${theme.fg("warning", `${MARKS.waiting} ${waiting} waits`)}   ${text}`;
 	}
 
-	#keys(): KeyHint[] {
+	/** The keys that matter now, the most used first; the room's own keys sit in its column. */
+	#keys(open: Room | undefined): KeyHint[] {
 		if (this.#picker !== undefined) return this.#picker.keys();
 		if (this.#closing !== undefined)
 			return [
 				["y", "close it"],
 				["esc", "keep it"],
 			];
-		if (this.#pane === "write")
-			return this.#roomView(this.#openRoom())?.keys() ?? [["esc", "close"]];
-		const entry = this.#entries().find((one) => keyOfEntry(one) === this.#cursor);
-		const shared = entry?.room.id !== undefined;
-		const keys: KeyHint[] = [[`${GLYPH.up}${GLYPH.down}`, "move"]];
-		if (this.#other(entry)) {
-			if (this.#options.show !== undefined) keys.push(["enter", "view"], ["@", "write to"]);
-			else keys.push(["enter", "write to"]);
-			keys.push(["ctrl+f", "only"]);
-			if (shared) keys.push(["r", "remove"]);
-		} else keys.push(["enter", "write"]);
-		if (entry?.kind === "folder") keys.push(["r", "remove folder"]);
-		keys.push(["n", "new room"]);
-		if (entry?.kind === "room") keys.push(["m", modeKey(entry.room)]);
-		if (shared) keys.push(["a", "add"], ["l", "leave"], ["x", "close room"]);
-		keys.push(["tab", "write"], ["esc", "close"]);
+		const room = this.#roomView(open);
+		if (room?.picking() === true) return room.keys();
+		const agent = this.#pointedEntry();
+		if (agent !== undefined) {
+			const keys: KeyHint[] = [];
+			if (agent.kind === "agent")
+				keys.push(
+					["enter", this.#options.show === undefined ? "write to" : "view"],
+					["alt+o", room?.only() === agent.peer.session ? "everyone" : "only"],
+				);
+			if (open?.id !== undefined) keys.push(["alt+r", "remove"]);
+			keys.push([`alt+${GLYPH.up}${GLYPH.down}`, "agents"], ["esc", "back"]);
+			return keys;
+		}
+		const keys: KeyHint[] = [["enter", "send"]];
+		if (this.#options.view.rooms().length > 1) keys.push(["tab", "next room"]);
+		keys.push([`alt+${GLYPH.up}${GLYPH.down}`, "agents"], ["esc", "close"]);
 		return keys;
 	}
 
-	#entries(): Entry[] {
+	/** The agents and folders alt+↑↓ walks, this session left out: nothing to do on yourself. */
+	#pointable(): Entry[] {
 		const open = this.#openRoom();
-		const entries: Entry[] = [];
-		for (const room of this.#options.view.rooms()) {
-			entries.push({ kind: "room", room });
-			if (open === undefined || keyOf(room) !== keyOf(open)) continue;
-			const here = this.#options.view.here(room.id);
-			if (here === undefined) continue;
-			for (const peer of inOrder(here.live(), here.session))
-				entries.push({ kind: "agent", room, peer });
-			for (const folder of room.id === undefined ? [] : room.folders)
-				entries.push({ kind: "folder", room, ...folder });
-		}
+		if (open === undefined) return [];
+		const here = this.#options.view.here(open.id);
+		if (here === undefined) return [];
+		const entries: Entry[] = inOrder(here.live(), here.session)
+			.filter((peer) => peer.session !== here.session)
+			.map((peer) => ({ kind: "agent", room: open, peer }));
+		for (const folder of open.id === undefined ? [] : open.folders)
+			entries.push({ kind: "folder", room: open, ...folder });
 		return entries;
+	}
+
+	#pointedEntry(): Entry | undefined {
+		if (this.#pointed === undefined) return undefined;
+		const entry = this.#pointable().find((one) => keyOfEntry(one) === this.#pointed);
+		if (entry === undefined) this.#pointed = undefined;
+		return entry;
+	}
+
+	#movePointer(step: number): boolean {
+		const entries = this.#pointable();
+		if (entries.length === 0) return true;
+		const at = entries.findIndex((entry) => keyOfEntry(entry) === this.#pointed);
+		const next = at < 0 ? (step > 0 ? 0 : entries.length - 1) : at + step;
+		this.#point(next < 0 || next >= entries.length ? undefined : entries[next]);
+		return true;
+	}
+
+	#point(entry: Entry | undefined): void {
+		this.#pointed = entry === undefined ? undefined : keyOfEntry(entry);
+		this.#options.requestRender();
+	}
+
+	#switch(step: number): void {
+		const rooms = this.#options.view.rooms();
+		if (rooms.length < 2) return;
+		const open = this.#openRoom();
+		const at = rooms.findIndex((room) => open !== undefined && keyOf(room) === keyOf(open));
+		const next = rooms[(at + step + rooms.length) % rooms.length];
+		if (next === undefined) return;
+		this.#open = keyOf(next);
+		this.#pointed = undefined;
+		this.#options.requestRender();
 	}
 
 	#openRoom(): Room | undefined {
@@ -355,7 +380,7 @@ export class PeersPanel implements Component, Focusable {
 		const room = rooms.find((one) => keyOf(one) === this.#open) ?? rooms[0];
 		if (room !== undefined && keyOf(room) !== this.#open) {
 			this.#open = keyOf(room);
-			this.#cursor = this.#open;
+			this.#pointed = undefined;
 		}
 		this.#forgetLeft(rooms);
 		return room;
@@ -383,24 +408,10 @@ export class PeersPanel implements Component, Focusable {
 		return made;
 	}
 
-	/** Moving onto a room opens it. */
-	#move(entries: readonly Entry[], to: number): void {
-		if (entries.length === 0) return;
-		const entry = entries[(to + entries.length) % entries.length];
-		if (entry === undefined) return;
-		this.#cursor = keyOfEntry(entry);
-		if (entry.kind === "room") this.#open = keyOf(entry.room);
-		this.#options.requestRender();
-	}
-
-	#enter(entry: Entry | undefined): void {
-		if (!this.#other(entry)) return this.#focus("write");
+	#enter(entry: Entry): void {
+		if (entry.kind !== "agent") return;
 		if (this.#options.show?.(entry.peer.session) === true) return;
 		this.#writeTo(entry);
-	}
-
-	#other(entry: Entry | undefined): entry is Entry & { kind: "agent" } {
-		return entry?.kind === "agent" && entry.peer.session !== this.#me();
 	}
 
 	#writeTo(entry: Entry & { kind: "agent" }): void {
@@ -409,7 +420,7 @@ export class PeersPanel implements Component, Focusable {
 			?.names()
 			.bySession.get(entry.peer.session)?.handle;
 		if (handle !== undefined) this.#roomView(entry.room)?.mention(handle);
-		this.#focus("write");
+		this.#point(undefined);
 	}
 
 	#narrow(entry: Entry & { kind: "agent" }): void {
@@ -438,7 +449,7 @@ export class PeersPanel implements Component, Focusable {
 				this.#picker = undefined;
 				if (made !== undefined) {
 					this.#open = made;
-					this.#cursor = made;
+					this.#pointed = undefined;
 				}
 				this.#options.requestRender();
 			},
@@ -448,13 +459,6 @@ export class PeersPanel implements Component, Focusable {
 
 	#act(change: () => void): void {
 		change();
-		this.#options.requestRender();
-	}
-
-	#focus(pane: Pane): void {
-		this.#pane = pane;
-		if (pane === "rooms" && !this.#entries().some((entry) => keyOfEntry(entry) === this.#cursor))
-			this.#cursor = this.#open;
 		this.#options.requestRender();
 	}
 
@@ -501,6 +505,18 @@ function keyOfEntry(entry: Entry): string {
 
 function folderKey(path: string): string {
 	return `folder ${path}`;
+}
+
+function heading(theme: Theme, label: string, count: number): string {
+	return `${theme.bold(theme.fg("muted", label))} ${theme.fg("dim", String(count))}`;
+}
+
+/** Exactly `height` lines, so what comes under them stays at the bottom. */
+function fitted(lines: readonly string[], height: number): string[] {
+	return [
+		...lines.slice(0, height),
+		...Array.from({ length: Math.max(0, height - lines.length) }, () => ""),
+	];
 }
 
 function plural(count: number, word: string): string {

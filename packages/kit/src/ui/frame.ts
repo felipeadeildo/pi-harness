@@ -101,12 +101,15 @@ function divider(
 
 export function frameBottom(theme: Theme, width: number, options: BottomOptions = {}): string {
 	const keys = options.keys ?? [];
-	// The keys may run under the column only when they all fit there; the column then stops short.
+	// The keys sit on whichever side of the column holds them; when neither does but the whole edge
+	// would, the column stops short of it.
 	const wanted = visibleWidth(keyHints(theme, keys));
-	const past = options.split === undefined ? 0 : FRAME_PAD + options.split + 2;
-	const crowded = wanted <= width - 6 && wanted > width - 6 - past;
-	const cross = crowded ? undefined : junction(options.split, LINE.teeBottom);
-	const room = width - 6 - (cross === undefined ? 0 : cross.at + 1);
+	const column = junction(options.split, LINE.teeBottom);
+	const before = column === undefined ? width - 6 : column.at - 4;
+	const after = column === undefined ? 0 : width - 6 - (column.at + 1);
+	const fits = wanted <= before || wanted <= after;
+	const cross = !fits && wanted <= width - 6 ? undefined : column;
+	const room = cross === undefined ? width - 6 : Math.max(before, after);
 	const hints = keyHints(theme, fitKeys(theme, keys, room));
 	const footnote = options.footnote ?? "";
 	const note = visibleWidth(hints) + visibleWidth(footnote) + 3 <= room ? footnote : "";

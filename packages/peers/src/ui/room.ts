@@ -79,6 +79,11 @@ export class RoomView {
 		this.#options.requestRender();
 	}
 
+	/** Enter on an agent's line means the agent only while nothing is written. */
+	empty(): boolean {
+		return this.#composer.getValue().trim() === "";
+	}
+
 	/** So `esc` and the arrows belong to it. */
 	picking(): boolean {
 		return this.#candidates().length > 0;
@@ -120,7 +125,7 @@ export class RoomView {
 		return [
 			["enter", "send"],
 			[`${GLYPH.up}${GLYPH.down}`, "scroll"],
-			["tab", "rooms"],
+			["tab", "next room"],
 			["esc", "close"],
 		];
 	}
@@ -326,8 +331,4 @@ export class RoomView {
 		this.#offset = most;
 		this.#unread = 0;
 	}
-}
-
-export function printable(data: string): boolean {
-	return !data.startsWith("\x1b") && [...data].every((char) => char >= " " && char !== "\x7f");
 }

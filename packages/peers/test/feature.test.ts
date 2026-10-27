@@ -344,9 +344,9 @@ describe("enter on an agent in Alt+G", () => {
 		};
 		// b's start reaches a's folder log through the watcher, a moment later.
 		await until(() => press().includes("new-b"));
-		press("\t");
-		for (let i = 0; i < 6 && !/@ write to|enter write to/.test(press()); i++) press("\u001b[B");
-		return { press, close: () => press("\u001b") };
+		// alt+↓ points at the other agent in the folder's room.
+		press("\u001b[1;3B");
+		return { press, close: () => press("\u001b", "\u001b") };
 	}
 
 	test("shows its session, read from the file its presence entry names", async () => {

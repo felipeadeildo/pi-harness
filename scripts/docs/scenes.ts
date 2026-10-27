@@ -396,8 +396,8 @@ export const SCENES: readonly Scene[] = [
 	},
 	{
 		name: "harness/board",
-		caption: "Alt+T: the session's board, and what waits on you.",
-		alt: "The session's board over the chat: a line saying three cards are open, one is in the backlog and one is done, then one card per line with its column first: one being done with what it is on now, one in review with its reviewer, and one to do that waits on you, with the reason.",
+		caption: "Alt+T: the session's board, a column per stage and a box per card.",
+		alt: "The session's board over the whole screen, titled Board, with 4 open, 1 waiting and 1 done on the right of the top edge. Four columns side by side, each with its mark, name and count: Doing, In review, To do and Done. Every card is a box: one being done, its PR number and what it is on, chosen with an accent border; one in review with who reviews it; two to do, one in the warning color with a flag and what it waits on from you; one done with what it delivered. At the foot the backlog with its titles and the last decision. Along the bottom: move, open, close.",
 		draw: boardPanel,
 	},
 	{
@@ -408,16 +408,15 @@ export const SCENES: readonly Scene[] = [
 	},
 	{
 		name: "peers/room",
-		caption:
-			"Alt+G: the rooms on the left, the open one's agents under it, and what was said there.",
-		alt: "The panel over the whole screen, in a quiet frame titled pi-harness, the room that is open, with 1 waits and 3 open on the right of the top edge. On the left the rooms: pi-harness, open, with a flag because an agent waits on you, its agents under it, oauth waiting on you to push to main, migration and docs working for 2 minutes with what each is on; then backend+frontend with 1 unread. On the right the conversation, no box around any message: who joined, your request to switch the login to OAuth with the bids as bars and oauth taking it, migration's commit as a plain line, oauth asking migration about src/auth.ts and migration's answer, each a header with the time on the right, the words under it and what became of it under them. At the bottom a thin rule and the line you write in.",
+		caption: "Alt+G: a tab per room, what was said in the open one, and who is in it on the right.",
+		alt: "The panel over the whole screen, in a quiet frame titled Rooms, with 1 waits and 3 open on the right of the top edge. Under it a tab per room: pi-harness, open, with a flag because an agent waits on you, then backend+frontend with 1 unread. On the left the conversation, no box around any message: who joined, your request to switch the login to OAuth with the bids as bars and oauth taking it, migration's commit as a plain line, oauth asking migration about src/auth.ts and migration's answer, each a header with the time on the right, the words under it and what became of it under them, then a thin rule and the line you write in. In a column on the right the agents of the room, oauth waiting on you to push to main, migration and docs working with what each is on, and at its foot the keys that change the room.",
 		draw: (theme) => peersRoom(theme),
 	},
 	{
 		name: "peers/rooms",
 		caption:
 			"A shared room: its agents come from several folders, and the top says how it came to be.",
-		alt: "The same panel with backend+frontend open from the list, its name in the top edge with 3 open on the right. Under it in the list its agents: api from backend, client from frontend, and docs, this session. On the right the line saying client asked for it to agree on the /v1/fleet contract and you said yes, then api's message to everyone with how many got it. Along the bottom the keys of the list: move, write, new room, add, leave, close room.",
+		alt: "The same panel with the backend+frontend tab open. On the left the line saying client asked for it to agree on the /v1/fleet contract and you said yes, then api's message to everyone with how many got it, and the line you write in. In the column on the right its agents: api from backend, client from frontend, and docs, this session, then the room's keys: listen, add someone, leave, close it, new room. Along the bottom: send, next room, agents, close.",
 		draw: (theme) => peersRoom(theme, undefined, SHARED_ROOM, 18),
 	},
 	{

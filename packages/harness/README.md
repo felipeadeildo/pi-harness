@@ -75,9 +75,9 @@ A card in any open column can be blocked on you, on another agent by its handle,
 <!-- docs:harness/board -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/board.png" alt="The session's board over the chat: a line saying three cards are open, one is in the backlog and one is done, then one card per line with its column first: one being done with what it is on now, one in review with its reviewer, and one to do that waits on you, with the reason." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/board.png" alt="The session's board over the whole screen, titled Board, with 4 open, 1 waiting and 1 done on the right of the top edge. Four columns side by side, each with its mark, name and count: Doing, In review, To do and Done. Every card is a box: one being done, its PR number and what it is on, chosen with an accent border; one in review with who reviews it; two to do, one in the warning color with a flag and what it waits on from you; one done with what it delivered. At the foot the backlog with its titles and the last decision. Along the bottom: move, open, close." width="860">
   <br>
-  <em>Alt+T: the session's board, and what waits on you.</em>
+  <em>Alt+T: the session's board, a column per stage and a box per card.</em>
 </p>
 
 <!-- /docs -->
