@@ -59,6 +59,7 @@ describe("the page's build", () => {
 		expect(fileFor(app, "/assets/index-1234.js")).toBe("/assets/index-1234.js");
 		expect(fileFor(app, "/session/laptop/01a16e22")).toBe("/index.html");
 		expect(fileFor(app, "/session/laptop/01a16e22/")).toBe("/index.html");
+		expect(fileFor(app, "/machines")).toBe("/index.html");
 		// The routes the daemon answers itself must not be eaten by the page.
 		expect(fileFor(app, "/login")).toBeUndefined();
 		expect(fileFor(app, "/sessions")).toBeUndefined();
@@ -138,6 +139,9 @@ describe("the daemon serving the app", () => {
 		expect(page.status).toBe(200);
 		expect(page.headers.get("content-security-policy")).toBe(POLICY);
 		expect((await get("/session/laptop/s1")).status).toBe(200);
+		// The machines page loads before a login; the machine list it reads does not.
+		expect((await get("/machines")).status).toBe(200);
+		expect((await get("/tailnet")).status).toBe(401);
 		expect((await get("/assets/index-1234.js")).status).toBe(200);
 		// A path the build lacks is not one of its files, so it needs a login before its 404.
 		expect((await get("/nowhere")).status).toBe(401);

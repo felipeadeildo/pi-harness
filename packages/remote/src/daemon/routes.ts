@@ -60,6 +60,7 @@ export class Routes {
 			const { version, machine } = this.#options;
 			return reply(response, 200, { version, protocol: PROTOCOL, machine, uptime });
 		}
+		if (path === "/tailnet") return reply(response, 200, this.#machinesList());
 		if (path === "/sessions") {
 			// `here` is how another daemon asks, so two machines never ask each other in a circle.
 			if (url.searchParams.has("here")) return reply(response, 200, this.#list());
@@ -251,6 +252,31 @@ export class Routes {
 		}
 	}
 
+	/** This machine first, then the others that answered since this daemon started. */
+	#machinesList(): unknown[] {
+		const { machine, version, started } = this.#options;
+		const now = (this.#options.now ?? Date.now)();
+		const here = {
+			name: machine,
+			here: true,
+			version,
+			startedAt: started,
+			seen: now,
+			answering: true,
+		};
+		const others = (this.#options.machines?.report() ?? []).map(
+			({ name, version, startedAt, seen, answering }) => ({
+				name,
+				here: false,
+				version,
+				startedAt,
+				seen,
+				answering,
+			}),
+		);
+		return [here, ...others];
+	}
+
 	#list(): unknown[] {
 		return this.#options.sessions.list().map((one) => ({
 			machine: one.machine,
@@ -273,6 +299,7 @@ export function isRoute(path: string): boolean {
 		path === "/logout" ||
 		path === "/sessions" ||
 		path.startsWith("/sessions/") ||
+		path === "/tailnet" ||
 		path === "/shared" ||
 		path.startsWith("/rooms/") ||
 		path.startsWith("/.well-known/")

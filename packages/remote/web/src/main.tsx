@@ -3,7 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router";
 
-import { Pick, Shell } from "./app/shell.tsx";
+import { Pick, Sessions, Shell } from "./app/shell.tsx";
 
 import "./app.css";
 
@@ -12,8 +12,14 @@ const router = createBrowserRouter([
 		path: "/",
 		element: <Shell />,
 		children: [
-			{ index: true, element: <Pick /> },
-			{ path: "session/:machine/:id", lazy: () => import("./app/session.tsx") },
+			{
+				element: <Sessions />,
+				children: [
+					{ index: true, element: <Pick /> },
+					{ path: "session/:machine/:id", lazy: () => import("./app/session.tsx") },
+				],
+			},
+			{ path: "machines", lazy: () => import("./app/machines.tsx") },
 		],
 	},
 ]);

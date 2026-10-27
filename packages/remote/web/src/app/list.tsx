@@ -42,7 +42,7 @@ import { AgentName, Icon, StatusMark, useNow } from "./kit.tsx";
 const REREAD_MS = 3_000;
 
 /** The daemon's list, read again every few seconds and when the tab comes back. */
-function useSessions(): {
+export function useSessions(): {
 	sessions: readonly ListedSession[] | undefined;
 	why: string | undefined;
 	kept: readonly string[] | undefined;

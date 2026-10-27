@@ -10,6 +10,7 @@ export {
 	type LiveTool,
 	NOTHING_LIVE,
 } from "./live.ts";
+export { type ListedMachine, listMachines } from "./machines.ts";
 export {
 	DaemonAnswer,
 	inOrder,

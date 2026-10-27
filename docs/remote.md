@@ -77,6 +77,9 @@ A machine is a computer of yours on the tailnet whose daemon answers at the same
   session of another machine is read from that machine's daemon (`/sessions/<machine>/<id>/...`), and
   its socket is joined to that daemon's, byte for byte. A daemon asks another for its own sessions
   only, so two daemons never ask each other in a circle.
+- **The Machines page** (`/machines`) lists them from `/tailnet`: this machine first, then each other
+  one with its harness version and how long its remote has been up. A machine that stops answering
+  stays, dimmed, with when it last answered, until this daemon restarts.
 - **Where a session runs** never changes: it runs where its pi was started, and every machine shows it
   under that machine's name.
 

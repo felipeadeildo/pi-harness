@@ -13,6 +13,15 @@ export interface Machine {
 	name: string;
 	/** `http://<tailnet address>:<port>`. */
 	origin: string;
+	version: string;
+	/** When its daemon started, from the uptime it answered with. */
+	startedAt: number;
+}
+
+/** A machine as the page shows it: one that stopped answering stays, with when it last did. */
+export interface SeenMachine extends Machine {
+	seen: number;
+	answering: boolean;
 }
 
 export interface MachinesOptions {
@@ -20,11 +29,14 @@ export interface MachinesOptions {
 	/** The same port as this one's, by default. */
 	originOf: (node: Tailnet) => string;
 	ask?: AskTailscale;
+	now?: () => number;
 }
 
 export class Machines {
 	readonly #options: MachinesOptions;
 	#found = new Map<string, Machine>();
+	/** Every machine that answered since this daemon started, with when it last did. */
+	readonly #seen = new Map<string, Machine & { seen: number }>();
 	readonly #logins = new Map<string, string>();
 	#timer: ReturnType<typeof setInterval> | undefined;
 
@@ -46,6 +58,13 @@ export class Machines {
 		return [...this.#found.values()];
 	}
 
+	/** The answering ones first; the rest by when they were last seen. */
+	report(): SeenMachine[] {
+		return [...this.#seen.values()]
+			.map((one) => ({ ...one, answering: this.#found.has(one.name) }))
+			.toSorted((a, b) => Number(b.answering) - Number(a.answering) || b.seen - a.seen);
+	}
+
 	named(name: string): Machine | undefined {
 		return this.#found.get(name);
 	}
@@ -58,9 +77,12 @@ export class Machines {
 			tailnet.others.map((node) => this.#health(this.#options.originOf(node))),
 		);
 		const found = new Map<string, Machine>();
+		const now = this.#now();
 		for (const machine of answered)
-			if (machine !== undefined && machine.name !== this.#options.self)
+			if (machine !== undefined && machine.name !== this.#options.self) {
 				found.set(machine.name, machine);
+				this.#seen.set(machine.name, { ...machine, seen: now });
+			}
 		this.#found = found;
 	}
 
@@ -92,10 +114,16 @@ export class Machines {
 			const body: unknown = await answer.json();
 			if (!isObject(body) || body.protocol !== PROTOCOL || typeof body.machine !== "string")
 				return undefined;
-			return { name: body.machine, origin };
+			const version = typeof body.version === "string" ? body.version : "";
+			const uptime = typeof body.uptime === "number" ? body.uptime : 0;
+			return { name: body.machine, origin, version, startedAt: this.#now() - uptime };
 		} catch {
 			return undefined;
 		}
+	}
+
+	#now(): number {
+		return (this.#options.now ?? Date.now)();
 	}
 
 	async #login(machine: Machine): Promise<string> {

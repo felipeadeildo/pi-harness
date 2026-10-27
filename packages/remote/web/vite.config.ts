@@ -30,7 +30,8 @@ export default defineConfig({
 		strictPort: true,
 		proxy: {
 			"^/ws(\\?|$)": toDaemon(true),
-			"^/(health|login|logout|sessions|shared|rooms|\\.well-known)([/?]|$)": toDaemon(false),
+			"^/(health|login|logout|sessions|tailnet|shared|rooms|\\.well-known)([/?]|$)":
+				toDaemon(false),
 		},
 	},
 });

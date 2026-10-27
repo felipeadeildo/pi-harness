@@ -160,6 +160,26 @@ test("a machine that stops answering leaves the list at the next look", async ()
 	expect(await get("/sessions")).toEqual([]);
 });
 
+test("the machine list puts this one first, then the others with their version", async () => {
+	const { get } = await twoMachines();
+	const listed = (await get("/tailnet")) as { name: string; here: boolean; version: string }[];
+	expect(listed.map(({ name, here, version }) => ({ name, here, version }))).toEqual([
+		{ name: "desk", here: true, version: "1.2.0" },
+		{ name: "laptop", here: false, version: "1.2.0" },
+	]);
+});
+
+test("a machine that stops answering stays on the machine list, with when it last answered", async () => {
+	const { laptop, machines, get } = await twoMachines();
+	const before = Date.now();
+	laptop.stop();
+	await machines.look();
+	const listed = (await get("/tailnet")) as { name: string; answering: boolean; seen: number }[];
+	const gone = listed.find((one) => one.name === "laptop");
+	expect(gone?.answering).toBe(false);
+	expect(gone?.seen).toBeLessThanOrEqual(before);
+});
+
 /** A presence entry as the kit writes it, for a session of `host` whose process is this one. */
 function openOn(events: string, session: string, host: string): void {
 	mkdirSync(join(events, "live"), { recursive: true });
