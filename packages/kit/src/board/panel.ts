@@ -29,6 +29,7 @@ export const boardPanel = defineFeature({
 						close: () => done(),
 						requestRender: () => tui.requestRender(),
 						read: () => BOARD.current(scope) ?? emptyBoard(),
+						rows: () => tui.terminal.rows,
 					});
 				},
 				{

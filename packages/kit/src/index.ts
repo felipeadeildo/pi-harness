@@ -26,7 +26,6 @@ export * from "./board/model.ts";
 export { names, type NamesOptions } from "./names/feature.ts";
 export { board } from "./board/feature.ts";
 export { boardPanel } from "./board/panel.ts";
-export { boardLines } from "./board/lines.ts";
 export { BOARD_OP, boardOf } from "./board/log.ts";
 export { describeBoard } from "./board/text.ts";
 export { boardText } from "./board/tool.ts";
