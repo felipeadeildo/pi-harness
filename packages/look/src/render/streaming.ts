@@ -131,14 +131,14 @@ export function editLines(
 }
 
 /** Pi's own renderer draws the same first line, so nothing moves when it takes over. */
-function pathLine(tool: string, path: string | undefined, theme: Theme): string {
+export function pathLine(tool: string, path: string | undefined, theme: Theme): string {
 	const title = theme.fg("toolTitle", theme.bold(tool));
 	if (path === undefined) return `${title} ${theme.fg("toolOutput", "...")}`;
 	return `${title} ${theme.fg("accent", printable(tildify(path)))}`;
 }
 
 /** A carriage return would cross the border, and escape codes would reach the terminal. */
-function printable(line: string): string {
+export function printable(line: string): string {
 	// oxlint-disable-next-line no-control-regex -- control characters are what this removes
 	return tabs(stripTerminalSequences(line).replace(/[\u0000-\u0008\u000a-\u001f\u007f]/g, ""));
 }

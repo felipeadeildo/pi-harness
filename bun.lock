@@ -91,6 +91,7 @@
       "version": "5.15.0",
       "dependencies": {
         "@adeildo/pi-kit": "workspace:*",
+        "diff": "8.0.4",
       },
       "peerDependencies": {
         "@earendil-works/pi-ai": "*",

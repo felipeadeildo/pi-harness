@@ -116,11 +116,11 @@ describe("once the model has written the call", () => {
 
 		// Wait for the diff itself, not for a fixed time: pi writes and diffs on disk, and under load a
 		// sleep long enough on an idle machine reads the screen before the diff exists.
-		await until(() => h.render("e").some((line) => line.includes("+2 TWO")));
+		await until(() => h.render("e").some((line) => /2 \+ TWO/.test(line)));
 		const diffed = h.render("e");
 		// The frame pads the inside, so pi's path stays where the stream had it.
 		expect(diffed[2]).toMatch(/^\u2502 edit e\.ts +\u2502$/);
-		expect(diffed.some((line) => line.includes("+2 TWO"))).toBe(true);
+		expect(diffed.some((line) => /2 \+ TWO/.test(line))).toBe(true);
 	});
 
 	test("the time goes on between drawings, with nothing new from the model", () => {

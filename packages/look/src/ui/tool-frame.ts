@@ -2,6 +2,7 @@
 import {
 	CUT,
 	type CallRuling,
+	isObject,
 	type FeatureScope,
 	CALLS_FRAMED,
 	RULING,
@@ -19,9 +20,10 @@ import {
 	visibleWidth,
 } from "@earendil-works/pi-tui";
 
+import { editBody } from "../render/diff.ts";
 import { tabs } from "../render/format.ts";
 import { type IconSet, glyphsOf } from "../render/glyphs.ts";
-import { type Stream, STREAMERS } from "../render/streaming.ts";
+import { pathLine, type Stream, STREAMERS } from "../render/streaming.ts";
 import { stateMark, toolIcon, toolLabel } from "../render/tools.ts";
 import { icons } from "../settings.ts";
 
@@ -133,7 +135,13 @@ function framed(
 						outputPad: 0,
 						lastComponent: passed(last),
 					});
-			const body = own === undefined ? drawnBody(stream?.lines ?? []) : orStream(own, stream);
+			// Pi paints its edit on a colored box; the frame draws the diff itself, in the diff colors.
+			const drawnOwn = (component: Component): Component =>
+				frame.name === "edit" && isObject(args)
+					? editBody(component, pathLine("edit", pathOf(args), theme), theme)
+					: component;
+			const body =
+				own === undefined ? drawnBody(stream?.lines ?? []) : orStream(drawnOwn(own), stream);
 
 			const box = new CallFrame(
 				{
@@ -561,4 +569,8 @@ function stateOf(tone: RulingTone): Phase {
 		default:
 			return "failed";
 	}
+}
+
+function pathOf(args: Record<string, unknown>): string | undefined {
+	return typeof args.path === "string" ? args.path : undefined;
 }
