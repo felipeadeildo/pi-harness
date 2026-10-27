@@ -11,6 +11,7 @@ import {
 	type Board,
 	type BoardCard,
 	type BoardColumn,
+	type BoardView,
 	boardView,
 	emptyBoard,
 } from "./model.ts";
@@ -22,6 +23,17 @@ const HEIGHT_SHARE = 0.8;
 const MIN_BODY = 4;
 /** The detail under a title starts under the title's words. */
 const INDENT = "  ";
+
+const MARKS: Record<BoardColumn, [string, ThemeColor]> = {
+	doing: [GLYPH.diamond, "accent"],
+	review: [GLYPH.ring, "accent"],
+	todo: [GLYPH.diamondEmpty, "dim"],
+	backlog: [GLYPH.diamondEmpty, "dim"],
+	done: [GLYPH.check, "success"],
+	dropped: [GLYPH.times, "dim"],
+};
+/** A card that waits wears the flag, whatever its column. */
+const WAITING: [string, ThemeColor] = [GLYPH.flag, "warning"];
 
 export interface BoardPanelOptions {
 	theme: Theme;
@@ -47,30 +59,22 @@ export class BoardPanel implements Component {
 	render(width: number): string[] {
 		const { theme } = this.#options;
 		const board = this.#options.read?.() ?? emptyBoard();
-		const body = boardBody(board, theme, frameInner(width));
+		const view = boardView(board);
+		const body = boardBody(board, view, theme, frameInner(width));
 		const room = this.#room();
 		const scrolls = body.length > room;
 		this.#scroll = scrolls ? Math.min(this.#scroll, body.length - room) : 0;
 		const shown = scrolls ? body.slice(this.#scroll, this.#scroll + room) : body;
 		this.#below = scrolls ? body.length - this.#scroll - room : 0;
-		const keys: KeyHint[] = scrolls
-			? [
-					["↑↓", "scroll"],
-					["esc", "close"],
-				]
-			: [["esc", "close"]];
+		const close: KeyHint = ["esc", "close"];
+		const status = theme.fg("dim", countsOf(board, view));
+		if (!scrolls)
+			return frame(theme, width, ["", ...shown, ""], { title: "Board", status, keys: [close] });
 		return frame(theme, width, ["", ...shown, ""], {
 			title: "Board",
-			status: theme.fg("dim", countsOf(board)),
-			keys,
-			...(scrolls
-				? {
-						footnote: theme.fg(
-							"dim",
-							`${this.#scroll + 1}-${this.#scroll + room} of ${body.length}`,
-						),
-					}
-				: {}),
+			status,
+			keys: [["↑↓", "scroll"], close],
+			footnote: theme.fg("dim", `${this.#scroll + 1}-${this.#scroll + room} of ${body.length}`),
 		});
 	}
 
@@ -103,8 +107,7 @@ function stepOf(data: string, page: number): number {
 	return 0;
 }
 
-function countsOf(board: Board): string {
-	const view = boardView(board);
+function countsOf(board: Board, view: BoardView): string {
 	const parts = [`${view.open.length} open`];
 	if (view.backlog > 0) parts.push(`${view.backlog} in the backlog`);
 	const done = board.cards.filter((card) => card.column === "done").length;
@@ -113,8 +116,7 @@ function countsOf(board: Board): string {
 }
 
 /** Every line inside the frame, before the panel cuts it to the terminal's height. */
-function boardBody(board: Board, theme: Theme, inner: number): string[] {
-	const view = boardView(board);
+function boardBody(board: Board, view: BoardView, theme: Theme, inner: number): string[] {
 	const decisions = board.decisions.slice(-DECISIONS);
 	if (view.open.length === 0 && view.done.length === 0 && decisions.length === 0)
 		return wrapTextWithAnsi(
@@ -141,41 +143,29 @@ function boardBody(board: Board, theme: Theme, inner: number): string[] {
 		]);
 	if (decisions.length > 0)
 		sections.push([
-			heading(theme, "Decisions", board.decisions.length),
+			heading(theme, "Decisions", decisions.length, board.decisions.length),
 			...decisions.flatMap((decision) =>
-				wrapped(`${theme.fg("dim", GLYPH.chevron)} ${decision.text}`, inner, INDENT),
+				hanging(`${theme.fg("dim", GLYPH.chevron)} ${decision.text}`, inner),
 			),
 		]);
 	// One empty line between sections.
 	return sections.flatMap((section, index) => (index === 0 ? section : [""].concat(section)));
 }
 
-function heading(theme: Theme, label: string, count: number): string {
-	return `${theme.bold(theme.fg("muted", label))} ${theme.fg("dim", String(count))}`;
+/** The count says how many are listed, and of how many when the panel keeps only the last ones. */
+function heading(theme: Theme, label: string, shown: number, total = shown): string {
+	const count = shown === total ? String(total) : `last ${shown} of ${total}`;
+	return `${theme.bold(theme.fg("muted", label))} ${theme.fg("dim", count)}`;
 }
 
 /** The mark says the column, or that the card waits; the line under the title says on what. */
 function cardLines(card: BoardCard, theme: Theme, inner: number): string[] {
-	const [mark, color] = markOf(card);
+	const [mark, color] = card.blocked === undefined ? MARKS[card.column] : WAITING;
 	const pr = card.pr === undefined ? "" : `  ${theme.fg("dim", `#${card.pr}`)}`;
-	const title = wrapped(`${theme.fg(color, mark)} ${theme.bold(card.title)}${pr}`, inner, INDENT);
+	const title = hanging(`${theme.fg(color, mark)} ${theme.bold(card.title)}${pr}`, inner);
 	const detail = detailOf(card, theme);
 	if (detail === undefined) return title;
-	const under = wrapTextWithAnsi(detail, Math.max(1, inner - INDENT.length));
-	return [...title, ...under.map((line) => `${INDENT}${line}`)];
-}
-
-function markOf(card: BoardCard): [string, ThemeColor] {
-	if (card.blocked !== undefined) return [GLYPH.flag, "warning"];
-	const marks: Record<BoardColumn, [string, ThemeColor]> = {
-		doing: [GLYPH.diamond, "accent"],
-		review: [GLYPH.ring, "accent"],
-		todo: [GLYPH.diamondEmpty, "dim"],
-		backlog: [GLYPH.diamondEmpty, "dim"],
-		done: [GLYPH.check, "success"],
-		dropped: [GLYPH.times, "dim"],
-	};
-	return marks[card.column];
+	return [...title, ...wrap(detail, inner).map((line) => `${INDENT}${line}`)];
 }
 
 function detailOf(card: BoardCard, theme: Theme): string | undefined {
@@ -188,8 +178,10 @@ function detailOf(card: BoardCard, theme: Theme): string | undefined {
 }
 
 /** A long line wraps under its own words, never under the mark. */
-function wrapped(text: string, inner: number, indent: string): string[] {
-	return wrapTextWithAnsi(text, Math.max(1, inner - indent.length)).map((line, index) =>
-		index === 0 ? line : `${indent}${line}`,
-	);
+function hanging(text: string, inner: number): string[] {
+	return wrap(text, inner).map((line, index) => (index === 0 ? line : `${INDENT}${line}`));
+}
+
+function wrap(text: string, inner: number): string[] {
+	return wrapTextWithAnsi(text, Math.max(1, inner - INDENT.length));
 }

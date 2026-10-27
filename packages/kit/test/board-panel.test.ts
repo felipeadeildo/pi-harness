@@ -110,6 +110,20 @@ describe("the board panel", () => {
 		expect(lines.join(" ")).toContain("left");
 	});
 
+	test("the decisions keep the last three, and the heading says of how many", () => {
+		const many = applied(
+			...["one", "two", "three", "four", "five"].map((text, index): BoardOp => ({
+				op: "decide",
+				text: `Decision ${text}`,
+				at: index + 1,
+			})),
+		);
+		const text = panel(many).drawn.render(80).join("\n");
+		expect(text).toContain("Decisions last 3 of 5");
+		expect(text).not.toContain("Decision two");
+		expect(text).toContain("Decision five");
+	});
+
 	test("an empty board says what fills it", () => {
 		expect(panel(emptyBoard()).drawn.render(80).join("\n")).toContain("Nothing on the board yet");
 	});
