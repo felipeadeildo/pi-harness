@@ -82,7 +82,7 @@ A card in any open column can be blocked on you, on another agent by its handle,
 
 <!-- /docs -->
 
-`Alt+T` opens the board over the chat, in the harness's frame. The top edge counts the open, backlog and done cards. Inside, each open card sits under its column with what it is doing, who reviews it or what it waits on, and below them the last cards delivered and the last decisions. A card that waits on you wears the flag and the warning color. The panel updates while open, scrolls with `↑↓` when the board is taller than the terminal, and `Esc` closes it.
+`Alt+T` opens the board full screen, drawn as a board: a column each for doing, in review, to do and done, every card in its own box with its mark, what it is doing or waits on under the title, and a card that waits on you in the warning color. The backlog and the last decision sit in a strip at the foot. The arrows move between cards, `enter` opens one in full, and `Esc` closes it.
 
 The same board reaches every reader that needs it:
 

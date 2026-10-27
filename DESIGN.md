@@ -50,12 +50,12 @@ the room while you write, the pointer turns `dim`.
 
 ## Shapes
 
-| Shape        | Where                         | Size                                                           |
-| ------------ | ----------------------------- | -------------------------------------------------------------- |
-| Panel        | `Alt+G` rooms, `Alt+T` board  | Rooms fill the screen; the board a centered overlay, about 80% |
-| Full screen  | `Alt+S` settings              | The whole terminal                                             |
-| Inline       | Questions, permission         | In place of the editor, full width, content tall               |
-| Small dialog | Accounts, login, model picker | Narrow, centered, one short list                               |
+| Shape        | Where                         | Size                                             |
+| ------------ | ----------------------------- | ------------------------------------------------ |
+| Panel        | `Alt+G` rooms, `Alt+T` board  | The whole terminal                               |
+| Full screen  | `Alt+S` settings              | The whole terminal                               |
+| Inline       | Questions, permission         | In place of the editor, full width, content tall |
+| Small dialog | Accounts, login, model picker | Narrow, centered, one short list                 |
 
 All four use the same frame, the same keys and the same selection. Only the size and the place change.
 

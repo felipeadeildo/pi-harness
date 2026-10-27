@@ -34,7 +34,7 @@ export const boardPanel = defineFeature({
 				},
 				{
 					overlay: true,
-					overlayOptions: { anchor: "center", width: "70%", minWidth: 60, maxHeight: "80%" },
+					overlayOptions: { anchor: "center", width: "100%", maxHeight: "100%" },
 				},
 			);
 			stopWatching?.();

@@ -62,86 +62,85 @@ const SESSION = applied(
 	{ op: "decide", text: "One SECRET with a mode", at: 9 },
 );
 
+/** The words of one row of boxes, without the borders, so a test reads a card as text. */
+function words(lines: readonly string[]): string {
+	return lines.map((line) => line.replace(/[\u2500-\u257f]/g, " ").replace(/ +/g, " ")).join("\n");
+}
+
 describe("the board panel", () => {
-	test("wears the frame, with the counts on its top edge and the way out on the bottom", () => {
-		const lines = panel(SESSION).drawn.render(80);
-		expect(lines[0]).toMatch(/^╭─ Board ─+ 3 open {3}1 in the backlog {3}1 done ─╮$/);
-		expect(lines.at(-1)).toMatch(/^╰─ esc close ─+╯$/);
-		expect(lines.every((line) => visibleWidth(line) === 80)).toBe(true);
+	test("fills the terminal in the frame, with the counts on top and the keys at the bottom", () => {
+		const lines = panel(SESSION, { rows: 30 }).drawn.render(120);
+		expect(lines).toHaveLength(30);
+		expect(lines[0]).toMatch(/^╭─ Board ─+ 3 open {3}1 waiting {3}1 done ─╮$/);
+		expect(lines.at(-1)).toMatch(/^╰─ .+ move {3}enter open {3}esc close ─+╯$/);
+		expect(lines.every((line) => visibleWidth(line) === 120)).toBe(true);
 	});
 
-	test("puts each open card under its column, in the column order, then what was delivered and decided", () => {
-		const text = panel(SESSION).drawn.render(80).join("\n");
-		const order = [
-			"Doing 1",
-			"One secret with an auth mode  #41",
-			"53 tests pass, writing the README",
-			"In review 1",
-			"Show loading while history arrives",
-			"@badger reviews",
-			"To do 1",
-			"Push the fix to main",
-			"Done lately 1",
-			"the Workers OAuth provider",
-			"Decisions 1",
-			"One SECRET with a mode",
-		].map((words) => text.indexOf(words));
-		expect(order.every((at) => at >= 0)).toBe(true);
-		expect(order).toEqual(order.toSorted((left, right) => left - right));
-		expect(text).not.toContain("Write the release notes");
-	});
-
-	test("a card that waits names what it waits on in the warning color", () => {
-		const text = panel(SESSION, { theme: marked }).drawn.render(80).join("\n");
-		expect(text).toContain("<w>⚑</w> Push the fix to main");
-		expect(text).toContain("<w>você: production has no SECRET yet</w>");
-	});
-
-	test("a long title wraps under its own words instead of being cut", () => {
-		const long = applied({
-			op: "add",
-			title: "Make the remote page reopen where phones left",
-			column: "doing",
-			at: 1,
-		});
-		const lines = panel(long).drawn.render(40);
-		const at = lines.findIndex((line) => line.includes("◆ Make"));
-		expect(lines[at + 1]).toMatch(/^│ {4}\S/);
-		expect(lines.join(" ")).toContain("left");
-	});
-
-	test("the decisions keep the last three, and the heading says of how many", () => {
-		const many = applied(
-			...["one", "two", "three", "four", "five"].map((text, index): BoardOp => ({
-				op: "decide",
-				text: `Decision ${text}`,
-				at: index + 1,
-			})),
+	test("draws a column per stage side by side, each card in its own box", () => {
+		const lines = panel(SESSION, { rows: 30 }).drawn.render(120);
+		const heads = lines.find((line) => line.includes("Doing")) ?? "";
+		const order = ["Doing 1", "In review 1", "To do 1", "Done 1"].map((label) =>
+			heads.indexOf(label),
 		);
-		const text = panel(many).drawn.render(80).join("\n");
-		expect(text).toContain("Decisions last 3 of 5");
-		expect(text).not.toContain("Decision two");
-		expect(text).toContain("Decision five");
+		expect(order.every((at) => at > 0)).toBe(true);
+		expect(order).toEqual(order.toSorted((a, b) => a - b));
+		const text = words(lines);
+		expect(text).toContain("One secret with an");
+		expect(text).toContain("auth mode #41");
+		expect(text).toContain("@badger reviews");
+		expect(text).toContain("the Workers OAuth");
+		expect(lines.filter((line) => line.includes("\u256d")).length).toBeGreaterThan(1);
+	});
+
+	test("the backlog and the last decision sit in the foot", () => {
+		const lines = panel(SESSION, { rows: 30 }).drawn.render(120);
+		expect(lines.at(-3)).toContain("Backlog 1  Write the release notes");
+		expect(lines.at(-2)).toContain("Decided 1  One SECRET with a mode");
+	});
+
+	test("a card that waits wears the warning color on its box and says what it waits on", () => {
+		const lines = panel(SESSION, { theme: marked, rows: 30 }).drawn.render(120);
+		expect(lines.join("\n")).toContain("<w>você: production");
+		expect(lines.some((line) => line.includes("<w>\u256d"))).toBe(true);
+	});
+
+	test("the arrows move across columns and down a column, and enter opens the card in full", () => {
+		const { drawn } = panel(SESSION, { rows: 30 });
+		drawn.handleInput("\u001b[C");
+		drawn.handleInput("\r");
+		const page = drawn.render(120).join("\n");
+		expect(page).toContain("Reviewer");
+		expect(page).toContain("@badger");
+		expect(page).toContain("esc back");
+		drawn.handleInput("\u001b");
+		expect(drawn.render(120).join("\n")).toContain("enter open");
+	});
+
+	test("a narrow terminal stacks the columns", () => {
+		const lines = panel(SESSION, { rows: 60 }).drawn.render(60);
+		expect(lines.filter((line) => /Doing|In review|To do|Done/.test(line))).toHaveLength(4);
+		expect(lines.every((line) => visibleWidth(line) === 60)).toBe(true);
 	});
 
 	test("an empty board says what fills it", () => {
 		expect(panel(emptyBoard()).drawn.render(80).join("\n")).toContain("Nothing on the board yet");
 	});
 
-	test("a board taller than the terminal scrolls, and says where it is", () => {
-		const { drawn, renders } = panel(SESSION, { rows: 14 });
-		const first = drawn.render(80);
-		expect(first.length).toBeLessThanOrEqual(Math.floor(14 * 0.8));
-		expect(first.at(-1)).toMatch(/↑↓ scroll {3}esc close ─+ 1-\d+ of \d+ ─╯$/);
-		drawn.handleInput("\u001b[B");
-		expect(renders()).toBe(1);
-		expect(drawn.render(80).at(-1)).toMatch(/ 2-\d+ of \d+ ─╯$/);
-		// Past the end, the key does nothing and nothing redraws.
-		for (let step = 0; step < 50; step++) drawn.handleInput("j");
-		drawn.render(80);
-		const before = renders();
-		drawn.handleInput("j");
-		expect(renders()).toBe(before);
+	test("a column taller than the terminal follows the chosen card", () => {
+		const tall = applied(
+			...Array.from({ length: 12 }, (_, index): BoardOp => ({
+				op: "add",
+				title: `Card number ${index + 1}`,
+				column: "todo",
+				at: index + 1,
+			})),
+		);
+		const { drawn } = panel(tall, { rows: 20 });
+		expect(drawn.render(120).join("\n")).not.toContain("Card number 12");
+		for (let step = 0; step < 11; step++) drawn.handleInput("j");
+		const text = drawn.render(120).join("\n");
+		expect(text).toContain("Card number 12");
+		expect(text).not.toContain("Card number 1 ");
 	});
 
 	test("escape, q and Alt+T close it", () => {

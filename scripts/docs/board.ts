@@ -24,6 +24,8 @@ const SESSION: BoardOp[] = [
 		blocked: { on: "operator", why: "production has no SECRET yet" },
 	},
 	{ op: "add", title: "Write the 1.0.0 release notes", column: "backlog", at },
+	{ op: "add", title: "Rotate the staging key", column: "backlog", at },
+	{ op: "add", title: "Document the auth modes", column: "todo", at },
 	{ op: "decide", text: "One SECRET with a mode: API_KEY, OAUTH or BOTH", at },
 ];
 
@@ -35,5 +37,7 @@ export function boardPanel(theme: Theme): string[] {
 		close: () => {},
 		requestRender: () => {},
 		read: () => board,
+		rows: () => 24,
+		now: () => at + 25 * 60_000,
 	}).render(WIDTH);
 }
