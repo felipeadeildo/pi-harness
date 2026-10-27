@@ -43,7 +43,9 @@ export const BOARD_PARAMETERS = Type.Object({
 	blocked: Type.Optional(BLOCKED),
 	reviewer: Type.Optional(Type.String({ description: "Who reviewed it. For move." })),
 	result: Type.Optional(Type.String({ description: "How it ended. For move." })),
-	now: Type.Optional(Type.String({ description: "What is being done now. For edit." })),
+	now: Type.Optional(
+		Type.String({ description: "Where it stands: what is done and what is left. For edit." }),
+	),
 	why: Type.Optional(
 		Type.String({ description: "Why the card is dropped, in a few words. For drop." }),
 	),
@@ -54,11 +56,16 @@ export const BOARD_PARAMETERS = Type.Object({
 	),
 });
 
-export const BOARD_DESCRIPTION = `Keeps the session's board: what it is doing now, what waits for whom, and what it already delivered.
+export const BOARD_DESCRIPTION = `Your board: how the operator and the other agents know what you are doing without asking you. They read it on Alt+T, the remote page and the peers board, so write each line for someone who has not read this conversation.
 
-A card is a deliverable another can ask "how is it going?" about and whose end a third can check: a merged PR, a report, a review with a verdict, an answered question. One card per PR, with its number. Steps of the work (running tests, a rebase, reading a file) are not cards, and another agent's work belongs on their board.
+A card is a deliverable another can ask "how is it going?" about and whose end a third can check: a merged PR, a report, a review with a verdict, an answered question. One card per PR, with its number. Steps of the work go in \`now\`, not in cards. Another agent's work belongs on their board.
 
 Writes return the open board, with the ids to use next. A write that breaks a rule answers with the reason, in place of the board.`;
+
+export const BOARD_GUIDELINES = [
+	"Keep your board current: add the card when you take a deliverable, edit `now` when its state changes, set `blocked` as soon as you wait on someone, and move it to done with the result.",
+	"Before asking another agent what it is doing, read its board with peers.",
+];
 
 export function boardText(board: Board): string {
 	if (board.cards.length === 0 && board.decisions.length === 0) return "The board is empty.";

@@ -5,6 +5,7 @@ import { BOARD_OP, boardOf } from "./log.ts";
 import { applyBoard, emptyBoard, type Board } from "./model.ts";
 import {
 	BOARD_DESCRIPTION,
+	BOARD_GUIDELINES,
 	BOARD_PARAMETERS,
 	boardCall,
 	boardText,
@@ -30,6 +31,7 @@ export const board: Feature = {
 			name: "board",
 			label: "Board",
 			description: BOARD_DESCRIPTION,
+			promptGuidelines: BOARD_GUIDELINES,
 			parameters: BOARD_PARAMETERS,
 			execute: async (_id, params) => {
 				const lacking = missingFor(params);
