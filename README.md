@@ -69,7 +69,7 @@ The agent keeps a small board of what it is doing, what waits on you and what it
 
 <!-- /docs -->
 
-[The board](packages/harness#the-board) explains what counts as a card and where the board shows up.
+[How the board works](packages/harness/docs/board.md) explains what counts as a card and where the board shows up.
 
 ## Agents work together
 
