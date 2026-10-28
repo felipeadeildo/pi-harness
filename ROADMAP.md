@@ -177,7 +177,7 @@ Open:
 
 Open:
 
-- The design is not settled. `pi-memory` does the job well today, so a replacement has to beat it at something specific before it starts.
+- The design is not settled. `pi-memory` came out on 2026-10-28: its compaction handoff copied the whole scratchpad into the day's log on every compaction, one day's log reached 3 MB, and `memory_read` returned it whole, past the model's 1M-token limit. Whatever replaces it reads in pages, as `read` does, and never writes a copy of what it already holds.
 - One memory file with sections, or a global one and one per project?
 
 ## Many sessions, one policy
