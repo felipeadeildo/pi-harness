@@ -20,7 +20,7 @@ export const strip: readonly SegmentId[] = ["elapsed"];
 /** The other side of that line, or a line of its own under it when it does not fit. */
 export const stripRight: readonly SegmentId[] = ["board", "peers"];
 /** After the working spinner on the editor's top edge. */
-export const topLeft: readonly SegmentId[] = ["branch", "session"];
+export const topLeft: readonly SegmentId[] = ["me", "branch", "session"];
 /** Where you are. */
 export const topRight: readonly SegmentId[] = ["path", "host"];
 /** How what you type is handled, and who does the work. */

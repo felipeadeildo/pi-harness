@@ -38,6 +38,14 @@ function text(ids: SegmentId[], data = snapshot(), extra: Partial<typeof options
 const at = 1;
 
 describe("segments", () => {
+	test("me is the name the rooms call this session, and nothing before it has one", () => {
+		expect(
+			render(["me"], snapshot({ me: { handle: "quokka", color: "syntaxString" } })),
+		).toHaveLength(1);
+		expect(render(["me"], snapshot({ me: { handle: "quokka" } }))[0]?.text).toContain("quokka");
+		expect(render(["me"], snapshot())).toEqual([]);
+	});
+
 	test("the board shows the card being done, with what is blocked, what is to do and what is done", () => {
 		const board = foldBoard([
 			{ op: "add", title: "write the contract", at },
