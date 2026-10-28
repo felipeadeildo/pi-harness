@@ -63,7 +63,7 @@ function Rail(): ReactNode {
 				aria-label="π remote"
 				className="mb-3 rounded-md px-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
 			>
-				<span className="wide text-[24px] leading-none font-bold text-pi">π</span>
+				<img src="/mark.svg" alt="" width={28} height={18} className="block" />
 			</Link>
 			{SECTIONS.map((section) => (
 				<SectionLink
@@ -124,13 +124,13 @@ function SectionLink({
 /** The section's title; on a phone, where there is no rail, it carries the π. */
 export function SectionHeader({ title }: { title: string }): ReactNode {
 	return (
-		<header className="sticky top-0 z-10 flex items-baseline gap-2 bg-background/95 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
+		<header className="sticky top-0 z-10 flex items-center gap-2.5 bg-background/95 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
 			<Link
 				to="/"
 				aria-label="π remote"
 				className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:hidden"
 			>
-				<span className="wide text-[22px] leading-none font-bold text-pi">π</span>
+				<img src="/mark.svg" alt="" width={24} height={15} className="block" />
 			</Link>
 			<h1 className="wide text-[17px] font-semibold">{title}</h1>
 		</header>

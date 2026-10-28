@@ -3,7 +3,7 @@
 // `bun run docs` redraws only what changed.
 /* oxlint-disable no-await-in-loop -- the scenes share pi's global theme, so they run in turn */
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -11,6 +11,7 @@ import { colorToHex } from "@earendil-works/pi-tui";
 import { $ } from "bun";
 
 import { markdownFiles, rewrite } from "./blocks.ts";
+import { bannerBlock, bannerSvg, footerBlock, iconSvg, markSvg, socialSvg } from "./brand.ts";
 import { readKey, withKey } from "./png.ts";
 import { SCENES, type Scene } from "./scenes.ts";
 import { toSvg } from "./svg.ts";
@@ -29,6 +30,14 @@ interface Picture {
 	key: string;
 	caption: string;
 	alt: string;
+	/** How many pixels a unit of the SVG becomes; 2 by default, for sharp text. */
+	zoom?: number;
+}
+
+/** A picture drawn from an SVG made by hand, with no caption: the brand. */
+function brandPicture(file: string, svg: string, zoom = 1): Picture {
+	const key = createHash("sha256").update(svg).digest("hex");
+	return { name: file, file, svg, key, caption: "", alt: "", zoom };
 }
 
 async function picture(scene: Scene, theme: Theme): Promise<Picture> {
@@ -86,7 +95,8 @@ function isStale(entry: Picture): boolean {
 }
 
 async function draw(entry: Picture): Promise<void> {
-	const png = await $`rsvg-convert --zoom 2 - < ${new Response(entry.svg)}`.arrayBuffer();
+	const zoom = entry.zoom ?? 2;
+	const png = await $`rsvg-convert --zoom ${zoom} - < ${new Response(entry.svg)}`.arrayBuffer();
 	writeFileSync(join(root, entry.file), withKey(new Uint8Array(png), entry.key));
 }
 
@@ -122,11 +132,41 @@ for (const scene of SCENES) {
 		throw new Error(`no scene called "${scene.beside}" to sit beside ${scene.name}`);
 	blocks.set(scene.name, rowBlock(mine, partner));
 }
+// The brand: the icon, the banner in both themes, GitHub's social picture, and the remote page's
+// icons, so the page and the README show the same π.
+const WEB = "packages/remote/web/public";
+pictures.push(
+	brandPicture("assets/brand/icon.png", iconSvg(512)),
+	brandPicture("assets/brand/banner-dark.png", bannerSvg("dark"), 2),
+	brandPicture("assets/brand/banner-light.png", bannerSvg("light"), 2),
+	brandPicture("assets/brand/social.png", socialSvg()),
+	brandPicture(`${WEB}/favicon.png`, iconSvg(64, 0.875)),
+	brandPicture(`${WEB}/apple-touch-icon.png`, iconSvg(180)),
+);
+blocks.set("banner", bannerBlock(RAW));
+blocks.set("footer", footerBlock());
+const vectors = new Map<string, string>([
+	["assets/brand/icon.svg", iconSvg(512)],
+	[`${WEB}/icon.svg`, iconSvg(64, 0.875)],
+	[`${WEB}/mark.svg`, markSvg()],
+]);
+const staleVectors = [...vectors].filter(
+	([file, svg]) => !existsSync(join(root, file)) || readFileSync(join(root, file), "utf-8") !== svg,
+);
+
 const stale = pictures.filter(isStale);
 const write = !process.argv.includes("--check");
 
-if (write) await Promise.all(stale.map((entry) => draw(entry)));
-const changed = [...syncPages(blocks, write), ...stale.map((entry) => entry.file)];
+if (write) {
+	mkdirSync(join(root, "assets/brand"), { recursive: true });
+	await Promise.all(stale.map((entry) => draw(entry)));
+	for (const [file, svg] of staleVectors) writeFileSync(join(root, file), svg);
+}
+const changed = [
+	...syncPages(blocks, write),
+	...stale.map((entry) => entry.file),
+	...staleVectors.map(([file]) => file),
+];
 
 if (!write && changed.length > 0) {
 	console.error(`Out of date, run \`bun run docs\`:\n  ${changed.join("\n  ")}`);

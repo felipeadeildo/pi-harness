@@ -3,6 +3,12 @@ import { type Cell, cellsOf, type Style } from "./ansi.ts";
 
 /** The left quarter block the dialog uses as the rail of a question. */
 const BAR = "\u258e";
+/** Full and half blocks, drawn as rectangles: a font leaves a gap above and below them. */
+const BLOCKS: Record<string, { from: number; to: number }> = {
+	"\u2588": { from: 0, to: 1 },
+	"\u2580": { from: 0, to: 0.5 },
+	"\u2584": { from: 0.5, to: 1 },
+};
 
 export interface SvgOptions {
 	background: string;
@@ -76,7 +82,23 @@ export function toSvg(lines: readonly string[], options: SvgOptions): string {
 					`<rect x="${bar}" y="${top}" width="${(cell * 0.25).toFixed(2)}" height="${height}" fill="${fill}"/>`,
 				);
 			}
-			const visible = run.text.replaceAll(BAR, " ");
+			// A run of the same block is one rectangle, so a scaled picture shows no seams inside it.
+			const chars = [...run.text];
+			for (let offset = 0; offset < chars.length;) {
+				const block = BLOCKS[chars[offset] ?? ""];
+				let end = offset + 1;
+				if (block !== undefined) {
+					while (chars[end] === chars[offset]) end++;
+					const left = (padding + (run.column + offset) * cell).toFixed(2);
+					shapes.push(
+						`<rect x="${left}" y="${(top + height * block.from).toFixed(2)}" width="${((end - offset) * cell).toFixed(2)}" height="${(height * (block.to - block.from)).toFixed(2)}" fill="${fill}" shape-rendering="crispEdges"/>`,
+					);
+				}
+				offset = end;
+			}
+			const visible = [...run.text]
+				.map((char) => (char === BAR || char in BLOCKS ? " " : char))
+				.join("");
 			if (visible.trim() === "") continue;
 			const attributes = [
 				`x="${x}"`,

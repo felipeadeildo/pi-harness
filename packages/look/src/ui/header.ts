@@ -12,7 +12,8 @@ import { renderSegments, type SegmentId } from "../render/segments.ts";
 import type { HeaderStyle } from "../settings.ts";
 import type { Screen } from "./screen.ts";
 
-const PIXELS = [
+/** The π the start card draws, and the docs draw the project's icon from. */
+export const PIXELS = [
 	"..............",
 	".############.",
 	"##############",
@@ -25,7 +26,7 @@ const PIXELS = [
 	".##.......####",
 ];
 const LOGO = halfBlocks(PIXELS);
-const LOGO_RAMP = EFFORT_LEVELS.slice(1);
+export const LOGO_RAMP = EFFORT_LEVELS.slice(1);
 const LOGO_COLUMN = 20;
 const MIN_RIGHT = 34;
 const MIN_CARD = 48;

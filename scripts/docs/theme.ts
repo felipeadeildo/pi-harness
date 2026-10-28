@@ -39,9 +39,14 @@ export function darkTheme(): Theme {
 	// terminal. Pinned, so CI draws the same picture as a laptop.
 	process.env.COLORTERM = "truecolor";
 	initTheme("dark", false);
+	return shippedTheme("dark");
+}
+
+/** One of the themes pi ships, without touching pi's global theme. */
+export function shippedTheme(name: "dark" | "light"): Theme {
 	const root = dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent")));
 	const file = JSON.parse(
-		readFileSync(join(root, "modes/interactive/theme/dark.json"), "utf-8"),
+		readFileSync(join(root, `modes/interactive/theme/${name}.json`), "utf-8"),
 	) as ThemeFile;
 
 	const foreground: Record<string, string | number> = {};
@@ -50,7 +55,5 @@ export function darkTheme(): Theme {
 		const target = BACKGROUNDS.has(token) ? background : foreground;
 		target[token] = resolve(value, file.vars);
 	}
-	return new Theme(foreground as Palette, background as BackgroundPalette, "truecolor", {
-		name: "dark",
-	});
+	return new Theme(foreground as Palette, background as BackgroundPalette, "truecolor", { name });
 }
