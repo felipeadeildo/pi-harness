@@ -1,5 +1,6 @@
 import { defineContract } from "../contract.ts";
 import { guarded, isObject } from "../decode.ts";
+import type { RoomMode } from "./events.ts";
 
 export interface PeerMark {
 	handle: string;
@@ -7,6 +8,13 @@ export interface PeerMark {
 	color: string;
 	state: "running" | "idle" | "waiting";
 	room?: string;
+}
+
+/** A room this session is in, how it stands there, and the other agents in it. */
+export interface RoomMark {
+	name: string;
+	mode: RoomMode;
+	peers: PeerMark[];
 }
 
 export interface WritingMark {
@@ -24,6 +32,8 @@ export interface PeersState {
 	unread: number;
 	/** A draft is never worth a frame over the editor, so it goes to the footer. */
 	writing?: WritingMark[];
+	/** The folder's room first. */
+	rooms?: RoomMark[];
 }
 
 export const PEERS = defineContract<PeersState>(
@@ -37,8 +47,18 @@ function isPeersState(value: unknown): value is PeersState {
 	if (!isObject(value) || typeof value.unread !== "number") return false;
 	if (!Array.isArray(value.peers) || !value.peers.every(isPeerMark)) return false;
 	if (value.me !== undefined && !isPeerMark(value.me)) return false;
+	if (value.rooms !== undefined && !(Array.isArray(value.rooms) && value.rooms.every(isRoomMark)))
+		return false;
 	if (value.writing === undefined) return true;
 	return Array.isArray(value.writing) && value.writing.every(isWritingMark);
+}
+
+const MODES = new Set(["in", "listening", "out"]);
+
+function isRoomMark(value: unknown): value is RoomMark {
+	if (!isObject(value) || typeof value.name !== "string") return false;
+	if (typeof value.mode !== "string" || !MODES.has(value.mode)) return false;
+	return Array.isArray(value.peers) && value.peers.every(isPeerMark);
 }
 
 function isWritingMark(value: unknown): value is WritingMark {

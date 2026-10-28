@@ -1,4 +1,10 @@
-import { type AccountWindow, type BoardCard, formatClock, type PeerMark } from "@adeildo/pi-kit";
+import {
+	type AccountWindow,
+	type BoardCard,
+	formatClock,
+	type PeerMark,
+	type RoomMark,
+} from "@adeildo/pi-kit";
 import { visibleWidth } from "@earendil-works/pi-tui";
 
 import type { Snapshot } from "../data/snapshot.ts";
@@ -160,7 +166,7 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 	peers: {
 		priority: 25,
 		describe:
-			"the other agents in this folder, then those of each shared room after a rule, each by the name it chose and in its colour, then @ how many messages wait for an answer",
+			"each room this session is in, with ● taking part, ◐ listening or ○ stepped out, then its agents by name and colour, each ◆ working, ⚑ waiting on you or ◇ idle, rooms apart by a rule, then @ how many messages wait for an answer",
 		// The whole folder, then one name, then the bare mark, as room runs out.
 		render: ({ snapshot, glyphs, paint }) => {
 			const peers = snapshot.peers;
@@ -172,16 +178,22 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 			const unread =
 				snapshot.peersUnread > 0 ? paint.role("waiting", `@${snapshot.peersUnread}`) : "";
 			const mentions = [writing, unread].filter((part) => part !== "").join(" ");
+			const rooms = snapshot.peersRooms.filter(
+				(room) => room.peers.length > 0 || room.mode !== "in",
+			);
+			if (rooms.length > 0) return roomsPiece(rooms, mentions, glyphs, paint);
 			const first = peers[0];
 			if (first === undefined) return mentions === "" ? undefined : { text: mentions };
 			const named = (peer: PeerMark) => paint.raw(peer.color, `${glyphs.peers} ${peer.handle}`);
 			const rest = peers.length > 1 ? paint.dim(` +${peers.length - 1}`) : "";
-			const rooms = new Map<string, string[]>();
+			const groups = new Map<string, string[]>();
 			for (const peer of peers)
-				rooms.set(peer.room ?? "", [...(rooms.get(peer.room ?? "") ?? []), named(peer)]);
+				groups.set(peer.room ?? "", [...(groups.get(peer.room ?? "") ?? []), named(peer)]);
 			const apart = `  ${paint.dim(glyphs.apart)}  `;
-			const groups = [...rooms.values()].map((group) => group.join("  "));
-			const full = joined(groups.join(apart), mentions);
+			const full = joined(
+				[...groups.values()].map((group) => group.join("  ")).join(apart),
+				mentions,
+			);
 			const short = joined(named(first) + rest, mentions);
 			const least = joined(paint.raw(first.color, glyphs.peers), mentions);
 			return {
@@ -542,6 +554,52 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 		},
 	},
 };
+
+/**
+ * Each room once, with how this session stands in it, then its agents with the marks the rooms panel
+ * and the board use: working, waiting on you, or idle.
+ */
+function roomsPiece(
+	rooms: readonly RoomMark[],
+	mentions: string,
+	glyphs: Glyphs,
+	paint: Paint,
+): Rendered {
+	const roomMark = (room: RoomMark): string => {
+		if (room.mode === "listening") return paint.raw("muted", glyphs.roomListening);
+		if (room.mode === "out") return paint.dim(glyphs.roomOut);
+		return paint.raw("accent", glyphs.roomIn);
+	};
+	const agent = (peer: PeerMark): string => {
+		const name = paint.raw(peer.color, peer.handle);
+		if (peer.state === "waiting") return `${paint.role("waiting", glyphs.waiting || "!")} ${name}`;
+		if (peer.state === "running") return `${paint.raw(peer.color, glyphs.agentWorking)} ${name}`;
+		return `${paint.dim(glyphs.agentIdle)} ${name}`;
+	};
+	const label = (room: RoomMark): string => `${roomMark(room)} ${paint.dim(room.name)}`;
+	const apart = `  ${paint.dim(glyphs.apart)}  `;
+	const full = joined(
+		rooms.map((room) => [label(room), ...room.peers.map(agent)].join("  ")).join(apart),
+		mentions,
+	);
+	const [head] = rooms;
+	if (head === undefined) return undefined;
+	const total = rooms.reduce((sum, room) => sum + room.peers.length, 0);
+	const first = rooms.find((room) => room.peers.length > 0)?.peers[0];
+	const short = joined(
+		[label(head), ...(first === undefined ? [] : [agent(first)])].join("  ") +
+			(total > 1 ? paint.dim(` +${total - 1}`) : ""),
+		mentions,
+	);
+	const least = joined(roomMark(head), mentions);
+	return {
+		text: full,
+		shrink: (width) => {
+			if (visibleWidth(full) <= width) return full;
+			return visibleWidth(short) <= width ? short : least;
+		},
+	};
+}
 
 export function renderSegments(ids: readonly SegmentId[], input: SegmentInput): Piece[] {
 	return ids.flatMap((id): Piece[] => {

@@ -4,7 +4,7 @@ import { type BoardOp, emptyBoard, foldBoard } from "@adeildo/pi-kit";
 import { stripTerminalSequences as plainText } from "@earendil-works/pi-tui";
 
 import { emptyTotals } from "../src/data/totals.ts";
-import { ASCII, NERD } from "../src/render/glyphs.ts";
+import { ASCII, NERD, UNICODE } from "../src/render/glyphs.ts";
 import { PLAIN, type Paint } from "../src/render/paint.ts";
 import {
 	claimedStatuses,
@@ -78,6 +78,35 @@ describe("segments", () => {
 		expect(plainText(piece?.shrink?.(6) ?? "")).toBe("@  @2");
 		expect(claimedStatuses([["peers"]])).toContain("pi-peers");
 		expect(text(["peers"], snapshot())).toEqual([]);
+	});
+
+	test("each room says how this session stands in it, then its agents with what each is doing", () => {
+		const peersRooms = [
+			{
+				name: "ada-api",
+				mode: "listening" as const,
+				peers: [
+					{ handle: "pika", color: "syntaxString", state: "waiting" as const },
+					{ handle: "coyote", color: "syntaxType", state: "running" as const },
+				],
+			},
+			{
+				name: "hedy+ada",
+				mode: "in" as const,
+				peers: [{ handle: "dogfish", color: "syntaxKeyword", state: "idle" as const }],
+			},
+			{ name: "grace", mode: "out" as const, peers: [] },
+		];
+		const [piece] = renderSegments(["peers"], {
+			snapshot: snapshot({ peersRooms }),
+			glyphs: UNICODE,
+			paint: PLAIN,
+			options,
+		});
+		expect(plainText(piece?.text ?? "")).toBe(
+			"\u25d0 ada-api  \u2691 pika  \u25c6 coyote  \u2502  \u25cf hedy+ada  \u25c7 dogfish  \u2502  \u25cb grace",
+		);
+		expect(plainText(piece?.shrink?.(30) ?? "")).toBe("\u25d0 ada-api  \u2691 pika +2");
 	});
 
 	test("a draft is one line beside the peers, and it never takes a frame of its own", () => {

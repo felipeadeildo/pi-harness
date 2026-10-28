@@ -14,6 +14,7 @@ import {
 	type LoggedEvent,
 	type Member,
 	type PeerMark,
+	type RoomMark,
 	ownStart,
 	readPresence,
 	removePresence,
@@ -291,6 +292,15 @@ export class Rooms implements RoomsView {
 		}
 		const me = this.#mark();
 		return { others: [...marks.values()], unread, ...(me === undefined ? {} : { me }) };
+	}
+
+	/** Each room this session is in, how it stands there, and its other agents. */
+	roomMarks(): RoomMark[] {
+		return this.rooms().map((room) => ({
+			name: room.name,
+			mode: room.mode,
+			peers: room.mode === "out" ? [] : [...(this.here(room.id)?.marks().values() ?? [])],
+		}));
 	}
 
 	/** Drawn from the same names and state as the others. */

@@ -1,6 +1,6 @@
 import { hostname } from "node:os";
 
-import type { AccountState, Board, PeerMark, WritingMark } from "@adeildo/pi-kit";
+import type { AccountState, Board, PeerMark, RoomMark, WritingMark } from "@adeildo/pi-kit";
 import { VERSION, type ExtensionContext, type SessionEntry } from "@earendil-works/pi-coding-agent";
 
 import type { GitState } from "./git.ts";
@@ -55,6 +55,8 @@ export interface Snapshot {
 	board: Board | undefined;
 	/** When a peers feature keeps them. */
 	peers: PeerMark[];
+	/** Empty when the peers feature publishes only `peers`. */
+	peersRooms: RoomMark[];
 	peersUnread: number;
 	peersWriting: WritingMark[];
 }
@@ -85,6 +87,7 @@ export function emptySnapshot(): Snapshot {
 		statuses: new Map(),
 		board: undefined,
 		peers: [],
+		peersRooms: [],
 		peersUnread: 0,
 		peersWriting: [],
 	};
@@ -101,6 +104,7 @@ export interface LiveInputs {
 	board?: Board | undefined;
 	me?: { handle: string; color?: string } | undefined;
 	peers?: PeerMark[] | undefined;
+	peersRooms?: RoomMark[] | undefined;
 	peersUnread?: number | undefined;
 	peersWriting?: WritingMark[] | undefined;
 }
@@ -155,6 +159,7 @@ export class SnapshotReader {
 			),
 			board: live.board,
 			peers: live.peers ?? [],
+			peersRooms: live.peersRooms ?? [],
 			peersUnread: live.peersUnread ?? 0,
 			peersWriting: live.peersWriting ?? [],
 		};

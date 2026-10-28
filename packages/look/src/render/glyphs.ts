@@ -39,6 +39,13 @@ export interface Glyphs {
 	ellipsis: string;
 	/** Between the folder's agents and each shared room's. */
 	apart: string;
+	/** How this session stands in a room, as the rooms panel marks it. */
+	roomIn: string;
+	roomListening: string;
+	roomOut: string;
+	/** An agent at work and one waiting for work, as the panel and the board mark them. */
+	agentWorking: string;
+	agentIdle: string;
 }
 
 const COMMON = {
@@ -51,6 +58,11 @@ const COMMON = {
 	sent: "↑",
 	received: "↓",
 	apart: "│",
+	roomIn: "●",
+	roomListening: "◐",
+	roomOut: "○",
+	agentWorking: "◆",
+	agentIdle: "◇",
 };
 
 export const NERD: Glyphs = {
@@ -118,6 +130,11 @@ export const UNICODE: Glyphs = {
 export const ASCII: Glyphs = {
 	set: "ascii",
 	apart: "|",
+	roomIn: "+",
+	roomListening: "~",
+	roomOut: "-",
+	agentWorking: ">",
+	agentIdle: "-",
 	folder: "",
 	branch: "",
 	host: "@",

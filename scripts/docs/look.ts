@@ -92,6 +92,18 @@ function snapshot(theme: Theme): Snapshot {
 		},
 		averages: { decode: 183, prefill: 49_000 },
 		board: shippingBoard(),
+		peersRooms: [
+			{
+				name: "pi-harness",
+				mode: "in",
+				peers: [{ handle: "otter", color: "syntaxType", state: "running" }],
+			},
+			{
+				name: "api+web",
+				mode: "listening",
+				peers: [{ handle: "heron", color: "syntaxKeyword", state: "waiting" }],
+			},
+		],
 		statuses: new Map([["pi-ask-permission:mode", theme.fg("warning", "\u23f5 judge")]]),
 	};
 }

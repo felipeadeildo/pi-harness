@@ -210,6 +210,7 @@ export const peers = defineFeature({
 			const state = {
 				peers: summary.others,
 				unread: summary.unread,
+				rooms: rooms.roomMarks(),
 				...(writing.length === 0 ? {} : { writing }),
 			};
 			const text = JSON.stringify(state);
@@ -228,6 +229,7 @@ export const peers = defineFeature({
 			return {
 				peers: summary.others,
 				unread: summary.unread,
+				rooms: rooms.roomMarks(),
 				...(summary.me === undefined ? {} : { me: summary.me }),
 			};
 		});

@@ -390,7 +390,7 @@ function accountOf(scope: FeatureScope, provider: string | undefined): AccountSt
 
 function boardAndPeersOf(
 	scope: FeatureScope,
-): Pick<LiveInputs, "board" | "me" | "peers" | "peersUnread" | "peersWriting"> {
+): Pick<LiveInputs, "board" | "me" | "peers" | "peersRooms" | "peersUnread" | "peersWriting"> {
 	const peers = PEERS.current(scope);
 	const handle = NAMES.current(scope)?.handle;
 	const color = peers?.me?.handle === handle ? peers?.me?.color : undefined;
@@ -398,6 +398,7 @@ function boardAndPeersOf(
 		board: BOARD.current(scope),
 		me: handle === undefined ? undefined : { handle, ...(color === undefined ? {} : { color }) },
 		peers: peers?.peers,
+		peersRooms: peers?.rooms,
 		peersUnread: peers?.unread,
 		peersWriting: peers?.writing,
 	};
