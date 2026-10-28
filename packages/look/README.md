@@ -19,18 +19,6 @@ While an agent works, you keep checking the same few things: what it is about to
 
 <!-- /docs -->
 
-<!-- docs:look/call -->
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/call.png" alt="Three commands, each in its own box: a bash command with the reason it was allowed and the time it took, a file read, and a command still running." width="860">
-  <br>
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/settings.png" alt="The settings screen in a frame, titled Settings. The Look tab holds Appearance, Your messages and What is on screen, with Editor frame selected. Under the list, the preview draws the editor's rounded frame with main on the top edge, the folder on the right, the model on the bottom edge and the context on the right. Below, the setting's name and default, and the keys along the bottom edge." width="860">
-  <br>
-  <em>Every command in a box, and a setting shown before you keep it.</em>
-</p>
-
-<!-- /docs -->
-
 ## The start card
 
 The card shows the π, the folder, the branch, the model, and the name that the rooms and the remote page use for this session. Under them, it lists only what changed or waits on you since your last session in the folder:
@@ -47,16 +35,19 @@ On a quiet day, the card says that nothing is new. GitHub is asked in the backgr
 
 ## Each command in a box
 
-Every command gets its own box, so you see it before it runs:
+Every command gets its own box, so you see it before it runs: the command, who let it run and why, what it printed, and how long it took. For an edit, the box shows the diff, and only the words that changed get a light background.
 
-- The top line has the tool's name.
-- Under it come the command, and who let it run and why.
-- A line separates the command from what it printed.
-- The bottom line says how it went and how long it took. A command that still runs says `running`.
+<!-- docs:look/call -->
 
-For an `edit` or a `write`, the box shows the diff. The line numbers sit on the left, and only the words that changed get a light background. While the model is still writing the call, the box shows what has arrived so far, with a cursor at the end.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/call.png" alt="Three commands, each in its own box: a bash command with the reason it was allowed and the time it took, a file read, and a command still running." width="860">
+  <br>
+  <em>Every command in its own box: what ran, who let it run, the output and the time.</em>
+</p>
 
-`Alt+O` opens the tool output of the session in a frame that you can scroll, one call at a time, newest first. `Ctrl+O` opens every call in the transcript at once.
+<!-- /docs -->
+
+`Alt+O` opens the tool output of the session, one call at a time. `Ctrl+O` opens every call in the transcript.
 
 ## Above the editor
 
@@ -77,52 +68,28 @@ The messages that you send while the agent works wait above the editor, in a das
 
 ## The editor and the footer
 
-The editor's border starts with this session's name. It also shows the branch, the folder, the permission mode, the model with an effort meter, and how full the context is. The border warms up as the model thinks harder, and it takes the shell's color in bash mode.
+The editor's border shows this session's name, the branch, the folder, the permission mode, the model and how full the context is. The footer shows what the session cost, the tokens, the cache, the speeds, and how much of your plan is left.
 
-Instead of "Working", the spinner says what the model is doing: `waiting`, `thinking`, `writing`, `drafting bash` or `running bash`.
+Nothing on the screen jumps around: every number has a fixed width, and a value that nobody knows yet shows as `–` instead of popping in later.
 
-Your messages sit in a frame named `you`, like the tool calls. `look.userFrame` turns this off.
+## Settings
 
-The footer is about the session: the cost, the tokens sent and received, how much came from the cache, the average speeds, and how much of your plan is left, with when it resets.
+`Alt+S` opens them on the Look tab. You choose the icons (Nerd Font, Unicode or ASCII, to match your terminal's font), the style of the editor's frame, and whether your messages sit in a frame. Each choice shows a preview before you keep it.
 
-## Another session
-
-From the `Alt+G` panel or the remote, you can open another session over the whole screen. You see its transcript with the same boxes as yours, and an editor box with its folder, machine and model. The top edge says `live` while the session runs and `ended` once it closes. `Alt+G` or `Esc` takes you back.
-
-<!-- docs:look/view -->
+<!-- docs:look/settings -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/view.png" alt="A session with no name yet, shown as new and the end of its id, on the machine server, drawn over the whole screen in one frame with live on the right of its top edge. Its last question and the answer sit above an editor box whose edges carry the session's title, its folder, its machine and its model, and whose only line says the session is read only. The bottom edge says alt+g goes back." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/settings.png" alt="The settings screen in a frame, titled Settings. The Look tab holds Appearance, Your messages and What is on screen, with Editor frame selected. Under the list, the preview draws the editor's rounded frame with main on the top edge, the folder on the right, the model on the bottom edge and the context on the right. Below, the setting's name and default, and the keys along the bottom edge." width="860">
   <br>
-  <em>Another session over the screen, read from its file as it grows.</em>
+  <em>Change a setting and see the result drawn under the list before you keep it.</em>
 </p>
 
 <!-- /docs -->
 
-## Nothing jumps around
+## Learn more
 
-The numbers change on every frame, and the screen must not move with them.
-
-- Every number sits in a cell of fixed width, so `  17` and `2.8k` take the same room.
-- A value that nobody knows yet shows as `–`, instead of appearing later in the middle of the line.
-- The working time counts like a stopwatch: `0:59`, then `1:00`.
-- An estimate is drawn in a quieter color, so you know it is one.
-- The strip and the footer keep their line from the start, so the editor does not jump when the first answer arrives.
-
-## Details
-
-- A tool from an MCP server shows its server and tool, instead of `mcp__server__tool`.
-- A tool that brings no drawing of its own gets the same box, with its name and arguments on top.
-- Pi's own entries use the same frames: compactions and branch summaries under `π`, skills, and `!` commands.
-- The mark of a long phase moves: a clock while a call runs, an hourglass while it waits on you, and a spinner while the model writes it. The mark stops when the call ends.
-- The π on the start card rises from its feet once per launch. The harness sets pi's `quietStartup` to `header`, so pi's list of what it loaded stays out of the way.
-- Pi records usage without a duration, so each answer leaves a small entry with its time to the first token and its writing time. That keeps the averages right after you resume a session.
-
-## Your theme and settings
-
-The look never names a color. Every piece uses a theme token, so it follows whatever theme pi runs. The [reference](docs/reference.md#colours) lists the token for each piece.
-
-`Alt+S` opens the settings on the Look tab. You choose the icons (Nerd Font, Unicode or ASCII, to match your terminal's font), the style of the editor's frame, and whether your messages sit in a frame. Each choice shows a preview before you keep it. The [reference](docs/reference.md#settings) lists every setting.
+- [How it works](docs/how-it-works.md): the strip and the footer in detail, another session over the screen, and how the screen holds still.
+- [Reference](docs/reference.md): every setting and the theme token behind each color.
 
 The framed editor comes from [pi-open-tui](https://github.com/OldSuns/pi-open-tui), which this package replaces. The segments with priorities come from [oh-my-pi](https://github.com/can1357/oh-my-pi).
 

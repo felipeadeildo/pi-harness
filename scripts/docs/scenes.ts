@@ -379,9 +379,8 @@ export const SCENES: readonly Scene[] = [
 	},
 	{
 		name: "look/call",
-		caption: "Every command in a box, and a setting shown before you keep it.",
+		caption: "Every command in its own box: what ran, who let it run, the output and the time.",
 		alt: "Three commands, each in its own box: a bash command with the reason it was allowed and the time it took, a file read, and a command still running.",
-		beside: "look/settings",
 		draw: lookCall,
 	},
 	{

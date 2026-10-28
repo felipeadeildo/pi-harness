@@ -1,0 +1,118 @@
+# How permission works
+
+The [README](../README.md) covers the answers and the modes. This page covers the rest.
+
+## Always yes
+
+When you pick `always yes`, the dialog asks what to remember, then for how long. The first option is the narrowest one, and it is the one to prefer: remembering `pnpm` would also approve `pnpm publish`.
+
+| Scope        | How long it lasts                        | Where it is stored                                         |
+| ------------ | ---------------------------------------- | ---------------------------------------------------------- |
+| this session | Until the session ends, reloads included | The session file                                           |
+| this project | Every session in this project            | `.pi/extensions/pi-ask-permission/always-yes.json`         |
+| everywhere   | Every session                            | `~/.pi/agent/extensions/pi-ask-permission/always-yes.json` |
+
+The `Always yes` section of the settings counts the rules in each scope and lets you forget them.
+
+## Rules that come before the mode
+
+- **The workspace.** A call outside `workspace.roots` asks you in every mode, `full` included. `Alt+W` lets calls outside through for the rest of the session, and the status bar shows `anywhere` in red while it is on. Press it again to turn the check back on.
+- **The protected list.** A call that touches it, such as the remote's key or its socket, asks you in every mode except `full`, even past an always yes or the judge.
+
+A resumed session keeps its mode and its `Alt+W` choice.
+
+## Reads and edits
+
+Reads inside the project never ask: `read`, `grep`, `find`, `ls`, and shell commands that only read, like `cat`, `git log` or `rg`. For an `edit` or a `write`, the dialog shows the diff.
+
+The dialog comes from [`@adeildo/pi-ask-questions`](../../ask-questions), so it uses the same keys as the model's questions. Without that package, or in an RPC host, pi asks with its own simpler selector.
+
+## A folder next door
+
+In a monorepo, a session in `apps/api` that reads `apps/web` leaves the workspace. The dialog says so, and offers to open the repository for reads.
+
+<!-- docs:ask-permission/folder -->
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-permission/assets/folder.png" alt="A read outside the workspace, with an answer that also allows reads in that folder." width="860">
+  <br>
+  <em>A read outside the workspace can open that folder for reads.</em>
+</p>
+
+<!-- /docs -->
+
+If you accept, the next reads there run without asking, for as long as you choose.
+
+- A write outside the workspace gets `yes, and add … to the workspace` instead.
+- A folder that you opened for reads never lets a write through.
+- The dialog never offers your home folder, or a folder above it.
+
+The status bar counts the open folders, like `+1 folder`, and the `Folders` section of the settings closes them.
+
+## A call to an MCP server
+
+Pi registers each tool of an MCP server as `mcp__<server>__<tool>`, and the settings have a row for each server.
+
+| Policy        | What runs without asking                                                        |
+| ------------- | ------------------------------------------------------------------------------- |
+| `ask me`      | Nothing, in any mode                                                            |
+| `trust hints` | The calls that the server marks as read-only. The rest follows the current mode |
+| `allow`       | Every call                                                                      |
+| `deny`        | Nothing, whatever the mode                                                      |
+
+`trust hints` is the default. The hint is what the server claims about its own tool, and pi does not check it. Put a server that you do not fully trust on `ask me`. Both `deny` and `ask me` win over the mode, `full` included.
+
+## How the judge decides
+
+The judge answers every call that is not a read or an edit. Jev is a classifier model: it answers typed questions with a confidence instead of chatting. Pi also offers it through OpenRouter, Cloudflare, Vercel and opencode, and a local llama.cpp model works too. Pick one in `Model`.
+
+A call runs when the judge approves it with at least the confidence of the rigor you picked, and its risk stays under the ceiling. Every other call comes to you.
+
+| Rigor                | Confidence | Risk ceiling |
+| -------------------- | ---------- | ------------ |
+| `cautious`           | 85%        | 0.45         |
+| `balanced` (default) | 70%        | 0.50         |
+| `relaxed`            | 55%        | 0.60         |
+
+Under each call, a line says who decided and why, like `judge approved  97% sure, risk 0.12` or `you said no › use pnpm instead`. `Ctrl+O` adds the judge's numbers. When the model sends several calls at once, the judge reads them together.
+
+The policy is plain text, so you start from a preset and edit it:
+
+```text
+# May run without asking
+- Running tests, linters, type checks, and builds
+- git status, diff, log
+
+# Must always ask first
+- sudo, or anything that changes system-wide state
+- Anything that reaches the network
+
+# When in doubt
+Ask me.
+```
+
+`Always ask me` lists patterns that the judge never approves, like `git push*`.
+
+The judge also reads the session's name and your last three messages, to tell whether a call is a step of what you asked. It never reads the agent's own words, and nothing in your messages can override the policy.
+
+When calls come back as `the judge could not decide`, use `Test the judge` in the Judge section of the settings. It sends one request and reports the model, how long it took, and the error.
+
+## Limits
+
+- Always yes matches text. For `cd /repo && pnpm test`, it offers `cd`, `cd /repo` and the whole line, not `pnpm test`.
+- The read-only check is a classifier, not a sandbox. It refuses anything that it cannot prove harmless, so a few safe commands still ask.
+- The judge is a model and can be wrong. It sees the tool call and your messages, so do not let it judge calls or messages with secrets that you would not send to its provider.
+- If you need rules that never change and no person in the loop, use a sandbox instead.
+
+## Coming from pi-ask-permission
+
+`pi-ask-permission` on npm is this same extension under an older name, and it reads the same settings, grants and sessions. To move, run `pi remove npm:pi-ask-permission` and install this one.
+
+<!-- docs:footer -->
+
+<p align="center">
+  <a href="https://adeildo.dev"><img src="https://adeildo.dev/assets/images/cat.svg" width="42" height="42" alt="adeildo.dev"></a><br>
+  <a href="https://github.com/felipeadeildo/pi-harness">pi-harness</a> is made by <a href="https://adeildo.dev">adeildo.dev</a>
+</p>
+
+<!-- /docs -->
