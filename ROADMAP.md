@@ -204,7 +204,7 @@ Open:
 
 ## From anywhere
 
-How it works is in [`docs/remote.md`](docs/remote.md).
+How it works is in [the remote's docs](packages/remote/docs/how-it-works.md).
 
 | Item                | Status  | Needs         | Note                                                                                                                                                                                       |
 | ------------------- | ------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

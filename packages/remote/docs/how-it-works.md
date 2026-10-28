@@ -2,7 +2,7 @@
 
 The [README](../README.md) covers how to open it. This page covers the rest.
 
-Three programs work together. A **bridge** runs inside every pi and publishes its session. A **daemon** runs once per machine and keeps the live sessions, a replay of recent events and the logins. The **`pi-remote`** command prints and opens a link from a shell. [docs/remote.md](../../../docs/remote.md) explains how the pieces fit and why.
+Three programs work together. A **bridge** runs inside every pi and publishes its session. A **daemon** runs once per machine and keeps the live sessions, a replay of recent events and the logins. The **`pi-remote`** command prints and opens a link from a shell.
 
 ## Signing in from your phone
 

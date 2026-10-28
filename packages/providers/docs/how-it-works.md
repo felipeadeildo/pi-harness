@@ -1,0 +1,115 @@
+# How providers works
+
+The [README](../README.md) covers what each part does. This page covers the details.
+
+## The Claude plan
+
+With a Claude Pro or Max plan connected through `/login anthropic`, Pi's requests count as extra usage, billed by the token. This makes them come out of the plan, the way Claude Code's own requests do.
+
+Pi already sends Claude Code's identity when the token is an OAuth one. Anthropic checks two more things before it bills the request to the plan:
+
+1. The user agent has to read `claude-cli/<version> (external, cli)`.
+2. The first `system` block has to be the billing attribution, with nothing Claude Code would not send. Pi's own prompt moves to the start of the first user message, wrapped in `<system-instructions>`, where the model still reads it.
+
+Any provider that speaks the Anthropic Messages API with an OAuth token gets this, not only the one named `anthropic`, so a second account under another name is billed to its own plan. A request with an API key goes out untouched.
+
+Pi warns about extra usage in every Anthropic OAuth session. Once the plan pays, that warning is wrong, and `warnings.anthropicExtraUsage` in `~/.pi/agent/settings.json` turns it off.
+
+```json
+{ "warnings": { "anthropicExtraUsage": false } }
+```
+
+Anthropic answers `400 claude_code_version_too_old` when it considers the version too old for a newer model, so the version Pi reports is pinned in `src/subscription/claude-code.ts`, and the workflow that reverse engineers Claude Code moves it when a release lands. The settings show it read only, and the same file lists the features Claude Code asks for in `anthropic-beta` for the settings to pick from.
+
+Two more settings belong to the plan:
+
+| Key                              | Default            | What it does                                                                                 |
+| -------------------------------- | ------------------ | -------------------------------------------------------------------------------------------- |
+| `subscription.claudeCodeVersion` | the released pin   | Read only. The Claude Code release that pi reports to Anthropic                              |
+| `subscription.betas`             | Claude Code's turn | The `anthropic-beta` headers an OAuth request asks for, besides the ones pi works out itself |
+
+## Accounts
+
+Pi keeps one credential per provider, the one `/login` wrote. This keeps several, each with a name. Once a provider has an account, its accounts are all it has: every request, refresh and plan reading comes from the account in use, and there is no unnamed credential behind them.
+
+```text
+/accounts            the accounts of the current model's provider
+/accounts anthropic  the accounts of another one
+```
+
+The list shows each account, the one in use and what its plan has left, and fills the plans in as they arrive. `enter` uses an account, here and in the sessions that start after, `r` renames it in place, `d` removes it after asking, and `a` or the last row adds one. Adding asks for a name and runs the login Pi already has, so there is no OAuth of its own here. The first account of a provider brings Pi's own login along under a name you choose, since from then on only accounts are read.
+
+A `/login` for a provider that already has accounts asks where the credential goes, replacing an account or becoming a new one, and closing that dialog still keeps it as a new account under the provider's name. Pi keeps its own copy too, because it decides which providers are logged in before any extension starts; that copy is renewed from an account and never read for a request. Each account shows its kind:
+
+| Kind    | Is                                           |
+| ------- | -------------------------------------------- |
+| `oauth` | A subscription token, billed to its own plan |
+| `key`   | An API key                                   |
+
+`alt+a` switches the account of the current model's provider for this session, and the Providers tab of `Alt+S` lists them too. The account in use sits next to the model, and its plan's windows below the editor, read again whenever a model of another provider is picked. An account whose credential the provider refused says `sign in again`, and `enter` on it in `/accounts` signs in again under the same name. The session remembers the choice, so a resume or a fork comes back to the same one.
+
+When a provider refuses a request for a quota or a rate limit and that provider has another account, `accounts.onLimit` decides what happens:
+
+| Value    | Does                                                                      |
+| -------- | ------------------------------------------------------------------------- |
+| `ask`    | Opens a dialog, with an option to always switch from then on. The default |
+| `switch` | Moves to the next account on its own                                      |
+| `stop`   | Leaves the error in front of you                                          |
+
+Only a limit that arrives before anything was shown switches, so a retry never repeats output you already saw. Only chat streams move: image generation, classifier calls and deferred responses use the account in use, and surface their errors as they are.
+
+A quota belongs to the account, so an account that refused is skipped until it answers again, and the same dialog is not asked twice in a session. A credential the provider refuses instead opens `accounts.onAuthFailure`, whose dialog can run the provider's own login again under the same account, keeping its name and the session pin.
+
+## Prompt cache
+
+Anthropic keeps a prompt in cache for 5 minutes. With pi's `cacheWarming` setting on `idle`, pi sends the last request again before that, while the agent waits for you, so your next message reads the prompt from cache instead of writing it again. On Opus 5.5 a refresh costs 5% of the input price, and a miss 125%.
+
+Pi assumes a fixed 15% chance that you come back, which on Opus 5.5 skips every prompt under about 96k tokens and refreshes the rest for 30 minutes. `cache.strategy` decides instead:
+
+| Value     | Refreshes                                                                                    |
+| --------- | -------------------------------------------------------------------------------------------- |
+| `learned` | While the chance you come back pays for the refresh, whatever the prompt's size. The default |
+| `pi`      | As pi decides on its own                                                                     |
+| `minutes` | During the first `cache.upTo` minutes after the last request                                 |
+| `off`     | Never while you are away                                                                     |
+
+`learned` reads once a day how long you took to answer after each run, over the last 30 days of sessions, apart for runs that ended on a question to you. That keeps Opus 5.5 warm for about 23 minutes and Sonnet 4.6 for about 14. A restart or `/reload` stops the refreshes, since they run inside pi.
+
+The Prompt cache section of the Providers tab shows what was learned, and lists this session's misses: each request that wrote the cache again, what that cost over reading it, and why. The causes are a pause past the cache's life, a prune or a server clear, a compaction, a new model, or a changed system prompt or tool list.
+
+## OpenAI-compatible endpoints
+
+An endpoint that speaks OpenAI's chat completions, like DeepInfra, a vLLM box or an Ollama server, is added through `/login`. Pick `Sign in with an API key`, then `OpenAI-compatible endpoint`, and answer three prompts:
+
+```text
+Name       DeepInfra
+Base URL   https://api.deepinfra.com/v1/openai
+API key    sk-...   or $DEEPINFRA_API_KEY, or empty for a server without one
+```
+
+A URL copied from a `curl` works as is, since a trailing `/chat/completions` is cut. Before saving, the login reads the endpoint's `GET /models` and refuses an endpoint that lists no chat model. The endpoint then becomes a provider of its own, named after it (`deepinfra`). Its chat models appear in `/model`, and `pi update --models` reads them again.
+
+| The catalog gives                                              | The model gets                                         |
+| -------------------------------------------------------------- | ------------------------------------------------------ |
+| DeepInfra's `metadata`: context, prices, `reasoning`, `vision` | Those limits, prices and capabilities                  |
+| OpenRouter's or vLLM's `context_length`, `max_model_len`       | That context                                           |
+| Only ids                                                       | 128k of context, 32k of output, no price, no reasoning |
+
+Embedding, speech and image models are left out. An output limit equal to the context is capped at 32k, since endpoints refuse a request for that much.
+
+The endpoints and their keys live in pi's `auth.json`, under one `openai-compatible` entry. `/login` on that entry again adds another endpoint, replaces one with the same name, or removes one, and `/logout` of the entry removes them all. `/login` on an endpoint's own provider stores a new key for it alone. A `$NAME` key is read from the environment on every request.
+
+## Credits
+
+The Claude plan billing comes from [pi-claude-max](https://github.com/bradennss/pi-claude-max) by Braden Lamb, MIT. This is a rewrite: it pins the version, carries pi's cache breakpoints over instead of dropping the one-hour TTL, moves every system block after the identity instead of only the second, carries the betas Claude Code carries, and checks for an OAuth token instead of the provider name.
+
+Several accounts per provider, with a switch to the next one when a limit hits, follow [pi-multiprovider](https://github.com/monotykamary/pi-multiprovider) by monotykamary, also MIT. This one keeps them inside pi's own login, with no OAuth of its own.
+
+<!-- docs:footer -->
+
+<p align="center">
+  <a href="https://adeildo.dev"><img src="https://adeildo.dev/assets/images/cat.svg" width="42" height="42" alt="adeildo.dev"></a><br>
+  <a href="https://github.com/felipeadeildo/pi-harness">pi-harness</a> is made by <a href="https://adeildo.dev">adeildo.dev</a>
+</p>
+
+<!-- /docs -->

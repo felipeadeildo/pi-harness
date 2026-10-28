@@ -39,7 +39,6 @@ You never start the daemon by hand: pi starts it when you open a session, and it
 ## Learn more
 
 - [How it works](docs/how-it-works.md): the daemon, the routes for anyone writing a client, the page, and security.
-- [docs/remote.md](../../docs/remote.md): why it is built this way, and how the pieces fit.
 
 <!-- docs:footer -->
 

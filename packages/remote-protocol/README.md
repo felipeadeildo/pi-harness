@@ -110,9 +110,11 @@ a private package. A conformance test compiles the kit's own types against the c
 kit gains breaks this build before it breaks a reader. It is a type proof, which means the type check
 is what fails, not the test run.
 
-Part of [pi-harness](https://github.com/felipeadeildo/pi-harness), which brings every piece in one install.
+<!-- docs:footer -->
 
 <p align="center">
   <a href="https://adeildo.dev"><img src="https://adeildo.dev/assets/images/cat.svg" width="42" height="42" alt="adeildo.dev"></a><br>
-  Brought to you by <a href="https://adeildo.dev">adeildo.dev</a>
+  <a href="https://github.com/felipeadeildo/pi-harness">pi-harness</a> is made by <a href="https://adeildo.dev">adeildo.dev</a>
 </p>
+
+<!-- /docs -->

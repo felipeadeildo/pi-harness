@@ -50,3 +50,12 @@ Traps that were already paid for:
 ## Sources
 
 [pi-usage](https://github.com/mtrojnar/pi-usage) is the closest prior art in the pi ecosystem, and the three-source ladder comes from it. The header names and the penalty for a bare `User-Agent` are documented in [ccmeter](https://github.com/iteebz/ccmeter) and the two rate-limit bugs, [anthropics/claude-code#30930](https://github.com/anthropics/claude-code/issues/30930) and [#31637](https://github.com/anthropics/claude-code/issues/31637).
+
+<!-- docs:footer -->
+
+<p align="center">
+  <a href="https://adeildo.dev"><img src="https://adeildo.dev/assets/images/cat.svg" width="42" height="42" alt="adeildo.dev"></a><br>
+  <a href="https://github.com/felipeadeildo/pi-harness">pi-harness</a> is made by <a href="https://adeildo.dev">adeildo.dev</a>
+</p>
+
+<!-- /docs -->

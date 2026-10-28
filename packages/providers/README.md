@@ -5,126 +5,69 @@
   <a href="https://pi.dev"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffelipeadeildo%2Fpi-harness%2Fmain%2Fpackage.json&query=%24.devDependencies%5B%22%40earendil-works%2Fpi-coding-agent%22%5D&label=pi%20SDK&color=6E56CF" alt="pi SDK"></a>
 </p>
 
-<p align="center">
-  <strong>The plan you already pay for, and more than one login per provider.</strong><br>
-  Bill Anthropic requests to your Claude plan, keep several accounts with a switch to the next one when a limit hits, keep the prompt cache warm while you are likely to come back, and add any OpenAI-compatible endpoint from <code>/login</code>.
-</p>
+Get more out of the plans and accounts you already have: bill pi to your Claude plan, keep several accounts per provider, keep the prompt cache warm while you are away, and add any OpenAI-compatible endpoint.
 
 <p align="center"><code>pi install npm:@adeildo/pi-providers</code></p>
 
-## Claude plan
+## Your Claude plan
 
-With a Claude Pro or Max plan connected through `/login anthropic`, Pi's requests count as extra usage, billed by the token. This makes them come out of the plan, the way Claude Code's own requests do.
+With a Claude Pro or Max plan connected through `/login anthropic`, pi's requests count as extra usage, billed by the token. With this package, they come out of the plan instead, the way Claude Code's requests do.
 
 > [!WARNING]
-> It does that by introducing Pi to Anthropic as Claude Code, and using a subscription from anything other than Claude Code may break Anthropic's terms. It is on as soon as you install the package. To say no to that: switch the extension off in `pi config`, or set `"features": { "subscription": { "enabled": false } }` in the settings file below.
+> This works by presenting pi to Anthropic as Claude Code, and using a subscription outside Claude Code may break Anthropic's terms. It is on as soon as you install the package. To turn it off, switch the `subscription` feature off in `pi config`. Requests that use an API key go out unchanged.
 
-Pi already sends Claude Code's identity when the token is an OAuth one. Anthropic checks two more things before it bills the request to the plan:
-
-1. The user agent has to read `claude-cli/<version> (external, cli)`.
-2. The first `system` block has to be the billing attribution, with nothing Claude Code would not send. Pi's own prompt moves to the start of the first user message, wrapped in `<system-instructions>`, where the model still reads it.
-
-Any provider that speaks the Anthropic Messages API with an OAuth token gets this, not only the one named `anthropic`, so a second account under another name is billed to its own plan. A request with an API key goes out untouched.
-
-Pi warns about extra usage in every Anthropic OAuth session. Once the plan pays, that warning is wrong, and `warnings.anthropicExtraUsage` in `~/.pi/agent/settings.json` turns it off.
+Once the plan pays, pi's warning about extra usage is wrong. Turn it off in `~/.pi/agent/settings.json`:
 
 ```json
 { "warnings": { "anthropicExtraUsage": false } }
 ```
 
-Anthropic answers `400 claude_code_version_too_old` when it considers the version too old for a newer model, so the version Pi reports is pinned in `src/subscription/claude-code.ts`, and the workflow that reverse engineers Claude Code moves it when a release lands. The settings show it read only, and the same file lists the features Claude Code asks for in `anthropic-beta` for the settings to pick from.
+## Several accounts
 
-## Accounts
+Keep more than one account per provider, such as a work one and a personal one.
 
-Pi keeps one credential per provider, the one `/login` wrote. This keeps several, each with a name. Once a provider has an account, its accounts are all it has: every request, refresh and plan reading comes from the account in use, and there is no unnamed credential behind them.
+| Where         | What you do                                                             |
+| ------------- | ----------------------------------------------------------------------- |
+| `/accounts`   | List the accounts of the current provider, with what each plan has left |
+| `Enter`       | Use the account under the cursor                                        |
+| `a`, `r`, `d` | Add, rename or remove an account                                        |
+| `Alt+A`       | Switch the account of this session                                      |
 
-```text
-/accounts            the accounts of the current model's provider
-/accounts anthropic  the accounts of another one
-```
+When an account hits its limit, pi can ask you, switch to the next account on its own, or stop. `accounts.onLimit` decides, and it asks by default. A switch only happens before anything was shown, so you never see the same answer twice.
 
-The list shows each account, the one in use and what its plan has left, and fills the plans in as they arrive. `enter` uses an account, here and in the sessions that start after, `r` renames it in place, `d` removes it after asking, and `a` or the last row adds one. Adding asks for a name and runs the login Pi already has, so there is no OAuth of its own here. The first account of a provider brings Pi's own login along under a name you choose, since from then on only accounts are read.
+## A warm prompt cache
 
-A `/login` for a provider that already has accounts asks where the credential goes, replacing an account or becoming a new one, and closing that dialog still keeps it as a new account under the provider's name. Pi keeps its own copy too, because it decides which providers are logged in before any extension starts; that copy is renewed from an account and never read for a request. Each account shows its kind:
+Anthropic keeps a prompt in cache for 5 minutes. While the agent waits for you, pi can send the last request again before then, so your next message reads the prompt from the cache instead of paying to write it again. On Opus 5.5, a refresh costs 5% of the input price, and a miss costs 125%.
 
-| Kind    | Is                                           |
-| ------- | -------------------------------------------- |
-| `oauth` | A subscription token, billed to its own plan |
-| `key`   | An API key                                   |
-
-`alt+a` switches the account of the current model's provider for this session, and the Providers tab of `Alt+S` lists them too. The account in use sits next to the model, and its plan's windows below the editor, read again whenever a model of another provider is picked. An account whose credential the provider refused says `sign in again`, and `enter` on it in `/accounts` signs in again under the same name. The session remembers the choice, so a resume or a fork comes back to the same one.
-
-When a provider refuses a request for a quota or a rate limit and that provider has another account, `accounts.onLimit` decides what happens:
-
-| Value    | Does                                                                      |
-| -------- | ------------------------------------------------------------------------- |
-| `ask`    | Opens a dialog, with an option to always switch from then on. The default |
-| `switch` | Moves to the next account on its own                                      |
-| `stop`   | Leaves the error in front of you                                          |
-
-Only a limit that arrives before anything was shown switches, so a retry never repeats output you already saw. Only chat streams move: image generation, classifier calls and deferred responses use the account in use, and surface their errors as they are.
-
-A quota belongs to the account, so an account that refused is skipped until it answers again, and the same dialog is not asked twice in a session. A credential the provider refuses instead opens `accounts.onAuthFailure`, whose dialog can run the provider's own login again under the same account, keeping its name and the session pin.
-
-## Prompt cache
-
-Anthropic keeps a prompt in cache for 5 minutes. With pi's `cacheWarming` setting on `idle`, pi sends the last request again before that, while the agent waits for you, so your next message reads the prompt from cache instead of writing it again. On Opus 5.5 a refresh costs 5% of the input price, and a miss 125%.
-
-Pi assumes a fixed 15% chance that you come back, which on Opus 5.5 skips every prompt under about 96k tokens and refreshes the rest for 30 minutes. `cache.strategy` decides instead:
-
-| Value     | Refreshes                                                                                    |
-| --------- | -------------------------------------------------------------------------------------------- |
-| `learned` | While the chance you come back pays for the refresh, whatever the prompt's size. The default |
-| `pi`      | As pi decides on its own                                                                     |
-| `minutes` | During the first `cache.upTo` minutes after the last request                                 |
-| `off`     | Never while you are away                                                                     |
-
-`learned` reads once a day how long you took to answer after each run, over the last 30 days of sessions, apart for runs that ended on a question to you. That keeps Opus 5.5 warm for about 23 minutes and Sonnet 4.6 for about 14. A restart or `/reload` stops the refreshes, since they run inside pi.
-
-The Prompt cache section of the Providers tab shows what was learned, and lists this session's misses: each request that wrote the cache again, what that cost over reading it, and why. The causes are a pause past the cache's life, a prune or a server clear, a compaction, a new model, or a changed system prompt or tool list.
+By default, this package learns how long you usually take to answer, and refreshes only while that pays for itself. That keeps Opus 5.5 warm for about 23 minutes. Turn on pi's `cacheWarming` setting (`idle`) to use it.
 
 ## OpenAI-compatible endpoints
 
-An endpoint that speaks OpenAI's chat completions, like DeepInfra, a vLLM box or an Ollama server, is added through `/login`. Pick `Sign in with an API key`, then `OpenAI-compatible endpoint`, and answer three prompts:
-
-```text
-Name       DeepInfra
-Base URL   https://api.deepinfra.com/v1/openai
-API key    sk-...   or $DEEPINFRA_API_KEY, or empty for a server without one
-```
-
-A URL copied from a `curl` works as is, since a trailing `/chat/completions` is cut. Before saving, the login reads the endpoint's `GET /models` and refuses an endpoint that lists no chat model. The endpoint then becomes a provider of its own, named after it (`deepinfra`). Its chat models appear in `/model`, and `pi update --models` reads them again.
-
-| The catalog gives                                              | The model gets                                         |
-| -------------------------------------------------------------- | ------------------------------------------------------ |
-| DeepInfra's `metadata`: context, prices, `reasoning`, `vision` | Those limits, prices and capabilities                  |
-| OpenRouter's or vLLM's `context_length`, `max_model_len`       | That context                                           |
-| Only ids                                                       | 128k of context, 32k of output, no price, no reasoning |
-
-Embedding, speech and image models are left out. An output limit equal to the context is capped at 32k, since endpoints refuse a request for that much.
-
-The endpoints and their keys live in pi's `auth.json`, under one `openai-compatible` entry. `/login` on that entry again adds another endpoint, replaces one with the same name, or removes one, and `/logout` of the entry removes them all. `/login` on an endpoint's own provider stores a new key for it alone. A `$NAME` key is read from the environment on every request.
+Add DeepInfra, a vLLM box, an Ollama server or any endpoint that speaks OpenAI's chat completions. In `/login`, pick `Sign in with an API key`, then `OpenAI-compatible endpoint`, and give it a name, a base URL and a key. Its chat models then show up in `/model`.
 
 ## Settings
 
-In `~/.pi/agent/extensions/pi-harness/settings.json`:
+These are in `~/.pi/agent/extensions/pi-harness/settings.json`, and on the Providers tab of `Alt+S`.
 
-| Key                              | Default            | Does                                                                                           |
-| -------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------- |
-| `subscription.claudeCodeVersion` | the released pin   | Read only. The Claude Code release Pi reports to Anthropic, written by the eval below          |
-| `subscription.betas`             | Claude Code's turn | The `anthropic-beta` headers an OAuth request asks for, beside the ones pi works out itself    |
-| `accounts.onLimit`               | `"ask"`            | What a quota or a rate limit does when another account exists: `"ask"`, `"switch"` or `"stop"` |
-| `accounts.onAuthFailure`         | `"ask"`            | What a refused credential does: `"ask"` (sign in again or switch), `"switch"` or `"stop"`      |
-| `cache.strategy`                 | `"learned"`        | How refreshes between runs are decided: `"learned"`, `"pi"`, `"minutes"` or `"off"`            |
-| `cache.upTo`                     | `20`               | Minutes `"minutes"` keeps refreshing after the last request                                    |
+| Key                      | Default     | What it does                                                                             |
+| ------------------------ | ----------- | ---------------------------------------------------------------------------------------- |
+| `accounts.onLimit`       | `"ask"`     | What a quota or rate limit does when you have another account: `ask`, `switch` or `stop` |
+| `accounts.onAuthFailure` | `"ask"`     | What a refused credential does: `ask` (sign in again or switch), `switch` or `stop`      |
+| `cache.strategy`         | `"learned"` | How refreshes are decided: `learned`, `pi`, `minutes` or `off`                           |
+| `cache.upTo`             | `20`        | How many minutes `minutes` keeps refreshing after the last request                       |
 
-The Claude plan billing comes from [pi-claude-max](https://github.com/bradennss/pi-claude-max) by Braden Lamb, MIT. This is a rewrite: it pins the version, carries pi's cache breakpoints over instead of dropping the one-hour TTL, moves every system block after the identity instead of only the second, carries the betas Claude Code carries, and checks for an OAuth token instead of the provider name.
+## Learn more
 
-Several accounts per provider, with a switch to the next one when a limit hits, follow [pi-multiprovider](https://github.com/monotykamary/pi-multiprovider) by monotykamary, also MIT. This one keeps them inside pi's own login, with no OAuth of its own.
+- [How it works](docs/how-it-works.md): what Anthropic checks before it bills the plan, accounts in detail, how the cache refresh is decided, and how endpoints are read.
+- [Quota](docs/quota.md): where the numbers about what your plan has left come from.
 
-Part of [pi-harness](https://github.com/felipeadeildo/pi-harness), which brings every piece in one install.
+The Claude plan billing comes from [pi-claude-max](https://github.com/bradennss/pi-claude-max), and several accounts per provider follow [pi-multiprovider](https://github.com/monotykamary/pi-multiprovider). Both are MIT.
+
+<!-- docs:footer -->
 
 <p align="center">
   <a href="https://adeildo.dev"><img src="https://adeildo.dev/assets/images/cat.svg" width="42" height="42" alt="adeildo.dev"></a><br>
-  Brought to you by <a href="https://adeildo.dev">adeildo.dev</a>
+  <a href="https://github.com/felipeadeildo/pi-harness">pi-harness</a> is made by <a href="https://adeildo.dev">adeildo.dev</a>
 </p>
+
+<!-- /docs -->

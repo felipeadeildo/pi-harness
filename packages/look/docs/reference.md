@@ -77,9 +77,11 @@ When a line runs out of room, the least important pieces take their short form f
 
 The frame is the editor pi already has. Typing, history, autocomplete and every app key stay pi's; the class only changes what the lines look like and shifts mouse clicks by the width of the frame. The spinner is pi's, embedded through pi's own hook, and the working line only speaks through `setWorkingMessage`.
 
-Part of [pi-harness](https://github.com/felipeadeildo/pi-harness), which brings every piece in one install.
+<!-- docs:footer -->
 
 <p align="center">
   <a href="https://adeildo.dev"><img src="https://adeildo.dev/assets/images/cat.svg" width="42" height="42" alt="adeildo.dev"></a><br>
-  Brought to you by <a href="https://adeildo.dev">adeildo.dev</a>
+  <a href="https://github.com/felipeadeildo/pi-harness">pi-harness</a> is made by <a href="https://adeildo.dev">adeildo.dev</a>
 </p>
+
+<!-- /docs -->
