@@ -1,4 +1,4 @@
-import { type Delivery, CUT, GLYPH, spread } from "@adeildo/pi-kit";
+import { type Delivery, CUT, GLYPH, LINE, spread } from "@adeildo/pi-kit";
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
@@ -13,6 +13,8 @@ import { typingRecipients } from "./typing.ts";
 const INDENT = 2;
 const BAR_CELLS = 5;
 const TOGETHER_MS = 60_000;
+/** A run of joins, leaves and restarts this long reads as one line. */
+const FOLD_AT = 4;
 /** A message nobody logged after this stops spinning. */
 export const ON_ITS_WAY_MS = 60_000;
 
@@ -75,11 +77,25 @@ export function feedView(
 	const first = options.last === undefined ? 0 : Math.max(0, shown.length - options.last);
 	const before = shown.slice(0, first).findLast((item) => item.kind === "message");
 	let lastMessage: Posted | undefined = before?.kind === "message" ? before.message : undefined;
+	let day = dayOf(options.now);
 	for (let index = first; index < shown.length; index++) {
 		const item = shown[index];
 		if (item === undefined) continue;
+		if (item.kind === "happening" && item.happening.kind === "took") continue;
+		const at = item.kind === "message" ? item.message.at : item.happening.at;
+		if (dayOf(at) !== day || (lines.length === 0 && day !== dayOf(options.now))) {
+			day = dayOf(at);
+			if (lines.length > 0) gap();
+			add([dayLine(at, options)]);
+		}
 		if (item.kind === "happening") {
-			if (item.happening.kind === "took") continue;
+			const run = comings(shown, index);
+			if (run.length >= FOLD_AT) {
+				if (lines.length > 0 && !lastWasHappening(shown, index - 1)) gap();
+				add([comingsLine(run, options)]);
+				index += run.length - 1;
+				continue;
+			}
 			const back = shown[index + 1];
 			if (back?.kind === "happening" && restarted(item.happening, back.happening)) {
 				if (lines.length > 0 && !lastWasHappening(shown, index - 1)) gap();
@@ -314,6 +330,73 @@ function stamped(line: string, at: number, options: FeedOptions): string {
 	const time = `  ${options.theme.fg("dim", options.clock(at))}`;
 	const room = Math.max(8, options.width - visibleWidth(time));
 	return `${truncateToWidth(line, room, CUT)}${time}`;
+}
+
+function dayOf(at: number): string {
+	return new Date(at).toDateString();
+}
+
+/** Marks where a new day starts, since the times beside each line say only the hour. */
+function dayLine(at: number, options: FeedOptions): string {
+	const { theme, width } = options;
+	const label = dayLabel(at, options.now);
+	const rule = LINE.h.repeat(Math.max(0, width - visibleWidth(label) - 1));
+	return `${theme.fg("muted", label)} ${theme.fg("borderMuted", rule)}`;
+}
+
+function dayLabel(at: number, now: number): string {
+	if (dayOf(at) === dayOf(now)) return "Today";
+	const yesterday = new Date(now);
+	yesterday.setDate(yesterday.getDate() - 1);
+	if (dayOf(at) === yesterday.toDateString()) return "Yesterday";
+	return new Date(at).toLocaleDateString("en-GB", {
+		weekday: "short",
+		day: "numeric",
+		month: "short",
+	});
+}
+
+/** The joins, leaves and restarts in a row from `index`, on the same day. */
+function comings(room: readonly RoomItem[], index: number): Happening[] {
+	const run: Happening[] = [];
+	const start = room[index];
+	if (start?.kind !== "happening") return run;
+	const day = dayOf(start.happening.at);
+	for (let at = index; at < room.length; at++) {
+		const item = room[at];
+		if (item?.kind !== "happening") break;
+		const { kind } = item.happening;
+		if ((kind !== "joined" && kind !== "left") || dayOf(item.happening.at) !== day) break;
+		run.push(item.happening);
+	}
+	return run;
+}
+
+/** Many agents coming and going say only how many, so the room's talk stays in view. */
+function comingsLine(run: readonly Happening[], options: FeedOptions): string {
+	const { theme } = options;
+	let joined = 0;
+	let left = 0;
+	let again = 0;
+	for (let index = 0; index < run.length; index++) {
+		const one = run[index];
+		const next = run[index + 1];
+		if (one !== undefined && next !== undefined && restarted(one, next)) {
+			again++;
+			index++;
+		} else if (one?.kind === "joined") joined++;
+		else left++;
+	}
+	const parts = [
+		joined > 0 ? `${joined} joined` : "",
+		left > 0 ? `${left} left` : "",
+		again > 0 ? `${again} restarted` : "",
+	].filter((part) => part !== "");
+	const from = run[0]?.at ?? 0;
+	const to = run.at(-1)?.at ?? from;
+	const line = `${theme.fg("dim", GLYPH.again)} ${theme.fg("dim", `agents came and went: ${parts.join(", ")}`)}`;
+	const time = `  ${theme.fg("dim", `${options.clock(from)} to ${options.clock(to)}`)}`;
+	return `${truncateToWidth(line, Math.max(8, options.width - visibleWidth(time)), CUT)}${time}`;
 }
 
 /** Left and came back within a minute: a reload. */

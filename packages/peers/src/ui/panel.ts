@@ -3,6 +3,7 @@ import { basename } from "node:path";
 // The `Alt+G` panel. The line you write in always has the keys, so what acts on a room or an agent
 // holds alt.
 import {
+	CUT,
 	FRAME_X,
 	FRAME_Y,
 	type FrameLine,
@@ -16,7 +17,7 @@ import {
 	type SourceAddress,
 	spread,
 } from "@adeildo/pi-kit";
-import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext, Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import {
 	type Component,
 	type Focusable,
@@ -24,6 +25,7 @@ import {
 	matchesKey,
 	truncateToWidth,
 	visibleWidth,
+	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 
 import { stateOf } from "../cards.ts";
@@ -213,7 +215,12 @@ export class PeersPanel implements Component, Focusable {
 		const live = inOrder(here.live(), here.session);
 		const pointed = this.#pointed;
 		const selected = live.findIndex((peer) => peer.session === pointed);
-		const lines = [GUTTER + heading(theme, "Agents", live.length)];
+		const self = here.session === undefined ? undefined : here.names().bySession.get(here.session);
+		const lines = [
+			...this.#selfLines(open, self?.handle, width),
+			"",
+			GUTTER + heading(theme, "Agents", live.length),
+		];
 		const agents = agentLines(live, here.names().bySession, {
 			theme,
 			now: this.#now(),
@@ -237,11 +244,28 @@ export class PeersPanel implements Component, Focusable {
 		return lines;
 	}
 
+	/** How this session stands in the open room, in words, since the tab shows it only as a mark. */
+	#selfLines(open: Room, handle: string | undefined, width: number): string[] {
+		const { theme } = this.#options;
+		const { verb, means } = MODES[open.mode];
+		const who = handle === undefined ? "This session" : theme.bold(handle);
+		const color: ThemeColor = open.mode === "in" ? "accent" : "muted";
+		const fit = (text: string): string => truncateToWidth(text, width, CUT);
+		return [
+			GUTTER + heading(theme, "This session"),
+			fit(`${GUTTER}${this.#mark(open.mode)} ${who} ${theme.fg(color, verb)}`),
+			...wrapTextWithAnsi(means, Math.max(1, width - 4)).map(
+				(line) => `    ${theme.fg("dim", line)}`,
+			),
+			fit(`    ${theme.fg("muted", "alt+m")} ${theme.fg("dim", `${modeKey(open)} instead`)}`),
+		];
+	}
+
 	#actionLines(open: Room, width: number): string[] {
 		const { theme } = this.#options;
 		const key = (keys: string, does: string): string =>
 			truncateToWidth(`${GUTTER}${theme.fg("muted", keys)} ${theme.fg("dim", does)}`, width, "");
-		const lines = ["", GUTTER + heading(theme, "This room"), key("alt+m", modeKey(open))];
+		const lines = ["", GUTTER + heading(theme, "This room")];
 		if (open.id !== undefined)
 			lines.push(key("alt+a", "add someone"), key("alt+l", "leave"), key("alt+x", "close it"));
 		lines.push(key("alt+c", "new room"));
@@ -319,6 +343,7 @@ export class PeersPanel implements Component, Focusable {
 			return keys;
 		}
 		const keys: KeyHint[] = [["enter", "send"]];
+		if (open !== undefined) keys.push(["alt+m", modeKey(open)]);
 		if (this.#options.view.rooms().length > 1) keys.push(["tab", "next room"]);
 		keys.push([`alt+${GLYPH.up}${GLYPH.down}`, "agents"], ["esc", "close"]);
 		return keys;
@@ -471,6 +496,13 @@ export class PeersPanel implements Component, Focusable {
 		return this.#options.now?.() ?? Date.now();
 	}
 }
+
+/** What each mode means for this session, said where the mode is shown. */
+const MODES: Record<RoomMode, { verb: string; means: string }> = {
+	in: { verb: "takes part", means: "Everything said here reaches it." },
+	listening: { verb: "listens", means: "Only what names it reaches it." },
+	out: { verb: "stepped out", means: "Nothing said here reaches it." },
+};
 
 /** Every room walks the same three states; out keeps the row to come back. */
 function nextMode(room: Room): RoomMode {

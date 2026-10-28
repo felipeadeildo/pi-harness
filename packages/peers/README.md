@@ -119,7 +119,7 @@ then its folders with how many agents are open in each.
 
 The folder's room has no `Alt+A`, `Alt+R`, `Alt+L` or `Alt+X`.
 
-Every room wears a mark before its name, so the name never moves when the mode changes: `●` takes part, `◐` only
+The top of the column says how this session stands in the open room, in words, with what that means and the key that changes it. Every room wears a mark before its name, so the name never moves when the mode changes: `●` takes part, `◐` only
 listens, `○` stepped out. A room this session stepped out of keeps its tab, so `Alt+M` brings it back; every other
 session that is out simply does not appear. The folder's room is no exception: stepping out of it leaves the session
 working alone, with the room's tab still there to come back. Listening is hearing what names it, nothing else: the room's other

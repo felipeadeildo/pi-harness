@@ -351,6 +351,20 @@ describe("changing the rooms", () => {
 		expect(back).toContain("alt+m take part");
 	});
 
+	test("the column says in words how this session stands in the room, and alt+m stays in the keys", () => {
+		const rooms = new Rooms(session("me", "/repo"));
+		shared(rooms);
+		const taking = press(panelOf(rooms));
+		expect(taking).toContain("takes part");
+		expect(taking).toContain("Everything said here");
+		rooms.shown[0] = withMode(rooms.shown[0], "listening") as Room;
+		const listening = press(panelOf(rooms));
+		expect(listening).toContain("listens");
+		expect(listening).toContain("Only what names it");
+		const bottom = listening.split("\n").at(-1) ?? "";
+		expect(bottom).toContain("alt+m step out");
+	});
+
 	test("the mark before a room's name never moves the name in its tab", () => {
 		const rooms = new Rooms(session("me", "/repo"));
 		shared(rooms);

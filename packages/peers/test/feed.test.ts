@@ -180,6 +180,51 @@ describe("the room", () => {
 	});
 });
 
+describe("agents coming and going", () => {
+	const left = (session: string, at: number): RoomItem => ({
+		kind: "happening",
+		happening: { kind: "left", session, at },
+	});
+
+	test("a run of joins, leaves and restarts folds into one line that counts them", () => {
+		const lines = draw([
+			joined("a", 1_000),
+			left("b", 100_000),
+			left("c", 200_000),
+			joined("c", 210_000),
+			said("1", "a", "all", "Hello", 300_000),
+		]);
+		expect(lines).toContain(
+			"\u21bb agents came and went: 1 joined, 1 left, 1 restarted  12:00 to 12:00",
+		);
+		expect(lines.some((line) => line.includes("Hello"))).toBe(true);
+	});
+
+	test("a few stay one line each", () => {
+		const lines = draw([joined("a", 1_000), said("1", "a", "all", "Hello", 300_000)]);
+		expect(lines.some((line) => line.includes("oauth joined"))).toBe(true);
+	});
+
+	test("a new day starts under a line that names it", () => {
+		const day = 24 * 60 * 60 * 1000;
+		const lines = feedView(
+			[said("1", "a", "all", "Old", 1_000), said("2", "b", "all", "New", day + 1_000)],
+			[],
+			{
+				theme: plain,
+				now: day + 2_000,
+				width: 70,
+				me: "c",
+				names,
+				live,
+				clock: () => "12:00",
+			},
+		).lines;
+		const marks = lines.filter((line) => /^(Today|Yesterday|\w{3} \d+ \w{3}) \u2500/.test(line));
+		expect(marks.map((line) => line.split(" ")[0])).toEqual(["Yesterday", "Today"]);
+	});
+});
+
 describe("a long room", () => {
 	const room = Array.from({ length: 1_000 }, (_, at) =>
 		said(String(at), "a", ["b"], `message ${at}`, at),
