@@ -4,7 +4,7 @@
 // and it refuses newer models to a version it considers too old. `turn` marks the features a turn
 // of Claude Code's TUI asks for, which is the side the settings screen offers.
 
-export const CLAUDE_CODE_VERSION = "2.1.310";
+export const CLAUDE_CODE_VERSION = "2.1.312";
 
 export const CLAUDE_CODE_FEATURES = [
 	{
@@ -126,8 +126,7 @@ export const CLAUDE_CODE_FEATURES = [
 		name: "thinking_token_count",
 		header: "thinking-token-count-2026-05-13",
 		turn: true,
-		description:
-			"Off once experimental betas are disabled. Adds thinking counts to the usage the reply reports.",
+		description: "Adds thinking counts to the usage the reply reports.",
 	},
 	{
 		name: "afk_mode",
@@ -262,6 +261,7 @@ export const CLAUDE_CODE_FEATURES = [
 	},
 ] as const;
 
+/** The betas a turn of Claude Code's TUI asks for. */
 export function turnBetas(): string[] {
 	return CLAUDE_CODE_FEATURES.filter((feature) => feature.turn).map((feature) => feature.header);
 }
