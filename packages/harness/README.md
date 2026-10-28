@@ -1,16 +1,24 @@
-<h1 align="center">@adeildo/pi-harness</h1>
+<!-- docs:banner -->
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/assets/brand/banner-dark.png">
+    <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/assets/brand/banner-light.png" alt="pi-harness: Pi, with you in the loop. Approve what runs, answer what the model would guess, and see what every agent is doing, on any machine of yours." width="860">
+  </picture>
+</p>
+
+<!-- /docs -->
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@adeildo/pi-harness"><img src="https://img.shields.io/npm/v/@adeildo/pi-harness" alt="npm"></a>
   <a href="https://pi.dev"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffelipeadeildo%2Fpi-harness%2Fmain%2Fpackage.json&query=%24.devDependencies%5B%22%40earendil-works%2Fpi-coding-agent%22%5D&label=pi%20SDK&color=6E56CF" alt="pi SDK"></a>
 </p>
 
-<p align="center">
-  <strong>Pi runs every command without asking. This makes it ask.</strong><br>
-  Every piece of this repository in one install: the permission, the questions, the screen and the Claude plan.
-</p>
+Every piece of [pi-harness](https://github.com/felipeadeildo/pi-harness) in one install. Pi asks you before it runs a command, the model asks you instead of guessing, and you see what every agent is doing, in the terminal and on your phone.
 
-<p align="center"><code>pi install npm:@adeildo/pi-harness</code></p>
+```bash
+pi install npm:@adeildo/pi-harness
+```
 
 <!-- docs:harness/conversation -->
 
@@ -24,53 +32,55 @@
 
 ## What comes in it
 
-| Piece                           | What it does                                                                                                                |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| [Permission](../ask-permission) | Asks before a command runs, with a note the model reads. A model answers the easy ones for you                              |
-| [Questions](../ask-questions)   | The model asks instead of guessing, with options, a preview of each, a note on any and your own answer                      |
-| [Board](#the-board)             | The session's board: what the agent is doing, what waits on you, and what it delivered, written by the agent with a tool    |
-| [Compact](../compact)           | Hides old tool output in long sessions to cut what each request costs, and writes pi's compaction summary from the board    |
-| [Peers](../peers)               | Agents in the same folder see each other's work, talk in a room, hear what you tell everyone, and split what you ask anyone |
-| [Skill calls](../skills)        | Call the skills you already have from anywhere in a message, several at once, shown as chips                                |
-| [Look](../look)                 | The start screen, the editor with the branch and the model on its borders, and a box around each command                    |
-| [Providers](../providers)       | Bills Anthropic OAuth requests to your Claude plan, and keeps several accounts per provider                                 |
-| [Remote](../remote)             | Your sessions in a browser, on this machine or from a phone on your tailnet, with `/remote`                                 |
+| Piece                           | What it does                                                                                         |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| [Permission](../ask-permission) | Pi asks before it runs a command. A small model can answer the easy ones for you                     |
+| [Questions](../ask-questions)   | The model asks instead of guessing, with options, a preview of each, and a note on any of them       |
+| [Board](#the-board)             | The agent keeps a board of what it is doing, what waits on you and what it delivered                 |
+| [Look](../look)                 | The start card, the editor with the branch and the model on its edges, and a box around each command |
+| [Peers](../peers)               | Agents share rooms, see each other's work and talk                                                   |
+| [Remote](../remote)             | Every session of every machine of yours, in a browser and on your phone                              |
+| [Providers](../providers)       | Bills Anthropic requests to your Claude plan, and keeps several accounts per provider                |
+| [Compact](../compact)           | Hides old tool output in long sessions, so each request costs less                                   |
+| [Skill calls](../skills)        | You call your skills from anywhere in a message, several at once                                     |
 
 All of them are on once the package is installed.
 
 > [!WARNING]
-> Providers makes Pi introduce itself to Anthropic as Claude Code whenever a request uses an Anthropic OAuth token. Using a subscription from anything other than Claude Code may break Anthropic's terms. Turn it off, as below, if you do not want that. A request with an API key goes out untouched.
+> When a request uses an Anthropic OAuth token, Providers tells Anthropic that the request comes from Claude Code. Using a subscription outside Claude Code may break Anthropic's terms. If you do not want that, turn the `subscription` feature off as shown below. Requests that use an API key go out unchanged.
 
 ## Turning a piece off
 
-Each piece is its own extension in this package, so `pi config` switches off the one you do not want, globally or for one project. The settings file has a switch per feature too, read on the next `/reload`, and the feature ids are `permission`, `look`, `subscription`, `accounts`, `questions`, `skills`, `names`, `board`, `board-panel`, `compact`, `peers` and `remote`.
+Each piece is its own extension in this package, so `pi config` can turn off the ones you do not want, for every project or for one. The settings file also has a switch for each feature, and pi reads it on the next `/reload`:
 
 ```json
 { "features": { "subscription": { "enabled": false } } }
 ```
 
-To have only one piece, install its own package instead. With both installed, the first copy that loads runs the feature and the other stays off.
+The feature ids are `permission`, `look`, `subscription`, `accounts`, `questions`, `skills`, `names`, `board`, `board-panel`, `compact`, `peers` and `remote`.
+
+If you only want one piece, install its own package instead. When you install both, the copy that loads first runs the feature and the other one stays off.
 
 ## The board
 
 ### What a card is
 
-A card is something you can ask "how is it going?" about, and whose end someone else can check: a merged PR, a report, a review with a verdict, an answered question. One card per PR, with its number. Running the tests, a rebase or reading a file are steps of the work, not cards. Another agent's work is on that agent's board, never on this one.
+A card is a piece of work that someone can ask "how is it going?" about, and that someone else can check when it ends: a merged pull request, a report, a review with a verdict, an answered question. A pull request gets one card, with its number. Running the tests or reading a file are steps of the work, not cards. Work that another agent does goes on that agent's board.
 
-The agent writes the board with the `board` tool. Each write is one operation (`add`, `move`, `edit`, `drop`, `decide`, or `find` to search), and the tool answers with the open board and the ids to use next. A write that breaks a rule answers with the reason instead.
+The agent writes its board with the `board` tool, one operation per call: `add`, `move`, `edit`, `drop`, `decide`, or `find` to search. The tool answers with the open board and the ids to use next. When a call breaks a rule, the tool answers with the reason instead.
 
-| Column    | Means                                                     |
-| --------- | --------------------------------------------------------- |
-| `backlog` | Someday. It counts in no limit and shows only as a number |
-| `todo`    | Next                                                      |
-| `doing`   | Under way, with a line on what it is on now               |
-| `review`  | Waiting on its reviewer, who is named                     |
-| `done`    | Delivered, with its result                                |
-| `dropped` | Given up, with the reason                                 |
+| Column    | What it means                                                 |
+| --------- | ------------------------------------------------------------- |
+| `backlog` | Someday. It counts toward no limit and shows only as a number |
+| `todo`    | Next                                                          |
+| `doing`   | Under way, with a line on where it stands                     |
+| `review`  | Waiting on a reviewer, who is named                           |
+| `done`    | Delivered, with the result                                    |
+| `dropped` | Given up, with the reason                                     |
 
-A card in any open column can be blocked on you, on another agent by its handle, or on something outside, always with the reason. The board takes at most 3 cards in `doing` and 15 open ones, and a title says the result in 1 to 8 words. A decision is a sentence of its own, kept apart from the cards.
+An open card can wait on you, on another agent, or on something outside, and the card always says why. When the answer arrives, the agent clears the wait with `unblock`. A card that moves to done or is dropped stops waiting on its own. The board holds at most 3 cards in `doing` and 15 open cards, and a title is the result in 1 to 8 words. A decision is a sentence of its own, kept apart from the cards.
 
-### Where it shows
+### Where you see it
 
 <!-- docs:harness/board -->
 
@@ -82,28 +92,28 @@ A card in any open column can be blocked on you, on another agent by its handle,
 
 <!-- /docs -->
 
-`Alt+T` opens the board full screen, drawn as a board: a column each for doing, in review, to do and done, every card in its own box with its mark, what it is doing or waits on under the title, and a card that waits on you in the warning color. The backlog and the last decision sit in a strip at the foot. The arrows move between cards, `enter` opens one in full, and `Esc` closes it.
+`Alt+T` opens the board over the whole screen, with a column for each stage. Each card is a box with its mark, its title, and under it what the agent is doing, who reviews it, what it waits on or what it delivered. A card that waits on you is drawn in the warning color. The backlog and the last decision sit at the bottom. The arrow keys move between cards, `Enter` opens one with every field, and `Esc` closes the board.
 
-The same board reaches every reader that needs it:
+The same board shows up in other places:
 
-- [`@adeildo/pi-look`](../look) shows the card being done on the line above the editor, with how many are blocked, to do and done.
-- [`@adeildo/pi-peers`](../peers) shows each agent's cards to the others in the room, and the agent with the fewest open cards takes a request first when two fit it equally.
+- [`@adeildo/pi-look`](../look) shows the card under way above the editor, with how many cards are blocked, to do and done.
+- [`@adeildo/pi-peers`](../peers) shows each agent's cards to the others in its rooms. When two agents fit a request equally well, the one with fewer open cards takes it.
 - [`@adeildo/pi-compact`](../compact) puts the board on top of pi's compaction summary, so the agent keeps its cards and their ids after the history is cut.
-- [`@adeildo/pi-remote`](../remote) shows the board at the top of the session on the phone.
+- [`@adeildo/pi-remote`](../remote) shows the board at the top of the session on your phone.
 
-### Where it lives
+### Where it is stored
 
-Each write is a `pi-board:op` entry in the session, with the operation and its time. The board is the fold of those entries along the branch, so it follows `/tree` and forks, and nothing is merged. Other packages read the live board through the `BOARD` contract in `@adeildo/pi-kit`, and anything that reads the session file folds it with `boardOf()`.
+Each write is a `pi-board:op` entry in the session file, with the operation and its time. The board is what you get when you apply those entries in order along the branch, so it follows `/tree` and forks, and nothing needs merging. Other packages read the live board through the `BOARD` contract in `@adeildo/pi-kit`, and code that reads a session file can rebuild the board with `boardOf()`.
 
 ## Settings
 
-`Alt+S` opens the settings of every piece. They live in `~/.pi/agent/extensions/pi-harness/settings.json`, and each piece's page lists its own. A setting marked _project_ is also read from `.pi/extensions/pi-harness/settings.json` in a project Pi trusts, where the project value wins.
+`Alt+S` opens the settings of every piece. They are stored in `~/.pi/agent/extensions/pi-harness/settings.json`, and each piece's page lists its own. A setting marked _project_ can also be set in `.pi/extensions/pi-harness/settings.json` inside a project that pi trusts, and the project's value wins.
 
-The whole set, with the pictures and the settings of each piece, is in the [root README](https://github.com/felipeadeildo/pi-harness).
-
-Part of [pi-harness](https://github.com/felipeadeildo/pi-harness), which is every piece in one install.
+<!-- docs:footer -->
 
 <p align="center">
   <a href="https://adeildo.dev"><img src="https://adeildo.dev/assets/images/cat.svg" width="42" height="42" alt="adeildo.dev"></a><br>
-  Brought to you by <a href="https://adeildo.dev">adeildo.dev</a>
+  <a href="https://github.com/felipeadeildo/pi-harness">pi-harness</a> is made by <a href="https://adeildo.dev">adeildo.dev</a>
 </p>
+
+<!-- /docs -->

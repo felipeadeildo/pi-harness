@@ -353,7 +353,9 @@ export const SCENES: readonly Scene[] = [
 	},
 	{
 		name: "harness/permission",
-		caption: "Pi asks before it runs the command, and says why.",
+		caption:
+			"Left, pi asks before it runs a command. Right, the model asks you instead of guessing.",
+		beside: "harness/questions",
 		alt: "The permission dialog for npm install, narrow: the command, the reason it asks, the three answers, the note on no, and the keys.",
 		draw: (theme) => permissionAsk(theme, NARROW),
 	},
