@@ -36,7 +36,10 @@ export const board: Feature = {
 			execute: async (_id, params) => {
 				const lacking = missingFor(params);
 				if (lacking !== undefined) return text(lacking);
-				const op = params as BoardCallParams;
+				const { unblock, ...rest } = params;
+				const op = (
+					unblock === true && rest.op === "edit" ? { ...rest, blocked: null } : rest
+				) as BoardCallParams;
 				if (op.op === "find") {
 					const found = boardCall(current, op);
 					return text(found.ok ? found.text : found.why);

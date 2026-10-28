@@ -65,3 +65,25 @@ test("the board tool writes one operation, and the readers see the card", async 
 	const value = BOARD.current({ events: fake.pi.events, warn: () => {} });
 	expect(value?.cards.map((card) => card.title)).toEqual(["Uma"]);
 });
+
+test("unblock clears what the card waited on", async () => {
+	const fake = fakePi();
+	createApp(fake.pi, { name: "test", settingsPath: join(root, "settings.json") })
+		.use(board)
+		.build();
+	const ctx = fakeContext([], true, {
+		sessionManager: { getCwd: () => "/repo", getSessionId: () => "s1", getBranch: () => [] },
+	});
+	await fake.fire("session_start", {}, ctx);
+	const tool = fake.tools.find((one) => one.name === "board");
+	const call = (params: Record<string, unknown>) =>
+		tool?.execute("call", params, undefined, undefined, ctx as never);
+	await call({
+		op: "add",
+		title: "Escolher os consertos",
+		blocked: { on: "operator", why: "qual?" },
+	});
+	await call({ op: "edit", id: "c1", unblock: true });
+	const value = BOARD.current({ events: fake.pi.events, warn: () => {} });
+	expect(value?.cards[0]?.blocked).toBeUndefined();
+});
