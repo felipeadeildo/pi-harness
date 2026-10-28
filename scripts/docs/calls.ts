@@ -52,6 +52,8 @@ const ASK_WITH_DIALOG = { ask_questions: askRenderers(() => true) } as Record<
 >;
 
 /** The clock is set by hand and the ruling answered here, so the picture is reproducible. */
+const CALL_ID = "docs-call";
+
 export function drawCall(spec: CallSpec, width: number): string[] {
 	// The frame reads the theme pi holds globally, and the pictures use pi's own dark theme.
 	initTheme("dark", false);
@@ -65,7 +67,10 @@ export function drawCall(spec: CallSpec, width: number): string[] {
 		const base = spec.dialogOpen === true ? ASK_WITH_DIALOG.ask_questions : TOOLS[spec.tool];
 		const fake = fakePi();
 		createApp(fake.pi, { name: "docs" }).use(look).build();
-		RULING.provide({ events: fake.pi.events, warn: () => {} }, () => spec.ruling);
+		// Only this call has the ruling: another scene that reads rulings must not find it.
+		RULING.provide({ events: fake.pi.events, warn: () => {} }, (id) =>
+			id === CALL_ID ? spec.ruling : undefined,
+		);
 		// Pi runs the resolvers in load order, and the tool's own renderer comes last.
 		const resolveAt = (index: number): ToolRenderers =>
 			index < fake.toolRenderers.length
@@ -92,7 +97,7 @@ export function drawCall(spec: CallSpec, width: number): string[] {
 		};
 		const call = new ToolExecutionComponent(
 			spec.tool,
-			"call-1",
+			CALL_ID,
 			spec.args,
 			{},
 			watching,

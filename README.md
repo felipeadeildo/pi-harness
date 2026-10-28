@@ -17,9 +17,7 @@
 
 I write software with coding agents every day, and the agent only knows what I put in the prompt. When something is missing, it guesses. pi-harness is the set of extensions I built on top of [pi](https://pi.dev) so that stepping in costs me little: I approve or refuse a command and say why, I answer a question instead of letting the model guess, and I can see what every agent is doing, from the terminal or from my phone.
 
-```bash
-pi install npm:@adeildo/pi-harness
-```
+<p align="center"><code>pi install npm:@adeildo/pi-harness</code></p>
 
 It is not a fork. Everything installs on top of pi, and `pi remove` gives you pi back the way it was. The longer story of why it exists is in [Yes, another agent harness](https://adeildo.dev/log/yes-another-agent-harness/) (in Portuguese).
 
@@ -42,8 +40,7 @@ When you say no, you can leave a note, such as "use pnpm instead", and the model
 <!-- docs:harness/permission -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/permission.png" alt="The permission dialog for npm install, narrow: the command, the reason it asks, the three answers, the note on no, and the keys." width="420">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/questions.png" alt="The question dialog, narrow: two tabs, the options, and the panel with the description and the preview below them." width="420">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/permission-pair.png" alt="The permission dialog for npm install, narrow: the command, the reason it asks, the three answers, the note on no, and the keys. The question dialog, narrow: two tabs, the options, and the panel with the description and the preview below them." width="860">
   <br>
   <em>Left, pi asks before it runs a command. Right, the model asks you instead of guessing.</em>
 </p>

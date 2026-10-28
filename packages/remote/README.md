@@ -7,11 +7,9 @@
 
 When an agent needs a decision, you are not always at the desk, and the run waits until you come back. With this package, every pi session on every machine of yours opens in a browser, and your phone reaches the same page. You read the session as it streams, approve a command, answer a question and send the next message. Whichever screen answers first wins, and the other one closes its dialog.
 
-```bash
-pi install npm:@adeildo/pi-remote    # or @adeildo/pi-harness, which brings it
-```
+<p align="center"><code>pi install npm:@adeildo/pi-remote</code></p>
 
-Then type `/remote` in pi.
+<p align="center">or <code>@adeildo/pi-harness</code>, which brings it. Then type <code>/remote</code> in pi.</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/remote/assets/phones.png" alt="Four phone screens of the remote page. The session list, with one session waiting on you to approve a bun test command. The permission ask on the phone, with yes, always yes and no. The session after the approval: the request, the board card, the test run with 3 passing tests, and the answer. A question from the model about where the change should go, with a pull request recommended." width="860">

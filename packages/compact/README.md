@@ -7,9 +7,7 @@
 
 In a long session, every request sends the whole context again, and most of it is old tool output that the agent no longer needs. This package hides that old output and keeps what matters: your words, the agent's words and the decisions. On a week of real sessions, it cut the cost by about a third.
 
-```bash
-pi install npm:@adeildo/pi-compact
-```
+<p align="center"><code>pi install npm:@adeildo/pi-compact</code></p>
 
 ## What it does
 

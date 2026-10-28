@@ -7,9 +7,7 @@
 
 Pi expands `/skill:name` only at the start of a message, and only one skill per message. With this package, you call your skills from anywhere in a message, several at once. The model reads each skill in full, and the chat shows a small chip where you typed it.
 
-```bash
-pi install npm:@adeildo/pi-skills
-```
+<p align="center"><code>pi install npm:@adeildo/pi-skills</code></p>
 
 ## What changes
 

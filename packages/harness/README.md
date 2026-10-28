@@ -16,9 +16,7 @@
 
 Every piece of [pi-harness](https://github.com/felipeadeildo/pi-harness) in one install. Pi asks you before it runs a command, the model asks you instead of guessing, and you see what every agent is doing, in the terminal and on your phone.
 
-```bash
-pi install npm:@adeildo/pi-harness
-```
+<p align="center"><code>pi install npm:@adeildo/pi-harness</code></p>
 
 <!-- docs:harness/conversation -->
 

@@ -7,9 +7,7 @@
 
 While an agent works, you keep checking the same few things: what it is about to run, whether that went well, how long it has been, and what it costs. This package redraws pi's screen around those things. You get a start card, an editor framed with the branch and the model, a box around every command, and a footer with what the session costs.
 
-```bash
-pi install npm:@adeildo/pi-look
-```
+<p align="center"><code>pi install npm:@adeildo/pi-look</code></p>
 
 <!-- docs:look/preview -->
 
@@ -24,8 +22,9 @@ pi install npm:@adeildo/pi-look
 <!-- docs:look/call -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/call.png" alt="Three commands, each in its own box: a bash command with the reason it was allowed and the time it took, a file read, and a command still running." width="420">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/settings.png" alt="The settings screen in a frame, titled Settings. The Look tab holds Appearance, Your messages and What is on screen, with Editor frame selected. Under the list, the preview draws the editor's rounded frame with main on the top edge, the folder on the right, the model on the bottom edge and the context on the right. Below, the setting's name and default, and the keys along the bottom edge." width="420">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/call.png" alt="Three commands, each in its own box: a bash command with the reason it was allowed and the time it took, a file read, and a command still running." width="860">
+  <br>
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/settings.png" alt="The settings screen in a frame, titled Settings. The Look tab holds Appearance, Your messages and What is on screen, with Editor frame selected. Under the list, the preview draws the editor's rounded frame with main on the top edge, the folder on the right, the model on the bottom edge and the context on the right. Below, the setting's name and default, and the keys along the bottom edge." width="860">
   <br>
   <em>Every command in a box, and a setting shown before you keep it.</em>
 </p>

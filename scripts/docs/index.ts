@@ -19,9 +19,8 @@ import { darkTheme } from "./theme.ts";
 
 const root = resolve(import.meta.dir, "../..");
 const RAW = "https://raw.githubusercontent.com/felipeadeildo/pi-harness/main";
-/** Wide enough to read at GitHub's column, and half that for two pictures in one row. */
+/** Wide enough to read at GitHub's column. */
 const PICTURE_WIDTH = 860;
-const ROW_WIDTH = 420;
 
 interface Picture {
 	name: string;
@@ -73,16 +72,59 @@ function pictureBlock(shot: Picture): string {
 	].join("\n");
 }
 
-/** Two pictures in one row, each half as wide, under the line the first one carries. */
-function rowBlock(left: Picture, right: Picture): string {
+/** Two wide pictures, one under the other at full width, under the line the first one carries. */
+function stackBlock(top: Picture, bottom: Picture): string {
 	return [
 		`<p align="center">`,
-		imageTag(left, ROW_WIDTH),
-		imageTag(right, ROW_WIDTH),
+		imageTag(top, PICTURE_WIDTH),
 		`  <br>`,
-		`  <em>${escape(left.caption)}</em>`,
+		imageTag(bottom, PICTURE_WIDTH),
+		`  <br>`,
+		`  <em>${escape(top.caption)}</em>`,
 		`</p>`,
 	].join("\n");
+}
+
+/** Narrower than this, two pictures fit side by side in one picture and still read. */
+const NARROW_PX = 900;
+
+function sizeOf(svg: string): { width: number; height: number } {
+	const width = Number(/width="([\d.]+)"/.exec(svg)?.[1] ?? 0);
+	const height = Number(/height="([\d.]+)"/.exec(svg)?.[1] ?? 0);
+	return { width, height };
+}
+
+/**
+ * Two narrow pictures drawn as one, side by side: two images in a row wrap on a narrow page, and one
+ * picture scales with it.
+ */
+function pairPicture(left: Picture, right: Picture): Picture {
+	const gap = 24;
+	const a = sizeOf(left.svg);
+	const b = sizeOf(right.svg);
+	const width = a.width + gap + b.width;
+	const height = Math.max(a.height, b.height);
+	// The shorter picture sits in the middle of the taller one's height.
+	const place = (svg: string, x: number, own: number) =>
+		svg.replace(
+			/^<svg [^>]*?(width="[^"]*" height="[^"]*" viewBox="[^"]*")>/,
+			`<svg x="${x}" y="${Math.round((height - own) / 2)}" $1>`,
+		);
+	const svg = [
+		`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`,
+		place(left.svg, 0, a.height),
+		place(right.svg, a.width + gap, b.height),
+		"</svg>",
+		"",
+	].join("\n");
+	return {
+		name: `${left.name}+${right.name}`,
+		file: left.file.replace(/\.png$/, "-pair.png"),
+		svg,
+		key: createHash("sha256").update(svg).digest("hex"),
+		caption: left.caption,
+		alt: `${left.alt} ${right.alt}`,
+	};
 }
 
 function escape(text: string): string {
@@ -130,7 +172,11 @@ for (const scene of SCENES) {
 	const partner = byName.get(scene.beside);
 	if (partner === undefined)
 		throw new Error(`no scene called "${scene.beside}" to sit beside ${scene.name}`);
-	blocks.set(scene.name, rowBlock(mine, partner));
+	if (sizeOf(mine.svg).width < NARROW_PX && sizeOf(partner.svg).width < NARROW_PX) {
+		const pair = pairPicture(mine, partner);
+		pictures.push(pair);
+		blocks.set(scene.name, pictureBlock(pair));
+	} else blocks.set(scene.name, stackBlock(mine, partner));
 }
 // The brand: the icon, the banner in both themes, GitHub's social picture, and the remote page's
 // icons, so the page and the README show the same π.

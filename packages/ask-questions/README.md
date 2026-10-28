@@ -7,15 +7,14 @@
 
 When the model lacks something that only you know, it guesses, and you find out later. This package gives the model a tool to ask you instead. Each question comes with options, a preview of what each option leads to, a note that you can leave on any option, and a row for your own answer.
 
-```bash
-pi install npm:@adeildo/pi-ask-questions
-```
+<p align="center"><code>pi install npm:@adeildo/pi-ask-questions</code></p>
 
 <!-- docs:ask-questions/preview -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-questions/assets/preview.png" alt="The question dialog: two questions as tabs, the options on the left, and on the right the description and the preview of the focused option." width="420">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-questions/assets/multi.png" alt="A question that takes several answers, with two of its three options checked." width="420">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-questions/assets/preview.png" alt="The question dialog: two questions as tabs, the options on the left, and on the right the description and the preview of the focused option." width="860">
+  <br>
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-questions/assets/multi.png" alt="A question that takes several answers, with two of its three options checked." width="860">
   <br>
   <em>Pick an option and read what it does, or check more than one answer.</em>
 </p>
@@ -25,8 +24,9 @@ pi install npm:@adeildo/pi-ask-questions
 <!-- docs:ask-questions/review -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-questions/assets/review.png" alt="The review tab: every question with its answer, before submitting." width="420">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-questions/assets/transcript.png" alt="An answered ask_questions call in the chat: each question with the picked option, a note under it, a note on an option not picked, and an answer in quotes." width="420">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-questions/assets/review.png" alt="The review tab: every question with its answer, before submitting." width="860">
+  <br>
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-questions/assets/transcript.png" alt="An answered ask_questions call in the chat: each question with the picked option, a note under it, a note on an option not picked, and an answer in quotes." width="860">
   <br>
   <em>Every answer on one tab before it goes, then the whole call in the chat.</em>
 </p>

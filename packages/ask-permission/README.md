@@ -7,15 +7,14 @@
 
 Out of the box, pi runs every command the model writes. With this package, pi asks you first. You answer `yes`, `always yes` or `no`, and you can leave a note on any answer. The model reads the note, so a `no` can tell it what to do instead. In `judge` mode, a small model answers the routine calls for you.
 
-```bash
-pi install npm:@adeildo/pi-ask-permission
-```
+<p align="center"><code>pi install npm:@adeildo/pi-ask-permission</code></p>
 
 <!-- docs:ask-permission/preview -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-permission/assets/preview.png" alt="The permission dialog for npm install, with the reason it asks, the three answers, and a note on no: use pnpm instead." width="420">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-permission/assets/remember.png" alt="After always yes, the dialog asks which calls to remember: this exact call, or every pnpm call." width="420">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-permission/assets/preview.png" alt="The permission dialog for npm install, with the reason it asks, the three answers, and a note on no: use pnpm instead." width="860">
+  <br>
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/ask-permission/assets/remember.png" alt="After always yes, the dialog asks which calls to remember: this exact call, or every pnpm call." width="860">
   <br>
   <em>No, with a note the model reads: use pnpm instead. Always yes asks what to remember.</em>
 </p>
