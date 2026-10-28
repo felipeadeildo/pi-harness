@@ -1,6 +1,6 @@
 {
-	"version": "2.1.310",
-	"userAgent": "claude-cli/2.1.310 (external, cli)",
+	"version": "2.1.312",
+	"userAgent": "claude-cli/2.1.312 (external, cli)",
 	"entrypoint": "cli",
 	"identity": "You are Claude Code, Anthropic's official CLI for Claude.",
 	"system": [
@@ -145,7 +145,7 @@
 			"name": "thinking_token_count",
 			"header": "thinking-token-count-2026-05-13",
 			"turn": true,
-			"description": "Off once experimental betas are disabled. Adds thinking counts to the usage the reply reports."
+			"description": "Adds thinking counts to the usage the reply reports."
 		},
 		{
 			"name": "afk_mode",
