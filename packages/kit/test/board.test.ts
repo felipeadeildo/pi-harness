@@ -40,6 +40,16 @@ describe("the board", () => {
 		expect(board.next).toBe(3);
 	});
 
+	test("a card that ends, done or dropped, no longer waits on anyone", () => {
+		const board = applied([
+			added("Escolher os consertos", { blocked: blocker }),
+			added("Outra coisa", { blocked: blocker }),
+			{ op: "move", id: "c1", column: "done", result: "pi-memory removido", at },
+			{ op: "drop", id: "c2", why: "não precisa mais", at },
+		]);
+		expect(board.cards.map((card) => card.blocked)).toEqual([undefined, undefined]);
+	});
+
 	test("a refused operation is skipped in the fold", () => {
 		const board = applied([
 			added("Uma", { column: "doing" }),

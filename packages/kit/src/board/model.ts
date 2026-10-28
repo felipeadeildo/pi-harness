@@ -166,6 +166,8 @@ function move(
 	else delete next.reviewer;
 	if (op.column === "done") next.result = op.result ?? card.result;
 	else delete next.result;
+	// A finished card waits on no one.
+	if (op.column === "done") delete next.blocked;
 	return guarded(
 		{ ...board, cards: board.cards.map((one) => (one.id === card.id ? next : one)) },
 		writer,
@@ -206,6 +208,7 @@ function drop(board: Board, op: Extract<BoardOp, { op: "drop" }>): BoardResult {
 	delete next.now;
 	delete next.reviewer;
 	delete next.result;
+	delete next.blocked;
 	return {
 		ok: true,
 		board: { ...board, cards: board.cards.map((one) => (one.id === card.id ? next : one)) },
