@@ -242,16 +242,12 @@ export class HeaderComponent implements Component {
 		return `${glyph}${paint.bold("-harness")} ${paint.dim(HARNESS_VERSION)}`;
 	}
 
-	/** So the operator knows from the first screen what the room and the page call this session. */
+	/** The name the rooms and the remote page use for this session, with pi's /name beside it. */
 	#name(paint: Paint): string {
-		const { me, sessionName } = this.#screen.snapshot();
-		if (me === undefined) return "";
-		const word = paint.bold(
-			me.color === undefined ? paint.role("brand", me.handle) : paint.raw(me.color, me.handle),
-		);
-		return sessionName === undefined || sessionName === ""
-			? word
-			: `${word}  ${paint.dim(sessionName)}`;
+		const word = this.#segments(["me"], paint);
+		const { sessionName } = this.#screen.snapshot();
+		if (word === "" || sessionName === undefined || sessionName === "") return word;
+		return `${word}  ${paint.dim(sessionName)}`;
 	}
 
 	#segments(ids: readonly SegmentId[], paint: Paint): string {

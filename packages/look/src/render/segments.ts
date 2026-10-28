@@ -225,13 +225,11 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 	me: {
 		priority: 85,
 		describe: "the name the rooms call this session by, in its color",
-		render: ({ snapshot, paint }) => {
-			const me = snapshot.me;
+		render: ({ snapshot: { me }, paint }) => {
 			if (me === undefined) return undefined;
-			const name = paint.bold(
-				me.color === undefined ? paint.role("brand", me.handle) : paint.raw(me.color, me.handle),
-			);
-			return { text: name };
+			const name =
+				me.color === undefined ? paint.role("brand", me.handle) : paint.raw(me.color, me.handle);
+			return { text: paint.bold(name) };
 		},
 	},
 	session: {

@@ -38,7 +38,7 @@ function text(ids: SegmentId[], data = snapshot(), extra: Partial<typeof options
 const at = 1;
 
 describe("segments", () => {
-	test("me is the name the rooms call this session, and nothing before it has one", () => {
+	test("me shows the name the rooms give this session, and nothing until it has one", () => {
 		expect(
 			render(["me"], snapshot({ me: { handle: "quokka", color: "syntaxString" } })),
 		).toHaveLength(1);
