@@ -30,6 +30,7 @@
 		"comments": "bun scripts/comments.ts",
 		"docs": "bun scripts/docs/index.ts",
 		"docs:check": "bun scripts/docs/index.ts --check",
+		"docs:remote": "bun run --cwd packages/remote build && bun packages/remote/scripts/pictures.ts",
 		"pi:defaults": "bun scripts/pi-defaults.ts",
 		"smoke": "bun scripts/smoke.ts",
 		"publish:dry": "bun scripts/publish.ts --dry-run",

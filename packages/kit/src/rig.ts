@@ -37,6 +37,8 @@ export interface RigOptions {
 	settings?: Record<string, unknown>;
 	/** Dialogs the script does not answer come back cancelled, as Esc leaves them. */
 	says?: RigSays;
+	/** The model the session shows; `scripted` otherwise. A picture wants a real-looking one. */
+	model?: { id: string; name: string };
 }
 
 export interface RigSays {
@@ -176,7 +178,7 @@ export async function createRig(options: RigOptions = {}): Promise<Rig> {
 
 	const faux = fauxProvider({
 		provider: "rig",
-		models: [{ id: "scripted", name: "Scripted" }],
+		models: [options.model ?? { id: "scripted", name: "Scripted" }],
 		...(options.tokensPerSecond === undefined ? {} : { tokensPerSecond: options.tokensPerSecond }),
 	});
 	const answer = options.answer;
