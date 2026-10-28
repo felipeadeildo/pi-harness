@@ -35,11 +35,35 @@ When the model lacks something that only you know, it guesses, and you find out 
 
 ## The dialog
 
-The options sit on the left, one line each. The panel on the right shows the option under the cursor: what it means, then what it looks like. The panel is as tall as the tallest option, so the dialog keeps its size while you move. When a preview is longer than the panel, you scroll it with `Shift+↑` `Shift+↓` or the mouse wheel, and a bar on its edge shows where you are. A preview drawn with lines or columns keeps its spacing, and moves below the options when it is wider than the panel. Under 100 columns, the panel always sits below the options.
+The options sit on the left, one per line. The panel on the right shows the option under the cursor: first what it means, then what it looks like.
 
-Several questions become tabs. `●` marks where you are, `✓` marks a question you answered, and `submit` turns green once every question has an answer.
+The panel is as tall as the tallest option, so the dialog keeps its size while you move. To scroll a long preview, use `Shift+↑` `Shift+↓` or the mouse wheel. Under 100 columns, the panel moves below the options.
 
-The dialog opens as soon as the model has written the first question, without waiting for the rest of the call, so you can answer while the model writes. Every option except the last one of the question being written is complete, so you can pick it, leave a note on it, or move on. The last option arrives in a quiet color, with a cursor at the end of its label, and turns to full color when the model starts the next one. A spinner turns on the tab of that question, and the tab lights up for a moment when the model finishes it. Its **Type something.** row shows up then too. If you answered everything and the model is still writing the last question, the dialog moves to `submit` when the call is complete. `submit` stays locked until then.
+When the model asks several questions, each one gets a tab:
+
+- `●` marks the question you are on.
+- `✓` marks a question you answered.
+- `submit` turns green once every question has an answer.
+
+| Key                 | What it does                                                               |
+| ------------------- | -------------------------------------------------------------------------- |
+| `↑` `↓`, a number   | Move between the options                                                   |
+| `Enter`             | Choose the option. When several picks are allowed, confirm the ticked ones |
+| `Space`             | Tick an option, when several picks are allowed                             |
+| `Tab`               | Write a note on the option under the cursor                                |
+| `←` `→`             | Go to another question, or to `submit`                                     |
+| `Shift+↑` `Shift+↓` | Scroll a long preview. `PgUp` `PgDn` work too, outside fullscreen          |
+| `Esc`               | Close without answering. In the typed row or in a note, step back          |
+
+### While the model is still writing
+
+The dialog opens as soon as the model has written the first question. You can answer it while the model writes the rest.
+
+- An option that is complete can be picked right away.
+- The option being written shows in a quiet color, with a cursor at its end.
+- A spinner on a tab means that the model is still writing that question.
+
+`submit` stays locked until the whole call has arrived. If you already answered everything, the dialog moves to `submit` on its own when the call is complete.
 
 <!-- docs:ask-questions/writing -->
 
@@ -51,39 +75,42 @@ The dialog opens as soon as the model has written the first question, without wa
 
 <!-- /docs -->
 
-If the call never runs, the dialog closes as cancelled. That happens when you stop the model, when the reply ends early on an error or at the token limit, when the arguments arrive as broken JSON, or when the questions break a rule of the tool. A piece of the stream that parses to fewer questions than the one before it is skipped, so a question you can see never disappears.
+### When it closes on its own
 
-| Key                 | What it does                                                               |
-| ------------------- | -------------------------------------------------------------------------- |
-| `↑` `↓`, a number   | Move between the options                                                   |
-| `Enter`             | Choose the option. When several picks are allowed, confirm the ones ticked |
-| `Space`             | Tick an option, when several picks are allowed                             |
-| `Tab`               | Write a note on the option under the cursor                                |
-| `←` `→`             | Go to another question, or to `submit`                                     |
-| `Shift+↑` `Shift+↓` | Scroll a long preview. `PgUp` `PgDn` work too, outside fullscreen          |
-| `Esc`               | Close without answering. In the typed row or in a note, step back          |
+If the call never runs, the dialog closes as cancelled. That happens when you stop the model, when the reply ends early, or when the questions are broken. A question that you can see never disappears while the model writes.
 
-## Notes
+## Answering
 
-`Tab` writes a note on the option under the cursor, whether you pick that option or not. You write the note in the panel, where there is room, and it stays under the description. The option shows a `›` while it has a note. The note reaches the model with your answer, and "Tree, but too long with five accounts" tells it more than the pick alone.
+### Notes
 
-## Several picks
+`Tab` writes a note on the option under the cursor, whether you pick it or not. The option shows a `›` while it has a note.
 
-`Space` ticks an option and `Enter` confirms. A tick counts as an answer even if you leave the question with the arrows.
+The model reads the note with your answer. "Tree, but too long with five accounts" tells it more than the pick alone.
 
-## Your own words
+### Several picks
 
-The last row, **Type something.**, opens an editor in the panel, where `Shift+Enter` starts a new line. When several picks are allowed, what you type goes along with the options you ticked.
+`Space` ticks an option, and `Enter` confirms. A tick counts as an answer even if you leave the question with the arrows.
 
-## Before it sends
+### Your own words
 
-The review tab lists each question with your answer under it: `✓` before a pick, `✎` before your own words, and `note` before a note. A note on an option that you turned down names that option. A question without an answer shows `○ not answered`. `Enter` sends the answers anyway, and the model learns which questions you left unanswered.
+The last row, **Type something.**, opens an editor in the panel. `Shift+Enter` starts a new line. When several picks are allowed, what you type goes along with the options you ticked.
+
+### Before it sends
+
+The review tab lists every question with your answer under it:
+
+- `✓` before a pick
+- `✎` before your own words
+- `note` before a note
+- `○ not answered` for a question you skipped
+
+`Enter` sends the answers anyway, and the model learns which questions you skipped.
 
 ## In the chat
 
-Before the dialog opens, the chat shows each question as the model writes it, the last one in full with its options. You see this while you type in the editor, since the dialog waits for you to stop typing. Once the dialog opens, the call in the chat shrinks to one line with the headers. After you answer, the call shows the same blocks as the review tab, and `Ctrl+O` shows the questions in full.
+While the model writes the questions, the chat shows them as they arrive. Once the dialog opens, the call in the chat shrinks to one line. After you answer, the call shows your answers like the review tab, and `Ctrl+O` shows the questions in full.
 
-Pi draws the dialog in the flow of the screen, like the permission dialog, so a tall dialog scrolls with the terminal and the chat above it stays in the scrollback. Over RPC, in an editor plugin or in an ACP client, the questions go one at a time through the host's own select and input dialogs, without previews or notes. With no interface at all, the model never sees the tool.
+The dialog sits in the flow of the screen, so a tall dialog scrolls with the terminal. Over RPC, in an editor plugin or in an ACP client, the questions go one at a time through the host's own dialogs, without previews or notes. With no interface at all, the model never sees the tool.
 
 ## What the model reads
 
@@ -119,9 +146,13 @@ if (canAsk(scope.events)) {
 }
 ```
 
-A question can set `typed: false` to leave out the row for your own words, as the permission ask does. The model's tool always has that row. `canAsk` is a synchronous check, and it exists because `askQuestions` would wait forever if nothing can draw the dialog. The dialog always answers, even when it fails, and then the answer carries the error.
+A few details:
 
-The model's tool asks the same way, with the tool call's id. So anything else that listens for questions, such as your phone through the remote, sees the model's questions too, and the first answer wins. The dialog in the terminal then closes as cancelled. Pass `signal` to give up on a question, and `ctx` to write `ask.opened` and `ask.closed` to the session's log.
+- A question can set `typed: false` to leave out the row for your own words, as the permission ask does. The model's tool always has that row.
+- Check `canAsk` first: with nothing to draw the dialog, `askQuestions` would wait forever.
+- The dialog always answers, even when it fails. Then the answer carries the error.
+- The model's tool asks the same way. So your phone, through the remote, sees the model's questions too, and the first answer wins.
+- Pass `signal` to give up on a question, and `ctx` to write `ask.opened` and `ask.closed` to the session's log.
 
 ## Settings
 

@@ -23,11 +23,15 @@ Out of the box, pi runs every command the model writes. With this package, pi as
 
 ## The ask
 
-The dialog opens before the command runs. `Enter` picks the answer under the cursor, and `Esc` cancels, which counts as no. `Tab` writes a note on the answer under the cursor, and a note on `no` becomes the reason that the model reads. When a command is longer than three lines, the dialog shows the first three and how many lines are left.
+The dialog opens before the command runs.
 
-Reads inside the project never ask. That covers `read`, `grep`, `find`, `ls`, and shell commands that only read, like `cat`, `git log` or `rg`. For an `edit` or a `write`, the dialog shows the diff.
+- `Enter` picks the answer under the cursor.
+- `Esc` cancels, which counts as no.
+- `Tab` writes a note on the answer under the cursor. A note on `no` becomes the reason the model reads.
 
-The dialog comes from [`@adeildo/pi-ask-questions`](../ask-questions), so a permission ask and a question from the model use the same keys and keep the same notes. When that package is off in `pi config`, or pi runs in an RPC host that cannot draw a terminal component, pi asks with its own selector instead, with the same answers and no panel.
+Reads inside the project never ask: `read`, `grep`, `find`, `ls`, and shell commands that only read, like `cat`, `git log` or `rg`. For an `edit` or a `write`, the dialog shows the diff.
+
+The dialog comes from [`@adeildo/pi-ask-questions`](../ask-questions), so it uses the same keys as the model's questions. Without that package, pi asks with its own simpler selector.
 
 ## Always yes
 
@@ -52,9 +56,12 @@ The `Always yes` section of the settings counts the rules in each scope and lets
 | `judge`  | The same as `edits`, and the [judge](#let-a-model-decide) answers the rest |
 | `full`   | Everything                                                                 |
 
-Some calls ask you in every mode except `full`, even past an always yes and the judge. These are the calls that touch the protected list, such as the remote's key or its socket.
+Two rules come before the mode:
 
-The workspace comes before the mode. A call outside `workspace.roots` asks you in every mode, `full` included. `Alt+W` lets calls outside the workspace through for the rest of the session, and the status bar shows `anywhere` in red while that is on. Press it again to turn the check back on. A resumed session keeps its mode and this choice.
+- **The workspace.** A call outside `workspace.roots` asks you in every mode, `full` included. `Alt+W` lets calls outside through for the rest of the session, and the status bar shows `anywhere` in red while it is on. Press it again to turn the check back on.
+- **The protected list.** A call that touches it, such as the remote's key or its socket, asks you in every mode except `full`, even past an always yes or the judge.
+
+A resumed session keeps its mode and its `Alt+W` choice.
 
 ### A folder next door
 
@@ -70,7 +77,13 @@ In a monorepo, a session in `apps/api` that reads `apps/web` leaves the workspac
 
 <!-- /docs -->
 
-If you accept, the next reads there run without asking, for as long as you choose. A write outside the workspace gets `yes, and add … to the workspace` instead, and a folder that you opened for reads never lets a write through. The dialog never offers your home folder or a folder above it. The status bar counts the open folders, like `+1 folder`, and the `Folders` section of the settings closes them.
+If you accept, the next reads there run without asking, for as long as you choose.
+
+- A write outside the workspace gets `yes, and add … to the workspace` instead.
+- A folder that you opened for reads never lets a write through.
+- The dialog never offers your home folder, or a folder above it.
+
+The status bar counts the open folders, like `+1 folder`, and the `Folders` section of the settings closes them.
 
 ### A call to an MCP server
 
@@ -83,7 +96,7 @@ Pi registers each tool of an MCP server as `mcp__<server>__<tool>`, and the sett
 | `allow`       | Every call                                                                      |
 | `deny`        | Nothing, whatever the mode                                                      |
 
-`trust hints` is the default. The hint is what the server claims about its own tool, and pi does not check it, so put a server that you do not fully trust on `ask me`. Both `deny` and `ask me` win over the mode, `full` included. The dialog names the server, repeats what the server claims, and tells you when a script made the call.
+`trust hints` is the default. The hint is what the server claims about its own tool, and pi does not check it. Put a server that you do not fully trust on `ask me`. Both `deny` and `ask me` win over the mode, `full` included.
 
 ## Let a model decide
 
@@ -102,7 +115,7 @@ A call runs when the judge approves it with at least the confidence of the rigor
 | `balanced` (default) | 70%        | 0.50         |
 | `relaxed`            | 55%        | 0.60         |
 
-Under each call, a line says who decided and why, like `judge approved  97% sure, risk 0.12` or `you said no › use pnpm instead`, and `Ctrl+O` adds the judge's numbers. When the model sends several calls at once, the judge reads them together, so each call shows its own answer while the dialog asks about the next one.
+Under each call, a line says who decided and why, like `judge approved  97% sure, risk 0.12` or `you said no › use pnpm instead`. `Ctrl+O` adds the judge's numbers. When the model sends several calls at once, the judge reads them together.
 
 The policy is plain text, so you start from a preset and edit it:
 
@@ -119,7 +132,11 @@ The policy is plain text, so you start from a preset and edit it:
 Ask me.
 ```
 
-`Always ask me` lists patterns that the judge never approves, like `git push*`. The judge also reads the session's name and your last three messages, to tell whether a call is a step of what you asked. It never reads the agent's own words, and nothing in your messages can override the policy or `Always ask me`. When calls come back as `the judge could not decide`, use `Test the judge` in the Judge section of the settings. It sends one request and reports the model, how long it took and the error.
+`Always ask me` lists patterns that the judge never approves, like `git push*`.
+
+The judge also reads the session's name and your last three messages, to tell whether a call is a step of what you asked. It never reads the agent's own words, and nothing in your messages can override the policy.
+
+When calls come back as `the judge could not decide`, use `Test the judge` in the Judge section of the settings. It sends one request and reports the model, how long it took, and the error.
 
 ## Limits
 

@@ -33,7 +33,7 @@ While an agent works, you keep checking the same few things: what it is about to
 
 ## The start card
 
-The card shows the π, the folder, the branch and the model, and the name that the rooms and the remote page use for this session. Under them, it lists only what changed or waits on you since your last session in the folder:
+The card shows the π, the folder, the branch, the model, and the name that the rooms and the remote page use for this session. Under them, it lists only what changed or waits on you since your last session in the folder:
 
 - an account that needs you to sign in again
 - files in conflict, or a branch behind its remote
@@ -43,47 +43,51 @@ The card shows the π, the folder, the branch and the model, and the name that t
 - a plan past 70% of its limit
 - a new version of the harness
 
-On a quiet day, the card says that nothing is new, and its bottom edge reads `ready when you are`. The look asks GitHub once per launch, in the background, so the card never waits for it. The two GitHub lines appear when the answers arrive, and they stay out when `gh` is missing, there is no network, or the folder is not on GitHub. The π rises from its feet once per launch. The harness sets pi's `quietStartup` to `header`, so pi's list of everything it loaded stays out of the way.
+On a quiet day, the card says that nothing is new. GitHub is asked in the background, so the card never waits for it. Without `gh`, without a network, or outside GitHub, those lines just stay out.
 
 ## Each command in a box
 
-When the model wants to run a command, the command gets a box of its own, so you see it before it runs. The top line has the tool's mark and name. Under it come the command, and the reason it was allowed when another model approved it. A line separates the command from what it printed. The bottom line says how it went: a check or a cross, and how long it took. A command that is still running says `running`, with the time so far.
+Every command gets its own box, so you see it before it runs:
 
-A tool from an MCP server shows its server and tool instead of `mcp__server__tool`. A tool that brings no drawing of its own gets the same box, with its name and arguments on top and its text under the line.
+- The top line has the tool's name.
+- Under it come the command, and who let it run and why.
+- A line separates the command from what it printed.
+- The bottom line says how it went and how long it took. A command that still runs says `running`.
 
-While the model writes an `edit` or a `write`, the box shows the end of what has arrived, with a cursor where the model is writing. A write shows its last 8 lines with their numbers, and says whether it makes a new file or how many lines it replaces. An edit shows the lines it removes and the lines it adds, with the lines around them as context. The bottom line counts the lines and the size, or the edits and the changed lines. Once the call is complete, the box shows the diff with line numbers on the left, and only the changed words get a light background.
+For an `edit` or a `write`, the box shows the diff. The line numbers sit on the left, and only the words that changed get a light background. While the model is still writing the call, the box shows what has arrived so far, with a cursor at the end.
 
-The mark of a long phase moves: a clock goes round while a call runs, an hourglass flows while the call waits on you, and a spinner turns while the model writes the call. With Unicode icons, a quarter circle goes round, and with ASCII, a line spins. The mark stops once the call ends.
-
-`Alt+O` opens the session's tool output in a frame that you can scroll, one call at a time, newest first. The up and down arrows scroll, left and right move to older and newer calls, and the bottom edge says which lines you are on. Pi cuts a long output in the transcript, and `Ctrl+O` opens every call at once.
+`Alt+O` opens the tool output of the session in a frame that you can scroll, one call at a time, newest first. `Ctrl+O` opens every call in the transcript at once.
 
 ## Above the editor
 
-The strip above the editor stays calm on purpose. While the model streams, only the stopwatch moves.
+The strip above the editor stays calm. While the model streams, only the stopwatch moves.
 
-| What you see                                     | What it means                                                                                          |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `0:12  3 calls`                                  | How long the agent has worked on this prompt, and how many calls it made to the model                  |
-| `last call 1.7s wait  900ms thought  ↓906 tok/s` | The last call: how long the model took to start, how long it thought and wrote, and how fast it writes |
-| `answered in 0:47  2 calls  $0.31`               | Once the run ends: how long it took, how many calls it made to the model, and what it cost             |
+| What you see                                     | What it means                                                                         |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| `0:12  3 calls`                                  | How long the agent has worked on this prompt, and how many calls it made to the model |
+| `last call 1.7s wait  900ms thought  ↓906 tok/s` | How long the last call took to start, to think and write, and how fast it wrote       |
+| `answered in 0:47  2 calls  $0.31`               | Once the run ends: how long it took, how many calls, and what it cost                 |
 
-On the right, the strip shows the board's card under way, with how many cards are blocked, to do and done. Next to it come the rooms this session is in. Each room shows how this session stands there (`●` takes part, `◐` listens, `○` stepped out), and then its agents, each marked by what it is doing: `◆` working, `⚑` waiting on you, `◇` idle.
+On the right, the strip shows the card the agent is working on, and the rooms this session is in:
 
-The messages that you send while the agent works wait above the editor in a dashed frame. Each one is marked `steer` (it goes in between the agent's calls) or `next` (it goes after the run), and the bottom edge names the key that takes them back to the editor.
+- Each room shows how this session stands there: `●` takes part, `◐` listens, `○` stepped out.
+- After the room come its agents, each with what it is doing: `◆` working, `⚑` waiting on you, `◇` idle.
+
+The messages that you send while the agent works wait above the editor, in a dashed frame. `steer` means the message goes in between the agent's calls, and `next` means it goes after the run.
 
 ## The editor and the footer
 
-The editor's border starts with this session's name, in its color. It also carries the branch with how far it is from its remote and what changed, the folder, the permission mode, the model with an effort meter, and the context. The border takes pi's effort color, so it warms up as the model thinks harder, and it turns to the shell color in bash mode.
+The editor's border starts with this session's name. It also shows the branch, the folder, the permission mode, the model with an effort meter, and how full the context is. The border warms up as the model thinks harder, and it takes the shell's color in bash mode.
 
-The spinner names what the model is doing instead of saying "Working": `waiting` for the first token, `thinking`, `writing`, `drafting bash` while the model writes the call, and `running bash` while the call runs.
+Instead of "Working", the spinner says what the model is doing: `waiting`, `thinking`, `writing`, `drafting bash` or `running bash`.
 
-Your messages sit in a frame like the tool calls, in the accent color and named `you`, without pi's background or the blank rows around the text. `look.userFrame` turns this off. Pi's own entries sit in the same kind of frame: compactions and branch summaries under `π`, skills, `!` commands with a line between the command and what it printed, and the messages of extensions that bring no drawing of their own.
+Your messages sit in a frame named `you`, like the tool calls. `look.userFrame` turns this off.
 
-The footer is about the session. Each number has its word next to it: the cost, the tokens sent and received, how much of the last prompt came from the cache, the average speeds, and the plan's windows with when they reset. Last come the reports of other packages, because they change the most.
+The footer is about the session: the cost, the tokens sent and received, how much came from the cache, the average speeds, and how much of your plan is left, with when it resets.
 
 ## Another session
 
-When the `Alt+G` panel or the remote asks to show another session, the look draws it over the whole screen in one frame. You see its transcript with the same boxes as yours, then an editor box whose edges show that session's folder, machine, model and context. A session read from its file has nothing to type into, so the editor box says to write to it through a room. The top edge says `live` while the session runs, and `ended` once it closes, with the frame dashed. The arrows, `PageUp`, `PageDown`, `Home` and `End` scroll it. While you read older lines, new lines wait below and the screen says how many. `Alt+G` or `Esc` takes you back.
+From the `Alt+G` panel or the remote, you can open another session over the whole screen. You see its transcript with the same boxes as yours, and an editor box with its folder, machine and model. The top edge says `live` while the session runs and `ended` once it closes. `Alt+G` or `Esc` takes you back.
 
 <!-- docs:look/view -->
 
@@ -105,17 +109,22 @@ The numbers change on every frame, and the screen must not move with them.
 - An estimate is drawn in a quieter color, so you know it is one.
 - The strip and the footer keep their line from the start, so the editor does not jump when the first answer arrives.
 
-Pi records usage without a duration, so every finished answer leaves one small entry in the session with its time to the first token and its writing time. That keeps the averages right after you resume a session.
+## Details
 
-## Your theme
+- A tool from an MCP server shows its server and tool, instead of `mcp__server__tool`.
+- A tool that brings no drawing of its own gets the same box, with its name and arguments on top.
+- Pi's own entries use the same frames: compactions and branch summaries under `π`, skills, and `!` commands.
+- The mark of a long phase moves: a clock while a call runs, an hourglass while it waits on you, and a spinner while the model writes it. The mark stops when the call ends.
+- The π on the start card rises from its feet once per launch. The harness sets pi's `quietStartup` to `header`, so pi's list of what it loaded stays out of the way.
+- Pi records usage without a duration, so each answer leaves a small entry with its time to the first token and its writing time. That keeps the averages right after you resume a session.
 
-The look never names a color directly. Every piece uses a theme token, so it follows whatever theme pi runs and changes with it. The [reference](docs/reference.md#colours) lists the token for each piece.
+## Your theme and settings
 
-## Settings
+The look never names a color. Every piece uses a theme token, so it follows whatever theme pi runs. The [reference](docs/reference.md#colours) lists the token for each piece.
 
-`Alt+S` opens them on the Look tab. The look has strong opinions, so it leaves you three choices: the icons (Nerd Font, Unicode or ASCII, depending on your terminal's font), the style of the editor's frame, and whether your messages sit in a frame. Each choice shows a preview of what it changes before you keep it. The [reference](docs/reference.md#settings) lists every setting.
+`Alt+S` opens the settings on the Look tab. You choose the icons (Nerd Font, Unicode or ASCII, to match your terminal's font), the style of the editor's frame, and whether your messages sit in a frame. Each choice shows a preview before you keep it. The [reference](docs/reference.md#settings) lists every setting.
 
-The framed editor, and the idea of writing into its borders, come from [pi-open-tui](https://github.com/OldSuns/pi-open-tui), which this package replaces. The segments with priorities come from [oh-my-pi](https://github.com/can1357/oh-my-pi).
+The framed editor comes from [pi-open-tui](https://github.com/OldSuns/pi-open-tui), which this package replaces. The segments with priorities come from [oh-my-pi](https://github.com/can1357/oh-my-pi).
 
 <!-- docs:footer -->
 
