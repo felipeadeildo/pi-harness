@@ -24,6 +24,11 @@ export function names(options: NamesOptions = {}): Feature {
 		setup(scope) {
 			let held: { handle: string } | undefined;
 			NAMES.provide(scope, () => held);
+			// The model cannot read the footer, so it learns its handle here.
+			scope.on("before_agent_start", (event) => {
+				if (held === undefined) return;
+				event.systemPromptOptions.sections.handle = handleSection(held.handle);
+			});
 			scope.onSessionStart((ctx) => {
 				const session = ctx.sessionManager.getSessionId();
 				const dir = options.dir ?? join(getAgentDir(), "harness", "names");
@@ -54,4 +59,8 @@ export function names(options: NamesOptions = {}): Feature {
 			});
 		},
 	};
+}
+
+export function handleSection(handle: string): string {
+	return `Your handle in this session is ${handle}. The operator and the other agents call you by it, and it is the name to sign with where your work names its author.`;
 }

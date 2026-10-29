@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { createApp } from "../src/app/builder.ts";
 import { NAMES } from "../src/contracts/names.ts";
 import { eventsDir, FolderFeed } from "../src/events/log.ts";
-import { names } from "../src/names/feature.ts";
+import { handleSection, names } from "../src/names/feature.ts";
 import { WORDS } from "../src/names/words.ts";
 import { fakeContext, fakePi } from "../src/testing.ts";
 
@@ -89,5 +89,16 @@ describe("the names feature", () => {
 		const after = mounted();
 		await after.fire("session_start", {}, ctx(older));
 		expect(current(after)?.handle).toBe("oauth");
+	});
+
+	test("the model reads its handle in the system prompt", async () => {
+		const fake = mounted();
+		const sections: Record<string, string> = {};
+		const start = { type: "before_agent_start", prompt: "", systemPromptOptions: { sections } };
+		await fake.fire("before_agent_start", start, ctx());
+		expect(sections).toEqual({});
+		await fake.fire("session_start", {}, ctx([tasksEntry("oauth")]));
+		await fake.fire("before_agent_start", start, ctx());
+		expect(sections).toEqual({ handle: handleSection("oauth") });
 	});
 });
