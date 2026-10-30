@@ -46,11 +46,16 @@ function editor(
 	);
 }
 
-/** A list that answers every request, and keeps what it was asked. */
-function recordingProvider(asked: string[]): AutocompleteProvider {
+/** A list that answers what `matches` lets through, and keeps what it was asked. */
+function recordingProvider(
+	asked: string[],
+	matches: (typed: string) => boolean = () => true,
+): AutocompleteProvider {
 	return {
 		getSuggestions: async (lines, line, col) => {
-			asked.push((lines[line] ?? "").slice(0, col));
+			const typed = (lines[line] ?? "").slice(0, col);
+			asked.push(typed);
+			if (!matches(typed)) return null;
 			return { items: [{ value: "/skill:simplify", label: "skill:simplify" }], prefix: "/" };
 		},
 		applyCompletion: (lines, cursorLine, cursorCol) => ({ lines, cursorLine, cursorCol }),
@@ -58,6 +63,18 @@ function recordingProvider(asked: string[]): AutocompleteProvider {
 }
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
+
+const BACKSPACE = "\x7f";
+const ESCAPE = "\x1b";
+
+/** Each key waits for the list it asks for, as a person typing would. */
+async function press(view: LookEditor, ...keys: string[]): Promise<void> {
+	for (const key of keys) {
+		view.handleInput(key);
+		// oxlint-disable-next-line no-await-in-loop -- the next key lands on the list this one opened
+		await settle();
+	}
+}
 
 describe("skills in the editor", () => {
 	test("a slash further into the message opens the list", async () => {
@@ -70,6 +87,34 @@ describe("skills in the editor", () => {
 
 		expect(asked).toEqual(["use /"]);
 		expect(view.isShowingAutocomplete()).toBe(true);
+	});
+
+	test("deleting a character that matched nothing opens the list again", async () => {
+		const asked: string[] = [];
+		const view = editor("rounded", { skills: () => true });
+		view.setAutocompleteProvider(recordingProvider(asked, (typed) => !typed.endsWith("x")));
+		view.setText("use ");
+
+		await press(view, "/", "s", "x");
+		expect(view.isShowingAutocomplete()).toBe(false);
+
+		await press(view, BACKSPACE);
+		expect(view.isShowingAutocomplete()).toBe(true);
+
+		await press(view, "x", BACKSPACE, "i");
+		expect(asked.at(-1)).toBe("use /si");
+		expect(view.isShowingAutocomplete()).toBe(true);
+	});
+
+	test("escape keeps the list closed", async () => {
+		const asked: string[] = [];
+		const view = editor("rounded", { skills: () => true });
+		view.setAutocompleteProvider(recordingProvider(asked));
+		view.setText("use ");
+		await press(view, "/", ESCAPE);
+
+		expect(view.isShowingAutocomplete()).toBe(false);
+		expect(asked).toEqual(["use /"]);
 	});
 
 	test("with no skills feature, a slash is only a slash", async () => {

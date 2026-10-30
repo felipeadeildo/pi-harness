@@ -60,10 +60,14 @@ export class LookEditor extends CustomEditor {
 		this.tui.requestRender();
 	}
 
-	/** Pi opens its palette on `/` only at the start of a message; further in, `/` lists the skills. */
+	/**
+	 * Pi opens and reopens its palette only at the start of a message. Further in, any edit that
+	 * leaves the cursor in a `/name` (a typed slash, a deleted or retyped letter) lists the skills.
+	 */
 	override handleInput(data: string): void {
+		const before = this.getText();
 		super.handleInput(data);
-		if (data !== "/" || this.isShowingAutocomplete() || !this.#screen.skills()) return;
+		if (this.isShowingAutocomplete() || !this.#screen.skills() || this.getText() === before) return;
 		const { line, col } = this.getCursor();
 		if (skillQueryAt(this.getLines(), line, col) !== undefined) openAutocomplete(this);
 	}
