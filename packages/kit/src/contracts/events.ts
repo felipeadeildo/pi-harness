@@ -9,6 +9,9 @@ export type RoomActivity = "running" | "idle";
 
 export type Delivery = "woke" | "after-run" | "steered" | "next-turn";
 
+/** Why a message handed for the next turn waits there. */
+export type Held = "asleep" | "quiet" | "full" | "stopped";
+
 export type Activity =
 	| { kind: "edited"; path: string }
 	| { kind: "ran"; command: string; ok: boolean }
@@ -43,7 +46,9 @@ export interface LogEventMap {
 		depth?: number;
 	};
 	/** Written by the receiving session when it hands the message to its agent. */
-	"message.received": { id: string; mode: Delivery };
+	"message.received": { id: string; mode: Delivery; held?: Held };
+	/** The operator lets through what `session` holds for its next turn. */
+	"messages.released": { session: string };
 	"message.read": { id: string };
 	"request.bid": { request: string; fit: number; reason: string; idle: boolean };
 	/** Written only by the session every other one agrees won. */

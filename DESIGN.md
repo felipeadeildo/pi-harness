@@ -49,8 +49,8 @@ Each column has one left edge: a list's headings, labels and rules start after t
 cells, so the marks of its rows sit under them. What is chosen also changes shape or ground, never
 only color: a card drawn heavy, a tab on `selectedBg`.
 
-The frame draws nothing of its own on the row. When the list does not have the keys, as the grid
-while the rooms' conversations have them, the pointer turns `dim`.
+The frame draws nothing of its own on the row. When the list does not have the keys, the pointer
+turns `dim`.
 
 ## Shapes
 
@@ -115,8 +115,8 @@ says who or what it is, and its bottom edge says what became of it and how long 
 
 The kit draws them: `entryFrame()` is the frame, and `GLYPH` and `LINE` name every character.
 A dashed frame has not happened yet. A message that leaves the queue becomes a `you` frame in the
-transcript. The rooms (Alt+G) fill the screen, so they draw lighter: a message is a header line,
-its words and its receipt, with no frame of its own, and the panel's frame is in `borderMuted`.
+transcript. The rooms (Alt+G) fill the screen, so they draw lighter: a room is a bold name over
+its lines, with no frame of its own, and the panel's frame is in `borderMuted`.
 
 ## The start screen
 

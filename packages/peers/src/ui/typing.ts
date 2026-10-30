@@ -109,23 +109,3 @@ export class TypingWidget implements Component {
 		clearInterval(this.#ticks);
 	}
 }
-
-/** `me` reads "you". */
-export function typingRecipients(
-	to: string,
-	names: ReadonlyMap<string, Named>,
-	theme: Theme,
-	me?: string,
-): string {
-	if (to === EVERYONE_MENTION) return theme.fg("muted", EVERYONE_MENTION);
-	return to
-		.split(",")
-		.map((part) => part.trim().replace(/^@/, ""))
-		.filter((handle) => handle !== "")
-		.map((handle) => {
-			if (handle === me) return theme.fg("accent", "you");
-			const named = [...names.values()].find((one) => one.handle === handle);
-			return theme.fg((named?.color ?? "muted") as ThemeColor, `@${handle}`);
-		})
-		.join(theme.fg("dim", ", "));
-}

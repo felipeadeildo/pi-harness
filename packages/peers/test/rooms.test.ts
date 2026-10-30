@@ -65,7 +65,7 @@ function session(id: string, folder: string, extra: Partial<Hooks> = {}) {
 	const sent: Sent[] = [];
 	const changes: MembershipChange[] = [];
 	const run = { idle: true };
-	const wentIn: { ids: string[]; by: string | undefined }[] = [];
+	const wentIn: { ids: string[]; by: string | undefined; released?: true }[] = [];
 	const events = bus();
 	const hooks: Hooks = {
 		events: events as unknown as Hooks["events"],
@@ -82,7 +82,12 @@ function session(id: string, folder: string, extra: Partial<Hooks> = {}) {
 		sendUserMessage: ((text: string) =>
 			sent.push({ kind: "user", text })) as Hooks["sendUserMessage"],
 		idle: () => run.idle,
-		wentIn: (ids, by) => wentIn.push({ ids: [...ids], by }),
+		wentIn: (ids, started) =>
+			wentIn.push({
+				ids: [...ids],
+				by: started.by,
+				...(started.released ? { released: true } : {}),
+			}),
 		fit: async () => ({ fit: 0.5, reason: "" }),
 		changed: () => {},
 		now: () => now,
@@ -331,6 +336,72 @@ describe("a shared room", () => {
 			(message) => message.text === "while you run",
 		);
 		expect(api.wentIn).toEqual([{ ids: [held?.id ?? ""], by: "client" }]);
+	});
+
+	test("what a session holds goes in when the operator lets it through, and the chain starts over", () => {
+		const api = session("api", "backend");
+		const web = session("web", "backend");
+		web.name("web");
+		sync(api, web);
+		api.rooms.prompted();
+		api.rooms.started();
+		api.rooms.settled();
+		const loop = { id: "m1", from: "agent" as const, to: ["api"], text: "and again", depth: 20 };
+		web.rooms.here(undefined)?.log("message.posted", loop);
+		api.rooms.sync();
+		expect(writtenIn(api.dir, "api", "message.received").at(-1)?.data).toMatchObject({
+			mode: "next-turn",
+			held: "quiet",
+		});
+
+		const notes = api.sent.length;
+		now += 1_000;
+		web.rooms.release(undefined, "api");
+		api.rooms.sync();
+		expect(api.sent.slice(notes).map((one) => one.text)).toEqual([
+			"The operator let the messages from other agents that waited for you through.",
+		]);
+		api.rooms.started();
+		expect(api.wentIn.at(-1)).toMatchObject({ ids: ["m1"], released: true });
+		api.rooms.here(undefined)?.post(["web"], "done", "agent");
+		const reply = writtenIn(api.dir, "api", "message.posted").at(-1)?.data as { depth?: number };
+		expect(reply.depth ?? 0).toBe(0);
+		api.rooms.settled();
+		api.rooms.sync();
+		expect(api.sent).toHaveLength(notes + 1);
+	});
+
+	test("a release written before the session opened lets nothing through", () => {
+		const web = session("web", "backend");
+		web.rooms.release(undefined, "api");
+		now += 1_000;
+		const api = session("api", "backend");
+		api.rooms.prompted();
+		api.rooms.started();
+		api.rooms.settled();
+		const loop = { id: "m2", from: "agent" as const, to: ["api"], text: "and again", depth: 20 };
+		web.rooms.here(undefined)?.log("message.posted", loop);
+		api.rooms.sync();
+		expect(api.sent.filter((one) => one.text.includes("let the messages"))).toEqual([]);
+	});
+
+	test("let through while it runs, what a session holds goes in when the run ends", () => {
+		const api = session("api", "backend");
+		const web = session("web", "backend");
+		sync(api, web);
+		api.rooms.prompted();
+		api.rooms.started();
+		api.run.idle = false;
+		web.rooms.here(undefined)?.post(["api"], "while you run", "agent");
+		api.rooms.sync();
+		api.rooms.cleared(false);
+		now += 1_000;
+		web.rooms.release(undefined, "api");
+		api.rooms.sync();
+		const notes = api.sent.length;
+		api.run.idle = true;
+		api.rooms.settled();
+		expect(api.sent.slice(notes).map((one) => one.kind)).toEqual(["note"]);
 	});
 
 	test("a session removed by name leaves, and hears why", () => {

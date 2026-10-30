@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import type { Delivery } from "@adeildo/pi-kit";
+import type { Delivery, Held } from "@adeildo/pi-kit";
 
 import type { Posted } from "../src/folder.ts";
-import { type Held, Inbox, type InboxHooks, type Sender, letterOf } from "../src/inbox.ts";
+import { Inbox, type InboxHooks, type Sender, letterOf } from "../src/inbox.ts";
 import type { BusyDelivery } from "../src/rules.ts";
 
 function posted(id: string, text: string): Posted {

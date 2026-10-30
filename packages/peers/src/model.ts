@@ -57,6 +57,8 @@ export interface RoomsView {
 		member?: { session: string; cwd: string },
 	): void;
 	close(room: string): void;
+	/** Lets through what the session holds for its next turn. */
+	release(room: string | undefined, session: string): void;
 	onChange(listener: () => void): () => void;
 	onMembership(listener: (change: MembershipChange) => void): () => void;
 }

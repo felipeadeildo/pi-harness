@@ -171,8 +171,8 @@ export const peers = defineFeature({
 			busyDelivery: () => delivery.get(scope),
 			chainLimit: () => chainLimit.get(scope),
 			// The run that took them is starting; its frames redraw the line.
-			wentIn: (ids, by) => {
-				const went: WentInEntry = { ids: [...ids], ...(by === undefined ? {} : { by }) };
+			wentIn: (ids, started) => {
+				const went: WentInEntry = { ids: [...ids], ...started };
 				remember(went);
 				try {
 					scope.appendEntry(PEER_WENT_IN, went);

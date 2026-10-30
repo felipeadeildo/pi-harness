@@ -14,7 +14,10 @@ import type { Here } from "../here.ts";
 import type { SentDetails } from "../index.ts";
 import { ANYONE_MENTION, EVERYONE_MENTION } from "../mention.ts";
 import { award } from "../rules.ts";
-import { bar, fit, ON_ITS_WAY_MS } from "./feed.ts";
+
+const BAR_CELLS = 5;
+/** A message nobody logged after this stops spinning. */
+const ON_ITS_WAY_MS = 60_000;
 
 interface Args {
 	action?: string;
@@ -457,4 +460,16 @@ function flow(parts: readonly string[], width: number): string[] {
 	}
 	if (line !== "") lines.push(line);
 	return lines.map((one) => truncateToWidth(one, Math.max(1, width), CUT));
+}
+
+function bar(value: number, color: ThemeColor, theme: Theme): string {
+	const filled = Math.max(0, Math.min(BAR_CELLS, Math.round(value * BAR_CELLS)));
+	return (
+		theme.fg(color, GLYPH.barFull.repeat(filled)) +
+		theme.fg("dim", GLYPH.barEmpty.repeat(BAR_CELLS - filled))
+	);
+}
+
+function fit(value: number): string {
+	return value >= 1 ? "1.0" : value.toFixed(2).replace(/^0/, "");
 }

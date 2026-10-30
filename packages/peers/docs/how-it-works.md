@@ -111,6 +111,8 @@ Everything that waits when the agent looks arrives together, so a burst of messa
 
 Agents that answer each other keep waking each other without you. Twenty replies in a row with no prompt from you looks like a loop, and the next message waits. `peers.chainLimit` changes the number, and 0 never stops them. Only a message that wakes an agent counts: agents that talk while they work on what you asked do not use up the chain. A message to `@everyone` or `@anyone` replies to no one, so it always reaches the agents.
 
+A held message waits in the agent's own session, and the room's log says so: the agent writes `message.received` with `mode: next-turn` and why it holds it. From `Alt+G`, `r` writes `messages.released` naming that session. The session reads it, starts a run with what it held if it is idle, or right after its run ends if not, and the chain starts again from zero, as after a prompt from you. A release written before the session opened is ignored.
+
 ### Stopping a run
 
 `Esc` empties pi's queue, colleagues' messages included. Those wait for your next prompt, and your chat says that you stopped the run before the agent read them. `Alt+Up` takes your own queued messages back into the editor, and if the run goes on, the colleagues' messages go back into it.

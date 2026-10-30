@@ -49,6 +49,13 @@ test("once a run that was not yours takes it, the line says which", () => {
 	);
 });
 
+test("once you let it through from Alt+G, the line says so", () => {
+	const block = { items: [item], why: "quiet" as const };
+	expect(drawn(block, plain, () => ({ released: true }))).toContain(
+		"It went in when you let it through.",
+	);
+});
+
 test("a message you stopped the run before it was read says so", () => {
 	const lines = heldBlock({ items: [item], why: "stopped" }, plain)
 		.render(100)
@@ -61,6 +68,8 @@ test("a message you stopped the run before it was read says so", () => {
 test("what a session keeps of a run that took held messages is read back only when it is whole", () => {
 	expect(isWentIn({ ids: ["m1"], by: "otter" })).toBe(true);
 	expect(isWentIn({ ids: ["m1"] })).toBe(true);
+	expect(isWentIn({ ids: ["m1"], released: true })).toBe(true);
+	expect(isWentIn({ ids: ["m1"], released: "yes" })).toBe(false);
 	expect(isWentIn({ ids: [1] })).toBe(false);
 	expect(isWentIn({ ids: ["m1"], by: 2 })).toBe(false);
 	expect(isWentIn({ by: "otter" })).toBe(false);

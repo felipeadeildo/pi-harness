@@ -26,7 +26,7 @@ import { pruneLine } from "./compact.ts";
 import { KEYS, openDialog, press, type, WIDTH } from "./drive.ts";
 import { drawLook, lookParts } from "./look.ts";
 import { assistantText, userMessage } from "./messages.ts";
-import { CONVERSATIONS, peersRoom } from "./peers.ts";
+import { peersRoom, TO_CLIENT } from "./peers.ts";
 import { settingsLines } from "./settings.ts";
 import { drawView } from "./view.ts";
 
@@ -410,15 +410,15 @@ export const SCENES: readonly Scene[] = [
 	{
 		name: "peers/room",
 		caption:
-			"Alt+G: who hears which room, who talks with whom, and what the agent under the cursor said.",
-		alt: "The panel over the whole screen, in a quiet frame titled Rooms, with oauth waiting on you and 5 open in 2 rooms on the right of the top edge. On the left a grid: a column for each room, pi-harness and backend+frontend, and a line for each folder with its agents under it. Migration, oauth and docs, this session, hear all of pi-harness; only docs hears backend+frontend, where api and client also hear all. The cursor is on migration. Under the grid the conversations, newest first: api to everyone in backend+frontend, which client and docs have not read; oauth and migration writing to each other; your request to anyone, which oauth took. Each says its room, its time, what came of its last message and its first words. On the right, migration in pi-harness and the card it is on, Move the sessions table, then your request with the bids as bars, oauth asking migration about src/auth.ts and migration's answer, each with what became of it. Along the bottom: move, space to set @name, tab to the conversations, new room, close.",
+			"Alt+G: each room, who is in it, how much each agent hears there and what it is doing.",
+		alt: "The panel over the whole screen, in a quiet frame titled Rooms, with oauth waiting on you and 5 agents in 2 rooms on the right of the top edge. First pi-harness, this folder's agents: migration hears only @name and moves the sessions table, oauth hears all and waits on you to push to main, and docs, this session, hears all and rewrites the README. Then backend+frontend, which client asked for to agree on the /v1/fleet contract and you said yes to. Its backend folder brings in every new session opened there. Api and client hear all and are idle, and under client a line in the warning color says it holds 1 message because the agents kept answering each other without you. Docs hears all there too. Along the bottom: move, space to switch to @name, new room, close.",
 		draw: (theme) => peersRoom(theme),
 	},
 	{
 		name: "peers/rooms",
-		caption: "Tab moves to the conversations, and the right side follows the one under the cursor.",
-		alt: "The same panel with the cursor in the conversations, on api to everyone in backend+frontend. On the right, only that conversation: api's message that /v1/fleet now has a capacity field, and that 2 got it. Along the bottom: move, tab back to who hears, scroll, new room, close.",
-		draw: (theme) => peersRoom(theme, undefined, CONVERSATIONS),
+		caption: "On an agent that holds messages, r lets them through.",
+		alt: "The same panel with the cursor on client in backend+frontend, over its line saying it holds 1 message because the agents kept answering each other without you. Along the bottom: move, space to switch to @name, r to let them through, new room, close.",
+		draw: (theme) => peersRoom(theme, undefined, TO_CLIENT),
 	},
 	{
 		name: "harness/conversation",

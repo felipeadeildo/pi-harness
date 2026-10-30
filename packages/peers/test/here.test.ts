@@ -3,12 +3,11 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { HOST, logEvent, ownStart, readFrom, targetOf, logPath } from "@adeildo/pi-kit";
+import { type Held, HOST, logEvent, ownStart, readFrom, targetOf, logPath } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
 import type { Fit } from "../src/bid.ts";
 import { Here, type Hooks, PEER_MESSAGE, PEER_NOTE, type PeerMessageDetails } from "../src/here.ts";
-import type { Held } from "../src/inbox.ts";
 import { BID_WINDOW_MS, type BusyDelivery, CHAIN_LIMIT, STEERS_PER_RUN } from "../src/rules.ts";
 import { statusLine } from "../src/ui/status.ts";
 
@@ -85,7 +84,7 @@ function session(
 				why,
 				...(delivery.chain === undefined ? {} : { chain: delivery.chain }),
 			}),
-		wentIn: (ids, by) => wentIn.push({ ids: [...ids], by }),
+		wentIn: (ids, started) => wentIn.push({ ids: [...ids], by: started.by }),
 		chainLimit: () => limit.chain,
 		busyDelivery: () => limit.busy,
 		now: () => now,

@@ -12,9 +12,9 @@ Open pi in two terminals in the same folder, and each agent knows what the other
 <!-- docs:peers/room -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/peers/assets/room.png" alt="The panel over the whole screen, in a quiet frame titled Rooms, with oauth waiting on you and 5 open in 2 rooms on the right of the top edge. On the left a grid: a column for each room, pi-harness and backend+frontend, and a line for each folder with its agents under it. Migration, oauth and docs, this session, hear all of pi-harness; only docs hears backend+frontend, where api and client also hear all. The cursor is on migration. Under the grid the conversations, newest first: api to everyone in backend+frontend, which client and docs have not read; oauth and migration writing to each other; your request to anyone, which oauth took. Each says its room, its time, what came of its last message and its first words. On the right, migration in pi-harness and the card it is on, Move the sessions table, then your request with the bids as bars, oauth asking migration about src/auth.ts and migration's answer, each with what became of it. Along the bottom: move, space to set @name, tab to the conversations, new room, close." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/peers/assets/room.png" alt="The panel over the whole screen, in a quiet frame titled Rooms, with oauth waiting on you and 5 agents in 2 rooms on the right of the top edge. First pi-harness, this folder's agents: migration hears only @name and moves the sessions table, oauth hears all and waits on you to push to main, and docs, this session, hears all and rewrites the README. Then backend+frontend, which client asked for to agree on the /v1/fleet contract and you said yes to. Its backend folder brings in every new session opened there. Api and client hear all and are idle, and under client a line in the warning color says it holds 1 message because the agents kept answering each other without you. Docs hears all there too. Along the bottom: move, space to switch to @name, new room, close." width="860">
   <br>
-  <em>Alt+G: who hears which room, who talks with whom, and what the agent under the cursor said.</em>
+  <em>Alt+G: each room, who is in it, how much each agent hears there and what it is doing.</em>
 </p>
 
 <!-- /docs -->
@@ -37,26 +37,25 @@ Typing `@` lists the agents, and typing `#` lists your rooms when you have more 
 
 ## The panel
 
-`Alt+G` opens the rooms over the whole screen. The grid on the left says who hears which room: a column for each room, and a line for each folder with its agents under it. Under it, the conversations say who talks with whom, newest first. The right side shows the messages of what the cursor is on: one agent in one room, a whole room from a folder's line, or one conversation.
+`Alt+G` opens the rooms over the whole screen. Each room is a block: its name and what it is for, the folders that bring their new sessions in, then its agents. Each agent's line says how much of that room reaches it and what it is doing: the card it is on, or what it waits on you for.
 
-Each cell says how much of that room reaches the agent:
-
-| Cell      | What reaches the agent                                    |
+| Hearing   | What reaches the agent                                    |
 | --------- | --------------------------------------------------------- |
 | `● all`   | Everything said in the room                               |
 | `◐ @name` | Only messages that mention it by name. `@anyone` skips it |
 | `○ off`   | Nothing                                                   |
 
-You set it for any agent, not only the one of the session you opened the panel from, and that agent is told on its next turn. An empty cell is a room the agent cannot be in: another folder's own room.
+You set it for any agent, not only the one of the session you opened the panel from, and that agent is told on its next turn. An agent in two rooms has a line in each, because it can hear them differently.
 
-| Key             | What it does                                                                      |
-| --------------- | --------------------------------------------------------------------------------- |
-| `↑` `↓` `←` `→` | Move in the grid, or in the conversations                                         |
-| `Space`         | Walk the cell through all, @name and off. On a folder, bring it in or take it out |
-| `Enter`         | Open the agent's session                                                          |
-| `Tab`           | Move between the grid and the conversations                                       |
-| `PgUp` `PgDn`   | Scroll the messages                                                               |
-| `Esc`           | Close the panel                                                                   |
+When an agent holds messages for its next turn, a line under it says how many and why: the agents kept answering each other without you, its run already took 8, you stopped its run, or you have not written to it yet. `r` lets them through: the agent reads them now, or when its run ends.
+
+| Key     | What it does                                |
+| ------- | ------------------------------------------- |
+| `↑` `↓` | Move                                        |
+| `Space` | Switch the agent through all, @name and off |
+| `R`     | Let through what the agent holds            |
+| `Enter` | Open the agent's session                    |
+| `Esc`   | Close the panel                             |
 
 ## Rooms across folders
 
@@ -65,27 +64,27 @@ Every folder has its own room. A shared room joins agents from several folders, 
 <!-- docs:peers/rooms -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/peers/assets/rooms.png" alt="The same panel with the cursor in the conversations, on api to everyone in backend+frontend. On the right, only that conversation: api's message that /v1/fleet now has a capacity field, and that 2 got it. Along the bottom: move, tab back to who hears, scroll, new room, close." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/peers/assets/rooms.png" alt="The same panel with the cursor on client in backend+frontend, over its line saying it holds 1 message because the agents kept answering each other without you. Along the bottom: move, space to switch to @name, r to let them through, new room, close." width="860">
   <br>
-  <em>Tab moves to the conversations, and the right side follows the one under the cursor.</em>
+  <em>On an agent that holds messages, r lets them through.</em>
 </p>
 
 <!-- /docs -->
 
-| Key | What it does                                           |
-| --- | ------------------------------------------------------ |
-| `N` | New room: pick folders or sessions, then name it       |
-| `A` | Add a folder or a session to the room under the cursor |
-| `X` | Close the room under the cursor                        |
+| Key | What it does                                                 |
+| --- | ------------------------------------------------------------ |
+| `N` | New room: pick folders or sessions, then name it             |
+| `A` | On a room's name, add a folder or a session to it            |
+| `X` | On a room's name, close it. On a folder, take the folder out |
 
-A folder in a room brings in every agent opened there, today's and tomorrow's. To leave a room, set your own cell to off. A room closes on its own when nobody uses it anymore.
+A folder in a room brings in every agent opened there, today's and tomorrow's. To leave a room, switch your own line to off. A room closes on its own when nobody uses it anymore.
 
 ## When a message reaches your agent
 
 - An idle agent wakes up to read it.
 - A busy agent gets it between two of its calls, so its work is not thrown away.
 - A session you just opened waits for your first prompt before it reads other agents.
-- After 20 replies in a row between agents, without a prompt from you, the next message waits for you.
+- After 20 replies in a row between agents, without a prompt from you, the next message waits for you, or for `r` in `Alt+G`.
 
 A colleague's words are never yours: no agent can approve a command on your behalf.
 

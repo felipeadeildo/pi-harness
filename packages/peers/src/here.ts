@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import {
 	type Delivery,
+	type Held,
 	FolderFeed,
 	HOST,
 	type LogEventMap,
@@ -402,10 +403,14 @@ export class Here implements Sender {
 		this.log("message.read", { id: message });
 	}
 
-	handed(messages: readonly Posted[], mode: Delivery): void {
+	handed(messages: readonly Posted[], mode: Delivery, held?: Held): void {
 		for (const message of messages) {
 			if (message.from === "you") this.#unread.set(message.text, message.id);
-			this.log("message.received", { id: message.id, mode });
+			this.log("message.received", {
+				id: message.id,
+				mode,
+				...(held === undefined ? {} : { held }),
+			});
 		}
 	}
 

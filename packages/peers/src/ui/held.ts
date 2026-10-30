@@ -1,9 +1,9 @@
 // Colleagues' messages waiting for your next prompt, with why the agent has not got them yet.
-import { drawnByWidth, CHANGES_X, isObject } from "@adeildo/pi-kit";
+import { drawnByWidth, CHANGES_X, type Held, isObject } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
-import type { Held, PeerDelivery } from "../inbox.ts";
+import type { PeerDelivery } from "../inbox.ts";
 import { CHAIN_LIMIT, STEERS_PER_RUN } from "../rules.ts";
 import { deliveryBlock } from "./message.ts";
 
@@ -13,6 +13,7 @@ export interface HeldDelivery extends PeerDelivery {
 
 export interface WentIn {
 	by?: string;
+	released?: true;
 }
 
 /** Out of the context, so a held line still says it went in after a reload. */
@@ -26,7 +27,8 @@ export function isWentIn(value: unknown): value is WentInEntry {
 	if (!isObject(value) || !Array.isArray(value.ids)) return false;
 	return (
 		value.ids.every((id) => typeof id === "string") &&
-		(value.by === undefined || typeof value.by === "string")
+		(value.by === undefined || typeof value.by === "string") &&
+		(value.released === undefined || value.released === true)
 	);
 }
 
@@ -50,6 +52,7 @@ function heldLine(held: HeldDelivery, wentIn?: WentIn): string {
 	const one = held.items.length === 1;
 	if (wentIn !== undefined) {
 		const went = one ? "It went in" : "They went in";
+		if (wentIn.released === true) return `${went} when you let ${one ? "it" : "them"} through.`;
 		return wentIn.by === undefined
 			? `${went} with the next run, which you did not start.`
 			: `${went} with the next run, which @${wentIn.by}'s message started.`;

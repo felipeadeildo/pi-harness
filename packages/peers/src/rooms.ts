@@ -84,6 +84,7 @@ export class Rooms implements RoomsView {
 	#file: string | undefined;
 	#model: string | undefined;
 	#startedAt = 0;
+	#releasedSeen = 0;
 	#state: RoomActivity = "idle";
 	#stops: (() => void)[] = [];
 	#soonPending = false;
@@ -128,6 +129,7 @@ export class Rooms implements RoomsView {
 		this.#cwd = real(session.getCwd());
 		this.#model = model;
 		this.#startedAt = this.#now();
+		this.#releasedSeen = 0;
 		const target = targetOf(session);
 		pruneLogs(target.dir);
 		const feed = new FolderFeed(target.dir, folds);
@@ -183,9 +185,23 @@ export class Rooms implements RoomsView {
 			}
 			this.#reconcile();
 			this.#tellHearing();
+			this.#letThrough();
 		});
 		this.#prune();
 		this.#changed();
+	}
+
+	#letThrough(): void {
+		const me = this.#session ?? "";
+		const latest = Math.max(0, ...this.joined().map((here) => here.folder.released.get(me) ?? 0));
+		if (latest <= this.#releasedSeen) return;
+		this.#releasedSeen = latest;
+		this.#inbox.release();
+	}
+
+	release(room: string | undefined, session: string): void {
+		const here = room === undefined ? this.#home : this.#inside.get(room);
+		here?.log("messages.released", { session });
 	}
 
 	/** After the grace, closes a room left with one folder and drops members with no open agent. */
@@ -246,6 +262,7 @@ export class Rooms implements RoomsView {
 		this.#inbox.hold(() => {
 			for (const here of this.joined()) here.settled();
 		});
+		this.#inbox.settled();
 		this.#writeLive();
 	}
 

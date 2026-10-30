@@ -4,6 +4,7 @@ import {
 	type Activity,
 	type BoardView,
 	type Delivery,
+	type Held,
 	type Lives,
 	type LoggedEvent,
 	type RoomActivity,
@@ -52,7 +53,7 @@ export interface Posted {
 	/** How many agent replies, each waking the next writer, led to it. */
 	depth: number;
 	at: number;
-	received: Map<string, { mode: Delivery; at: number }>;
+	received: Map<string, { mode: Delivery; at: number; held?: Held }>;
 	read: Set<string>;
 	bids: Map<string, Bid>;
 	takenBy?: string;
@@ -102,6 +103,7 @@ const FOLDED = new Set([
 	"message.posted",
 	"message.received",
 	"message.read",
+	"messages.released",
 	"request.bid",
 	"request.taken",
 ]);
@@ -116,6 +118,8 @@ export class Folder {
 	readonly messages = new Map<string, Posted>();
 	readonly room: RoomItem[] = [];
 	readonly membership = new Membership();
+	/** By session, when the operator last let through what it held. */
+	readonly released = new Map<string, number>();
 	/** The folder is the room's first member, so a session opened there is in before any `room.added`. */
 	constructor(folder?: string) {
 		if (folder !== undefined) this.membership.folders.set(folder, 0);
@@ -176,6 +180,11 @@ export class Folder {
 				return this.#activity(peer, event.data as Activity, event.at);
 			case "message.posted":
 				return this.#posted(event as LoggedEvent<"message.posted">);
+			case "messages.released": {
+				const { session } = event.data as LoggedEvent<"messages.released">["data"];
+				this.released.set(session, event.at);
+				return;
+			}
 			default:
 				return this.#about(event);
 		}
@@ -186,12 +195,15 @@ export class Folder {
 		const message = this.messages.get(data.id ?? data.request ?? "");
 		if (message === undefined) return;
 		switch (event.type) {
-			case "message.received":
+			case "message.received": {
+				const { mode, held } = event.data as LoggedEvent<"message.received">["data"];
 				message.received.set(event.session, {
-					mode: (event.data as LoggedEvent<"message.received">["data"]).mode,
+					mode,
 					at: event.at,
+					...(held === undefined ? {} : { held }),
 				});
 				return;
+			}
 			case "message.read":
 				message.read.add(event.session);
 				return;

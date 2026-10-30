@@ -15,10 +15,12 @@ import { PeersPanel } from "../../packages/peers/src/ui/panel.ts";
 const START = Date.UTC(2026, 9, 8, 12, 38);
 const SECOND = 1_000;
 
-/** Wide enough for the grid and the messages side by side. */
-export const PANEL_WIDTH = 140;
+export const PANEL_WIDTH = 100;
 
-export const CONVERSATIONS = ["\t"] as const;
+const DOWN = "\u001b[B";
+
+/** Down to client in backend+frontend, which holds a message. */
+export const TO_CLIENT = [DOWN, DOWN, DOWN, DOWN] as const;
 
 export async function peersRoom(
 	theme: Theme,
@@ -107,6 +109,7 @@ export async function peersRoom(
 		});
 
 		migration.log("session.state", { state: "running" });
+		migrationRooms.setMode(undefined, "listening");
 
 		me.log("session.named", { handle: "docs" });
 		me.log("session.state", { state: "running" });
@@ -156,10 +159,19 @@ export async function peersRoom(
 			allowedBy: "you",
 		});
 		if (linked.room === undefined) throw new Error(linked.text);
-		meRooms.add(linked.room, [{ session: "3f2a-docs", cwd: join(root, "Projects", "pi-harness") }]);
+		meRooms.add(linked.room, [
+			{ session: "3f2a-docs", cwd: join(root, "Projects", "pi-harness") },
+			{ folder: join(root, "Projects", "backend") },
+		]);
 		for (const rooms of [api, client, meRooms]) rooms.sync();
 		now += 30 * SECOND;
-		api.here(linked.room)?.post("all", "/v1/fleet now has a capacity field.", "agent");
+		const fleet = api
+			.here(linked.room)
+			?.post("all", "/v1/fleet now has a capacity field.", "agent");
+		// The two had answered each other long enough that client holds it for your next word.
+		client
+			.here(linked.room)
+			?.log("message.received", { id: fleet ?? "", mode: "next-turn", held: "quiet" });
 		for (const rooms of [api, client, oauthRooms, migrationRooms]) rooms.sync();
 		meRooms.sync();
 
@@ -168,8 +180,6 @@ export async function peersRoom(
 			view: meRooms,
 			rows: () => rows,
 			now: () => now,
-			// UTC, so the picture reads the same on every machine.
-			clock: (at) => new Date(at).toISOString().slice(11, 16),
 			close() {},
 			requestRender() {},
 		});

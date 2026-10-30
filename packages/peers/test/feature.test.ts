@@ -387,6 +387,7 @@ describe("enter on an agent in Alt+G", () => {
 	test("shows its session, read from the file its presence entry names", async () => {
 		const opened: SourceAddress[] = [];
 		const { press, close } = await onB((address) => opened.push(address) > 0);
+		expect(press("\u001b[A")).toMatch(/❯ \S+ new-b /);
 		expect(press()).toContain("enter view");
 		press("\r");
 		expect(opened).toEqual([{ session: "b", machine: HOST, file: "/sessions/b.jsonl" }]);

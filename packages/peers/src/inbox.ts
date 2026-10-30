@@ -1,6 +1,6 @@
 // What reaches this session's agent from all its rooms. One agent, so one chain depth, and what
 // arrives from several rooms at once is one turn.
-import { Inbox as KitInbox, type By, type Delivery, type Letter } from "@adeildo/pi-kit";
+import { Inbox as KitInbox, type By, type Delivery, type Held, type Letter } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import type { Posted } from "./folder.ts";
@@ -9,6 +9,7 @@ import { type BusyDelivery, CHAIN_LIMIT, deliveryFor, STEERS_PER_RUN } from "./r
 export const PEER_MESSAGE = "pi-peers:message";
 /** Drawn when they arrive and kept out of the context. */
 export const PEER_HELD = "pi-peers:held";
+const PEER_RELEASED = "pi-peers:released";
 
 export interface PeerMessageDetails {
 	id: string;
@@ -32,9 +33,6 @@ export interface PeerDelivery {
 	chain?: number;
 }
 
-/** Why a colleague's message waits for the next prompt instead of reaching the agent now. */
-export type Held = "asleep" | "quiet" | "full" | "stopped";
-
 /** Its model has not read it yet. */
 export interface Waiting extends PeerMessageDetails {
 	mode: "steered" | "after-run";
@@ -49,14 +47,14 @@ export interface InboxHooks {
 	/** 0 never stops it. */
 	chainLimit?: () => number;
 	/** `by` is the colleague whose message started the run, when one did. */
-	wentIn?(ids: readonly string[], by: string | undefined): void;
+	wentIn?(ids: readonly string[], started: { by?: string; released?: true }): void;
 	idle(): boolean;
 }
 
 export interface Sender {
 	by: By;
 	details(message: Posted): PeerMessageDetails;
-	handed(messages: readonly Posted[], mode: Delivery): void;
+	handed(messages: readonly Posted[], mode: Delivery, held?: Held): void;
 }
 
 /** The kit reads `want` (how it goes in), peers reads `mode` (when). */
@@ -96,6 +94,8 @@ export class Inbox {
 	/** With a prompt here or from another session. */
 	#yours = false;
 	#wokenBy: string | undefined;
+	#released = false;
+	#releaseWhenIdle = false;
 
 	constructor(hooks: InboxHooks) {
 		this.#hooks = hooks;
@@ -124,17 +124,44 @@ export class Inbox {
 		const held = this.#held.flat();
 		const yours = this.#yours;
 		const by = this.#wokenBy;
+		const released = this.#released;
 		this.#held = [];
 		this.#yours = false;
 		this.#wokenBy = undefined;
+		this.#released = false;
+		this.#releaseWhenIdle = false;
 		if (held.length === 0 || yours) return;
 		const messages = held.flatMap((arrival) => arrival.messages);
-		this.#depth = Math.max(this.#depth, ...messages.map(runDepth));
+		// The operator letting them through starts the chain again, as a prompt does.
+		this.#depth = released ? 0 : Math.max(this.#depth, ...messages.map(runDepth));
 		for (const { from, messages: theirs } of held) from.handed(theirs, "woke");
 		this.#hooks.wentIn?.(
 			messages.map((message) => message.id),
-			by,
+			startedBy(released, by),
 		);
+	}
+
+	/** What waits for the next turn goes in now, or when the running one ends. */
+	release(): void {
+		if (this.#held.length === 0) return;
+		if (!this.#hooks.idle()) {
+			this.#releaseWhenIdle = true;
+			return;
+		}
+		this.#awake = true;
+		this.#released = true;
+		this.#hooks.sendMessage(
+			{
+				customType: PEER_RELEASED,
+				content: "The operator let the messages from other agents that waited for you through.",
+				display: false,
+			},
+			{ triggerTurn: true },
+		);
+	}
+
+	settled(): void {
+		if (this.#releaseWhenIdle) this.release();
 	}
 
 	wake(): void {
@@ -151,6 +178,8 @@ export class Inbox {
 		this.#held = [];
 		this.#yours = false;
 		this.#wokenBy = undefined;
+		this.#released = false;
+		this.#releaseWhenIdle = false;
 	}
 
 	queued(): Waiting[] {
@@ -194,7 +223,7 @@ export class Inbox {
 		const bySender = new Map<Sender, Posted[]>();
 		for (const { from, message } of queued)
 			bySender.set(from, [...(bySender.get(from) ?? []), message]);
-		for (const [from, messages] of bySender) from.handed(messages, "next-turn");
+		for (const [from, messages] of bySender) from.handed(messages, "next-turn", "stopped");
 		this.#held.push([...bySender].map(([from, messages]) => ({ from, messages })));
 	}
 
@@ -251,7 +280,7 @@ export class Inbox {
 		if (mode === "steered" || mode === "after-run") {
 			for (const one of ordered) this.#queueUp(one, mode);
 		}
-		this.#handed(arrivals, mode);
+		this.#handed(arrivals, mode, held);
 	}
 
 	#queueUp(
@@ -286,8 +315,9 @@ export class Inbox {
 		this.#handed(arrivals, mode);
 	}
 
-	#handed(arrivals: readonly Arrival[], mode: Delivery): void {
-		for (const { from, messages } of arrivals) if (messages.length > 0) from.handed(messages, mode);
+	#handed(arrivals: readonly Arrival[], mode: Delivery, held?: Held): void {
+		for (const { from, messages } of arrivals)
+			if (messages.length > 0) from.handed(messages, mode, held);
 		if (mode === "next-turn") return;
 		// Only a run a message starts is one reply deeper; the steer count stops two running agents feeding each other.
 		const messages = arrivals.flatMap((arrival) => arrival.messages);
@@ -321,6 +351,11 @@ export class Inbox {
 			return { mode: "next-turn", held: "full" };
 		return { mode };
 	}
+}
+
+function startedBy(released: boolean, by: string | undefined): { by?: string; released?: true } {
+	if (released) return { released: true };
+	return by === undefined ? {} : { by };
 }
 
 function inOrder(arrivals: readonly Arrival[]): { from: Sender; message: Posted }[] {

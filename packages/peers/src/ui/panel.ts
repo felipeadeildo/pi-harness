@@ -1,23 +1,18 @@
-// The `Alt+G` panel: who hears which room, who talks with whom, and what they said. It only reads;
-// messages go from the chat.
+// The `Alt+G` panel: each room, who is in it, how much each agent hears there and what it is doing.
 import { basename } from "node:path";
 
 import {
 	CUT,
 	FRAME_X,
 	FRAME_Y,
-	formatClock,
-	type FrameLine,
 	frame,
 	GLYPH,
+	type Held,
 	hideImagesUnderOverlays,
 	type KeyHint,
-	LINE,
 	type RoomMode,
 	pointer,
-	rule,
 	type SourceAddress,
-	spread,
 } from "@adeildo/pi-kit";
 import type { ExtensionContext, Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import {
@@ -30,44 +25,29 @@ import {
 } from "@earendil-works/pi-tui";
 
 import { stateOf } from "../cards.ts";
-import {
-	bothWays,
-	type Conversation,
-	conversationKey,
-	conversationsIn,
-	lastAt,
-	speakerOf,
-	type Standing,
-	standingOf,
-	YOU,
-} from "../conversations.ts";
 import type { Peer } from "../folder.ts";
 import type { LiveSession, Room, RoomsView } from "../model.ts";
-import type { Named } from "../names.ts";
+import { STEERS_PER_RUN } from "../rules.ts";
 import { glance, markOf, MARKS } from "./agents.ts";
-import { involves } from "./feed.ts";
 import { FRAME_MS } from "./motion.ts";
-import { FeedPane, type PaneFocus } from "./pane.ts";
 import { GUTTER, Picker, sessionRow } from "./picker.ts";
 
-const FOLDER = "";
-/** Narrower than this, the parts stand one under the other. */
-const BESIDE = 96;
-const LEFT_MIN = 44;
-const LEFT_SHARE = 0.48;
-const COLUMN_MIN = 9;
-const COLUMN_MAX = 20;
+const HOME = "";
 const NAME_MIN = 10;
-const NAME_MAX = 18;
+const NAME_MAX = 22;
+const HEARING_WIDTH = 10;
 
-type Row = { kind: "folder"; path: string } | { kind: "agent"; peer: Peer; cwd: string };
+type Row =
+	| { kind: "room"; room: Room }
+	| { kind: "folder"; room: Room; path: string }
+	| { kind: "agent"; room: Room; peer: Peer; mode: RoomMode };
 
-type Cell =
-	| { kind: "agent"; mode: RoomMode }
-	| { kind: "folder"; member: boolean }
-	| { kind: "none" };
-
-type Part = "grid" | "talk";
+interface Holding {
+	count: number;
+	why: Held | undefined;
+	/** The operator let them through, and they go in when its run ends. */
+	released: boolean;
+}
 
 export interface PanelOptions {
 	theme: Theme;
@@ -79,25 +59,20 @@ export interface PanelOptions {
 	show?: (session: string) => boolean;
 	/** So the docs pictures do not depend on when they are drawn. */
 	now?: () => number;
-	clock?: (at: number) => string;
 }
 
 export class PeersPanel implements Component, Focusable {
 	focused = false;
 
 	readonly #options: PanelOptions;
-	readonly #pane: FeedPane;
-	#part: Part = "grid";
-	/** Until the cursor moves, the first agent, as agents come and go. */
 	#row: string | undefined;
-	#column = FOLDER;
-	#talk: string | undefined;
 	#closing: string | undefined;
 	#picker: Picker | undefined;
+	/** An agent switched off here keeps its row while the panel is open, so it can be switched back. */
+	readonly #kept = new Set<string>();
 
 	constructor(options: PanelOptions) {
 		this.#options = options;
-		this.#pane = new FeedPane(options);
 	}
 
 	invalidate(): void {
@@ -105,8 +80,7 @@ export class PeersPanel implements Component, Focusable {
 	}
 
 	moving(): boolean {
-		if (this.#peers().some((peer) => stateOf(peer) === "running")) return true;
-		return this.#pane.moving(this.#focus());
+		return this.#peers().some((peer) => stateOf(peer) === "running");
 	}
 
 	handleInput(data: string): void {
@@ -114,62 +88,38 @@ export class PeersPanel implements Component, Focusable {
 		if (this.#picker !== undefined) return this.#picker.handleInput(data);
 		if (this.#closing !== undefined) return this.#confirm(data);
 		if (matchesKey(data, Key.escape)) return this.#options.close();
-		if (matchesKey(data, Key.tab) || matchesKey(data, Key.shift("tab")))
-			return this.#go(() => (this.#part = this.#part === "grid" ? "talk" : "grid"));
-		if (matchesKey(data, Key.pageUp)) return this.#pane.page(-1);
-		if (matchesKey(data, Key.pageDown)) return this.#pane.page(1);
-		if (matchesKey(data, Key.shift("up"))) return this.#pane.scroll(-1);
-		if (matchesKey(data, Key.shift("down"))) return this.#pane.scroll(1);
-		if (data === "n") return this.#pick(undefined);
-		if (this.#part === "talk") return this.#talkKey(data);
-		this.#gridKey(data);
-	}
-
-	handleMouse(event: { type: string; wheelDelta?: number }): { handled: boolean } | undefined {
-		const delta = event.type === "wheel" ? (event.wheelDelta ?? 0) : 0;
-		if (delta === 0) return undefined;
-		this.#pane.scroll(delta);
-		return { handled: true };
-	}
-
-	#gridKey(data: string): void {
 		const rows = this.#rows();
-		const rooms = this.#options.view.rooms();
 		if (matchesKey(data, Key.up))
 			return this.#go(() => (this.#row = step(rows, this.#rowAt(), -1)));
 		if (matchesKey(data, Key.down))
 			return this.#go(() => (this.#row = step(rows, this.#rowAt(), 1)));
-		if (matchesKey(data, Key.left))
-			return this.#go(() => (this.#column = stepRoom(rooms, this.#columnAt(), -1)));
-		if (matchesKey(data, Key.right))
-			return this.#go(() => (this.#column = stepRoom(rooms, this.#columnAt(), 1)));
-		const row = this.#selectedRow();
-		const room = this.#selectedRoom();
-		if (row === undefined || room === undefined) return;
-		if (data === " ") return this.#go(() => this.#toggle(row, room));
-		if (matchesKey(data, Key.enter) && row.kind === "agent")
-			return void this.#options.show?.(row.peer.session);
-		if (room.id === undefined) return;
-		if (data === "a") return this.#pick(room);
-		if (data === "x") return this.#go(() => (this.#closing = room.id));
-	}
-
-	#talkKey(data: string): void {
-		const talks = this.#conversations();
-		const at = this.#talkAt(talks);
-		const keys = talks.map((talk) => talk.key);
-		if (matchesKey(data, Key.up)) return this.#go(() => (this.#talk = stepKey(keys, at, -1)));
-		if (matchesKey(data, Key.down)) return this.#go(() => (this.#talk = stepKey(keys, at, 1)));
-	}
-
-	#toggle(row: Row, room: Room): void {
+		if (data === "n") return this.#pick(undefined);
+		const row = this.#selected();
+		if (row === undefined) return;
 		const { view } = this.#options;
-		const cell = this.#cell(row, room);
-		if (cell.kind === "agent" && row.kind === "agent")
-			view.setMode(room.id, nextMode(cell.mode), { session: row.peer.session, cwd: row.cwd });
-		else if (cell.kind === "folder" && room.id !== undefined && row.kind === "folder") {
-			if (cell.member) view.remove(room.id, { folder: row.path });
-			else view.add(room.id, [{ folder: row.path }]);
+		switch (row.kind) {
+			case "agent": {
+				const member = { session: row.peer.session, cwd: row.peer.cwd ?? "" };
+				if (data === " ")
+					return this.#go(() => {
+						this.#kept.add(rowKey(row));
+						view.setMode(row.room.id, nextMode(row.mode), member);
+					});
+				if (matchesKey(data, Key.enter)) return void this.#options.show?.(row.peer.session);
+				if (data === "r" && this.#holding(row) !== undefined)
+					return this.#go(() => view.release(row.room.id, row.peer.session));
+				return;
+			}
+			case "folder":
+				if (data === "x" && row.room.id !== undefined) {
+					const id = row.room.id;
+					return this.#go(() => view.remove(id, { folder: row.path }));
+				}
+				return;
+			case "room":
+				if (row.room.id === undefined) return;
+				if (data === "a") return this.#pick(row.room);
+				if (data === "x") return this.#go(() => (this.#closing = row.room.id));
 		}
 	}
 
@@ -185,264 +135,133 @@ export class PeersPanel implements Component, Focusable {
 				border: "borderMuted",
 			});
 		}
-		const beside = inner >= BESIDE;
-		const left = beside ? Math.max(LEFT_MIN, Math.floor(inner * LEFT_SHARE)) : inner;
-		const right = beside ? inner - left - 3 : inner;
-		const body: FrameLine[] = beside
-			? this.#besideLines(left, right, height)
-			: this.#stackedLines(inner, height);
-		return frame(theme, width, body, {
+		return frame(theme, width, this.#lines(inner, height), {
 			title: "Rooms",
 			status: this.#status(),
 			keys: this.#keys(),
-			split: beside ? left + 1 : undefined,
 			border: "borderMuted",
 		});
 	}
 
-	#besideLines(left: number, right: number, height: number): string[] {
+	#lines(width: number, height: number): string[] {
 		const { theme } = this.#options;
-		const grid = this.#gridLines(left);
-		const talk = this.#talkLines(left, Math.max(2, height - grid.length - 2));
-		const side = [...grid, "", ...talk];
-		const feed = this.#pane.lines(this.#focus(), right, height);
-		const column = theme.fg("borderMuted", LINE.v);
-		const lines: string[] = [];
-		for (let line = 0; line < height; line++) {
-			const text = truncateToWidth(side[line] ?? "", left, "");
-			const gap = " ".repeat(Math.max(0, left - visibleWidth(text)));
-			lines.push(`${text}${gap} ${column} ${feed[line] ?? ""}`);
-		}
-		return lines;
-	}
-
-	#stackedLines(width: number, height: number): string[] {
-		const { theme } = this.#options;
-		const grid = this.#gridLines(width);
-		const talkRows = Math.max(2, Math.min(8, Math.floor(height / 3)));
-		const talk = this.#talkLines(width, talkRows);
-		const top = [...grid, "", ...talk].slice(0, Math.max(4, height - 6));
-		const feed = this.#pane.lines(this.#focus(), width, height - top.length - 1);
-		return [...top, rule(theme, width), ...feed].slice(0, height);
-	}
-
-	#gridLines(width: number): string[] {
-		const { theme, view } = this.#options;
 		const rows = this.#rows();
-		const rooms = view.rooms();
-		const names = this.#names();
-		const nameWidth = clamp(
-			Math.max(0, ...rows.map((row) => visibleWidth(this.#rowLabel(row, names)) + indentOf(row))) +
-				3,
-			NAME_MIN,
-			NAME_MAX,
-		);
-		const cellWidth = clamp(
-			Math.max(0, ...rooms.map((room) => visibleWidth(room.name))) + 2,
-			COLUMN_MIN,
-			COLUMN_MAX,
-		);
-		const fits = Math.max(1, Math.floor((width - nameWidth) / cellWidth));
-		const at = Math.max(
-			0,
-			rooms.findIndex((room) => keyOf(room) === this.#columnAt()),
-		);
-		const first = Math.max(0, Math.min(at - fits + 1, rooms.length - fits));
-		const shown = rooms.slice(first, first + fits);
-		const active = this.#part === "grid";
-		const header = shown
-			.map((room) => {
-				const label = truncateToWidth(room.name, cellWidth - 2, CUT);
-				const chosen = keyOf(room) === this.#columnAt();
-				const text = chosen ? theme.bold(theme.fg("accent", label)) : theme.fg("muted", label);
-				return pad(text, cellWidth);
-			})
-			.join("");
-		const more =
-			first + fits < rooms.length ? theme.fg("dim", ` +${rooms.length - first - fits}`) : "";
-		const lines = [`${" ".repeat(nameWidth)}${header}${more}`];
-		for (const row of rows) {
-			const chosen = rowKey(row) === this.#rowAt();
-			const indent = " ".repeat(indentOf(row));
-			const label = truncateToWidth(
-				this.#rowLabel(row, names, chosen),
-				nameWidth - 3 - indent.length,
-				CUT,
-			);
-			const lead = pad(`${pointer(theme, chosen, active)}${indent}${label}`, nameWidth);
-			const cells = shown
-				.map((room) => {
-					const here = chosen && keyOf(room) === this.#columnAt();
-					return pad(this.#cellText(this.#cell(row, room), here), cellWidth);
-				})
-				.join("");
-			lines.push(`${lead}${cells}`);
+		const at = this.#rowAt();
+		const nameWidth = this.#nameWidth(rows);
+		const lines: string[] = [];
+		let chosenAt = 0;
+		for (const [index, row] of rows.entries()) {
+			if (row.kind === "room" && index > 0) lines.push("");
+			const chosen = rowKey(row) === at;
+			if (chosen) chosenAt = lines.length;
+			lines.push(this.#rowLine(row, chosen, width, nameWidth));
+			const holding = row.kind === "agent" ? this.#holding(row) : undefined;
+			if (holding !== undefined) lines.push(this.#holdingLine(holding, nameWidth, width));
+			const next = rows[index + 1];
+			if (row.kind !== "agent" && (next === undefined || next.kind === "room"))
+				lines.push(theme.fg("dim", `${GUTTER}${GUTTER}No agent is open in it.`));
 		}
-		if (rows.length === 0) lines.push(theme.fg("dim", `${GUTTER}No agent is open.`));
-		return lines;
+		if (rows.length === 0) lines.push(theme.fg("dim", `${GUTTER}No room yet.`));
+		const first = Math.max(0, Math.min(chosenAt - height + 2, lines.length - height));
+		return lines.slice(first, first + height);
 	}
 
-	#rowLabel(row: Row, names: ReadonlyMap<string, Named>, chosen = false): string {
+	#rowLine(row: Row, chosen: boolean, width: number, nameWidth: number): string {
 		const { theme } = this.#options;
-		if (row.kind === "folder") return theme.fg("muted", `${basename(row.path) || row.path}/`);
-		const named = names.get(row.peer.session);
-		const color = (named?.color ?? "muted") as ThemeColor;
-		const handle = named?.handle ?? row.peer.handle ?? "new";
-		const mark = markOf(row.peer, color, theme, this.#now());
-		const me = row.peer.session === this.#me() ? theme.fg("dim", " you") : "";
+		const lead = pointer(theme, chosen);
+		switch (row.kind) {
+			case "room": {
+				const name = theme.bold(theme.fg(chosen ? "accent" : "text", row.room.name));
+				const about = row.room.id === undefined ? "this folder's agents" : (row.room.origin ?? "");
+				const room = Math.max(0, width - visibleWidth(lead) - visibleWidth(row.room.name) - 2);
+				return `${lead}${name}  ${theme.fg("dim", truncateToWidth(about, room, CUT))}`;
+			}
+			case "folder": {
+				const folder = pad(theme.fg(chosen ? "accent" : "muted", folderName(row.path)), nameWidth);
+				return `${GUTTER}${lead}${folder}${theme.fg("dim", "brings in every new session opened there")}`;
+			}
+			case "agent": {
+				const label = pad(this.#agentLabel(row.peer, chosen), nameWidth);
+				const hearing = pad(this.#hearing(row.mode, chosen), HEARING_WIDTH);
+				const room = Math.max(8, width - 4 - nameWidth - HEARING_WIDTH);
+				return `${GUTTER}${lead}${label}${hearing}${this.#doing(row.peer, room)}`;
+			}
+		}
+	}
+
+	#agentLabel(peer: Peer, chosen: boolean): string {
+		const { theme } = this.#options;
+		const color = this.#colorOf(peer.session);
+		const handle = this.#handleOf(peer.session);
+		const mark = markOf(peer, color, theme, this.#now());
+		const me = peer.session === this.#me() ? theme.fg("dim", " you") : "";
 		return `${mark} ${theme.fg(color, chosen ? theme.bold(handle) : handle)}${me}`;
 	}
 
-	#cellText(cell: Cell, chosen: boolean): string {
+	#hearing(mode: RoomMode, chosen: boolean): string {
 		const { theme } = this.#options;
 		const weight = (text: string): string => (chosen ? theme.bold(text) : text);
-		switch (cell.kind) {
-			case "none":
-				return chosen ? theme.fg("dim", "  -") : "";
-			case "folder":
-				return cell.member
-					? weight(theme.fg("muted", `${GLYPH.dot} folder`))
-					: theme.fg("dim", chosen ? `${GLYPH.ring} add` : "");
-			case "agent":
-				switch (cell.mode) {
-					case "in":
-						return weight(`${theme.fg("accent", GLYPH.dot)} ${theme.fg("text", HEARING.in)}`);
-					case "listening":
-						return weight(
-							`${theme.fg("muted", GLYPH.half)} ${theme.fg("muted", HEARING.listening)}`,
-						);
-					case "out":
-						return weight(theme.fg("dim", `${GLYPH.ring} ${HEARING.out}`));
-				}
+		switch (mode) {
+			case "in":
+				return weight(`${theme.fg("accent", GLYPH.dot)} ${theme.fg("text", HEARING.in)}`);
+			case "listening":
+				return weight(`${theme.fg("muted", GLYPH.half)} ${theme.fg("muted", HEARING.listening)}`);
+			case "out":
+				return weight(theme.fg("dim", `${GLYPH.ring} ${HEARING.out}`));
 		}
 	}
 
-	#talkLines(width: number, height: number): string[] {
+	#doing(peer: Peer, width: number): string {
 		const { theme } = this.#options;
-		const talks = this.#conversations();
-		const title = `${GUTTER}${theme.bold(theme.fg("muted", "Conversations"))}`;
-		if (talks.length === 0)
-			return [
-				title,
-				theme.fg("dim", `${GUTTER}Nobody has written yet. Write from the chat with @name.`),
-			];
-		const at = this.#talkAt(talks);
-		const active = this.#part === "talk";
-		const lines: string[] = [];
-		let chosenAt = 0;
-		for (const talk of talks) {
-			const chosen = talk.key === at;
-			if (chosen) chosenAt = lines.length;
-			const room = this.#roomName(talk.room);
-			const when = this.#clock(lastAt(talk));
-			const right = `${theme.fg("dim", room)}  ${theme.fg("dim", when)}`;
-			lines.push(
-				spread(`${pointer(theme, chosen, active)}${this.#talkLabel(talk, chosen)}`, right, width),
-				this.#lastLine(talk, width),
-			);
-		}
-		const room = Math.max(2, height - 1);
-		const first = Math.max(0, Math.min(chosenAt - room + 2, lines.length - room));
-		return [title, ...lines.slice(first, first + room)];
+		const card = glance(peer, theme, width);
+		if (card !== undefined) return card;
+		return stateOf(peer) === "running" ? theme.fg("muted", "working") : theme.fg("dim", "idle");
 	}
 
-	#talkLabel(talk: Conversation, chosen: boolean): string {
+	#holdingLine(holding: Holding, nameWidth: number, width: number): string {
 		const { theme } = this.#options;
-		return labelOf(talk, {
-			who: (party) => {
-				const text = this.#handleOf(party);
-				const color =
-					party === YOU ? "accent" : ((this.#names().get(party)?.color ?? "muted") as ThemeColor);
-				return theme.fg(color, chosen ? theme.bold(text) : text);
-			},
-			quiet: (text) => theme.fg("dim", text),
-			group: (text) => theme.fg("muted", text),
-		});
+		const text = holding.released
+			? `${count(holding.count)} ${holding.count === 1 ? "goes" : "go"} in when its run ends`
+			: holdingWords(holding);
+		const indent = `${GUTTER}${GUTTER}${" ".repeat(Math.min(4, nameWidth))}`;
+		const room = Math.max(8, width - visibleWidth(indent));
+		return `${indent}${theme.fg("warning", truncateToWidth(text, room, CUT))}`;
 	}
 
-	/** Its last words, and what came of them at the right end. */
-	#lastLine(talk: Conversation, width: number): string {
-		const { theme } = this.#options;
-		const last = talk.messages.at(-1);
-		if (last === undefined) return "";
-		const here = this.#options.view.here(talk.room);
-		const standing = standingOf(last, here?.live() ?? [], this.#now());
-		const right = theme.fg(
-			"dim",
-			standingWords(standing, (session) => this.#handleOf(session)),
-		);
-		const said = `    ${this.#handleOf(speakerOf(last))}: ${firstLine(last.text)}`;
-		const room = Math.max(8, width - visibleWidth(right) - 2);
-		return spread(theme.fg("muted", truncateToWidth(said, room, CUT)), right, width);
-	}
-
-	#focus(): PaneFocus | undefined {
-		const { view } = this.#options;
-		if (this.#part === "talk") {
-			const talks = this.#conversations();
-			const at = this.#talkAt(talks);
-			const talk = talks.find((one) => one.key === at);
-			const here = talk === undefined ? undefined : view.here(talk.room);
-			if (talk !== undefined && here !== undefined)
-				return {
-					key: talk.key,
-					here,
-					title: `${labelOf(talk, { who: (party) => this.#handleOf(party) })} in ${this.#roomName(talk.room)}`,
-					shows: {
-						item: (item) =>
-							item.kind === "message" && conversationKey(talk.room, item.message) === talk.key,
-						typing: (typing) => talk.parties.includes(typing.session),
-						empty: "Nothing said yet.",
-					},
-				};
+	/** Messages the agent got for its next turn that have not gone in yet. */
+	#holding(row: Extract<Row, { kind: "agent" }>): Holding | undefined {
+		const folder = this.#options.view.here(row.room.id)?.folder;
+		if (folder === undefined) return undefined;
+		const session = row.peer.session;
+		let found = 0;
+		let why: Held | undefined;
+		let last = 0;
+		for (const message of folder.messages.values()) {
+			const received = message.received.get(session);
+			if (received?.mode !== "next-turn" || received.at < row.peer.startedAt) continue;
+			found++;
+			if (received.at >= last) {
+				last = received.at;
+				why = received.held;
+			}
 		}
-		const room = this.#selectedRoom();
-		if (room === undefined) return undefined;
-		const here = view.here(room.id);
-		if (here === undefined) return undefined;
-		const row = this.#selectedRow();
-		const origin = room.origin === undefined ? {} : { origin: room.origin };
-		const cell = row === undefined ? undefined : this.#cell(row, room);
-		if (row?.kind === "agent" && cell?.kind === "agent" && cell.mode !== "out") {
-			const session = row.peer.session;
-			const handle = this.#handleOf(session);
-			return {
-				key: `${keyOf(room)}/${session}`,
-				here,
-				title: `${handle} in ${room.name}`,
-				note: (width) => glance(row.peer, this.#options.theme, width),
-				shows: {
-					item: (item) => item.kind === "message" && involves(item, session),
-					typing: (typing) => typing.session === session,
-					empty: `Nothing from or to ${handle} in ${room.name} yet.`,
-				},
-				...origin,
-			};
-		}
-		return {
-			key: keyOf(room),
-			here,
-			title: room.name,
-			shows: {
-				item: (item) => item.kind === "message",
-				typing: () => true,
-				empty: `Nothing said in ${room.name} yet.`,
-			},
-			...origin,
-		};
+		if (found === 0) return undefined;
+		return { count: found, why, released: (folder.released.get(session) ?? 0) >= last };
 	}
 
 	#status(): string {
-		const { theme } = this.#options;
+		const { theme, view } = this.#options;
 		const closing =
 			this.#closing === undefined
 				? undefined
-				: this.#options.view.rooms().find((room) => room.id === this.#closing);
+				: view.rooms().find((room) => room.id === this.#closing);
 		if (closing !== undefined) return theme.fg("warning", `close ${closing.name}?`);
 		const peers = this.#peers();
 		const waiting = peers.filter((peer) => stateOf(peer) === "waiting");
-		const rooms = this.#options.view.rooms().length;
-		const text = theme.fg("dim", `${peers.length} open, ${plural(rooms, "room")}`);
+		const text = theme.fg(
+			"dim",
+			`${plural(peers.length, "agent")}, ${plural(view.rooms().length, "room")}`,
+		);
 		if (waiting.length === 0) return text;
 		const who = waiting.map((peer) => this.#handleOf(peer.session)).join(", ");
 		return `${theme.fg("warning", `${MARKS.waiting} ${who} ${waiting.length === 1 ? "waits" : "wait"} on you`)}   ${text}`;
@@ -454,65 +273,62 @@ export class PeersPanel implements Component, Focusable {
 				["y", "close it"],
 				["esc", "keep it"],
 			];
-		const scroll: KeyHint = ["pgup pgdn", "scroll"];
-		if (this.#part === "talk")
-			return [
-				[`${GLYPH.up}${GLYPH.down}`, "move"],
-				["tab", "who hears"],
-				scroll,
-				["n", "new room"],
-				["esc", "close"],
-			];
-		const keys: KeyHint[] = [[`${GLYPH.up}${GLYPH.down}${GLYPH.left}${GLYPH.right}`, "move"]];
-		const row = this.#selectedRow();
-		const room = this.#selectedRoom();
-		const cell = row === undefined || room === undefined ? undefined : this.#cell(row, room);
-		if (cell?.kind === "agent") keys.push(["space", `set ${HEARING[nextMode(cell.mode)]}`]);
-		if (cell?.kind === "folder" && room?.id !== undefined)
-			keys.push(["space", cell.member ? "take the folder out" : "bring the folder in"]);
-		if (row?.kind === "agent" && this.#options.show !== undefined) keys.push(["enter", "view"]);
-		keys.push(["tab", "conversations"]);
-		if (room?.id !== undefined) keys.push(["a", "add"], ["x", "close room"]);
+		const keys: KeyHint[] = [[`${GLYPH.up}${GLYPH.down}`, "move"]];
+		const row = this.#selected();
+		if (row?.kind === "agent") {
+			keys.push(["space", `switch to ${HEARING[nextMode(row.mode)]}`]);
+			if (this.#holding(row) !== undefined) keys.push(["r", "let them through"]);
+			if (this.#options.show !== undefined) keys.push(["enter", "view"]);
+		}
+		if (row?.kind === "folder" && row.room.id !== undefined)
+			keys.push(["x", `take ${folderName(row.path)} out`]);
+		if (row?.kind === "room" && row.room.id !== undefined)
+			keys.push(["a", "add"], ["x", "close room"]);
 		keys.push(["n", "new room"], ["esc", "close"]);
 		return keys;
 	}
 
-	#cell(row: Row, room: Room): Cell {
-		if (row.kind === "folder") {
-			if (room.id === undefined) return { kind: "none" };
-			return { kind: "folder", member: room.folders.some((folder) => folder.path === row.path) };
-		}
-		const mode = this.#options.view.modeOf(room.id, { session: row.peer.session, cwd: row.cwd });
-		return mode === undefined ? { kind: "none" } : { kind: "agent", mode };
-	}
-
-	/** Each folder, then its agents; this folder first, this session last in it. */
+	/** Each room, its folders, then its agents; this folder's room first and this session last in it. */
 	#rows(): Row[] {
 		const { view } = this.#options;
-		const rooms = view.rooms();
-		const home = rooms.find((room) => room.id === undefined)?.folders[0]?.path;
-		const peers = this.#peers();
-		const folders = new Set<string>();
-		if (home !== undefined) folders.add(home);
-		for (const peer of peers) folders.add(peer.cwd ?? "");
-		for (const room of rooms) for (const folder of room.folders) folders.add(folder.path);
-		folders.delete("");
-		const ordered = [...folders].toSorted(
-			(a, b) => Number(b === home) - Number(a === home) || basename(a).localeCompare(basename(b)),
+		const peers = this.#peers().toSorted(
+			(a, b) =>
+				Number(a.session === this.#me()) - Number(b.session === this.#me()) ||
+				this.#handleOf(a.session).localeCompare(this.#handleOf(b.session)),
 		);
 		const rows: Row[] = [];
-		for (const path of ordered) {
-			rows.push({ kind: "folder", path });
-			const here = peers
-				.filter((peer) => peer.cwd === path)
-				.toSorted(
-					(a, b) =>
-						Number(a.session === this.#me()) - Number(b.session === this.#me()) ||
-						this.#handleOf(a.session).localeCompare(this.#handleOf(b.session)),
-				);
-			for (const peer of here) rows.push({ kind: "agent", peer, cwd: path });
+		for (const room of view.rooms()) {
+			rows.push({ kind: "room", room });
+			if (room.id !== undefined)
+				for (const folder of room.folders) rows.push({ kind: "folder", room, path: folder.path });
+			for (const peer of peers) {
+				const mode = view.modeOf(room.id, { session: peer.session, cwd: peer.cwd ?? "" });
+				if (mode === undefined) continue;
+				const row: Row = { kind: "agent", room, peer, mode };
+				if (this.#belongs(row)) rows.push(row);
+			}
 		}
 		return rows;
+	}
+
+	#belongs(row: Extract<Row, { kind: "agent" }>): boolean {
+		if (row.room.id === undefined || row.mode !== "out") return true;
+		if (this.#kept.has(rowKey(row))) return true;
+		return row.room.folders.some((folder) => folder.path === row.peer.cwd);
+	}
+
+	#nameWidth(rows: readonly Row[]): number {
+		const widest = Math.max(
+			0,
+			...rows.map((row) =>
+				row.kind === "agent" ? visibleWidth(this.#agentLabel(row.peer, false)) : 0,
+			),
+		);
+		const folders = Math.max(
+			0,
+			...rows.map((row) => (row.kind === "folder" ? folderName(row.path).length : 0)),
+		);
+		return clamp(Math.max(widest, folders) + 3, NAME_MIN, NAME_MAX);
 	}
 
 	/** Every open agent the rooms see, once. */
@@ -525,63 +341,36 @@ export class PeersPanel implements Component, Focusable {
 		return [...found.values()];
 	}
 
-	#names(): Map<string, Named> {
-		const { view } = this.#options;
-		const names = new Map<string, Named>();
-		for (const room of view.rooms())
-			for (const [session, named] of view.here(room.id)?.names().bySession ?? [])
-				if (!names.has(session)) names.set(session, named);
-		return names;
-	}
-
-	#conversations(): Conversation[] {
-		const { view } = this.#options;
-		return view
-			.rooms()
-			.flatMap((room) => conversationsIn(room.id, view.here(room.id)?.folder.room ?? []))
-			.toSorted((a, b) => lastAt(b) - lastAt(a));
-	}
-
-	#selectedRow(): Row | undefined {
+	#selected(): Row | undefined {
 		const at = this.#rowAt();
 		return this.#rows().find((row) => rowKey(row) === at);
 	}
 
-	#selectedRoom(): Room | undefined {
-		const at = this.#columnAt();
-		return this.#options.view.rooms().find((room) => keyOf(room) === at);
-	}
-
+	/** Until the cursor moves, this session in the folder's room. */
 	#rowAt(): string | undefined {
 		const rows = this.#rows();
 		if (rows.some((row) => rowKey(row) === this.#row)) return this.#row;
-		const first = rows.find((row) => row.kind === "agent") ?? rows[0];
+		const first =
+			rows.find((row) => row.kind === "agent" && row.peer.session === this.#me()) ??
+			rows.find((row) => row.kind === "agent") ??
+			rows[0];
 		return first === undefined ? undefined : rowKey(first);
 	}
 
-	#columnAt(): string {
-		const rooms = this.#options.view.rooms();
-		if (!rooms.some((room) => keyOf(room) === this.#column))
-			this.#column = rooms[0] === undefined ? FOLDER : keyOf(rooms[0]);
-		return this.#column;
-	}
-
-	#talkAt(talks: readonly Conversation[]): string | undefined {
-		if (!talks.some((talk) => talk.key === this.#talk)) this.#talk = talks[0]?.key;
-		return this.#talk;
-	}
-
-	#handleOf(party: string): string {
-		if (party === YOU) return "you";
+	#handleOf(session: string): string {
 		for (const room of this.#options.view.rooms()) {
-			const handle = this.#options.view.here(room.id)?.handleOf(party);
+			const handle = this.#options.view.here(room.id)?.handleOf(session);
 			if (handle !== undefined) return handle;
 		}
-		return "gone";
+		return "new";
 	}
 
-	#roomName(room: string | undefined): string {
-		return this.#options.view.rooms().find((one) => one.id === room)?.name ?? "";
+	#colorOf(session: string): ThemeColor {
+		for (const room of this.#options.view.rooms()) {
+			const named = this.#options.view.here(room.id)?.names().bySession.get(session);
+			if (named !== undefined) return named.color as ThemeColor;
+		}
+		return "muted";
 	}
 
 	#confirm(data: string): void {
@@ -602,10 +391,7 @@ export class PeersPanel implements Component, Focusable {
 			requestRender: this.#options.requestRender,
 			done: (made) => {
 				this.#picker = undefined;
-				if (made !== undefined) {
-					this.#column = made;
-					this.#part = "grid";
-				}
+				if (made !== undefined) this.#row = `room ${made}`;
 				this.#options.requestRender();
 			},
 		});
@@ -621,10 +407,6 @@ export class PeersPanel implements Component, Focusable {
 		return this.#options.view.here(undefined)?.session ?? "";
 	}
 
-	#clock(at: number): string {
-		return (this.#options.clock ?? formatClock)(at);
-	}
-
 	#now(): number {
 		return this.#options.now?.() ?? Date.now();
 	}
@@ -637,69 +419,47 @@ function nextMode(mode: RoomMode): RoomMode {
 	return mode === "listening" ? "out" : "in";
 }
 
-interface Paint {
-	who: (party: string) => string;
-	quiet?: (text: string) => string;
-	group?: (text: string) => string;
-}
-
-function labelOf(talk: Conversation, paint: Paint): string {
-	const quiet = paint.quiet ?? ((text: string) => text);
-	const group = paint.group ?? quiet;
-	const [first = YOU, ...rest] = talk.parties;
-	if (talk.audience !== undefined)
-		return `${paint.who(first)} ${quiet(GLYPH.right)} ${group(talk.audience === "all" ? "everyone" : "anyone")}`;
-	const arrow = bothWays(talk) && rest.length === 1 ? GLYPH.both : GLYPH.right;
-	return `${paint.who(first)} ${quiet(arrow)} ${rest.map(paint.who).join(quiet(", "))}`;
-}
-
-function standingWords(standing: Standing, handleOf: (session: string) => string): string {
-	const names = (sessions: readonly string[]): string =>
-		sessions.length <= 2 ? sessions.map(handleOf).join(" and ") : `${sessions.length} agents`;
-	switch (standing.kind) {
-		case "sending":
-			return `on its way to ${names(standing.to)}`;
-		case "unread":
-			return `${names(standing.by)} ${standing.by.length === 1 ? "hasn't" : "haven't"} read it`;
-		case "read":
-			return standing.by.length === 0 ? "sent" : `${names(standing.by)} read it`;
-		case "taken":
-			return `${handleOf(standing.by)} took it`;
-		case "bidding":
-			return "agents are bidding";
-		case "busy":
-			return "everyone is busy";
+function holdingWords({ count: found, why }: Holding): string {
+	const held = `holds ${count(found)}`;
+	switch (why) {
+		case "asleep":
+			return `${held} until you first write to it`;
+		case "quiet":
+			return `${held}: the agents kept answering each other without you`;
+		case "full":
+			return `${held}: its run already took ${STEERS_PER_RUN}`;
+		case "stopped":
+			return `${held}: you stopped its run`;
+		case undefined:
+			return `${held} for its next turn`;
 	}
 }
 
-function firstLine(text: string): string {
-	return text.trim().split("\n")[0] ?? "";
+function folderName(path: string): string {
+	return `${basename(path) || path}/`;
 }
 
-function keyOf(room: Room): string {
-	return room.id ?? FOLDER;
+function count(found: number): string {
+	return found === 1 ? "1 message" : `${found} messages`;
 }
 
 function rowKey(row: Row): string {
-	return row.kind === "folder" ? `folder ${row.path}` : row.peer.session;
+	const room = row.room.id ?? HOME;
+	switch (row.kind) {
+		case "room":
+			return `room ${room}`;
+		case "folder":
+			return `folder ${room} ${row.path}`;
+		case "agent":
+			return `agent ${room} ${row.peer.session}`;
+	}
 }
 
 function step(rows: readonly Row[], at: string | undefined, by: number): string | undefined {
-	return stepKey(rows.map(rowKey), at, by);
-}
-
-function stepRoom(rooms: readonly Room[], at: string, by: number): string {
-	return stepKey(rooms.map(keyOf), at, by) ?? at;
-}
-
-function stepKey(keys: readonly string[], at: string | undefined, by: number): string | undefined {
+	const keys = rows.map(rowKey);
 	if (keys.length === 0) return undefined;
 	const index = at === undefined ? -1 : keys.indexOf(at);
 	return keys[clamp(index + by, 0, keys.length - 1)];
-}
-
-function indentOf(row: Row): number {
-	return row.kind === "agent" ? 2 : 0;
 }
 
 function pad(text: string, width: number): string {
@@ -711,8 +471,8 @@ function clamp(value: number, low: number, high: number): number {
 	return Math.max(low, Math.min(high, value));
 }
 
-function plural(count: number, word: string): string {
-	return `${count} ${word}${count === 1 ? "" : "s"}`;
+function plural(found: number, word: string): string {
+	return `${found} ${word}${found === 1 ? "" : "s"}`;
 }
 
 export function addressOf(
@@ -734,12 +494,8 @@ export async function openPanel(
 	await ctx.ui.custom<void>(
 		(tui, theme, _keybindings, done) => {
 			hideImagesUnderOverlays(tui);
-			let quiet = 0;
 			const ticks = setInterval(() => {
-				quiet += FRAME_MS;
-				if (!panel.moving() && quiet < 1_000) return;
-				quiet = 0;
-				tui.requestRender();
+				if (panel.moving()) tui.requestRender();
 			}, FRAME_MS);
 			const stop = view.onChange(() => tui.requestRender());
 			const panel: PeersPanel = new PeersPanel({
