@@ -59,13 +59,11 @@ export const BOARD_PARAMETERS = Type.Object({
 	),
 });
 
-export const BOARD_DESCRIPTION = `Your board is how the operator and the other agents follow your work without asking you. The operator reads it on Alt+T and the remote page. The agents read it in the peers board and decide from it whether to wait for you, take something over or leave a file alone. Write every line for a reader who has not seen this conversation.
+// Every request carries this, and the guideline below already says how a card lives, so the
+// description says only what a card is.
+export const BOARD_DESCRIPTION = `Your board: how the operator and the other agents follow your work without asking you. Write each line for a reader who has not seen this conversation.
 
-A card is a deliverable someone can ask "how is it going?" about and a third person can check when it ends: a merged PR, a report, a review with a verdict, an answered question. One card per PR, with its number. Steps of the work are not cards; they go in \`now\`. Another agent's work belongs on its board.
-
-The life of a card: add it when you take the work on. While you work, keep \`now\` saying what is done and what is left. The moment you need someone, set \`blocked\` with who and why, and \`unblock\` when the answer arrives. Move it to done with a result a reader can check (a commit, a PR, a verdict), or drop it with the reason. A card left in doing after the work stopped tells everyone something false.
-
-Writes return the open board with the ids to use next. A write that breaks a rule returns the reason instead.`;
+A card is one deliverable of yours that a third person can check when it ends: a merged PR (one card per PR, with its number), a report, a review with a verdict, an answered question. Steps of the work go in \`now\`, not in cards. Writes return the open board with the ids to use next.`;
 
 export const BOARD_GUIDELINES = [
 	"Keep your board true at every moment: add the card when you take a deliverable, update `now` when its state changes, set `blocked` the moment you wait on someone and `unblock` when the answer comes, and move it to done with a result someone can check.",
