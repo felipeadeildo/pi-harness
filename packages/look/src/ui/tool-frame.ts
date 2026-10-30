@@ -348,7 +348,7 @@ function orStream(own: Component, stream: Stream | undefined): Component {
 	return {
 		render(width) {
 			const drawn = own.render(width);
-			return withoutBlanks(drawn).length > 1 ? drawn : [...stream.lines];
+			return hasLines(drawn, 2) ? drawn : [...stream.lines];
 		},
 		invalidate: () => own.invalidate(),
 	};
@@ -539,6 +539,15 @@ function trim(lines: readonly string[]): string[] {
 	while (from < to && isBlank(lines[from])) from++;
 	while (to > from && isBlank(lines[to - 1])) to--;
 	return lines.slice(from, to);
+}
+
+/** Stops at the count, so a long body costs no more than a short one. */
+function hasLines(lines: readonly string[], count: number): boolean {
+	let found = 0;
+	for (const line of lines) {
+		if (!isBlank(line) && ++found >= count) return true;
+	}
+	return false;
 }
 
 function withoutBlanks(lines: readonly string[]): string[] {

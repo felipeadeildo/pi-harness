@@ -43,16 +43,28 @@ export function drawDiff(diff: string, theme: Theme, width: number): string[] {
  * Pi keeps the diff on the component it returns, as `preview`.
  */
 export function editBody(own: Component, header: string, theme: Theme): Component {
+	// The screen redraws on every keystroke and every piece the model writes; the diff is drawn once.
+	let drawn: { error?: string; diff?: string; width: number; lines: string[] } | undefined;
 	return {
 		render(width) {
 			const preview = isObject(own) && "preview" in own ? own.preview : undefined;
 			if (!isObject(preview)) return own.render(width);
-			if (typeof preview.error === "string")
-				return [header, "", ...wrapTextWithAnsi(theme.fg("error", preview.error), width)];
-			if (typeof preview.diff !== "string") return own.render(width);
-			return [header, "", ...drawDiff(preview.diff, theme, width)];
+			const error = typeof preview.error === "string" ? preview.error : undefined;
+			const diff = typeof preview.diff === "string" ? preview.diff : undefined;
+			if (error === undefined && diff === undefined) return own.render(width);
+			if (drawn?.width !== width || drawn.error !== error || drawn.diff !== diff) {
+				const body =
+					error === undefined
+						? drawDiff(diff ?? "", theme, width)
+						: wrapTextWithAnsi(theme.fg("error", error), width);
+				drawn = { error, diff, width, lines: [header, "", ...body] };
+			}
+			return drawn.lines;
 		},
-		invalidate: () => own.invalidate(),
+		invalidate() {
+			drawn = undefined;
+			own.invalidate();
+		},
 	};
 }
 
