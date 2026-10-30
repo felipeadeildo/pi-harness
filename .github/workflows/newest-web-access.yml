@@ -1,0 +1,67 @@
+# Checks npm for a newer pi-web-access: a version that passes opens a bump PR, one that fails files
+# an issue. The contract test in packages/web runs the harness's web config through the new
+# version's own checks. The steps are in scripts/newest-web-access.ts.
+#
+# GitHub stops a cron after 60 days without activity in the repository; re-enable it from the
+# Actions tab if that happens.
+name: Newest pi-web-access
+
+on:
+  schedule:
+    - cron: "30 9 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: newest-web-access
+  cancel-in-progress: false
+
+jobs:
+  newest-web-access:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - id: compare
+        run: bun scripts/newest-web-access.ts compare
+
+      - if: steps.compare.outputs.test == 'true'
+        run: bun install --frozen-lockfile
+
+      # --exact, so the pin stays a version and not a range.
+      - if: steps.compare.outputs.test == 'true'
+        working-directory: packages/web
+        run: bun add --exact pi-web-access@latest
+
+      - id: verify
+        if: steps.compare.outputs.test == 'true'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          if bun run verify 2>&1 | tee verify.log; then exit 0; fi
+          echo "::warning::verify failed, retrying once"
+          bun run verify 2>&1 | tee verify.log
+
+      - if: steps.compare.outputs.test == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-log
+          path: verify.log
+          retention-days: 14
+
+      - if: steps.compare.outputs.test == 'true'
+        run: bun scripts/newest-web-access.ts report
+        env:
+          VERIFY: ${{ steps.verify.outcome }}
+          PINNED: ${{ steps.compare.outputs.pinned }}
+          NEWEST: ${{ steps.compare.outputs.newest }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

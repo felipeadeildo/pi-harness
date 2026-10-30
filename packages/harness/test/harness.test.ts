@@ -16,6 +16,7 @@ import harnessProviders from "../src/providers.ts";
 import harnessQuestions from "../src/questions.ts";
 import harnessRemote from "../src/remote.ts";
 import harnessSkills from "../src/skills.ts";
+import harnessWeb from "../src/web.ts";
 
 let dir = "";
 let previousAgentDir: string | undefined;
@@ -115,6 +116,12 @@ describe("the harness", () => {
 			mount: harnessSkills,
 			read: (fake) => fake.count("input") > 0,
 			expected: true,
+		},
+		{
+			name: "web gives the model the pinned pi-web-access tools",
+			mount: harnessWeb,
+			read: toolsOf,
+			expected: ["web_search", "source_check", "fetch_content", "get_search_content"],
 		},
 		{
 			name: "look draws the end of a run",

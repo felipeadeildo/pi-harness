@@ -1,0 +1,51 @@
+{
+	"name": "@adeildo/pi-web",
+	"version": "5.15.0",
+	"description": "Web search, page fetching and answers from a page, from Nico Bailon's pi-web-access, pinned to a tested version and set up with the providers that measured best.",
+	"keywords": [
+		"pi",
+		"pi-coding-agent",
+		"pi-extension",
+		"pi-package",
+		"web-search"
+	],
+	"homepage": "https://github.com/felipeadeildo/pi-harness/tree/main/packages/web#readme",
+	"bugs": "https://github.com/felipeadeildo/pi-harness/issues",
+	"license": "MIT",
+	"author": {
+		"name": "adeildo",
+		"email": "contato@felipeadeildo.com",
+		"url": "https://github.com/felipeadeildo"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/felipeadeildo/pi-harness.git",
+		"directory": "packages/web"
+	},
+	"files": [
+		"src",
+		"README.md",
+		"LICENSE"
+	],
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"dependencies": {
+		"@adeildo/pi-kit": "workspace:*",
+		"pi-web-access": "0.46.0"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-ai": "*",
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	},
+	"pi": {
+		"extensions": [
+			"./src/index.ts"
+		]
+	}
+}

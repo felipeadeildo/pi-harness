@@ -44,7 +44,8 @@
 		"@adeildo/pi-peers": "workspace:*",
 		"@adeildo/pi-providers": "workspace:*",
 		"@adeildo/pi-remote": "workspace:*",
-		"@adeildo/pi-skills": "workspace:*"
+		"@adeildo/pi-skills": "workspace:*",
+		"@adeildo/pi-web": "workspace:*"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-ai": "*",
@@ -61,7 +62,8 @@
 			"./src/board.ts",
 			"./src/compact.ts",
 			"./src/peers.ts",
-			"./src/remote.ts"
+			"./src/remote.ts",
+			"./src/web.ts"
 		]
 	}
 }

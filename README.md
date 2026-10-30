@@ -104,6 +104,7 @@ When the agent needs you, you are not always at the desk. `/remote` opens every 
 - **Your Claude plan.** [Providers](packages/providers) bills Anthropic requests to the Claude plan you already pay for. It keeps several accounts per provider and switches to the next one when you hit a limit, and it keeps the prompt cache warm while you are likely to come back.
 - **Cheaper long sessions.** [Compact](packages/compact) hides old tool output once the context passes 150k tokens. On a week of real sessions, that cut the cost by a third.
 - **Skills from anywhere.** With [Skill calls](packages/skills), you call the skills you already have from anywhere in a message, several at once.
+- **The web.** [Web](packages/web) brings [pi-web-access](https://github.com/nicobailon/pi-web-access), by Nico Bailon, at a tested version, with the search, fetch and answer providers that measured best.
 
 ## One piece, or all of them
 
@@ -119,6 +120,7 @@ When the agent needs you, you are not always at the desk. `/remote` opens every 
 | [`pi-providers`](packages/providers)           | The Claude plan, several accounts, and a warm cache                    |
 | [`pi-compact`](packages/compact)               | Old tool output hidden in long sessions                                |
 | [`pi-skills`](packages/skills)                 | Skills called from anywhere in a message                               |
+| [`pi-web`](packages/web)                       | Web search and fetching from pi-web-access, pinned and set up          |
 | [`pi-kit`](packages/kit)                       | What the pieces are built with, if you want to write your own          |
 
 ## Where to read next

@@ -29,6 +29,7 @@ packages/
   providers/        # @adeildo/pi-providers: Claude plan billing and accounts
   ask-questions/    # @adeildo/pi-ask-questions: the ask_questions tool and its dialog
   skills/           # @adeildo/pi-skills: /skill: references anywhere in a message
+  web/              # @adeildo/pi-web: pi-web-access, pinned, with the harness's web config
   compact/          # @adeildo/pi-compact: hides old tool output, writes the compaction summary
   peers/            # @adeildo/pi-peers: agents in one folder, board and room
   remote/           # @adeildo/pi-remote: the bridge, the daemon and the pi-remote command

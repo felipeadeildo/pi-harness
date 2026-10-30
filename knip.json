@@ -19,6 +19,9 @@
 		"packages/peers": {
 			"entry": ["test/**/*.test.ts", "eval/**/*.ts"]
 		},
+		"packages/web": {
+			"entry": ["test/**/*.test.ts", "test/probe.ts"]
+		},
 		"packages/harness": {
 			"entry": ["src/*.ts", "test/**/*.test.ts"]
 		},

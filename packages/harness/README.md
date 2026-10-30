@@ -41,6 +41,7 @@ Every piece of [pi-harness](https://github.com/felipeadeildo/pi-harness) in one 
 | [Providers](../providers)       | Bills Anthropic requests to your Claude plan, and keeps several accounts per provider                |
 | [Compact](../compact)           | Hides old tool output in long sessions, so each request costs less                                   |
 | [Skill calls](../skills)        | You call your skills from anywhere in a message, several at once                                     |
+| [Web](../web)                   | Search and fetch the web with Nico Bailon's pi-web-access, at a tested version and set up            |
 
 All of them are on once the package is installed.
 
@@ -55,7 +56,7 @@ Each piece is its own extension in this package, so `pi config` can turn off the
 { "features": { "subscription": { "enabled": false } } }
 ```
 
-The feature ids are `permission`, `look`, `subscription`, `accounts`, `questions`, `skills`, `names`, `board`, `board-panel`, `compact`, `peers` and `remote`.
+The feature ids are `permission`, `look`, `subscription`, `accounts`, `questions`, `skills`, `names`, `board`, `board-panel`, `compact`, `peers`, `remote` and `web`.
 
 If you only want one piece, install its own package instead. When you install both, the copy that loads first runs the feature and the other one stays off.
 
