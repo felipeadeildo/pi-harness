@@ -235,3 +235,24 @@ describe("completion", () => {
 		expect(providers).toHaveLength(1);
 	});
 });
+
+describe("the skills in the system prompt", () => {
+	async function sections(settings: string) {
+		writeFileSync(join(dir, "settings.json"), settings);
+		const { fake } = await mounted();
+		const event = { systemPromptOptions: { sections: {} as Record<string, string> } };
+		await fake.fire("before_agent_start", event, fakeContext());
+		return event.systemPromptOptions.sections;
+	}
+
+	test("say where the skills are instead of listing each one", async () => {
+		const section = (await sections("{}")).skills;
+		expect(section).toContain(`look under ${dir}:`);
+		expect(section).toContain("/skill:name");
+		expect(section).not.toContain("simplify");
+	});
+
+	test("are pi's list again when the setting asks for it", async () => {
+		expect(await sections(JSON.stringify({ skills: { list: true } }))).toEqual({});
+	});
+});

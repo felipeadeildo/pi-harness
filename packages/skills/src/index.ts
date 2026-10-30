@@ -17,7 +17,8 @@ import type {
 
 import { completeSkills } from "./complete.ts";
 import { chip, renderSkills } from "./render.ts";
-import { loadedSkills, type Skill, skillBlock } from "./skills.ts";
+import { SECTIONS, SKILL_SETTINGS, listed } from "./settings.ts";
+import { loadedSkills, type Skill, skillBlock, unlistedSection } from "./skills.ts";
 
 export { loadedSkills, skillBlock, type Skill } from "./skills.ts";
 
@@ -27,6 +28,8 @@ export const SKILLS_MESSAGE = "pi-skills";
 export const skills = defineFeature({
 	id: "skills",
 	description: "Call the skills you already have from anywhere in a message, several at once",
+	sections: SECTIONS,
+	settings: SKILL_SETTINGS,
 	setup(scope) {
 		let session: ExtensionContext | undefined;
 
@@ -46,6 +49,13 @@ export const skills = defineFeature({
 		SKILLS.provide(scope, () => namesOf(scope));
 
 		scope.on("input", (event, ctx) => expand(scope, ctx, event));
+
+		// A section of the same name replaces the one pi builds.
+		scope.on("before_agent_start", (event) => {
+			const loaded = loadedSkills(scope);
+			if (listed.get(scope) || loaded.length === 0) return;
+			event.systemPromptOptions.sections.skills = unlistedSection(loaded);
+		});
 
 		scope.registerMessageRenderer(SKILLS_MESSAGE, (message, options) =>
 			renderSkills(message, options.expanded),
