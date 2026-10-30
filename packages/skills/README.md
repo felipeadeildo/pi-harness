@@ -27,6 +27,10 @@ A `/` after the start of the message opens a list of your skills, which narrows 
 
 At the start of the message, `/` still opens pi's own palette, with the commands and the skills.
 
+## The system prompt
+
+Pi writes every skill with its description into the system prompt, which costs every request around a hundred tokens per skill. With this package the prompt says only where your skills are, and the model reads one when you call it or ask it to find one. To give the model the full list again, so it picks a skill on its own, turn on **List every skill** in the settings, or set `skills.list` to `true`.
+
 ## Notes
 
 - A message that starts with `/skill:` goes out with a space before it, so pi does not expand that skill a second time. The chat does not show the space.
