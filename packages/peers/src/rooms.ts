@@ -33,7 +33,14 @@ import { folds } from "./folder.ts";
 import { Here, type Hooks, PEER_NOTE } from "./here.ts";
 import { Inbox, type Waiting } from "./inbox.ts";
 import type { Addition, Membership } from "./membership.ts";
-import { ANYONE_MENTION, groupIn, recipientsOf } from "./mention.ts";
+import {
+	ANYONE_MENTION,
+	groupIn,
+	recipientsOf,
+	type RoomTag,
+	roomTag,
+	roomTagsIn,
+} from "./mention.ts";
 import type {
 	LiveSession,
 	MembershipChange,
@@ -403,9 +410,7 @@ export class Rooms implements RoomsView {
 	roomNamed(name: string): Here | { error: string } {
 		const wanted = name.trim().toLowerCase();
 		const found = this.joined().filter(
-			(here) =>
-				here.room?.id === name.trim() ||
-				(here.room?.name ?? basename(this.#cwd)).toLowerCase() === wanted,
+			(here) => here.room?.id === name.trim() || this.#nameOf(here).toLowerCase() === wanted,
 		);
 		if (found.length === 1 && found[0] !== undefined) return found[0];
 		const names = this.joined().map(
@@ -420,13 +425,16 @@ export class Rooms implements RoomsView {
 
 	/** An agent in several shared rooms is reached in the folder's room, else where you last talked, else the oldest. */
 	route(names: readonly string[], room?: string): Route {
-		const rooms = room === undefined ? this.joined() : [this.roomNamed(room)];
-		const only = rooms[0];
-		if (only !== undefined && "error" in only) return only;
+		if (room === undefined) return this.#routeIn(names, this.joined(), "Pass room to say which.");
+		const here = this.roomNamed(room);
+		return "error" in here ? here : this.#routeIn(names, [here], "Pass room to say which.");
+	}
+
+	#routeIn(names: readonly string[], rooms: readonly Here[], which: string): Route {
 		const posts = new Map<Here, Named[]>();
 		const missing: string[] = [];
 		for (const name of names) {
-			const found = (rooms as Here[]).flatMap((here) => {
+			const found = rooms.flatMap((here) => {
 				const named = byHandle(here.names(), name);
 				return named === undefined || named.session === this.#session ? [] : [{ here, named }];
 			});
@@ -437,7 +445,7 @@ export class Rooms implements RoomsView {
 			}
 			if (sessions.size > 1)
 				return {
-					error: `${name} is ${sessions.size} agents: ${found.map(({ here }) => roomLabel(here)).join(", ")}. Pass room to say which.`,
+					error: `${name} is ${sessions.size} agents: ${found.map(({ here }) => roomLabel(here)).join(", ")}. ${which}`,
 				};
 			const pick = this.#pick(found);
 			posts.set(pick.here, [...(posts.get(pick.here) ?? []), pick.named]);
@@ -449,39 +457,85 @@ export class Rooms implements RoomsView {
 		return { posts: [...posts].map(([here, to]) => ({ here, to })) };
 	}
 
+	/** A `#room` keeps the message in that room, and alone it goes to everyone there. */
 	chat(text: string): ChatRoute {
+		const tagged = this.#tagged(text);
+		if (tagged !== undefined && "error" in tagged) return { kind: "unclear", error: tagged.error };
+		const rooms = tagged === undefined ? this.joined() : [tagged];
 		const mentioned = mentionedNames(text);
 		const group = groupIn(mentioned);
-		if (group === "all") return { kind: "group", to: group, rooms: this.#withOthers() };
-		if (group === "any") return this.#anyone();
+		if (group === "all") return { kind: "group", to: group, rooms: this.#withOthers(rooms) };
+		if (group === "any") return this.#anyone(rooms);
 		const agents = mentioned.filter((name) =>
 			this.joined().some((here) => {
 				const named = byHandle(here.names(), name);
 				return named !== undefined && named.session !== this.#session;
 			}),
 		);
-		if (agents.length === 0) return { kind: "yours" };
-		const route = this.route([...new Set(agents)]);
+		if (agents.length === 0)
+			return tagged === undefined
+				? { kind: "yours" }
+				: { kind: "group", to: "all", rooms: this.#withOthers(rooms) };
+		const route = this.#routeIn([...new Set(agents)], rooms, this.#tagHint());
 		return "error" in route
 			? { kind: "unclear", error: route.error }
 			: { kind: "sessions", posts: route.posts };
 	}
 
-	#withOthers(): Here[] {
-		return this.joined().filter((here) =>
-			here.live().some((peer) => peer.session !== this.#session),
+	/** Each room and its `#` word, for the chat's completion. */
+	tags(): RoomTag[] {
+		return this.joined().map((here) => {
+			const open = here.live().filter((peer) => peer.session !== this.#session).length;
+			const where = here.room === undefined ? "this folder's room" : "shared room";
+			return { tag: this.#tagOf(here), description: `${where}, ${open} open` };
+		});
+	}
+
+	/** Of two rooms with one name, the folder's wins, as for `@name`; a room's id works as its tag too. */
+	#tagged(text: string): Here | { error: string } | undefined {
+		const tags = new Set(roomTagsIn(text));
+		if (tags.size === 0) return undefined;
+		const found = this.joined().filter(
+			(here) => tags.has(this.#tagOf(here)) || tags.has(here.room?.id ?? ""),
 		);
+		const named = new Set(found.map((here) => this.#tagOf(here)));
+		if (named.size > 1)
+			return { error: `One room at a time: ${[...named].map((tag) => `#${tag}`).join(" or ")}.` };
+		const home = found.find((here) => here.room === undefined);
+		if (found.length > 1 && home === undefined)
+			return {
+				error: `${found.length} rooms are called #${[...named][0]}: use ${found.map((here) => `#${here.room?.id}`).join(" or ")}.`,
+			};
+		return home ?? found[0];
+	}
+
+	#tagHint(): string {
+		return `Add ${this.#withOthers()
+			.map((here) => `#${this.#tagOf(here)}`)
+			.join(" or ")} to say which room.`;
+	}
+
+	#tagOf(here: Here): string {
+		return roomTag(this.#nameOf(here));
+	}
+
+	#nameOf(here: Here): string {
+		return here.room?.name ?? (basename(this.#cwd) || this.#cwd);
+	}
+
+	#withOthers(rooms: readonly Here[] = this.joined()): Here[] {
+		return rooms.filter((here) => here.live().some((peer) => peer.session !== this.#session));
 	}
 
 	/** In two shared rooms, two agents could take it. */
-	#anyone(): ChatRoute {
-		const rooms = this.#withOthers();
+	#anyone(among: readonly Here[]): ChatRoute {
+		const rooms = this.#withOthers(among);
 		const first = rooms[0];
 		if (first === undefined || first.room === undefined || rooms.length === 1)
 			return { kind: "group", to: "any", rooms: rooms.slice(0, 1) };
 		return {
 			kind: "unclear",
-			error: `@${ANYONE_MENTION} goes to one room, and agents are open in ${rooms.map(roomName).join(", ")}.`,
+			error: `@${ANYONE_MENTION} goes to one room, and agents are open in ${rooms.map(roomName).join(", ")}. ${this.#tagHint()}`,
 		};
 	}
 

@@ -23,14 +23,17 @@ Open pi in two terminals in the same folder, and each agent knows what the other
 
 Type in the room with `Alt+G`, or in your chat as usual.
 
-| You write   | Who gets it                                             |
-| ----------- | ------------------------------------------------------- |
-| `@name`     | That agent                                              |
-| `@anyone`   | The agent that fits the request best, idle agents first |
-| `@everyone` | Every agent, yours included                             |
-| no mention  | In the room, every agent. In your chat, only your agent |
+| You write   | Who gets it                                              |
+| ----------- | -------------------------------------------------------- |
+| `@name`     | That agent                                               |
+| `@anyone`   | The agent that fits the request best, idle agents first  |
+| `@everyone` | Every agent, yours included                              |
+| no mention  | In the room, every agent. In your chat, only your agent  |
+| `#room`     | Keeps the message in that room. Alone, every agent there |
 
-Typing `@` lists the agents. A name that is not an open session, like `@src/auth.ts`, stays a file.
+Typing `@` lists the agents, and typing `#` lists your rooms when you have more than one. A name that is not an open session, like `@src/auth.ts`, stays a file, and a `#` word that no room is called, like `#410`, stays text.
+
+`#room` is the room's name in lower case, with dashes for spaces: `#api-contract @anyone check the capacity field` asks the agents of that room only.
 
 ## The panel
 

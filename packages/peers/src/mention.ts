@@ -1,5 +1,6 @@
 // `@name` sends to one agent, `@everyone` to all of them, `@anyone` to the best bidder. Pi also uses
-// `@` for files, so only an open session's name counts.
+// `@` for files, so only an open session's name counts. `#room` says which room, and a `#` word no
+// room is called stays text, like an issue number.
 import {
 	type AutocompleteItem,
 	type AutocompleteProvider,
@@ -27,6 +28,24 @@ const GROUPS: Record<string, string> = {
 };
 
 const TYPING_PATTERN = /(?:^|[\s([{<`])(@[a-z0-9-]*)$/i;
+const ROOM_TAG = /(?<![\w#&/])#([\p{L}\p{N}][\p{L}\p{N}+_.-]*)/gu;
+const TYPING_TAG = /(?:^|[\s([{<`])(#[\p{L}\p{N}+_.-]*)$/u;
+
+export interface RoomTag {
+	tag: string;
+	description: string;
+}
+
+/** What follows the `#`: the name in lower case, spaces as dashes. */
+export function roomTag(name: string): string {
+	return name.trim().toLowerCase().replace(/\s+/g, "-");
+}
+
+export function roomTagsIn(text: string): string[] {
+	return [...text.matchAll(ROOM_TAG)].map((match) =>
+		(match[1] ?? "").replace(/\.+$/, "").toLowerCase(),
+	);
+}
 
 export function typingMention(text: string): string | undefined {
 	return TYPING_PATTERN.exec(text)?.[1]?.slice(1).toLowerCase();
@@ -50,21 +69,29 @@ export function recipientsOf(
 	return named.length === 0 ? undefined : named;
 }
 
-/** Agents, `@everyone` and `@anyone` above pi's files in the `@` list. */
+/** Agents, `@everyone` and `@anyone` above pi's files in the `@` list, and the rooms after `#`. */
 export function completeMentions(
 	current: AutocompleteProvider,
 	others: () => readonly Mentionable[],
+	rooms: () => readonly RoomTag[] = () => [],
 ): AutocompleteProvider {
 	function isMention(item: AutocompleteItem): boolean {
+		if (rooms().some((room) => item.value === `#${room.tag}`)) return true;
 		if (isGroupMention(item.value.slice(1))) return true;
 		return others().some((named) => item.value === `@${named.handle}`);
 	}
 
 	return {
-		triggerCharacters: current.triggerCharacters,
+		triggerCharacters: [...(current.triggerCharacters ?? []), "#"],
 
 		async getSuggestions(lines, cursorLine, cursorCol, options) {
-			const typed = (lines[cursorLine] ?? "").slice(0, cursorCol).match(TYPING_PATTERN)?.[1];
+			const before = (lines[cursorLine] ?? "").slice(0, cursorCol);
+			const tag = before.match(TYPING_TAG)?.[1];
+			if (tag !== undefined) {
+				const items = roomItems(rooms(), tag.slice(1));
+				if (items.length > 0) return { items, prefix: tag };
+			}
+			const typed = before.match(TYPING_PATTERN)?.[1];
 			const files = await current.getSuggestions(lines, cursorLine, cursorCol, options);
 			const agents = typed === undefined ? [] : mentionItems(others(), typed.slice(1));
 			if (typed === undefined || agents.length === 0) return files;
@@ -74,7 +101,7 @@ export function completeMentions(
 		},
 
 		applyCompletion(lines, cursorLine, cursorCol, item, prefix) {
-			if (!isMention(item) || !prefix.startsWith("@"))
+			if (!isMention(item) || !(prefix.startsWith("@") || prefix.startsWith("#")))
 				return current.applyCompletion(lines, cursorLine, cursorCol, item, prefix);
 			const line = lines[cursorLine] ?? "";
 			const start = cursorCol - prefix.length;
@@ -91,6 +118,16 @@ export function completeMentions(
 			return current.shouldTriggerFileCompletion?.(lines, cursorLine, cursorCol) ?? true;
 		},
 	};
+}
+
+/** Only with two rooms or more: with one, there is nothing to choose. */
+function roomItems(rooms: readonly RoomTag[], query: string): AutocompleteItem[] {
+	if (rooms.length < 2) return [];
+	return fuzzyFilter([...rooms], query, (room) => room.tag).map((room) => ({
+		value: `#${room.tag}`,
+		label: `#${room.tag}`,
+		description: room.description,
+	}));
 }
 
 function mentionItems(others: readonly Mentionable[], query: string): AutocompleteItem[] {

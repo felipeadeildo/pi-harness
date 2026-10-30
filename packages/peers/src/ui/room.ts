@@ -146,6 +146,7 @@ export class RoomView {
 				me: here.session,
 				names: names.bySession,
 				live,
+				peers: here.folder.peers,
 				clock: this.#options.clock ?? formatClock,
 				only: this.#only,
 				last: this.#window,
@@ -257,8 +258,9 @@ export class RoomView {
 	}
 
 	#nameOf(session: string): string {
-		const named = this.#options.here.names().bySession.get(session);
-		return this.#options.theme.fg((named?.color ?? "muted") as ThemeColor, named?.handle ?? "gone");
+		const { here, theme } = this.#options;
+		const color = here.names().bySession.get(session)?.color ?? "muted";
+		return theme.fg(color as ThemeColor, here.handleOf(session) ?? "gone");
 	}
 
 	#now(): number {

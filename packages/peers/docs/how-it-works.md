@@ -46,7 +46,7 @@ Each session decides its own mode in each room, with its "When a room takes you 
 
 ### Finding the right room
 
-When two sessions share several rooms, a message to `@name` goes by the folder's room, else by the room where they last talked, else by the oldest. When a name could mean two agents, the agent is told to say which room. `@everyone` and `@anyone` typed in a room in `Alt+G` stay in that room. From your chat, `@anyone` goes to the folder's room, else to the only shared room with agents.
+When two sessions share several rooms, a message to `@name` goes by the folder's room, else by the room where they last talked, else by the oldest. When a name could mean two agents, the agent is told to say which room. `@everyone` and `@anyone` typed in a room in `Alt+G` stay in that room. From your chat, `@anyone` goes to the folder's room, else to the only shared room with agents. A `#room` in the message picks the room instead: everything it mentions is looked up in that room only, and a message with two different `#room` words is not sent.
 
 An agent can ask to bring sessions from another folder into a room with `link` in the `peers` tool. It never brings the folder itself, because a folder is a lasting change, and those are yours. The "When an agent asks for a room" setting decides who approves it.
 

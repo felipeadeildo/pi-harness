@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -12,6 +12,7 @@ import {
 	HOST,
 	PROMPT_FROM,
 	provideViews,
+	roomsDir,
 	type SourceAddress,
 } from "@adeildo/pi-kit";
 import { fakeContext, fakePi } from "@adeildo/pi-kit/testing";
@@ -254,6 +255,39 @@ test("@everyone reaches an agent of another folder in a shared room, once each; 
 	await b.fake.fire("input", { text: "go on", source: "interactive" }, b.ctx);
 	expect(b.fake.userMessages).toEqual(["@everyone ship it", "@everyone deploy at six"]);
 	expect(a.fake.userMessages).toEqual(["@everyone ship it", "@everyone deploy at six"]);
+});
+
+test("#room keeps a message in that room, and a # word no room is called stays yours", async () => {
+	const a = await mounted("a");
+	const b = await mounted("b", "/other");
+	const c = await mounted("c");
+	const tool = a.fake.tools.find((candidate) => candidate.name === "peers");
+	await tool?.execute(
+		"1",
+		{ action: "link", folder: "/other" },
+		undefined,
+		undefined,
+		undefined as never,
+	);
+	await b.fake.fire("input", { text: "go on", source: "interactive" }, b.ctx);
+	const fire = (text: string) => a.fake.fire("input", { text, source: "interactive" }, a.ctx);
+
+	expect(await fire("see #410 before you merge")).toEqual([{ action: "continue" }]);
+	expect(await fire("#other+repo the contract is frozen")).toEqual([{ action: "handled" }]);
+	expect(await fire("#other+repo @anyone add the capacity field")).toEqual([{ action: "handled" }]);
+	expect(posted()).toEqual([]);
+	await b.fake.fire("input", { text: "go on", source: "interactive" }, b.ctx);
+	expect(b.fake.userMessages).toContain("#other+repo the contract is frozen");
+	await c.fake.fire("input", { text: "go on", source: "interactive" }, c.ctx);
+	expect(c.fake.userMessages).toEqual([]);
+
+	expect(await fire("#other+repo #repo ship it")).toEqual([{ action: "handled" }]);
+	expect(a.notes.at(-1)).toBe("One room at a time: #repo or #other+repo.");
+
+	const [id] = readdirSync(roomsDir());
+	expect(await fire(`#${id} the id names the room too`)).toEqual([{ action: "handled" }]);
+	await b.fake.fire("input", { text: "go on", source: "interactive" }, b.ctx);
+	expect(b.fake.userMessages).toContain(`#${id} the id names the room too`);
 });
 
 test("a run turns the tool back on when something else left it off", async () => {

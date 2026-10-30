@@ -46,6 +46,8 @@ export interface FeedOptions {
 	me: string | undefined;
 	names: ReadonlyMap<string, Named>;
 	live: readonly Peer[];
+	/** Every session the logs know, closed ones too, so history keeps who said what. */
+	peers: ReadonlyMap<string, Peer>;
 	clock: (at: number) => string;
 	only?: string;
 	/** All of them when absent. */
@@ -490,11 +492,7 @@ function name(session: string, options: FeedOptions): string {
 }
 
 function handle(session: string, options: FeedOptions): string {
-	return (
-		options.names.get(session)?.handle ??
-		options.live.find((peer) => peer.session === session)?.handle ??
-		"gone"
-	);
+	return options.names.get(session)?.handle ?? options.peers.get(session)?.handle ?? "gone";
 }
 
 function fitting(parts: readonly string[], width: number, theme: Theme): string {
