@@ -360,6 +360,11 @@ describe("the panel's keys", () => {
 		expect(rooms.calls).toEqual(["remove r1 folder:/home/x/backend"]);
 	});
 
+	test("the panel fills the screen however few rooms it has", () => {
+		const { rooms } = busy();
+		expect(panelOf(rooms).render(140)).toHaveLength(24);
+	});
+
 	test("narrow, every line still fits", () => {
 		const { rooms } = busy();
 		const narrow = stripTerminalSequences(panelOf(rooms).render(50).join("\n"));

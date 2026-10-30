@@ -163,7 +163,8 @@ export class PeersPanel implements Component, Focusable {
 		}
 		if (rows.length === 0) lines.push(theme.fg("dim", `${GUTTER}No room yet.`));
 		const first = Math.max(0, Math.min(chosenAt - height + 2, lines.length - height));
-		return lines.slice(first, first + height);
+		const shown = lines.slice(first, first + height);
+		return [...shown, ...Array.from({ length: height - shown.length }, () => "")];
 	}
 
 	#rowLine(row: Row, chosen: boolean, width: number, nameWidth: number): string {
