@@ -33,6 +33,7 @@ function peer(session: string, state: Peer["state"] = "idle"): Peer {
 }
 
 const live = [peer("a"), peer("b"), peer("c")];
+const peers = new Map(live.map((one) => [one.session, one]));
 
 function said(id: string, session: string, to: Posted["to"], text: string, at: number): RoomItem {
 	return {
@@ -65,6 +66,7 @@ function draw(room: RoomItem[], only?: string): string[] {
 		me: "c",
 		names,
 		live,
+		peers,
 		clock: () => "12:00",
 		only,
 	}).lines;
@@ -89,6 +91,23 @@ describe("the room", () => {
 		]);
 		const at = lines.findIndex((line) => line.startsWith("@migration → @oauth"));
 		expect(lines[at + 1]).toContain("\u21b1 @oauth Are you touching src/auth.ts?");
+	});
+
+	test("a closed session keeps the name the logs gave it", () => {
+		const lines = feedView([said("1", "x", ["y"], "Merged.", 1_000)], [], {
+			theme: plain,
+			now: 1_000_000,
+			width: 70,
+			me: "c",
+			names,
+			live,
+			peers: new Map([
+				["x", { ...peer("x"), handle: "badger", endedAt: 500 }],
+				["y", { ...peer("y"), handle: "ocelot", endedAt: 500 }],
+			]),
+			clock: () => "12:00",
+		}).lines;
+		expect(lines[0]).toStartWith("@badger \u2192 @ocelot");
 	});
 
 	test("a long preview skips blank lines and says how many more there are", () => {
@@ -217,6 +236,7 @@ describe("agents coming and going", () => {
 				me: "c",
 				names,
 				live,
+				peers,
 				clock: () => "12:00",
 			},
 		).lines;
@@ -238,6 +258,7 @@ describe("a long room", () => {
 			me: "c",
 			names,
 			live,
+			peers,
 			clock: () => "12:00",
 			last: 10,
 		});

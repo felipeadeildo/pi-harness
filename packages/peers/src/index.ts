@@ -284,7 +284,11 @@ export const peers = defineFeature({
 			if (board !== undefined) rooms.board(boardView(board));
 			if (ctx.mode === "tui")
 				ctx.ui.addAutocompleteProvider((current) =>
-					completeMentions(current, () => rooms.others()),
+					completeMentions(
+						current,
+						() => rooms.others(),
+						() => rooms.tags(),
+					),
 				);
 		});
 		scope.onShutdown(() => {
@@ -316,7 +320,7 @@ export const peers = defineFeature({
 					rooms.prompted();
 					return { action: "continue" };
 				case "unclear":
-					ctx.ui.notify(`${route.error} Write it in that room on Alt+G.`, "warning");
+					ctx.ui.notify(route.error, "warning");
 					ctx.ui.setEditorText(event.text);
 					return { action: "handled" };
 				case "group":

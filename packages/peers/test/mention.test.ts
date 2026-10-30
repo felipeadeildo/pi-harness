@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { AutocompleteProvider } from "@earendil-works/pi-tui";
 
-import { completeMentions, recipientsOf } from "../src/mention.ts";
+import { completeMentions, recipientsOf, roomTag, roomTagsIn } from "../src/mention.ts";
 import type { Named } from "../src/names.ts";
 
 const probe = { session: "p", handle: "claude-probe", color: "syntaxString" } as Named;
@@ -45,6 +45,51 @@ describe("who a message goes to", () => {
 		expect(
 			recipientsOf({ bySession: names }, "m", "read @claude-probe/notes.md and @claude-probe.ts"),
 		).toBeUndefined();
+	});
+});
+
+describe("a room after a #", () => {
+	const rooms = [
+		{ tag: "pi-harness", description: "this folder's room, 2 open" },
+		{ tag: roomTag("API contract"), description: "shared room, 1 open" },
+	];
+	const signal = new AbortController().signal;
+
+	test("is its name in lower case with dashes, and a trailing period is the sentence's", () => {
+		expect(rooms[1]?.tag).toBe("api-contract");
+		expect(roomTagsIn("#api-contract @anyone, see #410.")).toEqual(["api-contract", "410"]);
+		expect(roomTagsIn("# Heading and a#b and src/#x")).toEqual([]);
+	});
+
+	test("lists the rooms, and goes in with a space after it", async () => {
+		const provider = completeMentions(
+			files,
+			() => [probe],
+			() => rooms,
+		);
+		expect(provider.triggerCharacters).toEqual(["@", "#"]);
+		const found = await provider.getSuggestions(["#api"], 0, 4, { signal });
+		expect(found).toEqual({
+			prefix: "#api",
+			items: [
+				{ value: "#api-contract", label: "#api-contract", description: "shared room, 1 open" },
+			],
+		});
+		const item = found?.items[0] ?? { value: "", label: "" };
+		expect(provider.applyCompletion(["#api"], 0, 4, item, "#api")).toEqual({
+			lines: ["#api-contract "],
+			cursorLine: 0,
+			cursorCol: 14,
+		});
+	});
+
+	test("lists nothing with one room, since there is nothing to choose", async () => {
+		const provider = completeMentions(
+			files,
+			() => [probe],
+			() => rooms.slice(0, 1),
+		);
+		expect(await provider.getSuggestions(["#pi"], 0, 3, { signal })).toBeNull();
 	});
 });
 

@@ -179,6 +179,11 @@ export class Here implements Sender {
 		return cached.names;
 	}
 
+	/** Closed sessions keep the name they had, so history still says who wrote. */
+	handleOf(session: string): string | undefined {
+		return this.names().bySession.get(session)?.handle ?? this.#folder.peers.get(session)?.handle;
+	}
+
 	summary(): { others: BoardMark[]; unread: number } {
 		const others = [...this.marks().values()];
 		let unread = 0;
@@ -500,11 +505,7 @@ export class Here implements Sender {
 		if (taker === this.session || message.session === this.session) return;
 		if (message.at < this.#openedAt || this.#shown.has(message.id)) return;
 		this.#shown.add(message.id);
-		const handle =
-			this.names().bySession.get(taker)?.handle ??
-			this.#folder.peers.get(taker)?.handle ??
-			"an agent";
-		this.#hooks.show?.({ ...this.details(message), takenBy: handle });
+		this.#hooks.show?.({ ...this.details(message), takenBy: this.handleOf(taker) ?? "an agent" });
 	}
 
 	async #bid(message: Posted): Promise<void> {
