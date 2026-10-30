@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { Member } from "@adeildo/pi-kit";
+import type { Member, RoomMode } from "@adeildo/pi-kit";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 
@@ -36,14 +36,13 @@ const plain = {
 	underline: (text: string) => text,
 } as unknown as Theme;
 
+const UP = "\x1b[A";
 const DOWN = "\x1b[B";
+const RIGHT = "\x1b[C";
 const ENTER = "\r";
 const TAB = "\t";
-const BACK_TAB = "\x1b[Z";
 const ESC = "\x1b";
-const ALT_DOWN = "\x1b[1;3B";
-const ALT_UP = "\x1b[1;3A";
-const alt = (key: string): string => `\x1b${key}`;
+const ALT_G = "\x1bg";
 
 function session(id: string, cwd: string): Here {
 	const hooks: Hooks = {
@@ -70,7 +69,6 @@ class Rooms implements RoomsView {
 	readonly open: LiveSession[] = [];
 	readonly heres = new Map<string, Here>();
 	readonly calls: string[] = [];
-	readonly sent: { room: string | undefined; text: string }[] = [];
 
 	constructor(folder: Here) {
 		this.heres.set("", folder);
@@ -100,8 +98,8 @@ class Rooms implements RoomsView {
 	othersTyping(): [] {
 		return [];
 	}
-	send(room: string | undefined, text: string): void {
-		this.sent.push({ room, text });
+	send(): void {
+		this.calls.push("sent");
 	}
 	create(name: string, members: readonly Member[]): string {
 		this.calls.push(`create ${name} ${members.map(memberText).join(" ")}`);
@@ -119,8 +117,15 @@ class Rooms implements RoomsView {
 	close(room: string): void {
 		this.calls.push(`close ${room}`);
 	}
-	setMode(room: string | undefined, mode: "in" | "listening"): void {
-		this.calls.push(`mode ${room ?? "here"} ${mode}`);
+	readonly modes = new Map<string, RoomMode>();
+	modeOf(room: string | undefined, member: { session: string; cwd: string }): RoomMode | undefined {
+		const set = this.modes.get(`${room ?? "here"} ${member.session}`);
+		if (set !== undefined) return set;
+		if (room === undefined) return member.cwd === "/repo" ? "in" : undefined;
+		return "out";
+	}
+	setMode(room: string | undefined, mode: RoomMode, member?: { session: string }): void {
+		this.calls.push(`mode ${room ?? "here"} ${member?.session ?? "me"} ${mode}`);
 	}
 	onChange(): () => void {
 		return () => {};
@@ -128,11 +133,6 @@ class Rooms implements RoomsView {
 	onMembership(): () => void {
 		return () => {};
 	}
-}
-
-/** The same room, standing the way the test wants it. */
-function withMode(room: Room | undefined, mode: Room["mode"]): Room | undefined {
-	return room === undefined ? undefined : { ...room, mode };
 }
 
 function memberText(member: Member): string {
@@ -173,133 +173,212 @@ function panelOf(rooms: Rooms, show?: (session: string) => boolean): PeersPanel 
 
 function press(panel: PeersPanel, ...keys: string[]): string {
 	for (const key of keys) panel.handleInput(key);
-	return stripTerminalSequences(panel.render(110).join("\n"));
+	return stripTerminalSequences(panel.render(140).join("\n"));
 }
 
-/** The column the line between the two sides sits at, on the first row under the tabs. */
-function columnAt(drawn: string): number {
-	const row = drawn.split("\n")[3] ?? "";
-	return row.indexOf("\u2502", 1);
+function named(id: string, cwd: string, handle: string): Here {
+	const here = session(id, cwd);
+	here.log("session.named", { handle });
+	return here;
 }
 
-describe("the panel's layout", () => {
-	test("it opens on the folder's room, with a tab for every room along the top", () => {
-		const rooms = new Rooms(session("me", "/repo"));
-		shared(rooms);
+/** This folder with oauth and migration, and the shared room with api from backend. */
+function busy(): { rooms: Rooms; me: Here; room: Here } {
+	const me = session("me", "/repo");
+	named("oauth", "/repo", "oauth");
+	named("migration", "/repo", "migration");
+	me.log("session.named", { handle: "docs" });
+	const rooms = new Rooms(me);
+	const room = shared(rooms);
+	named("api", "/home/x/backend", "api");
+	me.sync();
+	room.sync();
+	return { rooms, me, room };
+}
+
+/** The messages' side, right of the column line. */
+function messagesIn(drawn: string): string {
+	return drawn
+		.split("\n")
+		.map((one) => one.split("\u2502")[2] ?? "")
+		.join("\n");
+}
+
+function line(drawn: string, has: string): string {
+	return drawn.split("\n").find((one) => one.includes(has)) ?? "";
+}
+
+describe("who hears which room", () => {
+	test("every folder, its agents under it, and a column for each room", () => {
+		const { rooms } = busy();
 		const drawn = press(panelOf(rooms));
-		const tabs = drawn.split("\n")[1] ?? "";
-		expect(tabs).toContain("pi-harness");
-		expect(tabs).toContain("backend+frontend");
-		expect(drawn).toContain("message everyone, @ for one agent");
-		expect(drawn).toContain("tab next room");
+		expect(line(drawn, "backend+frontend")).toContain("pi-harness");
+		expect(line(drawn, "oauth")).toMatch(/oauth +● all +○ off/);
+		expect(line(drawn, "docs you")).toMatch(/● all/);
+		expect(line(drawn, "backend/")).toMatch(/backend\/ +● folder/);
+		expect(drawn).not.toContain("message everyone");
 	});
 
-	test("tab and shift+tab walk the rooms, and the column at the right keeps its place", () => {
-		const rooms = new Rooms(session("me", "/repo"));
-		shared(rooms);
+	test("space walks the agent under the cursor through all, @name and off, and the key says the next", () => {
+		const { rooms } = busy();
 		const panel = panelOf(rooms);
-		const folder = press(panel);
-		const other = press(panel, TAB);
-		expect(other).toContain("message everyone in backend+frontend");
-		expect(columnAt(other)).toBe(columnAt(folder));
-		expect(press(panel, BACK_TAB)).toContain("message everyone, @ for one agent");
-		expect(press(panel, BACK_TAB)).toContain("message everyone in backend+frontend");
+		const first = press(panel);
+		expect(first).toMatch(/❯ +\S+ migration/);
+		expect(first).toContain("space set @name");
+		press(panel, " ");
+		rooms.modes.set("here migration", "listening");
+		expect(line(press(panel), "◇ migration")).toContain("◐ @name");
+		expect(press(panel)).toContain("space set off");
+		press(panel, RIGHT, " ");
+		expect(rooms.calls).toEqual(["mode here migration listening", "mode r1 migration in"]);
 	});
 
-	test("each room keeps its unsent line", () => {
-		const rooms = new Rooms(session("me", "/repo"));
-		shared(rooms);
+	test("an agent of another folder has no place in this folder's room, so space there does nothing", () => {
+		const { rooms } = busy();
 		const panel = panelOf(rooms);
-		press(panel, ..."half a thought");
-		expect(press(panel, TAB)).not.toContain("half a thought");
-		expect(press(panel, TAB)).toContain("half a thought");
+		const drawn = press(panel, DOWN, DOWN, DOWN, DOWN);
+		expect(drawn).toMatch(/❯ +\S+ api/);
+		expect(drawn).not.toContain("space set");
+		press(panel, " ");
+		expect(rooms.calls).toEqual([]);
 	});
 
-	test("typing writes in the open room at once, with nothing to focus first", () => {
-		const rooms = new Rooms(session("me", "/repo"));
-		shared(rooms);
+	test("on a folder's line in a shared room, space brings the whole folder in or takes it out", () => {
+		const { rooms } = busy();
 		const panel = panelOf(rooms);
-		press(panel, ..."hi", ENTER, TAB, ..."the contract changed", ENTER);
-		expect(rooms.sent).toEqual([
-			{ room: undefined, text: "hi" },
-			{ room: "r1", text: "the contract changed" },
-		]);
+		const top = press(panel, UP, RIGHT);
+		expect(top).toMatch(/❯ repo\//);
+		expect(top).toContain("space bring the folder in");
+		press(panel, " ");
+		press(panel, DOWN, DOWN, DOWN, DOWN, " ");
+		expect(rooms.calls).toEqual(["add r1 folder:/repo", "remove r1 folder:/home/x/backend"]);
 	});
 
-	test("a room this session left falls back to the folder's room", () => {
-		const rooms = new Rooms(session("me", "/repo"));
-		shared(rooms);
+	test("the right side shows what the agent under the cursor said and was sent in that room", () => {
+		const { rooms, me } = busy();
+		const oauth = rooms.here(undefined)?.names().bySession;
+		const sessionOf = (handle: string) =>
+			[...(oauth?.values() ?? [])].find((one) => one.handle === handle)?.session ?? "";
+		me.post([sessionOf("oauth")], "are you on src/auth.ts?", "agent");
+		me.post([sessionOf("migration")], "ship the SQL", "agent");
 		const panel = panelOf(rooms);
-		press(panel, TAB);
-		rooms.shown.pop();
-		expect(press(panel)).toContain("message everyone, @ for one agent");
-	});
-
-	test("too narrow for the column, it keeps the conversation and the line you write in", () => {
-		const rooms = new Rooms(session("me", "/repo"));
-		shared(rooms);
-		const narrow = stripTerminalSequences(panelOf(rooms).render(60).join("\n"));
-		expect(narrow).toContain("message everyone");
-		expect(narrow).not.toContain("Agents");
+		const onMigration = messagesIn(press(panel));
+		expect(onMigration).toContain("migration in pi-harness");
+		expect(onMigration).toContain("ship the SQL");
+		expect(onMigration).not.toContain("are you on src/auth.ts?");
+		const onFolder = messagesIn(press(panel, UP));
+		expect(onFolder).toContain("are you on src/auth.ts?");
+		expect(onFolder).toContain("ship the SQL");
 	});
 });
 
-describe("an agent's line", () => {
-	/** A shared room with the agent `api` in it, pointed at with alt+↓. */
-	function onApi(show?: (session: string) => boolean): { rooms: Rooms; panel: PeersPanel } {
-		const rooms = new Rooms(session("me", "/repo"));
-		const here = shared(rooms);
-		const api = session("api", "/home/x/backend");
-		api.log("session.named", { handle: "api" });
-		here.sync();
-		const panel = panelOf(rooms, show);
-		press(panel, TAB, ALT_DOWN);
-		return { rooms, panel };
-	}
+describe("what the agent under the cursor is on", () => {
+	test("its card sits under the title, and what it waits on you for comes first", () => {
+		const { rooms, me } = busy();
+		const migration = named("migration", "/repo", "migration");
+		migration.log("board.changed", {
+			view: {
+				open: [{ id: "c1", title: "Move the users table", column: "doing", at: 1 }],
+				backlog: 0,
+				done: [],
+			},
+		});
+		me.sync();
+		const drawn = messagesIn(press(panelOf(rooms)));
+		expect(drawn).toMatch(/migration in pi-harness +\n +Move the users table/);
+		migration.log("board.changed", {
+			view: {
+				open: [
+					{ id: "c1", title: "Move the users table", column: "doing", at: 1 },
+					{
+						id: "c2",
+						title: "Push to main",
+						column: "doing",
+						at: 2,
+						blocked: { on: "operator", why: "push" },
+					},
+				],
+				backlog: 0,
+				done: [],
+			},
+		});
+		me.sync();
+		expect(messagesIn(press(panelOf(rooms)))).toContain("waits on you: Push to main");
+	});
+});
 
-	test("enter shows the pointed agent's session, and the panel stays as it was under it", () => {
-		const shown: string[] = [];
-		const { panel } = onApi((id) => shown.push(id) > 0);
-		const before = press(panel);
-		expect(before).toMatch(/❯ \S+ api/);
-		expect(before).toContain("enter view");
-		const after = press(panel, ENTER);
-		expect(shown).toHaveLength(1);
-		expect(shown[0]).toEndWith("api");
-		expect(after).toBe(before);
+describe("who talks with whom", () => {
+	test("tab moves to the conversations, each with its room, what came of it and its last words", () => {
+		const { rooms, me } = busy();
+		const names = [...(rooms.here(undefined)?.names().bySession.values() ?? [])];
+		const sessionOf = (handle: string) => names.find((one) => one.handle === handle)?.session ?? "";
+		const oauth = named("oauth", "/repo", "oauth");
+		oauth.post([sessionOf("migration")], "Are you touching src/auth.ts?", "agent");
+		me.post("all", "deploy at six", "you");
+		me.sync();
+		const panel = panelOf(rooms);
+		const drawn = press(panel, TAB);
+		expect(drawn).toContain("Conversations");
+		expect(line(drawn, "you → everyone")).toContain("pi-harness");
+		expect(drawn).toContain("oauth → migration");
+		expect(drawn).toMatch(/oauth: Are you touching.* on its way to migration/);
+		expect(drawn).toMatch(/you: deploy at six +3 agents haven't read it/);
+		expect(messagesIn(drawn)).toContain("oauth → migration in pi-harness");
+		expect(messagesIn(drawn)).not.toContain("deploy at six");
+		expect(drawn).toContain("tab who hears");
+		const second = messagesIn(press(panel, DOWN));
+		expect(second).toContain("you → everyone in pi-harness");
+		expect(second).not.toContain("Are you touching");
 	});
 
-	test("with words written, enter sends them instead", () => {
-		const shown: string[] = [];
-		const { rooms, panel } = onApi((id) => shown.push(id) > 0);
-		press(panel, ..."ping", ENTER);
-		expect(shown).toEqual([]);
-		expect(rooms.sent).toEqual([{ room: "r1", text: "ping" }]);
+	test("with nothing said, the list says where to write from", () => {
+		const { rooms } = busy();
+		expect(press(panelOf(rooms), TAB)).toContain("Write from the chat with @name.");
 	});
+});
 
-	test("enter writes to the agent when nothing can show its session", () => {
-		const unshown = onApi(() => false);
-		expect(press(unshown.panel, ENTER)).toContain("@api");
-		const without = onApi();
-		expect(press(without.panel)).toContain("enter write to");
-		expect(press(without.panel, ENTER)).toContain("@api");
-	});
-
-	test("esc lets go of the agent first, and closes the panel after", () => {
-		const { rooms, panel } = onApi();
-		expect(press(panel, ESC)).toContain("enter send");
+describe("the panel's keys", () => {
+	test("letters write nothing anywhere: the panel only reads", () => {
+		const { rooms } = busy();
+		press(panelOf(rooms), ..."hello", ENTER);
 		expect(rooms.calls).toEqual([]);
-		press(panel, ESC);
-		expect(rooms.calls).toEqual(["closed panel"]);
 	});
 
-	test("this session is never pointed at: there is nothing to do on yourself", () => {
-		const { panel } = onApi();
-		// api, then the room's two folders, then nothing.
-		const drawn = press(panel, ALT_DOWN, ALT_DOWN, ALT_DOWN);
-		expect(drawn).not.toMatch(/❯ \S+ docs/);
-		expect(drawn).toContain("enter send");
-		expect(press(panel, ALT_UP)).toMatch(/❯ frontend\//);
+	test("enter shows the agent's session when something can", () => {
+		const shown: string[] = [];
+		const { rooms } = busy();
+		const panel = panelOf(rooms, (id) => shown.push(id) > 0);
+		expect(press(panel)).toContain("enter view");
+		press(panel, ENTER);
+		expect(shown).toEqual(["migration"]);
+	});
+
+	test("closing a shared room asks first, and only y closes; the folder's room has no x", () => {
+		const { rooms } = busy();
+		const panel = panelOf(rooms);
+		expect(press(panel)).not.toContain("x close room");
+		press(panel, "x");
+		const asking = press(panel, RIGHT, "x");
+		expect(asking).toContain("close backend+frontend?");
+		press(panel, "n");
+		expect(rooms.calls).toEqual([]);
+		press(panel, "x", "y");
+		expect(rooms.calls).toEqual(["close r1"]);
+	});
+
+	test("too narrow to stand side by side, the grid, the conversations and the messages stack", () => {
+		const { rooms } = busy();
+		const narrow = stripTerminalSequences(panelOf(rooms).render(70).join("\n"));
+		expect(narrow).toContain("Conversations");
+		expect(narrow).toContain("migration in pi-harness");
+		expect(narrow.split("\n").every((one) => visibleWidth(one) <= 70)).toBe(true);
+	});
+
+	test("esc closes, and Alt+G closes from the picker too", () => {
+		const { rooms } = busy();
+		press(panelOf(rooms), ESC);
+		press(panelOf(rooms), "n", ALT_G);
+		expect(rooms.calls).toEqual(["closed panel", "closed panel"]);
 	});
 
 	test("a session is read from the machine and file its presence entry names", () => {
@@ -324,90 +403,7 @@ describe("an agent's line", () => {
 	});
 });
 
-describe("changing the rooms", () => {
-	test("a shared room says how it came to be, and its keys sit by it in the column", () => {
-		const rooms = new Rooms(session("me", "/repo"));
-		shared(rooms);
-		const drawn = press(panelOf(rooms), TAB);
-		expect(drawn).toContain("client asked");
-		expect(drawn).toContain("2 folders");
-		expect(drawn).toContain("alt+l leave");
-		expect(drawn).toContain("alt+x close it");
-	});
-
-	test("alt+m walks a room through taking part, listening and out, and the key says the next step", () => {
-		const rooms = new Rooms(session("me", "/repo"));
-		shared(rooms);
-		const drawn = press(panelOf(rooms), alt("m"));
-		expect(rooms.calls).toEqual(["mode here listening"]);
-		expect(drawn).toContain("alt+m listen");
-		rooms.shown[0] = withMode(rooms.shown[0], "listening") as Room;
-		expect(press(panelOf(rooms))).toContain("alt+m step out");
-		press(panelOf(rooms), TAB, alt("m"));
-		expect(rooms.calls.at(-1)).toBe("mode r1 listening");
-		rooms.shown[1] = withMode(rooms.shown[1], "out") as Room;
-		const back = press(panelOf(rooms), TAB, alt("m"));
-		expect(rooms.calls.at(-1)).toBe("mode r1 in");
-		expect(back).toContain("alt+m take part");
-	});
-
-	test("the column says in words how this session stands in the room, and alt+m stays in the keys", () => {
-		const rooms = new Rooms(session("me", "/repo"));
-		shared(rooms);
-		const taking = press(panelOf(rooms));
-		expect(taking).toContain("takes part");
-		expect(taking).toContain("Everything said here");
-		rooms.shown[0] = withMode(rooms.shown[0], "listening") as Room;
-		const listening = press(panelOf(rooms));
-		expect(listening).toContain("listens");
-		expect(listening).toContain("Only what names it");
-		const bottom = listening.split("\n").at(-1) ?? "";
-		expect(bottom).toContain("alt+m step out");
-	});
-
-	test("the mark before a room's name never moves the name in its tab", () => {
-		const rooms = new Rooms(session("me", "/repo"));
-		shared(rooms);
-		const tab = (drawn: string): string => drawn.split("\n")[1] ?? "";
-		expect(tab(press(panelOf(rooms)))).toContain("● pi-harness");
-		rooms.shown[0] = withMode(rooms.shown[0], "listening") as Room;
-		const listening = tab(press(panelOf(rooms)));
-		expect(listening).toContain("◐ pi-harness");
-		rooms.shown[0] = withMode(rooms.shown[0], "in") as Room;
-		const at = (line: string): number =>
-			visibleWidth(line.slice(0, Math.max(0, line.indexOf("backend+frontend"))));
-		expect(at(listening)).toBe(at(tab(press(panelOf(rooms)))));
-	});
-
-	test("the folder's room cannot be left or closed", () => {
-		const rooms = new Rooms(session("me", "/repo"));
-		const drawn = press(panelOf(rooms), alt("l"), alt("x"));
-		expect(rooms.calls).toEqual([]);
-		expect(drawn).not.toContain("alt+l leave");
-		expect(drawn).not.toContain("close pi-harness?");
-		expect(drawn).toContain("alt+c new room");
-	});
-
-	test("closing asks first, and only y closes", () => {
-		const rooms = new Rooms(session("me", "/repo"));
-		shared(rooms);
-		const panel = panelOf(rooms);
-		expect(press(panel, TAB, alt("x"))).toContain("close backend+frontend?");
-		press(panel, ESC);
-		expect(rooms.calls).toEqual([]);
-		press(panel, alt("x"), "y");
-		expect(rooms.calls).toEqual(["close r1"]);
-	});
-
-	test("alt+r takes the pointed agent out of a shared room", () => {
-		const rooms = new Rooms(session("me", "/repo"));
-		const here = shared(rooms);
-		session("api", "/home/x/backend").log("session.named", { handle: "api" });
-		here.sync();
-		press(panelOf(rooms), TAB, ALT_DOWN, alt("r"));
-		expect(rooms.calls).toEqual(["remove r1 session:api"]);
-	});
-
+describe("making and filling rooms", () => {
 	test("a new room starts with this session, then takes a name made of the folders", () => {
 		const me = session("me", "/repo");
 		const rooms = new Rooms(me);
@@ -434,7 +430,7 @@ describe("changing the rooms", () => {
 			},
 		);
 		const panel = panelOf(rooms);
-		const picker = press(panel, alt("c"));
+		const picker = press(panel, "n");
 		expect(picker).toContain("New room");
 		expect(picker).toContain("1 picked");
 		const filtered = press(panel, ..."backend");
@@ -448,32 +444,18 @@ describe("changing the rooms", () => {
 	});
 
 	test("a folder with no open agent cannot join", () => {
-		const rooms = new Rooms(session("me", "/repo"));
-		shared(rooms);
+		const { rooms } = busy();
 		const panel = panelOf(rooms);
-		const drawn = press(panel, TAB, alt("a"), ..."/srv/lab");
+		const drawn = press(panel, RIGHT, "a", ..."/srv/lab");
 		expect(drawn).toContain("Nothing open matches");
 		press(panel, ENTER);
 		expect(rooms.calls).toEqual([]);
 	});
 
-	test("alt+r on a pointed folder takes the folder out of the room", () => {
-		const rooms = new Rooms(session("me", "/repo"));
-		shared(rooms);
+	test("esc in the picker goes back to the grid", () => {
+		const { rooms } = busy();
 		const panel = panelOf(rooms);
-		const drawn = press(panel, TAB, ALT_DOWN, ALT_DOWN);
-		expect(drawn).toMatch(/❯ frontend\/ +1 open/);
-		expect(drawn).toContain("alt+r remove");
-		press(panel, alt("r"));
-		expect(rooms.calls).toEqual(["remove r1 folder:/home/x/frontend"]);
-	});
-
-	test("esc in the picker goes back to the room, and Alt+G closes the panel from anywhere", () => {
-		const rooms = new Rooms(session("me", "/repo"));
-		const panel = panelOf(rooms);
-		expect(press(panel, alt("c"), ESC)).toContain("message everyone");
-		press(panel, alt("c"), alt("g"));
-		expect(rooms.calls).toEqual(["closed panel"]);
+		expect(press(panel, "n", ESC)).toContain("Conversations");
 	});
 });
 

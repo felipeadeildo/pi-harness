@@ -26,7 +26,7 @@ import { pruneLine } from "./compact.ts";
 import { KEYS, openDialog, press, type, WIDTH } from "./drive.ts";
 import { drawLook, lookParts } from "./look.ts";
 import { assistantText, userMessage } from "./messages.ts";
-import { peersRoom, SHARED_ROOM } from "./peers.ts";
+import { CONVERSATIONS, peersRoom } from "./peers.ts";
 import { settingsLines } from "./settings.ts";
 import { drawView } from "./view.ts";
 
@@ -409,16 +409,16 @@ export const SCENES: readonly Scene[] = [
 	},
 	{
 		name: "peers/room",
-		caption: "Alt+G: a tab per room, what was said in the open one, and who is in it on the right.",
-		alt: "The panel over the whole screen, in a quiet frame titled Rooms, with 1 waits and 3 open on the right of the top edge. Under it a tab per room: pi-harness, open, with a flag because an agent waits on you, then backend+frontend with 1 unread. On the left the conversation, no box around any message: who joined, your request to switch the login to OAuth with the bids as bars and oauth taking it, migration's commit as a plain line, oauth asking migration about src/auth.ts and migration's answer, each a header with the time on the right, the words under it and what became of it under them, then a thin rule and the line you write in. In a column on the right the agents of the room, oauth waiting on you to push to main, migration and docs working with what each is on, and at its foot the keys that change the room.",
+		caption:
+			"Alt+G: who hears which room, who talks with whom, and what the agent under the cursor said.",
+		alt: "The panel over the whole screen, in a quiet frame titled Rooms, with oauth waiting on you and 5 open in 2 rooms on the right of the top edge. On the left a grid: a column for each room, pi-harness and backend+frontend, and a line for each folder with its agents under it. Migration, oauth and docs, this session, hear all of pi-harness; only docs hears backend+frontend, where api and client also hear all. The cursor is on migration. Under the grid the conversations, newest first: api to everyone in backend+frontend, which client and docs have not read; oauth and migration writing to each other; your request to anyone, which oauth took. Each says its room, its time, what came of its last message and its first words. On the right, migration in pi-harness and the card it is on, Move the sessions table, then your request with the bids as bars, oauth asking migration about src/auth.ts and migration's answer, each with what became of it. Along the bottom: move, space to set @name, tab to the conversations, new room, close.",
 		draw: (theme) => peersRoom(theme),
 	},
 	{
 		name: "peers/rooms",
-		caption:
-			"A shared room: its agents come from several folders, and the top says how it came to be.",
-		alt: "The same panel with the backend+frontend tab open. On the left the line saying client asked for it to agree on the /v1/fleet contract and you said yes, then api's message to everyone with how many got it, and the line you write in. In the column on the right its agents: api from backend, client from frontend, and docs, this session, then the room's keys: listen, add someone, leave, close it, new room. Along the bottom: send, next room, agents, close.",
-		draw: (theme) => peersRoom(theme, undefined, SHARED_ROOM, 18),
+		caption: "Tab moves to the conversations, and the right side follows the one under the cursor.",
+		alt: "The same panel with the cursor in the conversations, on api to everyone in backend+frontend. On the right, only that conversation: api's message that /v1/fleet now has a capacity field, and that 2 got it. Along the bottom: move, tab back to who hears, scroll, new room, close.",
+		draw: (theme) => peersRoom(theme, undefined, CONVERSATIONS),
 	},
 	{
 		name: "harness/conversation",

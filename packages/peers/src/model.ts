@@ -49,7 +49,13 @@ export interface RoomsView {
 	add(room: string, members: readonly Member[]): void;
 	remove(room: string, member: Member): void;
 	leave(room: string): void;
-	setMode(room: string | undefined, mode: RoomMode): void;
+	/** Undefined for another folder's own room. */
+	modeOf(room: string | undefined, member: { session: string; cwd: string }): RoomMode | undefined;
+	setMode(
+		room: string | undefined,
+		mode: RoomMode,
+		member?: { session: string; cwd: string },
+	): void;
 	close(room: string): void;
 	onChange(listener: () => void): () => void;
 	onMembership(listener: (change: MembershipChange) => void): () => void;

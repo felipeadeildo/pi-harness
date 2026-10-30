@@ -27,6 +27,10 @@ export class RoomFeeds {
 		return this.#rooms.values();
 	}
 
+	get(id: string): RoomOnDisk | undefined {
+		return this.#rooms.get(id);
+	}
+
 	scan(root: string = eventsRoot()): void {
 		let ids: string[];
 		try {

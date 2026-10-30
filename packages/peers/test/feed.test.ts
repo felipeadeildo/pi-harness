@@ -4,7 +4,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 
 import type { Peer, Posted, RoomItem } from "../src/folder.ts";
 import type { Named } from "../src/names.ts";
-import { feedMoving, feedView } from "../src/ui/feed.ts";
+import { feedMoving, feedView, involves } from "../src/ui/feed.ts";
 import { FRESH_MS } from "../src/ui/motion.ts";
 
 const plain = {
@@ -68,7 +68,15 @@ function draw(room: RoomItem[], only?: string): string[] {
 		live,
 		peers,
 		clock: () => "12:00",
-		only,
+		...(only === undefined
+			? {}
+			: {
+					shows: {
+						item: (item: RoomItem) => involves(item, only),
+						typing: () => false,
+						empty: `Nothing from or to ${only} yet.`,
+					},
+				}),
 	}).lines;
 }
 
@@ -172,7 +180,7 @@ describe("the room", () => {
 		// Everyone includes it; a request it did not bid on does not.
 		expect(lines.join("\n")).toContain("to everyone");
 		expect(lines.join("\n")).not.toContain("to anyone");
-		expect(draw([], "b")).toEqual(["Nothing from or to migration yet."]);
+		expect(draw([], "b")).toEqual(["Nothing from or to b yet."]);
 	});
 
 	test("a message to everyone says how many got it", () => {

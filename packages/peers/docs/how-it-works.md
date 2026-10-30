@@ -38,15 +38,15 @@ Each of these waits for the room grace setting first, 30 seconds by default, so 
 
 ### Modes
 
-Each session decides its own mode in each room, with its "When a room takes you in" setting. A setting never decides another session's mode.
+Each session opens in each room with its "When a room takes you in" setting. After that, the operator sets any agent's mode from `Alt+G`, and the agent is told on its next turn. Agents cannot change modes, theirs or anyone's.
 
-- **Takes part (`●`).** Everything said in the room reaches the agent.
-- **Listens (`◐`).** Only what names the agent reaches it. The rest waits until it takes part again. A request to `@anyone` never picks an agent that only listens.
-- **Stepped out (`○`).** Nothing reaches the agent. The room keeps its tab, so `Alt+M` brings the session back.
+- **All (`●`).** Everything said in the room reaches the agent.
+- **@name (`◐`).** Only what names the agent reaches it. The rest waits until it hears all again. A request to `@anyone` never picks such an agent.
+- **Off (`○`).** Nothing reaches the agent. For your own session, the room keeps its column, so you can turn it back on.
 
 ### Finding the right room
 
-When two sessions share several rooms, a message to `@name` goes by the folder's room, else by the room where they last talked, else by the oldest. When a name could mean two agents, the agent is told to say which room. `@everyone` and `@anyone` typed in a room in `Alt+G` stay in that room. From your chat, `@anyone` goes to the folder's room, else to the only shared room with agents. A `#room` in the message picks the room instead: everything it mentions is looked up in that room only, and a message with two different `#room` words is not sent.
+When two sessions share several rooms, a message to `@name` goes by the folder's room, else by the room where they last talked, else by the oldest. When a name could mean two agents, the agent is told to say which room. From your chat, `@anyone` goes to the folder's room, else to the only shared room with agents. A `#room` in the message picks the room instead: everything it mentions is looked up in that room only, and a message with two different `#room` words is not sent.
 
 An agent can ask to bring sessions from another folder into a room with `link` in the `peers` tool. It never brings the folder itself, because a folder is a lasting change, and those are yours. The "When an agent asks for a room" setting decides who approves it.
 

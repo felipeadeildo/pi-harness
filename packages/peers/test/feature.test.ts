@@ -359,7 +359,7 @@ async function until(done: () => boolean, tries = 100): Promise<void> {
 }
 
 describe("enter on an agent in Alt+G", () => {
-	/** Opens a's panel and moves to b's line, the only line whose hints mention writing to an agent. */
+	/** Opens a's panel, where b's line is the first under the cursor. */
 	async function onB(provide?: (address: SourceAddress) => boolean) {
 		const a = await mounted("a");
 		await mounted("b");
@@ -378,13 +378,10 @@ describe("enter on an agent in Alt+G", () => {
 		void a.fake.shortcutHandlers.get("alt+g")?.(ctx);
 		const press = (...keys: string[]) => {
 			for (const key of keys) panel?.handleInput?.(key);
-			return panel?.render(100).join("\n") ?? "";
+			return panel?.render(140).join("\n") ?? "";
 		};
-		// b's start reaches a's folder log through the watcher, a moment later.
 		await until(() => press().includes("new-b"));
-		// alt+↓ points at the other agent in the folder's room.
-		press("\u001b[1;3B");
-		return { press, close: () => press("\u001b", "\u001b") };
+		return { press, close: () => press("\u001b") };
 	}
 
 	test("shows its session, read from the file its presence entry names", async () => {
@@ -396,16 +393,9 @@ describe("enter on an agent in Alt+G", () => {
 		close();
 	});
 
-	test("writes to the agent when the one that can show sessions does not open it", async () => {
-		const { press, close } = await onB(() => false);
-		expect(press("\r")).toContain("@new-b");
-		close();
-	});
-
-	test("writes to the agent when nothing can show a session", async () => {
+	test("is not offered when nothing can show a session", async () => {
 		const { press, close } = await onB();
-		expect(press()).toContain("enter write to");
-		expect(press("\r")).toContain("@new-b");
+		expect(press()).not.toContain("enter view");
 		close();
 	});
 });

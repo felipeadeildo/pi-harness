@@ -92,6 +92,8 @@ export class Rooms implements RoomsView {
 	#wake: { at: number; timer: ReturnType<typeof setTimeout> } | undefined;
 	/** Kept in the list so `m` brings them back. */
 	readonly #steppedOut = new Set<string>();
+	/** By room id, `""` for the folder's. */
+	readonly #heard = new Map<string, RoomMode>();
 	/** So an unchanged board is not written again. */
 	#boardView = "";
 	readonly #listeners = new Set<() => void>();
@@ -161,6 +163,7 @@ export class Rooms implements RoomsView {
 		this.#inside.clear();
 		this.#feeds.stop();
 		this.#steppedOut.clear();
+		this.#heard.clear();
 		this.#home?.close();
 		this.#home = undefined;
 		removePresence(this.#session);
@@ -179,6 +182,7 @@ export class Rooms implements RoomsView {
 				else if (room.done !== true) this.#feeds.read(room);
 			}
 			this.#reconcile();
+			this.#tellHearing();
 		});
 		this.#prune();
 		this.#changed();
@@ -362,28 +366,39 @@ export class Rooms implements RoomsView {
 		this.sync();
 	}
 
-	setMode(room: string | undefined, mode: RoomMode): void {
+	modeOf(room: string | undefined, member: { session: string; cwd: string }): RoomMode | undefined {
+		if (room === undefined) {
+			if (member.cwd !== this.#cwd) return undefined;
+			return this.#home?.folder.membership.modeOf(member.session, member.cwd);
+		}
+		return this.#feeds.get(room)?.folder.membership.modeOf(member.session, member.cwd) ?? "out";
+	}
+
+	setMode(
+		room: string | undefined,
+		mode: RoomMode,
+		member?: { session: string; cwd: string },
+	): void {
 		if (this.#session === undefined) return;
-		const member = { session: this.#session, cwd: this.#cwd };
+		const target = member ?? { session: this.#session, cwd: this.#cwd };
+		const before = this.modeOf(room, target);
+		if (before === undefined || before === mode) return;
 		// Out is a removal; a session out of the folder's room works alone until it comes back.
 		if (room === undefined) {
-			if (mode === "out") this.#home?.log("room.removed", { member });
-			else if (this.#home?.mode() === "out")
-				this.#home.log("room.added", { member: { ...member }, by: "you" });
-			if (mode !== "out") this.#home?.log("room.mode", { member, mode });
+			const home = this.#home;
+			if (mode === "out") home?.log("room.removed", { member: target });
+			else if (before === "out") home?.log("room.added", { member: target, by: "you" });
+			if (mode !== "out") home?.log("room.mode", { member: target, mode });
 			this.sync();
 			return;
 		}
-		if (mode === "out") {
-			// The room stays in the list, or the operator has no way back in.
-			this.#write(room, "room.removed", { member });
-			this.#steppedOut.add(room);
-			this.sync();
-			return;
+		if (mode === "out") this.#write(room, "room.removed", { member: target });
+		else if (before === "out") this.#write(room, "room.added", { member: target, by: "you", mode });
+		else this.#write(room, "room.mode", { member: target, mode });
+		if (target.session === this.#session) {
+			if (mode === "out") this.#steppedOut.add(room);
+			else this.#steppedOut.delete(room);
 		}
-		if (this.#steppedOut.delete(room))
-			this.#write(room, "room.added", { member: { ...member }, by: "you" });
-		this.#write(room, "room.mode", { member, mode });
 		this.sync();
 	}
 
@@ -671,6 +686,20 @@ export class Rooms implements RoomsView {
 			if (room.folder.membership.closed && here === undefined && room.done !== true)
 				this.#feeds.close(room);
 		}
+	}
+
+	#tellHearing(): void {
+		const seen = new Set<string>();
+		for (const here of this.joined()) {
+			const key = here.room?.id ?? "";
+			seen.add(key);
+			const mode = here.mode();
+			const before = this.#heard.get(key);
+			this.#heard.set(key, mode);
+			if (before !== undefined && before !== mode)
+				this.#note(hearingNote(this.#nameOf(here), mode));
+		}
+		for (const key of this.#heard.keys()) if (!seen.has(key)) this.#heard.delete(key);
 	}
 
 	#join(room: RoomOnDisk): void {
@@ -998,4 +1027,15 @@ function roomName(here: Here): string {
 
 function roomLabel(here: Here): string {
 	return `one in ${roomName(here)}`;
+}
+
+function hearingNote(room: string, mode: RoomMode): string {
+	switch (mode) {
+		case "in":
+			return `The operator changed what reaches you in the room ${room}: now everything said there.`;
+		case "listening":
+			return `The operator changed what reaches you in the room ${room}: now only messages that mention you by name.`;
+		case "out":
+			return `The operator took you out of the room ${room}: nothing said there reaches you until they bring you back.`;
+	}
 }

@@ -49,8 +49,8 @@ Each column has one left edge: a list's headings, labels and rules start after t
 cells, so the marks of its rows sit under them. What is chosen also changes shape or ground, never
 only color: a card drawn heavy, a tab on `selectedBg`.
 
-The frame draws nothing of its own on the row. When the list does not have the keys, as the agents in
-the room while you write, the pointer turns `dim`.
+The frame draws nothing of its own on the row. When the list does not have the keys, as the grid
+while the rooms' conversations have them, the pointer turns `dim`.
 
 ## Shapes
 

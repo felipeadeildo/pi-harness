@@ -12,23 +12,23 @@ Open pi in two terminals in the same folder, and each agent knows what the other
 <!-- docs:peers/room -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/peers/assets/room.png" alt="The panel over the whole screen, in a quiet frame titled Rooms, with 1 waits and 3 open on the right of the top edge. Under it a tab per room: pi-harness, open, with a flag because an agent waits on you, then backend+frontend with 1 unread. On the left the conversation, no box around any message: who joined, your request to switch the login to OAuth with the bids as bars and oauth taking it, migration's commit as a plain line, oauth asking migration about src/auth.ts and migration's answer, each a header with the time on the right, the words under it and what became of it under them, then a thin rule and the line you write in. In a column on the right the agents of the room, oauth waiting on you to push to main, migration and docs working with what each is on, and at its foot the keys that change the room." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/peers/assets/room.png" alt="The panel over the whole screen, in a quiet frame titled Rooms, with oauth waiting on you and 5 open in 2 rooms on the right of the top edge. On the left a grid: a column for each room, pi-harness and backend+frontend, and a line for each folder with its agents under it. Migration, oauth and docs, this session, hear all of pi-harness; only docs hears backend+frontend, where api and client also hear all. The cursor is on migration. Under the grid the conversations, newest first: api to everyone in backend+frontend, which client and docs have not read; oauth and migration writing to each other; your request to anyone, which oauth took. Each says its room, its time, what came of its last message and its first words. On the right, migration in pi-harness and the card it is on, Move the sessions table, then your request with the bids as bars, oauth asking migration about src/auth.ts and migration's answer, each with what became of it. Along the bottom: move, space to set @name, tab to the conversations, new room, close." width="860">
   <br>
-  <em>Alt+G: a tab per room, what was said in the open one, and who is in it on the right.</em>
+  <em>Alt+G: who hears which room, who talks with whom, and what the agent under the cursor said.</em>
 </p>
 
 <!-- /docs -->
 
 ## Writing to agents
 
-Type in the room with `Alt+G`, or in your chat as usual.
+Write in your chat as usual. `Alt+G` only shows the rooms; nothing is typed there.
 
 | You write   | Who gets it                                              |
 | ----------- | -------------------------------------------------------- |
 | `@name`     | That agent                                               |
 | `@anyone`   | The agent that fits the request best, idle agents first  |
 | `@everyone` | Every agent, yours included                              |
-| no mention  | In the room, every agent. In your chat, only your agent  |
+| no mention  | Only your agent                                          |
 | `#room`     | Keeps the message in that room. Alone, every agent there |
 
 Typing `@` lists the agents, and typing `#` lists your rooms when you have more than one. A name that is not an open session, like `@src/auth.ts`, stays a file, and a `#` word that no room is called, like `#410`, stays text.
@@ -37,18 +37,26 @@ Typing `@` lists the agents, and typing `#` lists your rooms when you have more 
 
 ## The panel
 
-`Alt+G` opens the rooms over the whole screen. Each room is a tab, the conversation fills the left, and the column on the right shows who is in the room and how this session stands there. You can always type: the keys that act on a room or an agent hold `Alt`.
+`Alt+G` opens the rooms over the whole screen. The grid on the left says who hears which room: a column for each room, and a line for each folder with its agents under it. Under it, the conversations say who talks with whom, newest first. The right side shows the messages of what the cursor is on: one agent in one room, a whole room from a folder's line, or one conversation.
 
-| Key               | What it does                                                |
-| ----------------- | ----------------------------------------------------------- |
-| `Tab` `Shift+Tab` | Next or previous room                                       |
-| `Enter`           | Send                                                        |
-| `↑` `↓`           | Scroll the room                                             |
-| `Alt+↑` `Alt+↓`   | Point at an agent                                           |
-| `Enter`, pointed  | With nothing written, open that agent's session             |
-| `Alt+O`, pointed  | Show only that agent's messages, and again to show everyone |
-| `Alt+M`           | Take part, listen, or step out of the room                  |
-| `Esc`             | Let go of the agent, then close the panel                   |
+Each cell says how much of that room reaches the agent:
+
+| Cell      | What reaches the agent                                    |
+| --------- | --------------------------------------------------------- |
+| `● all`   | Everything said in the room                               |
+| `◐ @name` | Only messages that mention it by name. `@anyone` skips it |
+| `○ off`   | Nothing                                                   |
+
+You set it for any agent, not only the one of the session you opened the panel from, and that agent is told on its next turn. An empty cell is a room the agent cannot be in: another folder's own room.
+
+| Key             | What it does                                                                      |
+| --------------- | --------------------------------------------------------------------------------- |
+| `↑` `↓` `←` `→` | Move in the grid, or in the conversations                                         |
+| `Space`         | Walk the cell through all, @name and off. On a folder, bring it in or take it out |
+| `Enter`         | Open the agent's session                                                          |
+| `Tab`           | Move between the grid and the conversations                                       |
+| `PgUp` `PgDn`   | Scroll the messages                                                               |
+| `Esc`           | Close the panel                                                                   |
 
 ## Rooms across folders
 
@@ -57,22 +65,20 @@ Every folder has its own room. A shared room joins agents from several folders, 
 <!-- docs:peers/rooms -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/peers/assets/rooms.png" alt="The same panel with the backend+frontend tab open. On the left the line saying client asked for it to agree on the /v1/fleet contract and you said yes, then api's message to everyone with how many got it, and the line you write in. In the column on the right its agents: api from backend, client from frontend, and docs, this session, then the room's keys: listen, add someone, leave, close it, new room. Along the bottom: send, next room, agents, close." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/peers/assets/rooms.png" alt="The same panel with the cursor in the conversations, on api to everyone in backend+frontend. On the right, only that conversation: api's message that /v1/fleet now has a capacity field, and that 2 got it. Along the bottom: move, tab back to who hears, scroll, new room, close." width="860">
   <br>
-  <em>A shared room: its agents come from several folders, and the top says how it came to be.</em>
+  <em>Tab moves to the conversations, and the right side follows the one under the cursor.</em>
 </p>
 
 <!-- /docs -->
 
-| Key     | What it does                                     |
-| ------- | ------------------------------------------------ |
-| `Alt+C` | New room: pick folders or sessions, then name it |
-| `Alt+A` | Add a folder or a session to the open room       |
-| `Alt+R` | Remove the pointed agent or folder               |
-| `Alt+L` | Leave the open room                              |
-| `Alt+X` | Close the open room                              |
+| Key | What it does                                           |
+| --- | ------------------------------------------------------ |
+| `N` | New room: pick folders or sessions, then name it       |
+| `A` | Add a folder or a session to the room under the cursor |
+| `X` | Close the room under the cursor                        |
 
-In each room, this session takes part (`●`), only listens (`◐`) or stepped out (`○`). Listening means that only messages that name the agent reach it. A room closes on its own when nobody uses it anymore.
+A folder in a room brings in every agent opened there, today's and tomorrow's. To leave a room, set your own cell to off. A room closes on its own when nobody uses it anymore.
 
 ## When a message reaches your agent
 

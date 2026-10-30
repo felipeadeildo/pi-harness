@@ -6,9 +6,8 @@ import { join } from "node:path";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences } from "@earendil-works/pi-tui";
 
-import type { Fit } from "../src/bid.ts";
 import { Here, type Hooks } from "../src/here.ts";
-import { RoomView } from "../src/ui/room.ts";
+import { FeedPane, type PaneFocus } from "../src/ui/pane.ts";
 
 let root: string;
 let now = 1_000_000;
@@ -37,13 +36,13 @@ const plain = {
 	underline: (text: string) => text,
 } as unknown as Theme;
 
-function session(id: string, fit: Fit = { fit: 0.5, reason: "" }): Here {
+function session(id: string): Here {
 	const hooks: Hooks = {
 		events: { emit: () => {}, on: () => () => {} } as unknown as Hooks["events"],
 		sendMessage: () => {},
 		sendUserMessage: () => {},
 		idle: () => true,
-		fit: async () => fit,
+		fit: async () => ({ fit: 0.5, reason: "" }),
 		changed: () => {},
 		show: () => {},
 		now: () => now,
@@ -56,65 +55,49 @@ function session(id: string, fit: Fit = { fit: 0.5, reason: "" }): Here {
 	return here;
 }
 
-/** The room as this session sees it, with the composer focused. */
-function room(here: Here): RoomView {
-	return new RoomView({
+function pane(): FeedPane {
+	return new FeedPane({
 		theme: plain,
-		here,
 		requestRender: () => {},
-		send: () => {},
 		now: () => now,
 		clock: () => "12:00",
 	});
 }
 
-function typing(view: RoomView, text: string): string {
-	for (const char of text) view.handleInput(char);
-	return stripTerminalSequences(view.lines(100, 20, true).join("\n"));
+function everything(here: Here): PaneFocus {
+	return {
+		key: "room",
+		here,
+		title: "repo",
+		shows: { item: () => true, typing: () => true, empty: "Nothing said yet." },
+	};
 }
-
-describe("what the composer promises", () => {
-	test("a group mention is a destination, not a mistake", () => {
-		const me = session("me");
-		const drawn = typing(room(me), "@everyone deploy at six");
-		expect(drawn).toContain("→ everyone");
-		expect(drawn).not.toContain("no agent");
-	});
-
-	test("a file after the @ stays a file, as the send path reads it", () => {
-		const oauth = session("oauth");
-		oauth.log("session.named", { handle: "oauth" });
-		const me = session("me");
-		const drawn = typing(room(me), "read @oauth.ts");
-		expect(drawn).not.toContain("no agent");
-		expect(drawn).toContain("→ everyone");
-	});
-
-	test("an unknown name is still a mistake", () => {
-		const me = session("me");
-		expect(typing(room(me), "@ghost hello")).toContain("no agent ghost");
-	});
-
-	test("the list after an @ offers the group mentions the chat offers", () => {
-		const oauth = session("oauth");
-		oauth.log("session.named", { handle: "oauth" });
-		const me = session("me");
-		const drawn = typing(room(me), "@eve");
-		expect(drawn).toMatch(/❯ +everyone/);
-	});
-});
 
 describe("a room with weeks of messages", () => {
 	test("scrolling to the oldest line laid out brings older ones in and keeps the view still", () => {
 		const me = session("me");
 		for (let at = 0; at < 300; at++) me.post("all", `note ${at}`, "you");
-		const view = room(me);
-		const visible = () => stripTerminalSequences(view.lines(100, 20, false).join("\n"));
+		const view = pane();
+		const visible = () => stripTerminalSequences(view.lines(everything(me), 100, 20).join("\n"));
 		expect(visible()).toContain("note 299");
 		view.scroll(-10_000);
 		expect(visible()).toMatch(/note 100\n/);
 		view.scroll(-10_000);
 		view.scroll(-10_000);
 		expect(visible()).toContain("note 0");
+	});
+});
+
+describe("what the pane points at", () => {
+	test("a new focus starts at the newest line again, wherever the last one was scrolled", () => {
+		const me = session("me");
+		for (let at = 0; at < 60; at++) me.post("all", `note ${at}`, "you");
+		const view = pane();
+		view.lines(everything(me), 100, 20);
+		view.scroll(-10_000);
+		const other = { ...everything(me), key: "other", title: "me in repo" };
+		const drawn = stripTerminalSequences(view.lines(other, 100, 20).join("\n"));
+		expect(drawn).toStartWith("me in repo");
+		expect(drawn).toContain("note 59");
 	});
 });

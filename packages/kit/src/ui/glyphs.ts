@@ -18,6 +18,8 @@ export const GLYPH = {
 	left: "\u2190",
 	/** → to whom, from what to what. */
 	right: "\u2192",
+	/** ⇄ two agents writing to each other, in the rooms' conversations. */
+	both: "\u21c4",
 	/** ↵ enter. */
 	enter: "\u21b5",
 	/** ↻ again. */

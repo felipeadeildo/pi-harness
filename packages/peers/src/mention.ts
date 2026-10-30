@@ -14,7 +14,7 @@ export const ANYONE_MENTION = "anyone";
 
 export type Mentionable = Named & { where?: string };
 
-export function isGroupMention(name: string): boolean {
+function isGroupMention(name: string): boolean {
 	return name === EVERYONE_MENTION || name === ANYONE_MENTION;
 }
 
@@ -45,10 +45,6 @@ export function roomTagsIn(text: string): string[] {
 	return [...text.matchAll(ROOM_TAG)].map((match) =>
 		(match[1] ?? "").replace(/\.+$/, "").toLowerCase(),
 	);
-}
-
-export function typingMention(text: string): string | undefined {
-	return TYPING_PATTERN.exec(text)?.[1]?.slice(1).toLowerCase();
 }
 
 export function groupIn(mentioned: readonly string[]): "all" | "any" | undefined {

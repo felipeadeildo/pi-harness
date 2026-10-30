@@ -49,7 +49,8 @@ export interface FeedOptions {
 	/** Every session the logs know, closed ones too, so history keeps who said what. */
 	peers: ReadonlyMap<string, Peer>;
 	clock: (at: number) => string;
-	only?: string;
+	/** Narrowed: what it keeps shows whole, and nothing kept shows `empty`. */
+	shows?: { item: (item: RoomItem) => boolean; typing: (typing: Typing) => boolean; empty: string };
 	/** All of them when absent. */
 	last?: number;
 }
@@ -61,8 +62,8 @@ export function feedView(
 	options: FeedOptions,
 ): { lines: string[]; heads: (number | undefined)[]; older: boolean } {
 	const { theme } = options;
-	const shown =
-		options.only === undefined ? room : room.filter((item) => involves(item, options.only ?? ""));
+	const narrowed = options.shows;
+	const shown = narrowed === undefined ? room : room.filter(narrowed.item);
 	const lines: string[] = [];
 	const heads: (number | undefined)[] = [];
 	// `head` marks a block whose first line names the writer, kept in view when it scrolls.
@@ -120,23 +121,18 @@ export function feedView(
 		// An answer right under its question needs no quote.
 		const answered = replies.get(item.message.id);
 		const quoted = answered !== undefined && answered !== lastMessage ? answered : undefined;
-		const full = item === newest || options.only !== undefined;
+		const full = item === newest || narrowed !== undefined;
 		add(messageLines(item.message, quoted, full, options), true);
 		lastMessage = item.message;
 	}
-	const writing =
-		options.only === undefined ? typing : typing.filter((one) => one.session === options.only);
+	const writing = narrowed === undefined ? typing : typing.filter(narrowed.typing);
 	for (const one of writing) {
 		if (lines.length > 0) gap();
 		add(typingLines(one, options), true);
 	}
 	const older = first > 0;
 	if (lines.length > 0) return { lines, heads, older };
-	const narrowed = options.only === undefined ? undefined : options.names.get(options.only)?.handle;
-	const empty =
-		narrowed === undefined
-			? "Nothing said yet. Write below, or @ to mention one agent."
-			: `Nothing from or to ${narrowed} yet.`;
+	const empty = narrowed?.empty ?? "Nothing said yet.";
 	return { lines: [theme.fg("dim", empty)], heads: [undefined], older };
 }
 
@@ -455,7 +451,7 @@ function answers(room: readonly RoomItem[]): Map<string, Posted> {
 	return found;
 }
 
-function involves(item: RoomItem, session: string): boolean {
+export function involves(item: RoomItem, session: string): boolean {
 	if (item.kind === "happening") return item.happening.session === session;
 	const message = item.message;
 	if (message.session === session || message.takenBy === session) return true;

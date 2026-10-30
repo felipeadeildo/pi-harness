@@ -10,18 +10,19 @@ import { type BoardCard, type BoardView } from "../../packages/kit/src/index.ts"
 import type { Here, Hooks } from "../../packages/peers/src/here.ts";
 import { Rooms } from "../../packages/peers/src/rooms.ts";
 import { PeersPanel } from "../../packages/peers/src/ui/panel.ts";
-import { WIDTH } from "./drive.ts";
 
 /** 12:38 on the clock the picture reads. */
 const START = Date.UTC(2026, 9, 8, 12, 38);
 const SECOND = 1_000;
 
-/** The list, down past the folder's agents to the shared room. */
-export const SHARED_ROOM = ["\t", "\x1b[B", "\x1b[B", "\x1b[B", "\x1b[B"] as const;
+/** Wide enough for the grid and the messages side by side. */
+export const PANEL_WIDTH = 140;
+
+export const CONVERSATIONS = ["\t"] as const;
 
 export async function peersRoom(
 	theme: Theme,
-	width = WIDTH,
+	width = PANEL_WIDTH,
 	keys: readonly string[] = [],
 	rows = 28,
 ): Promise<string[]> {

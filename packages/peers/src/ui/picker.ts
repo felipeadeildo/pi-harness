@@ -247,7 +247,7 @@ function wrapped(theme: Theme, text: string, width: number): string[] {
 	return wrapTextWithAnsi(text, width).map((line) => theme.fg("dim", line));
 }
 
-export function scrolled(
+function scrolled(
 	lines: readonly string[],
 	keep: number,
 	height: number,

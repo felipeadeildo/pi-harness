@@ -625,7 +625,7 @@ describe("how a session stands in a room", () => {
 		expect(seen?.mode).toBe("in");
 		client.rooms.send(undefined, "@everyone who is there?");
 		sync(api);
-		expect(api.sent).toEqual([]);
+		expect(api.peers()).toEqual([]);
 		expect(client.rooms.live().map((peer) => peer.session)).toContain("api");
 		api.rooms.setMode(undefined, "in");
 		sync(api);
@@ -644,6 +644,70 @@ describe("how a session stands in a room", () => {
 		const again = session("quiet", "backend");
 		expect(again.rooms.rooms()[0]?.mode).toBe("listening");
 		expect(writtenIn(again.dir, "quiet", "room.mode")).toHaveLength(1);
+	});
+});
+
+describe("the operator sets how much another agent hears", () => {
+	const notes = (one: { sent: Sent[] }) =>
+		one.sent.filter((sent) => sent.kind === "note").map((sent) => sent.text);
+
+	test("in a shared room, through all, mentions only, off and back, and the agent is told each time", () => {
+		const api = session("api", "backend");
+		const client = session("client", "frontend");
+		const id = api.rooms.create("pair", [{ folder: api.cwd }, { folder: client.cwd }]);
+		sync(api, client);
+		const member = { session: "client", cwd: client.cwd };
+		const before = notes(client).length;
+
+		api.rooms.setMode(id, "listening", member);
+		sync(api, client);
+		expect(client.rooms.rooms().find((room) => room.id === id)?.mode).toBe("listening");
+		expect(api.rooms.modeOf(id, member)).toBe("listening");
+		expect(api.rooms.modeOf(id, { session: "api", cwd: api.cwd })).toBe("in");
+		expect(notes(client).slice(before)).toEqual([
+			"The operator changed what reaches you in the room pair: now only messages that mention you by name.",
+		]);
+
+		api.rooms.setMode(id, "out", member);
+		sync(api, client);
+		expect(api.rooms.modeOf(id, member)).toBe("out");
+		expect(client.rooms.rooms().map((room) => room.id)).not.toContain(id);
+
+		api.rooms.setMode(id, "in", member);
+		sync(api, client);
+		expect(api.rooms.modeOf(id, member)).toBe("in");
+		expect(client.rooms.rooms().find((room) => room.id === id)?.mode).toBe("in");
+		expect(api.rooms.rooms().find((room) => room.id === id)?.mode).toBe("in");
+	});
+
+	test("in the folder's room, for a session of this folder, and never for one of another folder", () => {
+		const api = session("api", "backend");
+		const worker = session("worker", "backend");
+		const client = session("client", "frontend");
+		sync(api, worker, client);
+		const member = { session: "worker", cwd: worker.cwd };
+		api.rooms.setMode(undefined, "out", member);
+		sync(api, worker);
+		expect(worker.rooms.rooms()[0]?.mode).toBe("out");
+		expect(notes(worker).at(-1)).toBe(
+			"The operator took you out of the room backend: nothing said there reaches you until they bring you back.",
+		);
+		api.rooms.setMode(undefined, "in", member);
+		sync(api, worker);
+		expect(worker.rooms.rooms()[0]?.mode).toBe("in");
+		expect(api.rooms.rooms()[0]?.mode).toBe("in");
+
+		const other = { session: "client", cwd: client.cwd };
+		expect(api.rooms.modeOf(undefined, other)).toBeUndefined();
+		const written = writtenIn(api.dir, "api", "room.removed").length;
+		api.rooms.setMode(undefined, "out", other);
+		expect(writtenIn(api.dir, "api", "room.removed")).toHaveLength(written);
+	});
+
+	test("an agent that opens listening is not told: nobody changed anything", () => {
+		const quiet = session("quiet", "backend", { opening: () => "listening" });
+		sync(quiet);
+		expect(notes(quiet).filter((text) => text.startsWith("The operator"))).toEqual([]);
 	});
 });
 
