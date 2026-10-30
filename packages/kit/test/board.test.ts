@@ -12,7 +12,14 @@ import {
 	type Board,
 	type BoardOp,
 } from "../src/board/model.ts";
-import { BOARD_PARAMETERS, boardCall, boardText, missingFor } from "../src/board/tool.ts";
+import {
+	BOARD_DESCRIPTION,
+	BOARD_GUIDELINES,
+	BOARD_PARAMETERS,
+	boardCall,
+	boardText,
+	missingFor,
+} from "../src/board/tool.ts";
 
 const at = 1;
 const blocker = { on: "operator", why: "which name?" } as const;
@@ -308,6 +315,12 @@ describe("the board tool as a provider reads it", () => {
 		expect(schema).not.toHaveProperty("anyOf");
 		expect(schema).not.toHaveProperty("oneOf");
 		expect(schema.required).toEqual(["op"]);
+	});
+
+	test("its description leaves how a card lives to the guideline, since every request carries both", () => {
+		expect(BOARD_GUIDELINES[0]).toContain("`unblock`");
+		expect(BOARD_DESCRIPTION).not.toContain("unblock");
+		expect(BOARD_DESCRIPTION.length).toBeLessThan(500);
 	});
 
 	test("every operation the model may name is in the enum, and nothing else", () => {
