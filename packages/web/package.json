@@ -1,6 +1,6 @@
 {
 	"name": "@adeildo/pi-web",
-	"version": "5.15.0",
+	"version": "6.0.0",
 	"description": "Web search, page fetching and answers from a page, from Nico Bailon's pi-web-access, pinned to a tested version and set up with the providers that measured best.",
 	"keywords": [
 		"pi",
