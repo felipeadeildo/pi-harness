@@ -438,3 +438,21 @@ test("a held line that went in with a run you did not start still says so when t
 	} as never);
 	expect(heldLine(again.fake, held?.data)).toContain("It waits for your first prompt");
 });
+
+describe("the peers tool as the model reads it", () => {
+	test("its line in the tool list does not repeat its name, which pi already writes", async () => {
+		const { fake } = await mounted("a");
+		const tool = fake.tools.find((one) => one.name === "peers");
+		expect(tool?.promptSnippet).toBe("See the other agents in this folder and message them");
+	});
+
+	test("the action is an enum, which costs fewer tokens than a union of literals", async () => {
+		const { fake } = await mounted("a");
+		const tool = fake.tools.find((one) => one.name === "peers");
+		const schema = JSON.parse(JSON.stringify(tool?.parameters)) as {
+			properties: { action: Record<string, unknown> };
+		};
+		expect(schema.properties.action.enum).toEqual(["board", "send", "link"]);
+		expect(schema.properties.action).not.toHaveProperty("anyOf");
+	});
+});
