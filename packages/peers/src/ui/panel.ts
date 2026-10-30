@@ -162,6 +162,14 @@ export class PeersPanel implements Component, Focusable {
 				lines.push(theme.fg("dim", `${GUTTER}${GUTTER}No agent is open in it.`));
 		}
 		if (rows.length === 0) lines.push(theme.fg("dim", `${GUTTER}No room yet.`));
+		if (this.#peers().length === 1)
+			lines.push(
+				"",
+				theme.fg(
+					"dim",
+					`${GUTTER}You are alone here. Open pi in another terminal in this folder, or press n to bring in another folder.`,
+				),
+			);
 		const first = Math.max(0, Math.min(chosenAt - height + 2, lines.length - height));
 		const shown = lines.slice(first, first + height);
 		return [...shown, ...Array.from({ length: height - shown.length }, () => "")];
@@ -229,7 +237,7 @@ export class PeersPanel implements Component, Focusable {
 		return `${indent}${theme.fg("warning", truncateToWidth(text, room, CUT))}`;
 	}
 
-	/** Messages the agent got for its next turn that have not gone in yet. */
+	/** Messages the agent got for its next turn since its latest run started, which took any before. */
 	#holding(row: Extract<Row, { kind: "agent" }>): Holding | undefined {
 		const folder = this.#options.view.here(row.room.id)?.folder;
 		if (folder === undefined) return undefined;
@@ -237,9 +245,10 @@ export class PeersPanel implements Component, Focusable {
 		let found = 0;
 		let why: Held | undefined;
 		let last = 0;
+		const since = Math.max(row.peer.startedAt, row.peer.ranAt ?? 0);
 		for (const message of folder.messages.values()) {
 			const received = message.received.get(session);
-			if (received?.mode !== "next-turn" || received.at < row.peer.startedAt) continue;
+			if (received?.mode !== "next-turn" || received.at < since) continue;
 			found++;
 			if (received.at >= last) {
 				last = received.at;

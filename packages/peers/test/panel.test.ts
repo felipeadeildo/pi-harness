@@ -14,9 +14,11 @@ import { addressOf, PeersPanel } from "../src/ui/panel.ts";
 
 let root: string;
 const opened: Here[] = [];
+let clock = 1_000_000;
 
 beforeEach(() => {
 	root = mkdtempSync(join(tmpdir(), "peers-panel-"));
+	clock = 1_000_000;
 	process.env.PI_HARNESS_EVENTS = root;
 });
 
@@ -51,7 +53,7 @@ function session(id: string, cwd: string): Here {
 		fit: async () => ({ fit: 0.5, reason: "" }),
 		changed: () => {},
 		show: () => {},
-		now: () => 1_000_000,
+		now: () => clock,
 		alive: () => true,
 		defer: (run) => void setTimeout(run, 0),
 	};
@@ -308,6 +310,19 @@ describe("messages an agent holds", () => {
 		expect(press(panelOf(rooms))).toContain("1 message goes in when its run ends");
 	});
 
+	test("a run that starts after the message takes it, whoever started the run", () => {
+		const { rooms, me } = busy();
+		const id = me.post([sessionOf(rooms, "oauth")], "check the callback", "agent");
+		const oauth = named("oauth", "/repo", "oauth");
+		oauth.log("message.received", { id, mode: "next-turn", held: "stopped" });
+		me.sync();
+		expect(press(panelOf(rooms))).toContain("holds 1 message");
+		clock += 1_000;
+		oauth.log("session.state", { state: "running" });
+		me.sync();
+		expect(press(panelOf(rooms))).not.toContain("holds");
+	});
+
 	test("a message that went in is held no more", () => {
 		const { rooms, me } = busy();
 		const id = me.post([sessionOf(rooms, "oauth")], "check the callback", "agent");
@@ -358,6 +373,12 @@ describe("the panel's keys", () => {
 		expect(drawn).toContain("x take backend/ out");
 		press(panel, "x");
 		expect(rooms.calls).toEqual(["remove r1 folder:/home/x/backend"]);
+	});
+
+	test("alone, the panel says how to bring in another agent", () => {
+		const rooms = new Rooms(session("me", "/repo"));
+		expect(press(panelOf(rooms))).toContain("You are alone here. Open pi in another terminal");
+		expect(press(panelOf(busy().rooms))).not.toContain("You are alone here");
 	});
 
 	test("the panel fills the screen however few rooms it has", () => {

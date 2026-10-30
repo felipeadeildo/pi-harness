@@ -28,6 +28,8 @@ export interface Peer {
 	handle?: string;
 	state: RoomActivity;
 	stateAt: number;
+	/** When its latest run started; that run took whatever waited for a next turn. */
+	ranAt?: number;
 	/** Until the operator writes here, nothing from the room wakes it. */
 	prompted?: boolean;
 	board?: BoardView;
@@ -164,6 +166,7 @@ export class Folder {
 			case "session.state": {
 				const state = (event.data as LoggedEvent<"session.state">["data"]).state;
 				if (state !== peer.state) peer.stateAt = event.at;
+				if (state === "running" && peer.state !== "running") peer.ranAt = event.at;
 				peer.state = state;
 				return;
 			}
