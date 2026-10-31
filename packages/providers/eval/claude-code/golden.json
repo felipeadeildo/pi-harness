@@ -1,6 +1,6 @@
 {
-	"version": "2.1.312",
-	"userAgent": "claude-cli/2.1.312 (external, cli)",
+	"version": "2.1.316",
+	"userAgent": "claude-cli/2.1.316 (external, cli)",
 	"entrypoint": "cli",
 	"identity": "You are Claude Code, Anthropic's official CLI for Claude.",
 	"system": [
@@ -17,7 +17,7 @@
 			"cacheControl": true
 		},
 		{
-			"length": 4692,
+			"length": 4735,
 			"cacheControl": true
 		}
 	],
