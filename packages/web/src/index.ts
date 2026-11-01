@@ -6,7 +6,6 @@ import {
 	type ExtensionAPI,
 	type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
-import webAccess from "pi-web-access/dist/index.js";
 
 import { applyDefaults, readDecided, webSearchConfigPath, writeDecided } from "./config.ts";
 import { ANSWER_MODELS, type AnswerModel } from "./defaults.ts";
@@ -30,7 +29,7 @@ export function webFeature(options: WebOptions = {}) {
 			const standalone = standaloneSource(
 				(options.packages ?? (() => installedPackages(process.cwd())))(),
 			);
-			if (standalone === undefined) (options.mount ?? webAccess)(scope);
+			if (standalone === undefined) (options.mount ?? loadWebAccess())(scope);
 			const decidedPath =
 				options.decidedPath ?? join(getAgentDir(), "extensions", "pi-harness", "web.json");
 			scope.onSessionStart((ctx) =>
@@ -45,6 +44,15 @@ export function webFeature(options: WebOptions = {}) {
 }
 
 export const web = webFeature();
+
+/**
+ * A `require`, not an `import`: pi's loader then compiles pi-web-access and hands it pi's own
+ * modules. An import runs it natively, and it loads a second copy of pi wherever one is installed.
+ */
+function loadWebAccess(): (pi: ExtensionAPI) => void {
+	const loaded = require("pi-web-access/dist/index.js") as { default: (pi: ExtensionAPI) => void };
+	return loaded.default;
+}
 
 function setUp(
 	scope: FeatureScope,
