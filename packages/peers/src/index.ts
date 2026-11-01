@@ -312,6 +312,8 @@ export const peers = defineFeature({
 		scope.on("agent_start", () => rooms.started());
 		scope.on("agent_settled", () => rooms.settled());
 		scope.on("input", (event, ctx) => {
+			if (event.source !== "interactive" && rooms.handedIn(event.text))
+				return { action: "continue" };
 			// A person typing on a phone mentions agents the way they do at the terminal.
 			const typed =
 				event.source === "interactive" || PROMPT_FROM.current(scope, event.text) !== undefined;

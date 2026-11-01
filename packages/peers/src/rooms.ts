@@ -250,6 +250,10 @@ export class Rooms implements RoomsView {
 		for (const here of this.joined()) here.prompted();
 	}
 
+	handedIn(text: string): boolean {
+		return this.#inbox.handedIn(text);
+	}
+
 	started(): void {
 		this.#inbox.started();
 		this.#state = "running";

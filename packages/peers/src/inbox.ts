@@ -93,6 +93,8 @@ export class Inbox {
 	#held: Arrival[][] = [];
 	/** With a prompt here or from another session. */
 	#yours = false;
+	/** Your words the room is handing in, by text. */
+	readonly #handing = new Map<string, number>();
 	#wokenBy: string | undefined;
 	#released = false;
 	#releaseWhenIdle = false;
@@ -177,9 +179,19 @@ export class Inbox {
 		this.#shown.clear();
 		this.#held = [];
 		this.#yours = false;
+		this.#handing.clear();
 		this.#wokenBy = undefined;
 		this.#released = false;
 		this.#releaseWhenIdle = false;
+	}
+
+	/** Your @everyone comes back here too: posting it again would loop. */
+	handedIn(text: string): boolean {
+		const count = this.#handing.get(text);
+		if (count === undefined) return false;
+		if (count === 1) this.#handing.delete(text);
+		else this.#handing.set(text, count - 1);
+		return true;
 	}
 
 	queued(): Waiting[] {
@@ -307,9 +319,12 @@ export class Inbox {
 		// Your words are never held back.
 		const { mode } = this.#modeFor(arrivals, false);
 		if (mode !== "next-turn" && this.#hooks.idle()) this.#yours = true;
-		const texts = inOrder(arrivals).map(({ message }) => message.text);
+		const text = inOrder(arrivals)
+			.map(({ message }) => message.text)
+			.join("\n\n");
+		this.#handing.set(text, (this.#handing.get(text) ?? 0) + 1);
 		// `deliverAs` matters only while the agent runs; pass it anyway, since a run may start in between.
-		this.#hooks.sendUserMessage(texts.join("\n\n"), {
+		this.#hooks.sendUserMessage(text, {
 			deliverAs: mode === "steered" ? "steer" : "followUp",
 		});
 		this.#handed(arrivals, mode);

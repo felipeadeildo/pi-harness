@@ -202,6 +202,27 @@ test("a prompt a person sent from a phone routes its mentions; one an extension 
 	}
 });
 
+test("an @everyone sent from a phone comes back to yours once, and is not posted again", async () => {
+	const a = await mounted("a");
+	const b = await mounted("b");
+	const phone = { kind: "client", name: "phone", machine: "m" } as const;
+	const stop = PROMPT_FROM.provide({ events: a.fake.pi.events, warn: () => {} }, (text) =>
+		text === "@everyone ship it" ? phone : undefined,
+	);
+	try {
+		const fire = (text: string) => a.fake.fire("input", { text, source: "extension" }, a.ctx);
+		expect(await fire("@everyone ship it")).toEqual([{ action: "handled" }]);
+		expect(a.fake.userMessages).toEqual(["@everyone ship it"]);
+		// The words come back through the input handlers.
+		expect(await fire("@everyone ship it")).toEqual([{ action: "continue" }]);
+		await b.fake.fire("input", { text: "go on", source: "interactive" }, b.ctx);
+		expect(posted()).toMatchObject([{ session: "a", to: "all", text: "@everyone ship it" }]);
+		expect(b.fake.userMessages).toEqual(["@everyone ship it"]);
+	} finally {
+		stop();
+	}
+});
+
 test("@everyone tells every agent, yours too, @anyone asks for one, and a file stays yours", async () => {
 	const a = await mounted("a");
 	const b = await mounted("b");
