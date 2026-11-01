@@ -144,11 +144,14 @@ bun test                      # everything
 bun test ./packages/look      # one package
 bun run perf                  # the redraw guard on its own
 bun run bench:typing          # what one keystroke costs on a real session, with the profile of the window
+bun run bench:memory          # the memory the harness adds to an idle pi, against a budget
 ```
 
 `@adeildo/pi-kit/testing` fakes pi, a scope and a context, and two fakes on one event bus behave like two extensions in the same process. A test file for a package, a feature or a single rule is the unit here: the rule is what the test names, and the failing case matters more than the happy one.
 
 `packages/look/test/perf.test.ts` counts the colour calls of a component that is drawn again without changing, and fails when it is painted twice. That is what keeps typing cheap: a redraw that changes nothing must not cost the terminal anything. It runs in `verify` (so, in CI and on a push) and as the `perf` step of a commit.
+
+`bench:memory` runs the installed pi, since the repository's own copy of pi hides the worst case: a dependency that loads a second copy of pi. Run it after adding a dependency.
 
 ## The pictures in the docs
 
