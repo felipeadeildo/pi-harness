@@ -699,13 +699,16 @@ export class Rooms implements RoomsView {
 	#reconcile(): void {
 		const me = this.#session;
 		if (me === undefined) return;
+		let open: Set<string> | undefined;
 		for (const room of this.#feeds.values()) {
 			const here = this.#inside.get(room.id);
 			const member = room.folder.membership.includes(me, this.#cwd);
 			if (member && here === undefined) this.#join(room);
 			else if (!member && here !== undefined) this.#leave(room);
-			if (room.folder.membership.closed && here === undefined && room.done !== true)
-				this.#feeds.close(room);
+			if (room.folder.membership.closed && here === undefined && room.done !== true) {
+				open ??= new Set(this.live().map((entry) => entry.session));
+				this.#feeds.close(room, open);
+			}
 		}
 	}
 

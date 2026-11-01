@@ -1,6 +1,6 @@
 // One feed per room on disk, watched. A room's logs are read even when this session is not in it:
 // that is how it learns it was added.
-import { readdirSync } from "node:fs";
+import { readdirSync, rmSync } from "node:fs";
 
 import { eventsRoot, FolderFeed, roomDir, roomsDir } from "@adeildo/pi-kit";
 
@@ -52,13 +52,32 @@ export class RoomFeeds {
 		room.folder.apply(room.feed.read());
 	}
 
-	close(room: RoomOnDisk): void {
+	/** A closed room leaves the disk once none of its writers is open. */
+	close(room: RoomOnDisk, open: ReadonlySet<string>): void {
 		room.stop();
 		room.done = true;
+		if (writersOf(room.feed.dir).some((session) => open.has(session))) return;
+		try {
+			rmSync(room.feed.dir, { recursive: true, force: true });
+			this.#rooms.delete(room.id);
+		} catch {
+			// The next session tries again.
+		}
 	}
 
 	stop(): void {
 		for (const room of this.#rooms.values()) room.stop();
 		this.#rooms.clear();
+	}
+}
+
+/** Each session writes only its own file, named after it. */
+function writersOf(dir: string): string[] {
+	try {
+		return readdirSync(dir)
+			.filter((name) => name.endsWith(".jsonl"))
+			.map((name) => name.slice(0, -".jsonl".length));
+	} catch {
+		return [];
 	}
 }

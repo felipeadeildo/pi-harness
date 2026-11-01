@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -430,6 +430,20 @@ describe("a shared room", () => {
 		sync(api, client);
 		expect(api.rooms.rooms()).toHaveLength(1);
 		expect(api.changes.at(-1)).toMatchObject({ kind: "left", reason: "closed" });
+	});
+
+	test("a closed room leaves the disk once none of its agents is open", () => {
+		const api = session("api", "backend");
+		const client = session("client", "frontend");
+		const id = api.rooms.create("backend+frontend", [{ folder: api.cwd }, { folder: client.cwd }]);
+		sync(api, client);
+		client.rooms.close(id);
+		sync(api, client);
+		expect(existsSync(roomDir(id))).toBe(true);
+		api.rooms.end();
+		client.rooms.end();
+		sync(session("later", "backend"));
+		expect(existsSync(roomDir(id))).toBe(false);
 	});
 
 	test("closes once its open agents all work in one folder, after the grace", () => {

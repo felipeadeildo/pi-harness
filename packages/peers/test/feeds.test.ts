@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -49,11 +49,22 @@ describe("the rooms on disk", () => {
 		const feeds = new RoomFeeds(() => {});
 		feeds.scan(disk("a", "b"));
 		const [first, second] = [...feeds.values()];
-		feeds.close(first!);
+		feeds.close(first!, new Set(["log"]));
 		expect(first!.done).toBe(true);
 		expect(second!.done).toBeUndefined();
 		feeds.stop();
 		expect([...feeds.values()]).toEqual([]);
+	});
+
+	test("a closed room none of whose writers is open leaves the disk", () => {
+		const root = disk("a", "b");
+		const feeds = new RoomFeeds(() => {});
+		feeds.scan(root);
+		const [first] = [...feeds.values()];
+		feeds.close(first!, new Set(["someone-else"]));
+		expect(existsSync(join(root, "rooms", first!.id))).toBe(false);
+		expect([...feeds.values()]).toHaveLength(1);
+		feeds.stop();
 	});
 
 	test("a folder that is not there is no room at all, and scanning says so quietly", () => {
