@@ -24,6 +24,7 @@ import { doing, stateOf, waiting } from "./cards.ts";
 import {
 	Folder,
 	folds,
+	KEEP_MESSAGES,
 	livePeers,
 	type Peer,
 	type Posted,
@@ -280,6 +281,9 @@ export class Here implements Sender {
 			return;
 		}
 		this.#folder.apply(fresh);
+		if (this.#delivered.size > KEEP_MESSAGES * 2)
+			for (const id of this.#delivered)
+				if (!this.#folder.messages.has(id)) this.#delivered.delete(id);
 		// After applying, so a colleague that just logged shows up in the note.
 		this.#announce();
 		for (const event of fresh) {

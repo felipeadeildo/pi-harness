@@ -14,6 +14,9 @@ import {
 import { Membership } from "./membership.ts";
 
 const KEEP_RUNS = 5;
+/** How much of a room's history stays in memory: plenty for the board and the panel. */
+export const KEEP_MESSAGES = 200;
+const KEEP_ITEMS = 500;
 
 export interface Peer {
 	session: string;
@@ -133,6 +136,16 @@ export class Folder {
 	apply(events: readonly LoggedEvent[]): void {
 		if (events.length > 0) this.version++;
 		for (const event of events) this.#apply(event);
+		this.#forget();
+	}
+
+	/** Drops the oldest messages and lines, so a long or flooded room does not grow without end. */
+	#forget(): void {
+		for (const id of this.messages.keys()) {
+			if (this.messages.size <= KEEP_MESSAGES) break;
+			this.messages.delete(id);
+		}
+		if (this.room.length > KEEP_ITEMS) this.room.splice(0, this.room.length - KEEP_ITEMS);
 	}
 
 	#apply(event: LoggedEvent): void {
