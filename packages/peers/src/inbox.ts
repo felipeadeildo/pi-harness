@@ -135,7 +135,7 @@ export class Inbox {
 		if (held.length === 0 || yours) return;
 		const messages = held.flatMap((arrival) => arrival.messages);
 		// The operator letting them through starts the chain again, as a prompt does.
-		this.#depth = released ? 0 : Math.max(this.#depth, ...messages.map(runDepth));
+		this.#depth = released ? 0 : Math.max(this.#depth, deepest(messages));
 		for (const { from, messages: theirs } of held) from.handed(theirs, "woke");
 		this.#hooks.wentIn?.(
 			messages.map((message) => message.id),
@@ -340,7 +340,7 @@ export class Inbox {
 			if (messages.some((message) => message.from !== "you")) this.#steers++;
 			return;
 		}
-		this.#depth = Math.max(...messages.map(runDepth));
+		this.#depth = deepest(messages);
 		this.#steers = 0;
 	}
 
@@ -382,6 +382,13 @@ function inOrder(arrivals: readonly Arrival[]): { from: Sender; message: Posted 
 /** Your words start a chain; a colleague's message adds one. */
 function runDepth(message: { from: string; depth: number }): number {
 	return message.from === "you" ? 0 : message.depth + 1;
+}
+
+/** Not `Math.max(...)`: many messages overflow the stack. */
+function deepest(messages: readonly { from: string; depth: number }[]): number {
+	let depth = 0;
+	for (const message of messages) depth = Math.max(depth, runDepth(message));
+	return depth;
 }
 
 function sendOptions(mode: Delivery): {

@@ -281,7 +281,8 @@ export class FolderFeed {
 			const path = join(this.#dir, name);
 			const { events, offset } = readFrom(path, this.#offsets.get(path) ?? 0, this.#wanted);
 			this.#offsets.set(path, offset);
-			fresh.push(...events);
+			// Not a spread: a big log overflows the stack.
+			for (const event of events) fresh.push(event);
 		}
 		return fresh.toSorted((a, b) => a.at - b.at || a.id.localeCompare(b.id));
 	}

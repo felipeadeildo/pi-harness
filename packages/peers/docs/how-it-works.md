@@ -36,6 +36,8 @@ A room ends when nobody uses it:
 
 Each of these waits for the room grace setting first, 30 seconds by default, so a reload or a restart keeps the room.
 
+A closed room's logs stay until none of the sessions that wrote in them is open. Then the next session that opens deletes them, so it doesn't read them again.
+
 ### Modes
 
 Each session opens in each room with its "When a room takes you in" setting. After that, the operator sets any agent's mode from `Alt+G`, and the agent is told on its next turn. Agents cannot change modes, theirs or anyone's.
