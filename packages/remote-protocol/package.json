@@ -1,6 +1,6 @@
 {
 	"name": "@adeildo/pi-remote-protocol",
-	"version": "5.15.0",
+	"version": "6.0.0",
 	"description": "What crosses a process in pi-remote, and what a client holds of it: the envelope, the state changes and their reducers, and under `/client` the connection, the cache and the session rebuilt from them. No pi and no kit behind them, so a browser runs it.",
 	"license": "MIT",
 	"author": {
