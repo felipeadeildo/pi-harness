@@ -15,7 +15,6 @@ import {
 	PEERS,
 	PROMPT_FROM,
 } from "@adeildo/pi-kit";
-import { Type } from "@earendil-works/pi-ai";
 import type {
 	AgentToolResult,
 	ExtensionAPI,
@@ -23,6 +22,7 @@ import type {
 	ExtensionToolContext,
 } from "@earendil-works/pi-coding-agent";
 import { Key } from "@earendil-works/pi-tui";
+import { Type } from "typebox";
 
 import { fitFor } from "./bid.ts";
 import { boardText } from "./board.ts";

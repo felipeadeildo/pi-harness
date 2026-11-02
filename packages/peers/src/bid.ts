@@ -1,7 +1,8 @@
 // How well this session fits a request to everyone, judged by a small model from what the session
 // is doing and what it touched. The agent itself is never interrupted to bid.
-import { type Api, type Model, type Tool, Type } from "@earendil-works/pi-ai";
+import type { Api, Model, Tool } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
 
 import type { Peer } from "./folder.ts";
 

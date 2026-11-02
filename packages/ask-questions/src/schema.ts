@@ -1,7 +1,7 @@
 // Ported from rpiv-ask-user-question. The schema is what pi validates; the types are the kit
 // contract, so an agent question and a permission question are the same shape everywhere.
 import type { AskOption, AskQuestion } from "@adeildo/pi-kit";
-import { Type } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 
 export const TOOL_NAME = "ask_questions";
 

@@ -83,6 +83,9 @@ async function mounted() {
 }
 
 /** Marks each color by name, so a test reads which ones a chip used. */
+/** The key formatting pi hands a renderer, which these tests never draw. */
+const KEYS = { keyText: () => "", keyHint: () => "" };
+
 const FAKE_THEME = {
 	fg: (color: string, text: string) => `<${color}>${text}</>`,
 	bg: (color: string, text: string) => `[${color}]${text}[/]`,
@@ -158,8 +161,12 @@ describe("in the chat", () => {
 		const message = { role: "custom", ...sent[0]!.message, timestamp: 0 } as never;
 		const theme = FAKE_THEME as never;
 
-		expect(render(message, { expanded: false, outputPad: 1 }, theme)?.render(80)).toEqual([]);
-		const open = render(message, { expanded: true, outputPad: 1 }, theme)!.render(80).join("\n");
+		expect(render(message, { expanded: false, outputPad: 1, ...KEYS }, theme)?.render(80)).toEqual(
+			[],
+		);
+		const open = render(message, { expanded: true, outputPad: 1, ...KEYS }, theme)!
+			.render(80)
+			.join("\n");
 		expect(open).toContain("Make it simpler.");
 		expect(open).toContain("Remove the slop.");
 	});

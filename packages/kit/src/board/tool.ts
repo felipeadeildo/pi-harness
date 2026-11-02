@@ -1,5 +1,5 @@
 // One call, one operation. A card is a deliverable others can ask about and check; steps of the work are not cards.
-import { Type } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 
 import { applyBoard, blockedText, findBoard, type Board, type BoardOp } from "./model.ts";
 

@@ -48,9 +48,12 @@ describe("several calls in one message, as pi draws them", () => {
 	test("a finished call is not drawn again by pi while the others stream", () => {
 		const h = harness(cwd);
 		h.stream({ id: "w1", name: "write", args: { path: "one.py", content: code(300) } });
+		// Pi applies new arguments at the next frame, so a frame is drawn after each piece.
+		const frame = () => void h.render("w1");
+		frame();
 		const before = h.asked("w1");
-		h.stream({ id: "w2", name: "write", args: { path: "two.py", content: code(300) } }, 20);
-		// The second call took hundreds of pieces, and every one of them handed the first its arguments.
+		h.stream({ id: "w2", name: "write", args: { path: "two.py", content: code(300) } }, 20, frame);
+		// The second call took hundreds of pieces, and every frame after one handed the first its arguments.
 		expect(h.renders("w1")).toBeGreaterThan(200);
 		expect(h.asked("w1")).toBe(before);
 		// It is not left writing to stay cheap: pi drew it once it was written, as it draws it now.

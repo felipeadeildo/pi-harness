@@ -5,7 +5,8 @@
 // bun packages/compact/eval/server.ts [--model anthropic/claude-haiku-5-5] [--off] [--inputs]
 import { parseArgs } from "node:util";
 
-import { type AssistantMessage, type Message, Type } from "@earendil-works/pi-ai";
+import type { AssistantMessage, Message } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 
 import { modelNamed, signedIn } from "./signin.ts";
 

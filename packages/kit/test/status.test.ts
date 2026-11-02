@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import { fauxAssistantMessage, fauxToolCall, Type } from "@earendil-works/pi-ai";
+import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import { createEventBus, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
 
 import { ASK, CANCEL } from "../src/contracts/ask.ts";
 import { createRig, type Rig } from "../src/rig.ts";

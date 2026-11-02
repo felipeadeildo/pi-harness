@@ -443,11 +443,14 @@ test("a commit line is read from git's output, with or without a root-commit not
 	expect(committed("nothing to commit")).toBeUndefined();
 });
 
+/** The key formatting pi hands a renderer, which these tests never draw. */
+const KEYS = { keyText: () => "", keyHint: () => "" };
+
 /** What the held entry says under its frames, drawn by the renderer the feature registered. */
 function heldLine(fake: ReturnType<typeof fakePi>, data: unknown): string {
 	const renderer = fake.renderers.get(PEER_HELD);
 	const theme = { fg: (_color: string, text: string) => text, bold: (text: string) => text };
-	const block = renderer?.({ data } as never, { expanded: false }, theme as never);
+	const block = renderer?.({ data } as never, { expanded: false, ...KEYS }, theme as never);
 	return (block?.render(200) ?? []).join("\n");
 }
 
