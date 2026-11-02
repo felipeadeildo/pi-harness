@@ -1,11 +1,16 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { type CallRuling, createApp, RULING } from "@adeildo/pi-kit";
 import { fakePi } from "@adeildo/pi-kit/testing";
-import type { AgentToolResult, Theme, ToolRenderers } from "@earendil-works/pi-coding-agent";
+import {
+	type AgentToolResult,
+	initTheme,
+	type Theme,
+	type ToolRenderers,
+} from "@earendil-works/pi-coding-agent";
 import { Container, stripTerminalSequences, Text } from "@earendil-works/pi-tui";
 
 import { look } from "../src/index.ts";
@@ -297,6 +302,9 @@ describe("the frame around a tool call", () => {
 });
 
 describe("an edit or a write while the model writes it", () => {
+	// Pi's highlighter paints with its global theme.
+	beforeAll(() => initTheme("dark", false));
+
 	function streaming(toolName: string, args: unknown, overrides: Record<string, unknown> = {}) {
 		const fake = fakePi();
 		createApp(fake.pi, { name: "look" }).use(look).build();
@@ -320,7 +328,6 @@ describe("an edit or a write while the model writes it", () => {
 		});
 		const call = chain?.renderCall?.(args, theme, ctx);
 		if (call === undefined) throw new Error("no call component");
-		// Pi's highlighter paints with its global theme, which another test file may have set first.
 		const lines = call.render(72).map((line) => stripTerminalSequences(line).trimEnd());
 		return { lines, asked: () => asked };
 	}
