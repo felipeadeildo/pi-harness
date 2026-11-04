@@ -4,7 +4,7 @@
 // and it refuses newer models to a version it considers too old. `turn` marks the features a turn
 // of Claude Code's TUI asks for, which is the side the settings screen offers.
 
-export const CLAUDE_CODE_VERSION = "2.1.316";
+export const CLAUDE_CODE_VERSION = "2.1.318";
 
 export const CLAUDE_CODE_FEATURES = [
 	{
@@ -178,6 +178,12 @@ export const CLAUDE_CODE_FEATURES = [
 		description: "Only used on the code runner endpoints, so a reply is unaffected.",
 	},
 	{
+		name: "ccr_tool_provenance",
+		header: "tool-provenance-2026-10-26",
+		turn: false,
+		description: "Nothing in this build says what it does.",
+	},
+	{
 		name: "per_message_effort",
 		header: "per-turn-control-2026-07-01",
 		turn: true,
@@ -210,6 +216,12 @@ export const CLAUDE_CODE_FEATURES = [
 		description: "Travels with `fallbacks`.",
 	},
 	{
+		name: "program_use_case_ids",
+		header: "program-use-case-ids-2026-09-17",
+		turn: false,
+		description: "Nothing in this build says what it does.",
+	},
+	{
 		name: "server_side_fallback_category",
 		header: "server-side-fallback-2026-07-01",
 		turn: false,
@@ -227,6 +239,12 @@ export const CLAUDE_CODE_FEATURES = [
 		header: "auto-mode-classifier-2026-07-16",
 		turn: false,
 		description: "The classifier that decides the auto mode.",
+	},
+	{
+		name: "claude_code_side_query",
+		header: "claude-code-side-query-2026-09-29",
+		turn: false,
+		description: "Nothing in this build says what it does.",
 	},
 	{
 		name: "dangerous_tool_use",
