@@ -65,6 +65,8 @@ const NOTES: Record<string, string> = {
 	"files-api-2025-04-14": "only used on the Files endpoints, so a reply is unaffected",
 	"environments-2025-11-01": "only used on the environments endpoints, so a reply is unaffected",
 	"ccr-byoc-2025-07-29": "only used on the code runner endpoints, so a reply is unaffected",
+	"tool-provenance-2026-10-26":
+		"travels with `x-cc-internal-tool-provenance-server-url`, the URLs of the servers behind the tools",
 	"per-turn-control-2026-07-01": "travels with the per turn control fields",
 	"timing-2026-09-09": "asks the reply to say how long the request took",
 	"mid-conversation-tool-changes-2026-07-01":
@@ -72,9 +74,12 @@ const NOTES: Record<string, string> = {
 	"inline-tools-2026-09-15":
 		"tool definitions travel inside the messages instead of the `tools` field",
 	"server-side-fallback-2026-06-01": "travels with `fallbacks`",
+	"program-use-case-ids-2026-09-17": "travels with `program_use_case_id`, which names the use case",
 	"server-side-fallback-2026-07-01": "travels with `fallbacks`, by category",
 	"fallback-credit-2026-06-01": "counts a fallback against a credit",
 	"auto-mode-classifier-2026-07-16": "the classifier that decides the auto mode",
+	"claude-code-side-query-2026-09-29":
+		"only on the side queries beside a turn, so a reply is unaffected",
 	"dangerous-tool-use-2026-09-03": "travels with `safeguards`",
 	"thinking-display-updates-2026-08-18": "streams updates to how thinking is displayed",
 	"message-threads-2026-08-12": "only used on the thread endpoints, so a reply is unaffected",

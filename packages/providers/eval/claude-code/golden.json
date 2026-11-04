@@ -1,6 +1,6 @@
 {
-	"version": "2.1.316",
-	"userAgent": "claude-cli/2.1.316 (external, cli)",
+	"version": "2.1.318",
+	"userAgent": "claude-cli/2.1.318 (external, cli)",
 	"entrypoint": "cli",
 	"identity": "You are Claude Code, Anthropic's official CLI for Claude.",
 	"system": [
@@ -17,7 +17,7 @@
 			"cacheControl": true
 		},
 		{
-			"length": 4735,
+			"length": 4812,
 			"cacheControl": true
 		}
 	],
@@ -196,6 +196,12 @@
 			"description": "Only used on the code runner endpoints, so a reply is unaffected."
 		},
 		{
+			"name": "ccr_tool_provenance",
+			"header": "tool-provenance-2026-10-26",
+			"turn": false,
+			"description": "Travels with `x-cc-internal-tool-provenance-server-url`, the URLs of the servers behind the tools."
+		},
+		{
 			"name": "per_message_effort",
 			"header": "per-turn-control-2026-07-01",
 			"turn": true,
@@ -226,6 +232,12 @@
 			"description": "Travels with `fallbacks`."
 		},
 		{
+			"name": "program_use_case_ids",
+			"header": "program-use-case-ids-2026-09-17",
+			"turn": false,
+			"description": "Travels with `program_use_case_id`, which names the use case."
+		},
+		{
 			"name": "server_side_fallback_category",
 			"header": "server-side-fallback-2026-07-01",
 			"turn": false,
@@ -242,6 +254,12 @@
 			"header": "auto-mode-classifier-2026-07-16",
 			"turn": false,
 			"description": "The classifier that decides the auto mode."
+		},
+		{
+			"name": "claude_code_side_query",
+			"header": "claude-code-side-query-2026-09-29",
+			"turn": false,
+			"description": "Only on the side queries beside a turn, so a reply is unaffected."
 		},
 		{
 			"name": "dangerous_tool_use",
