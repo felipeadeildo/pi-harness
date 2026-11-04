@@ -181,7 +181,8 @@ export const CLAUDE_CODE_FEATURES = [
 		name: "ccr_tool_provenance",
 		header: "tool-provenance-2026-10-26",
 		turn: false,
-		description: "Nothing in this build says what it does.",
+		description:
+			"Travels with `x-cc-internal-tool-provenance-server-url`, the URLs of the servers behind the tools.",
 	},
 	{
 		name: "per_message_effort",
@@ -219,7 +220,7 @@ export const CLAUDE_CODE_FEATURES = [
 		name: "program_use_case_ids",
 		header: "program-use-case-ids-2026-09-17",
 		turn: false,
-		description: "Nothing in this build says what it does.",
+		description: "Travels with `program_use_case_id`, which names the use case.",
 	},
 	{
 		name: "server_side_fallback_category",
@@ -244,7 +245,7 @@ export const CLAUDE_CODE_FEATURES = [
 		name: "claude_code_side_query",
 		header: "claude-code-side-query-2026-09-29",
 		turn: false,
-		description: "Nothing in this build says what it does.",
+		description: "Only on the side queries beside a turn, so a reply is unaffected.",
 	},
 	{
 		name: "dangerous_tool_use",
