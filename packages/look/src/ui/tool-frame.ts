@@ -24,13 +24,14 @@ import { editBody } from "../render/diff.ts";
 import { tabs } from "../render/format.ts";
 import { type IconSet, glyphsOf } from "../render/glyphs.ts";
 import { pathLine, type Stream, STREAMERS } from "../render/streaming.ts";
-import { stateMark, toolIcon, toolLabel } from "../render/tools.ts";
+import { type CallPhase, stateMark, toolIcon, toolLabel } from "../render/tools.ts";
 import { icons } from "../settings.ts";
 
-type Phase = "writing" | "waiting" | "running" | "done" | "failed";
+type Phase = CallPhase | "interrupted";
 
 const PHASE_COLORS = {
 	writing: "muted",
+	interrupted: "muted",
 	waiting: "accent",
 	running: "accent",
 	done: "success",
@@ -43,6 +44,7 @@ const RESULT_PREVIEW_LINES = 10;
 export function registerToolFrames(scope: FeatureScope): void {
 	const redraws = new Map<string, () => void>();
 	const written = new Map<string, number>();
+	const streamed = new Set<string>();
 	// Asked for on every drawing, and it changes only with the setting.
 	const set = glyphsOf(() => icons.get(scope));
 	CALLS_FRAMED.provide(scope, () => true);
@@ -51,7 +53,11 @@ export function registerToolFrames(scope: FeatureScope): void {
 	scope.on("message_update", (event) => {
 		const update = event.assistantMessageEvent;
 		if (update.type === "toolcall_end") written.set(update.toolCall.id, Date.now());
+		if (event.message.role !== "assistant") return;
+		for (const block of event.message.content)
+			if (block.type === "toolCall") streamed.add(block.id);
 	});
+	scope.on("message_end", () => streamed.clear());
 
 	scope.registerToolRenderer((toolName, next) =>
 		framed(scope, next(), {
@@ -59,6 +65,7 @@ export function registerToolFrames(scope: FeatureScope): void {
 			set: () => set().set,
 			redraws,
 			written,
+			streamed,
 		}),
 	);
 }
@@ -68,6 +75,7 @@ interface FrameContext {
 	set: () => IconSet;
 	redraws: Map<string, () => void>;
 	written: Map<string, number>;
+	streamed: ReadonlySet<string>;
 }
 
 function framed(
@@ -100,10 +108,12 @@ function framed(
 				context.argsComplete ||
 				context.executionStarted ||
 				!context.isPartial;
-			if (!done) clock.writingAt ??= now;
-			else clock.writtenAt ??= ended ?? now;
+			// Pi replays a call that has no result as if the model were still writing it.
+			const interrupted = !done && !frame.streamed.has(context.toolCallId);
+			if (done) clock.writtenAt ??= ended ?? now;
+			else if (!interrupted) clock.writingAt ??= now;
 			if (context.executionStarted) clock.startedAt ??= now;
-			const writing = clock.writtenAt === undefined;
+			const writing = !interrupted && clock.writtenAt === undefined;
 			const ruling = RULING.current(scope, context.toolCallId);
 
 			// Pi hands every call its arguments again on each piece the model writes, so an unchanged call keeps its frame.
@@ -112,6 +122,7 @@ function framed(
 				theme,
 				ruling,
 				writing,
+				interrupted,
 				context.expanded,
 				context.isPartial,
 				context.executionStarted,
@@ -151,7 +162,7 @@ function framed(
 					body,
 					ruling,
 					expanded: context.expanded,
-					phase: phaseOf(context, writing),
+					phase: interrupted ? "interrupted" : phaseOf(context, writing),
 					mark: stateMark,
 					set: frame.set,
 					progress: writing ? stream?.progress : undefined,
@@ -300,7 +311,7 @@ class CallFrame implements Component {
 		const phase = this.parts.phase ?? (running ? "running" : undefined);
 		// Read on every drawing, so the time goes on while nothing new arrives.
 		const time = clock === undefined || phase === undefined ? undefined : timeOf(phase, clock);
-		const mark = phase === undefined ? undefined : this.parts.mark(phase, this.parts.set());
+		const mark = phase === undefined ? undefined : this.parts.mark(markOf(phase), this.parts.set());
 		const body = this.parts.body.render(room(width));
 		const progress = this.parts.progress?.join("\u0000");
 		const drawn = { width, body, rest: [ruling, expanded, phase, time, progress, mark] };
@@ -328,7 +339,7 @@ interface CallParts {
 	ruling?: CallRuling;
 	expanded: boolean;
 	phase?: Phase;
-	mark: (phase: Phase, set: IconSet) => string;
+	mark: (phase: CallPhase, set: IconSet) => string;
 	set: () => IconSet;
 	progress?: readonly string[];
 	clock?: Clock;
@@ -367,7 +378,7 @@ class ResultFrame implements Component {
 	render(width: number): string[] {
 		const { theme, phase, wrote, quiet, images } = this.parts;
 		const time = this.parts.elapsed;
-		const mark = stateMark(phase, this.parts.set());
+		const mark = stateMark(markOf(phase), this.parts.set());
 		const body = this.parts.body.render(room(width));
 		const drawn = { width, body, rest: [phase, mark, time, wrote, images, quiet] };
 		if (unchanged(this.#drawn, drawn)) return this.#drawn.lines;
@@ -520,7 +531,12 @@ function ranFor(clock: Clock, running: boolean): string | undefined {
 	return end === undefined ? undefined : elapsed(end - clock.startedAt);
 }
 
+function markOf(phase: Phase): CallPhase {
+	return phase === "interrupted" ? "failed" : phase;
+}
+
 function timeOf(phase: Phase, clock: Clock): string | undefined {
+	if (phase === "interrupted") return undefined;
 	if (phase === "running") return ranFor(clock, true);
 	const from = phase === "waiting" ? clock.writtenAt : clock.writingAt;
 	return from === undefined ? undefined : elapsed(Date.now() - from);

@@ -142,6 +142,17 @@ describe("once the model has written the call", () => {
 		expect(lines.some((line) => line.includes(CURSOR))).toBe(false);
 		expect(lines.some((line) => line.includes("more lines"))).toBe(true);
 	});
+
+	test("a call replayed without its result says it was interrupted, and its time stands still", () => {
+		const h = harness(cwd);
+		setSystemTime(new Date(10_000));
+		h.replay({ id: "w", name: "write", args: { path: "one.ts", content: code(3) } }, false);
+		setSystemTime(new Date(30_000));
+		const lines = h.render("w");
+		expect(bottom(lines)).toContain("interrupted");
+		expect(bottom(lines)).not.toMatch(/\d\.\ds/u);
+		expect(lines.some((line) => line.includes(CURSOR))).toBe(false);
+	});
 });
 
 /** Waits until `test` holds, for at most `ms`, then lets the assertion say what is wrong. */

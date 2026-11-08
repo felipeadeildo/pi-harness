@@ -95,6 +95,14 @@ export function drawCall(spec: CallSpec, width: number): string[] {
 				return drawn;
 			},
 		};
+		// Pi tells the extensions the model writes the call before it draws it.
+		const message = {
+			role: "assistant",
+			content: [{ type: "toolCall", id: CALL_ID, name: spec.tool, arguments: spec.args }],
+		};
+		const writes = { message, assistantMessageEvent: { type: "toolcall_start", contentIndex: 0 } };
+		for (const handler of fake.handlers.get("message_update") ?? [])
+			void handler(writes, {} as never);
 		const call = new ToolExecutionComponent(
 			spec.tool,
 			CALL_ID,

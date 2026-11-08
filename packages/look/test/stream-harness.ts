@@ -35,8 +35,8 @@ export interface Harness {
 	streamTo(call: ScriptedCall, upTo: number, chunk?: number): void;
 	endMessage(): void;
 	startExecution(id: string): void;
-	/** A call pi rebuilds from the session: never streamed, never completed, with its result. */
-	replay(call: ScriptedCall): void;
+	/** A call pi rebuilds from the session: never streamed, never completed, with or without its result. */
+	replay(call: ScriptedCall, result?: boolean): void;
 	render(id: string, width?: number): string[];
 	/** The lines as they reach the terminal, colour codes and all. */
 	raw(id: string, width?: number): string[];
@@ -149,7 +149,7 @@ export function harness(cwd: string): Harness {
 		startExecution(id) {
 			live.get(id)?.component?.markExecutionStarted();
 		},
-		replay(call) {
+		replay(call, result = true) {
 			const block = {
 				type: "toolCall" as const,
 				id: call.id,
@@ -157,7 +157,11 @@ export function harness(cwd: string): Harness {
 				arguments: call.args,
 			};
 			const component = build(block);
-			component.updateResult({ content: [{ type: "text", text: "ok" }], isError: false } as never);
+			if (result)
+				component.updateResult({
+					content: [{ type: "text", text: "ok" }],
+					isError: false,
+				} as never);
 			live.set(call.id, { id: call.id, name: call.name, json: "", block, component });
 		},
 		render(id, width = 80) {
