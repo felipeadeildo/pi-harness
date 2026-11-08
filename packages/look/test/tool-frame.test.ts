@@ -92,9 +92,20 @@ function whole(ruling?: CallRuling, output = "583 pass") {
 	return { call: plain(call), result: plain(result) };
 }
 
+/** Pi tells the extensions the model writes `call-1` before it draws the call. */
+function writes(fake: ReturnType<typeof fakePi>, toolName: string): void {
+	const block = { type: "toolCall", id: "call-1", name: toolName, arguments: {} };
+	const event = {
+		message: { role: "assistant", content: [block] },
+		assistantMessageEvent: { type: "toolcall_start", contentIndex: 0 },
+	};
+	for (const handler of fake.handlers.get("message_update") ?? []) void handler(event, {} as never);
+}
+
 function framed(ruling?: CallRuling, toolName = "bash", overrides: Record<string, unknown> = {}) {
 	const fake = fakePi();
 	createApp(fake.pi, { name: "look" }).use(look).build();
+	writes(fake, toolName);
 	RULING.provide({ events: fake.pi.events, warn: () => {} }, (toolCallId) =>
 		toolCallId === "call-1" ? ruling : undefined,
 	);
@@ -157,6 +168,20 @@ describe("the frame around a tool call", () => {
 		// Running with no result yet, as while a dialog waits for you, it still closes.
 		const running = framed(undefined, "bash", { executionStarted: true });
 		expect(running.call.at(-1)).toMatch(/^\u2570\u2500 \S+ running  0\.0s \u2500+\u256f$/);
+	});
+
+	test("a call replayed without its result says it was interrupted, with no time running", () => {
+		const fake = fakePi();
+		createApp(fake.pi, { name: "look" }).use(look).build();
+		const chain = resolve(fake, renderers());
+		if (chain === undefined) throw new Error("no renderers");
+		const shared = context({ executionStarted: false, argsComplete: false });
+		const call = chain.renderCall?.({ command: "bun run test" }, theme, shared);
+		if (call === undefined) throw new Error("no call component");
+		const lines = plain(call);
+		expect(lines.at(-1)).toMatch(/^\u2570\u2500 \S+ interrupted \u2500+\u256f$/);
+		expect(lines.some((line) => /writing|waiting/u.test(line))).toBe(false);
+		expect((shared as { state: object }).state).toEqual({});
 	});
 
 	test("stops closing once the result half draws the bottom rule", () => {
@@ -308,6 +333,7 @@ describe("an edit or a write while the model writes it", () => {
 	function streaming(toolName: string, args: unknown, overrides: Record<string, unknown> = {}) {
 		const fake = fakePi();
 		createApp(fake.pi, { name: "look" }).use(look).build();
+		writes(fake, toolName);
 		let asked = 0;
 		const own: ToolRenderers = {
 			renderCall: () => {
