@@ -2,6 +2,14 @@
 
 Every `@adeildo/` package in this repository shares one version, one tag and this changelog. The entries below 4.0.0 are from before, when `pi-ask-permission` was the only package.
 
+## [6.0.1](https://github.com/felipeadeildo/pi-harness/compare/v6.0.0...v6.0.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **ask-permission:** git config, exec and output flags and xxd writes are not read-only (closes [#446](https://github.com/felipeadeildo/pi-harness/issues/446)) ([048ca19](https://github.com/felipeadeildo/pi-harness/commit/048ca1997a1ff574f422a15fecba1d197b0e2e92))
+* **look:** a call resumed without its result says it was interrupted ([#444](https://github.com/felipeadeildo/pi-harness/issues/444)) ([5a48dbf](https://github.com/felipeadeildo/pi-harness/commit/5a48dbf2ec4723d31b11dc489e2d6a08b1fb132b))
+
 ## [6.0.0](https://github.com/felipeadeildo/pi-harness/compare/v5.15.0...v6.0.0) (2026-11-02)
 
 You ask an agent to run the migration and go get a coffee. Two minutes later it stops at `bun test` and waits for your yes. Until now it waited until you were back at your desk. With 6.0.0 the same question is on your phone. You see what the agent did so far, tap yes, and it keeps going. The terminal closes its own dialog and says the answer came from the phone.
