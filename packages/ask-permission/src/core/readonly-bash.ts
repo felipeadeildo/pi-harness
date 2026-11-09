@@ -50,13 +50,36 @@ const GIT_READ_ONLY = new Set([
 	"check-attr",
 	"check-ref-format",
 ]);
+// Git expands any unambiguous prefix of a long option, so these match by prefix.
 const GIT_EXEC_FLAGS = [
-	"-O",
 	"--open-files-in-pager",
 	"--ext-diff",
 	"--textconv",
 	"--use-textconv",
+	"--upload-pack",
+	"--receive-pack",
+	"--exec",
+	"--output",
 ];
+// A real option that is a prefix of one above, and git prefers the exact name.
+const GIT_EXACT_FLAGS = new Set(["--text"]);
+// `-c core.fsmonitor=cmd` runs a command, so only these pass before the subcommand.
+const GIT_GLOBAL_FLAGS = new Set([
+	"--no-pager",
+	"-P",
+	"-p",
+	"--paginate",
+	"--no-optional-locks",
+	"--literal-pathspecs",
+	"--glob-pathspecs",
+	"--noglob-pathspecs",
+	"--icase-pathspecs",
+	"--no-replace-objects",
+	"--no-lazy-fetch",
+	"--no-advice",
+]);
+const GIT_GLOBAL_VALUE_FLAGS = new Set(["-C", "--git-dir", "--work-tree"]);
+const GIT_REFLOG_WRITES = new Set(["expire", "delete", "drop"]);
 const GIT_BRANCH_FLAGS = new Set([
 	"-a",
 	"--all",
@@ -116,7 +139,6 @@ const READ_ONLY = new Set([
 	"tr",
 	"nl",
 	"od",
-	"xxd",
 	"strings",
 	"file",
 	"stat",
@@ -178,8 +200,41 @@ const ARG_CHECKS: Record<string, (args: string[]) => boolean> = {
 	hostname: (args) =>
 		args.every((arg) => arg.startsWith("-") && !arg.startsWith("--file") && !/^-F./.test(arg)),
 	sed: safeSed,
+	xxd: safeXxd,
 	git: safeGit,
 };
+
+const XXD_VALUE_FLAGS = new Set([
+	"-c",
+	"-cols",
+	"-g",
+	"-groupsize",
+	"-l",
+	"-len",
+	"-n",
+	"-name",
+	"-o",
+	"-offset",
+	"-s",
+	"-seek",
+	"-R",
+]);
+
+// xxd writes to a second file, and takes any word starting with `-r` as revert.
+function safeXxd(args: string[]): boolean {
+	let files = 0;
+	for (let index = 0; index < args.length; index++) {
+		const arg = args[index] ?? "";
+		if (arg === "--") {
+			files += args.length - index - 1;
+			break;
+		}
+		if (arg.startsWith("-r")) return false;
+		if (XXD_VALUE_FLAGS.has(arg)) index++;
+		else if (arg.length < 2 || !arg.startsWith("-")) files++;
+	}
+	return files <= 1;
+}
 
 // A classifier, not a sandbox: names are matched as written.
 export function isReadOnlyCommand(command: string, env: NodeJS.ProcessEnv = process.env): boolean {
@@ -775,19 +830,21 @@ function safeSedScript(script: string): boolean {
 }
 
 function safeGit(args: string[]): boolean {
-	if (args.some((arg) => isOneOf(arg, GIT_EXEC_FLAGS))) return false;
+	if (args.some(isGitExecFlag)) return false;
 
 	let index = 0;
 	while (index < args.length) {
 		const arg = args[index] ?? "";
-		if (arg === "-C" || arg === "-c") {
-			index += 2;
+		const [flag, value] = splitFlag(arg);
+		if (GIT_GLOBAL_VALUE_FLAGS.has(flag)) {
+			index += value === undefined ? 2 : 1;
 			continue;
 		}
-		if (arg.startsWith("-")) {
+		if (GIT_GLOBAL_FLAGS.has(arg)) {
 			index++;
 			continue;
 		}
+		if (arg.startsWith("-")) return false;
 		const check = GIT_SUBCOMMAND_CHECKS[arg];
 		return check ? check(args.slice(index + 1)) : GIT_READ_ONLY.has(arg);
 	}
@@ -797,7 +854,30 @@ function safeGit(args: string[]): boolean {
 const GIT_SUBCOMMAND_CHECKS: Record<string, (args: string[]) => boolean> = {
 	branch: safeGitBranch,
 	remote: safeGitRemote,
+	reflog: (args) => !GIT_REFLOG_WRITES.has(args[0] ?? ""),
+	"symbolic-ref": safeGitSymbolicRef,
+	fsck: (args) => !args.some((arg) => abbreviates(arg, ["--lost-found"])),
 };
+
+// `-O[cmd]` clusters with other short flags: `-nOcmd`.
+function isGitExecFlag(arg: string): boolean {
+	if (/^-[^-]*O/.test(arg)) return true;
+	if (GIT_EXACT_FLAGS.has(splitFlag(arg)[0])) return false;
+	return abbreviates(arg, GIT_EXEC_FLAGS);
+}
+
+// One name reads the ref. A second name or `-d` writes it.
+function safeGitSymbolicRef(args: string[]): boolean {
+	const deletes = args.some((arg) => /^-[^-]*[dm]/.test(arg) || abbreviates(arg, ["--delete"]));
+	const names = args.filter((arg) => !arg.startsWith("-"));
+	return !deletes && names.length <= 1;
+}
+
+function abbreviates(arg: string, names: string[]): boolean {
+	if (!arg.startsWith("--") || arg.length === 2) return false;
+	const [flag] = splitFlag(arg);
+	return names.some((name) => name.startsWith(flag));
+}
 
 // `git branch` lists for free but creates, deletes, and renames with the same name,
 // so only the filter flags pass and a bare word passes only after `--list`.

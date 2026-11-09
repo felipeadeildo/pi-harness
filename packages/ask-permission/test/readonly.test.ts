@@ -231,6 +231,39 @@ describe("read-only refusals", () => {
 		expect(ro("[ -f file ]")).toBe(true);
 	});
 
+	test("git options that run a command or write a file", () => {
+		expect(ro("git -c core.fsmonitor='touch PWNED' status")).toBe(false);
+		expect(ro("git -c core.pager=x log")).toBe(false);
+		expect(ro("git --config-env=core.pager=X log")).toBe(false);
+		expect(ro("git --exec-path=/tmp status")).toBe(false);
+		expect(ro("git ls-remote --upload-pack='touch X' .")).toBe(false);
+		expect(ro("git ls-remote --upload='touch X' .")).toBe(false);
+		expect(ro("git ls-remote --exec='touch X' .")).toBe(false);
+		expect(ro("git diff --output=/tmp/x")).toBe(false);
+		expect(ro("git log --output /tmp/x")).toBe(false);
+		expect(ro("git grep --open-files=cmd x")).toBe(false);
+		expect(ro("git grep -Ocmd x")).toBe(false);
+		expect(ro("git grep -nOcmd x")).toBe(false);
+		expect(ro("git reflog expire --expire=now --all")).toBe(false);
+		expect(ro("git symbolic-ref HEAD refs/heads/x")).toBe(false);
+		expect(ro("git symbolic-ref -d HEAD")).toBe(false);
+		expect(ro("git fsck --lost")).toBe(false);
+
+		expect(ro("git --no-pager -C /repo --git-dir=/repo/.git log")).toBe(true);
+		expect(ro("git diff --text --output-indicator-new=+ --no-ext-diff")).toBe(true);
+		expect(ro("git reflog -5")).toBe(true);
+		expect(ro("git symbolic-ref --short HEAD")).toBe(true);
+		expect(ro("git fsck")).toBe(true);
+	});
+
+	test("xxd writes when it reverts or names an output", () => {
+		expect(ro("xxd -r in out")).toBe(false);
+		expect(ro("xxd -revert -p in")).toBe(false);
+		expect(ro("xxd in out")).toBe(false);
+		expect(ro("xxd -l 16 -c 8 file")).toBe(true);
+		expect(ro("xxd file | head")).toBe(true);
+	});
+
 	test("a comment is not a command", () => {
 		expect(ro("cat file # rm -rf /")).toBe(true);
 	});
