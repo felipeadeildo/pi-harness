@@ -146,6 +146,15 @@ export function Component(): ReactNode {
 						<Icon icon={GitCompareIcon} className="size-[18px]" />
 						<span className="hidden text-[13px] sm:inline">Files</span>
 					</Link>
+					{cwd === undefined ? null : (
+						<Link
+							to={`/terminals?${new URLSearchParams({ machine, folder: cwd })}`}
+							className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "size-10")}
+							aria-label="Terminal in this folder"
+						>
+							<Icon icon={ComputerTerminal01Icon} className="size-[18px]" />
+						</Link>
+					)}
 					<Button
 						variant="ghost"
 						size="icon"

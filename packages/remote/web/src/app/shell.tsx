@@ -34,6 +34,12 @@ const SECTIONS: readonly Section[] = [
 		owns: (path) => path === "/" || path.startsWith("/session/"),
 	},
 	{
+		to: "/terminals",
+		label: "Terminals",
+		icon: ComputerTerminal01Icon,
+		owns: (path) => path.startsWith("/terminal"),
+	},
+	{
 		to: "/machines",
 		label: "Machines",
 		icon: ComputerIcon,
@@ -43,7 +49,10 @@ const SECTIONS: readonly Section[] = [
 
 export function Shell(): ReactNode {
 	const { machine, id } = useParams();
-	const inSession = machine !== undefined && id !== undefined;
+	const { pathname } = useLocation();
+	// A session or a terminal takes the whole screen on a phone.
+	const fullScreen =
+		(machine !== undefined && id !== undefined) || pathname.startsWith("/terminal/");
 	return (
 		<TooltipProvider>
 			<div className="flex h-dvh min-h-0 flex-col overflow-hidden lg:flex-row">
@@ -51,7 +60,7 @@ export function Shell(): ReactNode {
 				<div className="flex min-h-0 min-w-0 flex-1">
 					<Outlet />
 				</div>
-				{inSession ? null : <BottomBar />}
+				{fullScreen ? null : <BottomBar />}
 			</div>
 		</TooltipProvider>
 	);

@@ -1,15 +1,10 @@
 // Starting pi on one of the owner's machines: a recent folder in one tap, or any folder by its path.
 // The session opens once pi's bridge reaches the daemon.
-import {
-	type ListedMachine,
-	readFolders,
-	type RecentFolder,
-	startSession,
-} from "@adeildo/pi-remote-protocol/client";
+import { readFolders, type RecentFolder, startSession } from "@adeildo/pi-remote-protocol/client";
 import { Folder01Icon, Loading03Icon } from "@hugeicons/core-free-icons";
 import { cn } from "cn";
 import { type FormEvent, type ReactNode, useCallback, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,22 +13,21 @@ import { ago, folderOf, shortPath } from "@/session/format.ts";
 import { whyOf } from "@/session/why.ts";
 
 import { Icon, useNow } from "./kit.tsx";
-import { useMachines } from "./machines.tsx";
+import { MachinePick, useChosenMachine } from "./machine-pick.tsx";
 import { Loaded, Quiet, useRead } from "./read.tsx";
 import { SectionHeader } from "./shell.tsx";
 
 export function Component(): ReactNode {
-	const [search] = useSearchParams();
-	const { machines, why } = useMachines();
-	const answering = machines?.filter((one) => one.answering) ?? [];
-	const machine = search.get("machine") ?? answering.find((one) => one.here)?.name;
+	const { answering, machine, why } = useChosenMachine();
 	return (
 		<main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
 			<SectionHeader title="New session" />
 			<div className="flex w-full max-w-2xl flex-col gap-5 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-				{answering.length > 1 && machine !== undefined ? (
-					<Machines machines={answering} chosen={machine} />
-				) : null}
+				<MachinePick
+					machines={answering}
+					chosen={machine}
+					hrefOf={(name) => `/new?machine=${encodeURIComponent(name)}`}
+				/>
 				{machine === undefined ? (
 					<Quiet>{why ?? "Reading the machines…"}</Quiet>
 				) : (
@@ -41,37 +35,6 @@ export function Component(): ReactNode {
 				)}
 			</div>
 		</main>
-	);
-}
-
-/** The machine lives in the address, so a link can name it. */
-function Machines({
-	machines,
-	chosen,
-}: {
-	machines: readonly ListedMachine[];
-	chosen: string;
-}): ReactNode {
-	return (
-		<nav aria-label="Machine" className="flex flex-wrap gap-1.5">
-			{machines.map((one) => (
-				<Link
-					key={one.name}
-					to={`/new?machine=${encodeURIComponent(one.name)}`}
-					replace
-					aria-current={one.name === chosen ? "page" : undefined}
-					translate="no"
-					className={cn(
-						"rounded-full border px-3 py-1.5 text-[13.5px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-						one.name === chosen
-							? "border-pi font-medium text-foreground"
-							: "text-muted-foreground hover:text-foreground",
-					)}
-				>
-					{one.name}
-				</Link>
-			))}
-		</nav>
 	);
 }
 

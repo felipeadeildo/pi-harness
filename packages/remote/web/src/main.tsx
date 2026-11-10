@@ -22,6 +22,8 @@ const router = createBrowserRouter([
 			},
 			{ path: "machines", lazy: () => import("./app/machines.tsx") },
 			{ path: "new", lazy: () => import("./app/new.tsx") },
+			{ path: "terminals", lazy: () => import("./app/terminals.tsx") },
+			{ path: "terminal/:machine/:name", lazy: () => import("./app/terminal.tsx") },
 			{ path: "*", element: <NotFound /> },
 		],
 	},
