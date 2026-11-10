@@ -59,6 +59,7 @@ describe("the page's build", () => {
 		expect(fileFor(app, "/assets/index-1234.js")).toBe("/assets/index-1234.js");
 		expect(fileFor(app, "/session/laptop/01a16e22")).toBe("/index.html");
 		expect(fileFor(app, "/session/laptop/01a16e22/")).toBe("/index.html");
+		expect(fileFor(app, "/session/laptop/01a16e22/files")).toBe("/index.html");
 		expect(fileFor(app, "/machines")).toBe("/index.html");
 		// The routes the daemon answers itself must not be eaten by the page.
 		expect(fileFor(app, "/login")).toBeUndefined();

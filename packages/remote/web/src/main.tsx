@@ -17,6 +17,7 @@ const router = createBrowserRouter([
 				children: [
 					{ index: true, element: <Pick /> },
 					{ path: "session/:machine/:id", lazy: () => import("./app/session.tsx") },
+					{ path: "session/:machine/:id/files", lazy: () => import("./app/files.tsx") },
 				],
 			},
 			{ path: "machines", lazy: () => import("./app/machines.tsx") },

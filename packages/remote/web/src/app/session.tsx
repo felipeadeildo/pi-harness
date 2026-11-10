@@ -6,6 +6,7 @@ import {
 	ComputerTerminal01Icon,
 	Folder01Icon,
 	GitBranchIcon,
+	GitCompareIcon,
 	InformationCircleIcon,
 	KanbanIcon,
 	WifiDisconnected01Icon,
@@ -16,6 +17,7 @@ import { Link, useParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { browserSource } from "@/session/browser.ts";
+import { filesHref } from "@/session/files-data.ts";
 import { contextShare, folderOf, shortPath } from "@/session/format.ts";
 import { agentsNear, listedOf } from "@/session/listed.ts";
 import { composerOf } from "@/session/live.ts";
@@ -138,6 +140,16 @@ export function Component(): ReactNode {
 								{cards}
 							</span>
 						)}
+					</Button>
+					<Button
+						variant="ghost"
+						className="h-10 gap-1.5 px-2.5"
+						aria-label="Files and changes"
+						nativeButton={false}
+						render={<Link to={filesHref(machine, id)} />}
+					>
+						<Icon icon={GitCompareIcon} className="size-[18px]" />
+						<span className="hidden text-[13px] sm:inline">Files</span>
 					</Button>
 					<Button
 						variant="ghost"

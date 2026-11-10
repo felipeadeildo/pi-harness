@@ -120,6 +120,25 @@ test("a session of the other machine opens through this daemon", async () => {
 	expect(opening.session).toBe("s1");
 });
 
+test("a file of the other machine's session is read through this daemon, from that machine's disk", async () => {
+	const { laptop, get } = await twoMachines();
+	const folder = join(dir, "laptop-folder");
+	mkdirSync(folder);
+	writeFileSync(join(folder, "notes.md"), "on the laptop\n");
+	await bridgeOf("s2", "e1", undefined, join(dir, "laptop", "daemon.sock"), folder);
+	await until(() => laptop.sessions.get("s2") !== undefined);
+	expect(await get("/sessions/laptop/s2/file?path=notes.md")).toEqual({
+		path: "notes.md",
+		size: 14,
+		kind: "text",
+		text: "on the laptop\n",
+	});
+	expect(await get("/sessions/laptop/s2/files")).toEqual({
+		path: "",
+		entries: [{ name: "notes.md", kind: "file", size: 14 }],
+	});
+});
+
 test("a socket for the other machine's session reaches its bridge, and its events come back", async () => {
 	const { port, cookie, bridge } = await twoMachines();
 	const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?machine=laptop`, {

@@ -73,3 +73,17 @@ export {
 	transcriptOf,
 	type TranscriptItem,
 } from "./reduce/transcript.ts";
+export {
+	CHANGE_STATUSES,
+	type ChangedFile,
+	type Changes,
+	type ChangeStatus,
+	type FileDiff,
+	type FileView,
+	type Folder,
+	type FolderEntry,
+	isChanges,
+	isFileDiff,
+	isFileView,
+	isFolder,
+} from "./files.ts";

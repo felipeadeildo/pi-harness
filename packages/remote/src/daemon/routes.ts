@@ -6,6 +6,7 @@ import { isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
 import { isAppFile, serveApp, type WebApp } from "./app.ts";
 import { type Asking, authorize, cookieOf, type Logins, loginCookie } from "./auth.ts";
+import { changesAt, diffAt, fileAt, folderAt, Refused } from "./files.ts";
 import { History, PAGE } from "./history.ts";
 import type { Machine, Machines } from "./machines.ts";
 import { roomBytes, sharedHere } from "./mirror.ts";
@@ -86,7 +87,9 @@ export class Routes {
 			response.end(bytes);
 			return;
 		}
-		const route = /^\/sessions\/([^/]+)\/([^/]+)\/(opening|entries)$/.exec(path);
+		const route = /^\/sessions\/([^/]+)\/([^/]+)\/(opening|entries|files|file|changes|diff)$/.exec(
+			path,
+		);
 		if (route !== null) {
 			const [machine, session] = route.slice(1, 3).map(decoded);
 			if (machine === undefined || session === undefined)
@@ -98,6 +101,17 @@ export class Routes {
 			}
 			const known = this.#options.sessions.get(session);
 			if (known?.machine !== machine) return reply(response, 404, { error: "no such session" });
+			const folder = route[3] === undefined ? undefined : FOLDER_READS[route[3]];
+			if (folder !== undefined) {
+				void folder(known.live.cwd, url.searchParams.get("path") ?? "").then(
+					(body) => reply(response, 200, body),
+					(error: unknown) =>
+						error instanceof Refused
+							? reply(response, error.status, { error: error.message })
+							: reply(response, 500, { error: "the session's folder could not be read" }),
+				);
+				return;
+			}
 			if (route[3] === "entries") {
 				void this.#entries(response, known.live.file, session, url).catch(() =>
 					reply(response, 500, { error: "the session file could not be read" }),
@@ -290,6 +304,14 @@ export class Routes {
 		}));
 	}
 }
+
+/** Read only, and only inside the session's folder. */
+const FOLDER_READS: Record<string, (cwd: string, path: string) => Promise<unknown>> = {
+	files: folderAt,
+	file: fileAt,
+	changes: (cwd) => changesAt(cwd),
+	diff: diffAt,
+};
 
 export function isRoute(path: string): boolean {
 	return (

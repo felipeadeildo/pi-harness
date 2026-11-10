@@ -13,7 +13,7 @@ const TYPES: Record<string, string> = {
 	".woff2": "font/woff2",
 };
 
-const ROUTES = [/^\/session\/[^/]+\/[^/]+\/?$/, /^\/machines\/?$/];
+const ROUTES = [/^\/session\/[^/]+\/[^/]+(?:\/files)?\/?$/, /^\/machines\/?$/];
 
 /** The build inlines no script, so none is hashed. */
 export const POLICY = [

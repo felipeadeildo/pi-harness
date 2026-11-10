@@ -48,10 +48,16 @@ Clients reach the daemon on `127.0.0.1:7878`, and on the machine's tailnet name 
 | `GET /tailnet`                       | This machine and the others that answered, with their versions and when each was last seen           |
 | `GET /sessions/:machine/:id/opening` | What a client draws first: the summary, the end of the branch and the message being written          |
 | `GET /sessions/:machine/:id/entries` | Older entries, read from pi's own session file (`?before=`, `?since=`, 200 per page)                 |
+| `GET /sessions/:machine/:id/files`   | One level of the session's folder (`?path=`): folders first, with what git ignores marked            |
+| `GET /sessions/:machine/:id/file`    | One file of the folder (`?path=`): its text up to 1 MB, or only its size when it is binary           |
+| `GET /sessions/:machine/:id/changes` | What changed in the folder since the last commit, staged or not, with each file's lines              |
+| `GET /sessions/:machine/:id/diff`    | One changed file's patch (`?path=`), up to 2 MB                                                      |
 | `GET /ws?machine=`                   | The live stream of that machine's sessions: one hello per session, then its events                   |
 | `POST /login`                        | Trades a link's token for the login cookie, or signs in your own device on the tailnet with no token |
 
 A client that opens the stream sends the cursor where it stopped. It gets what the daemon still holds after that point, or the opening and everything after it. The stream never leaves a gap: a delta has no sequence number because it only matters live, and the end of the message replaces it. After the first page of entries, which indexes the file, a page takes a few milliseconds.
+
+The folder routes read only, and only inside the session's folder. A path with `..`, an absolute path, a link that points out of the folder and anything in `.git` are refused. Git runs with the user's diff tools and prefixes turned off, takes no lock on the repository, and reads a path as a name, never as a pattern. A folder in a subfolder of a repository sees the changes of that subfolder only, with paths from there.
 
 A client can also send commands to a session: a prompt, abort, compact, rename, stop, and a change of model, thinking level or permission mode. Each command gets an answer on its id. When an id already ran, the daemon answers that it is a repeat, so a command sent again after a reconnect does not run twice. The page asks you before it sets the `full` mode, because `full` runs every call without asking.
 
