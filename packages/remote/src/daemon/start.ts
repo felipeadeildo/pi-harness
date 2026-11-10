@@ -11,6 +11,23 @@ import { shellQuoted } from "../launcher.ts";
 import { globalSetting, piSessionsDir, START_ID, TICKET_ENV, TMUX_SOCKET } from "../places.ts";
 import { Refused } from "./refused.ts";
 
+/**
+ * Pi tells Shift+Enter from Enter only through extended keys (pi's docs, tmux.md); set before the
+ * session, so pi's request at start is honored. `-q` skips an option an older tmux lacks.
+ */
+const EXTENDED_KEYS = [
+	"set",
+	"-gq",
+	"extended-keys",
+	"on",
+	";",
+	"set",
+	"-gq",
+	"extended-keys-format",
+	"csi-u",
+	";",
+];
+
 const RECENT = 30;
 const HEAD_BYTES = 4_096;
 const WAIT_MS = 20_000;
@@ -69,6 +86,7 @@ export class Starts {
 		const ran = await run(this.#options.tmux ?? "tmux", [
 			"-L",
 			TMUX_SOCKET,
+			...EXTENDED_KEYS,
 			"new-session",
 			"-d",
 			"-s",
