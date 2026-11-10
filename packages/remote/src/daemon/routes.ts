@@ -6,11 +6,13 @@ import { isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
 import { isAppFile, serveApp, type WebApp } from "./app.ts";
 import { type Asking, authorize, cookieOf, type Logins, loginCookie } from "./auth.ts";
-import { changesAt, diffAt, fileAt, folderAt, Refused } from "./files.ts";
+import { changesAt, diffAt, fileAt, folderAt } from "./files.ts";
 import { History, PAGE } from "./history.ts";
 import type { Machine, Machines } from "./machines.ts";
 import { roomBytes, sharedHere } from "./mirror.ts";
+import { Refused } from "./refused.ts";
 import type { Sessions } from "./sessions.ts";
+import { Starts } from "./start.ts";
 import type { Owners } from "./tailnet.ts";
 
 export const STATUS = {
@@ -20,6 +22,7 @@ export const STATUS = {
 } as const;
 
 const LOGIN_BYTES = 4_096;
+const START_BYTES = 8_192;
 
 export interface RoutesOptions {
 	sessions: Sessions;
@@ -35,14 +38,17 @@ export interface RoutesOptions {
 	web?: WebApp;
 	now?: () => number;
 	tailnet?: { ip: string; owners: Owners };
+	starts?: Starts;
 }
 
 export class Routes {
 	readonly #options: RoutesOptions;
 	readonly #history = new History();
+	readonly #starts: Starts;
 
 	constructor(options: RoutesOptions) {
 		this.#options = options;
+		this.#starts = options.starts ?? new Starts();
 	}
 
 	/** Every HTTP route; `isRoute` reads it, plus the `/ws` upgrade. */
@@ -60,6 +66,18 @@ export class Routes {
 			method: "GET",
 			path: /^\/rooms\/([^/]+)\/([^/]+)$/,
 			answer: (routes, asked) => routes.#roomLog(asked),
+		},
+		{
+			method: "GET",
+			path: /^\/machines\/([^/]+)\/folders$/,
+			machine: 0,
+			answer: (routes, asked) => routes.#here(asked) && routes.#folders(asked),
+		},
+		{
+			method: "POST",
+			path: /^\/machines\/([^/]+)\/sessions$/,
+			machine: 0,
+			answer: (routes, asked) => routes.#here(asked) && routes.#start(asked),
 		},
 		...(["opening", "entries", "files", "file", "changes", "diff"] as const).map((what): Route => ({
 			method: "GET",
@@ -88,7 +106,7 @@ export class Routes {
 				return reply(response, 400, { error: "a machine name, percent-encoded" });
 			const elsewhere = this.#options.machines?.named(machine);
 			if (elsewhere === undefined) return route.answer(this, asked);
-			void this.#relay(response, elsewhere, `${url.pathname}${url.search}`);
+			void this.#relay(asked, elsewhere);
 			return;
 		}
 		if (request.method !== "GET") return reply(response, 405, { error: "no such route" });
@@ -225,33 +243,50 @@ export class Routes {
 
 	/** The token comes in the body, never the query, which access logs keep. */
 	#login({ request, response }: Asked): void {
-		let body = "";
-		let cut = false;
-		request.setEncoding("utf8");
-		request.on("data", (chunk: string) => {
-			if (cut) return;
-			if (body.length + chunk.length > LOGIN_BYTES) {
-				cut = true;
-				body = "";
-				response.once("finish", () => request.destroy());
-				response.writeHead(413, {
-					"content-type": "application/json",
-					"cache-control": "no-store",
-					connection: "close",
-				});
-				response.end(JSON.stringify({ error: "a login carries one token" }));
-				return;
-			}
-			body += chunk;
-		});
-		request.on("end", () => {
-			if (cut) return;
+		void bodyOf(request, response, LOGIN_BYTES, "a login carries one token").then((body) => {
+			if (body === undefined) return;
 			const token = tokenOf(body);
 			void (
 				token === undefined
 					? this.#ownerLogin(request)
 					: Promise.resolve(this.#options.logins.exchange(token))
 			).then((cookie) => this.#loggedIn(response, cookie));
+		});
+	}
+
+	/** A machine route answered here is for this machine; any other name is unknown. */
+	#here({ response, parts: [name = ""] }: Asked): boolean {
+		if (decoded(name) === this.#options.machine) return true;
+		reply(response, 404, { error: "no such machine" });
+		return false;
+	}
+
+	#folders({ response }: Asked): void {
+		if (!this.#starts.allowed()) return reply(response, 200, { allowed: false, folders: [] });
+		void this.#starts.folders().then(
+			(folders) => reply(response, 200, { allowed: true, folders }),
+			() => reply(response, 500, { error: "the recent folders could not be read" }),
+		);
+	}
+
+	#start({ request, response }: Asked): void {
+		void bodyOf(request, response, START_BYTES, "a start carries one folder").then((body) => {
+			if (body === undefined) return;
+			const folder = folderIn(body);
+			if (folder === undefined)
+				return reply(response, 400, { error: "a start carries { folder } as JSON" });
+			const { machine, sessions } = this.#options;
+			this.#starts
+				.start(folder, machine, (ticket, ms) => sessions.arrival(ticket, ms))
+				.then(
+					(session) => reply(response, 201, { machine, session }),
+					(error: unknown) =>
+						error instanceof Refused
+							? reply(response, error.status, { error: error.message })
+							: reply(response, 500, {
+									error: error instanceof Error ? error.message : "pi could not be started",
+								}),
+				);
 		});
 	}
 
@@ -275,7 +310,7 @@ export class Routes {
 		const theirs = await Promise.all(
 			(machines?.list() ?? []).map(async (machine) => {
 				try {
-					const answer = await machines?.get(machine, "/sessions?here");
+					const answer = await machines?.ask(machine, "/sessions?here");
 					const list: unknown = await answer?.json();
 					return Array.isArray(list) ? list : [];
 				} catch {
@@ -286,9 +321,18 @@ export class Routes {
 		return [...this.#list(), ...theirs.flat()];
 	}
 
-	async #relay(response: ServerResponse, machine: Machine, path: string): Promise<void> {
+	/** The same request to the machine it names, body and all, and its answer back. */
+	async #relay({ request, response, url }: Asked, machine: Machine): Promise<void> {
+		const body =
+			request.method === "POST"
+				? await bodyOf(request, response, START_BYTES, "a relayed request is small")
+				: undefined;
+		if (request.method === "POST" && body === undefined) return;
 		try {
-			const answer = await this.#options.machines?.get(machine, path);
+			const answer = await this.#options.machines?.ask(machine, `${url.pathname}${url.search}`, {
+				method: request.method ?? "GET",
+				...(body === undefined ? {} : { body }),
+			});
 			if (answer === undefined) return reply(response, 502, { error: "no machine to ask" });
 			response.writeHead(answer.status, {
 				"content-type": answer.headers.get("content-type") ?? "application/json",
@@ -367,6 +411,49 @@ const FOLDER_READS = {
 
 export function isRoute(path: string): boolean {
 	return Routes.isRoute(path);
+}
+
+/** The body as text; undefined when it ran past `limit`, which is answered with a 413 here. */
+function bodyOf(
+	request: IncomingMessage,
+	response: ServerResponse,
+	limit: number,
+	tooLong: string,
+): Promise<string | undefined> {
+	return new Promise((resolve) => {
+		let body = "";
+		let cut = false;
+		request.setEncoding("utf8");
+		request.on("data", (chunk: string) => {
+			if (cut) return;
+			if (body.length + chunk.length > limit) {
+				cut = true;
+				body = "";
+				response.once("finish", () => request.destroy());
+				response.writeHead(413, {
+					"content-type": "application/json",
+					"cache-control": "no-store",
+					connection: "close",
+				});
+				response.end(JSON.stringify({ error: tooLong }));
+				resolve(undefined);
+				return;
+			}
+			body += chunk;
+		});
+		request.on("end", () => {
+			if (!cut) resolve(body);
+		});
+	});
+}
+
+function folderIn(body: string): string | undefined {
+	try {
+		const value: unknown = JSON.parse(body);
+		return isObject(value) && typeof value.folder === "string" ? value.folder : undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 function tokenOf(body: string): string | undefined {

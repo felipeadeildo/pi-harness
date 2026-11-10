@@ -18,6 +18,7 @@ import { envelope, type Envelope } from "@adeildo/pi-remote-protocol";
 import { Machines } from "../src/daemon/machines.ts";
 import { Mirror } from "../src/daemon/mirror.ts";
 import { Daemon } from "../src/daemon/server.ts";
+import { Starts } from "../src/daemon/start.ts";
 import type { AskTailscale, Tailnet } from "../src/daemon/tailnet.ts";
 import { bridgeOf } from "./daemon-harness.ts";
 import { until } from "./fakes.ts";
@@ -62,8 +63,14 @@ const ask: AskTailscale = async (args) => {
 	});
 };
 
-async function start(name: string, tailnet: Tailnet, machines?: Machines): Promise<Daemon> {
+async function start(
+	name: string,
+	tailnet: Tailnet,
+	machines?: Machines,
+	starts = new Starts({ allowed: () => false }),
+): Promise<Daemon> {
 	const daemon = await Daemon.start({
+		starts,
 		socket: join(dir, name, "daemon.sock"),
 		version: "1.2.0",
 		clientPort: 0,
@@ -79,8 +86,8 @@ async function start(name: string, tailnet: Tailnet, machines?: Machines): Promi
 }
 
 /** The desk and the laptop, the laptop with one session, and the desk's client logged in. */
-async function twoMachines() {
-	const laptop = await start("laptop", LAPTOP);
+async function twoMachines(laptopStarts?: Starts) {
+	const laptop = await start("laptop", LAPTOP, undefined, laptopStarts);
 	const machines = new Machines({
 		self: "desk",
 		// Each daemon has its own port here; on a real tailnet both use the same one.
@@ -125,7 +132,7 @@ test("a file of the other machine's session is read through this daemon, from th
 	const folder = join(dir, "laptop-folder");
 	mkdirSync(folder);
 	writeFileSync(join(folder, "notes.md"), "on the laptop\n");
-	await bridgeOf("s2", "e1", undefined, join(dir, "laptop", "daemon.sock"), folder);
+	await bridgeOf("s2", "e1", undefined, join(dir, "laptop", "daemon.sock"), { cwd: folder });
 	await until(() => laptop.sessions.get("s2") !== undefined);
 	expect(await get("/sessions/laptop/s2/file?path=notes.md")).toEqual({
 		path: "notes.md",
@@ -137,6 +144,33 @@ test("a file of the other machine's session is read through this daemon, from th
 		path: "",
 		entries: [{ name: "notes.md", kind: "file", size: 14 }],
 	});
+});
+
+test("pi starts on the other machine through this daemon, and the answer names its session", async () => {
+	const tmux = join(dir, "tmux");
+	const log = join(dir, "tmux-args");
+	writeFileSync(tmux, `#!/bin/sh\nprintf '%s\\n' "$@" > "${log}"\n`, { mode: 0o755 });
+	const folder = join(dir, "laptop-work");
+	mkdirSync(folder);
+	const { port, cookie } = await twoMachines(new Starts({ allowed: () => true, tmux, pi: "pi" }));
+	const origin = `http://127.0.0.1:${port}`;
+	const headers = { cookie, origin, "content-type": "application/json" };
+	expect(
+		await (await fetch(`${origin}/machines/laptop/folders`, { headers })).json(),
+	).toMatchObject({ allowed: true });
+	const started = fetch(`${origin}/machines/laptop/sessions`, {
+		method: "POST",
+		headers,
+		body: JSON.stringify({ folder }),
+	});
+	await until(() => existsSync(log));
+	const ticket = /PI_REMOTE_TICKET=(.+)/.exec(readFileSync(log, "utf8"))?.[1] ?? "";
+	await bridgeOf("s7", "e1", undefined, join(dir, "laptop", "daemon.sock"), {
+		cwd: folder,
+		ticket,
+	});
+	const answer = await started;
+	expect([answer.status, await answer.json()]).toEqual([201, { machine: "laptop", session: "s7" }]);
 });
 
 test("a socket for the other machine's session reaches its bridge, and its events come back", async () => {

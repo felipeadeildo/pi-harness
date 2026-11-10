@@ -99,6 +99,6 @@ function writeAtomically(path: string, text: string, mode = 0o644): void {
 	renameSync(temporary, path);
 }
 
-function shellQuoted(text: string): string {
+export function shellQuoted(text: string): string {
 	return `'${text.replaceAll("'", `'\\''`)}'`;
 }

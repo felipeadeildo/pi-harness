@@ -38,3 +38,61 @@ function isMachine(value: unknown): value is ListedMachine {
 		typeof value.answering === "boolean"
 	);
 }
+
+export interface RecentFolder {
+	path: string;
+	/** When pi last wrote a session there, in ms. */
+	at: number;
+}
+
+/** `allowed` is false until the operator turns on starting sessions at that machine. */
+export interface StartPlaces {
+	allowed: boolean;
+	folders: RecentFolder[];
+}
+
+export function readFolders(
+	base: string,
+	machine: string,
+	speaks: typeof fetch = fetch,
+): Promise<StartPlaces> {
+	return ask(
+		base,
+		`/machines/${encodeURIComponent(machine)}/folders`,
+		{ what: "the recent folders", decode: (body) => (isStartPlaces(body) ? body : undefined) },
+		speaks,
+	);
+}
+
+/** Answers once pi runs and its session reached the daemon, which can take seconds. */
+export function startSession(
+	base: string,
+	machine: string,
+	folder: string,
+	speaks: typeof fetch = fetch,
+): Promise<{ machine: string; session: string }> {
+	return ask(
+		base,
+		`/machines/${encodeURIComponent(machine)}/sessions`,
+		{
+			what: "the new session",
+			body: { folder },
+			decode: (body) =>
+				isObject(body) && typeof body.machine === "string" && typeof body.session === "string"
+					? { machine: body.machine, session: body.session }
+					: undefined,
+		},
+		speaks,
+	);
+}
+
+function isStartPlaces(value: unknown): value is StartPlaces {
+	return (
+		isObject(value) &&
+		typeof value.allowed === "boolean" &&
+		Array.isArray(value.folders) &&
+		value.folders.every(
+			(one) => isObject(one) && typeof one.path === "string" && typeof one.at === "number",
+		)
+	);
+}

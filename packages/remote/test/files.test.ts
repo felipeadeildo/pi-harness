@@ -64,7 +64,7 @@ function repository(): { repo: string; outside: string } {
 
 async function session(cwd: string) {
 	const { daemon, port, cookie } = await openDaemon();
-	const bridge = await bridgeOf("s1", "e1", undefined, undefined, cwd);
+	const bridge = await bridgeOf("s1", "e1", undefined, undefined, { cwd });
 	bridge.state([]);
 	await until(() => daemon.sessions.get("s1") !== undefined);
 	const base = `http://127.0.0.1:${port}`;

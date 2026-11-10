@@ -52,6 +52,8 @@ Clients reach the daemon on `127.0.0.1:7878`, and on the machine's tailnet name 
 | `GET /sessions/:machine/:id/file`    | One file of the folder (`?path=`): its text up to 1 MB, or only its size when it is binary           |
 | `GET /sessions/:machine/:id/changes` | What changed in the folder since the last commit, staged or not, with each file's lines              |
 | `GET /sessions/:machine/:id/diff`    | One changed file's patch (`?path=`), up to 2 MB                                                      |
+| `GET /machines/:machine/folders`     | Whether starting pi there is on, and the folders pi worked in there, newest first                    |
+| `POST /machines/:machine/sessions`   | Starts pi in `{ folder }`, and answers `{ machine, session }` once that session reaches the daemon   |
 | `GET /ws?machine=`                   | The live stream of that machine's sessions: one hello per session, then its events                   |
 | `POST /login`                        | Trades a link's token for the login cookie, or signs in your own device on the tailnet with no token |
 
@@ -59,11 +61,13 @@ A client that opens the stream sends the cursor where it stopped. It gets what t
 
 The folder routes read only, and only inside the session's folder. The daemon refuses a path with `..`, an absolute path, a link that points out of the folder and anything in `.git`. Git runs with the user's diff tools and prefixes turned off, takes no lock on the repository, and reads a path as a name, never as a pattern. A session whose folder is inside a repository sees only that folder's changes, with paths from it. When git fails, the route answers 500, never an empty list or an empty patch.
 
+The page can start pi in a folder of a machine when that machine allows it. The daemon runs pi in a session of its own tmux server (`tmux -L pi-remote`), so `pi-remote attach` opens it at the desk. It sets `PI_REMOTE_TICKET` on that pi, and pi's bridge reports the ticket when it registers, so the daemon answers with the session it started. When the session does not arrive in 20 seconds, the route answers 504 and pi keeps running in tmux.
+
 A client can also send commands to a session: a prompt, abort, compact, rename, stop, and a change of model, thinking level or permission mode. Each command gets an answer on its id. When an id already ran, the daemon answers that it is a repeat, so a command sent again after a reconnect does not run twice. The page asks you before it sets the `full` mode, because `full` runs every call without asking.
 
 ## The page
 
-The daemon serves the page on the same port. It is a React app in `web/`, which Vite builds into `dist/web`. The daemon answers with the files it found when it started, and with `index.html` for the page's own routes, which it checks after every data route. So a made-up path never reaches the filesystem, and a file named like a route never answers for it. The page's files open with no login, because a browser loads them before it has one, and everything else needs the cookie. Every file carries a policy that lets only the page's own scripts run.
+The daemon serves the page on the same port. It is a React app in `web/`, which Vite builds into `dist/web`. The daemon answers with the files it found when it started, and with `index.html` for any path without an extension, which it checks after every data route. The page's router draws its own "not found". So a made-up path never reaches the filesystem, and a file named like a route never answers for it. The page's files open with no login, because a browser loads them before it has one, and everything else needs the cookie. Every file carries a policy that lets only the page's own scripts run.
 
 `PI_REMOTE_WEB` points the daemon at another build. Without a build, the daemon serves the data routes only.
 
@@ -74,6 +78,8 @@ The daemon listens on loopback, and on the tailnet address when the machine has 
 The token travels in the URL's fragment, which a browser never sends to a server or a log, and then once in the body of the login. The cookie is `HttpOnly` and `SameSite=Strict`. On a machine that other people log into, they can read the link in the opener's command line while it runs, since any user can read the arguments of a process. Whoever trades the link first gets the login, so open it right away. If you get a 401, someone else used it.
 
 On the tailnet, the device's owner decides the login, and only a device of the person who owns this machine gets one. A machine that someone else shares into the tailnet, a `whois` that fails, or a `whois` that takes more than two seconds gets no login, and that device needs a link like any other. The daemon remembers a `whois` answer for one minute. A device of yours that is lost or stolen can sign in until you remove it from the tailnet. WireGuard encrypts the tailnet's traffic, and the daemon speaks plain HTTP on it, so the cookie is not `Secure` there.
+
+Starting pi from the page is off until you turn on **Start sessions from the page** (`remote.startSessions`) at that machine. The daemon reads only pi's global settings for it, so a cloned repository cannot turn it on. Once it is on, whoever holds a login to the remote can run pi, and so commands, on that machine. The new pi starts in the permission mode your settings give it, never in `full`.
 
 The agent runs with your permissions, so the permission feature asks before any call that touches this package. It answers its own session's questions and reads its own folder.
 

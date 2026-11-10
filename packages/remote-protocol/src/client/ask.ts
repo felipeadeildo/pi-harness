@@ -19,6 +19,8 @@ interface Asked<T> {
 	what: string;
 	/** Undefined when the body is not what the client expects. */
 	decode: (body: unknown) => T | undefined;
+	/** Sent as JSON in a POST. */
+	body?: unknown;
 	signal?: AbortSignal;
 }
 
@@ -28,8 +30,13 @@ export async function ask<T>(
 	asked: Asked<T>,
 	speaks: typeof fetch,
 ): Promise<T> {
+	const posts = asked.body !== undefined;
 	const answer = await speaks(new URL(path, base), {
-		headers: { accept: "application/json" },
+		headers: {
+			accept: "application/json",
+			...(posts ? { "content-type": "application/json" } : {}),
+		},
+		...(posts ? { method: "POST", body: JSON.stringify(asked.body) } : {}),
 		...(asked.signal === undefined ? {} : { signal: asked.signal }),
 	});
 	if (!answer.ok) throw new DaemonAnswer(answer.status, asked.what, await reasonOf(answer));

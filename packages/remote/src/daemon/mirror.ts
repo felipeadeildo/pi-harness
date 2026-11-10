@@ -95,7 +95,7 @@ export class Mirror {
 		const { machines, root } = this.#options;
 		let shared: unknown;
 		try {
-			shared = await (await machines.get(machine, "/shared")).json();
+			shared = await (await machines.ask(machine, "/shared")).json();
 		} catch {
 			return;
 		}
@@ -115,7 +115,7 @@ export class Mirror {
 	async #append(machine: Machine, room: string, log: string, from: number): Promise<void> {
 		const path = `/rooms/${room}/${log}?from=${from}`;
 		try {
-			const answer = await this.#options.machines.get(machine, path);
+			const answer = await this.#options.machines.ask(machine, path);
 			if (!answer.ok) return;
 			const bytes = Buffer.from(await answer.arrayBuffer());
 			const dir = join(this.#options.root, "rooms", room);

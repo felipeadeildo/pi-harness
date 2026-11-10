@@ -12,6 +12,7 @@ import { Hub } from "./hub.ts";
 import type { Machines } from "./machines.ts";
 import { asking, Routes, STATUS } from "./routes.ts";
 import type { Sessions } from "./sessions.ts";
+import type { Starts } from "./start.ts";
 import type { Owners, Tailnet } from "./tailnet.ts";
 
 export interface ClientsOptions {
@@ -22,6 +23,7 @@ export interface ClientsOptions {
 	machines?: Machines;
 	events?: string;
 	command: (session: string, message: Envelope) => boolean;
+	starts?: Starts;
 	web?: WebApp;
 	warn?: (message: string) => void;
 	now?: () => number;
@@ -56,6 +58,7 @@ export class Clients {
 			machine: options.machine,
 			...(options.machines === undefined ? {} : { machines: options.machines }),
 			...(options.events === undefined ? {} : { events: options.events }),
+			...(options.starts === undefined ? {} : { starts: options.starts }),
 			started: this.#started,
 			hosts: () => this.#hosts,
 			...(options.web === undefined ? {} : { web: options.web }),

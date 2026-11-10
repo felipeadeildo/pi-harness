@@ -34,7 +34,7 @@ import { linkOf } from "./cli/open.ts";
 import { commandApi } from "./commands-api.ts";
 import { startDaemon, writeLauncher } from "./launcher.ts";
 import { CLIENT_PORT, daemonDir, daemonPaths } from "./places.ts";
-import { forwardOtherDialogs, port } from "./settings.ts";
+import { forwardOtherDialogs, port, startSessions } from "./settings.ts";
 import { VERSION } from "./version.ts";
 
 const DIST = fileURLToPath(new URL("../dist/", import.meta.url));
@@ -65,7 +65,7 @@ export function goneReason(
 export const remote = defineFeature({
 	id: "remote",
 	description: "Reach your sessions from a phone, a browser or another machine",
-	settings: [port, forwardOtherDialogs],
+	settings: [port, forwardOtherDialogs, startSessions],
 	setup(scope) {
 		const source = piSource(scope);
 		followSessionStatus(scope, (message) => scope.warn(message));
