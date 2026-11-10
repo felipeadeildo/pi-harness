@@ -81,17 +81,13 @@ export function Component(): ReactNode {
 				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
 					<h1 className="wide truncate text-[16px] leading-tight font-semibold">{name}</h1>
 					{cwd === undefined ? null : (
-						<p className="truncate font-mono text-[11.5px] text-dim" title={cwd}>
+						<p className="truncate font-mono text-[11.5px] text-dim" title={cwd} translate="no">
 							{shortPath(cwd)}
 						</p>
 					)}
 				</div>
 			</header>
-			<nav
-				aria-label="Folder views"
-				className="flex shrink-0 gap-1 border-b px-3 pt-2 sm:px-5"
-				role="tablist"
-			>
+			<nav aria-label="Folder views" className="flex shrink-0 gap-1 border-b px-3 pt-2 sm:px-5">
 				<Tab to={filesHref(of, { tab: "changes", path: "" })} on={place.tab === "changes"}>
 					Changes
 				</Tab>
@@ -120,8 +116,7 @@ function Tab({ to, on, children }: { to: string; on: boolean; children: ReactNod
 	return (
 		<Link
 			to={to}
-			role="tab"
-			aria-selected={on}
+			aria-current={on ? "page" : undefined}
 			className={cn(
 				"-mb-px border-b-2 px-3 py-2 text-[14px] font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
 				on
@@ -201,7 +196,7 @@ function ChangeFiles({
 			</div>
 			<ul className="flex flex-col gap-1.5">
 				{files.map((file) => (
-					<li key={file.path}>
+					<li key={file.path} className={LONG_LIST_ROW}>
 						<ChangeRow of={of} file={file} />
 					</li>
 				))}
@@ -227,6 +222,7 @@ function ChangeRow({ of, file }: { of: FolderOf; file: ChangedFile }): ReactNode
 					className="size-3.5 text-muted-foreground"
 				/>
 				<span
+					aria-hidden
 					title={mark.label}
 					className={cn(
 						"w-3 shrink-0 text-center font-mono text-[12px] font-semibold",
@@ -235,7 +231,8 @@ function ChangeRow({ of, file }: { of: FolderOf; file: ChangedFile }): ReactNode
 				>
 					{mark.letter}
 				</span>
-				<span className="flex min-w-0 flex-1 flex-col gap-0.5" title={file.path}>
+				<span className="sr-only">{mark.label}:</span>
+				<span className="flex min-w-0 flex-1 flex-col gap-0.5" title={file.path} translate="no">
 					<span
 						className={cn(
 							"truncate font-mono text-[13.5px]",
@@ -291,6 +288,9 @@ function Counts({
 	);
 }
 
+/** Up to thousands of rows: the browser skips drawing the ones off screen. */
+const LONG_LIST_ROW = "[contain-intrinsic-size:auto_2.75rem] [content-visibility:auto]";
+
 const TONES = {
 	added: "text-added",
 	removed: "text-removed",
@@ -340,7 +340,7 @@ function Entries({ of, folder }: { of: FolderOf; folder: Folder }): ReactNode {
 	return (
 		<ul className="flex flex-col">
 			{folder.entries.map((entry) => (
-				<li key={entry.name}>
+				<li key={entry.name} className={LONG_LIST_ROW}>
 					<EntryRow of={of} entry={entry} at={childOf(folder.path, entry.name)} />
 				</li>
 			))}
@@ -370,7 +370,10 @@ function EntryRow({ of, entry, at }: { of: FolderOf; entry: FolderEntry; at: str
 				icon={dir ? Folder01Icon : File01Icon}
 				className={cn("size-4", dir ? "text-pi" : "text-muted-foreground")}
 			/>
-			<span className="min-w-0 flex-1 truncate font-mono text-[13.5px]">{entry.name}</span>
+			<span className="min-w-0 flex-1 truncate font-mono text-[13.5px]" translate="no">
+				{entry.name}
+			</span>
+			{entry.ignored === true ? <span className="sr-only">, ignored by git</span> : null}
 			{entry.size === undefined ? null : (
 				<span className="tabular shrink-0 font-mono text-[11.5px] text-dim">
 					{sizeText(entry.size)}
@@ -428,13 +431,18 @@ function Crumbs({
 	return (
 		<nav
 			aria-label="Path"
+			translate="no"
 			className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 px-1 font-mono text-[12.5px]"
 		>
 			{crumbs.map((crumb, index) => {
 				const last = index === crumbs.length - 1;
 				return (
 					<span key={crumb.path} className="flex min-w-0 items-center gap-1">
-						{index === 0 ? null : <span className="text-dim">/</span>}
+						{index === 0 ? null : (
+							<span aria-hidden className="text-dim">
+								/
+							</span>
+						)}
 						{last && (file || index > 0) ? (
 							<span className="truncate font-semibold text-foreground" aria-current="page">
 								{crumb.name}

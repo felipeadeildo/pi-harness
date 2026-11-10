@@ -42,6 +42,7 @@ export function Icon({
 			icon={icon}
 			strokeWidth={strokeWidth}
 			className={cn("size-4 shrink-0", className)}
+			aria-hidden
 		/>
 	);
 }
