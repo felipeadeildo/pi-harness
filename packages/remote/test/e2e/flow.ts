@@ -1,15 +1,19 @@
 // The gate, in a real browser: the daemon a bridge starts, the page it serves, and the flow. One line
 // per step. Run it with `bun run gate`.
 import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import {
 	appendFileSync,
 	existsSync,
 	mkdirSync,
 	mkdtempSync,
+	readFileSync,
 	readdirSync,
+	realpathSync,
 	rmSync,
 	writeFileSync,
 } from "node:fs";
+import { connect, type Socket } from "node:net";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -18,6 +22,7 @@ import piQuestions from "@adeildo/pi-ask-questions";
 import { TOOL_NAME } from "@adeildo/pi-ask-questions";
 import { logPath, readTail, targetOf } from "@adeildo/pi-kit";
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
+import { emptySessionState, envelope, PROTOCOL } from "@adeildo/pi-remote-protocol";
 import { GOES_ALONE } from "@adeildo/pi-remote-protocol/client";
 import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import { type Browser, chromium, type Page } from "playwright-core";
@@ -26,7 +31,8 @@ import { requestLink } from "../../src/cli/open.ts";
 import { findWebDir } from "../../src/daemon/app.ts";
 import piRemote from "../../src/index.ts";
 import { readCurrent } from "../../src/launcher.ts";
-import { daemonPaths } from "../../src/places.ts";
+import { daemonPaths, TICKET_ENV } from "../../src/places.ts";
+import { line } from "../../src/wire/lines.ts";
 
 /** Where a browser is, if this machine has one. The CI runner does; a laptop may not. */
 const BROWSERS = [
@@ -46,6 +52,7 @@ const STEPS = [
 	"after the daemon restarts, a reloaded page still draws the session and its mode",
 	"a command typed offline goes out after the reload",
 	"the session's changes open to a diff, and the diff to the file",
+	"a new session starts from the page in a recent folder, and opens",
 ] as const;
 
 type Result = { ok: boolean; why?: string };
@@ -89,8 +96,12 @@ async function main(): Promise<number> {
 			return 1;
 		}
 		// The bridge starts the daemon when none answers, which is the path a user takes.
+		const work = changedRepository(join(root, "work"));
+		const rigRoot = join(root, "rig");
+		fakeStart(rigRoot, work);
 		rig = await createRig({
-			cwd: changedRepository(join(root, "work")),
+			root: rigRoot,
+			cwd: work,
 			// The permission feature owns the session mode, and the composer offers it: without it the picker
 			// would promise a change the session cannot make.
 			extensions: [piRemote, piQuestions, permission],
@@ -118,7 +129,7 @@ async function main(): Promise<number> {
 			// Fast enough that a tool call's JSON arrives in about a second, slow enough that the long
 			// answer below still takes seconds to write out.
 			tokensPerSecond: 50,
-			settings: { remote: { port } },
+			settings: { remote: { port, startSessions: true } },
 		});
 		const link = await waitForLink();
 		if ("url" in link) {
@@ -141,6 +152,7 @@ async function main(): Promise<number> {
 			reports.push({ step: 6, ...(await survivesRestart(page)) });
 			reports.push({ step: 7, ...(await sentWhileOffline(page, rig)) });
 			reports.push({ step: 8, ...(await readsChanges(page)) });
+			reports.push({ step: 9, ...(await startsSession(page, work)) });
 		} else {
 			reports.push({ step: 1, ok: false, why: link.why });
 		}
@@ -683,6 +695,85 @@ async function readsChanges(page: Page): Promise<Result> {
 		return { ok: true };
 	} catch (error) {
 		return { ok: false, why: short(error) };
+	}
+}
+
+let tmuxLog = "";
+
+/**
+ * The daemon starts pi with tmux; here both are fakes first on PATH, and the tmux one keeps its
+ * arguments. One pi session file names `work` as a recent folder.
+ */
+function fakeStart(rigRoot: string, work: string): void {
+	const bin = join(root, "bin");
+	mkdirSync(bin, { recursive: true });
+	tmuxLog = join(root, "tmux-args");
+	writeFileSync(join(bin, "tmux"), `#!/bin/sh\nprintf '%s\\n' "$@" > "${tmuxLog}"\n`, {
+		mode: 0o755,
+	});
+	writeFileSync(join(bin, "pi"), "#!/bin/sh\n", { mode: 0o755 });
+	process.env.PATH = `${bin}:${process.env.PATH ?? ""}`;
+	const sessions = join(rigRoot, "agent", "sessions", "work");
+	mkdirSync(sessions, { recursive: true });
+	writeFileSync(join(sessions, "1.jsonl"), `${JSON.stringify({ type: "session", cwd: work })}\n`);
+}
+
+/** What pi's bridge says first, with the ticket tmux was given, so the daemon ties it to the start. */
+function fakeBridge(
+	at: { machine: string; session: string; epoch: string },
+	cwd: string,
+	ticket: string,
+): Socket {
+	const client = connect(daemonPaths(root).socket);
+	client.once("connect", () => {
+		client.write(line(envelope("hello", "bridge", { protocol: PROTOCOL, version: "0.0.0" }, at)));
+		const live = { pid: process.pid, startedAt: Date.now(), cwd, kind: "terminal", ticket };
+		client.write(line(envelope("event", "session.live", live, { ...at, seq: 0 })));
+		const summary = {
+			session: at.session,
+			machine: at.machine,
+			cwd,
+			kind: "terminal",
+			state: emptySessionState(),
+		};
+		client.write(line(envelope("event", "state", { summary, entries: [] }, { ...at, seq: 1 })));
+	});
+	return client;
+}
+
+async function startsSession(page: Page, work: string): Promise<Result> {
+	const machine = /\/session\/([^/]+)\//.exec(page.url())?.[1];
+	if (machine === undefined) return { ok: false, why: `not on a session: ${page.url()}` };
+	let bridge: Socket | undefined;
+	try {
+		await page.getByRole("link", { name: "New session" }).first().click({ timeout: 20_000 });
+		await page
+			.getByRole("button", { name: /^Start pi in / })
+			.first()
+			.click({ timeout: 20_000 });
+		const asked = Date.now() + 20_000;
+		while (!existsSync(tmuxLog) && Date.now() < asked) await Bun.sleep(50);
+		if (!existsSync(tmuxLog)) return { ok: false, why: "the page asked, and tmux never ran" };
+		const args = readFileSync(tmuxLog, "utf8").split("\n");
+		const folder = args[args.indexOf("-c") + 1];
+		if (folder !== realpathSync(work))
+			return { ok: false, why: `tmux ran in ${folder}, not ${work}` };
+		const ticket = args
+			.find((arg) => arg.startsWith(`${TICKET_ENV}=`))
+			?.slice(TICKET_ENV.length + 1);
+		if (ticket === undefined) return { ok: false, why: "tmux ran without the ticket" };
+		const session = randomUUID();
+		bridge = fakeBridge({ machine, session, epoch: "e1" }, folder, ticket);
+		try {
+			await page.waitForURL(new RegExp(`/session/${machine}/${session}`), { timeout: 20_000 });
+		} catch {
+			return { ok: false, why: `the started session never opened, the page is at ${page.url()}` };
+		}
+		return { ok: true };
+	} catch (error) {
+		return { ok: false, why: short(error) };
+	} finally {
+		bridge?.destroy();
 	}
 }
 
