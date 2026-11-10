@@ -1,6 +1,7 @@
 // The HTTP port: the server, the upgrade into the hub, and the one place `session.gone` clears both.
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import type { Duplex } from "node:stream";
 
 import type { Envelope } from "@adeildo/pi-remote-protocol";
 import type { WebSocketServer } from "ws";
@@ -10,10 +11,12 @@ import type { WebApp } from "./app.ts";
 import { authorize, hostsOf, type Logins } from "./auth.ts";
 import { Hub } from "./hub.ts";
 import type { Machines } from "./machines.ts";
+import { refusalOf } from "./refused.ts";
 import { asking, Routes, STATUS } from "./routes.ts";
 import type { Sessions } from "./sessions.ts";
 import type { Starts } from "./start.ts";
 import type { Owners, Tailnet } from "./tailnet.ts";
+import type { Attached, Terminals } from "./terminal.ts";
 
 export interface ClientsOptions {
 	sessions: Sessions;
@@ -24,6 +27,7 @@ export interface ClientsOptions {
 	events?: string;
 	command: (session: string, message: Envelope) => boolean;
 	starts?: Starts;
+	terminals?: Terminals;
 	web?: WebApp;
 	warn?: (message: string) => void;
 	now?: () => number;
@@ -59,6 +63,7 @@ export class Clients {
 			...(options.machines === undefined ? {} : { machines: options.machines }),
 			...(options.events === undefined ? {} : { events: options.events }),
 			...(options.starts === undefined ? {} : { starts: options.starts }),
+			...(options.terminals === undefined ? {} : { terminals: options.terminals }),
 			started: this.#started,
 			hosts: () => this.#hosts,
 			...(options.web === undefined ? {} : { web: options.web }),
@@ -85,6 +90,7 @@ export class Clients {
 				return;
 			}
 			const url = new URL(request.url ?? "/", "http://daemon");
+			if (url.pathname === "/terminal") return this.#terminal(request, socket, head, url);
 			if (url.pathname !== "/ws") {
 				socket.end("HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n");
 				return;
@@ -100,6 +106,63 @@ export class Clients {
 			);
 		});
 		return served;
+	}
+
+	/**
+	 * A terminal's screen, live: output as binary frames, and `{ type: "input", data }` or
+	 * `{ type: "resize", cols, rows }` from the page. Another machine's goes to its daemon.
+	 */
+	#terminal(request: IncomingMessage, socket: Duplex, head: Buffer, url: URL): void {
+		const query = url.searchParams;
+		const elsewhere = this.#options.machines?.named(query.get("machine") ?? "");
+		if (elsewhere !== undefined) {
+			query.delete("machine");
+			void this.#options.machines?.socket(elsewhere, `/terminal?${query}`).then(
+				(upstream) => join(this.#wss, request, socket, head, upstream),
+				() => socket.end("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n"),
+			);
+			return;
+		}
+		const terminals = this.routes.terminals;
+		if (!terminals.allowed()) {
+			socket.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
+			return;
+		}
+		const size = { cols: Number(query.get("cols")), rows: Number(query.get("rows")) };
+		accept(this.#wss, request, socket, head, (ws) => {
+			let attached: Attached | undefined;
+			let gone = false;
+			const early: string[] = [];
+			const act = (text: string): void => {
+				const asked = terminalMessage(text);
+				if (asked?.type === "input") attached?.write(asked.data);
+				if (asked?.type === "resize") attached?.resize(asked);
+			};
+			terminals
+				.attach(query.get("name") ?? "", this.#options.machine, size, {
+					output: (bytes) => ws.send(bytes),
+					// A close reason is at most 123 bytes.
+					closed: (why) => ws.close(1000, why.slice(0, 120)),
+				})
+				.then(
+					(opened) => {
+						if (gone) return opened.close();
+						attached = opened;
+						for (const text of early.splice(0)) act(text);
+					},
+					(error: unknown) => {
+						const [status, body] = refusalOf(error);
+						ws.close(4000 + status, body.error.slice(0, 120));
+					},
+				);
+			return {
+				message: (text) => (attached === undefined ? early.push(text) : act(text)),
+				closed: () => {
+					gone = true;
+					attached?.close();
+				},
+			};
+		});
 	}
 
 	/** Loopback first; the tailnet address is extra and its failure is reported, not fatal. */
@@ -146,4 +209,23 @@ function listenOn(served: Server, port: number, host: string): Promise<ListenRes
 		served.once("error", (error: NodeJS.ErrnoException) => resolve({ why: error.code }));
 		served.listen(port, host, () => resolve({ port: (served.address() as AddressInfo).port }));
 	});
+}
+
+/** What the page sends over a terminal's socket; anything else is ignored. */
+function terminalMessage(
+	text: string,
+): { type: "input"; data: string } | { type: "resize"; cols: number; rows: number } | undefined {
+	let value: unknown;
+	try {
+		value = JSON.parse(text);
+	} catch {
+		return undefined;
+	}
+	if (typeof value !== "object" || value === null) return undefined;
+	const asked = value as Record<string, unknown>;
+	if (asked.type === "input" && typeof asked.data === "string")
+		return { type: "input", data: asked.data };
+	if (asked.type === "resize" && typeof asked.cols === "number" && typeof asked.rows === "number")
+		return { type: "resize", cols: asked.cols, rows: asked.rows };
+	return undefined;
 }

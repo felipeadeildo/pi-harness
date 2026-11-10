@@ -1,6 +1,6 @@
 import { boolean, type Decoder, integer, setting } from "@adeildo/pi-kit";
 
-import { CLIENT_PORT, PORT_ID, START_ID } from "./places.ts";
+import { CLIENT_PORT, PORT_ID, START_ID, TERMINAL_ID } from "./places.ts";
 
 const REMOTE_SECTION = "Remote";
 
@@ -41,5 +41,17 @@ export const startSessions = setting<boolean>({
 		label: "Start sessions from the page",
 		description:
 			"Lets the page start pi in a folder of this machine, in the remote's own tmux, so pi-remote attach opens it here. Anyone logged in to the remote can then run pi, and so commands, on this machine. Only the global setting counts.",
+	},
+});
+
+export const terminal = setting<boolean>({
+	id: TERMINAL_ID,
+	default: false,
+	decoder: boolean,
+	ui: {
+		section: REMOTE_SECTION,
+		label: "Terminals from the page",
+		description:
+			"Lets the page open a shell on this machine, in the remote's own tmux, and type in the sessions running there. Anyone logged in to the remote can then run any command here. Only the global setting counts.",
 	},
 });

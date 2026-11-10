@@ -113,9 +113,9 @@ export class Machines {
 		return ask();
 	}
 
-	async socket(machine: Machine): Promise<WebSocket> {
+	async socket(machine: Machine, path = "/ws"): Promise<WebSocket> {
 		const cookie = await this.#login(machine);
-		return new WebSocket(`${machine.origin.replace(/^http/, "ws")}/ws`, {
+		return new WebSocket(`${machine.origin.replace(/^http/, "ws")}${path}`, {
 			headers: { origin: machine.origin, cookie: `${COOKIE}=${cookie}` },
 		});
 	}
