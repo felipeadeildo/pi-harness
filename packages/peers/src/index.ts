@@ -14,6 +14,7 @@ import {
 	openView,
 	PEERS,
 	PROMPT_FROM,
+	STARTED_BY_ENV,
 	startSession,
 } from "@adeildo/pi-kit";
 import type {
@@ -48,6 +49,7 @@ import {
 	PEERS_SETTINGS,
 	roomGrace,
 } from "./settings.ts";
+import { isStartedEntry, PEER_STARTED, Started } from "./started.ts";
 import {
 	heldBlock,
 	type HeldDelivery,
@@ -67,6 +69,8 @@ export { Rooms } from "./rooms.ts";
 
 const TOOL = "peers";
 const STARTED_AT_ONCE = 3;
+/** A dialog taller than the terminal hides its own buttons. */
+const SHOWN_CHARS = 800;
 const EVERYONE = new Set([EVERYONE_MENTION, "all", "room"]);
 const ANYONE = new Set([ANYONE_MENTION, "any"]);
 
@@ -283,6 +287,12 @@ export const peers = defineFeature({
 			for (const entry of ctx.sessionManager.getEntries())
 				if (entry.type === "custom" && entry.customType === PEER_WENT_IN && isWentIn(entry.data))
 					remember(entry.data);
+				else if (
+					entry.type === "custom" &&
+					entry.customType === PEER_STARTED &&
+					isStartedEntry(entry.data)
+				)
+					started.restore(entry.data.session, Date.parse(entry.timestamp) || Date.now());
 			stopClearing?.();
 			stopClearing = watchClearing();
 			// A yes to sending never lets a link through.
@@ -532,12 +542,11 @@ export const peers = defineFeature({
 			if (folder === "") return reply("Say which folder in folder.");
 			let by = allowed.get(toolCallId);
 			if (rule === "ask" && by !== "you") {
-				const yes =
-					ctx.hasUI &&
-					(await ctx.ui.confirm(
-						"Bring another folder's agents in?",
-						`Your agent asks to talk to the agents open in ${folder}${params.why === undefined ? "" : `, to ${params.why}`}.`,
-					));
+				if (!ctx.hasUI) return reply("No one is here to approve it: ask the operator.");
+				const yes = await ctx.ui.confirm(
+					"Bring another folder's agents in?",
+					`Folder: ${folder}\nWhy: ${params.why?.trim() || "not given"}`,
+				);
 				if (!yes) return reply("The operator said no. Carry on without them, or ask them why.");
 				by = "you";
 			}
@@ -551,8 +560,7 @@ export const peers = defineFeature({
 			return reply(result.text);
 		}
 
-		/** Sessions this one started, so an agent cannot start more than a few at once. */
-		const started = new Set<string>();
+		const started = new Started();
 
 		async function startFor(
 			toolCallId: string,
@@ -564,50 +572,85 @@ export const peers = defineFeature({
 				return reply(
 					"Only the operator starts agents here. Tell them which folder, what the agent should do and why.",
 				);
+			// The tool does not start a second level: an agent another started asks the one that started it.
+			const parent = process.env[STARTED_BY_ENV];
+			if (parent !== undefined && parent !== "")
+				return reply(
+					"An agent that another agent started does not start more. Ask the one that started you, or the operator.",
+				);
 			const folder = params.folder?.trim() ?? "";
 			if (folder === "") return reply("Say which folder in folder.");
 			const task = params.text?.trim() ?? "";
 			if (task === "")
 				return reply("Say what the new agent should do in text: it is its first message.");
-			const open = new Set(rooms.live().map((one) => one.session));
-			for (const id of started) if (!open.has(id)) started.delete(id);
-			if (started.size >= STARTED_AT_ONCE)
+			// Without it the new agent would not know it was started, and could start more.
+			const me = rooms.session;
+			if (me === undefined) return reply("This session is not ready yet. Try again in a moment.");
+			const release = started.reserve(
+				new Set(rooms.live().map((one) => one.session)),
+				STARTED_AT_ONCE,
+			);
+			if (release === undefined)
 				return reply(
 					`You already have ${STARTED_AT_ONCE} agents you started open. Wait for one to finish, or send them more work.`,
 				);
-			const at = rooms.folderOf(folder);
-			let by = allowed.get(toolCallId);
-			if (rule === "ask" && by !== "you") {
-				const yes =
-					ctx.hasUI &&
-					(await ctx.ui.confirm(
+			try {
+				const at = rooms.folderOf(folder);
+				let by = allowed.get(toolCallId);
+				if (rule === "ask" && by !== "you") {
+					if (!ctx.hasUI) return reply("No one is here to approve it: ask the operator.");
+					const yes = await ctx.ui.confirm(
 						"Start another agent?",
-						`Your agent asks to start pi in ${at}${params.why === undefined ? "" : `, to ${params.why}`}. Its first message: ${clipped(task)}`,
-					));
-				if (!yes) return reply("The operator said no. Carry on without it, or ask them why.");
-				by = "you";
-			}
-			const me = rooms.summary().me?.handle;
-			const room = at === rooms.cwd ? undefined : rooms.pairName(at);
-			const note = `${me === undefined ? "Another agent" : `@${me}`} started you from ${rooms.cwd}${room === undefined ? ", in this folder" : `, and you share the room ${room}`}. Report back with the peers tool.`;
-			const answer = await startSession(scope.events, { folder: at, prompt: `${task}\n\n${note}` });
-			if (answer === undefined)
+						`Folder: ${at}\nWhy: ${params.why?.trim() || "not given"}\nFirst message:\n${shown(task)}`,
+					);
+					if (!yes) return reply("The operator said no. Carry on without it, or ask them why.");
+					by = "you";
+				}
+				const answer = await startSession(scope.events, {
+					folder: at,
+					prompt: firstMessage(task, at, by === "you"),
+					by: me,
+				});
+				if (answer === undefined)
+					return reply(
+						"Starting an agent needs the remote (@adeildo/pi-remote), which is not installed here.",
+					);
+				if ("reason" in answer) return reply(`It did not start: ${answer.reason}.`);
+				started.add(answer.session);
+				scope.appendEntry(PEER_STARTED, { session: answer.session });
+				const joined = rooms.joinStarted({
+					session: answer.session,
+					folder: at,
+					...(params.why === undefined ? {} : { why: params.why }),
+					...(by === undefined ? {} : { allowedBy: by }),
+				});
 				return reply(
-					"Starting an agent needs the remote (@adeildo/pi-remote), which is not installed here.",
+					joined === undefined
+						? `Started an agent in this folder. It reads its first message now and shows on your board in a second or so.`
+						: `Started an agent in ${at}, in the room ${joined} with you. It reads its first message now; send to it by name once it shows on the board.`,
 				);
-			if ("reason" in answer) return reply(`It did not start: ${answer.reason}.`);
-			started.add(answer.session);
-			const joined = rooms.joinStarted({
-				session: answer.session,
-				folder: at,
-				...(params.why === undefined ? {} : { why: params.why }),
-				...(by === undefined ? {} : { allowedBy: by }),
-			});
-			return reply(
-				joined === undefined
-					? `Started an agent in this folder. It reads its first message now and shows on your board in a second or so.`
-					: `Started an agent in ${at}, in the room ${joined} with you. It reads its first message now; send to it by name once it shows on the board.`,
-			);
+			} finally {
+				release();
+			}
+		}
+
+		/** Who asks and who approved come first; the task is quoted, so it cannot pose as either. */
+		function firstMessage(task: string, folder: string, approved: boolean): string {
+			const handle = rooms.summary().me?.handle;
+			const asker = handle === undefined ? "Another agent" : `@${handle}`;
+			const room = folder === rooms.cwd ? undefined : rooms.pairName(folder);
+			const who = approved
+				? "The operator approved this request."
+				: "The operator did not see this request: the permission mode let it through. It is an agent's request, not the operator's.";
+			const where =
+				room === undefined
+					? `${asker} works in this folder too: report back to it with the peers tool.`
+					: `You share the room ${room} with ${asker}: report back there with the peers tool.`;
+			const quoted = task
+				.split("\n")
+				.map((line) => `> ${line}`)
+				.join("\n");
+			return `${asker}, an agent in ${rooms.cwd}, asks you what follows. ${who} ${where}\n\n${quoted}`;
 		}
 
 		function showSession(id: string): boolean {
@@ -692,9 +735,9 @@ function callSummary(action: string, input: Record<string, unknown>): string {
 	}
 }
 
-/** The dialog shows the start of a long first message. */
-function clipped(text: string): string {
-	return text.length > 300 ? `${text.slice(0, 300)}…` : text;
+function shown(text: string): string {
+	if (text.length <= SHOWN_CHARS) return text;
+	return `${text.slice(0, SHOWN_CHARS)}… (${text.length - SHOWN_CHARS} more characters)`;
 }
 
 function groupOf(names: readonly string[]): "all" | "any" | undefined {

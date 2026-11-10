@@ -5,9 +5,11 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { STARTED_BY_ENV as KIT_STARTED_BY_ENV } from "@adeildo/pi-kit";
 import { readFolders, startSession } from "@adeildo/pi-remote-protocol/client";
 
 import { Starts, type StartOptions } from "../src/daemon/start.ts";
+import { STARTED_BY_ENV } from "../src/places.ts";
 import { bridgeOf, dir, onSocket, openDaemon, useDaemon } from "./daemon-harness.ts";
 import { until } from "./fakes.ts";
 
@@ -208,6 +210,23 @@ describe("a start from this machine's own pi", () => {
 		await bridgeOf("s3", "e1", undefined, undefined, { cwd: folder, ticket });
 		const answer = await answered;
 		expect([answer.kind, answer.data]).toEqual(["reply", { machine: here, session: "s3" }]);
+	});
+
+	test("names the session that asked in the new pi's environment, and takes only an id there", async () => {
+		const fake = fakeTmux();
+		await daemonWith({ tmux: fake.tmux, pi: "pi", waitMs: 10 });
+		await onSocket("session.start", { folder: dir, by: "0193-ab_c" });
+		const args = fake.args() ?? [];
+		expect(args.slice(args.indexOf("-c") + 2)).toEqual([
+			"-e",
+			expect.stringMatching(/^PI_REMOTE_TICKET=/),
+			"-e",
+			"PI_STARTED_BY=0193-ab_c",
+			"exec 'pi'",
+		]);
+		const shaped = await onSocket("session.start", { folder: dir, by: "a; rm -rf" });
+		expect(shaped.data).toEqual({ reason: "a start carries { folder, prompt? }" });
+		expect(STARTED_BY_ENV).toBe(KIT_STARTED_BY_ENV);
 	});
 
 	test("says why it did not start: a long first message, a missing folder, an unknown machine", async () => {

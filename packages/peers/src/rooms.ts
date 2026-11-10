@@ -690,14 +690,19 @@ export class Rooms implements RoomsView {
 			...(request.allowedBy === undefined ? {} : { allowedBy: request.allowedBy }),
 		};
 		const name = this.pairName(folder);
-		this.create(
-			name,
-			[
-				{ session: me, cwd: this.#cwd },
-				{ session: request.session, cwd: folder },
-			],
-			by,
-		);
+		// The pair's room, when there is one already: another start or a link made it.
+		const room = this.roomNamed(name);
+		if (!("error" in room) && room.room !== undefined)
+			this.add(room.room.id, [{ session: request.session, cwd: folder }], by);
+		else
+			this.create(
+				name,
+				[
+					{ session: me, cwd: this.#cwd },
+					{ session: request.session, cwd: folder },
+				],
+				by,
+			);
 		return name;
 	}
 

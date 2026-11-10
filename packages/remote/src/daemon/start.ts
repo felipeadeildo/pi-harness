@@ -10,7 +10,14 @@ import { basename, delimiter, isAbsolute, join } from "node:path";
 import { isObject } from "@adeildo/pi-remote-protocol";
 
 import { shellQuoted } from "../launcher.ts";
-import { globalSetting, piSessionsDir, START_ID, TICKET_ENV, TMUX_SOCKET } from "../places.ts";
+import {
+	globalSetting,
+	piSessionsDir,
+	START_ID,
+	STARTED_BY_ENV,
+	TICKET_ENV,
+	TMUX_SOCKET,
+} from "../places.ts";
 import { Refused } from "./refused.ts";
 
 /**
@@ -46,6 +53,8 @@ export interface StartRequest {
 	folder: string;
 	/** Pi's first message, as `pi -- <prompt>` takes it. */
 	prompt?: string;
+	/** The session that asked, passed on as `PI_STARTED_BY`. */
+	by?: string;
 }
 
 export interface StartContext {
@@ -88,7 +97,7 @@ export class Starts {
 	 * asks the operator first.
 	 */
 	async start(
-		{ folder, prompt }: StartRequest,
+		{ folder, prompt, by }: StartRequest,
 		{ machine, arrival, fromClient }: StartContext,
 	): Promise<string> {
 		if (fromClient && !this.allowed())
@@ -117,6 +126,7 @@ export class Starts {
 			at,
 			"-e",
 			`${TICKET_ENV}=${ticket}`,
+			...(by === undefined ? [] : ["-e", `${STARTED_BY_ENV}=${by}`]),
 			prompt === undefined || prompt === ""
 				? `exec ${shellQuoted(pi)}`
 				: `exec ${shellQuoted(pi)} -- ${shellQuoted(prompt)}`,
@@ -246,5 +256,12 @@ export function startIn(value: unknown): StartRequest | undefined {
 	}
 	if (!isObject(data) || typeof data.folder !== "string") return undefined;
 	if (data.prompt !== undefined && typeof data.prompt !== "string") return undefined;
-	return { folder: data.folder, ...(data.prompt === undefined ? {} : { prompt: data.prompt }) };
+	// A session id goes into tmux's environment; nothing else may.
+	if (data.by !== undefined && (typeof data.by !== "string" || !/^[\w-]{1,80}$/.test(data.by)))
+		return undefined;
+	return {
+		folder: data.folder,
+		...(data.prompt === undefined ? {} : { prompt: data.prompt }),
+		...(data.by === undefined ? {} : { by: data.by }),
+	};
 }

@@ -8,6 +8,9 @@ type Events = ExtensionAPI["events"];
 
 export const SESSION_START = "harness:session.start";
 
+/** Set on a pi another session started, naming it. The remote's daemon keeps its own copy. */
+export const STARTED_BY_ENV = "PI_STARTED_BY";
+
 export interface StartRequest {
 	/** Absolute, or under `~`. */
 	folder: string;
@@ -15,6 +18,8 @@ export interface StartRequest {
 	prompt?: string;
 	/** Another of the owner's machines; this one when absent. */
 	machine?: string;
+	/** The session that asks; the new pi gets it as `PI_STARTED_BY`. */
+	by?: string;
 }
 
 export type Started = { machine: string; session: string } | { reason: string };
@@ -41,6 +46,7 @@ function isStartRequest(value: unknown): value is StartRequest {
 		isObject(value) &&
 		typeof value.folder === "string" &&
 		(value.prompt === undefined || typeof value.prompt === "string") &&
-		(value.machine === undefined || typeof value.machine === "string")
+		(value.machine === undefined || typeof value.machine === "string") &&
+		(value.by === undefined || typeof value.by === "string")
 	);
 }
