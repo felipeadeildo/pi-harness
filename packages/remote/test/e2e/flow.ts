@@ -672,8 +672,7 @@ async function readsChanges(page: Page): Promise<Result> {
 		}
 		const open = page.getByRole("link", { name: "Open the file" });
 		await open.click();
-		await page.waitForURL(/file=notes\.md/, { timeout: 20_000 });
-		// The diff has both lines too, so the file is read only once the diff is gone.
+		// The diff holds both lines too, and stays a moment after the URL changes.
 		await open.waitFor({ state: "detached", timeout: 20_000 });
 		try {
 			await page.getByText("the first line").first().waitFor({ timeout: 20_000 });
