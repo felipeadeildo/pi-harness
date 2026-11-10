@@ -45,84 +45,117 @@ export class Routes {
 		this.#options = options;
 	}
 
+	/** Every HTTP route; `isRoute` reads it, plus the `/ws` upgrade. */
+	static readonly #table: readonly Route[] = [
+		{ method: "POST", path: /^\/login$/, answer: (routes, asked) => routes.#login(asked) },
+		{ method: "GET", path: /^\/health$/, answer: (routes, asked) => routes.#health(asked) },
+		{
+			method: "GET",
+			path: /^\/tailnet$/,
+			answer: (routes, { response }) => reply(response, 200, routes.#machinesList()),
+		},
+		{ method: "GET", path: /^\/sessions$/, answer: (routes, asked) => routes.#sessions(asked) },
+		{ method: "GET", path: /^\/shared$/, answer: (routes, asked) => routes.#shared(asked) },
+		{
+			method: "GET",
+			path: /^\/rooms\/([^/]+)\/([^/]+)$/,
+			answer: (routes, asked) => routes.#roomLog(asked),
+		},
+		...(["opening", "entries", "files", "file", "changes", "diff"] as const).map((what): Route => ({
+			method: "GET",
+			path: new RegExp(`^/sessions/([^/]+)/([^/]+)/${what}$`),
+			machine: 0,
+			answer: (routes, asked) => routes.#session(asked, what),
+		})),
+	];
+
+	static isRoute(path: string): boolean {
+		return path === "/ws" || Routes.#table.some((route) => route.path.test(path));
+	}
+
 	handle(request: IncomingMessage, response: ServerResponse): void {
 		// A page that resolved its own name to 127.0.0.1 is same-origin, so Host is checked first.
-		const verdict = authorize(asking(request, false), this.#place());
+		const verdict = authorize(asking(request, false), this.place());
 		if (!verdict.ok) return reply(response, verdict.status, { error: verdict.reason });
 		const url = new URL(request.url ?? "/", "http://daemon");
-		const path = url.pathname;
-		if (request.method === "POST" && path === "/login") {
-			this.#login(request, response);
-			return;
-		}
-		if (request.method !== "GET") return reply(response, 405, { error: "GET only" });
-		if (path === "/health") {
-			const uptime = (this.#options.now ?? Date.now)() - this.#options.started;
-			const { version, machine } = this.#options;
-			return reply(response, 200, { version, protocol: PROTOCOL, machine, uptime });
-		}
-		if (path === "/tailnet") return reply(response, 200, this.#machinesList());
-		if (path === "/sessions") {
-			// `here` is how another daemon asks, so two machines never ask each other in a circle.
-			if (url.searchParams.has("here")) return reply(response, 200, this.#list());
-			void this.#everywhere().then((list) => reply(response, 200, list));
-			return;
-		}
-		const events = this.#options.events;
-		if (path === "/shared" && events !== undefined)
-			return reply(response, 200, sharedHere(events, this.#options.machine));
-		const log = /^\/rooms\/([^/]+)\/([^/]+)$/.exec(path);
-		if (log !== null && events !== undefined) {
-			const bytes = roomBytes(
-				events,
-				log[1] ?? "",
-				log[2] ?? "",
-				Number(url.searchParams.get("from")) || 0,
-			);
-			if (bytes === undefined) return reply(response, 404, { error: "no such log" });
-			response.writeHead(200, {
-				"content-type": "application/octet-stream",
-				"cache-control": "no-store",
-			});
-			response.end(bytes);
-			return;
-		}
-		const route = /^\/sessions\/([^/]+)\/([^/]+)\/(opening|entries|files|file|changes|diff)$/.exec(
-			path,
-		);
-		if (route !== null) {
-			const [machine, session] = route.slice(1, 3).map(decoded);
-			if (machine === undefined || session === undefined)
-				return reply(response, 400, { error: "a machine and a session, percent-encoded" });
+		for (const route of Routes.#table) {
+			const match = request.method === route.method ? route.path.exec(url.pathname) : null;
+			if (match === null) continue;
+			const asked = { request, response, url, parts: match.slice(1) };
+			if (route.machine === undefined) return route.answer(this, asked);
+			const machine = decoded(asked.parts[route.machine] ?? "");
+			if (machine === undefined)
+				return reply(response, 400, { error: "a machine name, percent-encoded" });
 			const elsewhere = this.#options.machines?.named(machine);
-			if (elsewhere !== undefined) {
-				void this.#relay(response, elsewhere, `${path}${url.search}`);
-				return;
-			}
-			const known = this.#options.sessions.get(session);
-			if (known?.machine !== machine) return reply(response, 404, { error: "no such session" });
-			const folder = route[3] === undefined ? undefined : FOLDER_READS[route[3]];
-			if (folder !== undefined) {
-				void folder(known.live.cwd, url.searchParams.get("path") ?? "").then(
-					(body) => reply(response, 200, body),
-					(error: unknown) =>
-						error instanceof Refused
-							? reply(response, error.status, { error: error.message })
-							: reply(response, 500, { error: "the session's folder could not be read" }),
-				);
-				return;
-			}
-			if (route[3] === "entries") {
-				void this.#entries(response, known.live.file, session, url).catch(() =>
-					reply(response, 500, { error: "the session file could not be read" }),
-				);
-				return;
-			}
+			if (elsewhere === undefined) return route.answer(this, asked);
+			void this.#relay(response, elsewhere, `${url.pathname}${url.search}`);
+			return;
+		}
+		if (request.method !== "GET") return reply(response, 405, { error: "no such route" });
+		// Last, so a build file never answers for a route.
+		this.#page(request, response, url.pathname);
+	}
+
+	#health({ response }: Asked): void {
+		const uptime = (this.#options.now ?? Date.now)() - this.#options.started;
+		const { version, machine } = this.#options;
+		reply(response, 200, { version, protocol: PROTOCOL, machine, uptime });
+	}
+
+	#sessions({ response, url }: Asked): void {
+		// `here` is how another daemon asks, so two machines never ask each other in a circle.
+		if (url.searchParams.has("here")) return reply(response, 200, this.#list());
+		void this.#everywhere().then((list) => reply(response, 200, list));
+	}
+
+	#shared({ response }: Asked): void {
+		const events = this.#options.events;
+		if (events === undefined) return reply(response, 404, { error: "no rooms on this daemon" });
+		reply(response, 200, sharedHere(events, this.#options.machine));
+	}
+
+	#roomLog({ response, url, parts: [room = "", log = ""] }: Asked): void {
+		const events = this.#options.events;
+		const bytes =
+			events === undefined
+				? undefined
+				: roomBytes(events, room, log, Number(url.searchParams.get("from")) || 0);
+		if (bytes === undefined) return reply(response, 404, { error: "no such log" });
+		response.writeHead(200, {
+			"content-type": "application/octet-stream",
+			"cache-control": "no-store",
+		});
+		response.end(bytes);
+	}
+
+	/** This machine's session; another machine's was relayed. */
+	#session({ response, url, parts }: Asked, what: SessionRead): void {
+		const [machine, session] = parts.map(decoded);
+		if (machine === undefined || session === undefined)
+			return reply(response, 400, { error: "a machine and a session, percent-encoded" });
+		const known = this.#options.sessions.get(session);
+		if (known?.machine !== machine) return reply(response, 404, { error: "no such session" });
+		if (what === "entries") {
+			void this.#entries(response, known.live.file, session, url).catch(() =>
+				reply(response, 500, { error: "the session file could not be read" }),
+			);
+			return;
+		}
+		if (what === "opening") {
 			const opening = this.#options.sessions.opening(session);
 			if (opening === undefined) return reply(response, 404, { error: "no opening" });
 			return reply(response, 200, opening[0]);
 		}
-		// After every data route, so a file named like a route can never answer for it.
+		void FOLDER_READS[what](known.live.cwd, url.searchParams.get("path") ?? "").then(
+			(body) => reply(response, 200, body),
+			(error: unknown) =>
+				error instanceof Refused
+					? reply(response, error.status, { error: error.message })
+					: reply(response, 500, { error: "the session's folder could not be read" }),
+		);
+	}
+
+	#page(request: IncomingMessage, response: ServerResponse, path: string): void {
 		const web = this.#options.web;
 		if (web === undefined) return reply(response, 404, { error: "not found" });
 		const served = serveApp(web, path);
@@ -158,7 +191,8 @@ export class Routes {
 		return file;
 	}
 
-	#place(): { hosts: ReadonlySet<string>; logins: Logins; isAppFile(path: string): boolean } {
+	/** What `authorize` checks a request against, for the routes and the upgrade alike. */
+	place(): { hosts: ReadonlySet<string>; logins: Logins; isAppFile(path: string): boolean } {
 		const web = this.#options.web;
 		return {
 			hosts: this.#options.hosts(),
@@ -190,7 +224,7 @@ export class Routes {
 	}
 
 	/** The token comes in the body, never the query, which access logs keep. */
-	#login(request: IncomingMessage, response: ServerResponse): void {
+	#login({ request, response }: Asked): void {
 		let body = "";
 		let cut = false;
 		request.setEncoding("utf8");
@@ -305,27 +339,34 @@ export class Routes {
 	}
 }
 
+/** `parts` are the path's captures, still percent-encoded. */
+interface Asked {
+	request: IncomingMessage;
+	response: ServerResponse;
+	url: URL;
+	parts: string[];
+}
+
+interface Route {
+	method: "GET" | "POST";
+	path: RegExp;
+	/** The capture naming a machine; another machine's request goes to its daemon. */
+	machine?: number;
+	answer(routes: Routes, asked: Asked): void;
+}
+
+type SessionRead = "opening" | "entries" | keyof typeof FOLDER_READS;
+
 /** Read only, and only inside the session's folder. */
-const FOLDER_READS: Record<string, (cwd: string, path: string) => Promise<unknown>> = {
+const FOLDER_READS = {
 	files: folderAt,
 	file: fileAt,
 	changes: changesAt,
 	diff: diffAt,
-};
+} satisfies Record<string, (cwd: string, path: string) => Promise<unknown>>;
 
 export function isRoute(path: string): boolean {
-	return (
-		path === "/ws" ||
-		path === "/health" ||
-		path === "/login" ||
-		path === "/logout" ||
-		path === "/sessions" ||
-		path.startsWith("/sessions/") ||
-		path === "/tailnet" ||
-		path === "/shared" ||
-		path.startsWith("/rooms/") ||
-		path.startsWith("/.well-known/")
-	);
+	return Routes.isRoute(path);
 }
 
 function tokenOf(body: string): string | undefined {

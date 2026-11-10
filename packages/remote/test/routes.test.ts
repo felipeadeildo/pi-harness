@@ -7,6 +7,7 @@ import { listSessions, stateOf } from "@adeildo/pi-remote-protocol/client";
 
 import { requestLink } from "../src/cli/open.ts";
 import { FILES, History, type Page } from "../src/daemon/history.ts";
+import { isRoute } from "../src/daemon/routes.ts";
 import { Daemon } from "../src/daemon/server.ts";
 import { bridgeOf, dir, entry, openDaemon, running, socket, useDaemon } from "./daemon-harness.ts";
 import { until } from "./fakes.ts";
@@ -34,6 +35,44 @@ test("the HTTP routes: health, the session list, and an opening only for a known
 	expect((await get("/sessions/laptop/%E0%A4%A/opening")).status).toBe(400);
 	expect((await get("/sessions/laptop/s%31/opening")).status).toBe(200);
 	expect((await get("/health")).status).toBe(200);
+});
+
+test("a request that is not a GET and no route takes is a 405, and a GET no route takes is the page's", async () => {
+	const { port, cookie } = await openDaemon();
+	const ask = (path: string, method = "GET") =>
+		fetch(`http://127.0.0.1:${port}${path}`, {
+			method,
+			headers: { Cookie: cookie, Origin: `http://127.0.0.1:${port}` },
+		});
+	expect((await ask("/sessions", "POST")).status).toBe(405);
+	expect((await ask("/health", "PUT")).status).toBe(405);
+	expect((await ask("/sessions/laptop/s1/files", "POST")).status).toBe(405);
+	expect((await ask("/login")).status).toBe(404);
+	expect((await ask("/sessions/laptop/s1/nothing")).status).toBe(404);
+	expect((await ask("/sessions/laptop/s1/opening/more")).status).toBe(404);
+});
+
+test("the daemon's routes are told from the page's paths", () => {
+	for (const path of [
+		"/ws",
+		"/health",
+		"/login",
+		"/tailnet",
+		"/sessions",
+		"/sessions/laptop/s1/opening",
+		"/sessions/laptop/s1/diff",
+		"/shared",
+		"/rooms/r1/log",
+	])
+		expect([path, isRoute(path)]).toEqual([path, true]);
+	for (const path of [
+		"/",
+		"/session/laptop/s1",
+		"/session/laptop/s1/files",
+		"/machines",
+		"/assets/a.js",
+	])
+		expect([path, isRoute(path)]).toEqual([path, false]);
 });
 
 test("the client reads the list the daemon writes: the handle from the summary, the status from the state", async () => {

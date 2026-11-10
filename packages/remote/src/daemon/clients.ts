@@ -6,11 +6,11 @@ import type { Envelope } from "@adeildo/pi-remote-protocol";
 import type { WebSocketServer } from "ws";
 
 import { accept, join, server } from "../wire/websocket.ts";
-import { isAppFile, type WebApp } from "./app.ts";
+import type { WebApp } from "./app.ts";
 import { authorize, hostsOf, type Logins } from "./auth.ts";
 import { Hub } from "./hub.ts";
 import type { Machines } from "./machines.ts";
-import { asking, isRoute, Routes, STATUS } from "./routes.ts";
+import { asking, Routes, STATUS } from "./routes.ts";
 import type { Sessions } from "./sessions.ts";
 import type { Owners, Tailnet } from "./tailnet.ts";
 
@@ -73,7 +73,7 @@ export class Clients {
 		const served = createServer((request, response) => this.routes.handle(request, response));
 		served.on("upgrade", (request: IncomingMessage, socket, head: Buffer) => {
 			// Any page can open a WebSocket to 127.0.0.1.
-			const verdict = authorize(asking(request, true), this.#place());
+			const verdict = authorize(asking(request, true), this.routes.place());
 			if (!verdict.ok) {
 				// A fixed reason phrase: the request's Origin or Host never goes into the head.
 				socket.end(
@@ -134,20 +134,6 @@ export class Clients {
 		const watching = this.hub.forget(session);
 		const file = this.routes.forget(session);
 		return { watching, file };
-	}
-
-	#place(): {
-		hosts: ReadonlySet<string>;
-		logins: Logins;
-		isAppFile(path: string): boolean;
-	} {
-		const web = this.#options.web;
-		return {
-			hosts: this.#hosts,
-			logins: this.#options.logins,
-			// A route is not a page even when the build holds a file of that name.
-			isAppFile: (path) => web !== undefined && !isRoute(path) && isAppFile(web, path),
-		};
 	}
 }
 
