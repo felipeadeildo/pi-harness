@@ -125,7 +125,7 @@ export class Starts {
 	}
 }
 
-/** Only letters, digits, `_` and `-`: a terminal's name goes into tmux commands. */
+/** Letters, digits, `_` and `-` only, like a terminal's name: it goes into tmux commands. */
 function sessionName(folder: string, ticket: string): string {
 	return `${
 		basename(folder)
