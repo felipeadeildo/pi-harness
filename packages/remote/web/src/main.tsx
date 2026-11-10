@@ -1,9 +1,9 @@
-// The daemon serves `index.html` for every path the page owns.
+// The daemon serves `index.html` for every path without an extension; `NotFound` answers the rest.
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router";
 
-import { Pick, Sessions, Shell } from "./app/shell.tsx";
+import { NotFound, Pick, Sessions, Shell } from "./app/shell.tsx";
 
 import "./app.css";
 
@@ -21,6 +21,7 @@ const router = createBrowserRouter([
 				],
 			},
 			{ path: "machines", lazy: () => import("./app/machines.tsx") },
+			{ path: "*", element: <NotFound /> },
 		],
 	},
 ]);

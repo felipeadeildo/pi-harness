@@ -1,7 +1,12 @@
 // The frame: the page's sections in a bottom bar on a phone and a rail at the left on a wide screen.
 // Inside Sessions, a wide screen keeps the list beside the open session; on a phone the list is the
 // section's screen and a session takes the whole screen, bar included.
-import { BubbleChatIcon, ComputerIcon, ComputerTerminal01Icon } from "@hugeicons/core-free-icons";
+import {
+	BubbleChatIcon,
+	ComputerIcon,
+	ComputerTerminal01Icon,
+	Unlink01Icon,
+} from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 import { cn } from "cn";
 import type { ReactNode } from "react";
@@ -166,6 +171,21 @@ export function Pick(): ReactNode {
 		<main className="flex h-full flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
 			<Icon icon={ComputerTerminal01Icon} className="size-7 text-dim" />
 			<p className="text-sm text-muted-foreground">Pick a session on the left to follow it here.</p>
+		</main>
+	);
+}
+
+/** Any address the router does not know: the daemon serves the page for it, and this says so. */
+export function NotFound(): ReactNode {
+	return (
+		<main className="flex h-full flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+			<Icon icon={Unlink01Icon} className="size-7 text-dim" />
+			<p className="max-w-sm text-sm text-muted-foreground">
+				This address is not a page of the remote.
+			</p>
+			<Link to="/" className="text-sm text-pi underline underline-offset-4">
+				All sessions
+			</Link>
 		</main>
 	);
 }

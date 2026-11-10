@@ -52,21 +52,19 @@ function appOf(extra: Record<string, string> = {}): WebApp {
 }
 
 describe("the page's build", () => {
-	test("answers its own files, the page for its routes, and nothing made up", () => {
+	test("answers its own files, the page for any path without an extension, and nothing made up", () => {
 		const app = appOf();
 		expect(fileFor(app, "/")).toBe("/index.html");
 		expect(fileFor(app, "/favicon.png")).toBe("/favicon.png");
 		expect(fileFor(app, "/assets/index-1234.js")).toBe("/assets/index-1234.js");
 		expect(fileFor(app, "/session/laptop/01a16e22")).toBe("/index.html");
-		expect(fileFor(app, "/session/laptop/01a16e22/")).toBe("/index.html");
 		expect(fileFor(app, "/session/laptop/01a16e22/files")).toBe("/index.html");
 		expect(fileFor(app, "/machines")).toBe("/index.html");
-		// The routes the daemon answers itself must not be eaten by the page.
-		expect(fileFor(app, "/login")).toBeUndefined();
-		expect(fileFor(app, "/sessions")).toBeUndefined();
-		expect(fileFor(app, "/session/laptop")).toBeUndefined();
-		expect(fileFor(app, "/session/laptop/s1/more")).toBeUndefined();
+		// The page's router draws its own 404 for a path it does not know.
+		expect(fileFor(app, "/session/laptop")).toBe("/index.html");
+		// A missing file is a 404, so a page asking for a chunk of an old build reloads.
 		expect(fileFor(app, "/x.js")).toBeUndefined();
+		expect(fileFor(app, "/assets/index-0000.js")).toBeUndefined();
 		// Only what was there when the daemon read the folder: a file written later is not served.
 		writeFileSync(join(dir, "web", "secret.txt"), "no");
 		expect(isAppFile(app, "/secret.txt")).toBe(false);
@@ -94,7 +92,7 @@ describe("the page's build", () => {
 		const bundle = serveApp(app, "/assets/index-1234.js");
 		expect(bundle.headers["cache-control"]).toContain("immutable");
 		expect(bundle.type).toContain("javascript");
-		expect(serveApp(app, "/nowhere").status).toBe(404);
+		expect(serveApp(app, "/nowhere.js").status).toBe(404);
 	});
 
 	test("a listed file that went away answers not found", () => {
@@ -144,9 +142,11 @@ describe("the daemon serving the app", () => {
 		expect((await get("/machines")).status).toBe(200);
 		expect((await get("/tailnet")).status).toBe(401);
 		expect((await get("/assets/index-1234.js")).status).toBe(200);
-		// A path the build lacks is not one of its files, so it needs a login before its 404.
-		expect((await get("/nowhere")).status).toBe(401);
-		expect((await loggedIn("/nowhere")).status).toBe(404);
+		// A path the page does not know is still the page, which says so.
+		expect((await get("/nowhere")).headers.get("content-type")).toContain("text/html");
+		// A file the build lacks needs a login before its 404.
+		expect((await get("/nowhere.js")).status).toBe(401);
+		expect((await loggedIn("/nowhere.js")).status).toBe(404);
 	});
 
 	test("without a build, the daemon serves its data routes and nothing else", async () => {

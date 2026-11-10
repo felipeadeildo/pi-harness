@@ -13,8 +13,6 @@ const TYPES: Record<string, string> = {
 	".woff2": "font/woff2",
 };
 
-const ROUTES = [/^\/session\/[^/]+\/[^/]+(?:\/files)?\/?$/, /^\/machines\/?$/];
-
 /** The build inlines no script, so none is hashed. */
 export const POLICY = [
 	"default-src 'self'",
@@ -66,9 +64,9 @@ function listed(dir: string): Set<string> {
 	return new Set(files);
 }
 
-/** `index.html` for `/` and the page's routes; undefined otherwise, so other paths reach the routes. */
+/** `index.html` for a path without an extension: the page's router owns it, and answers its 404. */
 export function fileFor(app: WebApp, path: string): string | undefined {
-	if (path === "/" || ROUTES.some((route) => route.test(path))) return "/index.html";
+	if (extname(path) === "") return "/index.html";
 	const page = pageOf(app.dir);
 	if (page !== undefined && page !== app.page) {
 		app.files = listed(app.dir);
