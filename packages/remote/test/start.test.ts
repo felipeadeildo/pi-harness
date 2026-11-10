@@ -101,6 +101,16 @@ describe("starting pi", () => {
 		expect(args).toEqual([
 			"-L",
 			"pi-remote",
+			"set",
+			"-gq",
+			"extended-keys",
+			"on",
+			";",
+			"set",
+			"-gq",
+			"extended-keys-format",
+			"csi-u",
+			";",
 			"new-session",
 			"-d",
 			"-s",
@@ -137,7 +147,8 @@ describe("starting pi", () => {
 		expect((await start({ path: dir })).status).toBe(400);
 		// Home exists everywhere; the fake tmux starts nothing, so the wait runs out.
 		expect((await start("~")).status).toBe(504);
-		expect(fake.args()?.[7]).toBe(process.env.HOME);
+		const args = fake.args() ?? [];
+		expect(args[args.indexOf("-c") + 1]).toBe(process.env.HOME);
 	});
 
 	test("says what the machine lacks: tmux, or pi on its PATH", async () => {
@@ -229,13 +240,16 @@ const hasTmux = (() => {
 
 // CI installs tmux, so this runs there; it proves the arguments on a real tmux.
 test.skipIf(!hasTmux)(
-	"a real tmux runs the command in the folder, with the ticket in its environment",
+	"a real tmux runs the command in the folder, with the ticket in its environment and extended keys on",
 	async () => {
 		const folder = join(dir, "real folder");
 		mkdirSync(folder);
 		const said = join(dir, "said");
 		const pi = join(dir, "pi");
-		writeFileSync(pi, `#!/bin/sh\necho "$PWD $PI_REMOTE_TICKET" > "${said}"\n`, { mode: 0o755 });
+		// It stays a moment, so the server is still there to ask for its options.
+		writeFileSync(pi, `#!/bin/sh\necho "$PWD $PI_REMOTE_TICKET" > "${said}"\nsleep 5\n`, {
+			mode: 0o755,
+		});
 		const env: NodeJS.ProcessEnv = { ...process.env, TMUX_TMPDIR: dir };
 		delete env.TMUX;
 		const previous = { TMUX_TMPDIR: process.env.TMUX_TMPDIR, TMUX: process.env.TMUX };
@@ -251,8 +265,13 @@ test.skipIf(!hasTmux)(
 				.split(/ (?=[^ ]+$)/);
 			expect(cwd).toBe(folder);
 			expect(ticket).toMatch(/^[0-9a-f-]{36}$/);
+			const option = (name: string) =>
+				spawnSync("tmux", ["-L", "pi-remote", "show", "-gv", name], {
+					env,
+					encoding: "utf8",
+				}).stdout.trim();
+			expect(option("extended-keys")).toBe("on");
 		} finally {
-			// The fake pi has exited, and its tmux server with it, unless the test failed first.
 			spawnSync("tmux", ["-L", "pi-remote", "kill-server"], { env, stdio: "ignore" });
 			if (previous.TMUX_TMPDIR === undefined) delete process.env.TMUX_TMPDIR;
 			else process.env.TMUX_TMPDIR = previous.TMUX_TMPDIR;
