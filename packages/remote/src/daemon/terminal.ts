@@ -12,7 +12,7 @@ import { EXTENDED_KEYS, folderOf, run } from "./tmux.ts";
 const KEYS_PER_COMMAND = 256;
 /** The folder last, so a tab in its name stays in it. */
 const FIELDS = "#{session_name}\t#{pane_current_command}\t#{session_created}\t#{pane_current_path}";
-/** What tmux and the page agree a name is: nothing a tmux command line could read as more. */
+/** Letters, digits, `_` and `-` only: a name goes into tmux commands. */
 const NAME = /^[\w-]{1,80}$/;
 
 export interface TerminalInfo {

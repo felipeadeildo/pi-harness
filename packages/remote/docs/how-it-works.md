@@ -22,16 +22,7 @@ Agents talk across machines too. Every two seconds, each daemon copies what the 
 
 ## The daemon
 
-You never start the daemon by hand. When a bridge finds no daemon, it starts one in the background. A launcher in the remote's folder always points at the pi that started last, so an update needs no new service. The daemon exits after five minutes with no session connected. When a second daemon finds the first one answering, it steps aside, and so does a daemon that an update has made old.
-
-| Command                 | What it does                                                               |
-| ----------------------- | -------------------------------------------------------------------------- |
-| `pi-remote open`        | Prints the link and opens it with `$BROWSER` or the system's opener        |
-| `pi-remote serve`       | Runs the daemon in the foreground, and it never exits for being idle       |
-| `pi-remote serve --dev` | Runs it from the sources under `bun --watch`, so saving a file restarts it |
-| `pi-remote --version`   | Prints the version the launcher points at                                  |
-
-Both `serve` forms take `--port`, which is 7878 by default, and the link uses the port the daemon opened.
+You never start the daemon by hand. When a bridge finds no daemon, it starts one in the background. A launcher in the remote's folder always points at the pi that started last, so an update needs no new service. The daemon exits after five minutes with no session and no terminal open. When a second daemon finds the first one answering, it steps aside, and so does a daemon that an update has made old. The [README](../README.md#commands) lists the `pi-remote` commands.
 
 A pi that runs without a terminal, as `pi -p` does, stays off the list on purpose. Start it with `PI_REMOTE_SHARE=1` to share it.
 
@@ -64,9 +55,13 @@ A client that opens the stream sends the cursor where it stopped. It gets what t
 
 The folder routes read only, and only inside the session's folder. The daemon refuses a path with `..`, an absolute path, a link that points out of the folder and anything in `.git`. Git runs with the user's diff tools and prefixes turned off, takes no lock on the repository, and reads a path as a name, never as a pattern. A session whose folder is inside a repository sees only that folder's changes, with paths from it. When git fails, the route answers 500, never an empty list or an empty patch.
 
-The page can start pi in a folder of a machine when that machine allows it. The daemon runs pi in a session of its own tmux server (`tmux -L pi-remote`), so `pi-remote attach` opens it at the desk. It sets `PI_REMOTE_TICKET` on that pi, and pi's bridge reports the ticket when it registers, so the daemon answers with the session it started. When the session does not arrive in 20 seconds, the route answers 504 and pi keeps running in tmux. A pi on this machine can ask the same over the daemon's socket, with the command `session.start`, which another piece reaches through `harness:session.start`. That path needs no setting, because the piece that asks has the operator's yes, but a `machine` other than this one goes to that machine's route and its setting. A `by` names the session that asked, and the new pi gets it as `PI_STARTED_BY`, which peers reads to stop a chain of agents.
+The page can start pi in a folder of a machine when that machine allows it. The daemon runs pi in a session of its own tmux server (`tmux -L pi-remote`), so `pi-remote attach` opens it at the desk. It sets `PI_REMOTE_TICKET` on that pi. Pi's bridge reports the ticket when it registers, and the daemon answers with that session. When the session does not arrive in 20 seconds, the route answers 504, and pi keeps running in tmux.
 
-A terminal is a session of the same tmux server, with your shell in it. Each page that opens one is a tmux client in control mode (`tmux -C`): the daemon reads the pane's output from it and types with `send-keys`, so it needs no native module. The page first gets the screen as it is (`capture-pane`), then what the shell writes. Closing the page leaves the shell running, and a page that comes back sees the same screen. When the shell ends, the socket closes with "the shell ended"; a refusal closes it with 4000 plus the HTTP status, such as 4404. A terminal's name is letters, digits, `_` and `-` only, since it goes into tmux commands; any other name is refused before tmux sees it. An open terminal keeps the daemon up as a session does, and a daemon that stops closes its terminals' sockets with 1001. A page that falls behind by a megabyte stops the daemon reading the pane, and tmux holds the output until the page catches up. Another machine's terminal passes through this daemon byte for byte, with its close code and reason.
+A pi on this machine can start one too, with the command `session.start` on the daemon's socket. Other pieces reach it through `harness:session.start`. This path needs no setting, because the piece that asks already has the operator's yes. A `machine` other than this one still goes to that machine's route, and its setting applies. A `by` names the session that asked. The new pi gets it as `PI_STARTED_BY`, and peers reads it to stop a chain of agents.
+
+A terminal is a session of the same tmux server, with your shell in it. Each page that opens one is a tmux client in control mode (`tmux -C`). The daemon reads the pane's output from that client and types with `send-keys`, so it needs no native module. The page first gets the screen as it is (`capture-pane`), then what the shell writes. Closing the page leaves the shell running, and a page that comes back sees the same screen.
+
+When the shell ends, the socket closes with "the shell ended". A refusal closes it with 4000 plus the HTTP status, such as 4404. A terminal's name goes into tmux commands, so it may hold only letters, digits, `_` and `-`, and the daemon refuses any other name before tmux sees it. An open terminal keeps the daemon up as a session does, and a daemon that stops closes its terminals' sockets with 1001. When a page falls a megabyte behind, the daemon stops reading the pane, and tmux holds the output until the page catches up. Another machine's terminal passes through this daemon byte for byte, with its close code and reason.
 
 A client can also send commands to a session: a prompt, abort, compact, rename, stop, and a change of model, thinking level or permission mode. Each command gets an answer on its id. When an id already ran, the daemon answers that it is a repeat, so a command sent again after a reconnect does not run twice. The page asks you before it sets the `full` mode, because `full` runs every call without asking.
 
@@ -94,7 +89,7 @@ The agent runs with your permissions, so the permission feature asks before any 
 
 `bun run build` in this package writes the two programs and the page. pi compiles the bridge itself when it loads it. The daemon and the command ship as one file each that imports only Node's own modules, because nothing else compiles them.
 
-`bun run docs:remote`, from the repository's root, draws the phone screens above: it starts a daemon and a pi session with a scripted model, drives the page in a phone-sized browser and saves the screens to `assets/`.
+`bun run docs:remote`, from the repository's root, draws the phone screens of the README. It starts a daemon and a pi session with a scripted model, drives the page in a phone-sized browser and saves the screens to `assets/`.
 
 <!-- docs:footer -->
 
