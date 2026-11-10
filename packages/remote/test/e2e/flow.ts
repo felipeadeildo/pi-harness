@@ -650,7 +650,7 @@ function changedRepository(dir: string): string {
 
 async function readsChanges(page: Page): Promise<Result> {
 	try {
-		await page.getByLabel("Files and changes").click({ timeout: 20_000 });
+		await page.getByRole("link", { name: "Files and changes" }).click({ timeout: 20_000 });
 		const row = page.getByRole("button", { name: /notes\.md/ });
 		try {
 			await row.click({ timeout: 20_000 });
@@ -670,12 +670,17 @@ async function readsChanges(page: Page): Promise<Result> {
 		} catch {
 			return { ok: false, why: "the row opened and no diff with the added line showed" };
 		}
-		await page.getByRole("link", { name: "Open the file" }).click();
-		await page.waitForURL(/file=notes\.md/, { timeout: 20_000 });
-		await page.getByText("the first line").first().waitFor({ timeout: 20_000 });
-		return (await added.count()) > 0
-			? { ok: true }
-			: { ok: false, why: "the file opened without the line the diff showed" };
+		const open = page.getByRole("link", { name: "Open the file" });
+		await open.click();
+		// The diff holds both lines too, and stays a moment after the URL changes.
+		await open.waitFor({ state: "detached", timeout: 20_000 });
+		try {
+			await page.getByText("the first line").first().waitFor({ timeout: 20_000 });
+			await added.first().waitFor({ timeout: 20_000 });
+		} catch {
+			return { ok: false, why: "the file opened without the line the diff showed" };
+		}
+		return { ok: true };
 	} catch (error) {
 		return { ok: false, why: short(error) };
 	}
