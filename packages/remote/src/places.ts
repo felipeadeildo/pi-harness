@@ -12,6 +12,9 @@ export const TMUX_SOCKET = "pi-remote";
 /** Set on a pi the daemon starts; its bridge reports it, so the daemon knows the session. */
 export const TICKET_ENV = "PI_REMOTE_TICKET";
 
+/** Set on a pi another session started, naming it. Keep in step with the kit's `STARTED_BY_ENV`. */
+export const STARTED_BY_ENV = "PI_STARTED_BY";
+
 /** The command and pi must agree on the setting's path and rule. */
 export const PORT_ID = "remote.port";
 
