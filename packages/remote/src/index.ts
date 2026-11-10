@@ -14,9 +14,11 @@ import {
 	logFrom,
 	piSource,
 	provideProtected,
+	provideSessionStart,
 	SESSION_STATUS,
+	type Started,
 } from "@adeildo/pi-kit";
-import { PROMPT_KINDS, type PromptKind } from "@adeildo/pi-remote-protocol";
+import { type Envelope, PROMPT_KINDS, type PromptKind } from "@adeildo/pi-remote-protocol";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { Activity, answerOf, branchOf, saidOf, watchBranch } from "./bridge/activity.ts";
@@ -84,6 +86,7 @@ export const remote = defineFeature({
 		let commands: Commands | undefined;
 		let restoreDialogs: (() => void) | undefined;
 		let stopOrigins: (() => void) | undefined;
+		let stopStarts: (() => void) | undefined;
 		let stopBranch: (() => void) | undefined;
 		let activity: Activity | undefined;
 		let cwd: string | undefined;
@@ -107,6 +110,10 @@ export const remote = defineFeature({
 			const origins = new PromptOrigins();
 			stopOrigins?.();
 			stopOrigins = origins.provide(scope);
+			stopStarts?.();
+			stopStarts = provideSessionStart(scope.events, async (request) =>
+				startedOf(await bridge?.request("session.start", request, START_MS)),
+			);
 			const api = commandApi(scope, ctx, origins);
 			inbox = new SessionInbox(scope, {
 				send: (text, deliverAs) => api.send(text, deliverAs),
@@ -189,6 +196,8 @@ export const remote = defineFeature({
 		});
 
 		scope.onShutdown(() => {
+			stopStarts?.();
+			stopStarts = undefined;
 			stopOrigins?.();
 			stopOrigins = undefined;
 			stopBranch?.();
@@ -309,6 +318,22 @@ export const remote = defineFeature({
 		});
 	},
 });
+
+/** The daemon waits 20 s for the new pi; the rest is tmux and the socket. */
+const START_MS = 30_000;
+
+/** The daemon's answer to `session.start`, in the contract's words. */
+export function startedOf(answer: Envelope | undefined): Started {
+	const data = isObject(answer?.data) ? answer.data : {};
+	if (
+		answer?.kind === "reply" &&
+		typeof data.machine === "string" &&
+		typeof data.session === "string"
+	)
+		return { machine: data.machine, session: data.session };
+	if (answer?.kind === "error" && typeof data.reason === "string") return { reason: data.reason };
+	return { reason: "the remote's daemon did not answer in time" };
+}
 
 export default function piRemote(pi: ExtensionAPI): void {
 	createApp(pi, { name: "pi-remote" }).use(remote).build();

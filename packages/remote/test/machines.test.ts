@@ -20,7 +20,7 @@ import { Mirror } from "../src/daemon/mirror.ts";
 import { Daemon } from "../src/daemon/server.ts";
 import { Starts } from "../src/daemon/start.ts";
 import type { AskTailscale, Tailnet } from "../src/daemon/tailnet.ts";
-import { bridgeOf } from "./daemon-harness.ts";
+import { bridgeOf, onSocket } from "./daemon-harness.ts";
 import { until } from "./fakes.ts";
 import { logIn } from "./login.ts";
 
@@ -171,6 +171,34 @@ test("pi starts on the other machine through this daemon, and the answer names i
 	});
 	const answer = await started;
 	expect([answer.status, await answer.json()]).toEqual([201, { machine: "laptop", session: "s7" }]);
+});
+
+test("this machine's pi starts an agent on the other machine, by that machine's setting", async () => {
+	const tmux = join(dir, "tmux");
+	const log = join(dir, "tmux-args");
+	writeFileSync(tmux, `#!/bin/sh\nprintf '%s\\n' "$@" > "${log}"\n`, { mode: 0o755 });
+	await twoMachines(new Starts({ allowed: () => true, tmux, pi: "pi" }));
+	const desk = join(dir, "desk", "daemon.sock");
+	const started = onSocket("session.start", { folder: dir, machine: "laptop", prompt: "hi" }, desk);
+	await until(() => existsSync(log));
+	expect(readFileSync(log, "utf8").trimEnd().split("\n").at(-1)).toBe("exec 'pi' -- 'hi'");
+	const ticket = /PI_REMOTE_TICKET=(.+)/.exec(readFileSync(log, "utf8"))?.[1] ?? "";
+	await bridgeOf("s8", "e1", undefined, join(dir, "laptop", "daemon.sock"), { cwd: dir, ticket });
+	const answer = await started;
+	expect([answer.kind, answer.data]).toEqual(["reply", { machine: "laptop", session: "s8" }]);
+});
+
+test("the other machine's setting refuses an agent's start, and its words come back", async () => {
+	await twoMachines();
+	const desk = join(dir, "desk", "daemon.sock");
+	const answer = await onSocket("session.start", { folder: dir, machine: "laptop" }, desk);
+	expect([answer.kind, answer.data]).toEqual([
+		"error",
+		{
+			reason:
+				'starting sessions from the page is off on laptop: turn on "remote.startSessions" in pi\'s settings there',
+		},
+	]);
 });
 
 test("a socket for the other machine's session reaches its bridge, and its events come back", async () => {

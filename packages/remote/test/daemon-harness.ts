@@ -138,3 +138,25 @@ export function transportTo(port: number, cookie: string) {
 export function entry(id: string, parentId: string | null) {
 	return { type: "message", id, parentId, timestamp: "", message: { role: "user", content: id } };
 }
+
+/** A command on the daemon's socket, as pi's bridge sends it; the daemon's reply or error. */
+export function onSocket(type: string, data: unknown, path = socket): Promise<Envelope> {
+	return new Promise((resolve) => {
+		const client = dial(path);
+		const lines = new Lines();
+		client.setEncoding("utf8");
+		client.on("connect", () => {
+			client.write(line(envelope("hello", "cli", { protocol: PROTOCOL, version: "1.2.0" })));
+			client.write(line(envelope("command", type, data, { id: "c1" })));
+		});
+		client.on("data", (chunk: string) => {
+			for (const text of lines.push(chunk)) {
+				const message = envelopeOf(text);
+				if (message?.id === "c1") {
+					client.destroy();
+					resolve(message);
+				}
+			}
+		});
+	});
+}

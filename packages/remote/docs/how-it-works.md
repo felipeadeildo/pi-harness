@@ -41,27 +41,27 @@ The daemon keeps its state in `~/.pi/agent/harness/remote`, and `PI_REMOTE_DIR` 
 
 Clients reach the daemon on `127.0.0.1:7878`, and on the machine's tailnet name and address at the same port when it has them. [`@adeildo/pi-remote-protocol`](../../remote-protocol) has the shapes and a client library.
 
-| Route                                | What it answers                                                                                      |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| `GET /health`                        | The version, the protocol, the machine and the uptime, with no login                                 |
-| `GET /sessions`                      | Every session of every machine, with its state; `?here` for this machine's only                      |
-| `GET /tailnet`                       | This machine and the others that answered, with their versions and when each was last seen           |
-| `GET /sessions/:machine/:id/opening` | What a client draws first: the summary, the end of the branch and the message being written          |
-| `GET /sessions/:machine/:id/entries` | Older entries, read from pi's own session file (`?before=`, `?since=`, 200 per page)                 |
-| `GET /sessions/:machine/:id/files`   | One level of the session's folder (`?path=`): folders first, with what git ignores marked            |
-| `GET /sessions/:machine/:id/file`    | One file of the folder (`?path=`): its text up to 1 MB, or only its size when it is binary           |
-| `GET /sessions/:machine/:id/changes` | What changed in the folder since the last commit, staged or not, with each file's lines              |
-| `GET /sessions/:machine/:id/diff`    | One changed file's patch (`?path=`), up to 2 MB                                                      |
-| `GET /machines/:machine/folders`     | Whether starting pi there is on, and the folders pi worked in there, newest first                    |
-| `POST /machines/:machine/sessions`   | Starts pi in `{ folder }`, and answers `{ machine, session }` once that session reaches the daemon   |
-| `GET /ws?machine=`                   | The live stream of that machine's sessions: one hello per session, then its events                   |
-| `POST /login`                        | Trades a link's token for the login cookie, or signs in your own device on the tailnet with no token |
+| Route                                | What it answers                                                                                             |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `GET /health`                        | The version, the protocol, the machine and the uptime, with no login                                        |
+| `GET /sessions`                      | Every session of every machine, with its state; `?here` for this machine's only                             |
+| `GET /tailnet`                       | This machine and the others that answered, with their versions and when each was last seen                  |
+| `GET /sessions/:machine/:id/opening` | What a client draws first: the summary, the end of the branch and the message being written                 |
+| `GET /sessions/:machine/:id/entries` | Older entries, read from pi's own session file (`?before=`, `?since=`, 200 per page)                        |
+| `GET /sessions/:machine/:id/files`   | One level of the session's folder (`?path=`): folders first, with what git ignores marked                   |
+| `GET /sessions/:machine/:id/file`    | One file of the folder (`?path=`): its text up to 1 MB, or only its size when it is binary                  |
+| `GET /sessions/:machine/:id/changes` | What changed in the folder since the last commit, staged or not, with each file's lines                     |
+| `GET /sessions/:machine/:id/diff`    | One changed file's patch (`?path=`), up to 2 MB                                                             |
+| `GET /machines/:machine/folders`     | Whether starting pi there is on, and the folders pi worked in there, newest first                           |
+| `POST /machines/:machine/sessions`   | Starts pi in `{ folder, prompt? }`, and answers `{ machine, session }` once that session reaches the daemon |
+| `GET /ws?machine=`                   | The live stream of that machine's sessions: one hello per session, then its events                          |
+| `POST /login`                        | Trades a link's token for the login cookie, or signs in your own device on the tailnet with no token        |
 
 A client that opens the stream sends the cursor where it stopped. It gets what the daemon still holds after that point, or the opening and everything after it. The stream never leaves a gap: a delta has no sequence number because it only matters live, and the end of the message replaces it. After the first page of entries, which indexes the file, a page takes a few milliseconds.
 
 The folder routes read only, and only inside the session's folder. The daemon refuses a path with `..`, an absolute path, a link that points out of the folder and anything in `.git`. Git runs with the user's diff tools and prefixes turned off, takes no lock on the repository, and reads a path as a name, never as a pattern. A session whose folder is inside a repository sees only that folder's changes, with paths from it. When git fails, the route answers 500, never an empty list or an empty patch.
 
-The page can start pi in a folder of a machine when that machine allows it. The daemon runs pi in a session of its own tmux server (`tmux -L pi-remote`), so `pi-remote attach` opens it at the desk. It sets `PI_REMOTE_TICKET` on that pi, and pi's bridge reports the ticket when it registers, so the daemon answers with the session it started. When the session does not arrive in 20 seconds, the route answers 504 and pi keeps running in tmux.
+The page can start pi in a folder of a machine when that machine allows it. The daemon runs pi in a session of its own tmux server (`tmux -L pi-remote`), so `pi-remote attach` opens it at the desk. It sets `PI_REMOTE_TICKET` on that pi, and pi's bridge reports the ticket when it registers, so the daemon answers with the session it started. When the session does not arrive in 20 seconds, the route answers 504 and pi keeps running in tmux. A pi on this machine can ask the same over the daemon's socket, with the command `session.start`, which another piece reaches through `harness:session.start`. That path needs no setting, because the piece that asks has the operator's yes, but a `machine` other than this one goes to that machine's route and its setting.
 
 A client can also send commands to a session: a prompt, abort, compact, rename, stop, and a change of model, thinking level or permission mode. Each command gets an answer on its id. When an id already ran, the daemon answers that it is a repeat, so a command sent again after a reconnect does not run twice. The page asks you before it sets the `full` mode, because `full` runs every call without asking.
 
