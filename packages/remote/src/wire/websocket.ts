@@ -64,8 +64,11 @@ export function join(
 		upstream.on("open", () => {
 			for (const text of waiting.splice(0)) upstream.send(text);
 		});
-		upstream.on("message", (data) => ws.send(String(data)));
-		upstream.on("close", () => ws.close());
+		// A terminal's output is bytes, and its close says why: both pass as they came.
+		upstream.on("message", (data, binary) => ws.send(binary ? data : String(data), { binary }));
+		upstream.on("close", (code, reason) =>
+			sendable(code) ? ws.close(code, reason.toString()) : ws.close(),
+		);
 		upstream.on("error", () => ws.close());
 		return {
 			message: (text) => {
@@ -75,4 +78,13 @@ export function join(
 			closed: () => upstream.terminate(),
 		};
 	});
+}
+
+/** 1005 and 1006 only describe a close; they are never sent. */
+function sendable(code: number): boolean {
+	return (
+		(code >= 1000 && code <= 1003) ||
+		(code >= 1007 && code <= 1014) ||
+		(code >= 3000 && code <= 4999)
+	);
 }

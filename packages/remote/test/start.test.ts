@@ -33,9 +33,9 @@ function fakeTmux(code = 0): { tmux: string; args: () => string[] | undefined } 
 }
 
 async function daemonWith(options: StartOptions) {
-	const { daemon, port, cookie } = await openDaemon(
-		new Starts({ allowed: () => true, ...options }),
-	);
+	const { daemon, port, cookie } = await openDaemon({
+		starts: new Starts({ allowed: () => true, ...options }),
+	});
 	const origin = `http://127.0.0.1:${port}`;
 	const headers = { cookie, origin, "content-type": "application/json" };
 	const here = await machineOf(origin);
@@ -116,7 +116,7 @@ describe("starting pi", () => {
 			"new-session",
 			"-d",
 			"-s",
-			`work space-${ticket.slice(0, 4)}`,
+			`work-space-${ticket.slice(0, 4)}`,
 			"-c",
 			folder,
 			"-e",
@@ -130,7 +130,7 @@ describe("starting pi", () => {
 	});
 
 	test("a machine route for a name that is neither this machine nor a known one is a 404", async () => {
-		const { port, cookie } = await openDaemon(new Starts({ allowed: () => true }));
+		const { port, cookie } = await openDaemon({ starts: new Starts({ allowed: () => true }) });
 		const origin = `http://127.0.0.1:${port}`;
 		const asked = await fetch(`${origin}/machines/nowhere/folders`, { headers: { cookie } });
 		expect(await answer(asked)).toEqual([404, { error: "no such machine" }]);

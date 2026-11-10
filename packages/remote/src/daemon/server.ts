@@ -30,6 +30,7 @@ import { Refused, refusalOf } from "./refused.ts";
 import { type GoneReason, type SessionLive, Sessions } from "./sessions.ts";
 import { Starts, startIn } from "./start.ts";
 import { type AskTailscale, Owners, type Tailnet } from "./tailnet.ts";
+import type { Terminals } from "./terminal.ts";
 
 /** A daemon a pi started exits after this long with no session. */
 const IDLE_EXIT_MS = 5 * 60_000;
@@ -57,6 +58,8 @@ export interface DaemonOptions {
 	machines?: Machines;
 	/** Starting pi from the page; a test brings its own tmux and pi. */
 	starts?: Starts;
+	/** Shells from the page; a test brings its own setting. */
+	terminals?: Terminals;
 	exited?(reason: ExitReason): void;
 	warn?(message: string): void;
 }
@@ -298,6 +301,7 @@ export class Daemon {
 			...(this.#options.events === undefined ? {} : { events: this.#options.events }),
 			command: (session, message) => this.#toBridge(session, message),
 			starts: this.#starts,
+			...(this.#options.terminals === undefined ? {} : { terminals: this.#options.terminals }),
 			...(web === undefined ? {} : { web }),
 			warn: (message) => this.#warn(message),
 			...(this.#options.tailnet === undefined

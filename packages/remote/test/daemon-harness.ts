@@ -19,6 +19,7 @@ import { type Transport } from "@adeildo/pi-remote-protocol/client";
 import { Daemon } from "../src/daemon/server.ts";
 import type { Cursor } from "../src/daemon/sessions.ts";
 import { Starts } from "../src/daemon/start.ts";
+import { Terminals } from "../src/daemon/terminal.ts";
 import { envelopeOf, line, Lines } from "../src/wire/lines.ts";
 import { logIn } from "./login.ts";
 
@@ -38,11 +39,16 @@ export let dir: string;
 export let socket: string;
 export const running: Daemon[] = [];
 
-/** Starting pi is off unless a test brings its own `Starts`, so no test reads the real settings. */
-export async function openDaemon(
+/** Starting pi and terminals are off unless a test brings its own, so no test reads the real settings. */
+export async function openDaemon({
 	starts = new Starts({ allowed: () => false }),
-): Promise<{ daemon: Daemon; port: number; cookie: string }> {
-	const daemon = await Daemon.start({ socket, version: "1.2.0", clientPort: 0, starts });
+	terminals = new Terminals({ allowed: () => false }),
+}: { starts?: Starts; terminals?: Terminals } = {}): Promise<{
+	daemon: Daemon;
+	port: number;
+	cookie: string;
+}> {
+	const daemon = await Daemon.start({ socket, version: "1.2.0", clientPort: 0, starts, terminals });
 	if (daemon?.clientPort === undefined) throw new Error("the daemon did not start");
 	running.push(daemon);
 	const port = daemon.clientPort;

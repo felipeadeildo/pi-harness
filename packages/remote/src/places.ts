@@ -21,6 +21,9 @@ export const PORT_ID = "remote.port";
 /** Read by the daemon from the global settings only, so a cloned repository cannot turn it on. */
 export const START_ID = "remote.startSessions";
 
+/** Read like `START_ID`: a terminal from the page is a shell on this machine. */
+export const TERMINAL_ID = "remote.terminal";
+
 export function portOf(value: unknown): number | undefined {
 	const number = typeof value === "number" && Number.isInteger(value) ? value : undefined;
 	if (number === undefined || number < 1 || number > 65_535) return undefined;

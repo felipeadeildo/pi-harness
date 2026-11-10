@@ -1,6 +1,7 @@
 // Two machines of one owner on a tailnet, each with its daemon, on two loopback addresses. A client
 // of one daemon lists the other's sessions, reads one, and talks to it, with no pairing between them.
 import { afterEach, beforeEach, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
 import {
 	appendFileSync,
 	existsSync,
@@ -20,6 +21,7 @@ import { Mirror } from "../src/daemon/mirror.ts";
 import { Daemon } from "../src/daemon/server.ts";
 import { Starts } from "../src/daemon/start.ts";
 import type { AskTailscale, Tailnet } from "../src/daemon/tailnet.ts";
+import { Terminals } from "../src/daemon/terminal.ts";
 import { bridgeOf, onSocket } from "./daemon-harness.ts";
 import { until } from "./fakes.ts";
 import { logIn } from "./login.ts";
@@ -68,9 +70,11 @@ async function start(
 	tailnet: Tailnet,
 	machines?: Machines,
 	starts = new Starts({ allowed: () => false }),
+	terminals = new Terminals({ allowed: () => false }),
 ): Promise<Daemon> {
 	const daemon = await Daemon.start({
 		starts,
+		terminals,
 		socket: join(dir, name, "daemon.sock"),
 		version: "1.2.0",
 		clientPort: 0,
@@ -86,8 +90,8 @@ async function start(
 }
 
 /** The desk and the laptop, the laptop with one session, and the desk's client logged in. */
-async function twoMachines(laptopStarts?: Starts) {
-	const laptop = await start("laptop", LAPTOP, undefined, laptopStarts);
+async function twoMachines(laptopStarts?: Starts, laptopTerminals?: Terminals) {
+	const laptop = await start("laptop", LAPTOP, undefined, laptopStarts, laptopTerminals);
 	const machines = new Machines({
 		self: "desk",
 		// Each daemon has its own port here; on a real tailnet both use the same one.
@@ -200,6 +204,61 @@ test("the other machine's setting refuses an agent's start, and its words come b
 		},
 	]);
 });
+
+test.skipIf(spawnSync("tmux", ["-V"]).status !== 0)(
+	"a terminal of the other machine opens through this daemon, and what it types runs there",
+	async () => {
+		const previous = process.env.TMUX_TMPDIR;
+		process.env.TMUX_TMPDIR = dir;
+		const inside = process.env.TMUX;
+		delete process.env.TMUX;
+		try {
+			const { port, cookie } = await twoMachines(undefined, new Terminals({ allowed: () => true }));
+			const origin = `http://127.0.0.1:${port}`;
+			const made = await fetch(`${origin}/machines/laptop/terminals`, {
+				method: "POST",
+				headers: { cookie, origin, "content-type": "application/json" },
+				body: JSON.stringify({ folder: dir }),
+			});
+			const { machine, name } = (await made.json()) as { machine: string; name: string };
+			expect(machine).toBe("laptop");
+			const ws = new WebSocket(
+				`ws://127.0.0.1:${port}/terminal?machine=laptop&name=${name}&cols=80&rows=24`,
+				{ headers: { Origin: origin, Cookie: cookie } },
+			);
+			ws.binaryType = "arraybuffer";
+			let seen = Buffer.alloc(0);
+			let text = true;
+			ws.onmessage = (event) => {
+				if (typeof event.data === "string") text = false;
+				else seen = Buffer.concat([seen, Buffer.from(event.data as ArrayBuffer)]);
+			};
+			await new Promise((resolve) => (ws.onopen = resolve));
+			// A byte that is not UTF-8 crosses both daemons as it was, in binary frames.
+			ws.send(JSON.stringify({ type: "input", data: "printf '%s-%s\\377\\n' over there\r" }));
+			await until(() =>
+				seen.includes(
+					Buffer.from([0x6f, 0x76, 0x65, 0x72, 0x2d, 0x74, 0x68, 0x65, 0x72, 0x65, 0xff]),
+				),
+			);
+			expect(text).toBe(true);
+			ws.close();
+			const missing = new WebSocket(
+				`ws://127.0.0.1:${port}/terminal?machine=laptop&name=nope&cols=80&rows=24`,
+				{ headers: { Origin: origin, Cookie: cookie } },
+			);
+			const closed = await new Promise<number>((resolve) => {
+				missing.onclose = (event) => resolve(event.code);
+			});
+			expect(closed).toBe(4404);
+		} finally {
+			spawnSync("tmux", ["-L", "pi-remote", "kill-server"], { stdio: "ignore" });
+			if (previous === undefined) delete process.env.TMUX_TMPDIR;
+			else process.env.TMUX_TMPDIR = previous;
+			if (inside !== undefined) process.env.TMUX = inside;
+		}
+	},
+);
 
 test("a socket for the other machine's session reaches its bridge, and its events come back", async () => {
 	const { port, cookie, bridge } = await twoMachines();

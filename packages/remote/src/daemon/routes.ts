@@ -14,6 +14,7 @@ import { Refused, refusalOf } from "./refused.ts";
 import type { Sessions } from "./sessions.ts";
 import { Starts, startIn } from "./start.ts";
 import type { Owners } from "./tailnet.ts";
+import { Terminals } from "./terminal.ts";
 
 export const STATUS = {
 	401: "Unauthorized",
@@ -39,19 +40,22 @@ export interface RoutesOptions {
 	now?: () => number;
 	tailnet?: { ip: string; owners: Owners };
 	starts?: Starts;
+	terminals?: Terminals;
 }
 
 export class Routes {
 	readonly #options: RoutesOptions;
 	readonly #history = new History();
 	readonly #starts: Starts;
+	readonly terminals: Terminals;
 
 	constructor(options: RoutesOptions) {
 		this.#options = options;
 		this.#starts = options.starts ?? new Starts();
+		this.terminals = options.terminals ?? new Terminals();
 	}
 
-	/** Every HTTP route; `isRoute` reads it, plus the `/ws` upgrade. */
+	/** Every HTTP route; `isRoute` reads it, plus the `/ws` and `/terminal` upgrades. */
 	static readonly #table: readonly Route[] = [
 		{ method: "POST", path: /^\/login$/, answer: (routes, asked) => routes.#login(asked) },
 		{ method: "GET", path: /^\/health$/, answer: (routes, asked) => routes.#health(asked) },
@@ -79,6 +83,18 @@ export class Routes {
 			machine: 0,
 			answer: (routes, asked) => routes.#here(asked) && routes.#start(asked),
 		},
+		{
+			method: "GET",
+			path: /^\/machines\/([^/]+)\/terminals$/,
+			machine: 0,
+			answer: (routes, asked) => routes.#here(asked) && routes.#terminalList(asked),
+		},
+		{
+			method: "POST",
+			path: /^\/machines\/([^/]+)\/terminals$/,
+			machine: 0,
+			answer: (routes, asked) => routes.#here(asked) && routes.#terminalNew(asked),
+		},
 		...(["opening", "entries", "files", "file", "changes", "diff"] as const).map((what): Route => ({
 			method: "GET",
 			path: new RegExp(`^/sessions/([^/]+)/([^/]+)/${what}$`),
@@ -88,7 +104,9 @@ export class Routes {
 	];
 
 	static isRoute(path: string): boolean {
-		return path === "/ws" || Routes.#table.some((route) => route.path.test(path));
+		return (
+			path === "/ws" || path === "/terminal" || Routes.#table.some((route) => route.path.test(path))
+		);
 	}
 
 	handle(request: IncomingMessage, response: ServerResponse): void {
@@ -279,6 +297,29 @@ export class Routes {
 			const arrival = (ticket: string, ms: number) => sessions.arrival(ticket, ms);
 			this.#starts.start(asked, { machine, arrival, fromClient: true }).then(
 				(session) => reply(response, 201, { machine, session }),
+				(error: unknown) => reply(response, ...refusalOf(error)),
+			);
+		});
+	}
+
+	#terminalList({ response }: Asked): void {
+		const { machine } = this.#options;
+		if (!this.terminals.allowed()) return reply(response, 200, { allowed: false, terminals: [] });
+		this.terminals.list(machine).then(
+			(terminals) => reply(response, 200, { allowed: true, terminals }),
+			(error: unknown) => reply(response, ...refusalOf(error)),
+		);
+	}
+
+	#terminalNew({ request, response }: Asked): void {
+		void bodyOf(request, response, START_BYTES, "a terminal carries one folder").then((body) => {
+			if (body === undefined) return;
+			const asked = startIn(body);
+			if (asked === undefined)
+				return reply(response, 400, { error: "a terminal carries { folder } as JSON" });
+			const { machine } = this.#options;
+			this.terminals.create(asked.folder, machine).then(
+				(name) => reply(response, 201, { machine, name }),
 				(error: unknown) => reply(response, ...refusalOf(error)),
 			);
 		});
