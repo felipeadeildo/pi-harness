@@ -5,6 +5,7 @@ import {
 	BubbleChatIcon,
 	ComputerIcon,
 	ComputerTerminal01Icon,
+	PlusSignIcon,
 	Unlink01Icon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
@@ -126,8 +127,8 @@ function SectionLink({
 	);
 }
 
-/** The section's title; on a phone, where there is no rail, it carries the π. */
-export function SectionHeader({ title }: { title: string }): ReactNode {
+/** The section's title, and its one action; on a phone, where there is no rail, it carries the π. */
+export function SectionHeader({ title, action }: { title: string; action?: ReactNode }): ReactNode {
 	return (
 		<header className="sticky top-0 z-10 flex items-center gap-2.5 bg-background/95 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
 			<Link
@@ -137,7 +138,8 @@ export function SectionHeader({ title }: { title: string }): ReactNode {
 			>
 				<img src="/mark.svg" alt="" width={24} height={15} className="block" />
 			</Link>
-			<h1 className="wide text-[17px] font-semibold">{title}</h1>
+			<h1 className="wide flex-1 text-[17px] font-semibold">{title}</h1>
+			{action}
 		</header>
 	);
 }
@@ -154,7 +156,18 @@ export function Sessions(): ReactNode {
 					open ? "hidden" : "flex",
 				)}
 			>
-				<SectionHeader title="Sessions" />
+				<SectionHeader
+					title="Sessions"
+					action={
+						<Link
+							to="/new"
+							className="-my-1 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13.5px] font-medium text-muted-foreground outline-none hover:bg-accent/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+						>
+							<Icon icon={PlusSignIcon} className="text-pi" />
+							New session
+						</Link>
+					}
+				/>
 				<div className="px-3 pb-6">
 					<SessionList {...(open ? { current: `${machine}/${id}` } : {})} />
 				</div>

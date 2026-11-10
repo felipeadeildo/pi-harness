@@ -5,7 +5,7 @@
   <a href="https://pi.dev"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffelipeadeildo%2Fpi-harness%2Fmain%2Fpackage.json&query=%24.devDependencies%5B%22%40earendil-works%2Fpi-coding-agent%22%5D&label=pi%20SDK&color=6E56CF" alt="pi SDK"></a>
 </p>
 
-When an agent needs a decision, you are not always at the desk, and the run waits until you come back. With this package, every pi session on every machine of yours opens in a browser, and your phone reaches the same page. You read the session as it streams, approve a command, answer a question and send the next message. Whichever screen answers first wins, and the other one closes its dialog. The **Files** button shows what changed in the session's folder since the last commit, with each file's diff, and the folder's files.
+When an agent needs a decision, you are not always at the desk, and the run waits until you come back. With this package, every pi session on every machine of yours opens in a browser, and your phone reaches the same page. You read the session as it streams, approve a command, answer a question and send the next message. Whichever screen answers first wins, and the other one closes its dialog. The **Files** button shows what changed in the session's folder since the last commit, with each file's diff, and the folder's files. **New session** starts pi in a folder of any of your machines, in a tmux that `pi-remote attach` opens later at that machine's terminal.
 
 <p align="center"><code>pi install npm:@adeildo/pi-remote</code></p>
 
@@ -24,6 +24,12 @@ When an agent needs a decision, you are not always at the desk, and the run wait
 - **Your other machines.** Every machine of yours that runs pi shows up on the same page, with its sessions. The **Machines** page lists each one with its version, and the ones that stopped answering.
 
 Agents on different machines can also share a room, like two terminals in one folder.
+
+## Starting a session from the page
+
+**New session**, at the top of the session list, starts pi in a folder of any of your machines. It lists the folders pi worked in there, newest first, and one tap starts pi in one of them. You can also type any other folder. The session opens on the page as soon as pi is up.
+
+It is off until you turn it on at that machine: open `/harness` in pi there, and turn on **Start sessions from the page** under Remote. Once it is on, anyone logged in to the remote can run pi, and so commands, on that machine. The page runs pi in the remote's own tmux, so `pi-remote attach` at that machine opens it in a terminal. That needs tmux on the machine.
 
 ## Commands
 
