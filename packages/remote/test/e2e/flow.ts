@@ -31,7 +31,7 @@ import { requestLink } from "../../src/cli/open.ts";
 import { findWebDir } from "../../src/daemon/app.ts";
 import piRemote from "../../src/index.ts";
 import { readCurrent } from "../../src/launcher.ts";
-import { daemonPaths, TICKET_ENV } from "../../src/places.ts";
+import { daemonPaths, TICKET_ENV, TMUX_SOCKET } from "../../src/places.ts";
 import { line } from "../../src/wire/lines.ts";
 
 /** Where a browser is, if this machine has one. The CI runner does; a laptop may not. */
@@ -53,6 +53,7 @@ const STEPS = [
 	"a command typed offline goes out after the reload",
 	"the session's changes open to a diff, and the diff to the file",
 	"a new session starts from the page in a recent folder, and opens",
+	"a shell opened from the page runs a command, and a reload draws the same screen",
 ] as const;
 
 type Result = { ok: boolean; why?: string };
@@ -87,6 +88,10 @@ async function main(): Promise<number> {
 	root = mkdtempSync(join(tmpdir(), "pi-remote-gate-"));
 	process.env.PI_REMOTE_DIR = root;
 	process.env.PI_REMOTE_SHARE = "1";
+	// The remote's tmux server lives under the run's folder, never beside the owner's.
+	process.env.TMUX_TMPDIR = root;
+	process.env.SHELL = "/bin/sh";
+	delete process.env.TMUX;
 	// Its own port, so two runs or a leftover daemon cannot collide on 7878.
 	const port = await freePort();
 	const reports: Report[] = [];
@@ -129,7 +134,7 @@ async function main(): Promise<number> {
 			// Fast enough that a tool call's JSON arrives in about a second, slow enough that the long
 			// answer below still takes seconds to write out.
 			tokensPerSecond: 50,
-			settings: { remote: { port, startSessions: true } },
+			settings: { remote: { port, startSessions: true, terminal: true } },
 		});
 		const link = await waitForLink();
 		if ("url" in link) {
@@ -153,11 +158,13 @@ async function main(): Promise<number> {
 			reports.push({ step: 7, ...(await sentWhileOffline(page, rig)) });
 			reports.push({ step: 8, ...(await readsChanges(page)) });
 			reports.push({ step: 9, ...(await startsSession(page, work)) });
+			reports.push({ step: 10, ...(await runsShell(page, work)) });
 		} else {
 			reports.push({ step: 1, ok: false, why: link.why });
 		}
 	} finally {
 		stopDaemon();
+		if (realTmux !== undefined) spawnSync(realTmux, ["-L", TMUX_SOCKET, "kill-server"]);
 		await browser?.close();
 		browser = undefined;
 		rig?.dispose();
@@ -165,6 +172,7 @@ async function main(): Promise<number> {
 		rmSync(root, { recursive: true, force: true });
 		delete process.env.PI_REMOTE_DIR;
 		delete process.env.PI_REMOTE_SHARE;
+		delete process.env.TMUX_TMPDIR;
 	}
 	// The daemon this run started is gone: `stopDaemon` is what makes the next run able to listen,
 	// and a signal 0 is how the same run can tell that it worked.
@@ -699,18 +707,24 @@ async function readsChanges(page: Page): Promise<Result> {
 }
 
 let tmuxLog = "";
+/** Found before the fake goes first on PATH: the terminal step needs the real one. */
+const realTmux = Bun.which("tmux") ?? undefined;
 
 /**
- * The daemon starts pi with tmux; here both are fakes first on PATH, and the tmux one keeps its
- * arguments. One pi session file names `work` as a recent folder.
+ * The daemon starts pi with tmux; here both are fakes first on PATH. The tmux one keeps the
+ * arguments of a start (the one with the ticket) and hands every other call to the real tmux.
+ * One pi session file names `work` as a recent folder.
  */
 function fakeStart(rigRoot: string, work: string): void {
 	const bin = join(root, "bin");
 	mkdirSync(bin, { recursive: true });
 	tmuxLog = join(root, "tmux-args");
-	writeFileSync(join(bin, "tmux"), `#!/bin/sh\nprintf '%s\\n' "$@" > "${tmuxLog}"\n`, {
-		mode: 0o755,
-	});
+	const real = realTmux === undefined ? "exit 127" : `exec "${realTmux}" "$@"`;
+	writeFileSync(
+		join(bin, "tmux"),
+		`#!/bin/sh\ncase "$*" in *${TICKET_ENV}=*) printf '%s\\n' "$@" > "${tmuxLog}";; *) ${real};; esac\n`,
+		{ mode: 0o755 },
+	);
 	writeFileSync(join(bin, "pi"), "#!/bin/sh\n", { mode: 0o755 });
 	process.env.PATH = `${bin}:${process.env.PATH ?? ""}`;
 	const sessions = join(rigRoot, "agent", "sessions", "work");
@@ -775,6 +789,55 @@ async function startsSession(page: Page, work: string): Promise<Result> {
 	} finally {
 		bridge?.destroy();
 	}
+}
+
+/** The command prints what it was not typed as, so the screen shows the shell ran it. */
+const TYPED = "printf 'gate %s\\n' $((6 * 7))";
+const PRINTED = "gate 42";
+
+async function runsShell(page: Page, work: string): Promise<Result> {
+	if (realTmux === undefined) return { ok: false, why: "tmux is not installed here" };
+	try {
+		await page
+			.getByRole("link", { name: "Terminals", exact: true })
+			.first()
+			.click({ timeout: 20_000 });
+		await page.getByLabel("New shell in").fill(work, { timeout: 20_000 });
+		await page.getByRole("button", { name: "Open shell" }).click();
+		await page.waitForURL(/\/terminal\//, { timeout: 20_000 });
+		const screen = page.locator(".xterm-rows");
+		const printed = screen.getByText(PRINTED, { exact: true });
+		await page.getByText(/^Connected to /).waitFor({ timeout: 20_000 });
+		await page.locator(".xterm-helper-textarea").focus();
+		await page.keyboard.type(TYPED);
+		await page.keyboard.press("Enter");
+		try {
+			await printed.waitFor({ timeout: 20_000 });
+		} catch {
+			return { ok: false, why: `the shell never printed "${PRINTED}": ${await screenOf(page)}` };
+		}
+		await page.reload();
+		await page.getByText(/^Connected to /).waitFor({ timeout: 20_000 });
+		try {
+			await printed.waitFor({ timeout: 20_000 });
+		} catch {
+			return {
+				ok: false,
+				why: `after the reload the screen lost "${PRINTED}": ${await screenOf(page)}`,
+			};
+		}
+		return { ok: true };
+	} catch (error) {
+		return { ok: false, why: short(error) };
+	}
+}
+
+async function screenOf(page: Page): Promise<string> {
+	const text = await page
+		.locator(".xterm-rows")
+		.innerText()
+		.catch(() => "");
+	return JSON.stringify(text.trim().slice(-200));
 }
 
 /** The detached daemon outlives this process and would hold the port for the next run. */
