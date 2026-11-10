@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { readFolders, startSession } from "@adeildo/pi-remote-protocol/client";
 
 import { Starts, type StartOptions } from "../src/daemon/start.ts";
-import { bridgeOf, dir, openDaemon, useDaemon } from "./daemon-harness.ts";
+import { bridgeOf, dir, onSocket, openDaemon, useDaemon } from "./daemon-harness.ts";
 import { until } from "./fakes.ts";
 
 useDaemon();
@@ -191,6 +191,38 @@ describe("starting pi", () => {
 				error: `pi started on ${here} but did not reach the remote in 0.02 s: run pi-remote attach there to see it`,
 			},
 		]);
+	});
+});
+
+describe("a start from this machine's own pi", () => {
+	test("needs no setting, and gives pi its first message", async () => {
+		const fake = fakeTmux();
+		const folder = join(dir, "work");
+		mkdirSync(folder);
+		const { here } = await daemonWith({ tmux: fake.tmux, pi: "pi", allowed: () => false });
+		const answered = onSocket("session.start", { folder, prompt: "read the 'README'" });
+		await until(() => fake.args() !== undefined);
+		const args = fake.args() ?? [];
+		expect(args.at(-1)).toBe(`exec 'pi' -- 'read the '\\''README'\\'''`);
+		const ticket = args.find((one) => one.startsWith("PI_REMOTE_TICKET="))?.slice(17) ?? "";
+		await bridgeOf("s3", "e1", undefined, undefined, { cwd: folder, ticket });
+		const answer = await answered;
+		expect([answer.kind, answer.data]).toEqual(["reply", { machine: here, session: "s3" }]);
+	});
+
+	test("says why it did not start: a long first message, a missing folder, an unknown machine", async () => {
+		await daemonWith({ tmux: fakeTmux().tmux, pi: "pi" });
+		const long = await onSocket("session.start", { folder: dir, prompt: "x".repeat(4_001) });
+		expect([long.kind, long.data]).toEqual([
+			"error",
+			{ reason: "a first message has at most 4000 characters" },
+		]);
+		const missing = await onSocket("session.start", { folder: join(dir, "nowhere") });
+		expect(missing.data).toEqual({ reason: `there is no folder at ${join(dir, "nowhere")}` });
+		const elsewhere = await onSocket("session.start", { folder: dir, machine: "desk" });
+		expect(elsewhere.data).toEqual({ reason: "no machine named desk answers" });
+		const shapeless = await onSocket("session.start", { path: dir });
+		expect(shapeless.data).toEqual({ reason: "a start carries { folder, prompt? }" });
 	});
 });
 

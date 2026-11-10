@@ -7,6 +7,8 @@ import { access, open, readdir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, delimiter, isAbsolute, join } from "node:path";
 
+import { isObject } from "@adeildo/pi-remote-protocol";
+
 import { shellQuoted } from "../launcher.ts";
 import { globalSetting, piSessionsDir, START_ID, TICKET_ENV, TMUX_SOCKET } from "../places.ts";
 import { Refused } from "./refused.ts";
@@ -31,11 +33,26 @@ const EXTENDED_KEYS = [
 const RECENT = 30;
 const HEAD_BYTES = 4_096;
 const WAIT_MS = 20_000;
+/** Well under what a tmux command line holds. */
+const PROMPT_CHARS = 4_000;
 
 export interface RecentFolder {
 	path: string;
 	/** When pi last wrote a session there, in ms. */
 	at: number;
+}
+
+export interface StartRequest {
+	folder: string;
+	/** Pi's first message, as `pi -- <prompt>` takes it. */
+	prompt?: string;
+}
+
+export interface StartContext {
+	machine: string;
+	arrival: (ticket: string, ms: number) => Promise<string | undefined>;
+	/** Over HTTP: the page, or another machine's daemon. */
+	fromClient: boolean;
 }
 
 export interface StartOptions {
@@ -65,17 +82,22 @@ export class Starts {
 		return recentFolders(this.#options.sessionsDir ?? piSessionsDir());
 	}
 
-	/** Starts pi in `folder`, and answers its session once pi's bridge registers with the ticket. */
+	/**
+	 * Starts pi in the folder, with `prompt` as its first message, and answers its session once pi's
+	 * bridge registers with the ticket. A client's request needs the setting; this machine's own pi
+	 * asks the operator first.
+	 */
 	async start(
-		folder: string,
-		machine: string,
-		arrival: (ticket: string, ms: number) => Promise<string | undefined>,
+		{ folder, prompt }: StartRequest,
+		{ machine, arrival, fromClient }: StartContext,
 	): Promise<string> {
-		if (!this.allowed())
+		if (fromClient && !this.allowed())
 			throw new Refused(
 				403,
 				`starting sessions from the page is off on ${machine}: turn on "${START_ID}" in pi's settings there`,
 			);
+		if (prompt !== undefined && prompt.length > PROMPT_CHARS)
+			throw new Refused(400, `a first message has at most ${PROMPT_CHARS} characters`);
 		const at = await folderOf(folder);
 		const pi = this.#options.pi ?? (await onPath("pi"));
 		if (pi === undefined) throw new Refused(503, `pi is not on ${machine}'s PATH`);
@@ -95,7 +117,9 @@ export class Starts {
 			at,
 			"-e",
 			`${TICKET_ENV}=${ticket}`,
-			`exec ${shellQuoted(pi)}`,
+			prompt === undefined || prompt === ""
+				? `exec ${shellQuoted(pi)}`
+				: `exec ${shellQuoted(pi)} -- ${shellQuoted(prompt)}`,
 		]);
 		if (ran.code === undefined) throw new Refused(503, `tmux is not installed on ${machine}`);
 		if (ran.code !== 0) throw new Error(`tmux could not start the session: ${ran.err.trim()}`);
@@ -208,4 +232,19 @@ function run(
 		child.once("error", () => resolve({ code: undefined, err }));
 		child.once("close", (code) => resolve({ code: code ?? 1, err }));
 	});
+}
+
+/** A start from JSON text or an object; undefined when it is not one. */
+export function startIn(value: unknown): StartRequest | undefined {
+	let data = value;
+	if (typeof value === "string") {
+		try {
+			data = JSON.parse(value);
+		} catch {
+			return undefined;
+		}
+	}
+	if (!isObject(data) || typeof data.folder !== "string") return undefined;
+	if (data.prompt !== undefined && typeof data.prompt !== "string") return undefined;
+	return { folder: data.folder, ...(data.prompt === undefined ? {} : { prompt: data.prompt }) };
 }

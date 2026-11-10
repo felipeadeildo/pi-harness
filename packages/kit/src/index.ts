@@ -22,6 +22,7 @@ export * from "./contracts/protected.ts";
 export * from "./contracts/names.ts";
 export * from "./contracts/board.ts";
 export * from "./contracts/prompts.ts";
+export * from "./contracts/starts.ts";
 export * from "./board/model.ts";
 export { names, type NamesOptions } from "./names/feature.ts";
 export { piDocs } from "./pi-docs/feature.ts";

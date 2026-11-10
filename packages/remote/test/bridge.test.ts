@@ -22,6 +22,7 @@ import {
 	MODE_SET,
 	protectedList,
 	targetOf,
+	startSession,
 } from "@adeildo/pi-kit";
 import { ANSWER, ASK, CANCEL, totalsOf } from "@adeildo/pi-kit";
 import type { SessionSource, SourceItem } from "@adeildo/pi-kit";
@@ -1049,6 +1050,43 @@ describe("the bridge", () => {
 		await until(() => types(daemon).includes("session.live"));
 		const live = daemon.received.find((one) => one.type === "session.live");
 		expect(live?.data).not.toHaveProperty("ticket");
+	});
+
+	test("another piece's start goes to the daemon, and the daemon's answer comes back", async () => {
+		const daemon = await listening();
+		const fake = mounted();
+		await start(fake, fakeContext([], true, { ...session() }));
+		await until(() => types(daemon).includes("session.live"));
+		const request = { folder: "~/work", prompt: "read the README" };
+		const started = startSession(fake.pi.events, request);
+		await until(() => daemon.received.some((one) => one.type === "session.start"));
+		const command = daemon.received.find((one) => one.type === "session.start");
+		expect(command?.data).toEqual(request);
+		daemon.sockets[0]?.write(
+			line(
+				envelope(
+					"reply",
+					"session.start",
+					{ machine: "laptop", session: "s2" },
+					{ id: command?.id },
+				),
+			),
+		);
+		expect(await started).toEqual({ machine: "laptop", session: "s2" });
+		const refused = startSession(fake.pi.events, { folder: "/nowhere" });
+		await until(() => daemon.received.filter((one) => one.type === "session.start").length === 2);
+		const second = daemon.received.filter((one) => one.type === "session.start")[1];
+		daemon.sockets[0]?.write(
+			line(
+				envelope(
+					"error",
+					"session.start",
+					{ reason: "there is no folder at /nowhere" },
+					{ id: second?.id },
+				),
+			),
+		);
+		expect(await refused).toEqual({ reason: "there is no folder at /nowhere" });
 	});
 
 	test("/remote asks the daemon for a token and opens the link with it in the fragment", async () => {

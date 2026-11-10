@@ -134,8 +134,8 @@ export class Bridge {
 	/** Asks the daemon, as `/remote` asks for a token. */
 	readonly #asks = new OpenAsks();
 
-	request(type: string, data: unknown): Promise<Envelope | undefined> {
-		return this.connection.request(type, data);
+	request(type: string, data: unknown, timeoutMs?: number): Promise<Envelope | undefined> {
+		return this.connection.request(type, data, timeoutMs);
 	}
 
 	/** Remembers who sent a prompt until its entry reaches the branch. */

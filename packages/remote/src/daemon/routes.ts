@@ -10,9 +10,9 @@ import { changesAt, diffAt, fileAt, folderAt } from "./files.ts";
 import { History, PAGE } from "./history.ts";
 import type { Machine, Machines } from "./machines.ts";
 import { roomBytes, sharedHere } from "./mirror.ts";
-import { Refused } from "./refused.ts";
+import { Refused, refusalOf } from "./refused.ts";
 import type { Sessions } from "./sessions.ts";
-import { Starts } from "./start.ts";
+import { Starts, startIn } from "./start.ts";
 import type { Owners } from "./tailnet.ts";
 
 export const STATUS = {
@@ -272,21 +272,15 @@ export class Routes {
 	#start({ request, response }: Asked): void {
 		void bodyOf(request, response, START_BYTES, "a start carries one folder").then((body) => {
 			if (body === undefined) return;
-			const folder = folderIn(body);
-			if (folder === undefined)
-				return reply(response, 400, { error: "a start carries { folder } as JSON" });
+			const asked = startIn(body);
+			if (asked === undefined)
+				return reply(response, 400, { error: "a start carries { folder, prompt? } as JSON" });
 			const { machine, sessions } = this.#options;
-			this.#starts
-				.start(folder, machine, (ticket, ms) => sessions.arrival(ticket, ms))
-				.then(
-					(session) => reply(response, 201, { machine, session }),
-					(error: unknown) =>
-						error instanceof Refused
-							? reply(response, error.status, { error: error.message })
-							: reply(response, 500, {
-									error: error instanceof Error ? error.message : "pi could not be started",
-								}),
-				);
+			const arrival = (ticket: string, ms: number) => sessions.arrival(ticket, ms);
+			this.#starts.start(asked, { machine, arrival, fromClient: true }).then(
+				(session) => reply(response, 201, { machine, session }),
+				(error: unknown) => reply(response, ...refusalOf(error)),
+			);
 		});
 	}
 
@@ -445,15 +439,6 @@ function bodyOf(
 			if (!cut) resolve(body);
 		});
 	});
-}
-
-function folderIn(body: string): string | undefined {
-	try {
-		const value: unknown = JSON.parse(body);
-		return isObject(value) && typeof value.folder === "string" ? value.folder : undefined;
-	} catch {
-		return undefined;
-	}
 }
 
 function tokenOf(body: string): string | undefined {

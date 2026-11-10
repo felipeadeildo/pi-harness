@@ -26,8 +26,9 @@ import { Logins } from "./auth.ts";
 import { Clients } from "./clients.ts";
 import { Machines } from "./machines.ts";
 import { Mirror } from "./mirror.ts";
+import { Refused, refusalOf } from "./refused.ts";
 import { type GoneReason, type SessionLive, Sessions } from "./sessions.ts";
-import type { Starts } from "./start.ts";
+import { Starts, startIn } from "./start.ts";
 import { type AskTailscale, Owners, type Tailnet } from "./tailnet.ts";
 
 /** A daemon a pi started exits after this long with no session. */
@@ -73,6 +74,7 @@ export class Daemon {
 	readonly #bridges = new Map<string, Socket>();
 	#clients: Clients | undefined;
 	#machines: Machines | undefined;
+	readonly #starts: Starts;
 	#mirror: Mirror | undefined;
 	clientPort: number | undefined;
 	#noPort: string | undefined;
@@ -80,6 +82,7 @@ export class Daemon {
 	private constructor(server: Server, options: DaemonOptions) {
 		this.#server = server;
 		this.#options = options;
+		this.#starts = options.starts ?? new Starts();
 		this.logins = new Logins(options.logins ?? join(dirname(options.socket), "logins.json"), {
 			warn: (message) => this.#warn(message),
 		});
@@ -207,6 +210,13 @@ export class Daemon {
 		const answer = (kind: "reply" | "error", data: object): void => {
 			socket.write(line(envelope(kind, message.type, data, { id: message.id })));
 		};
+		if (message.type === "session.start") {
+			void this.#startFor(message.data).then(
+				(started) => answer("reply", started),
+				(error: unknown) => answer("error", { reason: refusalOf(error)[1].error }),
+			);
+			return;
+		}
 		if (message.type !== "token.issue") return answer("error", { reason: "unknown command" });
 		if (this.clientPort === undefined)
 			return answer("error", {
@@ -287,7 +297,7 @@ export class Daemon {
 			...(this.#machines === undefined ? {} : { machines: this.#machines }),
 			...(this.#options.events === undefined ? {} : { events: this.#options.events }),
 			command: (session, message) => this.#toBridge(session, message),
-			...(this.#options.starts === undefined ? {} : { starts: this.#options.starts }),
+			starts: this.#starts,
 			...(web === undefined ? {} : { web }),
 			warn: (message) => this.#warn(message),
 			...(this.#options.tailnet === undefined
@@ -360,6 +370,41 @@ export class Daemon {
 			const version = versionIn(path);
 			if (version !== undefined && newer(version, this.#options.version)) this.stop("upgrade");
 		});
+	}
+
+	/**
+	 * A pi of this machine asks, after the operator said yes: no setting is needed here. Another
+	 * machine's daemon decides by its own setting.
+	 */
+	async #startFor(data: unknown): Promise<{ machine: string; session: string }> {
+		const asked = startIn(data);
+		if (asked === undefined) throw new Refused(400, "a start carries { folder, prompt? }");
+		const here = this.#options.machine ?? hostname();
+		const name = isObject(data) && typeof data.machine === "string" ? data.machine : here;
+		if (name === here) {
+			const session = await this.#starts.start(asked, {
+				machine: here,
+				arrival: (ticket, ms) => this.sessions.arrival(ticket, ms),
+				fromClient: false,
+			});
+			return { machine: here, session };
+		}
+		const there = this.#machines?.named(name);
+		if (there === undefined) throw new Refused(404, `no machine named ${name} answers`);
+		const answer = await this.#machines?.ask(
+			there,
+			`/machines/${encodeURIComponent(name)}/sessions`,
+			{
+				method: "POST",
+				body: JSON.stringify(asked),
+			},
+		);
+		const body: unknown = await answer?.json().catch(() => undefined);
+		if (answer?.ok && isObject(body) && typeof body.session === "string")
+			return { machine: name, session: body.session };
+		throw new Error(
+			isObject(body) && typeof body.error === "string" ? body.error : `${name} did not start pi`,
+		);
 	}
 
 	#warn(message: string): void {
