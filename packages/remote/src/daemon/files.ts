@@ -86,32 +86,29 @@ export async function fileAt(cwd: string, path: string): Promise<FileView> {
 }
 
 export async function changesAt(cwd: string): Promise<Changes> {
-	const root = await rootOf(cwd);
-	const prefix = await git(root, ["rev-parse", "--show-prefix"]);
-	if (prefix.code !== 0) return { repo: false };
-	const local = localPath(prefix.out.toString("utf8").replace(/\n$/, ""));
-	const base = await baseOf(root);
+	const repo = await repoOf(await rootOf(cwd));
+	if (repo === undefined) return { repo: false };
+	const { top, prefix } = repo;
+	const base = await baseOf(top);
 	const [status, numstat] = await Promise.all([
-		git(root, ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--", "."], {
+		git(top, [...STATUS, "--", prefix || "."], { limit: LIST_BYTES }),
+		git(top, ["diff", base, "--numstat", "-z", "-M", ...PLAIN, "--", prefix || "."], {
 			limit: LIST_BYTES,
 		}),
-		git(
-			root,
-			["diff", base, "--numstat", "-z", "-M", "--no-ext-diff", "--no-textconv", "--", "."],
-			{
-				limit: LIST_BYTES,
-			},
-		),
 	]);
-	const counts = countsOf(numstat.out.toString("utf8"), local);
-	const all = statusOf(status.out.toString("utf8"), local);
+	const local = localPath(prefix);
+	const counts = countsOf(textOf(numstat), local);
+	const all = statusOf(textOf(status), local);
 	// The last path of a status cut at the limit is cut too.
 	if (status.cut) all.pop();
-	const files = await Promise.all(
-		all.slice(0, CHANGED_FILES).map(async (one): Promise<ChangedFile> => {
+	const files = all.slice(0, CHANGED_FILES);
+	await Promise.all(
+		files.map(async (one) => {
 			const lines =
-				one.status === "untracked" ? await linesOf(join(root, one.path)) : counts.get(one.path);
-			return lines === undefined ? one : { ...one, added: lines.added, removed: lines.removed };
+				one.status === "untracked"
+					? await linesOf(join(top, prefix, one.path))
+					: counts.get(one.path);
+			if (lines !== undefined) Object.assign(one, lines);
 		}),
 	);
 	const more = all.length > files.length || status.cut;
@@ -122,22 +119,14 @@ export async function diffAt(cwd: string, path: string): Promise<FileDiff> {
 	const parts = partsOf(path);
 	if (parts.length === 0)
 		throw new Refused(400, "a diff is of one file inside the session's folder");
-	const root = await rootOf(cwd);
+	const repo = await repoOf(await rootOf(cwd));
+	if (repo === undefined) throw new Refused(404, "the session's folder is not in a git repository");
+	const { top, prefix } = repo;
 	const at = parts.join("/");
-	// From the repository's root, where `git status` writes a rename's old path.
-	const where = await git(root, ["rev-parse", "--show-toplevel", "--show-prefix"]);
-	if (where.code !== 0) throw new Refused(404, "the session's folder is not in a git repository");
-	const [top = root, prefix = ""] = where.out.toString("utf8").split("\n");
 	const full = `${prefix}${at}`;
 	// The whole folder, since a status of the new path alone sees a rename as an added file.
-	const status = await git(
-		top,
-		["status", "--porcelain=v1", "-z", "--untracked-files=all", "--", prefix || "."],
-		{ limit: LIST_BYTES },
-	);
-	const change = statusOf(status.out.toString("utf8"), (same) => same).find(
-		(one) => one.path === full,
-	);
+	const status = await git(top, [...STATUS, "--", prefix || "."], { limit: LIST_BYTES });
+	const change = statusOf(textOf(status), (same) => same).find((one) => one.path === full);
 	const patch =
 		change?.status === "untracked"
 			? await git(top, ["diff", "--no-index", ...PATCH_FLAGS, "--", "/dev/null", full], {
@@ -158,19 +147,19 @@ export async function diffAt(cwd: string, path: string): Promise<FileDiff> {
 				);
 	return {
 		path: at,
-		patch: patch.out.toString("utf8"),
+		// `diff --no-index` exits 1 when the files differ, which a new file always does.
+		patch: textOf(patch, change?.status === "untracked" ? [0, 1] : [0]),
 		...(patch.cut ? { truncated: true } : {}),
 	};
 }
 
-/** The user's git config may change the prefixes or run an external tool; the page reads plain patches. */
-const PATCH_FLAGS = [
-	"--no-color",
-	"--no-ext-diff",
-	"--no-textconv",
-	"--src-prefix=a/",
-	"--dst-prefix=b/",
-];
+const STATUS = ["status", "--porcelain=v1", "-z", "--untracked-files=all"];
+
+/** The user's git config may run an external tool on a diff; the page reads git's own. */
+const PLAIN = ["--no-ext-diff", "--no-textconv"];
+
+/** The user's git config may also change the prefixes or color the patch. */
+const PATCH_FLAGS = ["--no-color", ...PLAIN, "--src-prefix=a/", "--dst-prefix=b/"];
 
 async function inside(cwd: string, path: string): Promise<{ real: string; parts: string[] }> {
 	const parts = partsOf(path);
@@ -187,6 +176,14 @@ async function rootOf(cwd: string): Promise<string> {
 	return realpath(cwd).catch(() => {
 		throw new Refused(404, "the session's folder is gone");
 	});
+}
+
+/** The repository's root and the folder's place in it, as git writes paths; undefined outside one. */
+async function repoOf(folder: string): Promise<{ top: string; prefix: string } | undefined> {
+	const where = await git(folder, ["rev-parse", "--show-toplevel", "--show-prefix"]);
+	if (where.code === 128) return undefined;
+	const [top = "", prefix = ""] = textOf(where).split("\n");
+	return { top, prefix };
 }
 
 /** A relative path with no `..` and no `.git`; `""` is the folder itself. */
@@ -222,7 +219,7 @@ async function baseOf(root: string): Promise<string> {
 	const head = await git(root, ["rev-parse", "--verify", "-q", "HEAD"]);
 	if (head.code === 0) return "HEAD";
 	const empty = await git(root, ["hash-object", "-t", "tree", "--stdin"], { input: "" });
-	return empty.out.toString("utf8").trim();
+	return textOf(empty).trim();
 }
 
 /** Git writes paths from the repository's root; the page reads them from the session's folder. */
@@ -238,14 +235,12 @@ export function statusOf(text: string, local: (path: string) => string): Changed
 		const field = fields[at] ?? "";
 		if (field.length < 4) continue;
 		const code = field.slice(0, 2);
-		const path = local(field.slice(3));
-		const status = changeOf(code);
+		const change: ChangedFile = { path: local(field.slice(3)), status: changeOf(code) };
 		if (code.includes("R") || code.includes("C")) {
 			const from = fields[++at] ?? "";
-			files.push(
-				code.includes("R") ? { path, from: local(from), status } : { path, status: "added" },
-			);
-		} else files.push({ path, status });
+			if (change.status === "renamed") change.from = local(from);
+		}
+		files.push(change);
 	}
 	return files;
 }
@@ -254,7 +249,7 @@ function changeOf(code: string): ChangeStatus {
 	if (code === "??") return "untracked";
 	if (code.includes("U") || code === "AA" || code === "DD") return "conflicted";
 	if (code.includes("R")) return "renamed";
-	if (code[0] === "A") return "added";
+	if (code[0] === "A" || code.includes("C")) return "added";
 	if (code.includes("D")) return "deleted";
 	return "modified";
 }
@@ -358,6 +353,13 @@ function git(
 		child.stdin?.on("error", () => {});
 		if (input !== undefined) child.stdin?.end(input);
 	});
+}
+
+/** Git's output, or an error when it failed; a run cut at its limit is what it wrote by then. */
+function textOf(ran: Ran, accepted: readonly number[] = [0]): string {
+	if (!ran.cut && (ran.code === undefined || !accepted.includes(ran.code)))
+		throw new Error(`git exited with ${ran.code ?? "no code"}`);
+	return ran.out.toString("utf8");
 }
 
 /** Git reads `GIT_DIR` and its kin before the folder it runs in, and a git hook sets them. */

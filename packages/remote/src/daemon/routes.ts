@@ -309,7 +309,7 @@ export class Routes {
 const FOLDER_READS: Record<string, (cwd: string, path: string) => Promise<unknown>> = {
 	files: folderAt,
 	file: fileAt,
-	changes: (cwd) => changesAt(cwd),
+	changes: changesAt,
 	diff: diffAt,
 };
 

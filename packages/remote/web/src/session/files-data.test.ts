@@ -39,7 +39,7 @@ describe("the place in the address", () => {
 	});
 
 	test("the machine and the session are encoded, so a name with a slash stays one segment", () => {
-		expect(filesHref("my box", "a/b", { tab: "tree", path: "src" })).toBe(
+		expect(filesHref({ machine: "my box", session: "a/b" }, { tab: "tree", path: "src" })).toBe(
 			"/session/my%20box/a%2Fb/files?tab=tree&path=src",
 		);
 	});

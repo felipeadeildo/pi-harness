@@ -1,6 +1,13 @@
 // A session's folder, read only: what changed since the last commit, with each file's diff, and the
 // folder's files. Where the screen stands lives in the address, so the back button walks it.
-import type { ChangedFile, FileView, Folder, FolderEntry } from "@adeildo/pi-remote-protocol";
+import type {
+	Changes as ChangeList,
+	ChangedFile,
+	FileDiff,
+	FileView,
+	Folder,
+	FolderEntry,
+} from "@adeildo/pi-remote-protocol";
 import {
 	type FolderOf,
 	readChanges,
@@ -32,6 +39,7 @@ import {
 	nameOf,
 	parentOf,
 	placeOf,
+	sessionHref,
 	sizeText,
 	STATUS_MARKS,
 	totalsOf,
@@ -55,9 +63,7 @@ export function Component(): ReactNode {
 		(one) => one.machine === machine && one.session === id,
 	);
 	const cwd = listed?.summary?.cwd ?? listed?.live.cwd;
-	const root = cwd === undefined ? "" : folderOf(cwd);
-	const crumb = root || "Folder";
-	const href = (to: FilesPlace) => filesHref(machine, id, to);
+	const name = (cwd === undefined ? "" : folderOf(cwd)) || "Files";
 
 	return (
 		<main className="flex h-full min-w-0 flex-1 flex-col">
@@ -68,14 +74,12 @@ export function Component(): ReactNode {
 					className="size-10"
 					aria-label="Back to the session"
 					nativeButton={false}
-					render={<Link to={`/session/${encodeURIComponent(machine)}/${encodeURIComponent(id)}`} />}
+					render={<Link to={sessionHref(of)} />}
 				>
 					<Icon icon={ArrowLeft01Icon} className="size-5" />
 				</Button>
 				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-					<h1 className="wide truncate text-[16px] leading-tight font-semibold">
-						{root || "Files"}
-					</h1>
+					<h1 className="wide truncate text-[16px] leading-tight font-semibold">{name}</h1>
 					{cwd === undefined ? null : (
 						<p className="truncate font-mono text-[11.5px] text-dim" title={cwd}>
 							{shortPath(cwd)}
@@ -88,38 +92,28 @@ export function Component(): ReactNode {
 				className="flex shrink-0 gap-1 border-b px-3 pt-2 sm:px-5"
 				role="tablist"
 			>
-				<Tab to={href({ tab: "changes", path: "" })} on={place.tab === "changes"}>
+				<Tab to={filesHref(of, { tab: "changes", path: "" })} on={place.tab === "changes"}>
 					Changes
 				</Tab>
-				<Tab to={href({ tab: "tree", path: place.path })} on={place.tab === "tree"}>
+				<Tab to={filesHref(of, { tab: "tree", path: place.path })} on={place.tab === "tree"}>
 					Files
 				</Tab>
 			</nav>
 			<div className="min-h-0 flex-1 overflow-y-auto">
 				<div className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-3 py-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5">
-					<Place place={place} of={of} root={crumb} href={href} />
+					<Place place={place} of={of} name={name} />
 				</div>
 			</div>
 		</main>
 	);
 }
 
-function Place({
-	place,
-	of,
-	root,
-	href,
-}: {
-	place: FilesPlace;
-	of: FolderOf;
-	root: string;
-	href: (to: FilesPlace) => string;
-}): ReactNode {
-	if (place.tab === "changes") return <Changes of={of} href={href} />;
+function Place({ place, of, name }: { place: FilesPlace; of: FolderOf; name: string }): ReactNode {
+	if (place.tab === "changes") return <Changes of={of} />;
 	// Keyed, so another folder or file never shows the last one's content while it loads.
 	if (place.file === undefined)
-		return <FolderList key={place.path} of={of} path={place.path} root={root} href={href} />;
-	return <OpenFile key={place.file} of={of} path={place.file} root={root} href={href} />;
+		return <FolderList key={place.path} of={of} path={place.path} name={name} />;
+	return <OpenFile key={place.file} of={of} path={place.file} name={name} />;
 }
 
 function Tab({ to, on, children }: { to: string; on: boolean; children: ReactNode }): ReactNode {
@@ -164,20 +158,40 @@ function useRead<T>(read: () => Promise<T>, what: string): [Read<T>, () => void]
 	return [state, useCallback(() => setRound((one) => one + 1), [])];
 }
 
-function Changes({ of, href }: { of: FolderOf; href: (to: FilesPlace) => string }): ReactNode {
+function Changes({ of }: { of: FolderOf }): ReactNode {
 	const read = useCallback(() => readChanges(location.origin, of), [of]);
-	const [changes, again] = useRead(read, "the changes");
-	if (changes === undefined) return <Quiet>Reading the changes…</Quiet>;
-	if (changes.why !== undefined) return <Failed why={changes.why} again={again} />;
-	const value = changes.value;
-	if (!value.repo) return <Quiet>This folder is not in a git repository.</Quiet>;
-	const totals = totalsOf(value.files);
+	const [changes, again] = useRead<ChangeList>(read, "the changes");
+	return (
+		<Loaded state={changes} again={again} reading="Reading the changes…">
+			{(value) =>
+				value.repo ? (
+					<ChangeFiles of={of} files={value.files} more={value.more === true} again={again} />
+				) : (
+					<Quiet>This folder is not in a git repository.</Quiet>
+				)
+			}
+		</Loaded>
+	);
+}
+
+function ChangeFiles({
+	of,
+	files,
+	more,
+	again,
+}: {
+	of: FolderOf;
+	files: ChangedFile[];
+	more: boolean;
+	again: () => void;
+}): ReactNode {
+	const totals = totalsOf(files);
 	return (
 		<>
 			<div className="flex items-center gap-3 px-1">
 				<p className="min-w-0 flex-1 text-[13px] text-muted-foreground">
-					{changesLine(value.files.length, value.more === true)}
-					{value.files.length === 0 ? null : (
+					{changesLine(files.length, more)}
+					{files.length === 0 ? null : (
 						<Counts added={totals.added} removed={totals.removed} className="ml-2" />
 					)}
 				</p>
@@ -186,9 +200,9 @@ function Changes({ of, href }: { of: FolderOf; href: (to: FilesPlace) => string 
 				</Button>
 			</div>
 			<ul className="flex flex-col gap-1.5">
-				{value.files.map((file) => (
+				{files.map((file) => (
 					<li key={file.path}>
-						<ChangeRow of={of} file={file} href={href} />
+						<ChangeRow of={of} file={file} />
 					</li>
 				))}
 			</ul>
@@ -196,15 +210,7 @@ function Changes({ of, href }: { of: FolderOf; href: (to: FilesPlace) => string 
 	);
 }
 
-function ChangeRow({
-	of,
-	file,
-	href,
-}: {
-	of: FolderOf;
-	file: ChangedFile;
-	href: (to: FilesPlace) => string;
-}): ReactNode {
+function ChangeRow({ of, file }: { of: FolderOf; file: ChangedFile }): ReactNode {
 	const [open, setOpen] = useState(false);
 	const mark = STATUS_MARKS[file.status];
 	const folder = parentOf(file.path);
@@ -255,7 +261,7 @@ function ChangeRow({
 					<FileDiffBox of={of} path={file.path} />
 					{file.status === "deleted" ? null : (
 						<Link
-							to={href({ tab: "tree", path: parentOf(file.path), file: file.path })}
+							to={filesHref(of, { tab: "tree", path: folder, file: file.path })}
 							className="self-end px-1 text-[12.5px] text-pi underline-offset-4 hover:underline"
 						>
 							Open the file
@@ -294,58 +300,48 @@ const TONES = {
 
 function FileDiffBox({ of, path }: { of: FolderOf; path: string }): ReactNode {
 	const read = useCallback(() => readDiff(location.origin, of, path), [of, path]);
-	const [diff, again] = useRead(read, "the diff");
-	if (diff === undefined) return <Quiet>Reading the diff…</Quiet>;
-	if (diff.why !== undefined) return <Failed why={diff.why} again={again} />;
-	if (diff.value.patch === "") return <Quiet>No difference in the text.</Quiet>;
+	const [diff, again] = useRead<FileDiff>(read, "the diff");
+	return (
+		<Loaded state={diff} again={again} reading="Reading the diff…">
+			{(value) => <Patch diff={value} />}
+		</Loaded>
+	);
+}
+
+function Patch({ diff }: { diff: FileDiff }): ReactNode {
+	if (diff.patch === "") return <Quiet>No difference in the text.</Quiet>;
 	return (
 		<>
-			<Suspense fallback={<Code code={diff.value.patch} language="diff" size="sm" />}>
-				<Diff patch={diff.value.patch} />
+			<Suspense fallback={<Code code={diff.patch} language="diff" size="sm" />}>
+				<Diff patch={diff.patch} />
 			</Suspense>
-			{diff.value.truncated === true ? (
+			{diff.truncated === true ? (
 				<Quiet>The diff is too long, and only its start is shown.</Quiet>
 			) : null}
 		</>
 	);
 }
 
-function FolderList({
-	of,
-	path,
-	root,
-	href,
-}: {
-	of: FolderOf;
-	path: string;
-	root: string;
-	href: (to: FilesPlace) => string;
-}): ReactNode {
+function FolderList({ of, path, name }: { of: FolderOf; path: string; name: string }): ReactNode {
 	const read = useCallback(() => readFolder(location.origin, of, path), [of, path]);
 	const [folder, again] = useRead<Folder>(read, "the folder");
 	return (
 		<>
-			<Crumbs root={root} path={path} href={href} />
+			<Crumbs of={of} name={name} path={path} />
 			<Loaded state={folder} again={again} reading="Reading the folder…">
-				{(value) => <Entries folder={value} href={href} />}
+				{(value) => <Entries of={of} folder={value} />}
 			</Loaded>
 		</>
 	);
 }
 
-function Entries({
-	folder,
-	href,
-}: {
-	folder: Folder;
-	href: (to: FilesPlace) => string;
-}): ReactNode {
+function Entries({ of, folder }: { of: FolderOf; folder: Folder }): ReactNode {
 	if (folder.entries.length === 0) return <Quiet>This folder is empty.</Quiet>;
 	return (
 		<ul className="flex flex-col">
 			{folder.entries.map((entry) => (
 				<li key={entry.name}>
-					<EntryRow entry={entry} at={childOf(folder.path, entry.name)} href={href} />
+					<EntryRow of={of} entry={entry} at={childOf(folder.path, entry.name)} />
 				</li>
 			))}
 			{folder.more === true ? (
@@ -357,19 +353,14 @@ function Entries({
 	);
 }
 
-function EntryRow({
-	entry,
-	at,
-	href,
-}: {
-	entry: FolderEntry;
-	at: string;
-	href: (to: FilesPlace) => string;
-}): ReactNode {
+function EntryRow({ of, entry, at }: { of: FolderOf; entry: FolderEntry; at: string }): ReactNode {
 	const dir = entry.kind === "dir";
 	return (
 		<Link
-			to={href(dir ? { tab: "tree", path: at } : { tab: "tree", path: parentOf(at), file: at })}
+			to={filesHref(
+				of,
+				dir ? { tab: "tree", path: at } : { tab: "tree", path: parentOf(at), file: at },
+			)}
 			className={cn(
 				"flex min-w-0 items-center gap-2.5 rounded-lg px-2.5 py-2 outline-none hover:bg-accent/60 focus-visible:ring-3 focus-visible:ring-ring/50",
 				entry.ignored === true && "opacity-55",
@@ -389,22 +380,12 @@ function EntryRow({
 	);
 }
 
-function OpenFile({
-	of,
-	path,
-	root,
-	href,
-}: {
-	of: FolderOf;
-	path: string;
-	root: string;
-	href: (to: FilesPlace) => string;
-}): ReactNode {
+function OpenFile({ of, path, name }: { of: FolderOf; path: string; name: string }): ReactNode {
 	const read = useCallback(() => readFile(location.origin, of, path), [of, path]);
 	const [file, again] = useRead<FileView>(read, "the file");
 	return (
 		<>
-			<Crumbs root={root} path={path} href={href} file />
+			<Crumbs of={of} name={name} path={path} file />
 			<Loaded state={file} again={again} reading="Reading the file…">
 				{(value) => <FileText file={value} />}
 			</Loaded>
@@ -433,17 +414,17 @@ function FileText({ file }: { file: FileView }): ReactNode {
 
 /** The folder's name, then each folder on the way; the open file's name is the last step. */
 function Crumbs({
-	root,
+	of,
+	name,
 	path,
-	href,
 	file = false,
 }: {
-	root: string;
+	of: FolderOf;
+	name: string;
 	path: string;
-	href: (to: FilesPlace) => string;
 	file?: boolean;
 }): ReactNode {
-	const crumbs = crumbsOf(root, path);
+	const crumbs = crumbsOf(name, path);
 	return (
 		<nav
 			aria-label="Path"
@@ -460,7 +441,7 @@ function Crumbs({
 							</span>
 						) : (
 							<Link
-								to={href({ tab: "tree", path: crumb.path })}
+								to={filesHref(of, { tab: "tree", path: crumb.path })}
 								className="truncate text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
 							>
 								{crumb.name}

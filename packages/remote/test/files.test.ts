@@ -228,6 +228,15 @@ describe("the changes", () => {
 	});
 });
 
+test("a git that fails is an error, never an empty list or an empty patch", async () => {
+	const { repo } = repository();
+	writeFileSync(join(repo, "src", "a.ts"), "export const a = 2;\n");
+	writeFileSync(join(repo, ".git", "index"), "not an index");
+	const { status } = await session(repo);
+	expect(await status("changes")).toBe(500);
+	expect(await status("diff?path=src%2Fa.ts")).toBe(500);
+});
+
 test("the daemon reads the session's folder even when its own environment names another repository", async () => {
 	const { repo } = repository();
 	writeFileSync(join(repo, "src", "a.ts"), "export const a = 2;\n");

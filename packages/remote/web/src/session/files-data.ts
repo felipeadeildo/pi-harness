@@ -1,6 +1,6 @@
 // What the folder screen says, decided apart from how it is drawn.
 import type { ChangedFile, ChangeStatus } from "@adeildo/pi-remote-protocol";
-import { DaemonAnswer } from "@adeildo/pi-remote-protocol/client";
+import { DaemonAnswer, type FolderOf } from "@adeildo/pi-remote-protocol/client";
 
 type FilesTab = "changes" | "tree";
 
@@ -32,8 +32,12 @@ export function searchOf(place: FilesPlace): string {
 	return text === "" ? "" : `?${text}`;
 }
 
-export function filesHref(machine: string, session: string, place?: FilesPlace): string {
-	const at = `/session/${encodeURIComponent(machine)}/${encodeURIComponent(session)}/files`;
+export function sessionHref(of: FolderOf): string {
+	return `/session/${encodeURIComponent(of.machine)}/${encodeURIComponent(of.session)}`;
+}
+
+export function filesHref(of: FolderOf, place?: FilesPlace): string {
+	const at = `${sessionHref(of)}/files`;
 	return place === undefined ? at : `${at}${searchOf(place)}`;
 }
 
@@ -77,8 +81,8 @@ export const STATUS_MARKS: Record<
 /** `more` when the daemon listed only the first files. */
 export function changesLine(files: number, more: boolean): string {
 	if (files === 0) return "No changes since the last commit.";
-	const count = more ? `${files}+ files` : files === 1 ? "1 file" : `${files} files`;
-	return `${count} changed since the last commit`;
+	if (more) return `${files}+ files changed since the last commit`;
+	return `${files} ${files === 1 ? "file" : "files"} changed since the last commit`;
 }
 
 /** Lines added and removed over every file that has a count. */

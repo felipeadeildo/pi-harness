@@ -146,7 +146,7 @@ export function Component(): ReactNode {
 						className="h-10 gap-1.5 px-2.5"
 						aria-label="Files and changes"
 						nativeButton={false}
-						render={<Link to={filesHref(machine, id)} />}
+						render={<Link to={filesHref({ machine, session: id })} />}
 					>
 						<Icon icon={GitCompareIcon} className="size-[18px]" />
 						<span className="hidden text-[13px] sm:inline">Files</span>
