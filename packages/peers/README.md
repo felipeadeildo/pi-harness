@@ -79,6 +79,12 @@ Every folder has its own room. A shared room joins agents from several folders, 
 
 A folder in a room brings in every agent opened there, today's and tomorrow's. To leave a room, switch your own line to off. A room closes on its own when nobody uses it anymore.
 
+## An agent that starts another
+
+When part of the work belongs in another folder and no agent is open there, an agent can ask to start one. It names the folder, says why, and writes the new agent's first message. You answer the dialog. The new pi opens in the remote's tmux with that message, and both agents share a room named after their two folders. The new agent's first message also says who started it and in which room, so it reports back there. One agent keeps at most three it started open at once.
+
+It needs [`@adeildo/pi-remote`](../remote), which starts pi through its daemon, and tmux on the machine. `pi-remote attach` opens the new agent in a terminal.
+
 ## When a message reaches your agent
 
 - An idle agent wakes up to read it.
@@ -98,6 +104,7 @@ These are on the Peers tab of `Alt+S`.
 | Replies before a loop stops   | 20                          | How many replies in a row agents can wake each other with. 0 never stops them                              |
 | Model                         | `auto`                      | The model that bids for this session. `auto` is the cheapest of the session's provider                     |
 | When an agent asks for a room | the permission mode decides | Who lets an agent bring others into a room: the permission mode, always you, or only you from `Alt+G`      |
+| When an agent starts another  | always ask me               | Who lets an agent start pi in another folder: always you, the permission mode, or only you, by hand        |
 | Room grace                    | 30 s                        | How long a room waits after its last agent leaves before it closes                                         |
 
 [How it works](docs/how-it-works.md) explains the logs, the rooms, how a request to anyone is decided, and exactly when each message reaches the agent.

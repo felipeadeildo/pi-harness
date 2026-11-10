@@ -11,9 +11,11 @@ import {
 	FolderFeed,
 	HOST,
 	PROMPT_FROM,
+	provideSessionStart,
 	provideViews,
 	roomsDir,
 	type SourceAddress,
+	type Started,
 } from "@adeildo/pi-kit";
 import { fakeContext, fakePi } from "@adeildo/pi-kit/testing";
 import type { Component, TUI } from "@earendil-works/pi-tui";
@@ -45,8 +47,9 @@ async function mounted(
 	cwd = "/repo",
 	entries: unknown[] = [],
 	extra?: Parameters<ReturnType<typeof createApp>["use"]>[0],
+	settings: Record<string, unknown> = {},
 ) {
-	writeFileSync(join(dir, "settings.json"), "{}");
+	writeFileSync(join(dir, "settings.json"), JSON.stringify(settings));
 	const fake = fakePi();
 	let active = ["read", "bash"];
 	Object.assign(fake.pi, {
@@ -501,7 +504,155 @@ describe("the peers tool as the model reads it", () => {
 		const schema = JSON.parse(JSON.stringify(tool?.parameters)) as {
 			properties: { action: Record<string, unknown> };
 		};
-		expect(schema.properties.action.enum).toEqual(["board", "send", "link"]);
+		expect(schema.properties.action.enum).toEqual(["board", "send", "link", "start"]);
 		expect(schema.properties.action).not.toHaveProperty("anyOf");
+	});
+});
+
+describe("an agent that starts another", () => {
+	type Asked = { folder: string; prompt?: string };
+
+	/** The remote's side of the contract: it records the request and answers with `session`. */
+	function remote(
+		fake: { pi: { events: Parameters<typeof provideSessionStart>[0] } },
+		answer: Started,
+	) {
+		const asked: Asked[] = [];
+		provideSessionStart(fake.pi.events, async (request) => {
+			asked.push(request);
+			return answer;
+		});
+		return asked;
+	}
+
+	async function startWith(
+		a: Awaited<ReturnType<typeof mounted>>,
+		params: Record<string, unknown>,
+		confirm: () => Promise<boolean> = async () => true,
+		id = "1",
+	) {
+		const dialogs: string[] = [];
+		const tool = a.fake.tools.find((candidate) => candidate.name === "peers");
+		const result = await tool?.execute(id, { action: "start", ...params }, undefined, undefined, {
+			hasUI: true,
+			ui: {
+				confirm: async (title: string, body: string) => {
+					dialogs.push(`${title} ${body}`);
+					return confirm();
+				},
+			},
+		} as never);
+		const content = result?.content[0];
+		return { text: content?.type === "text" ? content.text : "", dialogs };
+	}
+
+	test("asks the operator, starts pi with the task and who started it, and shares a room with it", async () => {
+		const a = await mounted("a");
+		const asked = remote(a.fake, { machine: "laptop", session: "b" });
+		const started = await startWith(a, {
+			folder: "/other",
+			text: "add the capacity field",
+			why: "the API lives there",
+		});
+		expect(started.dialogs).toEqual([
+			"Start another agent? Your agent asks to start pi in /other, to the API lives there. Its first message: add the capacity field",
+		]);
+		expect(asked).toEqual([
+			{
+				folder: "/other",
+				prompt:
+					"add the capacity field\n\n@new-a started you from /repo, and you share the room other+repo. Report back with the peers tool.",
+			},
+		]);
+		expect(started.text).toBe(
+			"Started an agent in /other, in the room other+repo with you. It reads its first message now; send to it by name once it shows on the board.",
+		);
+		// The new pi comes up and joins on its next look; a message reaches it.
+		const b = await mounted("b", "/other");
+		await b.fake.fire("input", { text: "go on", source: "interactive" }, b.ctx);
+		await a.fake.fire(
+			"input",
+			{ text: "#other+repo @everyone the schema is in", source: "interactive" },
+			a.ctx,
+		);
+		await b.fake.fire("input", { text: "go on", source: "interactive" }, b.ctx);
+		expect(b.fake.userMessages).toContain("#other+repo @everyone the schema is in");
+	});
+
+	test("in its own folder it needs no room, and says so", async () => {
+		const a = await mounted("a");
+		remote(a.fake, { machine: "laptop", session: "b" });
+		const started = await startWith(a, { folder: ".", text: "write the tests" });
+		expect(started.text).toBe(
+			"Started an agent in this folder. It reads its first message now and shows on your board in a second or so.",
+		);
+		expect(readdirSync(roomsDir())).toEqual([]);
+	});
+
+	test("starts nothing when the operator says no, or without a folder or a task", async () => {
+		const a = await mounted("a");
+		const asked = remote(a.fake, { machine: "laptop", session: "b" });
+		const no = await startWith(a, { folder: "/other", text: "go" }, async () => false);
+		expect(no.text).toBe("The operator said no. Carry on without it, or ask them why.");
+		expect((await startWith(a, { text: "go" })).text).toBe("Say which folder in folder.");
+		expect((await startWith(a, { folder: "/other" })).text).toBe(
+			"Say what the new agent should do in text: it is its first message.",
+		);
+		expect(asked).toEqual([]);
+	});
+
+	test("says what went wrong: no remote here, or the daemon's reason", async () => {
+		const a = await mounted("a");
+		expect((await startWith(a, { folder: "/other", text: "go" })).text).toBe(
+			"Starting an agent needs the remote (@adeildo/pi-remote), which is not installed here.",
+		);
+		remote(a.fake, { reason: "tmux is not installed on laptop" });
+		expect((await startWith(a, { folder: "/other", text: "go" })).text).toBe(
+			"It did not start: tmux is not installed on laptop.",
+		);
+		expect(readdirSync(roomsDir())).toEqual([]);
+	});
+
+	test("keeps at most three it started open at once, and one that closed frees its place", async () => {
+		const a = await mounted("a");
+		const sessions = ["b", "c", "d", "e"];
+		provideSessionStart(a.fake.pi.events, async () => ({
+			machine: "laptop",
+			session: sessions.shift() ?? "z",
+		}));
+		const opened = [];
+		for (const id of ["b", "c", "d"]) {
+			await startWith(a, { folder: `/${id}`, text: "go" }, async () => true, id);
+			opened.push(await mounted(id, `/${id}`));
+		}
+		expect((await startWith(a, { folder: "/e", text: "go" })).text).toBe(
+			"You already have 3 agents you started open. Wait for one to finish, or send them more work.",
+		);
+		await opened[0]?.fake.fire("session_shutdown", { reason: "quit" }, opened[0].ctx);
+		expect((await startWith(a, { folder: "/e", text: "go" })).text).toStartWith(
+			"Started an agent in /e",
+		);
+	});
+
+	test("only the operator starts agents when the setting says so", async () => {
+		const a = await mounted("a", "/repo", [], undefined, { peers: { start: "never" } });
+		const asked = remote(a.fake, { machine: "laptop", session: "b" });
+		expect((await startWith(a, { folder: "/other", text: "go" })).text).toBe(
+			"Only the operator starts agents here. Tell them which folder, what the agent should do and why.",
+		);
+		expect(asked).toEqual([]);
+	});
+
+	test("a yes from the permission dialog is the operator's, so no second dialog", async () => {
+		const a = await mounted("a", "/repo", [], undefined, { peers: { start: "mode" } });
+		remote(a.fake, { machine: "laptop", session: "b" });
+		a.fake.pi.events.emit("pi-ask-permission:decided", {
+			toolName: "peers",
+			toolCallId: "9",
+			by: "you",
+		});
+		const started = await startWith(a, { folder: "/other", text: "go" }, async () => false, "9");
+		expect(started.dialogs).toEqual([]);
+		expect(started.text).toStartWith("Started an agent in /other");
 	});
 });

@@ -204,6 +204,8 @@ export function callLines(
 		return [
 			theme.fg("muted", `ask to talk to the agents open in ${args.folder ?? "another folder"}`),
 		];
+	if (args.action === "start")
+		return [theme.fg("muted", `ask to start an agent in ${args.folder ?? "another folder"}`)];
 	if (args.action !== "send") return [theme.fg("muted", "read the board")];
 	const urgent = args.urgent === true ? theme.fg("warning", `  ${GLYPH.flag} urgent`) : "";
 	const where = shown?.room === undefined ? "" : theme.fg("dim", `  in ${shown.room}`);

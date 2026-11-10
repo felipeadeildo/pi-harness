@@ -105,6 +105,10 @@ export class Rooms implements RoomsView {
 		this.#inbox = new Inbox(hooks);
 	}
 
+	get cwd(): string {
+		return this.#cwd;
+	}
+
 	get session(): string | undefined {
 		return this.#session;
 	}
@@ -647,12 +651,54 @@ export class Rooms implements RoomsView {
 				room: room.room.id,
 			};
 		}
-		const name = [basename(this.#cwd), basename(folder)].toSorted().join("+");
+		const name = this.pairName(folder);
 		const id = this.create(name, [{ session: me, cwd: this.#cwd }, ...members], by);
 		return {
 			text: `Made the room ${name} with ${who.join(", ")} from ${tildify(folder)}. They join on their next look, in a second or so; send to them by name.`,
 			room: id,
 		};
+	}
+
+	/** The room of this folder and another, named after both. */
+	pairName(folder: string): string {
+		return [basename(this.#cwd), basename(real(resolveFrom(this.#cwd, folder)))]
+			.toSorted()
+			.join("+");
+	}
+
+	/** The folder a request names, resolved from this session's own. */
+	folderOf(folder: string): string {
+		return real(resolveFrom(this.#cwd, folder));
+	}
+
+	/**
+	 * A session this one started joins a room with it, unless it opened in this folder, whose room
+	 * holds both already. Never the folder: its future sessions are the operator's to bring.
+	 */
+	joinStarted(request: {
+		session: string;
+		folder: string;
+		why?: string;
+		allowedBy?: string;
+	}): string | undefined {
+		const me = this.#session;
+		const folder = this.folderOf(request.folder);
+		if (me === undefined || folder === this.#cwd) return undefined;
+		const by: AddedBy = {
+			by: "agent",
+			...(request.why === undefined ? {} : { why: request.why }),
+			...(request.allowedBy === undefined ? {} : { allowedBy: request.allowedBy }),
+		};
+		const name = this.pairName(folder);
+		this.create(
+			name,
+			[
+				{ session: me, cwd: this.#cwd },
+				{ session: request.session, cwd: folder },
+			],
+			by,
+		);
+		return name;
 	}
 
 	openIn(folder: string): LiveSession[] {

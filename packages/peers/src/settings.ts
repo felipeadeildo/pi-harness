@@ -85,6 +85,26 @@ export const link = setting<LinkRule>({
 	},
 });
 
+export const start = setting<LinkRule>({
+	id: "peers.start",
+	default: "ask",
+	decoder: literal("mode", "ask", "never"),
+	ui: {
+		section: ROOMS_SECTION,
+		label: "When an agent starts another",
+		description:
+			"An agent can start pi in another folder with a first message, through the remote, and share a room with it. Always ask me brings the dialog in every mode, full included. The permission mode decides it like any call when you choose so. Only me refuses. An agent keeps at most three it started open at once.",
+		control: {
+			type: "choice",
+			options: [
+				{ value: "ask", label: "always ask me" },
+				{ value: "mode", label: "the permission mode decides" },
+				{ value: "never", label: "only me" },
+			],
+		},
+	},
+});
+
 const seconds: Decoder<number> = {
 	control: { type: "number", min: 0, step: 5, unit: "s" },
 	decode(input, path) {
@@ -125,4 +145,4 @@ export const opening = setting<Exclude<RoomMode, "out">>({
 	},
 });
 
-export const PEERS_SETTINGS = [delivery, chainLimit, model, link, roomGrace, opening];
+export const PEERS_SETTINGS = [delivery, chainLimit, model, link, start, roomGrace, opening];
