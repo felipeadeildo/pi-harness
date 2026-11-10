@@ -53,7 +53,13 @@ export function missed(daemon: Daemon, session: string, cursor: Cursor): Envelop
 	return events;
 }
 
-export async function bridgeOf(session: string, epoch = "e1", file?: string, path = socket) {
+export async function bridgeOf(
+	session: string,
+	epoch = "e1",
+	file?: string,
+	path = socket,
+	cwd = "/repo",
+) {
 	const at = { machine: "laptop", session, epoch };
 	const client: Socket = dial(path);
 	await new Promise<void>((resolve) => client.once("connect", () => resolve()));
@@ -69,7 +75,7 @@ export async function bridgeOf(session: string, epoch = "e1", file?: string, pat
 	};
 	const state = (entries: unknown[]) =>
 		send("state", {
-			summary: { session, machine: "laptop", cwd: "/repo", kind: "terminal", state: harness },
+			summary: { session, machine: "laptop", cwd, kind: "terminal", state: harness },
 			entries,
 		});
 	client.setEncoding("utf8");
@@ -88,7 +94,7 @@ export async function bridgeOf(session: string, epoch = "e1", file?: string, pat
 				{
 					pid: 1,
 					startedAt: 1,
-					cwd: "/repo",
+					cwd,
 					kind: "terminal",
 					...(file === undefined ? {} : { file }),
 				},

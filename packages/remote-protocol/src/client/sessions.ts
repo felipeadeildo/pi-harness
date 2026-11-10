@@ -52,11 +52,14 @@ export async function listSessions(
 /** Keeps the code, so a screen can say "not logged in" without matching text. */
 export class DaemonAnswer extends Error {
 	readonly status: number;
+	/** The daemon's own words for a refusal, when it gave them. */
+	readonly reason: string | undefined;
 
-	constructor(status: number, what: string) {
+	constructor(status: number, what: string, reason?: string) {
 		super(`the daemon answered ${status} for ${what}`);
 		this.name = "DaemonAnswer";
 		this.status = status;
+		this.reason = reason;
 	}
 }
 
