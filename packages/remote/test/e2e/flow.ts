@@ -1,7 +1,15 @@
 // The gate, in a real browser: the daemon a bridge starts, the page it serves, and the flow. One line
 // per step. Run it with `bun run gate`.
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import {
+	appendFileSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -37,6 +45,7 @@ const STEPS = [
 	"a question the model asks is answered in the browser",
 	"after the daemon restarts, a reloaded page still draws the session and its mode",
 	"a command typed offline goes out after the reload",
+	"the session's changes open to a diff, and the diff to the file",
 ] as const;
 
 type Result = { ok: boolean; why?: string };
@@ -81,6 +90,7 @@ async function main(): Promise<number> {
 		}
 		// The bridge starts the daemon when none answers, which is the path a user takes.
 		rig = await createRig({
+			cwd: changedRepository(join(root, "work")),
 			// The permission feature owns the session mode, and the composer offers it: without it the picker
 			// would promise a change the session cannot make.
 			extensions: [piRemote, piQuestions, permission],
@@ -130,6 +140,7 @@ async function main(): Promise<number> {
 			reports.push({ step: 5, ...(await answersQuestion(page, rig)) });
 			reports.push({ step: 6, ...(await survivesRestart(page)) });
 			reports.push({ step: 7, ...(await sentWhileOffline(page, rig)) });
+			reports.push({ step: 8, ...(await readsChanges(page)) });
 		} else {
 			reports.push({ step: 1, ok: false, why: link.why });
 		}
@@ -605,6 +616,66 @@ async function survivesRestart(page: Page): Promise<Result> {
 					ok: false,
 					why: `mode back=${mode}, question closed=${closed}, dials on the page=${await dial.count()}, composers=${await page.getByTestId("composer").count()}, ${await cachedState(page)}`,
 				};
+	} catch (error) {
+		return { ok: false, why: short(error) };
+	}
+}
+
+const ADDED = "a line the session added";
+
+/** A repository with one commit and `notes.md` changed since, as the session's folder. */
+function changedRepository(dir: string): string {
+	mkdirSync(dir, { recursive: true });
+	// A hook that runs the gate sets `GIT_DIR`, which would point these at the checkout.
+	const env = {
+		...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_"))),
+		GIT_CONFIG_NOSYSTEM: "1",
+		GIT_CONFIG_GLOBAL: "/dev/null",
+		GIT_AUTHOR_NAME: "gate",
+		GIT_AUTHOR_EMAIL: "gate@example.com",
+		GIT_COMMITTER_NAME: "gate",
+		GIT_COMMITTER_EMAIL: "gate@example.com",
+	};
+	const git = (...args: string[]): void => {
+		const done = spawnSync("git", args, { cwd: dir, env, encoding: "utf8" });
+		if (done.status !== 0) throw new Error(`git ${args[0]}: ${done.stderr}`);
+	};
+	writeFileSync(join(dir, "notes.md"), "the first line\n");
+	git("init", "-q");
+	git("add", ".");
+	git("commit", "-qm", "first");
+	appendFileSync(join(dir, "notes.md"), `${ADDED}\n`);
+	return dir;
+}
+
+async function readsChanges(page: Page): Promise<Result> {
+	try {
+		await page.getByLabel("Files and changes").click({ timeout: 20_000 });
+		const row = page.getByRole("button", { name: /notes\.md/ });
+		try {
+			await row.click({ timeout: 20_000 });
+		} catch {
+			const said = await page
+				.locator("main")
+				.innerText()
+				.catch(() => "");
+			return {
+				ok: false,
+				why: `no notes.md in the changes: ${JSON.stringify(said.slice(0, 200))}`,
+			};
+		}
+		const added = page.getByText(ADDED);
+		try {
+			await added.first().waitFor({ timeout: 20_000 });
+		} catch {
+			return { ok: false, why: "the row opened and no diff with the added line showed" };
+		}
+		await page.getByRole("link", { name: "Open the file" }).click();
+		await page.waitForURL(/file=notes\.md/, { timeout: 20_000 });
+		await page.getByText("the first line").first().waitFor({ timeout: 20_000 });
+		return (await added.count()) > 0
+			? { ok: true }
+			: { ok: false, why: "the file opened without the line the diff showed" };
 	} catch (error) {
 		return { ok: false, why: short(error) };
 	}
