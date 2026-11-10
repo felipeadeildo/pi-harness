@@ -9,7 +9,7 @@ import {
 	listSessions,
 	stateOf,
 	wantsYou,
-} from "../../src/client/sessions.ts";
+} from "../../src/client/index.ts";
 
 const live = { pid: 42, startedAt: 1, cwd: "/work", name: "the rig", kind: "terminal" };
 const folded = {
@@ -86,6 +86,15 @@ describe("the daemon's session list", () => {
 		});
 	});
 
+	test("a refusal carries the daemon's reason", async () => {
+		const error = await listSessions(
+			"http://127.0.0.1:7878",
+			answering({ error: "this browser is not logged in" }, 401),
+		).catch((thrown: unknown) => thrown);
+		expect(error).toBeInstanceOf(DaemonAnswer);
+		expect((error as DaemonAnswer).reason).toBe("this browser is not logged in");
+	});
+
 	test("each field the list needs is checked on its own", async () => {
 		const broken: Record<string, unknown>[] = [
 			row({ machine: 1 }),
@@ -109,7 +118,7 @@ describe("the daemon's session list", () => {
 	test("a body that is not a list is an error, not an empty list", async () => {
 		await expect(
 			listSessions("http://127.0.0.1:7878", answering({ sessions: [] })),
-		).rejects.toThrow("not a list");
+		).rejects.toThrow("cannot read");
 	});
 });
 

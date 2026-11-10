@@ -12,8 +12,8 @@ export {
 } from "./live.ts";
 export { type FolderOf, readChanges, readDiff, readFile, readFolder } from "./files.ts";
 export { type ListedMachine, listMachines } from "./machines.ts";
+export { DaemonAnswer } from "./ask.ts";
 export {
-	DaemonAnswer,
 	inOrder,
 	type ListedSession,
 	type LiveSession,

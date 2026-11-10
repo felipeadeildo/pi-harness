@@ -9,7 +9,7 @@ import {
 	isFileView,
 	isFolder,
 } from "../index.ts";
-import { DaemonAnswer } from "./sessions.ts";
+import { ask } from "./ask.ts";
 
 export interface FolderOf {
 	machine: string;
@@ -51,34 +51,20 @@ export function readDiff(
 	return read(base, of, "diff", path, isFileDiff, "the diff", speaks);
 }
 
-async function read<T>(
+function read<T>(
 	base: string,
 	of: FolderOf,
 	route: string,
 	path: string | undefined,
-	decodes: (value: unknown) => value is T,
+	is: (value: unknown) => value is T,
 	what: string,
 	speaks: typeof fetch,
 ): Promise<T> {
-	const url = new URL(
-		`/sessions/${encodeURIComponent(of.machine)}/${encodeURIComponent(of.session)}/${route}`,
+	const query = path === undefined ? "" : `?${new URLSearchParams({ path })}`;
+	return ask(
 		base,
+		`/sessions/${encodeURIComponent(of.machine)}/${encodeURIComponent(of.session)}/${route}${query}`,
+		{ what, decode: (body) => (is(body) ? body : undefined) },
+		speaks,
 	);
-	if (path !== undefined) url.searchParams.set("path", path);
-	const answer = await speaks(url, { headers: { accept: "application/json" } });
-	if (!answer.ok) throw new DaemonAnswer(answer.status, what, await errorOf(answer));
-	const body: unknown = await answer.json();
-	if (!decodes(body)) throw new DaemonAnswer(200, `${what} in a shape this client cannot read`);
-	return body;
-}
-
-async function errorOf(answer: Response): Promise<string | undefined> {
-	try {
-		const body: unknown = await answer.json();
-		return typeof body === "object" && body !== null && "error" in body
-			? String(body.error)
-			: undefined;
-	} catch {
-		return undefined;
-	}
 }
