@@ -143,7 +143,7 @@ describe("a request", () => {
 		expect(decide({ path: "/" })).toEqual({ ok: true });
 		expect(decide({ path: "/app.js" })).toEqual({ ok: true });
 		expect(decide({ path: "/health" })).toEqual({ ok: true });
-		expect(decide({ path: "/.well-known/pi-remote" })).toEqual({ ok: true });
+		expect(decide({ path: "/.well-known/pi-remote" })).toMatchObject({ ok: false, status: 401 });
 		expect(decide({ method: "POST", path: "/login", origin: "http://127.0.0.1:7878" })).toEqual({
 			ok: true,
 		});

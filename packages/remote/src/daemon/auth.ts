@@ -129,11 +129,7 @@ export interface Asking {
 export type Verdict = { ok: true } | { ok: false; status: 401 | 403 | 421; reason: string };
 
 /** Reached without a cookie, besides the page's files. */
-const OPEN_ROUTES: ReadonlySet<string> = new Set([
-	"GET /health",
-	"GET /.well-known/pi-remote",
-	"POST /login",
-]);
+const OPEN_ROUTES: ReadonlySet<string> = new Set(["GET /health", "POST /login"]);
 
 /**
  * An unknown `Host` is DNS rebinding (421). A WebSocket or a request that changes something needs
