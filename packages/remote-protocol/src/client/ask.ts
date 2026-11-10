@@ -1,5 +1,4 @@
-// One request to the daemon the client talks to. A refusal carries the daemon's reason, and a body
-// the decoder cannot read is an error, not a guess.
+// One request to the daemon. A refusal carries its reason; a body the decoder rejects is an error.
 
 /** Keeps the code, so a screen can say "not logged in" without matching text. */
 export class DaemonAnswer extends Error {
@@ -20,8 +19,6 @@ interface Asked<T> {
 	what: string;
 	/** Undefined when the body is not what the client expects. */
 	decode: (body: unknown) => T | undefined;
-	/** Sent as JSON in a POST. */
-	body?: unknown;
 	signal?: AbortSignal;
 }
 
@@ -31,13 +28,8 @@ export async function ask<T>(
 	asked: Asked<T>,
 	speaks: typeof fetch,
 ): Promise<T> {
-	const posts = asked.body !== undefined;
 	const answer = await speaks(new URL(path, base), {
-		headers: {
-			accept: "application/json",
-			...(posts ? { "content-type": "application/json" } : {}),
-		},
-		...(posts ? { method: "POST", body: JSON.stringify(asked.body) } : {}),
+		headers: { accept: "application/json" },
 		...(asked.signal === undefined ? {} : { signal: asked.signal }),
 	});
 	if (!answer.ok) throw new DaemonAnswer(answer.status, asked.what, await reasonOf(answer));

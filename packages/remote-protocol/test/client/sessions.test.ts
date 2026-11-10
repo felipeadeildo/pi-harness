@@ -87,14 +87,12 @@ describe("the daemon's session list", () => {
 	});
 
 	test("a refusal carries the daemon's reason", async () => {
-		const refused = listSessions(
+		const error = await listSessions(
 			"http://127.0.0.1:7878",
 			answering({ error: "this browser is not logged in" }, 401),
-		);
-		await refused.catch((error: unknown) => {
-			expect((error as DaemonAnswer).reason).toBe("this browser is not logged in");
-		});
-		await expect(refused).rejects.toBeInstanceOf(DaemonAnswer);
+		).catch((thrown: unknown) => thrown);
+		expect(error).toBeInstanceOf(DaemonAnswer);
+		expect((error as DaemonAnswer).reason).toBe("this browser is not logged in");
 	});
 
 	test("each field the list needs is checked on its own", async () => {
