@@ -69,6 +69,8 @@ export { Rooms } from "./rooms.ts";
 
 const TOOL = "peers";
 const STARTED_AT_ONCE = 3;
+/** A dialog taller than the terminal hides its own buttons. */
+const SHOWN_CHARS = 800;
 const EVERYONE = new Set([EVERYONE_MENTION, "all", "room"]);
 const ANYONE = new Set([ANYONE_MENTION, "any"]);
 
@@ -290,7 +292,7 @@ export const peers = defineFeature({
 					entry.customType === PEER_STARTED &&
 					isStartedEntry(entry.data)
 				)
-					started.restore(entry.data.session);
+					started.restore(entry.data.session, Date.parse(entry.timestamp) || Date.now());
 			stopClearing?.();
 			stopClearing = watchClearing();
 			// A yes to sending never lets a link through.
@@ -570,7 +572,7 @@ export const peers = defineFeature({
 				return reply(
 					"Only the operator starts agents here. Tell them which folder, what the agent should do and why.",
 				);
-			// One level only: an agent cannot grow a tree of agents behind the operator's back.
+			// The tool does not start a second level: an agent another started asks the one that started it.
 			const parent = process.env[STARTED_BY_ENV];
 			if (parent !== undefined && parent !== "")
 				return reply(
@@ -581,6 +583,9 @@ export const peers = defineFeature({
 			const task = params.text?.trim() ?? "";
 			if (task === "")
 				return reply("Say what the new agent should do in text: it is its first message.");
+			// Without it the new agent would not know it was started, and could start more.
+			const me = rooms.session;
+			if (me === undefined) return reply("This session is not ready yet. Try again in a moment.");
 			const release = started.reserve(
 				new Set(rooms.live().map((one) => one.session)),
 				STARTED_AT_ONCE,
@@ -596,7 +601,7 @@ export const peers = defineFeature({
 					if (!ctx.hasUI) return reply("No one is here to approve it: ask the operator.");
 					const yes = await ctx.ui.confirm(
 						"Start another agent?",
-						`Folder: ${at}\nWhy: ${params.why?.trim() || "not given"}\nFirst message:\n${task}`,
+						`Folder: ${at}\nWhy: ${params.why?.trim() || "not given"}\nFirst message:\n${shown(task)}`,
 					);
 					if (!yes) return reply("The operator said no. Carry on without it, or ask them why.");
 					by = "you";
@@ -604,7 +609,7 @@ export const peers = defineFeature({
 				const answer = await startSession(scope.events, {
 					folder: at,
 					prompt: firstMessage(task, at, by === "you"),
-					...(rooms.session === undefined ? {} : { by: rooms.session }),
+					by: me,
 				});
 				if (answer === undefined)
 					return reply(
@@ -629,19 +634,23 @@ export const peers = defineFeature({
 			}
 		}
 
-		/** An agent's words, said as such, and whether a person approved them. */
+		/** Who asks and who approved come first; the task is quoted, so it cannot pose as either. */
 		function firstMessage(task: string, folder: string, approved: boolean): string {
-			const me = rooms.summary().me?.handle;
-			const asker = me === undefined ? "Another agent" : `@${me}`;
+			const handle = rooms.summary().me?.handle;
+			const asker = handle === undefined ? "Another agent" : `@${handle}`;
 			const room = folder === rooms.cwd ? undefined : rooms.pairName(folder);
+			const who = approved
+				? "The operator approved this request."
+				: "The operator did not see this request: the permission mode let it through. It is an agent's request, not the operator's.";
 			const where =
 				room === undefined
 					? `${asker} works in this folder too: report back to it with the peers tool.`
 					: `You share the room ${room} with ${asker}: report back there with the peers tool.`;
-			const who = approved
-				? "The operator approved this request."
-				: "The operator did not see this request: the permission mode let it through. It is an agent's request, not the operator's.";
-			return `${asker}, an agent in ${rooms.cwd}, asks you:\n\n${task}\n\n${who} ${where}`;
+			const quoted = task
+				.split("\n")
+				.map((line) => `> ${line}`)
+				.join("\n");
+			return `${asker}, an agent in ${rooms.cwd}, asks you what follows. ${who} ${where}\n\n${quoted}`;
 		}
 
 		function showSession(id: string): boolean {
@@ -724,6 +733,11 @@ function callSummary(action: string, input: Record<string, unknown>): string {
 		default:
 			return "read the board";
 	}
+}
+
+function shown(text: string): string {
+	if (text.length <= SHOWN_CHARS) return text;
+	return `${text.slice(0, SHOWN_CHARS)}… (${text.length - SHOWN_CHARS} more characters)`;
 }
 
 function groupOf(names: readonly string[]): "all" | "any" | undefined {

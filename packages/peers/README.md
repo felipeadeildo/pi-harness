@@ -83,7 +83,7 @@ A folder in a room brings in every agent opened there, today's and tomorrow's. T
 
 When part of the work belongs in another folder and no agent is open there, an agent can ask to start one. It names the folder, says why, and writes the new agent's first message. You see all three in the dialog and decide. The new pi opens in the remote's tmux, and both agents share a room named after their two folders, or the one the pair already has.
 
-The new agent hears the request as an agent's, not yours, and the request says whether you approved it or the permission mode let it through. An agent that another agent started cannot start more, so there is one level. An agent keeps at most three it started open at once, counting the ones still on their way, and the count survives a reload.
+The new agent hears the request as an agent's, quoted, after a line that says whether you approved it or the permission mode let it through. The tool does not start a second level: an agent that another agent started asks the one that started it. That mark lives in the new agent's tmux session, so a pi you open by hand in a new window of that session cannot start agents either. An agent keeps at most three it started open at once, counting the ones still on their way, and the count survives a reload.
 
 It needs [`@adeildo/pi-remote`](../remote), which starts pi through its daemon, and tmux on the machine. `pi-remote attach` opens the new agent in a terminal.
 

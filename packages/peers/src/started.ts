@@ -21,9 +21,9 @@ export class Started {
 		this.#now = now;
 	}
 
-	/** From the session's entries: those agents were seen, or they never will be. */
-	restore(session: string): void {
-		this.#open.set(session, { seen: true, at: this.#now() });
+	/** From the session's entries: each counts until it shows up, or for a while from its start. */
+	restore(session: string, at: number): void {
+		this.#open.set(session, { seen: false, at });
 	}
 
 	/** A slot, or undefined when `limit` are open or on their way. */
