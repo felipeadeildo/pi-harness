@@ -19,7 +19,7 @@ import { SectionHeader } from "./shell.tsx";
 /** The daemon looks for machines every fifteen seconds; reading faster shows nothing new. */
 const REREAD_MS = 15_000;
 
-function useMachines(): {
+export function useMachines(): {
 	machines: readonly ListedMachine[] | undefined;
 	why: string | undefined;
 } {

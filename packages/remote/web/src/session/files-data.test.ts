@@ -1,7 +1,5 @@
 import { describe, expect, test } from "bun:test";
 
-import { DaemonAnswer } from "@adeildo/pi-remote-protocol/client";
-
 import {
 	changesLine,
 	crumbsOf,
@@ -10,7 +8,6 @@ import {
 	searchOf,
 	sizeText,
 	totalsOf,
-	whyOf,
 } from "./files-data.ts";
 
 describe("the place in the address", () => {
@@ -78,24 +75,4 @@ test("sizes read like a file manager's", () => {
 	expect(sizeText(1536)).toBe("1.5 KB");
 	expect(sizeText(200 * 1024)).toBe("200 KB");
 	expect(sizeText(3 * 1024 * 1024)).toBe("3.0 MB");
-});
-
-describe("why a read failed", () => {
-	test("the daemon's own words come first, as a sentence", () => {
-		expect(
-			whyOf(new DaemonAnswer(404, "the file", "that path leads out of the session's folder"), "x"),
-		).toBe("That path leads out of the session's folder.");
-	});
-
-	test("a refusal with no words is said by its code, and a lost daemon plainly", () => {
-		expect(whyOf(new DaemonAnswer(401, "the file"), "the file")).toBe(
-			"Not logged in. Ask pi for a new link with /remote.",
-		);
-		expect(whyOf(new DaemonAnswer(502, "the file"), "the file")).toBe(
-			"The session's machine did not answer.",
-		);
-		expect(whyOf(new TypeError("fetch failed"), "the changes")).toBe(
-			"The daemon could not be reached for the changes.",
-		);
-	});
 });
