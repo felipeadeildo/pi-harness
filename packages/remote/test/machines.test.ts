@@ -227,14 +227,30 @@ test.skipIf(spawnSync("tmux", ["-V"]).status !== 0)(
 				{ headers: { Origin: origin, Cookie: cookie } },
 			);
 			ws.binaryType = "arraybuffer";
-			let seen = "";
+			let seen = Buffer.alloc(0);
+			let text = true;
 			ws.onmessage = (event) => {
-				seen += Buffer.from(event.data as ArrayBuffer).toString("utf8");
+				if (typeof event.data === "string") text = false;
+				else seen = Buffer.concat([seen, Buffer.from(event.data as ArrayBuffer)]);
 			};
 			await new Promise((resolve) => (ws.onopen = resolve));
-			ws.send(JSON.stringify({ type: "input", data: "printf '%s-%s\\n' over there\r" }));
-			await until(() => seen.includes("over-there"));
+			// A byte that is not UTF-8 crosses both daemons as it was, in binary frames.
+			ws.send(JSON.stringify({ type: "input", data: "printf '%s-%s\\377\\n' over there\r" }));
+			await until(() =>
+				seen.includes(
+					Buffer.from([0x6f, 0x76, 0x65, 0x72, 0x2d, 0x74, 0x68, 0x65, 0x72, 0x65, 0xff]),
+				),
+			);
+			expect(text).toBe(true);
 			ws.close();
+			const missing = new WebSocket(
+				`ws://127.0.0.1:${port}/terminal?machine=laptop&name=nope&cols=80&rows=24`,
+				{ headers: { Origin: origin, Cookie: cookie } },
+			);
+			const closed = await new Promise<number>((resolve) => {
+				missing.onclose = (event) => resolve(event.code);
+			});
+			expect(closed).toBe(4404);
 		} finally {
 			spawnSync("tmux", ["-L", "pi-remote", "kill-server"], { stdio: "ignore" });
 			if (previous === undefined) delete process.env.TMUX_TMPDIR;

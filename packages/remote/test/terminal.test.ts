@@ -128,7 +128,60 @@ describe.skipIf(!hasTmux)("a terminal in a real tmux", () => {
 		const { made, name, folder, list } = await opened();
 		expect(made.status).toBe(201);
 		expect(name).toMatch(/^shell-[0-9a-f]{4}$/);
-		expect(await list()).toMatchObject([{ name, folder }]);
+		// The pane reports its folder once the shell is up.
+		let listed = await list();
+		for (const end = Date.now() + 2_000; listed[0]?.folder !== folder && Date.now() < end;)
+			listed = await list();
+		expect(listed).toMatchObject([{ name, folder }]);
+	});
+
+	test("a screen that shows tmux's own words is still a screen when a page comes back", async () => {
+		const { page } = await opened();
+		const one = page();
+		await one.open;
+		// tmux's own words on the screen, then a mark that only the output holds.
+		one.send({
+			type: "input",
+			data: "printf '%s\\n' '%end 1 2 1' '%exit'; printf '%s-%s\\n' after them\r",
+		});
+		await until(() => one.seen.text.includes("after-them"));
+		one.ws.close();
+		await until(() => one.seen.closed !== undefined);
+		const two = page();
+		await until(() => two.seen.text.includes("after-them"));
+		await Bun.sleep(300);
+		expect(two.seen.closed).toBeUndefined();
+	});
+
+	test("a name that is not a plain one never reaches tmux, even when tmux has that session", async () => {
+		const { port, origin, cookie, list, name } = await opened();
+		const hostile = "x';kill-server;'";
+		execFileSync("tmux", ["-L", "pi-remote", "new-session", "-d", "-s", hostile]);
+		const ws = new WebSocket(
+			`ws://127.0.0.1:${port}/terminal?${new URLSearchParams({ name: hostile, cols: "80", rows: "24" })}`,
+			{ headers: { Origin: origin, Cookie: cookie } },
+		);
+		const closed = await new Promise<number>((resolve) => {
+			ws.onclose = (event) => resolve(event.code);
+		});
+		expect(closed).toBe(4404);
+		expect((await list()).map((one) => one.name).toSorted()).toEqual([name, hostile].toSorted());
+	});
+
+	test("a page that gives no size gets a plain 80x24", async () => {
+		const { port, origin, cookie, name } = await opened();
+		const ws = new WebSocket(`ws://127.0.0.1:${port}/terminal?name=${name}`, {
+			headers: { Origin: origin, Cookie: cookie },
+		});
+		await new Promise((resolve) => (ws.onopen = resolve));
+		const size = () =>
+			execFileSync(
+				"tmux",
+				["-L", "pi-remote", "display", "-p", "-t", `=${name}:`, "#{window_width}x#{window_height}"],
+				{ encoding: "utf8" },
+			).trim();
+		await until(() => size() === "80x24");
+		ws.close();
 	});
 
 	test("what the page types runs, and its output comes back", async () => {

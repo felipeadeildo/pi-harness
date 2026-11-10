@@ -116,7 +116,7 @@ describe("starting pi", () => {
 			"new-session",
 			"-d",
 			"-s",
-			`work space-${ticket.slice(0, 4)}`,
+			`work-space-${ticket.slice(0, 4)}`,
 			"-c",
 			folder,
 			"-e",

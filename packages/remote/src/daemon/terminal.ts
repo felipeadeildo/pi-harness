@@ -10,7 +10,10 @@ import { EXTENDED_KEYS, folderOf, run } from "./tmux.ts";
 
 /** `send-keys -H` takes one argument per byte; a long paste goes in several commands. */
 const KEYS_PER_COMMAND = 256;
-const FIELDS = "#{session_name}\t#{pane_current_path}\t#{pane_current_command}\t#{session_created}";
+/** The folder last, so a tab in its name stays in it. */
+const FIELDS = "#{session_name}\t#{pane_current_command}\t#{session_created}\t#{pane_current_path}";
+/** What tmux and the page agree a name is: nothing a tmux command line could read as more. */
+const NAME = /^[\w-]{1,80}$/;
 
 export interface TerminalInfo {
 	name: string;
@@ -31,6 +34,9 @@ export interface Size {
 export interface Attached {
 	write(text: string): void;
 	resize(size: Size): void;
+	/** A slow page stops reading; tmux holds the pane's output meanwhile. */
+	pause(): void;
+	resume(): void;
 	close(): void;
 }
 
@@ -61,8 +67,8 @@ export class Terminals {
 			.split("\n")
 			.filter(Boolean)
 			.map((line) => {
-				const [name = "", folder = "", command = "", created = "0"] = line.split("\t");
-				return { name, folder, command, created: Number(created) * 1000 };
+				const [name = "", command = "", created = "0", ...folder] = line.split("\t");
+				return { name, folder: folder.join("\t"), command, created: Number(created) * 1000 };
 			});
 	}
 
@@ -98,6 +104,8 @@ export class Terminals {
 		sink: { output(bytes: Buffer): void; closed(why: string): void },
 	): Promise<Attached> {
 		this.#check(machine);
+		// The name goes into tmux commands below, so only a plain one reaches tmux.
+		if (!NAME.test(name)) throw new Refused(404, `no terminal named ${name} on ${machine}`);
 		const has = await run(this.#tmux, ["-L", TMUX_SOCKET, "has-session", "-t", `=${name}`]);
 		if (has.code !== 0) throw new Refused(404, `no terminal named ${name} on ${machine}`);
 		const control = new Control(this.#tmux, name, sink);
@@ -124,6 +132,8 @@ export class Terminals {
 					}
 				},
 				resize: (next) => void control.command(`refresh-client -C ${sizeOf(next)}`).catch(() => {}),
+				pause: () => control.pause(),
+				resume: () => control.resume(),
 				close: () => control.close(),
 			};
 		} catch (error) {
@@ -145,11 +155,11 @@ export class Terminals {
 	}
 }
 
-/** Within what a terminal can be; anything else is the smallest sane one. */
+/** Within what a terminal can be; a size that is not one is a plain 80x24. */
 function sizeOf({ cols, rows }: Size): string {
-	const fit = (value: number, max: number) =>
-		Number.isInteger(value) && value >= 2 && value <= max ? value : 2;
-	return `${fit(cols, 1000)}x${fit(rows, 500)}`;
+	const fit = (value: number, max: number, plain: number) =>
+		Number.isInteger(value) && value >= 2 && value <= max ? value : plain;
+	return `${fit(cols, 1000, 80)}x${fit(rows, 500, 24)}`;
 }
 
 /** A tmux control-mode client: commands in, their answers and the panes' output out. */
@@ -157,6 +167,8 @@ class Control {
 	readonly #child: ChildProcess;
 	readonly #waiting: { resolve(lines: string[]): void; reject(error: Error): void }[] = [];
 	#block: string[] | undefined;
+	/** The `%begin`'s time and number: only an `%end` or `%error` with both closes the block. */
+	#blockId = "";
 	#ours = false;
 	#pane: string | undefined;
 	#rest = Buffer.alloc(0);
@@ -188,6 +200,14 @@ class Control {
 		this.#pane = pane;
 	}
 
+	pause(): void {
+		this.#child.stdout?.pause();
+	}
+
+	resume(): void {
+		this.#child.stdout?.resume();
+	}
+
 	/** The page went away: the client detaches, and the shell goes on. */
 	close(): void {
 		if (this.#done) return;
@@ -208,12 +228,14 @@ class Control {
 
 	#line(line: Buffer): void {
 		const text = line.toString("utf8");
-		if (this.#block !== undefined && !text.startsWith("%end ") && !text.startsWith("%error ")) {
+		// A command's output is not escaped: a screen line that reads `%end …` is still output.
+		if (this.#block !== undefined && blockOf(text, "%end ", "%error ") !== this.#blockId) {
 			this.#block.push(text);
 			return;
 		}
 		if (text.startsWith("%begin ")) {
 			this.#block = [];
+			this.#blockId = blockOf(text, "%begin ") ?? "";
 			// The last field is 1 for a command this client sent; the attach's own block is 0.
 			this.#ours = text.trimEnd().endsWith(" 1");
 			return;
@@ -238,6 +260,13 @@ class Control {
 		for (const waiting of this.#waiting.splice(0)) waiting.reject(new Error(why));
 		this.sink.closed(why);
 	}
+}
+
+/** `<time> <number>` of a `%begin`, `%end` or `%error` line, when it starts with one of `heads`. */
+function blockOf(text: string, ...heads: string[]): string | undefined {
+	const head = heads.find((one) => text.startsWith(one));
+	if (head === undefined) return undefined;
+	return text.slice(head.length).split(" ").slice(0, 2).join(" ");
 }
 
 /** `%output %<pane> <data>`, where tmux writes a byte under 32 and `\` as `\ooo`. */

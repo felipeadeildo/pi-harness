@@ -125,9 +125,13 @@ export class Starts {
 	}
 }
 
-/** tmux refuses `.` and `:` in a session name. */
+/** Only letters, digits, `_` and `-`: a terminal's name goes into tmux commands. */
 function sessionName(folder: string, ticket: string): string {
-	return `${basename(folder).replaceAll(/[.:]/g, "-") || "pi"}-${ticket.slice(0, 4)}`;
+	return `${
+		basename(folder)
+			.replaceAll(/[^\w-]/g, "-")
+			.slice(0, 60) || "pi"
+	}-${ticket.slice(0, 4)}`;
 }
 
 async function onPath(name: string): Promise<string | undefined> {

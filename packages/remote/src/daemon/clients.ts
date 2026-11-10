@@ -35,6 +35,11 @@ export interface ClientsOptions {
 	owners?: Owners;
 }
 
+/** Past this much unsent output, the terminal waits for the page. */
+const SLOW_BYTES = 1024 * 1024;
+/** What a page types before its terminal is attached; more is dropped. */
+const EARLY_MESSAGES = 64;
+
 export type ListenResult = { port: number } | { why: string | undefined };
 
 export class Clients {
@@ -133,6 +138,19 @@ export class Clients {
 			let attached: Attached | undefined;
 			let gone = false;
 			const early: string[] = [];
+			let paused: ReturnType<typeof setInterval> | undefined;
+			// A slow page stops tmux's reading rather than the daemon's memory.
+			const output = (bytes: Buffer): void => {
+				ws.send(bytes);
+				if (paused !== undefined || ws.bufferedAmount < SLOW_BYTES) return;
+				attached?.pause();
+				paused = setInterval(() => {
+					if (ws.bufferedAmount > SLOW_BYTES / 4 && ws.readyState === ws.OPEN) return;
+					clearInterval(paused);
+					paused = undefined;
+					attached?.resume();
+				}, 50);
+			};
 			const act = (text: string): void => {
 				const asked = terminalMessage(text);
 				if (asked?.type === "input") attached?.write(asked.data);
@@ -140,7 +158,7 @@ export class Clients {
 			};
 			terminals
 				.attach(query.get("name") ?? "", this.#options.machine, size, {
-					output: (bytes) => ws.send(bytes),
+					output,
 					// A close reason is at most 123 bytes.
 					closed: (why) => ws.close(1000, why.slice(0, 120)),
 				})
@@ -156,9 +174,13 @@ export class Clients {
 					},
 				);
 			return {
-				message: (text) => (attached === undefined ? early.push(text) : act(text)),
+				message: (text) => {
+					if (attached !== undefined) act(text);
+					else if (early.length < EARLY_MESSAGES) early.push(text);
+				},
 				closed: () => {
 					gone = true;
+					clearInterval(paused);
 					attached?.close();
 				},
 			};
