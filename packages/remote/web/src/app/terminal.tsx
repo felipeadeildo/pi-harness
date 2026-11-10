@@ -23,7 +23,15 @@ import {
 
 import { Icon } from "./kit.tsx";
 
-type Status = { kind: "connecting" | "open" | "lost" } | Exclude<Closed, { kind: "lost" }>;
+type Status =
+	| { kind: "connecting" | "open" }
+	| { kind: "lost"; tries: number }
+	| Exclude<Closed, { kind: "lost" }>;
+
+/** After this many tries, the page says what is likely missing, and goes on trying. */
+const TRIES_BEFORE_HINT = 4;
+/** A phone's keyboard opens in steps; only the size it ends at goes to tmux. */
+const RESIZE_MS = 120;
 
 /** The page's own colors, as plain values xterm reads. */
 const THEMES = {
@@ -49,22 +57,29 @@ export function Component(): ReactNode {
 	const ctrl = useRef(false);
 	const [ctrlOn, setCtrlOn] = useState(false);
 	const [status, setStatus] = useState<Status>({ kind: "connecting" });
+	const height = useVisibleHeight();
 
 	useEffect(() => {
 		const box = host.current;
 		if (box === null) return;
-		const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+		const scheme = matchMedia("(prefers-color-scheme: dark)");
 		const term = new Terminal({
 			fontFamily: getComputedStyle(document.documentElement).getPropertyValue("--font-mono"),
 			fontSize: 13,
 			cursorBlink: !matchMedia("(prefers-reduced-motion: reduce)").matches,
 			scrollback: 5000,
-			theme: dark ? THEMES.dark : THEMES.light,
+			theme: scheme.matches ? THEMES.dark : THEMES.light,
 		});
+		const recolor = (): void => {
+			term.options.theme = scheme.matches ? THEMES.dark : THEMES.light;
+		};
+		scheme.addEventListener("change", recolor);
 		const fit = new FitAddon();
 		term.loadAddon(fit);
 		term.open(box);
 		fit.fit();
+		// The mono face may load after the first fit, with other widths.
+		void document.fonts.ready.then(() => fit.fit());
 		terminal.current = term;
 
 		let ws: WebSocket | undefined;
@@ -72,6 +87,7 @@ export function Component(): ReactNode {
 		let stopped = false;
 		let retry: ReturnType<typeof setTimeout> | undefined;
 		const connect = (): void => {
+			retry = undefined;
 			void browserSource().then((ready) => {
 				if (stopped) return;
 				if (ready.why !== undefined)
@@ -89,7 +105,7 @@ export function Component(): ReactNode {
 					if (stopped) return;
 					const closed = closedOf(event.code, event.reason);
 					if (closed.kind !== "lost") return setStatus(closed);
-					setStatus({ kind: "lost" });
+					setStatus({ kind: "lost", tries: attempt + 1 });
 					retry = setTimeout(connect, retryAfter(attempt++));
 				};
 				ws = socket;
@@ -105,7 +121,25 @@ export function Component(): ReactNode {
 			setCtrlOn(false);
 			send.current(withCtrl(data));
 		});
-		const sized = term.onResize(({ cols, rows }) => message({ type: "resize", cols, rows }));
+		let sent = `${term.cols}x${term.rows}`;
+		let sizing: ReturnType<typeof setTimeout> | undefined;
+		const sized = term.onResize(({ cols, rows }) => {
+			clearTimeout(sizing);
+			sizing = setTimeout(() => {
+				if (`${cols}x${rows}` === sent) return;
+				sent = `${cols}x${rows}`;
+				message({ type: "resize", cols, rows });
+			}, RESIZE_MS);
+		});
+		// A phone back from sleep, or back online, tries at once instead of waiting out the backoff.
+		const now = (): void => {
+			if (retry === undefined || document.visibilityState !== "visible") return;
+			clearTimeout(retry);
+			retry = undefined;
+			connect();
+		};
+		window.addEventListener("online", now);
+		document.addEventListener("visibilitychange", now);
 		// The phone's keyboard opening shrinks the page, and the terminal with it.
 		const observer = new ResizeObserver(() => fit.fit());
 		observer.observe(box);
@@ -114,6 +148,10 @@ export function Component(): ReactNode {
 		return () => {
 			stopped = true;
 			clearTimeout(retry);
+			clearTimeout(sizing);
+			window.removeEventListener("online", now);
+			document.removeEventListener("visibilitychange", now);
+			scheme.removeEventListener("change", recolor);
 			observer.disconnect();
 			typed.dispose();
 			sized.dispose();
@@ -123,8 +161,18 @@ export function Component(): ReactNode {
 		};
 	}, [machine, name]);
 
+	/** A bar key spends Ctrl, so it never waits for a letter several taps later. */
+	const spendCtrl = (): boolean => {
+		const held = ctrl.current;
+		ctrl.current = false;
+		setCtrlOn(false);
+		return held;
+	};
 	const press = (key: BarKey): void =>
-		send.current(keyBytes(key, terminal.current?.modes.applicationCursorKeysMode === true));
+		send.current(
+			keyBytes(key, terminal.current?.modes.applicationCursorKeysMode === true, spendCtrl()),
+		);
+	const type = (text: string): void => send.current(spendCtrl() ? withCtrl(text) : text);
 	const toggleCtrl = (): void => {
 		ctrl.current = !ctrl.current;
 		setCtrlOn(ctrl.current);
@@ -132,7 +180,10 @@ export function Component(): ReactNode {
 	};
 
 	return (
-		<main className="flex h-full min-w-0 flex-1 flex-col bg-background">
+		<main
+			className="flex h-full min-w-0 flex-1 flex-col bg-background"
+			style={height === undefined ? undefined : { height }}
+		>
 			<header className="flex shrink-0 items-center gap-1.5 border-b px-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-1.5 sm:px-4">
 				<Link
 					to={`/terminals?machine=${encodeURIComponent(machine)}`}
@@ -151,6 +202,12 @@ export function Component(): ReactNode {
 				</div>
 			</header>
 			<div ref={host} className="min-h-0 flex-1 overflow-hidden px-1.5 pt-1" />
+			{status.kind === "lost" && status.tries >= TRIES_BEFORE_HINT ? (
+				<p className="shrink-0 border-t px-4 py-2.5 text-[13px] text-muted-foreground">
+					The remote is not answering on <span translate="no">{machine}</span>. Open pi there, or
+					run <code className="font-mono text-[12.5px]">pi-remote serve</code>. Trying again.
+				</p>
+			) : null}
 			{status.kind === "ended" || status.kind === "refused" ? (
 				<div className="flex shrink-0 items-center gap-3 border-t px-4 py-3">
 					<p
@@ -169,15 +226,27 @@ export function Component(): ReactNode {
 					</Link>
 				</div>
 			) : (
-				<KeyBar
-					press={press}
-					ctrlOn={ctrlOn}
-					toggleCtrl={toggleCtrl}
-					type={(text) => send.current(text)}
-				/>
+				<KeyBar press={press} ctrlOn={ctrlOn} toggleCtrl={toggleCtrl} type={type} />
 			)}
 		</main>
 	);
+}
+
+/**
+ * The height left above a phone's keyboard. Safari on iOS keeps the page's height when the
+ * keyboard opens, and only the visual viewport shrinks.
+ */
+function useVisibleHeight(): number | undefined {
+	const [height, setHeight] = useState<number>();
+	useEffect(() => {
+		const viewport = window.visualViewport;
+		if (viewport === null || viewport === undefined) return;
+		const update = (): void => setHeight(viewport.height);
+		update();
+		viewport.addEventListener("resize", update);
+		return () => viewport.removeEventListener("resize", update);
+	}, []);
+	return height;
 }
 
 function statusText(status: Status, machine: string): string {
@@ -234,6 +303,7 @@ function KeyBar({
 				type="button"
 				aria-pressed={ctrlOn}
 				onPointerDown={keep}
+				onMouseDown={keep}
 				onClick={toggleCtrl}
 				className={cn(key, ctrlOn && "bg-accent text-foreground")}
 			>
@@ -245,6 +315,7 @@ function KeyBar({
 					type="button"
 					aria-label={spoken}
 					onPointerDown={keep}
+					onMouseDown={keep}
 					onClick={act}
 					className={key}
 				>

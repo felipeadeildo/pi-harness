@@ -301,6 +301,7 @@ export class Daemon {
 			...(this.#options.events === undefined ? {} : { events: this.#options.events }),
 			command: (session, message) => this.#toBridge(session, message),
 			starts: this.#starts,
+			activity: () => this.#settle(),
 			...(this.#options.terminals === undefined ? {} : { terminals: this.#options.terminals }),
 			...(web === undefined ? {} : { web }),
 			warn: (message) => this.#warn(message),
@@ -358,7 +359,7 @@ export class Daemon {
 
 	#settle(): void {
 		if (this.#stopping || this.#options.stayUp === true) return;
-		if (this.sessions.connected() > 0) {
+		if (this.sessions.connected() > 0 || (this.#clients?.terminalsOpen() ?? 0) > 0) {
 			clearTimeout(this.#idle);
 			this.#idle = undefined;
 			return;

@@ -83,9 +83,10 @@ describe.skipIf(!hasTmux)("a terminal in a real tmux", () => {
 		if (previous.TMUX !== undefined) process.env.TMUX = previous.TMUX;
 	});
 
-	async function opened() {
-		const { port, cookie } = await openDaemon({
+	async function opened(idleExitMs?: number) {
+		const { port, cookie, daemon, exits } = await openDaemon({
 			terminals: new Terminals({ allowed: () => true }),
+			...(idleExitMs === undefined ? {} : { idleExitMs }),
 		});
 		const origin = `http://127.0.0.1:${port}`;
 		const here = await machineOf(origin);
@@ -121,7 +122,7 @@ describe.skipIf(!hasTmux)("a terminal in a real tmux", () => {
 			const send = (message: unknown) => ws.send(JSON.stringify(message));
 			return { ws, seen, send, open: new Promise((resolve) => (ws.onopen = resolve)) };
 		};
-		return { made, name, folder, list, page, origin, here, cookie, port };
+		return { made, name, folder, list, page, origin, here, cookie, port, daemon, exits };
 	}
 
 	test("a new shell opens in its folder and is listed there", async () => {
@@ -226,6 +227,26 @@ describe.skipIf(!hasTmux)("a terminal in a real tmux", () => {
 		await until(() => one.seen.closed !== undefined);
 		expect(one.seen.closed).toEqual({ code: 1000, reason: "the shell ended" });
 		expect(await list()).toEqual([]);
+	});
+
+	test("an open terminal keeps the daemon up with no session, and it leaves once the page closes", async () => {
+		const { page, exits } = await opened(200);
+		const one = page();
+		await one.open;
+		await Bun.sleep(500);
+		expect(exits).toEqual([]);
+		one.ws.close();
+		await until(() => exits.length === 1);
+		expect(exits).toEqual(["idle"]);
+	});
+
+	test("a daemon that stops tells its terminals' pages it went away", async () => {
+		const { page, daemon } = await opened();
+		const one = page();
+		await one.open;
+		daemon.stop();
+		await until(() => one.seen.closed !== undefined);
+		expect(one.seen.closed).toEqual({ code: 1001, reason: "the remote stopped" });
 	});
 
 	test("a terminal that is not there closes the socket with a 404 in its code", async () => {

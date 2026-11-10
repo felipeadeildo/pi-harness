@@ -52,7 +52,20 @@ describe("the phone's key bar", () => {
 		expect(keyBytes("left", true)).toBe("\x1bOD");
 	});
 
-	test("Ctrl makes a letter its control character, and leaves the rest alone", () => {
+	test("with Ctrl, an arrow moves a word, and Esc and Tab stay themselves", () => {
+		expect(keyBytes("left", false, true)).toBe("\x1b[1;5D");
+		expect(keyBytes("right", true, true)).toBe("\x1b[1;5C");
+		expect(keyBytes("esc", false, true)).toBe("\x1b");
+	});
+
+	test("Ctrl makes a key its control character, and leaves the rest alone", () => {
+		expect(withCtrl("\\")).toBe("\x1c");
+		expect(withCtrl("]")).toBe("\x1d");
+		expect(withCtrl("^")).toBe("\x1e");
+		expect(withCtrl("_")).toBe("\x1f");
+		expect(withCtrl("/")).toBe("\x1f");
+		expect(withCtrl("?")).toBe("\x7f");
+		expect(withCtrl("@")).toBe("\x00");
 		expect(withCtrl("c")).toBe("\x03");
 		expect(withCtrl("C")).toBe("\x03");
 		expect(withCtrl("d")).toBe("\x04");

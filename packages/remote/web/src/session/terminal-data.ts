@@ -41,9 +41,15 @@ export function retryAfter(attempt: number): number {
 
 export type BarKey = "esc" | "tab" | "up" | "down" | "left" | "right";
 
-/** An arrow follows the terminal's cursor-key mode, as a real keyboard's does. */
-export function keyBytes(key: BarKey, applicationCursor: boolean): string {
-	const arrow = (letter: string) => (applicationCursor ? `\x1bO${letter}` : `\x1b[${letter}`);
+/**
+ * An arrow follows the terminal's cursor-key mode, as a real keyboard's does. With Ctrl held, an
+ * arrow moves a word (`ESC [1;5D`), and Esc and Tab are what they are.
+ */
+export function keyBytes(key: BarKey, applicationCursor: boolean, ctrl = false): string {
+	const arrow = (letter: string) => {
+		if (ctrl) return `\x1b[1;5${letter}`;
+		return applicationCursor ? `\x1bO${letter}` : `\x1b[${letter}`;
+	};
 	switch (key) {
 		case "esc":
 			return "\x1b";
@@ -60,14 +66,25 @@ export function keyBytes(key: BarKey, applicationCursor: boolean): string {
 	}
 }
 
-/** Ctrl held on the bar turns the next letter into its control character; anything else passes. */
+/** The keys a terminal reads with Ctrl, besides the letters. */
+const CONTROLS: Record<string, string> = {
+	"@": "\x00",
+	" ": "\x00",
+	"[": "\x1b",
+	"\\": "\x1c",
+	"]": "\x1d",
+	"^": "\x1e",
+	_: "\x1f",
+	"/": "\x1f",
+	"?": "\x7f",
+};
+
+/** Ctrl held on the bar turns the next key into its control character; anything else passes. */
 export function withCtrl(data: string): string {
 	if (data.length !== 1) return data;
 	const code = data.toLowerCase().charCodeAt(0);
 	if (code >= 97 && code <= 122) return String.fromCharCode(code - 96);
-	if (data === "[") return "\x1b";
-	if (data === " ") return "\x00";
-	return data;
+	return CONTROLS[data] ?? data;
 }
 
 function sentence(text: string): string {

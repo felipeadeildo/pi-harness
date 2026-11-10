@@ -16,7 +16,7 @@ import {
 } from "@adeildo/pi-remote-protocol";
 import { type Transport } from "@adeildo/pi-remote-protocol/client";
 
-import { Daemon } from "../src/daemon/server.ts";
+import { Daemon, type ExitReason } from "../src/daemon/server.ts";
 import type { Cursor } from "../src/daemon/sessions.ts";
 import { Starts } from "../src/daemon/start.ts";
 import { Terminals } from "../src/daemon/terminal.ts";
@@ -43,16 +43,27 @@ export const running: Daemon[] = [];
 export async function openDaemon({
 	starts = new Starts({ allowed: () => false }),
 	terminals = new Terminals({ allowed: () => false }),
-}: { starts?: Starts; terminals?: Terminals } = {}): Promise<{
+	idleExitMs,
+}: { starts?: Starts; terminals?: Terminals; idleExitMs?: number } = {}): Promise<{
 	daemon: Daemon;
 	port: number;
 	cookie: string;
+	exits: ExitReason[];
 }> {
-	const daemon = await Daemon.start({ socket, version: "1.2.0", clientPort: 0, starts, terminals });
+	const exits: ExitReason[] = [];
+	const daemon = await Daemon.start({
+		socket,
+		version: "1.2.0",
+		clientPort: 0,
+		starts,
+		terminals,
+		...(idleExitMs === undefined ? {} : { idleExitMs }),
+		exited: (reason) => exits.push(reason),
+	});
 	if (daemon?.clientPort === undefined) throw new Error("the daemon did not start");
 	running.push(daemon);
 	const port = daemon.clientPort;
-	return { daemon, port, cookie: await logIn(daemon, port) };
+	return { daemon, port, cookie: await logIn(daemon, port), exits };
 }
 
 /** Fails on a gap the replay cannot fill instead of hanging. */
