@@ -430,9 +430,9 @@ async function answersQuestion(page: Page, rig: Rig): Promise<Result> {
 				.catch(() => "");
 			return { ok: false, why: `no question: ${JSON.stringify(said.slice(0, 300))}` };
 		}
-		// The question is asked in the dialog that takes the composer's place and nowhere else: a second
-		// copy above the transcript would be two screens for one question.
-		const seen = await page.getByText("Ship the release now?").count();
+		// Once on the session's screen, in the dialog. The list beside it also shows the question in
+		// its row, so the count stays inside `main`.
+		const seen = await page.getByRole("main").getByText("Ship the release now?").count();
 		if (seen !== 1)
 			return { ok: false, why: `the question is on the screen ${seen} times, not once` };
 		const before = rig.session.sessionManager.getBranch().length;
