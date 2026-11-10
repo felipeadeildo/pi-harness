@@ -96,3 +96,70 @@ function isStartPlaces(value: unknown): value is StartPlaces {
 		)
 	);
 }
+
+/** A session of a machine's remote tmux: a shell from the page, or a pi started there. */
+export interface TerminalInfo {
+	name: string;
+	folder: string;
+	/** What runs in it now, as `fish` or `pi`. */
+	command: string;
+	/** In ms. */
+	created: number;
+}
+
+/** `allowed` is false until the operator turns on terminals at that machine. */
+export interface TerminalList {
+	allowed: boolean;
+	terminals: TerminalInfo[];
+}
+
+export function listTerminals(
+	base: string,
+	machine: string,
+	speaks: typeof fetch = fetch,
+): Promise<TerminalList> {
+	return ask(
+		base,
+		`/machines/${encodeURIComponent(machine)}/terminals`,
+		{ what: "the terminals", decode: (body) => (isTerminalList(body) ? body : undefined) },
+		speaks,
+	);
+}
+
+/** A new shell in `folder`; its name opens it. */
+export function newTerminal(
+	base: string,
+	machine: string,
+	folder: string,
+	speaks: typeof fetch = fetch,
+): Promise<{ machine: string; name: string }> {
+	return ask(
+		base,
+		`/machines/${encodeURIComponent(machine)}/terminals`,
+		{
+			what: "the new terminal",
+			body: { folder },
+			decode: (body) =>
+				isObject(body) && typeof body.machine === "string" && typeof body.name === "string"
+					? { machine: body.machine, name: body.name }
+					: undefined,
+		},
+		speaks,
+	);
+}
+
+function isTerminalList(value: unknown): value is TerminalList {
+	return (
+		isObject(value) &&
+		typeof value.allowed === "boolean" &&
+		Array.isArray(value.terminals) &&
+		value.terminals.every(
+			(one) =>
+				isObject(one) &&
+				typeof one.name === "string" &&
+				typeof one.folder === "string" &&
+				typeof one.command === "string" &&
+				typeof one.created === "number",
+		)
+	);
+}

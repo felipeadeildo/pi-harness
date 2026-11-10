@@ -14,10 +14,14 @@ export { type FolderOf, readChanges, readDiff, readFile, readFolder } from "./fi
 export {
 	type ListedMachine,
 	listMachines,
+	listTerminals,
+	newTerminal,
 	readFolders,
 	type RecentFolder,
 	startSession,
 	type StartPlaces,
+	type TerminalInfo,
+	type TerminalList,
 } from "./machines.ts";
 export { DaemonAnswer } from "./ask.ts";
 export {

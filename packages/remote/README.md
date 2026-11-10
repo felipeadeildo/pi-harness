@@ -31,6 +31,12 @@ Agents on different machines can also share a room, like two terminals in one fo
 
 It is off until you turn it on at that machine: open `/harness` in pi there, and turn on **Start sessions from the page** under Remote. Once it is on, anyone logged in to the remote can run pi, and so commands, on that machine. The page runs pi in the remote's own tmux, so `pi-remote attach` at that machine opens it in a terminal. That needs tmux on the machine.
 
+## A terminal from the page
+
+**Terminals** lists the shells and pi sessions in the remote's tmux on each machine, and opens a new shell in any folder. **Terminal in this folder**, on a session's screen, starts one where that session works. The terminal fills the screen. On a phone, a bar under it has Esc, Tab, Ctrl, the arrows and the symbols a phone keyboard hides. Closing the page leaves the shell running, so you find it as you left it, and `pi-remote attach` opens the same shells at the desk.
+
+It is off until you turn it on at that machine: open `/harness` in pi there, and turn on **Terminals from the page** under Remote. Once it is on, anyone logged in to the remote can run any command on that machine.
+
 ## Commands
 
 You never start the daemon by hand: pi starts it when you open a session, and it exits after five minutes without sessions.

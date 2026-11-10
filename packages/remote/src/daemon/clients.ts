@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import type { Duplex } from "node:stream";
 
 import type { Envelope } from "@adeildo/pi-remote-protocol";
-import type { WebSocketServer } from "ws";
+import type { WebSocket, WebSocketServer } from "ws";
 
 import { accept, join, server } from "../wire/websocket.ts";
 import type { WebApp } from "./app.ts";
@@ -28,6 +28,8 @@ export interface ClientsOptions {
 	command: (session: string, message: Envelope) => boolean;
 	starts?: Starts;
 	terminals?: Terminals;
+	/** A terminal opened or closed: an open one keeps the daemon up, as a session does. */
+	activity?: () => void;
 	web?: WebApp;
 	warn?: (message: string) => void;
 	now?: () => number;
@@ -47,6 +49,7 @@ export class Clients {
 	readonly #server: Server;
 	readonly #tailnetServer: Server | undefined;
 	readonly #wss: WebSocketServer;
+	readonly #terminals = new Set<WebSocket>();
 	readonly #started: number;
 	#hosts: ReadonlySet<string> = new Set();
 	readonly hub: Hub;
@@ -135,6 +138,8 @@ export class Clients {
 		}
 		const size = { cols: Number(query.get("cols")), rows: Number(query.get("rows")) };
 		accept(this.#wss, request, socket, head, (ws) => {
+			this.#terminals.add(ws);
+			this.#options.activity?.();
 			let attached: Attached | undefined;
 			let gone = false;
 			const early: string[] = [];
@@ -182,6 +187,8 @@ export class Clients {
 					gone = true;
 					clearInterval(paused);
 					attached?.close();
+					this.#terminals.delete(ws);
+					this.#options.activity?.();
 				},
 			};
 		});
@@ -210,7 +217,14 @@ export class Clients {
 
 	tailnetUrl: string | undefined;
 
+	/** The pages on a terminal of this machine. */
+	terminalsOpen(): number {
+		return this.#terminals.size;
+	}
+
 	close(): void {
+		// `wss.close()` leaves its clients open; a page on a terminal hears the daemon went away.
+		for (const ws of this.#terminals) ws.close(1001, "the remote stopped");
 		this.hub.close();
 		this.#wss.close();
 		this.#server.close();
