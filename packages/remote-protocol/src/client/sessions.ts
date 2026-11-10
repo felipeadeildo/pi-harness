@@ -6,6 +6,7 @@ import {
 	type SessionState,
 	type SessionSummary,
 } from "../index.ts";
+import { ask } from "./ask.ts";
 
 /** The bridge's word, not the daemon's. */
 export interface LiveSession {
@@ -29,38 +30,19 @@ export interface ListedSession {
 }
 
 /** A row that does not decode is dropped: a menu entry that opens nothing is worse than none. */
-export async function listSessions(
+export function listSessions(
 	base: string,
 	speaks: typeof fetch = fetch,
 	options: { signal?: AbortSignal } = {},
 ): Promise<ListedSession[]> {
-	const answer = await speaks(new URL("/sessions", base), {
-		headers: { accept: "application/json" },
-		...(options.signal === undefined ? {} : { signal: options.signal }),
-	});
-	if (!answer.ok) throw new DaemonAnswer(answer.status, "the session list");
-	const body: unknown = await answer.json();
-	if (!Array.isArray(body)) throw new DaemonAnswer(200, "a body that is not a list");
-	const kept = body.filter(isListed);
-	// Rows that all fail to decode are an unknown shape, not an empty list.
-	if (kept.length === 0 && body.length > 0) {
-		throw new DaemonAnswer(200, "a list this client cannot read");
-	}
-	return kept;
+	return ask(base, "/sessions", { what: "the session list", decode: listedOf, ...options }, speaks);
 }
 
-/** Keeps the code, so a screen can say "not logged in" without matching text. */
-export class DaemonAnswer extends Error {
-	readonly status: number;
-	/** The daemon's own words for a refusal, when it gave them. */
-	readonly reason: string | undefined;
-
-	constructor(status: number, what: string, reason?: string) {
-		super(`the daemon answered ${status} for ${what}`);
-		this.name = "DaemonAnswer";
-		this.status = status;
-		this.reason = reason;
-	}
+/** Rows that all fail to decode are an unknown shape, not an empty list. */
+function listedOf(body: unknown): ListedSession[] | undefined {
+	if (!Array.isArray(body)) return undefined;
+	const kept = body.filter(isListed);
+	return kept.length === 0 && body.length > 0 ? undefined : kept;
 }
 
 function isListed(value: unknown): value is ListedSession {

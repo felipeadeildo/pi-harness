@@ -1,7 +1,7 @@
 // The owner's machines, as the daemon the client talks to knows them. `/tailnet`, since `/machines`
 // is the page that shows them.
 import { isObject } from "../index.ts";
-import { DaemonAnswer } from "./sessions.ts";
+import { ask } from "./ask.ts";
 
 export interface ListedMachine {
 	name: string;
@@ -15,17 +15,16 @@ export interface ListedMachine {
 	answering: boolean;
 }
 
-export async function listMachines(
-	base: string,
-	speaks: typeof fetch = fetch,
-): Promise<ListedMachine[]> {
-	const answer = await speaks(new URL("/tailnet", base), {
-		headers: { accept: "application/json" },
-	});
-	if (!answer.ok) throw new DaemonAnswer(answer.status, "the machine list");
-	const body: unknown = await answer.json();
-	if (!Array.isArray(body)) throw new DaemonAnswer(200, "a body that is not a list");
-	return body.filter(isMachine);
+export function listMachines(base: string, speaks: typeof fetch = fetch): Promise<ListedMachine[]> {
+	return ask(
+		base,
+		"/tailnet",
+		{
+			what: "the machine list",
+			decode: (body) => (Array.isArray(body) ? body.filter(isMachine) : undefined),
+		},
+		speaks,
+	);
 }
 
 function isMachine(value: unknown): value is ListedMachine {
