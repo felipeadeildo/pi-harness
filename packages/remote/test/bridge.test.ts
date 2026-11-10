@@ -1030,6 +1030,27 @@ describe("the bridge", () => {
 		expect(live?.data).not.toHaveProperty("file");
 	});
 
+	test("a pi the daemon started reports its ticket", async () => {
+		const daemon = await listening();
+		process.env.PI_REMOTE_TICKET = "t-1";
+		try {
+			await start(mounted(), fakeContext([], true, { ...session() }));
+			await until(() => types(daemon).includes("session.live"));
+		} finally {
+			delete process.env.PI_REMOTE_TICKET;
+		}
+		const live = daemon.received.find((one) => one.type === "session.live");
+		expect(live?.data).toMatchObject({ ticket: "t-1" });
+	});
+
+	test("a pi started by hand reports no ticket", async () => {
+		const daemon = await listening();
+		await start(mounted(), fakeContext([], true, { ...session() }));
+		await until(() => types(daemon).includes("session.live"));
+		const live = daemon.received.find((one) => one.type === "session.live");
+		expect(live?.data).not.toHaveProperty("ticket");
+	});
+
 	test("/remote asks the daemon for a token and opens the link with it in the fragment", async () => {
 		const daemon = await listening();
 		const opened = join(root, "opened");

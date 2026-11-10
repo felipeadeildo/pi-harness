@@ -1,6 +1,6 @@
 import { boolean, type Decoder, integer, setting } from "@adeildo/pi-kit";
 
-import { CLIENT_PORT, PORT_ID } from "./places.ts";
+import { CLIENT_PORT, PORT_ID, START_ID } from "./places.ts";
 
 const REMOTE_SECTION = "Remote";
 
@@ -29,5 +29,17 @@ export const forwardOtherDialogs = setting<boolean>({
 		label: "Answer other dialogs from clients",
 		description:
 			"In a terminal session, a select, confirm or input that pi or another extension opens also shows on your phone and browser, and the first answer wins. A text editor and a custom component stay in the terminal. Turn it off to keep them there.",
+	},
+});
+
+export const startSessions = setting<boolean>({
+	id: START_ID,
+	default: false,
+	decoder: boolean,
+	ui: {
+		section: REMOTE_SECTION,
+		label: "Start sessions from the page",
+		description:
+			"Lets the page start pi in a folder of this machine, in the remote's own tmux, so pi-remote attach opens it here. Anyone logged in to the remote can then run pi, and so commands, on this machine. Only the global setting counts.",
 	},
 });

@@ -15,6 +15,8 @@ import type {
 	FolderEntry,
 } from "@adeildo/pi-remote-protocol";
 
+import { Refused } from "./refused.ts";
+
 const FOLDER_ENTRIES = 2_000;
 export const TEXT_BYTES = 1_000_000;
 const SNIFF_BYTES = 8_000;
@@ -22,16 +24,6 @@ const CHANGED_FILES = 1_000;
 export const PATCH_BYTES = 2_000_000;
 const LIST_BYTES = 8_000_000;
 const GIT_MS = 10_000;
-
-export class Refused extends Error {
-	readonly status: 400 | 404;
-
-	constructor(status: 400 | 404, message: string) {
-		super(message);
-		this.name = "Refused";
-		this.status = status;
-	}
-}
 
 export async function folderAt(cwd: string, path: string): Promise<Folder> {
 	const { real, parts } = await inside(cwd, path);

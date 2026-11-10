@@ -8,6 +8,8 @@ import { type AskTailscale, readOwnTailnet, type Tailnet } from "./tailnet.ts";
 
 const LOOK_EVERY_MS = 15_000;
 const ANSWER_MS = 2_000;
+/** Longer than `start.ts` waits for a new pi. */
+const CHANGE_MS = 30_000;
 
 export interface Machine {
 	name: string;
@@ -86,11 +88,23 @@ export class Machines {
 		this.#found = found;
 	}
 
-	async get(machine: Machine, path: string): Promise<Response> {
+	/** A request to the machine's daemon, logged in; a POST waits as long as starting pi does. */
+	async ask(
+		machine: Machine,
+		path: string,
+		{ method = "GET", body }: { method?: string; body?: string } = {},
+	): Promise<Response> {
 		const ask = async (): Promise<Response> =>
 			fetch(`${machine.origin}${path}`, {
-				headers: { cookie: `${COOKIE}=${await this.#login(machine)}` },
-				signal: AbortSignal.timeout(ANSWER_MS),
+				method,
+				headers: {
+					// A request that changes something needs the daemon's own origin.
+					origin: machine.origin,
+					cookie: `${COOKIE}=${await this.#login(machine)}`,
+					...(body === undefined ? {} : { "content-type": "application/json" }),
+				},
+				...(body === undefined ? {} : { body }),
+				signal: AbortSignal.timeout(method === "GET" ? ANSWER_MS : CHANGE_MS),
 			});
 		const answer = await ask();
 		if (answer.status !== 401) return answer;

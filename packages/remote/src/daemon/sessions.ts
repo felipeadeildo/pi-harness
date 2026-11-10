@@ -31,6 +31,8 @@ export interface SessionLive {
 	name?: string;
 	kind: "terminal" | "background";
 	file?: string;
+	/** Set when the daemon started this pi; see `start.ts`. */
+	ticket?: string;
 }
 
 export interface LiveSession {
@@ -72,6 +74,7 @@ interface Entry {
 
 export class Sessions {
 	readonly #entries = new Map<string, Entry>();
+	readonly #tickets = new Map<string, (session: string) => void>();
 	#bytes = 0;
 
 	constructor(private readonly budget = REPLAY_BYTES) {}
@@ -88,9 +91,25 @@ export class Sessions {
 		return this.list().filter((state) => state.connected).length;
 	}
 
+	/** The session that registers with `ticket`, or undefined after `ms`. */
+	arrival(ticket: string, ms: number): Promise<string | undefined> {
+		return new Promise((resolve) => {
+			const timer = setTimeout(() => {
+				this.#tickets.delete(ticket);
+				resolve(undefined);
+			}, ms);
+			this.#tickets.set(ticket, (session) => {
+				clearTimeout(timer);
+				this.#tickets.delete(ticket);
+				resolve(session);
+			});
+		});
+	}
+
 	/** A new epoch renumbers: the replay goes, the state stays. */
 	live(envelope: Envelope, live: SessionLive): LiveSession {
 		const { machine = "", session = "", epoch = "" } = envelope;
+		if (live.ticket !== undefined) this.#tickets.get(live.ticket)?.(session);
 		const known = this.#entries.get(session);
 		if (known === undefined || known.state.epoch !== epoch) this.#drop(known);
 		const state: LiveSession = {

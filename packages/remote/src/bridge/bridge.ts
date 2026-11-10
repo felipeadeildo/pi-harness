@@ -30,6 +30,7 @@ import type {
 import type { PromptKind, SessionCommand } from "@adeildo/pi-remote-protocol";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
+import { TICKET_ENV } from "../places.ts";
 import { OpenAsks } from "./asks.ts";
 import { Refused } from "./commands.ts";
 import { BridgeConnection, type ConnectionSeams, type GoneReason } from "./connection.ts";
@@ -203,6 +204,7 @@ export class Bridge {
 			name: manager.getSessionName(),
 			kind: this.options.kind,
 			file: manager.getSessionFile(),
+			ticket: process.env[TICKET_ENV],
 			model:
 				this.ctx.model === undefined
 					? undefined

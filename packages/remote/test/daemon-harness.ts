@@ -18,6 +18,7 @@ import { type Transport } from "@adeildo/pi-remote-protocol/client";
 
 import { Daemon } from "../src/daemon/server.ts";
 import type { Cursor } from "../src/daemon/sessions.ts";
+import { Starts } from "../src/daemon/start.ts";
 import { envelopeOf, line, Lines } from "../src/wire/lines.ts";
 import { logIn } from "./login.ts";
 
@@ -37,8 +38,11 @@ export let dir: string;
 export let socket: string;
 export const running: Daemon[] = [];
 
-export async function openDaemon(): Promise<{ daemon: Daemon; port: number; cookie: string }> {
-	const daemon = await Daemon.start({ socket, version: "1.2.0", clientPort: 0 });
+/** Starting pi is off unless a test brings its own `Starts`, so no test reads the real settings. */
+export async function openDaemon(
+	starts = new Starts({ allowed: () => false }),
+): Promise<{ daemon: Daemon; port: number; cookie: string }> {
+	const daemon = await Daemon.start({ socket, version: "1.2.0", clientPort: 0, starts });
 	if (daemon?.clientPort === undefined) throw new Error("the daemon did not start");
 	running.push(daemon);
 	const port = daemon.clientPort;
@@ -58,7 +62,7 @@ export async function bridgeOf(
 	epoch = "e1",
 	file?: string,
 	path = socket,
-	cwd = "/repo",
+	{ cwd = "/repo", ticket }: { cwd?: string; ticket?: string } = {},
 ) {
 	const at = { machine: "laptop", session, epoch };
 	const client: Socket = dial(path);
@@ -97,6 +101,7 @@ export async function bridgeOf(
 					cwd,
 					kind: "terminal",
 					...(file === undefined ? {} : { file }),
+					...(ticket === undefined ? {} : { ticket }),
 				},
 				at,
 			),

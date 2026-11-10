@@ -1,5 +1,5 @@
 import { spawn, type StdioOptions } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,9 +10,9 @@ import {
 	CLIENT_PORT,
 	daemonDir,
 	daemonPaths,
+	globalSetting,
 	PORT_ID,
 	portOf,
-	settingsPath,
 	TMUX_SOCKET,
 } from "../places.ts";
 import { VERSION } from "../version.ts";
@@ -126,20 +126,7 @@ function exitOf(
 
 /** Read without the kit, because the built command may import only Node's modules. */
 export function portFromSettings(): number {
-	let data: unknown;
-	try {
-		data = JSON.parse(readFileSync(settingsPath(), "utf8"));
-	} catch {
-		return CLIENT_PORT;
-	}
-	if (typeof data !== "object" || data === null) return CLIENT_PORT;
-	// The same nested lookup the kit does.
-	let node: unknown = data;
-	for (const key of PORT_ID.split(".")) {
-		if (typeof node !== "object" || node === null) return CLIENT_PORT;
-		node = (node as Record<string, unknown>)[key];
-	}
-	return portOf(node) ?? CLIENT_PORT;
+	return portOf(globalSetting(PORT_ID)) ?? CLIENT_PORT;
 }
 
 function dev(port: number, err: (line: string) => void): Promise<number> {

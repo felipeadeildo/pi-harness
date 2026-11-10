@@ -27,6 +27,7 @@ import { Clients } from "./clients.ts";
 import { Machines } from "./machines.ts";
 import { Mirror } from "./mirror.ts";
 import { type GoneReason, type SessionLive, Sessions } from "./sessions.ts";
+import type { Starts } from "./start.ts";
 import { type AskTailscale, Owners, type Tailnet } from "./tailnet.ts";
 
 /** A daemon a pi started exits after this long with no session. */
@@ -53,6 +54,8 @@ export interface DaemonOptions {
 	machine?: string;
 	/** Found on the tailnet unless a test brings its own. */
 	machines?: Machines;
+	/** Starting pi from the page; a test brings its own tmux and pi. */
+	starts?: Starts;
 	exited?(reason: ExitReason): void;
 	warn?(message: string): void;
 }
@@ -284,6 +287,7 @@ export class Daemon {
 			...(this.#machines === undefined ? {} : { machines: this.#machines }),
 			...(this.#options.events === undefined ? {} : { events: this.#options.events }),
 			command: (session, message) => this.#toBridge(session, message),
+			...(this.#options.starts === undefined ? {} : { starts: this.#options.starts }),
 			...(web === undefined ? {} : { web }),
 			warn: (message) => this.#warn(message),
 			...(this.#options.tailnet === undefined
@@ -459,7 +463,8 @@ function isLive(value: unknown): value is SessionLive {
 		typeof value.cwd === "string" &&
 		(value.kind === "terminal" || value.kind === "background") &&
 		(value.name === undefined || typeof value.name === "string") &&
-		(value.file === undefined || typeof value.file === "string")
+		(value.file === undefined || typeof value.file === "string") &&
+		(value.ticket === undefined || typeof value.ticket === "string")
 	);
 }
 
