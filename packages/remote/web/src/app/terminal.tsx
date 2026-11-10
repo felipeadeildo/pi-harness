@@ -287,11 +287,14 @@ function KeyBar({
 		["↓", "Down", () => press("down")],
 		["←", "Left", () => press("left")],
 		["→", "Right", () => press("right")],
-		...["|", "~", "/", "-"].map((text): [string, string, () => void] => [
-			text,
-			text,
-			() => type(text),
-		]),
+		...(
+			[
+				["|", "Pipe"],
+				["~", "Tilde"],
+				["/", "Slash"],
+				["-", "Hyphen"],
+			] as const
+		).map(([text, spoken]): [string, string, () => void] => [text, spoken, () => type(text)]),
 	];
 	return (
 		<div
