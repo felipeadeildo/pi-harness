@@ -27,7 +27,7 @@ import { cn } from "cn";
 import { lazy, type ReactNode, Suspense, useCallback, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
 	changesLine,
 	childOf,
@@ -67,16 +67,13 @@ export function Component(): ReactNode {
 	return (
 		<main className="flex h-full min-w-0 flex-1 flex-col">
 			<header className="flex shrink-0 items-center gap-1.5 px-2 pt-2 sm:px-4">
-				<Button
-					variant="ghost"
-					size="icon"
-					className="size-10"
+				<Link
+					to={sessionHref(of)}
+					className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "size-10")}
 					aria-label="Back to the session"
-					nativeButton={false}
-					render={<Link to={sessionHref(of)} />}
 				>
 					<Icon icon={ArrowLeft01Icon} className="size-5" />
-				</Button>
+				</Link>
 				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
 					<h1 className="wide truncate text-[16px] leading-tight font-semibold">{name}</h1>
 					{cwd === undefined ? null : (

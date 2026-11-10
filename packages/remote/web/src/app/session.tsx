@@ -15,7 +15,7 @@ import { cn } from "cn";
 import { type ReactNode, useState } from "react";
 import { Link, useParams } from "react-router";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { browserSource } from "@/session/browser.ts";
 import { filesHref } from "@/session/files-data.ts";
 import { contextShare, folderOf, shortPath } from "@/session/format.ts";
@@ -82,16 +82,13 @@ export function Component(): ReactNode {
 		<div className="flex h-full min-w-0 flex-1">
 			<main className="flex h-full min-w-0 flex-1 flex-col">
 				<header className="relative flex shrink-0 items-center gap-1.5 px-2 py-2 sm:px-4 lg:gap-3">
-					<Button
-						variant="ghost"
-						size="icon"
-						className="size-10 lg:hidden"
+					<Link
+						to="/"
+						className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "size-10 lg:hidden")}
 						aria-label="All sessions"
-						nativeButton={false}
-						render={<Link to="/" />}
 					>
 						<Icon icon={ArrowLeft01Icon} className="size-5" />
-					</Button>
+					</Link>
 					<div className="flex min-w-0 flex-1 flex-col gap-0.5">
 						<h1 className="truncate text-[16px] leading-tight font-semibold">
 							<AgentName name={name} color={color} />
@@ -141,16 +138,14 @@ export function Component(): ReactNode {
 							</span>
 						)}
 					</Button>
-					<Button
-						variant="ghost"
-						className="h-10 gap-1.5 px-2.5"
+					<Link
+						to={filesHref({ machine, session: id })}
+						className={cn(buttonVariants({ variant: "ghost" }), "h-10 gap-1.5 px-2.5")}
 						aria-label="Files and changes"
-						nativeButton={false}
-						render={<Link to={filesHref({ machine, session: id })} />}
 					>
 						<Icon icon={GitCompareIcon} className="size-[18px]" />
 						<span className="hidden text-[13px] sm:inline">Files</span>
-					</Button>
+					</Link>
 					<Button
 						variant="ghost"
 						size="icon"
