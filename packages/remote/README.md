@@ -32,6 +32,7 @@ You never start the daemon by hand: pi starts it when you open a session, and it
 | Command                 | What it does                                                               |
 | ----------------------- | -------------------------------------------------------------------------- |
 | `pi-remote open`        | Prints the link and opens it with `$BROWSER` or the system's opener        |
+| `pi-remote attach`      | Opens the sessions the page started (`tmux -L pi-remote`) in this terminal |
 | `pi-remote serve`       | Runs the daemon in the foreground, and it never exits for being idle       |
 | `pi-remote serve --dev` | Runs it from the sources under `bun --watch`, so saving a file restarts it |
 | `pi-remote --version`   | Prints the version the launcher points at                                  |

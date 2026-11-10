@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -156,4 +156,59 @@ test("the setting is nested in the file, and a flat key is not the same thing", 
 		if (before === undefined) delete process.env.PI_CODING_AGENT_DIR;
 		else process.env.PI_CODING_AGENT_DIR = before;
 	}
+});
+
+/** A tmux that logs its arguments, answers `has-session` with `has`, and ends `attach` with 7. */
+function fakeTmux(has: number): { tmux: string; calls: () => string[] } {
+	const tmux = join(dir, "tmux");
+	const log = join(dir, "calls");
+	writeFileSync(
+		tmux,
+		`#!/bin/sh\necho "$*" >> "${log}"\n[ "$3" = has-session ] && exit ${has}\nexit 7\n`,
+		{ mode: 0o755 },
+	);
+	return {
+		tmux,
+		calls: () => readFileSync(log, "utf8").trim().split("\n"),
+	};
+}
+
+function attach(tmux: string, ...args: string[]) {
+	const err: string[] = [];
+	const code = run(
+		["attach", ...args],
+		() => {},
+		(line) => err.push(line),
+		{ tmux },
+	);
+	return { code: Promise.resolve(code), err };
+}
+
+test("attach opens the remote's tmux, and ends with its exit code", async () => {
+	const fake = fakeTmux(0);
+	const attached = attach(fake.tmux);
+	expect(await attached.code).toBe(7);
+	expect(fake.calls()).toEqual(["-L pi-remote has-session", "-L pi-remote attach"]);
+});
+
+test("attach with no session in the remote's tmux says so, and attaches nothing", async () => {
+	const fake = fakeTmux(1);
+	const attached = attach(fake.tmux);
+	expect(await attached.code).toBe(1);
+	expect(attached.err[0]).toBe(
+		"pi-remote: no session runs in the remote's tmux (tmux -L pi-remote)",
+	);
+	expect(fake.calls()).toEqual(["-L pi-remote has-session"]);
+});
+
+test("attach without tmux says it needs it", async () => {
+	const attached = attach(join(dir, "no-tmux"));
+	expect(await attached.code).toBe(1);
+	expect(attached.err[0]).toBe("pi-remote: attach needs tmux on PATH");
+});
+
+test("attach takes no arguments", async () => {
+	const attached = attach(join(dir, "no-tmux"), "work");
+	expect(await attached.code).toBe(2);
+	expect(attached.err[0]).toContain("attach takes no arguments");
 });

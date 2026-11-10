@@ -5,6 +5,9 @@ import { join } from "node:path";
 
 export const CLIENT_PORT = 7878;
 
+/** The remote's own tmux server (`tmux -L`), where the page starts sessions and `attach` opens them. */
+export const TMUX_SOCKET = "pi-remote";
+
 /** The command and pi must agree on the setting's path and rule. */
 export const PORT_ID = "remote.port";
 

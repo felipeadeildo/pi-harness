@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type StdioOptions } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,17 +6,25 @@ import { fileURLToPath } from "node:url";
 import { findWebDir } from "../daemon/app.ts";
 import { Daemon } from "../daemon/server.ts";
 import { readTailnet, type Tailnet } from "../daemon/tailnet.ts";
-import { CLIENT_PORT, daemonDir, daemonPaths, PORT_ID, portOf, settingsPath } from "../places.ts";
+import {
+	CLIENT_PORT,
+	daemonDir,
+	daemonPaths,
+	PORT_ID,
+	portOf,
+	settingsPath,
+	TMUX_SOCKET,
+} from "../places.ts";
 import { VERSION } from "../version.ts";
 import { open } from "./open.ts";
 
-const USAGE = "usage: pi-remote --version | open | serve [--dev] [--port <n>]";
+const USAGE = "usage: pi-remote --version | open | attach | serve [--dev] [--port <n>]";
 
 export function run(
 	args: readonly string[],
 	out: (line: string) => void,
 	err: (line: string) => void,
-	options: ServeOptions = {},
+	options: RunOptions = {},
 ): number | Promise<number> {
 	const [first, ...rest] = args;
 	if (first === "--version" || first === "-v") {
@@ -25,11 +33,20 @@ export function run(
 	}
 	if (first === "serve") return serve(rest, out, err, options);
 	if (first === "open") return open(daemonPaths(daemonDir()).socket, out, err);
+	if (first === "attach") {
+		if (rest.length > 0) {
+			err(`pi-remote: attach takes no arguments\n${USAGE}`);
+			return 2;
+		}
+		return attach(options.tmux ?? "tmux", err);
+	}
 	err(first === undefined ? USAGE : `pi-remote: unknown command "${first}"\n${USAGE}`);
 	return 2;
 }
 
-export interface ServeOptions {
+export interface RunOptions {
+	/** The tmux program; a test passes a fake. */
+	tmux?: string;
 	/** Injected so a test can stop it. */
 	stopped?: Promise<void>;
 	env?: NodeJS.ProcessEnv;
@@ -44,7 +61,7 @@ async function serve(
 	flags: readonly string[],
 	out: (line: string) => void,
 	err: (line: string) => void,
-	options: ServeOptions,
+	options: RunOptions,
 ): Promise<number> {
 	// `--port` by hand wins over the setting.
 	const at = flags.indexOf("--port");
@@ -78,6 +95,33 @@ async function serve(
 	void (options.stopped ?? signalled()).then(() => daemon.stop());
 	await done;
 	return 0;
+}
+
+/** Opens the remote's tmux in this terminal, and ends with tmux's exit code. */
+async function attach(tmux: string, err: (line: string) => void): Promise<number> {
+	const has = await exitOf(tmux, ["-L", TMUX_SOCKET, "has-session"], "ignore");
+	if (has === undefined) {
+		err("pi-remote: attach needs tmux on PATH");
+		return 1;
+	}
+	if (has !== 0) {
+		err(`pi-remote: no session runs in the remote's tmux (tmux -L ${TMUX_SOCKET})`);
+		return 1;
+	}
+	return (await exitOf(tmux, ["-L", TMUX_SOCKET, "attach"], "inherit")) ?? 1;
+}
+
+/** Undefined when the program does not start. */
+function exitOf(
+	command: string,
+	args: readonly string[],
+	stdio: StdioOptions,
+): Promise<number | undefined> {
+	return new Promise((resolve) => {
+		const child = spawn(command, args, { stdio });
+		child.on("error", () => resolve(undefined));
+		child.on("exit", (code) => resolve(code ?? 1));
+	});
 }
 
 /** Read without the kit, because the built command may import only Node's modules. */
