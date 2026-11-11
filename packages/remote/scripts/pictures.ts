@@ -3,7 +3,7 @@
 // The pictures change with every run (times, names), so the docs check does not compare them.
 /* oxlint-disable no-await-in-loop -- the steps are a story, told in order */
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
@@ -59,7 +59,8 @@ const ASK_PUSH = "Push it";
 function project(): string {
 	// A fixed place, since the page shows the whole path: a random one would change every picture.
 	const workspace = join(tmpdir(), "acme");
-	rmSync(workspace, { recursive: true, force: true });
+	if (existsSync(workspace))
+		throw new Error(`${workspace} is already there; remove it, or wait for the other run to end`);
 	const cwd = join(workspace, "acme-api");
 	mkdirSync(join(cwd, "scripts"), { recursive: true });
 	writeFileSync(
