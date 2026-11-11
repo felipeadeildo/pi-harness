@@ -17,6 +17,12 @@ When an agent needs a decision, you are not always at the desk, and the run wait
   <em>From the left: the session list, a command waiting for your approval, the session after you approved it, and a question from the model.</em>
 </p>
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/remote/assets/tools.png" alt="Three phone screens of the remote page. The session's changes: two files changed since the last commit, with the diff of scripts/release.ts open. New session: a folder field and the recent folders acme-api, acme-web and acme-infra. A terminal in acme-api after bun test, with 3 tests passing and the key bar under it." width="660">
+  <br>
+  <em>From the left: what changed in the session's folder, a new session in a recent folder, and a terminal there.</em>
+</p>
+
 ## Opening it
 
 - **On this machine.** `/remote` prints a link and opens it. The link works once, for one minute. `pi-remote open` does the same from a shell.

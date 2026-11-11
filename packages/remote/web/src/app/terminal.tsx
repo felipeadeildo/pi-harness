@@ -287,17 +287,20 @@ function KeyBar({
 		["↓", "Down", () => press("down")],
 		["←", "Left", () => press("left")],
 		["→", "Right", () => press("right")],
-		...["|", "~", "/", "-"].map((text): [string, string, () => void] => [
-			text,
-			text,
-			() => type(text),
-		]),
+		...(
+			[
+				["|", "Pipe"],
+				["~", "Tilde"],
+				["/", "Slash"],
+				["-", "Hyphen"],
+			] as const
+		).map(([text, spoken]): [string, string, () => void] => [text, spoken, () => type(text)]),
 	];
 	return (
 		<div
 			role="toolbar"
 			aria-label="Keys"
-			className="flex shrink-0 gap-0.5 border-t px-1 pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] [@media(pointer:fine)]:hidden"
+			className="flex shrink-0 gap-0.5 border-t pt-1 pr-[max(0.5rem,env(safe-area-inset-right))] pb-[max(0.25rem,env(safe-area-inset-bottom))] pl-[max(0.5rem,env(safe-area-inset-left))] [@media(pointer:fine)]:hidden"
 		>
 			<button
 				type="button"

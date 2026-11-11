@@ -136,9 +136,11 @@ export const remote = defineFeature({
 				startDaemon: () => startDaemon(dir, port.get(scope)),
 				warn: (message) => scope.warn(message),
 			});
-			bridge.branched(branchOf(ctx.cwd));
+			// The folder as text: the watch can outlive this ctx, and a stale ctx throws when read.
+			const folder = ctx.cwd;
+			bridge.branched(branchOf(folder));
 			stopBranch?.();
-			stopBranch = watchBranch(ctx.cwd, () => bridge?.branched(branchOf(ctx.cwd)));
+			stopBranch = watchBranch(folder, () => bridge?.branched(branchOf(folder)));
 			bridge.start();
 			commands = new Commands({
 				session: ctx.sessionManager.getSessionId(),
