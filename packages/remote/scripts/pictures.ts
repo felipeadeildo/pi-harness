@@ -57,8 +57,10 @@ const ASK_PUSH = "Push it";
  * whose last commit predates the --dry-run change, so the Files screen has a diff to show.
  */
 function project(): string {
-	// A fixed name, since the page shows the folder.
-	const cwd = join(mkdtempSync(join(tmpdir(), "pi-pictures-")), "acme-api");
+	// A fixed place, since the page shows the whole path: a random one would change every picture.
+	const workspace = join(tmpdir(), "acme");
+	rmSync(workspace, { recursive: true, force: true });
+	const cwd = join(workspace, "acme-api");
 	mkdirSync(join(cwd, "scripts"), { recursive: true });
 	writeFileSync(
 		join(cwd, "scripts", "release.ts"),
@@ -240,7 +242,7 @@ async function main(): Promise<void> {
 		}
 		spawnSync("tmux", ["-L", TMUX_SOCKET, "kill-server"], { stdio: "ignore" });
 		rmSync(root, { recursive: true, force: true });
-		rmSync(cwd, { recursive: true, force: true });
+		rmSync(dirname(cwd), { recursive: true, force: true });
 	}
 	await strip(["phone-list", "phone-ask", "phone-session", "phone-question"], "phones.png");
 	await strip(["phone-files", "phone-new", "phone-terminal"], "tools.png");
