@@ -2,6 +2,33 @@
 
 Every `@adeildo/` package in this repository shares one version, one tag and this changelog. The entries below 4.0.0 are from before, when `pi-ask-permission` was the only package.
 
+## [6.1.0](https://github.com/felipeadeildo/pi-harness/compare/v6.0.1...v6.1.0) (2026-11-13)
+
+
+### Features
+
+* **peers:** an agent starts another in a folder, with its task, and shares a room with it ([#463](https://github.com/felipeadeildo/pi-harness/issues/463)) ([3302b67](https://github.com/felipeadeildo/pi-harness/commit/3302b67ef034b60d84d948138526cc4bd19f992e))
+* **remote:** a new session from the page, in a recent folder or any other ([#459](https://github.com/felipeadeildo/pi-harness/issues/459)) ([80708aa](https://github.com/felipeadeildo/pi-harness/commit/80708aa3bf789669e64ddba85858c2d81bcb310e))
+* **remote:** a pi of this machine starts another through the daemon, with a first message ([#462](https://github.com/felipeadeildo/pi-harness/issues/462)) ([2316337](https://github.com/felipeadeildo/pi-harness/commit/2316337a04bee969ba6055e9e0336e43279bdf83))
+* **remote:** a session's folder, its changes and their diffs on the page ([#449](https://github.com/felipeadeildo/pi-harness/issues/449)) ([0ecd19f](https://github.com/felipeadeildo/pi-harness/commit/0ecd19f0dfa13967b79a9956aef5229289993a5f))
+* **remote:** a terminal on the page, with a key bar for a phone ([#467](https://github.com/felipeadeildo/pi-harness/issues/467)) ([45a08ed](https://github.com/felipeadeildo/pi-harness/commit/45a08eddb3d774843fb26f983e16dff3b39dec88))
+* **remote:** pi-remote attach opens the remote's tmux ([#456](https://github.com/felipeadeildo/pi-harness/issues/456)) ([02a8ac3](https://github.com/felipeadeildo/pi-harness/commit/02a8ac3ead554332a2f14fc41d1f8d4a66080acb))
+* **remote:** the daemon opens a shell in the remote's tmux, live over a socket ([#465](https://github.com/felipeadeildo/pi-harness/issues/465)) ([82f2703](https://github.com/felipeadeildo/pi-harness/commit/82f2703ab57bea83dec8c87a49ac0f15e6a7a43c))
+* **remote:** the daemon starts pi in a folder, in the remote's tmux ([#458](https://github.com/felipeadeildo/pi-harness/issues/458)) ([db66c30](https://github.com/felipeadeildo/pi-harness/commit/db66c309b7a2bf81cdb03101e6067a1f72155555))
+
+
+### Bug Fixes
+
+* **peers:** an agent's start keeps its limit, starts no chain, and says who approved it ([#466](https://github.com/felipeadeildo/pi-harness/issues/466)) ([b22438a](https://github.com/felipeadeildo/pi-harness/commit/b22438a243a4e6143e3259ae5a25e0c8d9fb14d0))
+* **remote:** links that navigate are links, not buttons ([#460](https://github.com/felipeadeildo/pi-harness/issues/460)) ([05b603c](https://github.com/felipeadeildo/pi-harness/commit/05b603c0e85c71bec26fdfe9b4dc3943d28bbbbe))
+* **remote:** pi in the remote's tmux tells Shift+Enter from Enter ([#461](https://github.com/felipeadeildo/pi-harness/issues/461)) ([5985153](https://github.com/felipeadeildo/pi-harness/commit/5985153a4f31094b8dffc7a086526475a35017b3))
+* **remote:** the files page reads right to a screen reader, and long lists draw only what shows ([#454](https://github.com/felipeadeildo/pi-harness/issues/454)) ([29dfc4d](https://github.com/felipeadeildo/pi-harness/commit/29dfc4dc94f3121d9098457afd6ab1f764fa26e3))
+
+
+### Dependencies
+
+* pi 1.5.2, whose cacheWarming default is the harness's idle ([#472](https://github.com/felipeadeildo/pi-harness/issues/472)) ([5ffe3c7](https://github.com/felipeadeildo/pi-harness/commit/5ffe3c7dc928cf99a8f032b8f74b04668a3cd0fd)), closes [#448](https://github.com/felipeadeildo/pi-harness/issues/448)
+
 ## [6.0.1](https://github.com/felipeadeildo/pi-harness/compare/v6.0.0...v6.0.1) (2026-11-09)
 
 
