@@ -56,11 +56,4 @@ export const PI_SETTINGS: readonly PiSetting[] = [
 		why: "the start screen says what changed since the last session, and pi's list of every skill, prompt and extension loaded buries it",
 		read: (settings) => settings.getQuietStartup(),
 	},
-	{
-		key: "cacheWarming",
-		value: "idle",
-		piDefault: "streaming",
-		why: "a third of the cache misses came after a pause of 5 to 30 minutes, and the providers piece decides when a refresh between runs pays",
-		read: (settings) => settings.getCacheWarmingMode(),
-	},
 ];

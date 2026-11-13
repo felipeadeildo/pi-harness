@@ -62,7 +62,7 @@ A quota belongs to the account, so an account that refused is skipped until it a
 
 ## Prompt cache
 
-Anthropic keeps a prompt in cache for 5 minutes. With pi's `cacheWarming` setting on `idle`, pi sends the last request again before that, while the agent waits for you, so your next message reads the prompt from cache instead of writing it again. On Opus 5.5 a refresh costs 5% of the input price, and a miss 125%.
+Anthropic keeps a prompt in cache for 5 minutes. With pi's `cacheWarming` setting on `idle`, its default, pi sends the last request again before that, while the agent waits for you, so your next message reads the prompt from cache instead of writing it again. On Opus 5.5 a refresh costs 5% of the input price, and a miss 125%.
 
 Pi assumes a fixed 15% chance that you come back, which on Opus 5.5 skips every prompt under about 96k tokens and refreshes the rest for 30 minutes. `cache.strategy` decides instead:
 

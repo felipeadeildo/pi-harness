@@ -39,7 +39,7 @@ When an account hits its limit, pi can ask you, switch to the next account on it
 
 Anthropic keeps a prompt in cache for 5 minutes. While the agent waits for you, pi can send the last request again before then, so your next message reads the prompt from the cache instead of paying to write it again. On Opus 5.5, a refresh costs 5% of the input price, and a miss costs 125%.
 
-By default, this package learns how long you usually take to answer, and refreshes only while that pays for itself. That keeps Opus 5.5 warm for about 23 minutes. Turn on pi's `cacheWarming` setting (`idle`) to use it.
+By default, this package learns how long you usually take to answer, and refreshes only while that pays for itself. That keeps Opus 5.5 warm for about 23 minutes. It needs pi's `cacheWarming` setting on `idle`, which is pi's default.
 
 ## OpenAI-compatible endpoints
 
