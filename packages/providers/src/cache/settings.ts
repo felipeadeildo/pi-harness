@@ -12,7 +12,7 @@ export const strategy = setting<Strategy>({
 		section: WARM_SECTION,
 		label: "Keep it warm",
 		description:
-			"While the agent waits for you, pi sends the last request again before the cache expires, so your next message reads the prompt instead of writing it. Needs pi's cacheWarming setting on idle.",
+			"While the agent waits for you, pi sends the last request again before the cache expires, so your next message reads the prompt instead of writing it. Needs pi's cacheWarming setting on idle, its default.",
 		control: {
 			type: "choice",
 			options: [
