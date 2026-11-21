@@ -163,9 +163,8 @@ describe.skipIf(!hasTmux)("sessions of a real tmux", () => {
 		const window = spawn(
 			"script",
 			["-qfc", "tmux -L pi-remote attach-session -t =work", "/dev/null"],
-			{
-				stdio: "pipe",
-			},
+			// CI gives no TERM, and tmux refuses a terminal it cannot name.
+			{ stdio: "pipe", env: { ...process.env, TERM: "xterm-256color" } },
 		);
 		const desk = new Desk();
 		await eventually(async () => (await desk.sessions("laptop"))[0]?.windows === 1);
