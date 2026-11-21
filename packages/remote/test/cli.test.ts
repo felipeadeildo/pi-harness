@@ -207,8 +207,41 @@ test("attach without tmux says it needs it", async () => {
 	expect(attached.err[0]).toBe("pi-remote: attach needs tmux on PATH");
 });
 
-test("attach takes no arguments", async () => {
-	const attached = attach(join(dir, "no-tmux"), "work");
-	expect(await attached.code).toBe(2);
-	expect(attached.err[0]).toContain("attach takes no arguments");
+test("attach with a name opens that session only", async () => {
+	const fake = fakeTmux(0);
+	expect(await attach(fake.tmux, "work-1a2b").code).toBe(7);
+	expect(fake.calls()).toEqual([
+		"-L pi-remote has-session -t =work-1a2b",
+		"-L pi-remote attach -t =work-1a2b",
+	]);
+});
+
+test("attach with a name that tmux does not have points at ls", async () => {
+	const attached = attach(fakeTmux(1).tmux, "gone");
+	expect(await attached.code).toBe(1);
+	expect(attached.err[0]).toBe(
+		"pi-remote: no session named gone in the remote's tmux: pi-remote ls lists them",
+	);
+});
+
+test("attach takes at most one name, and the other verbs exactly one", async () => {
+	const wrong = async (...args: string[]) => {
+		const err: string[] = [];
+		const code = await run(
+			args,
+			() => {},
+			(line) => err.push(line),
+			{ tmux: join(dir, "no-tmux") },
+		);
+		return [code, err[0]?.split("\n")[0]];
+	};
+	expect(await wrong("attach", "a", "b")).toEqual([
+		2,
+		"pi-remote: attach takes at most a session's name",
+	]);
+	expect(await wrong("ls", "a")).toEqual([2, "pi-remote: ls takes no arguments"]);
+	for (const verb of ["window", "detach", "stop", "move"]) {
+		expect(await wrong(verb)).toEqual([2, `pi-remote: ${verb} takes a session's name`]);
+		expect(await wrong(verb, "a", "b")).toEqual([2, `pi-remote: ${verb} takes a session's name`]);
+	}
 });

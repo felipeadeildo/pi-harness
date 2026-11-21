@@ -12,6 +12,8 @@ import {
 	type SessionSummary,
 } from "@adeildo/pi-remote-protocol";
 
+import type { Resumable } from "./desk.ts";
+
 /** Shared by every session's replay. */
 const REPLAY_BYTES = 8 * 1024 * 1024;
 
@@ -85,6 +87,19 @@ export class Sessions {
 
 	get(session: string): LiveSession | undefined {
 		return this.#entries.get(session)?.state;
+	}
+
+	/** The pi a pid belongs to, among the bridges connected now, as the desk resumes it. */
+	resumable(pid: number): (Resumable & { session: string }) | undefined {
+		const found = this.list().find((one) => one.connected && one.live.pid === pid);
+		if (found === undefined) return undefined;
+		const { live, state, session } = found;
+		return {
+			session,
+			cwd: live.cwd,
+			...(live.file === undefined ? {} : { file: live.file }),
+			...(state.status === undefined ? {} : { status: state.status }),
+		};
 	}
 
 	connected(): number {

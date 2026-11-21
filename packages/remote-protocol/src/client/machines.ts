@@ -105,6 +105,39 @@ export interface TerminalInfo {
 	command: string;
 	/** In ms. */
 	created: number;
+	/** Terminal windows on the machine that show it now; the page's own view does not count. */
+	windows?: number;
+	/** The pi session that runs in it, when the remote knows that pi. */
+	session?: string;
+}
+
+/**
+ * What a client may do to a session of a machine's remote tmux: open it in a terminal window of
+ * that machine, let go of the windows that show it, end it, or end its pi and resume the pi's
+ * session in a window, outside tmux. `move` waits for an idle agent.
+ */
+export type TerminalAction = "window" | "detach" | "stop" | "move";
+
+export function actOnTerminal(
+	base: string,
+	machine: string,
+	name: string,
+	action: TerminalAction,
+	speaks: typeof fetch = fetch,
+): Promise<{ machine: string; name: string }> {
+	return ask(
+		base,
+		`/machines/${encodeURIComponent(machine)}/terminals/${encodeURIComponent(name)}/${action}`,
+		{
+			what: "the terminal",
+			body: {},
+			decode: (body) =>
+				isObject(body) && typeof body.machine === "string" && typeof body.name === "string"
+					? { machine: body.machine, name: body.name }
+					: undefined,
+		},
+		speaks,
+	);
 }
 
 /** `allowed` is false until the operator turns on terminals at that machine. */

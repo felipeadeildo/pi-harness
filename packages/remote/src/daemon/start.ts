@@ -1,9 +1,8 @@
 // Starting pi from the page: in a folder of this machine, in a session of the remote's own tmux, so
 // `pi-remote attach` opens it at the desk. Off until the operator turns it on at this machine.
 import { randomUUID } from "node:crypto";
-import { constants } from "node:fs";
-import { access, open, readdir, stat } from "node:fs/promises";
-import { basename, delimiter, join } from "node:path";
+import { open, readdir, stat } from "node:fs/promises";
+import { basename, join } from "node:path";
 
 import { isObject } from "@adeildo/pi-remote-protocol";
 
@@ -16,6 +15,7 @@ import {
 	TICKET_ENV,
 	TMUX_SOCKET,
 } from "../places.ts";
+import { onPath } from "./desk.ts";
 import { Refused } from "./refused.ts";
 import { EXTENDED_KEYS, folderOf, run } from "./tmux.ts";
 
@@ -132,20 +132,6 @@ function sessionName(folder: string, ticket: string): string {
 			.replaceAll(/[^\w-]/g, "-")
 			.slice(0, 60) || "pi"
 	}-${ticket.slice(0, 4)}`;
-}
-
-async function onPath(name: string): Promise<string | undefined> {
-	for (const dir of (process.env.PATH ?? "").split(delimiter).filter(Boolean)) {
-		const path = join(dir, name);
-		if (
-			await access(path, constants.X_OK).then(
-				() => true,
-				() => false,
-			)
-		)
-			return path;
-	}
-	return undefined;
 }
 
 /** The first line of each folder's newest session names the folder pi worked in. */

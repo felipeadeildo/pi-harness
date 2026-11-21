@@ -12,6 +12,7 @@ export {
 } from "./live.ts";
 export { type FolderOf, readChanges, readDiff, readFile, readFolder } from "./files.ts";
 export {
+	actOnTerminal,
 	type ListedMachine,
 	listMachines,
 	listTerminals,
@@ -20,6 +21,7 @@ export {
 	type RecentFolder,
 	startSession,
 	type StartPlaces,
+	type TerminalAction,
 	type TerminalInfo,
 	type TerminalList,
 } from "./machines.ts";

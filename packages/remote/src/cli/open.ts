@@ -26,7 +26,16 @@ export function linkOf(answer: Envelope | undefined, silence: string): Link {
 	return { reason: silence };
 }
 
-export function requestLink(socketPath: string): Promise<Link> {
+export async function requestLink(socketPath: string): Promise<Link> {
+	return linkOf(await command(socketPath, "token.issue", {}), NO_DAEMON);
+}
+
+/** One command on the daemon's socket; undefined when no daemon answers in time. */
+export function command(
+	socketPath: string,
+	type: string,
+	data: unknown,
+): Promise<Envelope | undefined> {
 	return new Promise((resolve) => {
 		const socket = connect(socketPath);
 		const id = randomUUID();
@@ -34,7 +43,7 @@ export function requestLink(socketPath: string): Promise<Link> {
 		const done = (answer: Envelope | undefined): void => {
 			clearTimeout(timer);
 			socket.destroy();
-			resolve(linkOf(answer, NO_DAEMON));
+			resolve(answer);
 		};
 		const timer = setTimeout(() => done(undefined), ANSWER_MS);
 		socket.setEncoding("utf8");
@@ -42,7 +51,7 @@ export function requestLink(socketPath: string): Promise<Link> {
 		socket.on("close", () => done(undefined));
 		socket.on("connect", () => {
 			socket.write(line(envelope("hello", "cli", { protocol: PROTOCOL, version: VERSION })));
-			socket.write(line(envelope("command", "token.issue", {}, { id })));
+			socket.write(line(envelope("command", type, data, { id })));
 		});
 		socket.on("data", (chunk: string) => {
 			for (const text of lines.push(chunk)) {
@@ -53,7 +62,8 @@ export function requestLink(socketPath: string): Promise<Link> {
 	});
 }
 
-const NO_DAEMON = "no daemon answered; a pi in a terminal starts one, and so does pi-remote serve";
+export const NO_DAEMON =
+	"no daemon answered; a pi in a terminal starts one, and so does pi-remote serve";
 
 export async function open(
 	socketPath: string,

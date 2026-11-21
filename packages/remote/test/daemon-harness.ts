@@ -79,7 +79,7 @@ export async function bridgeOf(
 	epoch = "e1",
 	file?: string,
 	path = socket,
-	{ cwd = "/repo", ticket }: { cwd?: string; ticket?: string } = {},
+	{ cwd = "/repo", ticket, pid = 1 }: { cwd?: string; ticket?: string; pid?: number } = {},
 ) {
 	const at = { machine: "laptop", session, epoch };
 	const client: Socket = dial(path);
@@ -113,7 +113,7 @@ export async function bridgeOf(
 				"event",
 				"session.live",
 				{
-					pid: 1,
+					pid,
 					startedAt: 1,
 					cwd,
 					kind: "terminal",
