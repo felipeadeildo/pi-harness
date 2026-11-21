@@ -54,7 +54,6 @@ export * from "./presence/index.ts";
 export * from "./status.ts";
 export * from "./models.ts";
 export * from "./one-at-a-time.ts";
-export * from "./overlay-images.ts";
 export * from "./typing.ts";
 export * from "./ui/above-editor.ts";
 export * from "./ui/entry.ts";

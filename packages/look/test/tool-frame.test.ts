@@ -47,7 +47,7 @@ function toolResult(text = "583 pass"): AgentToolResult<undefined> {
 	return { content: [{ type: "text", text }], details: undefined };
 }
 
-function plain(component: { render(width: number): string[] }): string[] {
+function plain(component: { render(width: number): readonly string[] }): string[] {
 	return component.render(60).map((line) => line.trimEnd());
 }
 

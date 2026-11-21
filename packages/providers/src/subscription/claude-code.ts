@@ -4,7 +4,7 @@
 // and it refuses newer models to a version it considers too old. `turn` marks the features a turn
 // of Claude Code's TUI asks for, which is the side the settings screen offers.
 
-export const CLAUDE_CODE_VERSION = "2.1.323";
+export const CLAUDE_CODE_VERSION = "2.1.330";
 
 export const CLAUDE_CODE_FEATURES = [
 	{
@@ -53,6 +53,13 @@ export const CLAUDE_CODE_FEATURES = [
 		header: "web-search-2025-03-05",
 		turn: false,
 		description: "Vertex and Foundry only. The server runs the search.",
+	},
+	{
+		name: "web_search_results_only",
+		header: "web-search-results-only-2026-11-15",
+		turn: false,
+		description:
+			"Only on the web search tool's own query, which asks for results with no written answer, so a reply is unaffected.",
 	},
 	{
 		name: "tool_search",
@@ -121,6 +128,13 @@ export const CLAUDE_CODE_FEATURES = [
 		header: "thinking-resumption-2026-07-17",
 		turn: false,
 		description: "Thinking picks up where an earlier request left it.",
+	},
+	{
+		name: "resumption",
+		header: "resumption-2026-10-08",
+		turn: false,
+		description:
+			"A reply cut by `max_tokens`, a server timeout or a pause comes with a token the next request continues from.",
 	},
 	{
 		name: "thinking_token_count",

@@ -15,7 +15,7 @@ export function userMessage(text: string, width: number, theme: Theme): string[]
 	return framed(body, width, theme, { top, color: "accent" });
 }
 
-export function assistantText(text: string, width: number): string[] {
+export function assistantText(text: string, width: number): readonly string[] {
 	const message = new AssistantMessageComponent(
 		{
 			role: "assistant",

@@ -39,7 +39,7 @@ export interface Harness {
 	replay(call: ScriptedCall, result?: boolean): void;
 	render(id: string, width?: number): string[];
 	/** The lines as they reach the terminal, colour codes and all. */
-	raw(id: string, width?: number): string[];
+	raw(id: string, width?: number): readonly string[];
 	renders(id: string): number;
 	/** How many times pi's own renderer drew the call. */
 	asked(id: string): number;

@@ -8,7 +8,6 @@ import {
 	frame,
 	GLYPH,
 	type Held,
-	hideImagesUnderOverlays,
 	type KeyHint,
 	type RoomMode,
 	pointer,
@@ -503,7 +502,6 @@ export async function openPanel(
 	if (ctx.mode !== "tui") return;
 	await ctx.ui.custom<void>(
 		(tui, theme, _keybindings, done) => {
-			hideImagesUnderOverlays(tui);
 			const ticks = setInterval(() => {
 				if (panel.moving()) tui.requestRender();
 			}, FRAME_MS);
