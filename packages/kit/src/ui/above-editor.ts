@@ -2,7 +2,14 @@
 // time; it holds the keys until `Alt+E` hands them back. The keybindings come from
 // `getKeybindings()`, since the widget factory does not pass them.
 import type { ExtensionUIContext, Theme } from "@earendil-works/pi-coding-agent";
-import { isKeyRelease, type KeyId, matchesKey } from "@earendil-works/pi-tui";
+import {
+	type Component,
+	type Focusable,
+	isKeyRelease,
+	type KeyId,
+	matchesKey,
+	type TUI,
+} from "@earendil-works/pi-tui";
 
 import { frame, frameInner, type KeyHint } from "./frame.ts";
 
@@ -116,12 +123,14 @@ export function openAboveEditor<T>(
 		let finished = false;
 		let view: AboveEditorView | undefined;
 		let redraw = (): void => {};
+		const hold = new FocusHold();
 
 		shut = () => close(undefined);
 		const close = (value: AboveEditorResult<T> | undefined): void => {
 			if (finished) return;
 			finished = true;
 			host.active = undefined;
+			hold.release();
 			ui.setWidget(KEY, undefined);
 			stop();
 			settle(value);
@@ -146,7 +155,9 @@ export function openAboveEditor<T>(
 					theme,
 				});
 				const drawn = view;
-				return {
+				// Pi disposes a widget it takes off the screen.
+				const widget: Component & Focusable & { dispose(): void } = {
+					focused: false,
 					invalidate(): void {},
 					render(width: number): string[] {
 						const lines = drawn.render(Math.max(1, frameInner(width)));
@@ -171,10 +182,16 @@ export function openAboveEditor<T>(
 					handleInput(data: string): void {
 						drawn.handleInput(data);
 					},
+					dispose(): void {
+						hold.release();
+					},
 				};
+				hold.mount(tui, widget);
+				return widget;
 			},
 			{ placement: "aboveEditor" },
 		);
+		hold.sync(focused && !finished);
 
 		host.active = { focused: () => focused };
 		stop = ui.onTerminalInput((data) => {
@@ -184,6 +201,7 @@ export function openAboveEditor<T>(
 			if (matchesKey(data, ABOVE_EDITOR_FOCUS_KEY as KeyId)) {
 				focused = !focused;
 				host.lastTypedAt = focused ? 0 : Date.now();
+				hold.sync(focused);
 				redraw();
 				return { consume: true };
 			}
@@ -195,6 +213,8 @@ export function openAboveEditor<T>(
 				close(undefined);
 				return { consume: true };
 			}
+			// Pi hands the focus back to its editor after its own dialogs, and a key takes it again.
+			hold.sync(true);
 			view?.handleInput(data);
 			redraw();
 			return { consume: true };
@@ -228,6 +248,54 @@ export function openAboveEditor<T>(
 			started();
 		},
 	};
+}
+
+type FocusTui = TUI & { getFocusedComponent(): Component | null };
+
+/**
+ * Pi's focus, held by the row while the row has the keys. The focused component is the one whose
+ * cursor pi shows, so without it the terminal's cursor stays in the editor while the reader types
+ * in the dialog, and pi hides the dialog's own.
+ */
+class FocusHold {
+	#tui: FocusTui | undefined;
+	#widget: Component | undefined;
+	readonly #mine = new WeakSet<Component>();
+	#before: Component | null = null;
+
+	/** Pi builds the widget again on a theme change, and the newest one is the one on screen. */
+	mount(tui: TUI, widget: Component): void {
+		const held = this.#holding();
+		// Pi's renderers read the focus, though the `TUI` interface does not declare it.
+		if (typeof (tui as Partial<FocusTui>).getFocusedComponent !== "function") return;
+		this.#tui = tui as FocusTui;
+		this.#widget = widget;
+		this.#mine.add(widget);
+		if (held) tui.setFocus(widget);
+	}
+
+	sync(focused: boolean): void {
+		if (focused) this.#take();
+		else this.release();
+	}
+
+	release(): void {
+		if (this.#holding()) this.#tui?.setFocus(this.#before);
+	}
+
+	#take(): void {
+		const tui = this.#tui;
+		if (tui === undefined || this.#widget === undefined) return;
+		const current = tui.getFocusedComponent();
+		if (current === this.#widget) return;
+		if (current === null || !this.#mine.has(current)) this.#before = current;
+		tui.setFocus(this.#widget);
+	}
+
+	#holding(): boolean {
+		const current = this.#tui?.getFocusedComponent();
+		return current !== undefined && current !== null && this.#mine.has(current);
+	}
 }
 
 export function canOpenAboveEditor(ui: ExtensionUIContext): boolean {

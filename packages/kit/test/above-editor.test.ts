@@ -19,6 +19,9 @@ function host(editor = "") {
 	let text = editor;
 	let opened = 0;
 	let mostOpen = 0;
+	// Pi's focus: the component whose cursor the terminal shows.
+	const editorComponent = { render: () => [] };
+	let focus: unknown = editorComponent;
 	const built: (() => void)[] = [];
 	const ready = (count: number): Promise<void> =>
 		built.length >= count ? Promise.resolve() : new Promise((resolve) => built.push(resolve));
@@ -36,7 +39,14 @@ function host(editor = "") {
 			opened += 1;
 			mostOpen = Math.max(mostOpen, opened);
 			drawn = (content as (tui: unknown, theme: unknown) => Drawn)(
-				{ terminal: { rows: 24 }, requestRender: () => {} },
+				{
+					terminal: { rows: 24 },
+					requestRender: () => {},
+					getFocusedComponent: () => focus,
+					setFocus: (component: unknown) => {
+						focus = component;
+					},
+				},
 				{
 					fg: (_color: string, one: string) => one,
 					bold: (one: string) => one,
@@ -58,6 +68,11 @@ function host(editor = "") {
 		ready,
 		get drawn(): Drawn {
 			return drawn as Drawn;
+		},
+		/** Who holds pi's focus: the dialog, the editor, or something else. */
+		get focus(): "dialog" | "editor" | "other" {
+			if (focus === editorComponent) return "editor";
+			return focus === drawn && drawn !== undefined ? "dialog" : "other";
 		},
 		get mostOpen(): number {
 			return mostOpen;
@@ -92,6 +107,25 @@ describe("the row above the editor", () => {
 		expect(rig.type("1")).toEqual({ consume: true });
 		expect(await opened.result).toEqual({ value: "yes", typed: "" });
 		expect(seen).toEqual(["1"]);
+	});
+
+	test("pi's focus, and so the terminal's cursor, follows whoever has the keys", async () => {
+		const rig = host();
+		const opened = openAboveEditor<string>(rig.ui, (tools) => ({
+			render: () => ["Note?"],
+			handleInput: (data) => {
+				if (data === "\r") tools.done("noted");
+			},
+		}));
+		await rig.ready(1);
+		expect(rig.focus).toBe("dialog");
+		rig.type(ALT_E);
+		expect(rig.focus).toBe("editor");
+		rig.type(ALT_E);
+		expect(rig.focus).toBe("dialog");
+		rig.type("\r");
+		await opened.result;
+		expect(rig.focus).toBe("editor");
 	});
 
 	test("a key is typed once: the terminal's release of it is not a second key", async () => {
