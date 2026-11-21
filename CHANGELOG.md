@@ -2,6 +2,25 @@
 
 Every `@adeildo/` package in this repository shares one version, one tag and this changelog. The entries below 4.0.0 are from before, when `pi-ask-permission` was the only package.
 
+## [7.0.0](https://github.com/felipeadeildo/pi-harness/compare/v6.1.1...v7.0.0) (2026-11-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* the board leaves, and the room carries what each agent edited and committed ([#481](https://github.com/felipeadeildo/pi-harness/issues/481))
+
+* the board leaves, and the room carries what each agent edited and committed ([#481](https://github.com/felipeadeildo/pi-harness/issues/481)) ([5ee63a5](https://github.com/felipeadeildo/pi-harness/commit/5ee63a5f19a1a05025fa6809504550879396279f))
+
+
+### Features
+
+* **remote:** open, move or end a tmux session from the page and CLI ([#479](https://github.com/felipeadeildo/pi-harness/issues/479)) ([97d77e4](https://github.com/felipeadeildo/pi-harness/commit/97d77e4f3d5bb602a6f3788fdbcec5e3da81f068))
+
+
+### Bug Fixes
+
+* **kit:** show the cursor where you type in a dialog above the editor ([#478](https://github.com/felipeadeildo/pi-harness/issues/478)) ([986a6be](https://github.com/felipeadeildo/pi-harness/commit/986a6be755f071b81be420c7592da6892004adf7))
+
 ## [6.1.1](https://github.com/felipeadeildo/pi-harness/compare/v6.1.0...v6.1.1) (2026-11-21)
 
 
