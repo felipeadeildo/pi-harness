@@ -58,7 +58,8 @@ export const CLAUDE_CODE_FEATURES = [
 		name: "web_search_results_only",
 		header: "web-search-results-only-2026-11-15",
 		turn: false,
-		description: "Nothing in this build says what it does.",
+		description:
+			"Only on the web search tool's own query, which asks for results with no written answer, so a reply is unaffected.",
 	},
 	{
 		name: "tool_search",
@@ -132,7 +133,8 @@ export const CLAUDE_CODE_FEATURES = [
 		name: "resumption",
 		header: "resumption-2026-10-08",
 		turn: false,
-		description: "Nothing in this build says what it does.",
+		description:
+			"A reply cut by `max_tokens`, a server timeout or a pause comes with a token the next request continues from.",
 	},
 	{
 		name: "thinking_token_count",

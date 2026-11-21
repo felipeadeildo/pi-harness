@@ -42,6 +42,8 @@ const NOTES: Record<string, string> = {
 		"travels with `context_management`, the edits that clear old tool results",
 	"structured-outputs-2025-12-15": "travels with `output_config.format`, which pi never sends",
 	"web-search-2025-03-05": "the server runs the search",
+	"web-search-results-only-2026-11-15":
+		"only on the web search tool's own query, which asks for results with no written answer, so a reply is unaffected",
 	"advanced-tool-use-2025-11-20": "tools load on demand instead of all at once",
 	"tool-search-tool-2025-10-19": "the earlier name of that same tool search",
 	"effort-2025-11-24": "travels with `output_config.effort`",
@@ -55,6 +57,8 @@ const NOTES: Record<string, string> = {
 	"fast-mode-2026-02-01": 'travels with `speed: "fast"`, which pi never sends',
 	"redact-thinking-2026-02-12": "hides the thinking of earlier turns from the model",
 	"thinking-resumption-2026-07-17": "thinking picks up where an earlier request left it",
+	"resumption-2026-10-08":
+		"a reply cut by `max_tokens`, a server timeout or a pause comes with a token the next request continues from",
 	"thinking-token-count-2026-05-13": "adds thinking counts to the usage the reply reports",
 	"afk-mode-2026-01-31": "the server acts on it, and nothing in the request changes",
 	"advisor-tool-2026-03-01": "the advisor tool, which asks a second model for advice",
