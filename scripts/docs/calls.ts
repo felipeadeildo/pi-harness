@@ -54,7 +54,7 @@ const ASK_WITH_DIALOG = { ask_questions: askRenderers(() => true) } as Record<
 /** The clock is set by hand and the ruling answered here, so the picture is reproducible. */
 const CALL_ID = "docs-call";
 
-export function drawCall(spec: CallSpec, width: number): string[] {
+export function drawCall(spec: CallSpec, width: number): readonly string[] {
 	// The frame reads the theme pi holds globally, and the pictures use pi's own dark theme.
 	initTheme("dark", false);
 	const real = Date.now;

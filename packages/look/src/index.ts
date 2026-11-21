@@ -10,7 +10,6 @@ import {
 	defineFeature,
 	drawSkillRefs,
 	type FeatureScope,
-	hideImagesUnderOverlays,
 	NAMES,
 	SKILL_REF,
 	provideViews,
@@ -516,7 +515,6 @@ async function openView(
 	let view: SessionView | undefined;
 	await ctx.ui.custom<void>(
 		(tui, theme, _keybindings, done) => {
-			hideImagesUnderOverlays(tui);
 			view = new SessionView({ tui, theme, screen, source, close: () => done() });
 			return view;
 		},
@@ -533,7 +531,6 @@ async function openOutputs(ctx: ExtensionContext): Promise<void> {
 	const outputs = outputsOf(ctx.sessionManager.getBranch());
 	await ctx.ui.custom<void>(
 		(tui, theme, _keybindings, done) => {
-			hideImagesUnderOverlays(tui);
 			return new OutputView({
 				theme,
 				outputs,

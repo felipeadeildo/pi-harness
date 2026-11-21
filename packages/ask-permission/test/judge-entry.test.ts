@@ -41,7 +41,7 @@ function renderer(): (data: unknown, expanded?: boolean) => Component | undefine
 	return (data, expanded = false) => registered?.({ data }, { expanded }, theme);
 }
 
-const drawn = (data: unknown, expanded = false): string[] =>
+const drawn = (data: unknown, expanded = false): readonly string[] =>
 	renderer()(data, expanded)?.render(80) ?? [];
 
 /** The rows inside the frame, without its sides. */

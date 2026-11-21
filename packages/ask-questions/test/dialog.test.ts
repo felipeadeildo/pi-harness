@@ -421,7 +421,7 @@ function firstRow(dialog: QuestionDialog): string | undefined {
 		.match(/row (\d+)/)?.[1];
 }
 
-function draw(component: { render(width: number): string[] }): string {
+function draw(component: { render(width: number): readonly string[] }): string {
 	return component.render(90).join("\n");
 }
 

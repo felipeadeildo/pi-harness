@@ -23,7 +23,7 @@ import {
 
 const MAX_LOG = 5;
 
-function wrap(text: string, width: number): string[] {
+function wrap(text: string, width: number): readonly string[] {
 	return new Text(text, 0, 0).render(width);
 }
 

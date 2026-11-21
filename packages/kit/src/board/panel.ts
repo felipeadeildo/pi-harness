@@ -4,7 +4,6 @@ import { Key } from "@earendil-works/pi-tui";
 // The Alt+T key and its wiring to the board contract; the board itself is its own feature.
 import { defineFeature } from "../app/feature.ts";
 import { BOARD } from "../contracts/board.ts";
-import { hideImagesUnderOverlays } from "../overlay-images.ts";
 import { BoardPanel } from "./board-panel.ts";
 import { emptyBoard } from "./model.ts";
 
@@ -22,7 +21,6 @@ export const boardPanel = defineFeature({
 			let stopWatching: (() => void) | undefined;
 			await ctx.ui.custom<void>(
 				(tui, theme, _keybindings, done) => {
-					hideImagesUnderOverlays(tui);
 					stopWatching = BOARD.onChanged(scope, () => tui.requestRender());
 					return new BoardPanel({
 						theme,
