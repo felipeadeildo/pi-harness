@@ -1,6 +1,6 @@
 {
-	"version": "2.1.323",
-	"userAgent": "claude-cli/2.1.323 (external, cli)",
+	"version": "2.1.330",
+	"userAgent": "claude-cli/2.1.330 (external, cli)",
 	"entrypoint": "cli",
 	"identity": "You are Claude Code, Anthropic's official CLI for Claude.",
 	"system": [
@@ -13,11 +13,11 @@
 			"cacheControl": false
 		},
 		{
-			"length": 1229,
+			"length": 2025,
 			"cacheControl": true
 		},
 		{
-			"length": 4853,
+			"length": 5279,
 			"cacheControl": true
 		}
 	],
@@ -74,6 +74,12 @@
 			"header": "web-search-2025-03-05",
 			"turn": false,
 			"description": "Vertex and Foundry only. The server runs the search."
+		},
+		{
+			"name": "web_search_results_only",
+			"header": "web-search-results-only-2026-11-15",
+			"turn": false,
+			"description": "Nothing in this build says what it does."
 		},
 		{
 			"name": "tool_search",
@@ -140,6 +146,12 @@
 			"header": "thinking-resumption-2026-07-17",
 			"turn": false,
 			"description": "Thinking picks up where an earlier request left it."
+		},
+		{
+			"name": "resumption",
+			"header": "resumption-2026-10-08",
+			"turn": false,
+			"description": "Nothing in this build says what it does."
 		},
 		{
 			"name": "thinking_token_count",
