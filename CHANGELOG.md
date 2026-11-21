@@ -2,6 +2,13 @@
 
 Every `@adeildo/` package in this repository shares one version, one tag and this changelog. The entries below 4.0.0 are from before, when `pi-ask-permission` was the only package.
 
+## [6.1.1](https://github.com/felipeadeildo/pi-harness/compare/v6.1.0...v6.1.1) (2026-11-21)
+
+
+### Dependencies
+
+* pi 1.6.0, pi-web-access 0.48.0 and Claude Code 2.1.330 ([#476](https://github.com/felipeadeildo/pi-harness/issues/476)) ([b3f4c79](https://github.com/felipeadeildo/pi-harness/commit/b3f4c792e8121fec08c75be3f66dfaac4182702b)), closes [#475](https://github.com/felipeadeildo/pi-harness/issues/475)
+
 ## [6.1.0](https://github.com/felipeadeildo/pi-harness/compare/v6.0.1...v6.1.0) (2026-11-13)
 
 
