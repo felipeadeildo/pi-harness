@@ -258,43 +258,43 @@ type FocusTui = TUI & { getFocusedComponent(): Component | null };
  * in the dialog, and pi hides the dialog's own.
  */
 class FocusHold {
-	private tui: FocusTui | undefined;
-	private widget: Component | undefined;
-	private readonly mine = new WeakSet<Component>();
-	private before: Component | null = null;
+	#tui: FocusTui | undefined;
+	#widget: Component | undefined;
+	readonly #mine = new WeakSet<Component>();
+	#before: Component | null = null;
 
 	/** Pi builds the widget again on a theme change, and the newest one is the one on screen. */
 	mount(tui: TUI, widget: Component): void {
-		const held = this.holding();
+		const held = this.#holding();
 		// Pi's renderers read the focus, though the `TUI` interface does not declare it.
 		if (typeof (tui as Partial<FocusTui>).getFocusedComponent !== "function") return;
-		this.tui = tui as FocusTui;
-		this.widget = widget;
-		this.mine.add(widget);
+		this.#tui = tui as FocusTui;
+		this.#widget = widget;
+		this.#mine.add(widget);
 		if (held) tui.setFocus(widget);
 	}
 
 	sync(focused: boolean): void {
-		if (focused) this.take();
+		if (focused) this.#take();
 		else this.release();
 	}
 
 	release(): void {
-		if (this.holding()) this.tui?.setFocus(this.before);
+		if (this.#holding()) this.#tui?.setFocus(this.#before);
 	}
 
-	private take(): void {
-		const tui = this.tui;
-		if (tui === undefined || this.widget === undefined) return;
+	#take(): void {
+		const tui = this.#tui;
+		if (tui === undefined || this.#widget === undefined) return;
 		const current = tui.getFocusedComponent();
-		if (current === this.widget) return;
-		if (current === null || !this.mine.has(current)) this.before = current;
-		tui.setFocus(this.widget);
+		if (current === this.#widget) return;
+		if (current === null || !this.#mine.has(current)) this.#before = current;
+		tui.setFocus(this.#widget);
 	}
 
-	private holding(): boolean {
-		const current = this.tui?.getFocusedComponent();
-		return current !== undefined && current !== null && this.mine.has(current);
+	#holding(): boolean {
+		const current = this.#tui?.getFocusedComponent();
+		return current !== undefined && current !== null && this.#mine.has(current);
 	}
 }
 
