@@ -12,7 +12,7 @@ While an agent works, you keep checking the same few things: what it is about to
 <!-- docs:look/preview -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/preview.png" alt="Pi with the look: the start card, then the strip with the stopwatch and the last call, the card under way with how many wait, are to do and are done, the framed editor with the branch, the model and the context, and below it the cost, the tokens, the cache and the average speeds." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/look/assets/preview.png" alt="Pi with the look: the start card, then the strip with the stopwatch and the calls, the rooms this session is in with their agents, the framed editor with the branch, the model and the context, and below it the cost, the tokens, the cache and the average speeds." width="860">
   <br>
   <em>The start card, then a prompt halfway through its answer.</em>
 </p>
@@ -59,10 +59,10 @@ The strip above the editor stays calm. While the model streams, only the stopwat
 | `last call 1.7s wait  900ms thought  ↓906 tok/s` | How long the last call took to start, to think and write, and how fast it wrote       |
 | `answered in 0:47  2 calls  $0.31`               | Once the run ends: how long it took, how many calls, and what it cost                 |
 
-On the right, the strip shows the card the agent is working on, and the rooms this session is in:
+On the right, the strip shows the rooms this session is in:
 
 - Each room shows how this session stands there: `●` takes part, `◐` listens, `○` stepped out.
-- After the room come its agents, each with what it is doing: `◆` working, `⚑` waiting on you, `◇` idle.
+- After the room come its agents: `◆` working, `◇` idle.
 
 The messages that you send while the agent works wait above the editor, in a dashed frame. `steer` means the message goes in between the agent's calls, and `next` means it goes after the run.
 

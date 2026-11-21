@@ -2,7 +2,7 @@
 // the judge: a drifted copy still passes `bun test`.
 import { describe, expect, test } from "bun:test";
 
-import { blockedText, isLetter, type BoardBlocker } from "@adeildo/pi-kit";
+import { isLetter } from "@adeildo/pi-kit";
 import type {
 	AskQuestion as KitAskQuestion,
 	AskResult as KitAskResult,
@@ -12,7 +12,6 @@ import type {
 	LogEventMap,
 } from "@adeildo/pi-kit";
 
-import { blockedOf } from "../src/board-view.ts";
 import type { By } from "../src/by.ts";
 import { STATE_CHANGES } from "../src/reduce/entry.ts";
 import {
@@ -89,19 +88,5 @@ describe("the protocol's copies match the kit", () => {
 		expect(copyOfResult({ answers: [], cancelled: true }).cancelled).toBe(true);
 		expect(copyOfQuestion({ header: "h", question: "q", options: [] }).header).toBe("h");
 		expect(copyOfRuling({ tone: "pending", head: "asking you" }).head).toBe("asking you");
-	});
-});
-
-describe("the words a blocked card reads with", () => {
-	/** Every shape of blocker this protocol carries, each in the reader the phone has. */
-	const blockers: readonly BoardBlocker[] = [
-		{ on: "operator", why: "say go" },
-		{ on: "outside", why: "the release" },
-		{ on: "agent", handle: "otter", why: "review" },
-	];
-
-	test("the protocol says the same sentence the kit does, for the reader that reads it", () => {
-		for (const blocked of blockers)
-			expect(blockedOf(blocked, "operator")).toBe(blockedText(blocked, "operator"));
 	});
 });

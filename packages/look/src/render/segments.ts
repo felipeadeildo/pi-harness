@@ -1,10 +1,4 @@
-import {
-	type AccountWindow,
-	type BoardCard,
-	formatClock,
-	type PeerMark,
-	type RoomMark,
-} from "@adeildo/pi-kit";
+import { type AccountWindow, formatClock, type PeerMark, type RoomMark } from "@adeildo/pi-kit";
 import { visibleWidth } from "@earendil-works/pi-tui";
 
 import type { Snapshot } from "../data/snapshot.ts";
@@ -34,7 +28,6 @@ export const SEGMENT_IDS = [
 	"host",
 	"me",
 	"session",
-	"board",
 	"peers",
 	"version",
 	"clock",
@@ -200,37 +193,6 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 				text: full,
 				shrink: (width) =>
 					visibleWidth(full) <= width ? full : visibleWidth(short) <= width ? short : least,
-			};
-		},
-	},
-	board: {
-		priority: 30,
-		describe:
-			"the card being done, then ⚑ how many open cards are blocked, ⧗ how many are to do and free to start, and ✓ how many are done, from the session's board",
-		// A short line cuts the words, not the counts.
-		render: ({ snapshot, glyphs, paint }) => {
-			const cards = snapshot.board?.cards ?? [];
-			const doing = cards.filter((card) => card.column === "doing");
-			const blocked = cards.filter(blocks).length;
-			const todo = cards.filter((card) => card.column === "todo" && !blocks(card)).length;
-			const done = cards.filter((card) => card.column === "done").length;
-			const counts = [
-				tally(blocked, glyphs.waiting, "waiting", paint),
-				tally(todo, glyphs.queued, "queued", paint),
-				tally(done, glyphs.done, "done", paint),
-			].filter((part) => part !== "");
-			const step = doing[0]?.title;
-			if (step === undefined && counts.length === 0) return undefined;
-			const more = doing.length > 1 ? paint.dim(` +${doing.length - 1}`) : "";
-			// Between cards the line stays, so what was done and what waits do not vanish.
-			const icon = mark(glyphs.board, paint, "board");
-			const words = (room: number) =>
-				step === undefined ? paint.dim("idle") : paint.text(fitWidth(step, room, glyphs.ellipsis));
-			const tail = `${more}${counts.length === 0 ? "" : `  ${counts.join("  ")}`}`;
-			const fixed = visibleWidth(icon) + visibleWidth(tail);
-			return {
-				text: `${icon}${words(Number.MAX_SAFE_INTEGER)}${tail}`,
-				shrink: (width) => `${icon}${words(Math.max(1, width - fixed))}${tail}`,
 			};
 		},
 	},
@@ -557,7 +519,7 @@ export const SEGMENTS: Record<BuiltinSegment, Segment> = {
 
 /**
  * Each room once, with how this session stands in it, then its agents with the marks the rooms panel
- * and the board use: working, waiting on you, or idle.
+ * uses: working or idle.
  */
 function roomsPiece(
 	rooms: readonly RoomMark[],
@@ -572,7 +534,6 @@ function roomsPiece(
 	};
 	const agent = (peer: PeerMark): string => {
 		const name = paint.raw(peer.color, peer.handle);
-		if (peer.state === "waiting") return `${paint.role("waiting", glyphs.waiting || "!")} ${name}`;
 		if (peer.state === "running") return `${paint.raw(peer.color, glyphs.agentWorking)} ${name}`;
 		return `${paint.dim(glyphs.agentIdle)} ${name}`;
 	};
@@ -627,22 +588,6 @@ function joined(...parts: string[]): string {
 
 function mark(glyph: string, paint: Paint, role: Role): string {
 	return glyph === "" ? "" : `${paint.role(role, glyph)} `;
-}
-
-/** Counted as blocked, not as to do; a closed card no longer waits. */
-function blocks(card: BoardCard): boolean {
-	return card.blocked !== undefined && card.column !== "done" && card.column !== "dropped";
-}
-
-/** ASCII has no icon, so the word goes after the number. */
-function tally(
-	size: number,
-	glyph: string,
-	role: "done" | "queued" | "waiting",
-	paint: Paint,
-): string {
-	if (size === 0) return "";
-	return paint.role(role, glyph === "" ? `${size} ${role}` : `${glyph} ${size}`);
 }
 
 function counted(value: number, glyph: string, role: Role, paint: Paint): string {

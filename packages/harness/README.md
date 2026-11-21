@@ -21,7 +21,7 @@ Every piece of [pi-harness](https://github.com/felipeadeildo/pi-harness) in one 
 <!-- docs:harness/conversation -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/conversation.png" alt="A session with the look: the start card, a request, the model running the tests, committing and pushing, then the stopwatch, the card under way, the editor and the cost." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/conversation.png" alt="A session with the look: the start card, a request, the model running the tests, committing and pushing, then the stopwatch, the editor and the cost." width="860">
   <br>
   <em>A session: the start card, what you asked, what the model ran, and what it cost.</em>
 </p>
@@ -34,7 +34,6 @@ Every piece of [pi-harness](https://github.com/felipeadeildo/pi-harness) in one 
 | ------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | [Permission](../ask-permission) | Pi asks before it runs a command. A small model can answer the easy ones for you                     |
 | [Questions](../ask-questions)   | The model asks instead of guessing, with options, a preview of each, and a note on any of them       |
-| [Board](#the-board)             | The agent keeps a board of what it is doing, what waits on you and what it delivered                 |
 | [Look](../look)                 | The start card, the editor with the branch and the model on its edges, and a box around each command |
 | [Peers](../peers)               | Agents share rooms, see each other's work and talk                                                   |
 | [Remote](../remote)             | Every session of every machine of yours, in a browser and on your phone                              |
@@ -56,25 +55,9 @@ Each piece is its own extension in this package, so `pi config` can turn off the
 { "features": { "subscription": { "enabled": false } } }
 ```
 
-The feature ids are `permission`, `look`, `subscription`, `accounts`, `questions`, `skills`, `names`, `board`, `board-panel`, `compact`, `peers`, `remote` and `web`.
+The feature ids are `permission`, `look`, `subscription`, `accounts`, `questions`, `skills`, `names`, `compact`, `peers`, `remote` and `web`.
 
 If you only want one piece, install its own package instead. When you install both, the copy that loads first runs the feature and the other one stays off.
-
-## The board
-
-The agent keeps a board of what it is doing, what waits on you and what it delivered. `Alt+T` opens it over the whole screen, a column for each stage and a box for each card. Other agents read the same board, so they know what yours is doing without asking it.
-
-<!-- docs:harness/board -->
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/board.png" alt="The session's board over the whole screen, titled Board, with 4 open, 1 waiting and 1 done on the right of the top edge. Four columns side by side, each with its mark, name and count: Doing, In review, To do and Done. Every card is a box: one being done, its PR number and what it is on, chosen with an accent border; one in review with who reviews it; two to do, one in the warning color with a flag and what it waits on from you; one done with what it delivered. At the foot the backlog with its titles and the last decision. Along the bottom: move, open, close." width="860">
-  <br>
-  <em>Alt+T: the session's board, a column per stage and a box per card.</em>
-</p>
-
-<!-- /docs -->
-
-[How the board works](docs/board.md) covers what counts as a card, the columns and limits, where the board shows up, and how it is stored.
 
 ## Settings
 

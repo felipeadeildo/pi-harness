@@ -20,7 +20,6 @@ import {
 	removePresence,
 	roomDir,
 	roomsDir,
-	type BoardView,
 	type RoomActivity,
 	type RoomMode,
 	targetOf,
@@ -95,8 +94,6 @@ export class Rooms implements RoomsView {
 	readonly #steppedOut = new Set<string>();
 	/** By room id, `""` for the folder's. */
 	readonly #heard = new Map<string, RoomMode>();
-	/** So an unchanged board is not written again. */
-	#boardView = "";
 	readonly #listeners = new Set<() => void>();
 	readonly #membership = new Set<(change: MembershipChange) => void>();
 
@@ -174,7 +171,6 @@ export class Rooms implements RoomsView {
 		this.#home = undefined;
 		removePresence(this.#session);
 		this.#session = undefined;
-		this.#boardView = "";
 	}
 
 	sync(): void {
@@ -833,7 +829,6 @@ export class Rooms implements RoomsView {
 		if (me === undefined) return;
 		if (me.handle !== undefined) here.log("session.named", { handle: me.handle });
 		if (this.#state === "running") here.log("session.state", { state: "running" });
-		if (me.board !== undefined) here.log("board.changed", { view: me.board });
 		const edited = [...me.edited].toSorted(([, a], [, b]) => a - b).slice(-SNAPSHOT_FILES);
 		for (const [path] of edited) here.log("activity", { kind: "edited", path });
 	}
@@ -850,13 +845,6 @@ export class Rooms implements RoomsView {
 		// The index reads the name from the folder's room, which has not read this line yet.
 		this.#home?.sync();
 		this.#writeLive();
-	}
-
-	board(view: BoardView): void {
-		const text = JSON.stringify(view);
-		if (text === this.#boardView) return;
-		this.#boardView = text;
-		for (const here of this.joined()) here.log("board.changed", { view });
 	}
 
 	#addMembers(room: string, members: readonly Member[], by: AddedBy): void {

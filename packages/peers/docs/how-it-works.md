@@ -12,11 +12,9 @@ Only this package writes the logs, so no tool call can post a message signed as 
 
 ## What each session shares
 
-Each session publishes a board as it works: what it is doing, what waits on you, what it edited and ran, and what it committed. Other agents read it with the `peers` tool, without interrupting anyone. Nothing arrives in an agent's context unless it asks, or unless the work touches the same files.
+Each session publishes what it edits, runs and commits as it works. Other agents read it with the `peers` tool, without interrupting anyone. Nothing arrives in an agent's context unless it asks, or unless the work touches the same files.
 
 When an agent is about to edit a file that a colleague just touched, it is told to ask that colleague first.
-
-A shared room gets the part of each board that others need: the open cards, how many cards wait in the backlog, and the last three done. A board that did not change is not written again.
 
 ## Rooms
 
@@ -56,14 +54,13 @@ An agent can ask to bring sessions from another folder into a room with `link` i
 
 A request to `@anyone` goes to the idle agent that fits it best. Every session works out the same winner from the same logs, so no session coordinates the others, and if one exits, the rest keep going.
 
-Each session bids with its own side model, which reads its board, the files it touched and what it committed. The agent itself is never interrupted to bid, and a bid costs less than a cent. Busy agents bid too, but they cannot win while busy, so the request waits for the first one that finishes.
+Each session bids with its own side model, which reads the files it touched and what it committed. The agent itself is never interrupted to bid, and a bid costs less than a cent. Busy agents bid too, but they cannot win while busy, so the request waits for the first one that finishes.
 
 The winner is chosen in this order:
 
 1. Idle before busy.
 2. The highest fit.
-3. The fewest open cards.
-4. The session that opened first.
+3. The session that opened first.
 
 If the winner does not take the request within a few seconds, the next one in line does. When another agent takes the request, your chat shows who took it, and your agent never gets it, so two agents do not start the same work.
 
@@ -96,7 +93,6 @@ Everything that waits when the agent looks arrives together, so a burst of messa
 
 | What                                        | Idle agent                                 | Busy agent                        |
 | ------------------------------------------- | ------------------------------------------ | --------------------------------- |
-| Board changes                               | never sent                                 | never sent                        |
 | A colleague joins or leaves                 | next prompt                                | next prompt                       |
 | A message to everyone                       | wakes it                                   | between calls                     |
 | A mention, or an answer to its question     | wakes it                                   | between calls                     |

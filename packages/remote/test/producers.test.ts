@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { BOARD, emptyBoard, PEERS, type Board, type BoardView } from "@adeildo/pi-kit";
+import { PEERS } from "@adeildo/pi-kit";
 import { emptySessionState } from "@adeildo/pi-remote-protocol";
 
 import { PRODUCERS } from "../src/bridge/producers.ts";
@@ -22,22 +22,6 @@ function scope(contracts: Record<string, unknown> = {}) {
 		},
 		...contracts,
 	} as never;
-}
-
-/** The board producer, named by the field it owns. */
-const board = PRODUCERS.find((one) => one.field === "board")!;
-const fold = (state: ReturnType<typeof emptySessionState>, at: ReturnType<typeof scope>) =>
-	board.apply(state, { scope: at, entries: [], ctx: {} as never });
-
-const card = (id: string, title: string, at: number) =>
-	({ id, title, column: "doing", at }) as const;
-
-/** A board whose view keeps the writer's order, which is the one thing a reader must not change. */
-function written(...titles: string[]): Board {
-	return {
-		...emptyBoard(),
-		cards: titles.map((title, index) => card(`c${index + 1}`, title, titles.length - index)),
-	};
 }
 
 describe("what the session wears", () => {
@@ -63,24 +47,5 @@ describe("what the session wears", () => {
 		}));
 		const worn = theme.apply(emptySessionState(), { scope: at, entries: [], ctx: {} as never });
 		expect(worn.theme).toEqual({ accent: "accent", color: "syntaxKeyword" });
-	});
-});
-
-describe("the board a session keeps", () => {
-	test("a scope with no board leaves the state untouched, which is not an empty board", () => {
-		const state = emptySessionState();
-		expect(fold(state, scope())).toBe(state);
-	});
-
-	test("a scope that has one carries it in the writer's order, and nothing is reordered", () => {
-		const board = written("first", "second", "third");
-		const at = scope();
-		BOARD.provide(at, () => board);
-		const served = fold(emptySessionState(), at);
-		expect((served.board as BoardView).open.map((one) => one.title)).toEqual([
-			"first",
-			"second",
-			"third",
-		]);
 	});
 });

@@ -4,9 +4,9 @@ import type { RoomMode } from "./events.ts";
 
 export interface PeerMark {
 	handle: string;
-	/** A theme color name, so a peer looks the same in the footer, the room and the board. */
+	/** A theme color name, so a peer looks the same in the footer and the room. */
 	color: string;
-	state: "running" | "idle" | "waiting";
+	state: "running" | "idle";
 	room?: string;
 }
 
@@ -41,7 +41,7 @@ export const PEERS = defineContract<PeersState>(
 	guarded(isPeersState, "a list of peers and an unread count"),
 );
 
-const STATES = new Set(["running", "idle", "waiting"]);
+const STATES = new Set(["running", "idle"]);
 
 function isPeersState(value: unknown): value is PeersState {
 	if (!isObject(value) || typeof value.unread !== "number") return false;

@@ -13,7 +13,7 @@ export interface CachedSession {
 	key: SessionKey;
 	cursor: Cursor;
 	entries: unknown[];
-	/** Folded, so a warm open draws the board and the questions. */
+	/** Folded, so a warm open draws the questions and the status. */
 	state: SessionState;
 	/** See `ClientSession.leaf`. */
 	leaf?: string | null;

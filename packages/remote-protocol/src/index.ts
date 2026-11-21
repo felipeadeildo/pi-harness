@@ -1,14 +1,6 @@
 // Imports nothing from pi, the kit or node: the page and the daemon both use it.
 export { BY_KINDS, isBy, isObject, type By } from "./by.ts";
 export {
-	type BoardBlocker,
-	type BoardCard,
-	type BoardColumn,
-	type BoardView,
-	isBoardView,
-	blockedOf,
-} from "./board-view.ts";
-export {
 	type Envelope,
 	type EnvelopeKind,
 	envelope,

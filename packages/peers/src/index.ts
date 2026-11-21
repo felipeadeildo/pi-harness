@@ -8,9 +8,6 @@ import {
 	isObject,
 	modelRef,
 	modelsFor,
-	BOARD,
-	boardText as boardOfKit,
-	boardView,
 	openView,
 	PEERS,
 	PROMPT_FROM,
@@ -80,7 +77,7 @@ const PARAMETERS = Type.Object({
 		type: "string",
 		enum: ["board", "send", "link", "start"],
 		description:
-			"board: who else works with you, in this folder and in your shared rooms, on what, and what they said. send: a message. link: ask to talk to the agents open in another folder. start: ask to start a new agent in a folder, with its first message.",
+			"board: who else works with you, in this folder and in your shared rooms, what they edited and committed, and what they said. send: a message. link: ask to talk to the agents open in another folder. start: ask to start a new agent in a folder, with its first message.",
 	}),
 	to: Type.Optional(
 		Type.String({
@@ -304,8 +301,6 @@ export const peers = defineFeature({
 					(input.action === "start" && start.get(scope) === "ask"),
 			});
 			rooms.open(ctx.sessionManager, ctx.model === undefined ? undefined : modelRef(ctx.model));
-			const board = BOARD.current(scope);
-			if (board !== undefined) rooms.board(boardView(board));
 			if (ctx.mode === "tui")
 				ctx.ui.addAutocompleteProvider((current) =>
 					completeMentions(
@@ -472,13 +467,7 @@ export const peers = defineFeature({
 				const me = rooms.session;
 				if (me === undefined) return reply("Not in a session.");
 				if (params.action === "board") {
-					// The same text the board tool answers with, plus who else is in the room.
-					const board = BOARD.current(scope);
-					const lines = [
-						...(board === undefined ? [] : [boardOfKit(board)]),
-						boardText(rooms.joined(), me),
-					];
-					return reply(lines.filter((line) => line !== "").join("\n"));
+					return reply(boardText(rooms.joined(), me));
 				}
 				if (params.action === "link") return linkFor(toolCallId, params, ctx);
 				if (params.action === "start") return startFor(toolCallId, params, ctx);
@@ -659,7 +648,7 @@ export const peers = defineFeature({
 		}
 
 		scope.registerShortcut(Key.alt("g"), {
-			description: "The agents in your rooms, their boards, and the rooms to talk in",
+			description: "The agents in your rooms, what they touched, and the rooms to talk in",
 			handler: (ctx) =>
 				ctx.mode === "tui"
 					? openPanel(ctx, rooms, canOpenView(scope.events) ? showSession : undefined)

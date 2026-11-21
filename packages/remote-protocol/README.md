@@ -11,7 +11,7 @@ browser.
 import { foldLogged, isEnvelope, transcriptOf } from "@adeildo/pi-remote-protocol";
 
 const transcript = transcriptOf(entries, leaf); // the branch, from the leaf the bridge names
-const state = foldLogged(logged); // questions, rulings, mode, board, cost, queue
+const state = foldLogged(logged); // questions, rulings, mode, cost, queue
 ```
 
 ## The envelope
@@ -47,8 +47,8 @@ in a client of this one.
 
 ## The opening
 
-`SessionSummary` is where a client starts: the session's name, handle, model, state, board, mode,
-cost, queue, and the entry its branch ends at. `isSummary` checks it, and checks the queue letter by
+`SessionSummary` is where a client starts: the session's name, handle, model, state, mode, cost,
+queue, and the entry its branch ends at. `isSummary` checks it, and checks the queue letter by
 letter.
 
 A reconnect says where it stopped — the last entry it holds and the last `seq` of the epoch — and the

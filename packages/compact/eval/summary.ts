@@ -8,7 +8,6 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { parseArgs } from "node:util";
 
-import { type Board, boardOf } from "@adeildo/pi-kit";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import {
 	compact as piCompact,
@@ -22,7 +21,7 @@ import {
 // pi does not export it, and the eval needs the cut pi's own compaction makes.
 import { prepareCompaction } from "../../../node_modules/@earendil-works/pi-coding-agent/dist/core/compaction/compaction.js";
 import type { AgentMessage } from "../src/prune.ts";
-import { standing } from "../src/summary.ts";
+import { operatorAsks } from "../src/summary.ts";
 import { average, mean, parseJson, type Probe, Prober } from "./probe.ts";
 import { readBranch } from "./session.ts";
 import { modelNamed, signedIn } from "./signin.ts";
@@ -41,9 +40,9 @@ const { values, positionals } = parseArgs({
 });
 if (positionals.length === 0) throw new Error("usage: summary.ts <session.jsonl>... [--at tokens]");
 
-// pi on the session's model, pi on the side model, and what the package writes: the board and
-// your words on top of pi on the side model.
-const METHODS = ["pi", "pi-cheap", "board+pi-cheap"] as const;
+// pi on the session's model, pi on the side model, and what the package writes: your words on top
+// of pi on the side model.
+const METHODS = ["pi", "pi-cheap", "asks+pi-cheap"] as const;
 type Method = (typeof METHODS)[number];
 const KINDS = ["recall", "artifact", "decision", "continuation"] as const;
 type Kind = (typeof KINDS)[number];
@@ -100,7 +99,7 @@ for (const file of positionals) {
 	);
 
 	// oxlint-disable-next-line no-await-in-loop -- one session at a time keeps the output readable
-	const summaries = await writeSummaries(cut, boardOf(cut.entries), join(dir, "summaries.json"));
+	const summaries = await writeSummaries(cut, join(dir, "summaries.json"));
 	// oxlint-disable-next-line no-await-in-loop
 	const probes = await prober.cached(join(dir, "probes.json"), () => writeProbes(dropped));
 	const kept = keptText(cut);
@@ -155,11 +154,7 @@ function cutAt(file: string, at: number): Cut | undefined {
 }
 
 /** Each method's summary, reusing the ones already written. */
-async function writeSummaries(
-	cut: Cut,
-	board: Board,
-	path: string,
-): Promise<Record<Method, string>> {
+async function writeSummaries(cut: Cut, path: string): Promise<Record<Method, string>> {
 	const written: Partial<Record<Method, string>> =
 		!values.fresh && existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : {};
 	const signal = new AbortController().signal;
@@ -180,8 +175,7 @@ async function writeSummaries(
 	};
 	written.pi ??= await piWith(cut.model);
 	written["pi-cheap"] ??= await piWith(side);
-	written["board+pi-cheap"] ??=
-		`${standing({ board, preparation: cut.preparation })}\n\n${written["pi-cheap"]}`;
+	written["asks+pi-cheap"] ??= `${operatorAsks(cut.preparation)}\n\n${written["pi-cheap"]}`;
 	writeFileSync(path, JSON.stringify(written, null, "\t"));
 	return written as Record<Method, string>;
 }

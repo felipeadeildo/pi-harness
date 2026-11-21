@@ -7,10 +7,7 @@ export interface Glyphs {
 	branch: string;
 	host: string;
 	session: string;
-	board: string;
 	peers: string;
-	waiting: string;
-	queued: string;
 	version: string;
 	model: string;
 	effort: string;
@@ -43,7 +40,7 @@ export interface Glyphs {
 	roomIn: string;
 	roomListening: string;
 	roomOut: string;
-	/** An agent at work and one waiting for work, as the panel and the board mark them. */
+	/** An agent at work and one waiting for work, as the rooms panel marks them. */
 	agentWorking: string;
 	agentIdle: string;
 }
@@ -72,10 +69,7 @@ export const NERD: Glyphs = {
 	branch: "\u{e0a0}", // nf-pl-branch
 	host: "\u{f108}", // nf-fa-desktop
 	session: "\u{f02b}", // nf-fa-tag
-	board: "\u{f04fe}", // nf-md-target
 	peers: "\u{f0c0}", // nf-fa-users
-	waiting: "\u{f024}", // nf-fa-flag
-	queued: "\u{f051f}", // nf-md-timer_sand
 	version: "π",
 	model: "\u{f06a9}", // nf-md-robot
 	effort: "\u{f09d1}", // nf-md-brain
@@ -103,10 +97,7 @@ export const UNICODE: Glyphs = {
 	branch: "⎇",
 	host: "⌂",
 	session: "#",
-	board: "▸",
 	peers: "◆",
-	waiting: "⚑",
-	queued: "⧗",
 	version: "π",
 	model: "◆",
 	effort: "✦",
@@ -139,10 +130,7 @@ export const ASCII: Glyphs = {
 	branch: "",
 	host: "@",
 	session: "#",
-	board: ">",
 	peers: "@",
-	waiting: "",
-	queued: "",
 	version: "v",
 	model: "",
 	effort: "",

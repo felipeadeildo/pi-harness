@@ -1,4 +1,3 @@
-import type { BoardView } from "../board/model.ts";
 // One shape per event type. Shapes only grow: a field that changes meaning gets a new name.
 import type { AskQuestion, AskResult } from "./ask.ts";
 import type { By } from "./by.ts";
@@ -28,7 +27,6 @@ export interface LogEventMap {
 	"session.started": { pid: number; host: string; model?: string; cwd?: string; start?: string };
 	"session.ended": Record<string, never>;
 	"session.named": { handle?: string };
-	"board.changed": { view: BoardView };
 	"session.state": { state: RoomActivity };
 	/** The text stays in pi's own session file. */
 	"session.prompted": Record<string, never>;

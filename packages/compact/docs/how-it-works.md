@@ -12,7 +12,7 @@ Output hidden to save context, about 4.2k tokens. It came from: read src/view.ts
 
 Long arguments are removed whole, like a script sent to bash or a file sent to write, and a note on the call says which ones went. Cutting a value short would teach the model to cut its own values: in a live session, after a prune that cut values that way, the agent wrote new calls that were cut the same way, and they ran. So a call that copies the note, or a value cut the old way, does not run.
 
-Your messages, the agent's own words, errors and the last 10 turns stay whole. After a prune, the agent gets the session's [board](../../harness#the-board) at the end of its context, so it keeps track of its work.
+Your messages, the agent's own words, errors and the last 10 turns stay whole.
 
 The prune runs when a run ends, so the cache rewrite that it costs falls on your next message. If you were away for longer than the cache lives, that message writes the whole prompt anyway. In the middle of a run, a turn prunes only when the context passes 80% of the model's window, before pi's own compaction.
 
@@ -24,7 +24,7 @@ Anthropic can clear old output on its own side instead, with [`clear_tool_uses`]
 
 ## When pi compacts anyway
 
-When pi compacts, pi's own prompt writes the summary on a small model, and the session's board and your last words go on top unchanged, so no model rewords a decision. When the board is empty, pi writes the summary on the session's model.
+When pi compacts, pi's own prompt writes the summary on a small model, and your last words go on top unchanged, so no model rewords what you asked. With the setting off, pi writes the summary on the session's model.
 
 To check that a small model is enough, an agent that only had the summary answered 48 questions about what was dropped from six recorded sessions, and a judge graded the answers against the truth. pi's summary written on Haiku scored as well as on Opus, within the judge's noise, for 1/40 of the price. A first version that wrote its own short summary scored 2.6 out of 5, against 3.9 for pi's, and was dropped. The method is [Factory's probes](https://factory.ai/news/evaluating-compression), and `bun packages/compact/eval/summary.ts` runs it.
 

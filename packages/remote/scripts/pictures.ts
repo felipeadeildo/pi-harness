@@ -9,7 +9,7 @@ import { dirname, join, resolve } from "node:path";
 
 import piPermission from "@adeildo/pi-ask-permission";
 import piQuestions, { TOOL_NAME } from "@adeildo/pi-ask-questions";
-import { board, createApp, names } from "@adeildo/pi-kit";
+import { createApp, names } from "@adeildo/pi-kit";
 import { createRig, type Rig } from "@adeildo/pi-kit/rig";
 import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -24,9 +24,9 @@ import { daemonPaths, TMUX_SOCKET } from "../src/places.ts";
 const ASSETS = resolve(import.meta.dir, "..", "assets");
 const PHONE = { width: 390, height: 844 };
 
-/** The board and the names, as the harness loads them. */
-function boardAndNames(pi: ExtensionAPI): void {
-	createApp(pi, { name: "pi-harness" }).use(names()).use(board).build();
+/** The names, as the harness loads them. */
+function harnessNames(pi: ExtensionAPI): void {
+	createApp(pi, { name: "pi-harness" }).use(names()).build();
 }
 
 interface Said {
@@ -132,7 +132,7 @@ async function main(): Promise<void> {
 	const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH });
 	try {
 		rig = await createRig({
-			extensions: [piRemote, piQuestions, piPermission, boardAndNames],
+			extensions: [piRemote, piQuestions, piPermission, harnessNames],
 			cwd,
 			model: { id: "claude-opus-5-5", name: "Claude Opus 5.5" },
 			tokensPerSecond: 80,
@@ -144,24 +144,7 @@ async function main(): Promise<void> {
 				if (said.includes("dry-run")) {
 					if (step === 0)
 						return fauxAssistantMessage([
-							fauxToolCall("board", {
-								op: "add",
-								title: "Release script takes --dry-run",
-								column: "doing",
-							}),
-						]);
-					if (step === 1)
-						return fauxAssistantMessage([
 							fauxToolCall("bash", { command: "bun test scripts/release.test.ts" }),
-						]);
-					if (step === 2)
-						return fauxAssistantMessage([
-							fauxToolCall("board", {
-								op: "move",
-								id: "c1",
-								column: "done",
-								result: "--dry-run plans without publishing; 3 tests pass",
-							}),
 						]);
 					return fauxAssistantMessage(
 						"Done. `scripts/release.ts` takes `--dry-run`: it builds and tags, and publishes nothing.\n\nThe three tests pass.",
@@ -202,8 +185,6 @@ async function main(): Promise<void> {
 		await page.getByTestId("composer").waitFor({ timeout: 30_000 });
 
 		await send(page, ASK_TESTS);
-		// The card first, which the permission asks about too, then the tests: that ask is the picture.
-		await approve(page, "board wants to run");
 		await asking(page, "bash wants to run").waitFor({ timeout: 60_000 });
 		await settle(page);
 		await shot(page, "phone-ask");
@@ -217,7 +198,6 @@ async function main(): Promise<void> {
 		await list.close();
 
 		await approve(page, "bash wants to run");
-		await approve(page, "board wants to run");
 		await page.getByText("The three tests pass.").waitFor({ timeout: 90_000 });
 		await settle(page);
 		await shot(page, "phone-session");

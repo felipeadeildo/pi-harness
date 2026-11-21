@@ -46,9 +46,9 @@ export const summary = setting({
 	decoder: boolean,
 	ui: {
 		section: SUMMARY_SECTION,
-		label: "Write it from the board",
+		label: "Write it on the side model",
 		description:
-			"When pi compacts, the side model writes pi's summary, with the board and your last words on top as they are. Off, or with an empty board, pi writes it on the session's model.",
+			"When pi compacts, the side model writes pi's summary, with your last words on top as they are. Off, pi writes it on the session's model.",
 	},
 });
 

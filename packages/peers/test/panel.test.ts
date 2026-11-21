@@ -202,11 +202,6 @@ function line(drawn: string, has: string): string {
 	return drawn.split("\n").find((one) => one.includes(has)) ?? "";
 }
 
-/** An agent's line, not the top edge that may name it too. */
-function agentLine(drawn: string, handle: string): string {
-	return drawn.split("\n").find((one) => one.includes(` ${handle} `) && /[●◐○]/.test(one)) ?? "";
-}
-
 function sessionOf(rooms: Rooms, handle: string): string {
 	const names = rooms.here(undefined)?.names().bySession.values() ?? [];
 	return [...names].find((one) => one.handle === handle)?.session ?? "";
@@ -223,25 +218,6 @@ describe("the rooms", () => {
 		expect(line(drawn, "api")).toMatch(/api +○ off/);
 		expect(drawn.indexOf("pi-harness")).toBeLessThan(drawn.indexOf("backend+frontend"));
 		expect(drawn).not.toContain("Conversations");
-	});
-
-	test("what an agent is on stands on its line, and what it waits on you for comes first", () => {
-		const { rooms, me } = busy();
-		const migration = named("migration", "/repo", "migration");
-		const card = { id: "c1", title: "Move the users table", column: "doing" as const, at: 1 };
-		migration.log("board.changed", { view: { open: [card], backlog: 0, done: [] } });
-		me.sync();
-		expect(agentLine(press(panelOf(rooms)), "migration")).toMatch(/● all +Move the users table/);
-		const blocked = { ...card, id: "c2", title: "Push to main", at: 2 };
-		migration.log("board.changed", {
-			view: {
-				open: [card, { ...blocked, blocked: { on: "operator" as const, why: "push" } }],
-				backlog: 0,
-				done: [],
-			},
-		});
-		me.sync();
-		expect(agentLine(press(panelOf(rooms)), "migration")).toContain("waits on you: Push to main");
 	});
 
 	test("an agent switched off in a shared room keeps its line, so space brings it back", () => {

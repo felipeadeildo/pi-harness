@@ -3,7 +3,6 @@ import { dirname, join } from "node:path";
 import {
 	ACCOUNT,
 	type AccountState,
-	BOARD,
 	createApp,
 	PEERS,
 	PROMPT_FROM,
@@ -348,7 +347,7 @@ function createScreen(
 				last: telemetry.last(),
 				run: telemetry.run(),
 				statuses: live.footerData?.getExtensionStatuses() ?? new Map(),
-				...boardAndPeersOf(scope),
+				...peersOf(scope),
 			});
 			live.frame = snapshot;
 			queueMicrotask(() => {
@@ -387,14 +386,13 @@ function accountOf(scope: FeatureScope, provider: string | undefined): AccountSt
 	return provider === undefined ? undefined : ACCOUNT.current(scope, provider);
 }
 
-function boardAndPeersOf(
+function peersOf(
 	scope: FeatureScope,
-): Pick<LiveInputs, "board" | "me" | "peers" | "peersRooms" | "peersUnread" | "peersWriting"> {
+): Pick<LiveInputs, "me" | "peers" | "peersRooms" | "peersUnread" | "peersWriting"> {
 	const peers = PEERS.current(scope);
 	const handle = NAMES.current(scope)?.handle;
 	const color = peers?.me?.handle === handle ? peers?.me?.color : undefined;
 	return {
-		board: BOARD.current(scope),
 		me: handle === undefined ? undefined : { handle, ...(color === undefined ? {} : { color }) },
 		peers: peers?.peers,
 		peersRooms: peers?.rooms,

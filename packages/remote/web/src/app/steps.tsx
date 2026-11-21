@@ -495,13 +495,6 @@ function shownOf(line: ToolLine, folder?: string): Shown {
 				title: ["peers", text(args.action), text(args.to)].filter(Boolean).join(" "),
 				body: text(args.text) === "" ? output(line, "text") : <Markdown text={text(args.text)} />,
 			};
-		case "board":
-			return {
-				title: ["board", text(args.op), text(args.title) || text(args.id)]
-					.filter(Boolean)
-					.join(" "),
-				...(line.output === undefined ? {} : { body: output(line, "text") }),
-			};
 		default:
 			return {
 				title: [line.name, subjectOf(args)].filter(Boolean).join(" "),

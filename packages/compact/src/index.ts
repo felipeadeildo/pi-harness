@@ -1,10 +1,6 @@
 import {
-	type Board,
-	BOARD,
-	boardOf,
 	createApp,
 	defineFeature,
-	describeBoard,
 	type FeatureScope,
 	modelsFor,
 	drawnByWidth,
@@ -62,7 +58,7 @@ export const compact = defineFeature({
 	id: "compact",
 	tab: "Compact",
 	description:
-		"Hides old tool output to keep the context small, and writes pi's compaction summary from the board",
+		"Hides old tool output to keep the context small, and writes pi's compaction summary on the side model",
 	sections: [PRUNE_SECTION, SUMMARY_SECTION],
 	settings: COMPACT_SETTINGS,
 	setup(scope) {
@@ -174,7 +170,7 @@ export const compact = defineFeature({
 				entries: [
 					...entries,
 					...plan.edits,
-					note(boardNow(ctx), false),
+					note(false),
 					{ type: "custom", customType: PRUNE_CHANGES, data: record },
 				],
 			};
@@ -194,14 +190,9 @@ export const compact = defineFeature({
 
 		scope.on("session_before_compact", async (event, ctx) => {
 			if (!summary.get(scope)) return undefined;
-			// With nothing on the board, pi writes its own summary.
-			const board = BOARD.current(scope) ?? boardOf(event.branchEntries);
-			if (describeBoard(board) === "") return undefined;
-			const { preparation } = event;
 			const models = modelsFor(model.get(scope), ctx.modelRegistry, ctx.model);
 			const request = {
-				board,
-				preparation,
+				preparation: event.preparation,
 				...(event.customInstructions ? { instructions: event.customInstructions } : {}),
 			};
 			const compaction = await summarize(request, models, ctx.modelRegistry, event.signal);
@@ -230,7 +221,7 @@ export const compact = defineFeature({
 
 		registerScreen(scope);
 
-		/** Records what Anthropic cleared on the request that just answered, and recites the board. */
+		/** Records what Anthropic cleared on the request that just answered. */
 		function clearedOnServer(
 			event: TurnEndEvent,
 			ctx: ExtensionContext,
@@ -256,30 +247,18 @@ export const compact = defineFeature({
 				server: true,
 				...priced(usage, ctx.model?.cost.cacheRead ?? 0, previous - prompt, usage.cacheWrite),
 			};
-			return [
-				note(boardNow(ctx), true),
-				{ type: "custom", customType: PRUNE_CHANGES, data: record },
-			];
-		}
-
-		function boardNow(ctx: ExtensionContext): Board {
-			return BOARD.current(scope) ?? boardOf(ctx.sessionManager.getBranch());
+			return [note(true), { type: "custom", customType: PRUNE_CHANGES, data: record }];
 		}
 	},
 });
 
-function note(board: Board, server: boolean): CustomMessageEntryDraft {
-	const parts = [
-		server
-			? "Anthropic cleared older tool output to save context. The calls are still there: run one again if you need its output."
-			: "Older tool output was hidden to save context. Each placeholder names the call it came from: run it again if you need it.",
-	];
-	const stands = describeBoard(board, { done: 10, decisions: 10 });
-	if (stands !== "") parts.push(`Where the session stands:\n${stands}`);
+function note(server: boolean): CustomMessageEntryDraft {
 	return {
 		type: "custom_message",
 		customType: NOTE_MESSAGE,
-		content: parts.join("\n\n"),
+		content: server
+			? "Anthropic cleared older tool output to save context. The calls are still there: run one again if you need its output."
+			: "Older tool output was hidden to save context. Each placeholder names the call it came from: run it again if you need it.",
 		display: false,
 	};
 }

@@ -1,6 +1,6 @@
 import { hostname } from "node:os";
 
-import type { AccountState, Board, PeerMark, RoomMark, WritingMark } from "@adeildo/pi-kit";
+import type { AccountState, PeerMark, RoomMark, WritingMark } from "@adeildo/pi-kit";
 import { VERSION, type ExtensionContext, type SessionEntry } from "@earendil-works/pi-coding-agent";
 
 import type { GitState } from "./git.ts";
@@ -51,8 +51,6 @@ export interface Snapshot {
 	run: RunView | undefined;
 	averages: Averages;
 	statuses: ReadonlyMap<string, string>;
-	/** When a board feature keeps it. */
-	board: Board | undefined;
 	/** When a peers feature keeps them. */
 	peers: PeerMark[];
 	/** Empty when the peers feature publishes only `peers`. */
@@ -85,7 +83,6 @@ export function emptySnapshot(): Snapshot {
 		run: undefined,
 		averages: { decode: undefined, prefill: undefined },
 		statuses: new Map(),
-		board: undefined,
 		peers: [],
 		peersRooms: [],
 		peersUnread: 0,
@@ -101,7 +98,6 @@ export interface LiveInputs {
 	last: RequestView | undefined;
 	run: RunView | undefined;
 	statuses: ReadonlyMap<string, string>;
-	board?: Board | undefined;
 	me?: { handle: string; color?: string } | undefined;
 	peers?: PeerMark[] | undefined;
 	peersRooms?: RoomMark[] | undefined;
@@ -157,7 +153,6 @@ export class SnapshotReader {
 					.map(([key, text]): [string, string] => [key, sanitize(text)])
 					.filter(([, text]) => text !== ""),
 			),
-			board: live.board,
 			peers: live.peers ?? [],
 			peersRooms: live.peersRooms ?? [],
 			peersUnread: live.peersUnread ?? 0,

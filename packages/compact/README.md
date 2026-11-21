@@ -18,8 +18,7 @@ Output hidden to save context, about 4.2k tokens. It came from: read src/view.ts
 ```
 
 - Your messages, the agent's words, errors and the last 10 turns stay whole.
-- After a prune, the agent gets its board back, so it keeps track of its work.
-- When pi compacts anyway, the board and your last words go on top of the summary unchanged.
+- When pi compacts anyway, a small model writes the summary, with your last words on top unchanged.
 
 Each prune leaves a line in the chat with what it saved, and `Ctrl+O` lists the calls it hid.
 
@@ -39,13 +38,13 @@ Each prune leaves a line in the chat with what it saved, and `Ctrl+O` lists the 
 
 These are on the Compact tab of `Alt+S`, and stored under `compact` in `~/.pi/agent/extensions/pi-harness/settings.json`.
 
-| Setting                 | Default  | What it does                                                                                             |
-| ----------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
-| Hide old tool output    | on       | Turns the prune on                                                                                       |
-| On Anthropic's side     | off      | On Anthropic models, Anthropic clears old output instead of the prune, and the agent keeps its thinking  |
-| Above                   | `150000` | How many tokens of context a run must end with to prune                                                  |
-| Write it from the board | on       | Puts the board on top of pi's summary, written on the model below. When off, pi uses the session's model |
-| Model                   | `auto`   | The model that writes the summary. `auto` picks the cheapest one of the session's provider               |
+| Setting                    | Default  | What it does                                                                                                   |
+| -------------------------- | -------- | -------------------------------------------------------------------------------------------------------------- |
+| Hide old tool output       | on       | Turns the prune on                                                                                             |
+| On Anthropic's side        | off      | On Anthropic models, Anthropic clears old output instead of the prune, and the agent keeps its thinking        |
+| Above                      | `150000` | How many tokens of context a run must end with to prune                                                        |
+| Write it on the side model | on       | Pi's summary is written on the model below, with your last words on top. When off, pi uses the session's model |
+| Model                      | `auto`   | The model that writes the summary. `auto` picks the cheapest one of the session's provider                     |
 
 The tab also shows what this session's prunes freed, and how many hidden outputs the agent had to run again. A high share means the prune hides output that the agent still needs.
 
