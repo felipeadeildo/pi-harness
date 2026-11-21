@@ -4,22 +4,43 @@ Every `@adeildo/` package in this repository shares one version, one tag and thi
 
 ## [7.0.0](https://github.com/felipeadeildo/pi-harness/compare/v6.1.1...v7.0.0) (2026-11-21)
 
+The board is gone, and a session in the remote's tmux opens in a terminal window of its machine. Run `pi update` to get it. The next pi you open replaces the remote's daemon with the new one.
 
-### ⚠ BREAKING CHANGES
+### The board is gone
 
-* the board leaves, and the room carries what each agent edited and committed ([#481](https://github.com/felipeadeildo/pi-harness/issues/481))
+The `board` tool, Alt+T and the card on the line above the editor are gone. So are the Board panel on the remote's page and the board on top of the compaction summary. In the four weeks it shipped, agents spent 2.8% of their calls writing cards, and 17% of their reads of `peers board` showed another agent's card. They reported their status in messages anyway. ([#481](https://github.com/felipeadeildo/pi-harness/pull/481))
 
-* the board leaves, and the room carries what each agent edited and committed ([#481](https://github.com/felipeadeildo/pi-harness/issues/481)) ([5ee63a5](https://github.com/felipeadeildo/pi-harness/commit/5ee63a5f19a1a05025fa6809504550879396279f))
+What an agent sees of the others now comes from the room:
 
+- `peers board` lists who is in the room, what each one edited and committed, and what they said.
+- An agent is working or idle.
+- A request to `anyone` goes to the agent whose edits and commits fit it best. On a tie, the session opened first takes it.
 
-### Features
+The compaction summary is still written on the side model, with your last messages on top, in every session where the setting is on. The setting is now named "Write it on the side model".
 
-* **remote:** open, move or end a tmux session from the page and CLI ([#479](https://github.com/felipeadeildo/pi-harness/issues/479)) ([97d77e4](https://github.com/felipeadeildo/pi-harness/commit/97d77e4f3d5bb602a6f3788fdbcec5e3da81f068))
+### The remote's tmux in a terminal window
 
+A session that runs in the remote's tmux, started from the page or by another agent, opens in a window on the machine that runs it. Each one has a menu in the Terminals list and behind the terminal button of its session, and `pi-remote` has the same verbs:
 
-### Bug Fixes
+| Command                   | What it does                                                                                          |
+| ------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `pi-remote ls`            | Lists the sessions, with their folder and how many windows show each one                              |
+| `pi-remote window <name>` | Opens it in a new terminal window                                                                     |
+| `pi-remote move <name>`   | Waits for the agent to be idle, ends the tmux session and resumes the conversation here, outside tmux |
+| `pi-remote detach <name>` | Closes the windows that show it, and the session keeps running                                        |
+| `pi-remote stop <name>`   | Ends the session and what runs in it                                                                  |
 
-* **kit:** show the cursor where you type in a dialog above the editor ([#478](https://github.com/felipeadeildo/pi-harness/issues/478)) ([986a6be](https://github.com/felipeadeildo/pi-harness/commit/986a6be755f071b81be420c7592da6892004adf7))
+From the page, Move resumes the conversation in a new window. A window opens with `$TERMINAL -e`, then `xdg-terminal-exec`. Set **Terminal for windows** in `/harness` to use another, as in `kitty --directory {cwd} {cmd}`. ([#479](https://github.com/felipeadeildo/pi-harness/pull/479))
+
+### Fixed
+
+- The cursor shows where you type in a dialog above the editor, such as a note on an option of `ask_questions` or its own answer. The editor below no longer blinks a cursor while the dialog has the keys. ([#478](https://github.com/felipeadeildo/pi-harness/pull/478))
+
+### For extensions built on `@adeildo/pi-kit`
+
+- `BOARD`, `Board`, `BoardView`, `BoardCard`, `boardOf`, `foldBoard`, `describeBoard`, `blockedText` and the `board` and `board-panel` features are gone.
+- `PeerMark.state` is `running` or `idle`.
+- `@adeildo/pi-remote-protocol` no longer has `board.changed` or `SessionState.board`, and adds `actOnTerminal` for the tmux actions.
 
 ## [6.1.1](https://github.com/felipeadeildo/pi-harness/compare/v6.1.0...v6.1.1) (2026-11-21)
 
