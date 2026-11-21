@@ -32,6 +32,7 @@ import { useScheme } from "@/ui/use-scheme.ts";
 import { DoingLine, doingOf } from "./activity.tsx";
 import { Board, openCards } from "./board.tsx";
 import { Composer } from "./composer.tsx";
+import { DeskNote, TerminalMenu, useSessionDesk } from "./desk.tsx";
 import { Details } from "./details.tsx";
 import { AgentName, Icon, Panel, useWide } from "./kit.tsx";
 import { FoldedQuestion, QuestionPanel } from "./question.tsx";
@@ -47,6 +48,7 @@ export function Component(): ReactNode {
 	// On a phone an open question takes the screen; folded, it is a bar over the conversation.
 	const [folded, fold] = useState<string | undefined>(undefined);
 	const wide = useWide();
+	const tmux = useSessionDesk(machine, id);
 
 	if (why !== undefined)
 		return (
@@ -146,15 +148,7 @@ export function Component(): ReactNode {
 						<Icon icon={GitCompareIcon} className="size-[18px]" />
 						<span className="hidden text-[13px] sm:inline">Files</span>
 					</Link>
-					{cwd === undefined ? null : (
-						<Link
-							to={`/terminals?${new URLSearchParams({ machine, folder: cwd })}`}
-							className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "size-10")}
-							aria-label="Terminal in this folder"
-						>
-							<Icon icon={ComputerTerminal01Icon} className="size-[18px]" />
-						</Link>
-					)}
+					<TerminalMenu machine={machine} cwd={cwd} terminal={tmux.terminal} desk={tmux.desk} />
 					<Button
 						variant="ghost"
 						size="icon"
@@ -170,6 +164,12 @@ export function Component(): ReactNode {
 						color={color}
 					/>
 				</header>
+
+				{tmux.desk.busy === undefined && tmux.desk.said === undefined ? null : (
+					<div className="shrink-0 border-b px-4 py-2">
+						<DeskNote desk={tmux.desk} />
+					</div>
+				)}
 
 				{wait === undefined ? null : (
 					<div className="flex shrink-0 items-center gap-2 border-b bg-waits/10 px-4 py-2 text-[13px] text-waits">

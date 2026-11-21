@@ -24,6 +24,9 @@ export const START_ID = "remote.startSessions";
 /** Read like `START_ID`: a terminal from the page is a shell on this machine. */
 export const TERMINAL_ID = "remote.terminal";
 
+/** How a window of the operator's terminal opens, as a template; read like `START_ID`. */
+export const DESK_ID = "remote.deskTerminal";
+
 export function portOf(value: unknown): number | undefined {
 	const number = typeof value === "number" && Number.isInteger(value) ? value : undefined;
 	if (number === undefined || number < 1 || number > 65_535) return undefined;

@@ -70,9 +70,9 @@ describe("the command", () => {
 	});
 
 	test("names a command it does not know, and shows the usage", async () => {
-		const result = await command(["detach"]);
+		const result = await command(["unplug"]);
 		expect(result.code).toBe(2);
-		expect(result.err.join("\n")).toContain('unknown command "detach"');
+		expect(result.err.join("\n")).toContain('unknown command "unplug"');
 		expect((await command([])).code).toBe(2);
 	});
 });

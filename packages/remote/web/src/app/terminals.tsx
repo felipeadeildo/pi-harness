@@ -1,16 +1,22 @@
 // The terminals of one of the owner's machines: every session of its remote tmux, the shells and
 // the pi sessions started from the page, and a new shell in a folder.
 import { listTerminals, newTerminal, type TerminalInfo } from "@adeildo/pi-remote-protocol/client";
-import { ComputerTerminal01Icon } from "@hugeicons/core-free-icons";
+import { ComputerTerminal01Icon, MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { type FormEvent, type ReactNode, useCallback, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { ago, shortPath } from "@/session/format.ts";
 import { terminalHref } from "@/session/terminal-data.ts";
 import { whyOf } from "@/session/why.ts";
 
+import { DeskItems, DeskNote, useDesk } from "./desk.tsx";
 import { Icon, useNow } from "./kit.tsx";
 import { MachinePick, useChosenMachine } from "./machine-pick.tsx";
 import { Loaded, Quiet, useRead } from "./read.tsx";
@@ -46,7 +52,7 @@ function On({ machine }: { machine: string }): ReactNode {
 				value.allowed ? (
 					<>
 						<NewShell machine={machine} />
-						<Terminals machine={machine} terminals={value.terminals} />
+						<Terminals machine={machine} terminals={value.terminals} again={again} />
 					</>
 				) : (
 					<Off machine={machine} />
@@ -125,11 +131,14 @@ function NewShell({ machine }: { machine: string }): ReactNode {
 function Terminals({
 	machine,
 	terminals,
+	again,
 }: {
 	machine: string;
 	terminals: readonly TerminalInfo[];
+	again: () => void;
 }): ReactNode {
 	const now = useNow(60_000);
+	const desk = useDesk(machine, again);
 	if (terminals.length === 0) return <Quiet>No terminal is open there yet.</Quiet>;
 	return (
 		<section aria-labelledby="open-terminals" className="flex flex-col gap-1">
@@ -138,10 +147,10 @@ function Terminals({
 			</h2>
 			<ul className="-mx-2.5 flex flex-col">
 				{terminals.map((one) => (
-					<li key={one.name}>
+					<li key={one.name} className="flex items-center gap-1">
 						<Link
 							to={terminalHref(machine, one.name)}
-							className="flex min-w-0 items-center gap-3 rounded-lg px-2.5 py-2.5 outline-none hover:bg-accent/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+							className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2.5 py-2.5 outline-none hover:bg-accent/60 focus-visible:ring-3 focus-visible:ring-ring/50"
 						>
 							<Icon icon={ComputerTerminal01Icon} className="size-4.5 text-pi" />
 							<span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -157,9 +166,21 @@ function Terminals({
 							</span>
 							<span className="tabular shrink-0 text-[12px] text-dim">{ago(one.created, now)}</span>
 						</Link>
+						<DropdownMenu>
+							<DropdownMenuTrigger
+								render={<Button variant="ghost" size="icon" className="size-10 shrink-0" />}
+								aria-label={`More for ${one.name}`}
+							>
+								<Icon icon={MoreVerticalIcon} className="size-[18px]" />
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end" className="w-auto">
+								<DeskItems terminal={one} machine={machine} desk={desk} />
+							</DropdownMenuContent>
+						</DropdownMenu>
 					</li>
 				))}
 			</ul>
+			<DeskNote desk={desk} />
 		</section>
 	);
 }

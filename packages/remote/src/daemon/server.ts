@@ -220,6 +220,14 @@ export class Daemon {
 			);
 			return;
 		}
+		// `pi-remote move` asks which pi runs in a session of the remote's tmux.
+		if (message.type === "session.of") {
+			const pid = isObject(message.data) ? message.data.pid : undefined;
+			const found = typeof pid === "number" ? this.sessions.resumable(pid) : undefined;
+			return found === undefined
+				? answer("error", { reason: "no pi the remote knows has that pid" })
+				: answer("reply", found);
+		}
 		if (message.type !== "token.issue") return answer("error", { reason: "unknown command" });
 		if (this.clientPort === undefined)
 			return answer("error", {

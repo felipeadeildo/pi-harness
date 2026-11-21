@@ -1,6 +1,6 @@
-import { boolean, type Decoder, integer, setting } from "@adeildo/pi-kit";
+import { boolean, type Decoder, integer, setting, string } from "@adeildo/pi-kit";
 
-import { CLIENT_PORT, PORT_ID, START_ID, TERMINAL_ID } from "./places.ts";
+import { CLIENT_PORT, DESK_ID, PORT_ID, START_ID, TERMINAL_ID } from "./places.ts";
 
 const REMOTE_SECTION = "Remote";
 
@@ -53,5 +53,17 @@ export const terminal = setting<boolean>({
 		label: "Terminals from the page",
 		description:
 			"Lets the page open a shell on this machine, in the remote's own tmux, and type in the sessions running there. Anyone logged in to the remote can then run any command here. Only the global setting counts.",
+	},
+});
+
+export const deskTerminal = setting<string>({
+	id: DESK_ID,
+	default: "",
+	decoder: string,
+	ui: {
+		section: REMOTE_SECTION,
+		label: "Terminal for windows",
+		description:
+			"The program that opens a session of the remote's tmux in a window of this machine, from the page or pi-remote window. {cmd} stands for what runs in it and {cwd} for its folder, as in kitty --directory {cwd} {cmd}. Empty uses $TERMINAL -e, then xdg-terminal-exec. Only the global setting counts.",
 	},
 });

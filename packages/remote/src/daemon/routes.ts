@@ -6,6 +6,7 @@ import { isObject, PROTOCOL } from "@adeildo/pi-remote-protocol";
 
 import { isAppFile, serveApp, type WebApp } from "./app.ts";
 import { type Asking, authorize, cookieOf, type Logins, loginCookie } from "./auth.ts";
+import { type TerminalAction, TERMINAL_ACTIONS } from "./desk.ts";
 import { changesAt, diffAt, fileAt, folderAt } from "./files.ts";
 import { History, PAGE } from "./history.ts";
 import type { Machine, Machines } from "./machines.ts";
@@ -94,6 +95,12 @@ export class Routes {
 			path: /^\/machines\/([^/]+)\/terminals$/,
 			machine: 0,
 			answer: (routes, asked) => routes.#here(asked) && routes.#terminalNew(asked),
+		},
+		{
+			method: "POST",
+			path: new RegExp(`^/machines/([^/]+)/terminals/([^/]+)/(${TERMINAL_ACTIONS.join("|")})$`),
+			machine: 0,
+			answer: (routes, asked) => routes.#here(asked) && routes.#terminalAct(asked),
 		},
 		...(["opening", "entries", "files", "file", "changes", "diff"] as const).map((what): Route => ({
 			method: "GET",
@@ -306,7 +313,25 @@ export class Routes {
 		const { machine } = this.#options;
 		if (!this.terminals.allowed()) return reply(response, 200, { allowed: false, terminals: [] });
 		this.terminals.list(machine).then(
-			(terminals) => reply(response, 200, { allowed: true, terminals }),
+			(terminals) =>
+				reply(response, 200, {
+					allowed: true,
+					terminals: terminals.map(({ pid, ...terminal }) => {
+						const session = this.#options.sessions.resumable(pid)?.session;
+						return session === undefined ? terminal : { ...terminal, session };
+					}),
+				}),
+			(error: unknown) => reply(response, ...refusalOf(error)),
+		);
+	}
+
+	#terminalAct({ response, parts: [, part = "", action = ""] }: Asked): void {
+		const { machine } = this.#options;
+		const name = decoded(part) ?? "";
+		const find = (pid: number) => Promise.resolve(this.#options.sessions.resumable(pid));
+		// The route's pattern lets only an action through.
+		this.terminals.act(name, action as TerminalAction, machine, find).then(
+			() => reply(response, 200, { machine, name }),
 			(error: unknown) => reply(response, ...refusalOf(error)),
 		);
 	}

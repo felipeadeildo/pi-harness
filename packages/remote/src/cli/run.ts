@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { findWebDir } from "../daemon/app.ts";
+import { Desk } from "../daemon/desk.ts";
 import { Daemon } from "../daemon/server.ts";
 import { readTailnet, type Tailnet } from "../daemon/tailnet.ts";
 import {
@@ -17,8 +18,10 @@ import {
 } from "../places.ts";
 import { VERSION } from "../version.ts";
 import { open } from "./open.ts";
+import { act, type DeskVerbs, list, move } from "./sessions.ts";
 
-const USAGE = "usage: pi-remote --version | open | attach | serve [--dev] [--port <n>]";
+const USAGE =
+	"usage: pi-remote --version | open | ls | attach [name] | window|detach|stop|move <name> | serve [--dev] [--port <n>]";
 
 export function run(
 	args: readonly string[],
@@ -34,12 +37,20 @@ export function run(
 	if (first === "serve") return serve(rest, out, err, options);
 	if (first === "open") return open(daemonPaths(daemonDir()).socket, out, err);
 	if (first === "attach") {
-		if (rest.length > 0) {
-			err(`pi-remote: attach takes no arguments\n${USAGE}`);
+		if (rest.length > 1) {
+			err(`pi-remote: attach takes at most a session's name\n${USAGE}`);
 			return 2;
 		}
-		return attach(options.tmux ?? "tmux", err);
+		return attach(options.tmux ?? "tmux", rest[0], err);
 	}
+	if (
+		first === "ls" ||
+		first === "window" ||
+		first === "detach" ||
+		first === "stop" ||
+		first === "move"
+	)
+		return desk(first, rest, out, err, options);
 	err(first === undefined ? USAGE : `pi-remote: unknown command "${first}"\n${USAGE}`);
 	return 2;
 }
@@ -54,6 +65,9 @@ export interface RunOptions {
 	/** So a test sees `serve` outlast a pi-started daemon. */
 	idleExitMs?: number;
 	tailnet?: () => Promise<Tailnet | undefined>;
+	/** What opens a window, and what resumes pi here; a test passes fakes. */
+	launch?: (argv: readonly string[], cwd: string) => Promise<void>;
+	resume?: (args: readonly string[], cwd: string) => Promise<number>;
 }
 
 /** Runs the daemon in the foreground, never idling out. `--dev` runs `src/` under `bun --watch`. */
@@ -97,18 +111,64 @@ async function serve(
 	return 0;
 }
 
-/** Opens the remote's tmux in this terminal, and ends with tmux's exit code. */
-async function attach(tmux: string, err: (line: string) => void): Promise<number> {
-	const has = await exitOf(tmux, ["-L", TMUX_SOCKET, "has-session"], "ignore");
+/** The sessions of the remote's tmux; every verb but `ls` names one. */
+async function desk(
+	verb: "ls" | "window" | "detach" | "stop" | "move",
+	names: readonly string[],
+	out: (line: string) => void,
+	err: (line: string) => void,
+	options: RunOptions,
+): Promise<number> {
+	const [name] = names;
+	if (verb === "ls" && names.length > 0) {
+		err(`pi-remote: ls takes no arguments\n${USAGE}`);
+		return 2;
+	}
+	if (verb !== "ls" && names.length !== 1) {
+		err(`pi-remote: ${verb} takes a session's name\n${USAGE}`);
+		return 2;
+	}
+	const verbs: DeskVerbs = {
+		desk: new Desk({
+			...(options.tmux === undefined ? {} : { tmux: options.tmux }),
+			...(options.env === undefined ? {} : { env: options.env }),
+			...(options.launch === undefined ? {} : { launch: options.launch }),
+		}),
+		socket: daemonPaths(daemonDir(options.env)).socket,
+		out,
+		...(options.resume === undefined ? {} : { resume: options.resume }),
+	};
+	try {
+		if (verb === "ls" || name === undefined) return await list(verbs);
+		if (verb === "move") return await move(name, verbs);
+		return await act(verb, name, verbs);
+	} catch (error) {
+		err(`pi-remote: ${error instanceof Error ? error.message : String(error)}`);
+		return 1;
+	}
+}
+
+/** Opens the remote's tmux, or one session of it, in this terminal, and ends with tmux's exit code. */
+async function attach(
+	tmux: string,
+	name: string | undefined,
+	err: (line: string) => void,
+): Promise<number> {
+	const target = name === undefined ? [] : ["-t", `=${name}`];
+	const has = await exitOf(tmux, ["-L", TMUX_SOCKET, "has-session", ...target], "ignore");
 	if (has === undefined) {
 		err("pi-remote: attach needs tmux on PATH");
 		return 1;
 	}
 	if (has !== 0) {
-		err(`pi-remote: no session runs in the remote's tmux (tmux -L ${TMUX_SOCKET})`);
+		err(
+			name === undefined
+				? `pi-remote: no session runs in the remote's tmux (tmux -L ${TMUX_SOCKET})`
+				: `pi-remote: no session named ${name} in the remote's tmux: pi-remote ls lists them`,
+		);
 		return 1;
 	}
-	return (await exitOf(tmux, ["-L", TMUX_SOCKET, "attach"], "inherit")) ?? 1;
+	return (await exitOf(tmux, ["-L", TMUX_SOCKET, "attach", ...target], "inherit")) ?? 1;
 }
 
 /** Undefined when the program does not start. */

@@ -5,25 +5,19 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 
 import { globalSetting, TERMINAL_ID, TMUX_SOCKET } from "../places.ts";
+import {
+	Desk,
+	type DeskSession,
+	NAME,
+	onPath,
+	type Resumable,
+	type TerminalAction,
+} from "./desk.ts";
 import { Refused } from "./refused.ts";
 import { EXTENDED_KEYS, folderOf, run } from "./tmux.ts";
 
 /** `send-keys -H` takes one argument per byte; a long paste goes in several commands. */
 const KEYS_PER_COMMAND = 256;
-/** The folder last, so a tab in its name stays in it. */
-const FIELDS = "#{session_name}\t#{pane_current_command}\t#{session_created}\t#{pane_current_path}";
-/** Letters, digits, `_` and `-` only: a name goes into tmux commands. */
-const NAME = /^[\w-]{1,80}$/;
-
-export interface TerminalInfo {
-	name: string;
-	/** Where its shell stands now. */
-	folder: string;
-	/** What runs in it now, as `fish` or `pi`. */
-	command: string;
-	/** In ms. */
-	created: number;
-}
 
 export interface Size {
 	cols: number;
@@ -44,13 +38,19 @@ export interface TerminalOptions {
 	/** The global setting by default, never a project's. */
 	allowed?: () => boolean;
 	tmux?: string;
+	desk?: Desk;
+	/** Found on PATH by default. */
+	pi?: string;
 }
 
 export class Terminals {
 	readonly #options: TerminalOptions;
+	/** The tmux verbs, which the page reaches only through the checks here. */
+	readonly #desk: Desk;
 
 	constructor(options: TerminalOptions = {}) {
 		this.#options = options;
+		this.#desk = options.desk ?? new Desk(options.tmux === undefined ? {} : { tmux: options.tmux });
 	}
 
 	allowed(): boolean {
@@ -58,18 +58,37 @@ export class Terminals {
 	}
 
 	/** Every session of the remote's tmux, pi's included; none when its server is not running. */
-	async list(machine: string): Promise<TerminalInfo[]> {
+	list(machine: string): Promise<DeskSession[]> {
 		this.#check(machine);
-		const ran = await run(this.#tmux, ["-L", TMUX_SOCKET, "list-sessions", "-F", FIELDS]);
-		if (ran.code === undefined) throw new Refused(503, `tmux is not installed on ${machine}`);
-		if (ran.code !== 0) return [];
-		return ran.out
-			.split("\n")
-			.filter(Boolean)
-			.map((line) => {
-				const [name = "", command = "", created = "0", ...folder] = line.split("\t");
-				return { name, folder: folder.join("\t"), command, created: Number(created) * 1000 };
-			});
+		return this.#desk.sessions(machine);
+	}
+
+	/**
+	 * What the page may do to a session: open it in a window of this machine, let go of the windows
+	 * that show it, or end it. `move` ends a pi and resumes its session in a window, outside tmux.
+	 */
+	async act(
+		name: string,
+		action: TerminalAction,
+		machine: string,
+		find: (pid: number) => Promise<Resumable | undefined>,
+	): Promise<void> {
+		this.#check(machine);
+		switch (action) {
+			case "window":
+				return this.#desk.window(name, machine);
+			case "detach":
+				await this.#desk.detach(name, machine);
+				return;
+			case "stop":
+				return this.#desk.stop(name, machine);
+			case "move": {
+				const pi = this.#options.pi ?? (await onPath("pi"));
+				if (pi === undefined) throw new Refused(503, `pi is not on ${machine}'s PATH`);
+				const { args, cwd } = await this.#desk.release(name, machine, find);
+				return this.#desk.open([pi, ...args], cwd, machine);
+			}
+		}
 	}
 
 	/** A new shell in the folder; its name opens it. */

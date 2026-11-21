@@ -43,17 +43,29 @@ It needs tmux on the machine, and it is off until you turn it on there: open `/h
 
 It is off until you turn it on at that machine: open `/harness` in pi there, and turn on **Terminals from the page** under Remote. Once it is on, anyone logged in to the remote can run any command on that machine.
 
+## Taking a session to the desk
+
+A session in the remote's tmux has a menu, in **Terminals** and on the session's screen under the terminal button. **Open in a window** opens it in a window of your terminal on that machine. **Move pi to a window** ends pi in tmux once the agent is idle and resumes the same conversation in a window, outside tmux. **Close its windows** lets go of the windows that show it, and it runs on. **End the session** ends it.
+
+The window uses `$TERMINAL`, such as Ghostty. To use another, set **Terminal for windows** under Remote in `/harness`, as in `kitty --directory {cwd} {cmd}`. From a terminal of that machine, `pi-remote ls` lists the sessions and `pi-remote move <name>` resumes one right there.
+
 ## Commands
 
 You never start the daemon by hand. Pi starts it when you open a session, and it exits after five minutes with no session and no terminal open.
 
-| Command                 | What it does                                                               |
-| ----------------------- | -------------------------------------------------------------------------- |
-| `pi-remote open`        | Prints the link and opens it with `$BROWSER` or the system's opener        |
-| `pi-remote attach`      | Opens the sessions the page started (`tmux -L pi-remote`) in this terminal |
-| `pi-remote serve`       | Runs the daemon in the foreground, and it never exits for being idle       |
-| `pi-remote serve --dev` | Runs it from the sources under `bun --watch`, so saving a file restarts it |
-| `pi-remote --version`   | Prints the version the launcher points at                                  |
+| Command                   | What it does                                                               |
+| ------------------------- | -------------------------------------------------------------------------- |
+| `pi-remote open`          | Prints the link and opens it with `$BROWSER` or the system's opener        |
+| `pi-remote attach`        | Opens the sessions the page started (`tmux -L pi-remote`) in this terminal |
+| `pi-remote attach <name>` | Opens that session only                                                    |
+| `pi-remote ls`            | Lists the remote's tmux sessions: name, program, windows and folder        |
+| `pi-remote window <name>` | Opens the session in a new window of your terminal                         |
+| `pi-remote detach <name>` | Closes the windows that show it, and it runs on                            |
+| `pi-remote stop <name>`   | Ends the session and what runs in it                                       |
+| `pi-remote move <name>`   | Ends pi in tmux and resumes its session in this terminal                   |
+| `pi-remote serve`         | Runs the daemon in the foreground, and it never exits for being idle       |
+| `pi-remote serve --dev`   | Runs it from the sources under `bun --watch`, so saving a file restarts it |
+| `pi-remote --version`     | Prints the version the launcher points at                                  |
 
 Both `serve` forms take `--port`, which is 7878 by default, and the link uses the port the daemon opened.
 
