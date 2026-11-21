@@ -41,9 +41,8 @@ async function openScreen(scope: FeatureScope, ctx: ExtensionContext, tab: strin
 	for (;;) {
 		// oxlint-disable-next-line no-await-in-loop -- one screen at a time
 		const result = await ctx.ui.custom<ScreenResult>(
-			(tui, theme, _keybindings, done) => {
-				return new ScreenView({ tui, theme, events: scope.events, model, done });
-			},
+			(tui, theme, _keybindings, done) =>
+				new ScreenView({ tui, theme, events: scope.events, model, done }),
 			{ overlay: true, overlayOptions: { width: "100%", maxHeight: "100%", anchor: "top-left" } },
 		);
 		if (result?.kind !== "edit") return;
