@@ -56,7 +56,7 @@ turns `dim`.
 
 | Shape        | Where                         | Size                                             |
 | ------------ | ----------------------------- | ------------------------------------------------ |
-| Panel        | `Alt+G` rooms, `Alt+T` board  | The whole terminal                               |
+| Panel        | `Alt+G` rooms                 | The whole terminal                               |
 | Full screen  | `Alt+S` settings              | The whole terminal                               |
 | Inline       | Questions, permission         | In place of the editor, full width, content tall |
 | Small dialog | Accounts, login, model picker | Narrow, centered, one short list                 |

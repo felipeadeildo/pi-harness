@@ -8,7 +8,6 @@ import {
 	GitBranchIcon,
 	GitCompareIcon,
 	InformationCircleIcon,
-	KanbanIcon,
 	WifiDisconnected01Icon,
 } from "@hugeicons/core-free-icons";
 import { cn } from "cn";
@@ -30,7 +29,6 @@ import { piColor } from "@/ui/pi-colors.ts";
 import { useScheme } from "@/ui/use-scheme.ts";
 
 import { DoingLine, doingOf } from "./activity.tsx";
-import { Board, openCards } from "./board.tsx";
 import { Composer } from "./composer.tsx";
 import { DeskNote, TerminalMenu, useSessionDesk } from "./desk.tsx";
 import { Details } from "./details.tsx";
@@ -38,7 +36,7 @@ import { AgentName, Icon, Panel, useWide } from "./kit.tsx";
 import { FoldedQuestion, QuestionPanel } from "./question.tsx";
 import { Transcript } from "./transcript.tsx";
 
-type Side = "board" | "details" | undefined;
+type Side = "details" | undefined;
 
 export function Component(): ReactNode {
 	const { machine = "", id = "" } = useParams();
@@ -74,7 +72,6 @@ export function Component(): ReactNode {
 	const writing = parts.findLast((part) => part.kind === "toolCall")?.name;
 	const doing = doingOf(activity, status, waits, writing);
 	const mark = markFor(status, waits);
-	const cards = openCards(state.board);
 	const wait = terminalWait(state.prompt);
 	const cwd = session.summary?.cwd ?? listed?.summary?.cwd ?? listed?.live.cwd;
 	const branch = state.branch ?? listed?.state.branch;
@@ -126,20 +123,6 @@ export function Component(): ReactNode {
 							)}
 						</div>
 					</div>
-					<Button
-						variant="ghost"
-						className="relative h-10 gap-1.5 px-2.5"
-						aria-label={cards === 0 ? "Board" : `Board, ${cards} open`}
-						onClick={() => setSide("board")}
-					>
-						<Icon icon={KanbanIcon} className="size-[18px]" />
-						<span className="hidden text-[13px] sm:inline">Board</span>
-						{cards === 0 ? null : (
-							<span className="tabular rounded-full bg-secondary px-1.5 text-[11px] font-semibold text-foreground">
-								{cards}
-							</span>
-						)}
-					</Button>
 					<Link
 						to={filesHref({ machine, session: id })}
 						className={cn(buttonVariants({ variant: "ghost" }), "h-10 gap-1.5 px-2.5")}
@@ -226,20 +209,8 @@ export function Component(): ReactNode {
 					<h2 className="text-xs font-semibold text-muted-foreground">Session</h2>
 					<Details session={session} />
 				</section>
-				<section className="flex flex-col gap-3">
-					<h2 className="text-xs font-semibold text-muted-foreground">Board</h2>
-					<Board board={state.board} />
-				</section>
 			</aside>
 
-			<Panel
-				open={side === "board"}
-				onOpenChange={(open) => setSide(open ? "board" : undefined)}
-				title={`${name}'s board`}
-				tall
-			>
-				<Board board={state.board} />
-			</Panel>
 			<Panel
 				open={side === "details"}
 				onOpenChange={(open) => setSide(open ? "details" : undefined)}

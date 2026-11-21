@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 
-import { type BoardOp, foldBoard } from "@adeildo/pi-kit";
 import {
 	type KeybindingsManager,
 	type ReadonlyFooterDataProvider,
@@ -212,17 +211,11 @@ describe("editor", () => {
 });
 
 function stripLines(data: ReturnType<typeof snapshot>): number {
-	return new StripComponent(screen(data, { slots: { stripRight: ["board"] } })).render(90).length;
+	return new StripComponent(screen(data, { slots: { stripRight: ["peers"] } })).render(90).length;
 }
 
-/** A card being done, and the ones after it to do. */
-function boardOf(doing: string, ...todo: string[]) {
-	const ops: BoardOp[] = [
-		{ op: "add", title: doing, column: "doing", at: 1 },
-		...todo.map((title): BoardOp => ({ op: "add", title, at: 1 })),
-	];
-	return foldBoard(ops, "operator");
-}
+/** Agents in this folder's room, as the peers segment draws them on the right of the strip. */
+const peers = [{ handle: "oauth", color: "syntaxFunction", state: "idle" as const }];
 
 describe("strip and footer", () => {
 	test("the strip keeps its line before there is an answer, so the editor never jumps", () => {
@@ -234,61 +227,26 @@ describe("strip and footer", () => {
 		expect(new StripComponent(screen(data)).render(80).map(plain)).toEqual(["  answered in 0:09"]);
 	});
 
-	test("the board sits on the right of the strip when there is room, and under it when not", () => {
-		const board = boardOf("draw the strip");
+	test("the peers sit on the right of the strip when there is room, and under it when not", () => {
 		const data = snapshot({
-			board,
+			peers,
 			run: { running: false, elapsedMs: 9_000, requests: 1, cost: 0 },
 		});
-		const strip = new StripComponent(screen(data, { slots: { stripRight: ["board"] } }));
+		const strip = new StripComponent(screen(data, { slots: { stripRight: ["peers"] } }));
 
 		const [wide = ""] = strip.render(100).map(plain);
 		expect(strip.render(100)).toHaveLength(1);
-		expect(wide).toMatch(/^ {2}answered in 0:09 +> draw the strip$/);
+		expect(wide).toMatch(/^ {2}answered in 0:09 +@ oauth$/);
 		expect(wide).toHaveLength(98);
 
-		// Narrower than the room kept for the strip: the board gets its own line, on the left.
-		expect(strip.render(70).map(plain)).toEqual(["  answered in 0:09", "  > draw the strip"]);
+		// Narrower than the room kept for the strip: the peers get their own line, on the left.
+		expect(strip.render(60).map(plain)).toEqual(["  answered in 0:09", "  @ oauth"]);
 	});
 
-	test("on its own line a long step uses the whole width, and its words give way before its counts", () => {
-		// A card title has at most eight words, so the long one is made of long words.
-		const step = "verifying standalone lines truncate exceptionally lengthy deliverable titles";
-		const board = boardOf(step, "frame");
-		const strip = new StripComponent(
-			screen(snapshot({ board }), { slots: { stripRight: ["board"] } }),
-		);
-
-		expect(strip.render(100).map(plain)).toEqual(["", `  > ${step}  1 queued`]);
-		const [, cut = ""] = strip.render(60).map(plain);
-		expect(cut).toHaveLength(58);
-		expect(cut).toEndWith("...  1 queued");
-	});
-
-	test("beside a busy strip the board keeps its counts, and the strip gives way", () => {
-		const board = boardOf("draw the strip", "frame");
+	test("the strip's width does not move the peers between lines", () => {
+		const idle = snapshot({ peers });
 		const busy = snapshot({
-			board,
-			run: { running: true, elapsedMs: 3_600_000, requests: 40, cost: 0 },
-			last: {
-				firstTokenMs: 6_600,
-				generationMs: 3_300,
-				output: 900,
-				prompt: 1000,
-				elapsedMs: 9_000,
-			} as never,
-		});
-		const [line = ""] = new StripComponent(screen(busy, { slots: { stripRight: ["board"] } }))
-			.render(100)
-			.map(plain);
-		expect(line).toEndWith("> draw the strip  1 queued");
-	});
-
-	test("the strip's width does not move the board between lines", () => {
-		const board = boardOf("draw the strip");
-		const idle = snapshot({ board });
-		const busy = snapshot({
-			board,
+			peers,
 			run: { running: true, elapsedMs: 3_600_000, requests: 40, cost: 0 },
 		});
 		expect(stripLines(idle)).toBe(stripLines(busy));

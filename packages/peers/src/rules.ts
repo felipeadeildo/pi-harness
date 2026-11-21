@@ -1,7 +1,6 @@
 // Plain functions of the folder, so every session reaches the same answer without asking.
 import type { Delivery } from "@adeildo/pi-kit";
 
-import { openCards } from "./cards.ts";
 import type { Peer, Posted } from "./folder.ts";
 
 export const BID_WINDOW_MS = 6_000;
@@ -18,7 +17,7 @@ export type Award =
 	| { kind: "ranked"; order: string[]; closedAt: number }
 	| { kind: "taken"; by: string };
 
-/** Idle before busy, best fit, fewest open cards, oldest session. */
+/** Idle before busy, best fit, oldest session. */
 export function award(request: Posted, live: readonly Peer[], now: number): Award {
 	if (request.takenBy !== undefined) return { kind: "taken", by: request.takenBy };
 	// A session the operator has not written in yet does not bid, so it is not waited for.
@@ -38,7 +37,6 @@ export function award(request: Posted, live: readonly Peer[], now: number): Awar
 			const peerB = open.get(b);
 			return (
 				bidB.fit - bidA.fit ||
-				openCards(peerA) - openCards(peerB) ||
 				(peerA?.startedAt ?? 0) - (peerB?.startedAt ?? 0) ||
 				a.localeCompare(b)
 			);

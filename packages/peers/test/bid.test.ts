@@ -28,16 +28,11 @@ const me: Peer = {
 	state: "idle",
 	edited: new Map([["src/fleet.ts", 1]]),
 	ran: [],
-	commits: [],
-	board: {
-		open: [{ id: "c2", title: "Expose the fleet", column: "doing", at: 1 }],
-		backlog: 3,
-		done: [{ id: "c1", title: "Count the IPs", column: "done", at: 1 }],
-	},
+	commits: [{ sha: "abc1234", subject: "Count the IPs", at: 1 }],
 };
 
 describe("the bid", () => {
-	test("the model reads the session's board, open cards first, then what it edited", async () => {
+	test("the model reads what the session edited and committed", async () => {
 		const { asked, registry } = bidding();
 		const fit = await fitFor(
 			registry,
@@ -48,19 +43,13 @@ describe("the bid", () => {
 		);
 		expect(fit).toEqual({ fit: 0.7, reason: "same work" });
 		expect(asked[0]).toBe(
-			[
-				"Request: add /v1/fleet",
-				"",
-				"- doing: Expose the fleet",
-				"- done: Count the IPs",
-				"Edited: src/fleet.ts",
-			].join("\n"),
+			["Request: add /v1/fleet", "", "Edited: src/fleet.ts", "Committed: Count the IPs"].join("\n"),
 		);
 	});
 
-	test("a session with nothing on its board says so", async () => {
+	test("a session that touched nothing says so", async () => {
 		const { asked, registry } = bidding();
-		const { board: _, ...bare } = me;
+		const bare = { ...me, commits: [] };
 		await fitFor(
 			registry,
 			[{} as never],
@@ -68,6 +57,8 @@ describe("the bid", () => {
 			{ ...bare, edited: new Map() },
 			AbortSignal.timeout(1000),
 		);
-		expect(asked[0]).toBe("Request: add /v1/fleet\n\nThe session has nothing on its board yet.");
+		expect(asked[0]).toBe(
+			"Request: add /v1/fleet\n\nThe session has not edited or committed anything yet.",
+		);
 	});
 });

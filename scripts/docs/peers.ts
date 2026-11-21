@@ -6,7 +6,6 @@ import { join } from "node:path";
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
-import { type BoardCard, type BoardView } from "../../packages/kit/src/index.ts";
 import type { Here, Hooks } from "../../packages/peers/src/here.ts";
 import { Rooms } from "../../packages/peers/src/rooms.ts";
 import { PeersPanel } from "../../packages/peers/src/ui/panel.ts";
@@ -63,14 +62,8 @@ export async function peersRoom(
 		return rooms;
 	}
 
-	/** A board as the board feature hands it to the rooms: open cards, then the last done. */
-	function board(open: Omit<BoardCard, "at">[], done: Omit<BoardCard, "at">[] = []): BoardView {
-		const dated = (cards: Omit<BoardCard, "at">[]) => cards.map((card) => ({ ...card, at: now }));
-		return { open: dated(open), backlog: 0, done: dated(done) };
-	}
-
 	try {
-		// Opened in this order so the board reads in the same order on every machine.
+		// Opened in this order so the panel reads in the same order on every machine.
 		const oauthRooms = session("9c1e-oauth", 0.82);
 		now += SECOND;
 		const migrationRooms = session("77b0-migration", 0.37);
@@ -82,40 +75,17 @@ export async function peersRoom(
 
 		oauth.log("session.named", { handle: "oauth" });
 		oauth.log("session.state", { state: "running" });
-		oauth.log("board.changed", {
-			view: board([
-				{ id: "c1", title: "Fix the OAuth callback", column: "doing" },
-				{
-					id: "c2",
-					title: "Push to main",
-					column: "todo",
-					blocked: { on: "operator", why: "needs your go-ahead" },
-				},
-			]),
-		});
 		oauth.log("activity", { kind: "edited", path: "src/auth.ts" });
 		oauth.log("activity", { kind: "edited", path: "src/session.ts" });
 		oauth.log("activity", { kind: "ran", command: "bun test src/auth", ok: true });
 
 		migration.log("session.named", { handle: "migration" });
-		migration.log("board.changed", {
-			view: board(
-				[
-					{ id: "c2", title: "Move the sessions table", column: "doing" },
-					{ id: "c3", title: "Tick the schema off the list", column: "todo" },
-				],
-				[{ id: "c1", title: "Move the users table", column: "done", result: "7e1c208, 41 tests" }],
-			),
-		});
 
 		migration.log("session.state", { state: "running" });
 		migrationRooms.setMode(undefined, "listening");
 
 		me.log("session.named", { handle: "docs" });
 		me.log("session.state", { state: "running" });
-		me.log("board.changed", {
-			view: board([{ id: "c1", title: "Rewrite the README", column: "doing" }]),
-		});
 		me.log("activity", { kind: "edited", path: "packages/peers/README.md" });
 		me.log("activity", { kind: "edited", path: "packages/kit/src/ui/entry.ts" });
 		me.log("activity", { kind: "ran", command: "bun run docs", ok: true });

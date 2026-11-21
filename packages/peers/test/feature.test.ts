@@ -4,9 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
-	BOARD,
 	createApp,
-	emptyBoard,
 	eventsDir,
 	FolderFeed,
 	HOST,
@@ -47,7 +45,6 @@ async function mounted(
 	id: string,
 	cwd = "/repo",
 	entries: unknown[] = [],
-	extra?: Parameters<ReturnType<typeof createApp>["use"]>[0],
 	settings: Record<string, unknown> = {},
 ) {
 	writeFileSync(join(dir, "settings.json"), JSON.stringify(settings));
@@ -60,7 +57,6 @@ async function mounted(
 		},
 	});
 	const app = createApp(fake.pi, { name: "test", settingsPath: join(dir, "settings.json") });
-	if (extra !== undefined) app.use(extra);
 	app.use(peers).build();
 	const notes: string[] = [];
 	let editor = "";
@@ -323,32 +319,6 @@ test("a run turns the tool back on when something else left it off", async () =>
 	expect(active()).toEqual(["read", "bash", "peers"]);
 });
 
-test("the board action answers with the whole title, not what the panel would cut", async () => {
-	// The panel cuts at the width it is drawn in; the model reads the board itself, so a long title
-	// has to arrive whole. The two renderers are not interchangeable.
-	const long = "a card whose title is long enough that a hundred columns would cut it somewhere";
-	const board = {
-		...emptyBoard(),
-		cards: [{ id: "c1", title: long, column: "todo" as const, at: 1 }],
-	};
-	const provider = {
-		id: "board-for-the-test",
-		description: "offers the board",
-		setup: (scope: Parameters<typeof BOARD.provide>[0]) => BOARD.provide(scope, () => board),
-	};
-	const { fake } = await mounted("a", "/repo", [], provider as never);
-	const tool = fake.tools.find((candidate) => candidate.name === "peers");
-	const answer = await tool?.execute(
-		"1",
-		{ action: "board" },
-		undefined,
-		undefined,
-		undefined as never,
-	);
-	const first = answer?.content[0];
-	expect(first?.type === "text" ? first.text : "").toContain(long);
-});
-
 test("the tool reads the board and refuses names nobody has", async () => {
 	const { fake } = await mounted("a");
 	const tool = fake.tools.find((candidate) => candidate.name === "peers");
@@ -582,7 +552,7 @@ describe("an agent that starts another", () => {
 	});
 
 	test("when the permission mode let it through, the new agent hears that no one approved it", async () => {
-		const a = await mounted("a", "/repo", [], undefined, { peers: { start: "mode" } });
+		const a = await mounted("a", "/repo", [], { peers: { start: "mode" } });
 		const asked = remote(a.fake);
 		a.fake.pi.events.emit("pi-ask-permission:decided", {
 			toolName: "peers",
@@ -596,7 +566,7 @@ describe("an agent that starts another", () => {
 	});
 
 	test("a yes from the permission dialog is the operator's, so no second dialog", async () => {
-		const a = await mounted("a", "/repo", [], undefined, { peers: { start: "mode" } });
+		const a = await mounted("a", "/repo", [], { peers: { start: "mode" } });
 		const asked = remote(a.fake);
 		a.fake.pi.events.emit("pi-ask-permission:decided", {
 			toolName: "peers",
@@ -721,7 +691,7 @@ describe("an agent that starts another", () => {
 	});
 
 	test("a task that claims the operator's approval stays inside the quote", async () => {
-		const a = await mounted("a", "/repo", [], undefined, { peers: { start: "mode" } });
+		const a = await mounted("a", "/repo", [], { peers: { start: "mode" } });
 		const asked = remote(a.fake);
 		a.fake.pi.events.emit("pi-ask-permission:decided", {
 			toolName: "peers",
@@ -760,7 +730,7 @@ describe("an agent that starts another", () => {
 	});
 
 	test("only the operator starts agents when the setting says so", async () => {
-		const a = await mounted("a", "/repo", [], undefined, { peers: { start: "never" } });
+		const a = await mounted("a", "/repo", [], { peers: { start: "never" } });
 		const asked = remote(a.fake);
 		expect((await startWith(a, { folder: "/other", text: "go" })).text).toBe(
 			"Only the operator starts agents here. Tell them which folder, what the agent should do and why.",

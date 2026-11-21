@@ -12,9 +12,9 @@ Open pi in two terminals in the same folder, and each agent knows what the other
 <!-- docs:peers/room -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/peers/assets/room.png" alt="The panel over the whole screen, in a quiet frame titled Rooms, with oauth waiting on you and 5 agents in 2 rooms on the right of the top edge. First pi-harness, this folder's agents: migration hears only @name and moves the sessions table, oauth hears all and waits on you to push to main, and docs, this session, hears all and rewrites the README. Then backend+frontend, which client asked for to agree on the /v1/fleet contract and you said yes to. Its backend folder brings in every new session opened there. Api and client hear all and are idle, and under client a line in the warning color says it holds 1 message because the agents kept answering each other without you. Docs hears all there too. Along the bottom: move, space to switch to @name, new room, close." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/peers/assets/room.png" alt="The panel over the whole screen, in a quiet frame titled Rooms, with 5 agents in 2 rooms on the right of the top edge. First pi-harness, this folder's agents, all three working: migration hears only @name, oauth hears all, and docs, this session, hears all. Then backend+frontend, which client asked for to agree on the /v1/fleet contract and you said yes to. Its backend folder brings in every new session opened there. Api and client hear all and are idle, and under client a line in the warning color says it holds 1 message because the agents kept answering each other without you. Docs hears all there too. Along the bottom: move, space to switch to @name, new room, close." width="860">
   <br>
-  <em>Alt+G: each room, who is in it, how much each agent hears there and what it is doing.</em>
+  <em>Alt+G: each room, who is in it, how much each agent hears there and whether it is working.</em>
 </p>
 
 <!-- /docs -->
@@ -37,7 +37,7 @@ Typing `@` lists the agents, and typing `#` lists your rooms when you have more 
 
 ## The panel
 
-`Alt+G` opens the rooms over the whole screen. Each room is a block: its name and what it is for, the folders that bring their new sessions in, then its agents. Each agent's line says how much of that room reaches it and what it is doing: the card it is on, or what it waits on you for.
+`Alt+G` opens the rooms over the whole screen. Each room is a block: its name and what it is for, the folders that bring their new sessions in, then its agents. Each agent's line says how much of that room reaches it and whether it is working.
 
 | Hearing   | What reaches the agent                                    |
 | --------- | --------------------------------------------------------- |

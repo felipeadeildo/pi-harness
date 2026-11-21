@@ -1,6 +1,5 @@
 // Folded by the same function on the daemon and every client.
 
-import type { BoardView } from "../board-view.ts";
 import { type By, isObject } from "../by.ts";
 import type { QueuedMessage } from "../summary.ts";
 import { applyOne, isStateChangeType } from "./entry.ts";
@@ -43,8 +42,6 @@ export interface SessionState {
 		/** Absent until a bridge said: "not said yet" is not "cannot". */
 		serves?: boolean;
 	};
-	/** Absent when no feature provides one, which is not an empty board. */
-	board?: BoardView;
 	/** Theme color names; a client resolves them in its own palette. */
 	theme?: { accent: string; color?: string };
 	/** In delivery order. */

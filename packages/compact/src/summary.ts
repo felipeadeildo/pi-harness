@@ -1,6 +1,6 @@
-// Pi's summary on the side model, with the board and your last words on top verbatim. eval/summary.ts
+// Pi's summary on the side model, with your last words on top verbatim. eval/summary.ts
 // found Haiku as good as Opus here for 1/40 of the price.
-import { type Board, type ChatModel, describeBoard } from "@adeildo/pi-kit";
+import type { ChatModel } from "@adeildo/pi-kit";
 import {
 	compact,
 	type CompactionResult,
@@ -17,7 +17,6 @@ const MAX_ASKS = 8;
 const MAX_ASK_CHARS = 400;
 
 export interface SummaryRequest {
-	board: Board;
 	preparation: CompactionPreparation;
 	instructions?: string;
 }
@@ -45,22 +44,17 @@ export async function summarize(
 		).catch(() => undefined);
 		if (signal.aborted) return undefined;
 		if (written === undefined) continue;
-		const ours = standing(request);
-		return ours === "" ? written : { ...written, summary: `${ours}\n\n${written.summary}` };
+		const asked = operatorAsks(request.preparation);
+		return asked === "" ? written : { ...written, summary: `${asked}\n\n${written.summary}` };
 	}
 	return undefined;
 }
 
-export function standing({ board, preparation }: SummaryRequest): string {
-	const parts: string[] = [];
-	const stands = describeBoard(board, { done: 20, decisions: 20 });
-	if (stands !== "") parts.push(`## Where the session stands\n${stands}`);
+/** The operator's last words in the part that pi compacts, as a heading and a list; empty without any. */
+export function operatorAsks(preparation: CompactionPreparation): string {
 	const asked = yourWords([...preparation.messagesToSummarize, ...preparation.turnPrefixMessages]);
-	if (asked.length > 0)
-		parts.push(
-			`## What the operator asked, newest last\n${asked.map((ask) => `- "${ask}"`).join("\n")}`,
-		);
-	return parts.join("\n\n");
+	if (asked.length === 0) return "";
+	return `## What the operator asked, newest last\n${asked.map((ask) => `- "${ask}"`).join("\n")}`;
 }
 
 function yourWords(messages: readonly AgentMessage[]): string[] {

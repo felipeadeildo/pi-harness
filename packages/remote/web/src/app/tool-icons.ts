@@ -7,7 +7,6 @@ import {
 	FolderOpenIcon,
 	Globe02Icon,
 	HelpCircleIcon,
-	KanbanIcon,
 	Search01Icon,
 	SourceCodeIcon,
 	UserGroupIcon,
@@ -29,7 +28,6 @@ const ICONS: Record<string, IconSvgElement> = {
 	fetch_content: Globe02Icon,
 	source_check: Globe02Icon,
 	peers: UserGroupIcon,
-	board: KanbanIcon,
 };
 
 export function toolIcon(name: string): IconSvgElement {

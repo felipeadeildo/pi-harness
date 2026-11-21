@@ -23,11 +23,10 @@ import {
 	visibleWidth,
 } from "@earendil-works/pi-tui";
 
-import { stateOf } from "../cards.ts";
 import type { Peer } from "../folder.ts";
 import type { LiveSession, Room, RoomsView } from "../model.ts";
 import { STEERS_PER_RUN } from "../rules.ts";
-import { glance, markOf, MARKS } from "./agents.ts";
+import { markOf } from "./agents.ts";
 import { FRAME_MS } from "./motion.ts";
 import { GUTTER, Picker, sessionRow } from "./picker.ts";
 
@@ -79,7 +78,7 @@ export class PeersPanel implements Component, Focusable {
 	}
 
 	moving(): boolean {
-		return this.#peers().some((peer) => stateOf(peer) === "running");
+		return this.#peers().some((peer) => peer.state === "running");
 	}
 
 	handleInput(data: string): void {
@@ -191,8 +190,7 @@ export class PeersPanel implements Component, Focusable {
 			case "agent": {
 				const label = pad(this.#agentLabel(row.peer, chosen), nameWidth);
 				const hearing = pad(this.#hearing(row.mode, chosen), HEARING_WIDTH);
-				const room = Math.max(8, width - 4 - nameWidth - HEARING_WIDTH);
-				return `${GUTTER}${lead}${label}${hearing}${this.#doing(row.peer, room)}`;
+				return `${GUTTER}${lead}${label}${hearing}${this.#activity(row.peer)}`;
 			}
 		}
 	}
@@ -219,11 +217,9 @@ export class PeersPanel implements Component, Focusable {
 		}
 	}
 
-	#doing(peer: Peer, width: number): string {
+	#activity(peer: Peer): string {
 		const { theme } = this.#options;
-		const card = glance(peer, theme, width);
-		if (card !== undefined) return card;
-		return stateOf(peer) === "running" ? theme.fg("muted", "working") : theme.fg("dim", "idle");
+		return peer.state === "running" ? theme.fg("muted", "working") : theme.fg("dim", "idle");
 	}
 
 	#holdingLine(holding: Holding, nameWidth: number, width: number): string {
@@ -265,15 +261,10 @@ export class PeersPanel implements Component, Focusable {
 				? undefined
 				: view.rooms().find((room) => room.id === this.#closing);
 		if (closing !== undefined) return theme.fg("warning", `close ${closing.name}?`);
-		const peers = this.#peers();
-		const waiting = peers.filter((peer) => stateOf(peer) === "waiting");
-		const text = theme.fg(
+		return theme.fg(
 			"dim",
-			`${plural(peers.length, "agent")}, ${plural(view.rooms().length, "room")}`,
+			`${plural(this.#peers().length, "agent")}, ${plural(view.rooms().length, "room")}`,
 		);
-		if (waiting.length === 0) return text;
-		const who = waiting.map((peer) => this.#handleOf(peer.session)).join(", ");
-		return `${theme.fg("warning", `${MARKS.waiting} ${who} ${waiting.length === 1 ? "waits" : "wait"} on you`)}   ${text}`;
 	}
 
 	#keys(): KeyHint[] {

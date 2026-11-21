@@ -12,7 +12,7 @@ export interface Fit {
 }
 
 const TOOL = "bid";
-const SYSTEM = `Several coding agents share a room, in one folder or in several. The operator asked all of them for something, and each one bids on how well it fits. You bid for one of them. Read what it is doing and what it touched, then call bid.
+const SYSTEM = `Several coding agents share a room, in one folder or in several. The operator asked all of them for something, and each one bids on how well it fits. You bid for one of them. Read what it touched, then call bid.
 fit: from 0 to 1. High when the request continues its work, touches files it edited, or follows its decisions. Low when the request is about something else, or when the session has barely started.
 reason: at most 8 words in English, the one thing that decides it.`;
 
@@ -65,11 +65,7 @@ export async function fitFor(
 }
 
 function aboutSession(me: Peer): string {
-	const cards = [...(me.board?.open ?? []), ...(me.board?.done ?? [])];
-	const lines =
-		cards.length === 0
-			? ["The session has nothing on its board yet."]
-			: cards.map((card) => `- ${card.column}: ${card.title}`);
+	const lines: string[] = [];
 	const edited = [...me.edited]
 		.toSorted(([, a], [, b]) => b - a)
 		.slice(0, 10)
@@ -77,5 +73,7 @@ function aboutSession(me: Peer): string {
 	if (edited.length > 0) lines.push(`Edited: ${edited.join(", ")}`);
 	if (me.commits.length > 0)
 		lines.push(`Committed: ${me.commits.map((commit) => commit.subject).join("; ")}`);
-	return lines.join("\n");
+	return lines.length === 0
+		? "The session has not edited or committed anything yet."
+		: lines.join("\n");
 }

@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 
-import { type BoardOp, emptyBoard, foldBoard } from "@adeildo/pi-kit";
 import { stripTerminalSequences as plainText } from "@earendil-works/pi-tui";
 
 import { emptyTotals } from "../src/data/totals.ts";
@@ -35,8 +34,6 @@ function text(ids: SegmentId[], data = snapshot(), extra: Partial<typeof options
 	return render(ids, data, extra).map((piece) => piece.text);
 }
 
-const at = 1;
-
 describe("segments", () => {
 	test("me shows the name the rooms give this session, and nothing until it has one", () => {
 		expect(
@@ -46,30 +43,9 @@ describe("segments", () => {
 		expect(render(["me"], snapshot())).toEqual([]);
 	});
 
-	test("the board shows the card being done, with what is blocked, what is to do and what is done", () => {
-		const board = foldBoard([
-			{ op: "add", title: "write the contract", at },
-			{ op: "move", id: "c1", column: "done", at },
-			{ op: "add", title: "draw the segment", column: "doing", at },
-			{ op: "add", title: "compaction", at },
-			{ op: "add", title: "push", at, blocked: { on: "operator", why: "asks first" } },
-		]);
-		const [piece] = render(["board"], snapshot({ board }));
-		expect(piece?.text).toBe("> draw the segment  1 waiting  1 queued  1 done");
-		expect(plainText(piece?.shrink?.(38) ?? "")).toBe("> draw...  1 waiting  1 queued  1 done");
-
-		const [icons] = renderSegments(["board"], {
-			snapshot: snapshot({ board }),
-			glyphs: NERD,
-			paint: PLAIN,
-			options,
-		});
-		expect(icons?.text).toBe("\u{f04fe} draw the segment  \u{f024} 1  \u{f051f} 1  \u{f00c} 1");
-	});
-
 	test("the peers show each agent by name, and the line tightens one name at a time", () => {
 		const peers = [
-			{ handle: "oauth", color: "syntaxFunction", state: "waiting" as const },
+			{ handle: "oauth", color: "syntaxFunction", state: "running" as const },
 			{ handle: "migration", color: "syntaxString", state: "idle" as const },
 		];
 		const [piece] = render(["peers"], snapshot({ peers, peersUnread: 2 }));
@@ -80,13 +56,13 @@ describe("segments", () => {
 		expect(text(["peers"], snapshot())).toEqual([]);
 	});
 
-	test("each room says how this session stands in it, then its agents with what each is doing", () => {
+	test("each room says how this session stands in it, then its agents, working or idle", () => {
 		const peersRooms = [
 			{
 				name: "ada-api",
 				mode: "listening" as const,
 				peers: [
-					{ handle: "pika", color: "syntaxString", state: "waiting" as const },
+					{ handle: "pika", color: "syntaxString", state: "idle" as const },
 					{ handle: "coyote", color: "syntaxType", state: "running" as const },
 				],
 			},
@@ -104,9 +80,9 @@ describe("segments", () => {
 			options,
 		});
 		expect(plainText(piece?.text ?? "")).toBe(
-			"\u25d0 ada-api  \u2691 pika  \u25c6 coyote  \u2502  \u25cf hedy+ada  \u25c7 dogfish  \u2502  \u25cb grace",
+			"\u25d0 ada-api  \u25c7 pika  \u25c6 coyote  \u2502  \u25cf hedy+ada  \u25c7 dogfish  \u2502  \u25cb grace",
 		);
-		expect(plainText(piece?.shrink?.(30) ?? "")).toBe("\u25d0 ada-api  \u2691 pika +2");
+		expect(plainText(piece?.shrink?.(30) ?? "")).toBe("\u25d0 ada-api  \u25c7 pika +2");
 	});
 
 	test("a draft is one line beside the peers, and it never takes a frame of its own", () => {
@@ -130,46 +106,6 @@ describe("segments", () => {
 		];
 		const [piece] = render(["peers"], snapshot({ peers, peersUnread: 0 }));
 		expect(plainText(piece?.text ?? "")).toBe("@ oauth  @ migration  |  @ api");
-	});
-
-	test("with several cards being done, the first shows and the rest count", () => {
-		const board = foldBoard([
-			{ op: "add", title: "a", column: "doing", at },
-			{ op: "add", title: "b", column: "doing", at },
-		]);
-		expect(text(["board"], snapshot({ board }))).toEqual(["> a +1"]);
-	});
-
-	test("between cards the line stays with what waits and what was done, and an empty board shows nothing", () => {
-		const between: BoardOp[] = [
-			{ op: "add", title: "a", at },
-			{ op: "move", id: "c1", column: "done", at },
-			{ op: "add", title: "b", at },
-		];
-		expect(text(["board"], snapshot({ board: foldBoard(between) }), { labels: true })).toEqual([
-			"> idle  1 queued  1 done",
-		]);
-		expect(text(["board"], snapshot({ board: emptyBoard() }))).toEqual([]);
-		expect(text(["board"])).toEqual([]);
-	});
-
-	test("a card in the backlog, in review or dropped is in no count, a blocked card is counted once, and a done one no longer waits", () => {
-		const board = foldBoard(
-			[
-				{ op: "add", title: "someday", column: "backlog", at },
-				{ op: "add", title: "reviewed", at },
-				{ op: "move", id: "c2", column: "review", reviewer: "badger", at },
-				{ op: "add", title: "gone", at },
-				{ op: "drop", id: "c3", why: "not needed", at },
-				{ op: "add", title: "waits", at, blocked: { on: "outside", why: "the store" } },
-				{ op: "add", title: "shipped", at, blocked: { on: "outside", why: "the store" } },
-				{ op: "move", id: "c5", column: "done", at },
-			],
-			"operator",
-		);
-		expect(text(["board"], snapshot({ board }), { labels: true })).toEqual([
-			"> idle  1 waiting  1 done",
-		]);
 	});
 
 	test("the model comes after its provider, and the short form keeps only the name", () => {

@@ -16,11 +16,10 @@ import {
 	targetOf,
 	tildify,
 } from "@adeildo/pi-kit";
-import type { BoardCard, By, PeerMark, RoomMode } from "@adeildo/pi-kit";
+import type { By, PeerMark, RoomMode } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import type { Fit } from "./bid.ts";
-import { doing, stateOf, waiting } from "./cards.ts";
 import {
 	Folder,
 	folds,
@@ -35,7 +34,6 @@ import { Inbox, type InboxHooks, type PeerMessageDetails, type Sender } from "./
 import { type Names, namesOf } from "./names.ts";
 import { award, turnToTake } from "./rules.ts";
 
-export type BoardMark = PeerMark;
 export { PEER_HELD, PEER_MESSAGE, type PeerDelivery, type PeerMessageDetails } from "./inbox.ts";
 
 const LIVE_FOR_MS = 1_000;
@@ -186,7 +184,7 @@ export class Here implements Sender {
 		return this.names().bySession.get(session)?.handle ?? this.#folder.peers.get(session)?.handle;
 	}
 
-	summary(): { others: BoardMark[]; unread: number } {
+	summary(): { others: PeerMark[]; unread: number } {
 		const others = [...this.marks().values()];
 		let unread = 0;
 		for (const message of this.#folder.messages.values()) {
@@ -198,17 +196,17 @@ export class Here implements Sender {
 		return { others, unread };
 	}
 
-	marks(): Map<string, BoardMark> {
+	marks(): Map<string, PeerMark> {
 		const live = this.live();
 		const named = namesOf(live).bySession;
-		const marks = new Map<string, BoardMark>();
+		const marks = new Map<string, PeerMark>();
 		for (const peer of live) {
 			if (peer.session === this.session) continue;
 			const handle = named.get(peer.session);
 			marks.set(peer.session, {
 				handle: handle?.handle ?? "anon",
 				color: handle?.color ?? "muted",
-				state: stateOf(peer),
+				state: peer.state,
 				...(this.#room === undefined ? {} : { room: this.#room.name }),
 			});
 		}
@@ -484,8 +482,6 @@ export class Here implements Sender {
 			peer.cwd === undefined || peer.cwd === this.#cwd ? "this folder" : tildify(peer.cwd);
 		const room = this.#room === undefined ? "" : `, in the room ${this.#room.name}`;
 		const lines = [`${who} is working in ${works}${room}.`];
-		if (doing(peer).length > 0) lines.push(`  doing: ${cardTitles(doing(peer))}`);
-		if (waiting(peer).length > 0) lines.push(`  waiting: ${cardTitles(waiting(peer))}`);
 		if (edited.length > 0) lines.push(`  edited: ${edited.join(", ")}`);
 		return lines;
 	}
@@ -627,13 +623,8 @@ export class Here implements Sender {
 function worthTelling(peer: Peer): boolean {
 	return (
 		peer.handle !== undefined ||
-		peer.board !== undefined ||
 		peer.edited.size > 0 ||
 		peer.ran.length > 0 ||
 		peer.commits.length > 0
 	);
-}
-
-function cardTitles(cards: readonly BoardCard[]): string {
-	return cards.map((card) => card.title).join("; ");
 }

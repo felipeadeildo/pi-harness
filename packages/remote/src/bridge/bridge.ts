@@ -21,7 +21,6 @@ import {
 import { type AnswerEvent, isAskResult } from "@adeildo/pi-kit";
 import type { Letter } from "@adeildo/pi-kit";
 import type {
-	BoardView,
 	Envelope,
 	SessionActivity,
 	SessionState,
@@ -238,10 +237,6 @@ export class Bridge {
 	/** The opening carries it, so a reconnect keeps it. */
 	#cost(): SessionState["cost"] {
 		return costOf(this.ctx.sessionManager.getEntries());
-	}
-
-	boarded(board: BoardView): void {
-		this.connection.event("board.changed", { board });
 	}
 
 	acting(activity: SessionActivity): void {

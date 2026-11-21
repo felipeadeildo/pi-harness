@@ -3,16 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import {
-	BOARD,
-	BOARD_OP,
-	type Board,
-	type BoardOp,
-	createApp,
-	defineFeature,
-	emptyBoard,
-	foldBoard,
-} from "@adeildo/pi-kit";
+import { createApp } from "@adeildo/pi-kit";
 import { fakeContext, fakePi } from "@adeildo/pi-kit/testing";
 import type { ProjectedSessionEntry, Theme } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
@@ -29,7 +20,7 @@ import {
 	spentOn,
 } from "../src/record.ts";
 import { withServerClearing } from "../src/server.ts";
-import { standing, summarize } from "../src/summary.ts";
+import { operatorAsks, summarize } from "../src/summary.ts";
 
 const BIG = "x".repeat(8000);
 const SCRIPT = `python3 - <<'EOF'\n${BIG}\nEOF`;
@@ -195,11 +186,6 @@ interface Proposed {
 	data?: unknown;
 }
 
-/** A board operation as the board tool logs it, which is what a branch carries. */
-function boardEntry(op: BoardOp) {
-	return { type: "custom", customType: BOARD_OP, data: { version: 1, op } };
-}
-
 const ANTHROPIC = {
 	provider: "anthropic",
 	api: "anthropic-messages",
@@ -211,22 +197,11 @@ async function mounted(
 	branch: unknown[] = [],
 	settings: Record<string, unknown> = {},
 	model?: unknown,
-	live?: Board,
 ) {
 	writeFileSync(join(dir, "settings.json"), JSON.stringify({ compact: settings }));
 	const fake = fakePi();
 	const app = createApp(fake.pi, { name: "test", settingsPath: join(dir, "settings.json") });
-	app.use(compact);
-	// The board feature, as far as compact sees it: a board offered through the contract.
-	if (live !== undefined)
-		app.use(
-			defineFeature({
-				id: "board",
-				description: "offers a board",
-				setup: (scope) => BOARD.provide(scope, () => live),
-			}),
-		);
-	app.build();
+	app.use(compact).build();
 	const notes: string[] = [];
 	const ctx = fakeContext([], true, {
 		sessionManager: { getBranch: () => branch },
@@ -266,32 +241,18 @@ async function mounted(
 }
 
 describe("at the end of a run", () => {
-	test("past the line it hides old output, keeps what other extensions proposed, and says where things stand", async () => {
-		// No board feature is mounted, so the note folds the board from the session's own log.
-		const doing: BoardOp = { op: "add", title: "Fix the login", column: "doing", at: 1 };
-		const { runEnd } = await mounted([boardEntry(doing)], { pruneAbove: 20_000 });
+	test("past the line it hides old output, keeps what other extensions proposed, and tells the agent", async () => {
+		const { runEnd } = await mounted([], { pruneAbove: 20_000 });
 		const answer = await runEnd(25_000);
 		const kinds = answer?.entries.map((proposed) => proposed.customType ?? proposed.type);
 		expect(kinds?.[0]).toBe("other");
 		expect(kinds?.filter((kind) => kind === "context_edit").length).toBe(9);
 		const note = answer?.entries.find((proposed) => proposed.type === "custom_message");
 		expect(note?.content).toContain("Each placeholder names the call it came from");
-		expect(note?.content).toContain("Where the session stands:\nDoing:\n- c1 Fix the login");
 		expect(answer?.entries.at(-1)).toMatchObject({
 			customType: PRUNE_CHANGES,
 			data: { before: 25_000 },
 		});
-	});
-
-	test("the board the session keeps now wins over the one its log folds to", async () => {
-		const logged: BoardOp = { op: "add", title: "Fix the login", column: "doing", at: 1 };
-		const live = foldBoard([{ op: "add", title: "Ship the icons", column: "doing", at: 2 }]);
-		const { runEnd } = await mounted([boardEntry(logged)], { pruneAbove: 20_000 }, undefined, live);
-		const note = (await runEnd(25_000))?.entries.find(
-			(proposed) => proposed.type === "custom_message",
-		);
-		expect(note?.content).toContain("Doing:\n- c1 Ship the icons");
-		expect(note?.content).not.toContain("Fix the login");
 	});
 
 	test("below the line, or with pruning off, nothing changes", async () => {
@@ -514,11 +475,6 @@ function answering(text: string | undefined) {
 }
 
 describe("the compaction summary", () => {
-	const ops: BoardOp[] = [
-		{ op: "add", title: "Use one secret", column: "doing", at: 1 },
-		{ op: "decide", text: "One SECRET with a mode", at: 1 },
-	];
-	const board = foldBoard(ops);
 	const preparation = {
 		firstKeptEntryId: "k1",
 		tokensBefore: 900_000,
@@ -550,27 +506,17 @@ describe("the compaction summary", () => {
 		cost: { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25 },
 	} as never;
 
-	test("puts the board and your words, as they are, on top of pi's summary", async () => {
+	test("puts your words, as they are, on top of pi's summary", async () => {
 		const registry = answering("## Goal\nOAuth on the MCP");
 		const written = await summarize(
-			{ board, preparation },
+			{ preparation },
 			[side],
 			registry as never,
 			AbortSignal.timeout(1000),
 		);
 		expect(written?.firstKeptEntryId).toBe("k1");
 		expect(written?.summary.split("\n## Goal")[0]).toBe(
-			[
-				"## Where the session stands",
-				"Doing:",
-				"- c1 Use one secret",
-				"Decided:",
-				"- d2 One SECRET with a mode",
-				"",
-				"## What the operator asked, newest last",
-				'- "use one secret"',
-				"",
-			].join("\n"),
+			["## What the operator asked, newest last", '- "use one secret"', ""].join("\n"),
 		);
 		expect(written?.summary).toContain("<modified-files>\nsrc/a.ts\n</modified-files>");
 		expect(registry.asked.join("")).toContain("use one secret");
@@ -578,65 +524,31 @@ describe("the compaction summary", () => {
 
 	test("without a model that answers, pi writes the summary itself", async () => {
 		const written = await summarize(
-			{ board, preparation },
+			{ preparation },
 			[side],
 			answering(undefined) as never,
 			AbortSignal.timeout(1000),
 		);
 		expect(written).toBeUndefined();
-		expect(
-			standing({
-				board: emptyBoard(),
-				preparation: { messagesToSummarize: [], turnPrefixMessages: [] } as never,
-			}),
-		).toBe("");
+		expect(operatorAsks({ messagesToSummarize: [], turnPrefixMessages: [] } as never)).toBe("");
 	});
 
 	/** What the summary setting proposes when pi compacts, with a side model that answers. */
-	async function compacted(
-		branch: unknown[],
-		{ live, summary = true }: { live?: Board; summary?: boolean } = {},
-	): Promise<string | undefined> {
-		const { fake, ctx } = await mounted(branch, { model: "session", summary }, side, live);
+	async function compacted(summary: boolean): Promise<string | undefined> {
+		const { fake, ctx } = await mounted([], { model: "session", summary }, side);
 		Object.assign(ctx, { modelRegistry: answering("## Goal\nOAuth on the MCP") });
 		const event = {
 			type: "session_before_compact",
 			preparation,
-			branchEntries: branch,
+			branchEntries: [],
 			signal: AbortSignal.timeout(1000),
 		};
 		const [answer] = await fake.fire("session_before_compact", event, ctx);
 		return (answer as { compaction: { summary: string } } | undefined)?.compaction.summary;
 	}
 
-	test("when pi compacts, the board on top is the one the session keeps, or else its log's", async () => {
-		const fromLog = await compacted(ops.map(boardEntry));
-		expect(fromLog?.split("\n").slice(0, 3)).toEqual([
-			"## Where the session stands",
-			"Doing:",
-			"- c1 Use one secret",
-		]);
-		const live = foldBoard([{ op: "add", title: "Ship the icons", column: "doing", at: 2 }]);
-		const fromLive = await compacted(ops.map(boardEntry), { live });
-		expect(fromLive?.split("\n").slice(0, 3)).toEqual([
-			"## Where the session stands",
-			"Doing:",
-			"- c1 Ship the icons",
-		]);
-	});
-
-	// With no work there is nothing to put on top of pi's own summary.
-	test("pi writes its own when the board is empty, even with a side model that answers", async () => {
-		expect(await compacted([])).toBeUndefined();
-		const dropped: BoardOp[] = [
-			{ op: "add", title: "Port the parser", at: 1 },
-			{ op: "drop", id: "c1", why: "the board replaced it", at: 1 },
-		];
-		expect(await compacted(dropped.map(boardEntry))).toBeUndefined();
-	});
-
-	test("pi writes its own when the setting is off, whatever the board holds", async () => {
-		expect(await compacted(ops.map(boardEntry))).toBeDefined();
-		expect(await compacted(ops.map(boardEntry), { summary: false })).toBeUndefined();
+	test("the side model writes it with the setting on, and pi writes its own with it off", async () => {
+		expect(await compacted(true)).toBeDefined();
+		expect(await compacted(false)).toBeUndefined();
 	});
 });

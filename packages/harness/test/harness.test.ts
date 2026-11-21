@@ -7,9 +7,9 @@ import piAskPermission from "@adeildo/pi-ask-permission";
 import { fakeContext, fakePi } from "@adeildo/pi-kit/testing";
 import { createEventBus, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-import harnessBoard from "../src/board.ts";
 import harnessCompact from "../src/compact.ts";
 import harnessLook from "../src/look.ts";
+import harnessNames from "../src/names.ts";
 import harnessPeers from "../src/peers.ts";
 import harnessPermission from "../src/permission.ts";
 import harnessProviders from "../src/providers.ts";
@@ -39,7 +39,6 @@ describe("the harness", () => {
 		// provider never checks, so only this test sees it.
 		const bus = createEventBus();
 		const mounted = [
-			harnessBoard,
 			harnessCompact,
 			harnessPeers,
 			harnessPermission,
@@ -52,7 +51,7 @@ describe("the harness", () => {
 			return fake;
 		});
 		const tools = mounted.flatMap((fake) => fake.tools);
-		expect(tools.map((tool) => tool.name)).toContain("board");
+		expect(tools.map((tool) => tool.name)).toContain("peers");
 		for (const tool of tools) {
 			const schema = JSON.parse(JSON.stringify(tool.parameters)) as Record<string, unknown>;
 			expect({ tool: tool.name, type: schema.type }).toEqual({ tool: tool.name, type: "object" });
@@ -88,10 +87,10 @@ describe("the harness", () => {
 			expected: ["peers"],
 		},
 		{
-			name: "the board and its panel",
-			mount: harnessBoard,
-			read: (fake) => ({ tools: toolsOf(fake), panel: fake.shortcuts.includes("alt+t") }),
-			expected: { tools: ["board"], panel: true },
+			name: "names give the session its handle, and the model pi's docs",
+			mount: harnessNames,
+			read: (fake) => fake.count("before_agent_start"),
+			expected: 2,
 		},
 		{
 			name: "compact writes the summary",
@@ -168,18 +167,6 @@ describe("the harness", () => {
 			.filter((file) => file !== "setup.ts")
 			.map((file) => `./src/${file}`);
 		expect(pkg.pi.extensions.toSorted()).toEqual(pieces.toSorted());
-	});
-
-	test("mounts the remote and the board's panel, so one package is the whole install", () => {
-		const bus = createEventBus();
-		const remote = fakePi(bus);
-		const board = fakePi(bus);
-		harnessRemote(remote.pi);
-		harnessBoard(board.pi);
-
-		expect(remote.commands.has("remote")).toBe(true);
-		expect(board.shortcuts).toContain("alt+t");
-		expect(board.tools.map((tool) => tool.name)).toContain("board");
 	});
 
 	test("the first extension draws the settings screen, and only it", () => {

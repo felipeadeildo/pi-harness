@@ -3,14 +3,7 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import {
-	type BoardView,
-	type LoggedEvent,
-	logEvent,
-	readFrom,
-	roomDir,
-	targetOf,
-} from "@adeildo/pi-kit";
+import { type LoggedEvent, logEvent, readFrom, roomDir, targetOf } from "@adeildo/pi-kit";
 
 import { boardText } from "../src/board.ts";
 import type { Hooks } from "../src/here.ts";
@@ -101,20 +94,6 @@ function session(id: string, folder: string, extra: Partial<Hooks> = {}) {
 	const source = { getCwd: () => cwd, getSessionId: () => id };
 	rooms.open(source, undefined);
 	rooms.onMembership((change) => changes.push(change));
-	/** What the board feature hands the rooms: the session's cards being done, cut and ordered. */
-	function board(...titles: string[]) {
-		const view: BoardView = {
-			open: titles.map((title, index) => ({
-				id: `c${index + 1}`,
-				title,
-				column: "doing",
-				at: now,
-			})),
-			backlog: 0,
-			done: [],
-		};
-		rooms.board(view);
-	}
 	/** What the names feature writes: the handle, and no title, since nothing writes one now. */
 	function name(handle: string) {
 		logEvent(targetOf(source), events, "session.named", { handle }, undefined, now);
@@ -127,7 +106,6 @@ function session(id: string, folder: string, extra: Partial<Hooks> = {}) {
 		wentIn,
 		changes,
 		cwd,
-		board,
 		name,
 		peers: () => sent.filter((one) => one.kind === "custom"),
 	};
@@ -495,22 +473,9 @@ describe("a shared room", () => {
 		expect(api.rooms.rooms()).toHaveLength(2);
 	});
 
-	test("carries the session's board into a shared room", () => {
-		const api = session("api", "backend");
-		const client = session("client", "frontend");
-		const id = api.rooms.create("backend+frontend", [{ folder: api.cwd }, { folder: client.cwd }]);
-		sync(api, client);
-		api.board("Expose capacity on /v1/fleet");
-		sync(api, client);
-		const seen = client.rooms.here(id)?.folder.peers.get("api")?.board;
-		expect(seen?.open.map((card) => card.title)).toEqual(["Expose capacity on /v1/fleet"]);
-		expect(rawLines(id, "api").filter((line) => line.type === "board.changed")).toHaveLength(1);
-	});
-
-	test("a session that joins brings its name, its board and its last edits, at the time of the join", () => {
+	test("a session that joins brings its name and its last edits, at the time of the join", () => {
 		const api = session("api", "backend");
 		api.name("api");
-		api.board("Expose capacity on /v1/fleet");
 		api.rooms.log("activity", { kind: "edited", path: "src/fleet.ts" });
 		const client = session("client", "frontend");
 		now += 60_000;
@@ -521,7 +486,6 @@ describe("a shared room", () => {
 		sync(api, client);
 		const there = client.rooms.here(id)?.folder.peers.get("api");
 		expect(there?.handle).toBe("api");
-		expect(there?.board?.open.map((card) => card.title)).toEqual(["Expose capacity on /v1/fleet"]);
 		expect([...(there?.edited.keys() ?? [])]).toEqual(["src/fleet.ts"]);
 		expect(there?.edited.get("src/fleet.ts")).toBe(now);
 	});
@@ -539,48 +503,6 @@ describe("a shared room", () => {
 		expect(board).toContain("In the room backend+frontend, 1 other agent");
 		expect(board).toContain(`edited: ${join(client.cwd, "src/api.ts")}`);
 		expect(board).toContain('send with room: "backend+frontend"');
-	});
-
-	test("the board shows the other sessions' cards, each under its own agent and merged with nothing", () => {
-		const api = session("api", "backend");
-		const client = session("client", "frontend");
-		api.name("api");
-		client.name("client");
-		const id = api.rooms.create("backend+frontend", [{ folder: api.cwd }, { folder: client.cwd }]);
-		// Three rounds: the membership has to be read before `here()` answers for the client, and a
-		// line written through a missing room goes nowhere instead of failing.
-		for (let round = 0; round < 3; round++) sync(api, client);
-		expect(client.rooms.here(id)).toBeDefined();
-		client.rooms.here(id)?.log("board.changed", {
-			view: {
-				open: [
-					{ id: "c1", title: "ship the parser", column: "doing", at: 10 },
-					{ id: "c2", title: "review the docs", column: "review", at: 5 },
-					{
-						id: "c3",
-						title: "name the package",
-						column: "todo",
-						at: 1,
-						blocked: { on: "operator", why: "which name?" },
-					},
-				] as never,
-				backlog: 2,
-				done: [{ id: "c4", title: "the login", column: "done", result: "merged", at: 1 }] as never,
-			},
-		} as never);
-		sync(api, client);
-		const board = boardText(api.rooms.joined(), "api");
-		// Under the client's own line, in the order it wrote them: this reader sorts nothing, and the
-		// `at` runs the other way.
-		const lines = board.split("\n");
-		const at = lines.findIndex((line) => line.startsWith("@client (idle)"));
-		expect(at).toBeGreaterThan(-1);
-		expect(lines.slice(at + 1, at + 5)).toEqual([
-			"  doing: ship the parser",
-			"  review: review the docs",
-			"  todo: name the package (o operador: which name?)",
-			"  done: the login -> merged",
-		]);
 	});
 });
 

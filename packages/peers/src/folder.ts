@@ -2,7 +2,6 @@
 // room and request winner.
 import {
 	type Activity,
-	type BoardView,
 	type Delivery,
 	type Held,
 	type Lives,
@@ -35,7 +34,6 @@ export interface Peer {
 	ranAt?: number;
 	/** Until the operator writes here, nothing from the room wakes it. */
 	prompted?: boolean;
-	board?: BoardView;
 	edited: Map<string, number>;
 	ran: { command: string; ok: boolean; at: number }[];
 	commits: { sha: string; subject: string; at: number }[];
@@ -86,11 +84,10 @@ export function addressees(message: Posted, live: readonly Peer[]): string[] {
 	return [...sessions].filter((session) => reaches(message, session));
 }
 
-/** A line of the room that is not a message: someone came, left, committed or finished a card. */
+/** A line of the room that is not a message: someone came, left, committed or took a request. */
 export type Happening =
 	| { kind: "joined" | "left"; session: string; at: number }
 	| { kind: "committed"; session: string; at: number; sha: string; subject: string }
-	| { kind: "finished"; session: string; at: number; title: string }
 	| { kind: "took"; session: string; at: number; request: string };
 
 export type RoomItem =
@@ -103,7 +100,6 @@ const FOLDED = new Set([
 	"session.named",
 	"session.state",
 	"session.prompted",
-	"board.changed",
 	"activity",
 	"message.posted",
 	"message.received",
@@ -186,12 +182,6 @@ export class Folder {
 			case "session.prompted":
 				peer.prompted = true;
 				return;
-			case "board.changed":
-				return this.#board(
-					peer,
-					(event.data as LoggedEvent<"board.changed">["data"]).view,
-					event.at,
-				);
 			case "activity":
 				return this.#activity(peer, event.data as Activity, event.at);
 			case "message.posted":
@@ -256,17 +246,6 @@ export class Folder {
 		};
 		this.messages.set(id, message);
 		this.room.push({ kind: "message", message });
-	}
-
-	#board(peer: Peer, view: BoardView, at: number): void {
-		// The first board is where the session was, not something it just finished.
-		if (peer.board !== undefined) {
-			const before = new Set(peer.board.done.map((card) => card.id));
-			for (const card of view.done)
-				if (!before.has(card.id))
-					this.#happen({ kind: "finished", session: peer.session, at, title: card.title });
-		}
-		peer.board = view;
 	}
 
 	#activity(peer: Peer, activity: Activity, at: number): void {

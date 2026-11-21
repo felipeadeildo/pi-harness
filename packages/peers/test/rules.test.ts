@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { type BoardView, type LoggedEvent, type LogEventMap } from "@adeildo/pi-kit";
+import type { LoggedEvent, LogEventMap } from "@adeildo/pi-kit";
 
 import { Folder, livePeers } from "../src/folder.ts";
 import { byHandle, mentionsIn, namesOf, PEER_COLORS } from "../src/names.ts";
@@ -73,22 +73,6 @@ describe("the folder", () => {
 			).map((peer) => peer.session);
 		expect(open(["b"])).toEqual(["b"]);
 		expect(open([])).toEqual([]);
-	});
-
-	test("a finished card shows in the room, but not what a session had done before it joined", () => {
-		const old = { id: "c1", title: "Old work", column: "done", at: 2 } as const;
-		const callback = { id: "c2", title: "Fix the callback", at: 3 } as const;
-		const now: BoardView = { open: [{ ...callback, column: "doing" }], backlog: 0, done: [old] };
-		const done: BoardView = { open: [], backlog: 0, done: [old, { ...callback, column: "done" }] };
-		const folder = folderOf(
-			started("a"),
-			event("a", "board.changed", { view: now }),
-			event("a", "board.changed", { view: done }),
-		);
-		const finished = folder.room.flatMap((item) =>
-			item.kind === "happening" && item.happening.kind === "finished" ? [item.happening.title] : [],
-		);
-		expect(finished).toEqual(["Fix the callback"]);
 	});
 
 	test("receipts, bids and takes attach to their message", () => {
@@ -193,7 +177,7 @@ describe("who takes a request", () => {
 		expect(turnToTake(ranking, "a")).toBeUndefined();
 	});
 
-	test("at the same fit, the session with fewer open cards takes it before an older one", () => {
+	test("at the same fit, the older session takes it", () => {
 		const { folder, live } = request(
 			[
 				["a", 0.5, true],
@@ -203,17 +187,6 @@ describe("who takes a request", () => {
 		);
 		const posted = folder.messages.get("r1")!;
 		expect(award(posted, live, clock)).toMatchObject({ kind: "ranked", order: ["a", "b"] });
-		const card = { title: "busy", column: "todo", at: 1 } as const;
-		const view: BoardView = {
-			open: [
-				{ ...card, id: "c1" },
-				{ ...card, id: "c2" },
-			],
-			backlog: 0,
-			done: [],
-		};
-		folder.apply([event("a", "board.changed", { view })]);
-		expect(award(posted, live, clock)).toMatchObject({ kind: "ranked", order: ["b", "a"] });
 	});
 
 	test("with everyone busy it waits for the first who frees up, and a take is final", () => {

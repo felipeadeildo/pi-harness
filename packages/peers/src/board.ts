@@ -2,7 +2,7 @@
 // room's last words. It reads it when it wants, so nobody is interrupted to publish it.
 import { isAbsolute, join } from "node:path";
 
-import { blockedText, tildify } from "@adeildo/pi-kit";
+import { tildify } from "@adeildo/pi-kit";
 
 import type { Peer, Posted } from "./folder.ts";
 import type { Here } from "./here.ts";
@@ -64,13 +64,6 @@ function peerLines(peer: Peer, names: ReadonlyMap<string, Named>, cwd: string): 
 	const elsewhere = peer.cwd !== undefined && peer.cwd !== cwd ? peer.cwd : undefined;
 	const where = elsewhere === undefined ? "" : ` in ${tildify(elsewhere)}`;
 	const lines = [`@${handle} (${peer.state === "running" ? "working" : "idle"})${where}`];
-	// Its board, as it wrote it: a card belongs to the session that wrote it, and nothing is merged.
-	for (const card of peer.board?.open ?? []) {
-		const blocked = card.blocked === undefined ? "" : ` (${blockedText(card.blocked, "agent")})`;
-		lines.push(`  ${card.column}: ${card.title}${blocked}`);
-	}
-	for (const card of peer.board?.done ?? [])
-		lines.push(`  done: ${card.title}${card.result === undefined ? "" : ` -> ${card.result}`}`);
 	const edited = [...peer.edited]
 		.toSorted(([, a], [, b]) => b - a)
 		.slice(0, RECENT_FILES)

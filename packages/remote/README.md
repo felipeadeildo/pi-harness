@@ -12,7 +12,7 @@ When an agent needs a decision, you are not always at the desk, and the run wait
 <p align="center">or <code>@adeildo/pi-harness</code>, which brings it. Then type <code>/remote</code> in pi.</p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/remote/assets/phones.png" alt="Four phone screens of the remote page. The session list, with one session waiting on you to approve a bun test command. The permission ask on the phone, with yes, always yes and no. The session after the approval: the request, the board card, the test run with 3 passing tests, and the answer. A question from the model about where the change should go, with a pull request recommended." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/remote/assets/phones.png" alt="Four phone screens of the remote page. The session list, with one session waiting on you to approve a bun test command. The permission ask on the phone, with yes, always yes and no. The session after the approval: the request, the test run with 3 passing tests, and the answer. A question from the model about where the change should go, with a pull request recommended." width="860">
   <br>
   <em>From the left: the session list, a command waiting for your approval, the session after you approved it, and a question from the model.</em>
 </p>

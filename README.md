@@ -24,7 +24,7 @@ It is not a fork. Everything installs on top of pi, and `pi remove` gives you pi
 <!-- docs:harness/conversation -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/conversation.png" alt="A session with the look: the start card, a request, the model running the tests, committing and pushing, then the stopwatch, the card under way, the editor and the cost." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/conversation.png" alt="A session with the look: the start card, a request, the model running the tests, committing and pushing, then the stopwatch, the editor and the cost." width="860">
   <br>
   <em>A session: the start card, what you asked, what the model ran, and what it cost.</em>
 </p>
@@ -55,32 +55,16 @@ The screen is built around what you check while an agent works. The start card t
 
 [Look](packages/look) has the whole screen and every setting, all in `Alt+S`.
 
-## Every session keeps a board
-
-The agent keeps a small board of what it is doing, what waits on you and what it delivered. You open it with `Alt+T`. Other agents read the same board, so they know what yours is doing without asking it.
-
-<!-- docs:harness/board -->
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/harness/assets/board.png" alt="The session's board over the whole screen, titled Board, with 4 open, 1 waiting and 1 done on the right of the top edge. Four columns side by side, each with its mark, name and count: Doing, In review, To do and Done. Every card is a box: one being done, its PR number and what it is on, chosen with an accent border; one in review with who reviews it; two to do, one in the warning color with a flag and what it waits on from you; one done with what it delivered. At the foot the backlog with its titles and the last decision. Along the bottom: move, open, close." width="860">
-  <br>
-  <em>Alt+T: the session's board, a column per stage and a box per card.</em>
-</p>
-
-<!-- /docs -->
-
-[How the board works](packages/harness/docs/board.md) explains what counts as a card and where the board shows up.
-
 ## Agents work together
 
-Agents that you open in the same folder share a room. Each one sees the others' boards and the files they edited, and they can talk to each other. When you write to everyone, every agent hears it. When you write to anyone, the agent that fits the request best takes it. A room can also join agents from different folders, so a backend agent and a frontend agent can agree on a contract. `Alt+G` opens the rooms.
+Agents that you open in the same folder share a room. Each one sees what the others edited and committed, and they can talk to each other. When you write to everyone, every agent hears it. When you write to anyone, the agent that fits the request best takes it. A room can also join agents from different folders, so a backend agent and a frontend agent can agree on a contract. `Alt+G` opens the rooms.
 
 <!-- docs:peers/room -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/peers/assets/room.png" alt="The panel over the whole screen, in a quiet frame titled Rooms, with oauth waiting on you and 5 agents in 2 rooms on the right of the top edge. First pi-harness, this folder's agents: migration hears only @name and moves the sessions table, oauth hears all and waits on you to push to main, and docs, this session, hears all and rewrites the README. Then backend+frontend, which client asked for to agree on the /v1/fleet contract and you said yes to. Its backend folder brings in every new session opened there. Api and client hear all and are idle, and under client a line in the warning color says it holds 1 message because the agents kept answering each other without you. Docs hears all there too. Along the bottom: move, space to switch to @name, new room, close." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/peers/assets/room.png" alt="The panel over the whole screen, in a quiet frame titled Rooms, with 5 agents in 2 rooms on the right of the top edge. First pi-harness, this folder's agents, all three working: migration hears only @name, oauth hears all, and docs, this session, hears all. Then backend+frontend, which client asked for to agree on the /v1/fleet contract and you said yes to. Its backend folder brings in every new session opened there. Api and client hear all and are idle, and under client a line in the warning color says it holds 1 message because the agents kept answering each other without you. Docs hears all there too. Along the bottom: move, space to switch to @name, new room, close." width="860">
   <br>
-  <em>Alt+G: each room, who is in it, how much each agent hears there and what it is doing.</em>
+  <em>Alt+G: each room, who is in it, how much each agent hears there and whether it is working.</em>
 </p>
 
 <!-- /docs -->
@@ -92,7 +76,7 @@ Agents that you open in the same folder share a room. Each one sees the others' 
 When the agent needs you, you are not always at the desk. `/remote` opens every session of every machine of yours in a browser, and your phone reaches the same page over your [Tailscale](https://tailscale.com) tailnet. You can read the session as it streams, approve a command, answer a question and send the next message. Whichever screen answers first wins.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/remote/assets/phones.png" alt="Four phone screens of the remote page. The session list, with one session waiting on you to approve a bun test command. The permission ask on the phone, with yes, always yes and no. The session after the approval: the request, the board card, the test run with 3 passing tests, and the answer. A question from the model about where the change should go, with a pull request recommended." width="860">
+  <img src="https://raw.githubusercontent.com/felipeadeildo/pi-harness/main/packages/remote/assets/phones.png" alt="Four phone screens of the remote page. The session list, with one session waiting on you to approve a bun test command. The permission ask on the phone, with yes, always yes and no. The session after the approval: the request, the test run with 3 passing tests, and the answer. A question from the model about where the change should go, with a pull request recommended." width="860">
   <br>
   <em>From the left: the session list, a command waiting for your approval, the session after you approved it, and a question from the model.</em>
 </p>

@@ -15,7 +15,7 @@ import {
 } from "@earendil-works/pi-ai";
 
 import { createApp } from "../packages/kit/src/app/builder.ts";
-import { board, eventsDir, logPath, names } from "../packages/kit/src/index.ts";
+import { eventsDir, logPath, names } from "../packages/kit/src/index.ts";
 import { createRig } from "../packages/kit/src/rig.ts";
 
 const out =
@@ -46,7 +46,7 @@ export const PRIVATE = [
 	"/tmp/",
 ] as const;
 
-/** What the scripted model answers: the run itself, with one card on the board, and pi's summaries. */
+/** What the scripted model answers: one turn with thinking and a tool call, then plain ones. */
 function answer(): AssistantMessage {
 	runs++;
 	if (runs === 1) {
@@ -54,7 +54,6 @@ function answer(): AssistantMessage {
 			[
 				fauxThinking("The log is in the events folder, one JSON line per fact."),
 				fauxText("I will list the folder."),
-				fauxToolCall("board", { op: "add", title: "Read the rig log", column: "doing" }),
 				fauxToolCall("bash", { command: "ls" }),
 			],
 			{ stopReason: "toolUse" },
@@ -68,13 +67,13 @@ async function record(): Promise<void> {
 		answer,
 		extensions: [
 			(pi) => {
-				createApp(pi, { name: "pi-harness" }).use(names()).use(board).build();
+				createApp(pi, { name: "pi-harness" }).use(names()).build();
 			},
 		],
 	});
 
 	try {
-		// A turn with thinking, a card on the board and a tool call.
+		// A turn with thinking and a tool call.
 		await rig.prompt("List what is in this folder.");
 		const first = rig.session.sessionManager.getBranch()[0];
 		// A second turn, plain.
@@ -96,7 +95,7 @@ async function record(): Promise<void> {
 		);
 		writeFileSync(
 			join(out, "README.md"),
-			`# A recorded session\n\nWritten by \`bun scripts/record-session.ts\`. A scripted model ran three\nturns: the first with thinking, a card on the board and a tool call, the other two plain. Between the second and the third, the tree moved back to the first entry, so the\nthird turn hangs from an older entry than the one before it. \`session.jsonl\` is pi's file and\n\`harness.jsonl\` is the harness's log. The reducers in \`test/transcript.test.ts\` rebuild both.\n\nAn aborted turn and a compaction are not here: the scripted model cannot be stopped mid answer,\nand pi refuses to compact a session this short. \`test/edges.test.ts\` covers them with lines\ncaptured from a real run.\n`,
+			`# A recorded session\n\nWritten by \`bun scripts/record-session.ts\`. A scripted model ran three\nturns: the first with thinking and a tool call, the other two plain. Between the second and the third, the tree moved back to the first entry, so the\nthird turn hangs from an older entry than the one before it. \`session.jsonl\` is pi's file and\n\`harness.jsonl\` is the harness's log. The reducers in \`test/transcript.test.ts\` rebuild both.\n\nAn aborted turn and a compaction are not here: the scripted model cannot be stopped mid answer,\nand pi refuses to compact a session this short. \`test/edges.test.ts\` covers them with lines\ncaptured from a real run.\n`,
 		);
 		console.log(`wrote ${out}`);
 		rig.dispose();

@@ -1,16 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
-import {
-	type AssistantMessage,
-	fauxAssistantMessage,
-	fauxText,
-	fauxToolCall,
-} from "@earendil-works/pi-ai";
+import { fauxAssistantMessage, fauxText, fauxToolCall } from "@earendil-works/pi-ai";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
 
 import { createApp } from "../src/app/builder.ts";
 import { defineFeature } from "../src/app/feature.ts";
-import { board } from "../src/board/feature.ts";
 import { createRig, type Rig } from "../src/rig.ts";
 
 let rig: Rig | undefined;
@@ -20,28 +16,30 @@ afterEach(() => {
 	rig = undefined;
 });
 
-function scriptedBoard(): (context: unknown) => AssistantMessage {
-	let calls = 0;
-	return () => {
-		calls += 1;
-		if (calls > 1) return fauxAssistantMessage([fauxText("Done.")], { stopReason: "stop" });
-		return fauxAssistantMessage(
-			[fauxText("Two files."), fauxToolCall("board", { op: "add", title: "Build the rig" })],
-			{
-				stopReason: "toolUse",
-			},
-		);
-	};
+/** A tool that leaves a line of its own in the session file, as a feature's tools do. */
+function noting(pi: ExtensionAPI): void {
+	pi.registerTool({
+		name: "note",
+		label: "note",
+		description: "Keeps a note in the session",
+		parameters: Type.Object({ text: Type.String() }),
+		async execute(_id, params) {
+			pi.appendEntry("rig:note", { text: params.text });
+			return { content: [{ type: "text", text: "Kept." }], details: {} };
+		},
+	});
 }
 
 describe("a real pi session with a scripted model", () => {
-	test("a turn leaves its entries in the session file and its board operation in the log", async () => {
+	test("a turn leaves its entries in the session file, and so does a tool it calls", async () => {
 		rig = await createRig({
-			answer: scriptedBoard(),
-			extensions: [
-				(pi) => {
-					createApp(pi, { name: "rig" }).use(board).build();
-				},
+			extensions: [noting],
+			replies: [
+				fauxAssistantMessage([
+					fauxText("Two files."),
+					fauxToolCall("note", { text: "Build the rig" }),
+				]),
+				fauxAssistantMessage("Done."),
 			],
 		});
 
@@ -58,7 +56,7 @@ describe("a real pi session with a scripted model", () => {
 			);
 		expect(entries.some((entry) => entry.message?.role === "user")).toBe(true);
 		expect(entries.some((entry) => entry.message?.role === "assistant")).toBe(true);
-		expect(entries.some((entry) => entry.customType === "pi-board:op")).toBe(true);
+		expect(entries.some((entry) => entry.customType === "rig:note")).toBe(true);
 	});
 
 	test("a turn that fails to answer ends the rig instead of hanging", async () => {

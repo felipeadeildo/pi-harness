@@ -59,7 +59,7 @@
 			"./src/providers.ts",
 			"./src/questions.ts",
 			"./src/skills.ts",
-			"./src/board.ts",
+			"./src/names.ts",
 			"./src/compact.ts",
 			"./src/peers.ts",
 			"./src/remote.ts",
