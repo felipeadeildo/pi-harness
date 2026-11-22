@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { fakeContext, fakePi } from "@adeildo/pi-kit/testing";
 import type {
@@ -6,7 +6,12 @@ import type {
 	ExtensionAPI,
 	MarkdownTransformer,
 } from "@earendil-works/pi-coding-agent";
-import { type ImageProtocol, Markdown } from "@earendil-works/pi-tui";
+import {
+	type ImageProtocol,
+	Markdown,
+	resetCapabilitiesCache,
+	setCapabilities,
+} from "@earendil-works/pi-tui";
 
 import { darkTheme } from "../../kit/src/dark-theme.ts";
 import { ansiToHex, peleColors } from "../src/colors.ts";
@@ -63,6 +68,10 @@ function fenced(source: string, close = true): string {
 }
 
 describe("a mermaid block", () => {
+	// pi-tui writes an image only for a terminal it detected as able to show one.
+	beforeAll(() => setCapabilities({ images: "kitty", trueColor: true, hyperlinks: false }));
+	afterAll(() => resetCapabilitiesCache());
+
 	test("becomes a picture that keeps its rows in the transcript", () => {
 		const out = run(fenced(FLOW));
 		const plain = new Proxy({}, { get: () => identity }) as never;
