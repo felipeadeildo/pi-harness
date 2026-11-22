@@ -15,7 +15,8 @@ import {
 
 import { darkTheme } from "../../kit/src/dark-theme.ts";
 import { ansiToHex, peleColors } from "../src/colors.ts";
-import { withColors } from "../src/draw.ts";
+import { draw, withColors } from "../src/draw.ts";
+import { monoFont } from "../src/font.ts";
 import piDiagrams, { diagramTransformer } from "../src/index.ts";
 import { longestDrawable } from "../src/partial.ts";
 
@@ -128,6 +129,24 @@ describe("a mermaid block", () => {
 			rows: () => 30,
 		})(markdown, { messageType: "assistant", isStreaming: false, availableWidth: 80 });
 		expect(out).toBe(markdown);
+	});
+});
+
+describe("the picture", () => {
+	const cell = { widthPx: 9, heightPx: 18 };
+	const options = { colors: {}, font: monoFont(), fontSize: 15, cell, maxColumns: 80, maxRows: 30 };
+
+	test("fills whole cells, so the terminal shows its pixels without resampling them", () => {
+		const picture = draw(FLOW, options);
+		expect(picture.png.readUInt32BE(16)).toBe(picture.columns * cell.widthPx);
+		expect(picture.png.readUInt32BE(20)).toBe(picture.rows * cell.heightPx);
+	});
+
+	test("taller than the screen, shrinks to its rows", () => {
+		const tall = `flowchart TD\n${Array.from({ length: 20 }, (_, i) => `  N${i} --> N${i + 1}`).join("\n")}`;
+		const picture = draw(tall, { ...options, maxRows: 10 });
+		expect(picture.rows).toBe(10);
+		expect(picture.png.readUInt32BE(20)).toBe(10 * cell.heightPx);
 	});
 });
 
