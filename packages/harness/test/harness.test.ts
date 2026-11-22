@@ -8,6 +8,7 @@ import { fakeContext, fakePi } from "@adeildo/pi-kit/testing";
 import { createEventBus, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import harnessCompact from "../src/compact.ts";
+import harnessDiagrams from "../src/diagrams.ts";
 import harnessLook from "../src/look.ts";
 import harnessNames from "../src/names.ts";
 import harnessPeers from "../src/peers.ts";
@@ -121,6 +122,12 @@ describe("the harness", () => {
 			mount: harnessWeb,
 			read: toolsOf,
 			expected: ["web_search", "source_check", "fetch_content", "get_search_content"],
+		},
+		{
+			name: "diagrams tell the model it can draw",
+			mount: harnessDiagrams,
+			read: (fake) => fake.count("before_agent_start"),
+			expected: 1,
 		},
 		{
 			name: "look draws the end of a run",

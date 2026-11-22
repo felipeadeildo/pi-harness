@@ -56,4 +56,11 @@ export const PI_SETTINGS: readonly PiSetting[] = [
 		why: "the start screen says what changed since the last session, and pi's list of every skill, prompt and extension loaded buries it",
 		read: (settings) => settings.getQuietStartup(),
 	},
+	{
+		key: "markdown.mermaid",
+		value: "off",
+		piDefault: "streaming",
+		why: "the diagrams piece draws Mermaid blocks as pictures, and pi's own Unicode art runs first and would take them",
+		read: (settings) => settings.getMermaidRenderingMode(),
+	},
 ];
