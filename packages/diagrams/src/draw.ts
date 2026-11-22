@@ -1,5 +1,6 @@
 // Mermaid text to a PNG: Pele lays it out as SVG, the theme's colors replace its CSS variables, which
-// resvg does not read, and resvg rasterizes it at the terminal's own cell size.
+// resvg does not read, and resvg rasterizes it on a canvas of whole terminal cells, so the terminal
+// shows its pixels as they are instead of resampling them.
 import { createRequire } from "node:module";
 
 import type { Resvg as ResvgClass } from "@resvg/resvg-js";
@@ -12,13 +13,16 @@ export interface DrawOptions {
 	colors: PeleColors;
 	font: Font;
 	fontSize: number;
-	maxWidthPx: number;
+	cell: { widthPx: number; heightPx: number };
+	maxColumns: number;
+	maxRows: number;
 }
 
+/** A PNG of exactly `columns` by `rows` cells. */
 export interface Picture {
 	png: Buffer;
-	width: number;
-	height: number;
+	columns: number;
+	rows: number;
 }
 
 interface Engines {
@@ -43,18 +47,34 @@ function load(): Engines {
 export function draw(source: string, options: DrawOptions): Picture {
 	const { render, Resvg } = load();
 	const { family, file } = options.font;
-	const { svg } = render(source, {
+	const { cell, fontSize } = options;
+	const { svg, width, height } = render(source, {
 		fontFamily: family,
 		fontFamilyMono: family,
-		fontSize: options.fontSize,
+		fontSize,
 		measurer: monoMeasurer,
-		maxWidth: options.maxWidthPx,
+		maxWidth: options.maxColumns * cell.widthPx,
 		responsive: false,
 		links: false,
 		images: false,
 		padding: 4,
 	});
-	const image = new Resvg(withColors(svg, options.colors), {
+	// A diagram taller than the screen shrinks as a vector, never as pixels.
+	const scale = Math.min(
+		1,
+		(options.maxColumns * cell.widthPx) / width,
+		(options.maxRows * cell.heightPx) / height,
+	);
+	const columns = Math.max(1, Math.ceil((width * scale) / cell.widthPx));
+	const rows = Math.max(1, Math.ceil((height * scale) / cell.heightPx));
+	const canvas = onCanvas(svg, {
+		widthPx: columns * cell.widthPx,
+		heightPx: rows * cell.heightPx,
+		scale,
+		fontSize,
+		family,
+	});
+	const image = new Resvg(withColors(canvas, options.colors), {
 		font: {
 			fontFiles: file ? [file] : [],
 			loadSystemFonts: file === undefined,
@@ -63,7 +83,30 @@ export function draw(source: string, options: DrawOptions): Picture {
 			sansSerifFamily: family,
 		},
 	}).render();
-	return { png: image.asPng(), width: image.width, height: image.height };
+	return { png: image.asPng(), columns, rows };
+}
+
+interface Canvas {
+	widthPx: number;
+	heightPx: number;
+	scale: number;
+	fontSize: number;
+	family: string;
+}
+
+/**
+ * The root `<svg>` sized to the canvas, its drawing scaled and left in the top-left corner. Pele
+ * sets the labels' size in a `font` shorthand resvg does not read, so they get it as attributes.
+ */
+function onCanvas(svg: string, canvas: Canvas): string {
+	const open = svg.indexOf(">");
+	const root = svg
+		.slice(0, open)
+		.replace(/\s(viewBox|width|height|font-size|font-family)="[^"]*"/g, "");
+	const viewBox = [0, 0, canvas.widthPx / canvas.scale, canvas.heightPx / canvas.scale].join(" ");
+	const family = canvas.family.replaceAll("&", "&amp;").replaceAll('"', "&quot;");
+	const attributes = `viewBox="${viewBox}" width="${canvas.widthPx}" height="${canvas.heightPx}" font-size="${canvas.fontSize}" font-family="'${family}'"`;
+	return `${root} ${attributes}${svg.slice(open)}`;
 }
 
 /** Resolve every `var(--name, fallback)` in the SVG, with the theme's colors for `--pele-*`. */

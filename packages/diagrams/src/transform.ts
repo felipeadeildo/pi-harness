@@ -56,15 +56,21 @@ export function diagramTransformer(surface: Surface): MarkdownTransformer {
 			colors,
 			font: monoFont(),
 			fontSize: cell.widthPx / MONO_ADVANCE,
-			maxWidthPx: width * cell.widthPx,
+			cell,
+			maxColumns: width,
+			maxRows: rows,
 		});
 		const base64 = drawing.png.toString("base64");
+		// The PNG fills these cells exactly, so the terminal shows it at its own size.
 		const image = renderImage(
 			base64,
-			{ widthPx: drawing.width, heightPx: drawing.height },
 			{
-				maxWidthCells: Math.min(width, Math.ceil(drawing.width / cell.widthPx)),
-				maxHeightCells: rows,
+				widthPx: drawing.columns * cell.widthPx,
+				heightPx: drawing.rows * cell.heightPx,
+			},
+			{
+				maxWidthCells: drawing.columns,
+				maxHeightCells: drawing.rows,
 				imageId: imageId(key),
 				moveCursor: false,
 			},
