@@ -2,6 +2,19 @@
 
 Every `@adeildo/` package in this repository shares one version, one tag and this changelog. The entries below 4.0.0 are from before, when `pi-ask-permission` was the only package.
 
+## [7.1.0](https://github.com/felipeadeildo/pi-harness/compare/v7.0.0...v7.1.0) (2026-11-22)
+
+
+### Features
+
+* **diagrams:** draw mermaid blocks as pictures in the theme, as they stream ([#482](https://github.com/felipeadeildo/pi-harness/issues/482)) ([8ba0d6d](https://github.com/felipeadeildo/pi-harness/commit/8ba0d6d25b0913b2b0ebe0d1f6a6d1c8cf7a545d))
+* **remote:** draw diagrams with pele, growing while the answer streams ([#483](https://github.com/felipeadeildo/pi-harness/issues/483)) ([dfe5cf5](https://github.com/felipeadeildo/pi-harness/commit/dfe5cf50c02a0e233c5f8d7b5d846836d82765ea))
+
+
+### Bug Fixes
+
+* **diagrams:** draw the picture at the terminal's pixels, labels at full size ([#485](https://github.com/felipeadeildo/pi-harness/issues/485)) ([4f08779](https://github.com/felipeadeildo/pi-harness/commit/4f0877987c14c264bbb25462fe06987ee08aefe2))
+
 ## [7.0.0](https://github.com/felipeadeildo/pi-harness/compare/v6.1.1...v7.0.0) (2026-11-21)
 
 The board is gone, and a session in the remote's tmux opens in a terminal window of its machine. Run `pi update` to get it. The next pi you open replaces the remote's daemon with the new one.
