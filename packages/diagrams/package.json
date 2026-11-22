@@ -1,0 +1,53 @@
+{
+	"name": "@adeildo/pi-diagrams",
+	"version": "7.0.0",
+	"description": "Mermaid blocks drawn as real diagrams in the terminal, in the colors of your theme, while the model is still writing them.",
+	"keywords": [
+		"diagrams",
+		"mermaid",
+		"pi",
+		"pi-coding-agent",
+		"pi-extension",
+		"pi-package"
+	],
+	"homepage": "https://github.com/felipeadeildo/pi-harness/tree/main/packages/diagrams#readme",
+	"bugs": "https://github.com/felipeadeildo/pi-harness/issues",
+	"license": "MIT",
+	"author": {
+		"name": "adeildo",
+		"email": "contato@felipeadeildo.com",
+		"url": "https://github.com/felipeadeildo"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/felipeadeildo/pi-harness.git",
+		"directory": "packages/diagrams"
+	},
+	"files": [
+		"src",
+		"README.md",
+		"LICENSE"
+	],
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"dependencies": {
+		"@adeildo/pi-kit": "workspace:*",
+		"@resvg/resvg-js": "2.6.2",
+		"lovely-mermaid": "0.3.3",
+		"pele": "1.13.0"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	},
+	"pi": {
+		"extensions": [
+			"./src/index.ts"
+		]
+	}
+}

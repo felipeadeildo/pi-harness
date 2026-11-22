@@ -39,6 +39,7 @@
 		"@adeildo/pi-ask-permission": "workspace:*",
 		"@adeildo/pi-ask-questions": "workspace:*",
 		"@adeildo/pi-compact": "workspace:*",
+		"@adeildo/pi-diagrams": "workspace:*",
 		"@adeildo/pi-kit": "workspace:*",
 		"@adeildo/pi-look": "workspace:*",
 		"@adeildo/pi-peers": "workspace:*",
@@ -63,7 +64,8 @@
 			"./src/compact.ts",
 			"./src/peers.ts",
 			"./src/remote.ts",
-			"./src/web.ts"
+			"./src/web.ts",
+			"./src/diagrams.ts"
 		]
 	}
 }

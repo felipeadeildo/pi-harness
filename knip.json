@@ -42,5 +42,5 @@
 			"entry": ["scripts/**/*.ts"]
 		}
 	},
-	"ignoreBinaries": ["script", "rsvg-convert", "tailscale"]
+	"ignoreBinaries": ["script", "rsvg-convert", "tailscale", "fc-match"]
 }
