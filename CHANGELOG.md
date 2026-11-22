@@ -4,16 +4,23 @@ Every `@adeildo/` package in this repository shares one version, one tag and thi
 
 ## [7.1.0](https://github.com/felipeadeildo/pi-harness/compare/v7.0.0...v7.1.0) (2026-11-22)
 
+A ```` ```mermaid ```` block is drawn as a picture now, in the terminal and on the remote's page, in the colors of your theme, and it grows while the model writes it. Run `pi update` to get it, then `/harness setup` to turn off pi's own Mermaid art, which runs first and would take the blocks. The next pi you open replaces the remote's daemon with the new one.
 
-### Features
+### Diagrams in the terminal
 
-* **diagrams:** draw mermaid blocks as pictures in the theme, as they stream ([#482](https://github.com/felipeadeildo/pi-harness/issues/482)) ([8ba0d6d](https://github.com/felipeadeildo/pi-harness/commit/8ba0d6d25b0913b2b0ebe0d1f6a6d1c8cf7a545d))
-* **remote:** draw diagrams with pele, growing while the answer streams ([#483](https://github.com/felipeadeildo/pi-harness/issues/483)) ([dfe5cf5](https://github.com/felipeadeildo/pi-harness/commit/dfe5cf50c02a0e233c5f8d7b5d846836d82765ea))
+A new piece, [`@adeildo/pi-diagrams`](https://github.com/felipeadeildo/pi-harness/tree/main/packages/diagrams), part of the harness and installable alone with `pi install npm:@adeildo/pi-diagrams`. [Pele](https://pele.run) lays the diagram out and [resvg](https://github.com/linebender/resvg) draws it at your terminal's own pixels, with labels at the size of the text around them. ([#482](https://github.com/felipeadeildo/pi-harness/pull/482), [#485](https://github.com/felipeadeildo/pi-harness/pull/485))
 
+- **While it is written.** Each line the model finishes is drawn as soon as it parses, so the diagram fills in during the answer instead of showing up at the end.
+- **In your theme.** Text, lines, borders and accents come from the pi theme, and the background is the terminal's own.
+- **Every type.** All of Mermaid 12.1, and Pele's own on top: file trees, swimlanes, Ishikawa, Cynefin, event models, agent flows and railroad grammars.
+- **The model knows.** Its system prompt says it can draw, which types there are and where the syntax of each one is, so it reaches for a diagram when one says more than prose.
+- **When it cannot.** A block that does not parse keeps its source, with the reason under it. A terminal without images, or tmux, gets pi's Unicode art.
 
-### Bug Fixes
+The pictures need a terminal that shows images: Ghostty, Kitty, WezTerm or iTerm2. `/harness setup` sets `markdown.mermaid` to `off`, and until it is off the piece says so when a session starts.
 
-* **diagrams:** draw the picture at the terminal's pixels, labels at full size ([#485](https://github.com/felipeadeildo/pi-harness/issues/485)) ([4f08779](https://github.com/felipeadeildo/pi-harness/commit/4f0877987c14c264bbb25462fe06987ee08aefe2))
+### Diagrams on the remote's page
+
+The page draws diagrams with Pele instead of mermaid.js. A diagram grows while the answer streams, where the page showed its source until the end. On a phone it is laid out again for the width instead of scaled down, switching between light and dark recolors it without drawing it again, and the full-screen view zooms and pans with Pele's own controls. ([#483](https://github.com/felipeadeildo/pi-harness/pull/483))
 
 ## [7.0.0](https://github.com/felipeadeildo/pi-harness/compare/v6.1.1...v7.0.0) (2026-11-21)
 
