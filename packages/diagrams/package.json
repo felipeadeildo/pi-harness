@@ -30,7 +30,8 @@
 	],
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.ts",
+		"./partial": "./src/partial.ts"
 	},
 	"publishConfig": {
 		"access": "public"

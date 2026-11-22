@@ -11,7 +11,7 @@ import { SkillChip } from "./skill-chip.tsx";
 
 const Mermaid = lazy(async () => ({ default: (await import("./mermaid.tsx")).Mermaid }));
 
-/** A diagram still being written does not parse, so it shows as code until the answer ends. */
+/** A diagram still being written draws only its lines that parse, until the answer ends. */
 const Streaming = createContext(false);
 
 function Fenced({ code, language }: { code: string; language: string }): ReactNode {
