@@ -112,6 +112,27 @@
 	}
 }
 
+/* Pele's diagrams (src/app/mermaid.tsx) in the page's colors and type. */
+.diagram {
+	--pele-bg: var(--raised);
+	--pele-fg: var(--foreground);
+	--pele-muted: var(--muted-foreground);
+	--pele-line: var(--muted-foreground);
+	--pele-surface: var(--background);
+	--pele-surface-alt: var(--muted);
+	--pele-border: var(--input);
+	--pele-accent: var(--pi);
+	--pele-critical: var(--destructive);
+	--pele-error: var(--destructive);
+	--pele-font: var(--font-sans);
+	--pele-font-mono: var(--font-mono);
+}
+
+/* Labels over a line are cut out in the background they sit on. */
+[role="dialog"] .diagram {
+	--pele-bg: var(--popover);
+}
+
 @layer base {
 	* {
 		@apply border-border outline-ring/50;
