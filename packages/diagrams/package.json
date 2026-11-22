@@ -1,6 +1,6 @@
 {
 	"name": "@adeildo/pi-diagrams",
-	"version": "7.0.0",
+	"version": "7.1.0",
 	"description": "Mermaid blocks drawn as real diagrams in the terminal, in the colors of your theme, while the model is still writing them.",
 	"keywords": [
 		"diagrams",
