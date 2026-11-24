@@ -14,6 +14,14 @@ When you pick `always yes`, the dialog asks what to remember, then for how long.
 
 The `Always yes` section of the settings counts the rules in each scope and lets you forget them.
 
+## A chain of commands
+
+A line like `cd /repo && npm install && npm test` is decided one command at a time. Commands that only read run on their own, and the dialog opens for each of the others, saying which step of the line it is. The line runs only when every step may, and a `no` to any of them blocks the whole line.
+
+So `always yes` remembers one command, like `npm test`, never the start of the line: remembering `cd /repo` would otherwise approve `cd /repo && rm -rf ~`. An always yes for exactly the whole line still runs it.
+
+A `cd` is followed through the line. Each step is checked in the folder it runs in, so after `cd /elsewhere`, a step asks as outside the workspace and says where, even past an always yes. A line the split cannot follow, such as one with `$(...)`, a subshell, a heredoc, an `if` or a loop, an assignment or `export`, is decided whole, as before.
+
 ## Rules that come before the mode
 
 - **The workspace.** A call outside `workspace.roots` asks you in every mode, `full` included. `Alt+W` lets calls outside through for the rest of the session, and the status bar shows `anywhere` in red while it is on. Press it again to turn the check back on.
@@ -99,7 +107,7 @@ When calls come back as `the judge could not decide`, use `Test the judge` in th
 
 ## Limits
 
-- Always yes matches text. For `cd /repo && pnpm test`, it offers `cd`, `cd /repo` and the whole line, not `pnpm test`.
+- Always yes matches text: `pnpm test` does not cover `pnpm  test` or `pnpm run test`.
 - The read-only check is a classifier, not a sandbox. It refuses anything that it cannot prove harmless, so a few safe commands still ask.
 - The judge is a model and can be wrong. It sees the tool call and your messages, so do not let it judge calls or messages with secrets that you would not send to its provider.
 - If you need rules that never change and no person in the loop, use a sandbox instead.

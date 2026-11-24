@@ -46,8 +46,14 @@ export function toggleOutside(outside: OutsideScope): OutsideScope {
 	return outside === "allow" ? "ask" : "allow";
 }
 
-// realpath, so a symlink out of the project does not count as inside.
-export function reachOf(roots: string[], cwd: string, paths: string[] | undefined): Reach {
+// realpath, so a symlink out of the project does not count as inside. The roots resolve against
+// `cwd`, the paths against `from`, which a `cd` earlier in a chain moves.
+export function reachOf(
+	roots: string[],
+	cwd: string,
+	paths: string[] | undefined,
+	from = cwd,
+): Reach {
 	if (paths === undefined) return { kind: "unknown" };
 
 	const resolved = resolveRoots(roots, cwd);
@@ -55,7 +61,7 @@ export function reachOf(roots: string[], cwd: string, paths: string[] | undefine
 	let first: string | undefined;
 	const outside: string[] = [];
 	for (const path of paths) {
-		const lexical = normalize(resolvePath(path, cwd));
+		const lexical = normalize(resolvePath(path, from));
 		// realpath turns /dev/stdout into the terminal's device.
 		if (isDevice(lexical)) continue;
 
@@ -68,6 +74,16 @@ export function reachOf(roots: string[], cwd: string, paths: string[] | undefine
 	return first === undefined
 		? { kind: "inside" }
 		: { kind: "outside", path: first, paths: outside };
+}
+
+/** Unknown wins, then every path that left, in order. */
+export function joinReach(reaches: Reach[]): Reach {
+	if (reaches.some((reach) => reach.kind === "unknown")) return { kind: "unknown" };
+	const outside = reaches.filter((reach) => reach.kind === "outside");
+	const first = outside[0];
+	if (first === undefined) return { kind: "inside" };
+	const paths = [...new Set(outside.flatMap((reach) => reach.paths))];
+	return { kind: "outside", path: first.path, paths };
 }
 
 /** A folder that holds every path, up to the home but never the home itself, so opening it
