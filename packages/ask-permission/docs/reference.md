@@ -60,6 +60,8 @@ A malformed value falls back and says what it dropped, so a typo never lets more
 
 The first step that answers wins.
 
+A bash chain is first decided whole, with an always yes only for exactly that line. If that does not settle it, each of its commands goes through the same steps on its own, in the folder a `cd` before it left, and the line runs only when every one of them may. A `cd` or an `exit` in the chain asks nothing itself.
+
 1. **Protected**: a call that reaches an entry of the kit's protected list asks you, in every mode but `full`. Nothing below can approve it, not an always yes, the `edits` mode or the judge, and the dialog names the entry. A path matches itself and everything under it, after `~` and symlinks. A command's words match a path, a `host:port` and a program's name. The list starts empty: the remote adds its key, its socket, its port and `pi-remote`.
 2. **Always yes** matches the tool and level: run it.
 3. **Codemode**: `codemode` and `tool_search` themselves run. Every call inside is decided on its own.
@@ -78,7 +80,7 @@ The judge answers three questions: a verdict, how reversible the call is, and wh
 
 ## Limits
 
-- Always yes matches text. `cd /repo && pnpm test` offers `cd`, `cd /repo`, and the whole line, not `pnpm test`.
+- Always yes matches text. In a chain it matches each command, so `cd /repo && pnpm test` offers `pnpm`, `pnpm test` and nothing for `cd`. A line with `$(...)`, a subshell, a heredoc, a loop or an assignment is decided whole.
 - A bash path hidden behind `$HOME`, `$SECRET`, or `"$@"` counts as outside in `manual` and `edits`. In `judge` the judge decides it, even when the command only reads. In `full` it runs. Redirects to `/dev/null` and the other device files stay inside.
 - The read-only check is a classifier, not a sandbox. It trusts the command name as written and does not resolve `PATH`. It refuses anything it cannot prove harmless, so a few safe commands still ask.
 - The judge is a model, and it can be wrong. It sees the tool call and your last message, so do not judge calls or messages that carry secrets you would not send to its provider.

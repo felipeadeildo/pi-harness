@@ -16,7 +16,9 @@ import {
 	type Decision,
 	decide,
 	describeCall,
+	describeSteps,
 	gateLayers,
+	type Layer,
 	type Verdict,
 } from "#core/decide.ts";
 import { judgeGate } from "#core/judge/gate.ts";
@@ -40,7 +42,7 @@ import {
 	resetJudgeHealth,
 	type SessionState,
 } from "#pi/session.ts";
-import { askThroughQuestions, type AskExtras } from "#ui/questions.ts";
+import { askThroughQuestions, type AskExtras, stepContext } from "#ui/questions.ts";
 import { keepRuling, restoreRulings, showRuling } from "#ui/ruling-line.ts";
 import { askViaSelector } from "#ui/selector.ts";
 import { isRecord } from "#util/primitives.ts";
@@ -81,10 +83,10 @@ export function registerEvents(scope: FeatureScope, state: SessionState): void {
 		const calls = toolCallsOf(event.message);
 		if (calls.length < 2) return;
 		for (const { id, name, arguments: input } of calls) {
-			const call = describeCall(name, input, ctx.cwd, state.config, {
-				custom: state.customTools,
-				facts: toolFacts(scope),
-			});
+			const extras = { custom: state.customTools, facts: toolFacts(scope) };
+			const call = describeCall(name, input, ctx.cwd, state.config, extras);
+			// A chain is judged a step at a time, when its turn comes.
+			if (describeSteps(call, state.config, extras) !== undefined) continue;
 			const verdict = decide(call, gateLayers(state))
 				.then((decision) => ("by" in decision ? undefined : runJudge(scope, state, ctx, call, id)))
 				.catch(() => undefined);
@@ -93,12 +95,16 @@ export function registerEvents(scope: FeatureScope, state: SessionState): void {
 	});
 
 	scope.on("tool_call", async (event, ctx) => {
-		const call = describeCall(event.toolName, event.input, ctx.cwd, state.config, {
+		const extras = {
 			custom: state.customTools,
 			facts: toolFacts(scope),
 			nested: event.parentToolCallId !== undefined,
-		});
-		const outcome = await gate(scope, state, ctx, call, event);
+		};
+		const call = describeCall(event.toolName, event.input, ctx.cwd, state.config, extras);
+		const steps = describeSteps(call, state.config, extras);
+		const outcome =
+			(steps && (await gateChain(scope, state, ctx, call, steps, event))) ??
+			(await gate(scope, state, ctx, call, event));
 		const ruling = settle(outcome, state.rulings.get(event.toolCallId));
 		keepRuling(scope, state, event.toolCallId, ruling);
 		// The whole ruling is one short line: its `detail` is the judge's signal, stats and model, or
@@ -164,18 +170,120 @@ async function gate(
 	const ruled = outcomeOf(decision);
 	if (ruled) return ruled;
 
+	return askYou(state, ctx, call.toolName, () =>
+		askInTurn(scope, state, ctx, call, event, decision),
+	);
+}
+
+/** Each command of the chain is decided on its own, and the call runs only when every one may.
+ * Undefined hands the whole line to `gate`. */
+async function gateChain(
+	scope: FeatureScope,
+	state: SessionState,
+	ctx: ExtensionContext,
+	call: Call,
+	steps: Call[],
+	event: ToolCallEvent,
+): Promise<Outcome | undefined> {
+	// The whole line first, with an always yes only for exactly this line: one for its first words,
+	// like `cd /repo`, would let anything after them through.
+	const exact = { ...call, target: { ...call.target, levels: call.target.levels.slice(-1) } };
+	const whole = await decide(exact, gateLayers(state));
+	// Nothing approves a protected entry but you, and the whole line names it.
+	if ("by" in whole && whole.by === "protected") return undefined;
+	const ruled = outcomeOf(whole);
+	if (ruled) return ruled;
+
+	const layers = gateLayers(state);
+	if (MODES[state.mode].judge) layers.push(judgeLayer(scope, state, ctx, event.toolCallId));
+	const runs = steps.filter((step) => step.step?.control !== true);
+	const decisions = await Promise.all(runs.map((step) => decide(step, layers)));
+
+	const blocked = decisions.findIndex((decision) => decision.action === "block");
+	const block = blocked < 0 ? undefined : outcomeOf(decisions[blocked]!);
+	if (block) return { ...block, reason: `${block.reason} (${runs[blocked]!.target.summary})` };
+
+	const asks = runs.flatMap((step, index) => {
+		const decision = decisions[index]!;
+		return decision.action === "ask" ? [{ step, decision }] : [];
+	});
+	if (asks.length === 0)
+		return {
+			action: "allow",
+			by: chainBy(decisions.flatMap((decision) => ("by" in decision ? [decision.by] : []))),
+		};
+
+	return askYou(state, ctx, call.toolName, async () => {
+		const answers: Outcome[] = [];
+		for (const { step, decision } of asks) {
+			// oxlint-disable-next-line no-await-in-loop -- one dialog at a time, and a no ends the chain.
+			const answer = await askInTurn(scope, state, ctx, step, event, decision);
+			if (answer.action === "block") return answer;
+			answers.push(answer);
+		}
+		return joinAnswers(
+			answers,
+			asks.map(({ step }) => step.target.summary),
+		);
+	});
+}
+
+// A codemode script's calls arrive together, and pi shows one dialog at a time.
+function askYou(
+	state: SessionState,
+	ctx: ExtensionContext,
+	toolName: string,
+	run: () => Promise<Outcome>,
+): Promise<Outcome> {
 	if (!ctx.hasUI) {
-		if (noUIMode(state.config, call.toolName) === "allow") return { action: "allow", by: "no UI" };
-		return { action: "block", by: "no UI", reason: `${NAME}: no UI to approve "${call.toolName}"` };
+		if (noUIMode(state.config, toolName) === "allow")
+			return Promise.resolve({ action: "allow", by: "no UI" });
+		return Promise.resolve({
+			action: "block",
+			by: "no UI",
+			reason: `${NAME}: no UI to approve "${toolName}"`,
+		});
 	}
 
-	// A codemode script's calls arrive together, and pi shows one dialog at a time.
-	return state
-		.asking(() => askInTurn(scope, state, ctx, call, event, decision), ctx.signal)
-		.catch((error: unknown) => {
-			if (!ctx.signal?.aborted) throw error;
-			return { action: "block", by: "you", reason: `${NAME}: stopped before you were asked` };
-		});
+	return state.asking(run, ctx.signal).catch((error: unknown) => {
+		if (!ctx.signal?.aborted) throw error;
+		return { action: "block", by: "you", reason: `${NAME}: stopped before you were asked` };
+	});
+}
+
+function judgeLayer(
+	scope: FeatureScope,
+	state: SessionState,
+	ctx: ExtensionContext,
+	toolCallId: string,
+): Layer {
+	return { name: "judge", decide: (next) => runJudge(scope, state, ctx, next, toolCallId) };
+}
+
+// The step that says the most about why the line ran: a judge's yes or an always yes over a read.
+function chainBy(by: string[]): string {
+	return (
+		by.find((name) => name === "judge") ??
+		by.find((name) => name === "always yes") ??
+		by[0] ??
+		"read-only bash"
+	);
+}
+
+function joinAnswers(answers: Outcome[], steps: string[]): Outcome {
+	const yours = answers.filter((answer) => answer.by === "you");
+	if (yours.length === 0)
+		return { action: "allow", by: chainBy(answers.map((answer) => answer.by)) };
+	const notes = answers.flatMap((answer, index) =>
+		answer.note === undefined ? [] : [{ step: steps[index], note: answer.note }],
+	);
+	const note =
+		notes.length === 0
+			? undefined
+			: notes.length === 1
+				? notes[0]!.note
+				: notes.map(({ step, note: text }) => `on \`${step}\`: ${text}`).join("\n");
+	return { action: "allow", by: "you", note, answeredBy: yours.at(-1)?.answeredBy };
 }
 
 async function askInTurn(
@@ -213,7 +321,7 @@ async function askInTurn(
 		return {
 			action: "block",
 			by: "you",
-			reason: denyReason(answer.note),
+			reason: denyReason(answer.note, call),
 			note: answer.note,
 			answeredBy: answer.by,
 		};
@@ -349,6 +457,7 @@ function judgeSource(call: Call): string | undefined {
 		);
 	}
 	if (call.nested) parts.push("issued by a codemode script, not by the model");
+	if (call.step) parts.push(...stepContext(call));
 	return parts.length === 0 ? undefined : parts.join("; ");
 }
 
@@ -373,7 +482,8 @@ async function ask(
 		if (answer !== undefined) return answer;
 	}
 
-	return askViaSelector(ctx, toolName, target, extras.offer);
+	const summary = [target.summary, ...stepContext(call)].join("\n");
+	return askViaSelector(ctx, toolName, { ...target, summary }, extras.offer);
 }
 
 function sendNote(pi: ExtensionAPI, note: string, toolName: string): void {
@@ -392,6 +502,8 @@ function noteBlock(note: string): string {
 	return `[${NAME}] the user approved this call and added:\n${note}`;
 }
 
-function denyReason(note?: string): string {
-	return note ? `${NAME}: denied by the user.\n${note}` : `${NAME}: denied by the user.`;
+function denyReason(note: string | undefined, call: Call): string {
+	const what = call.step ? ` this step of the command: ${call.target.summary}` : "";
+	const reason = `${NAME}: denied by the user${what}.`;
+	return note ? `${reason}\n${note}` : reason;
 }

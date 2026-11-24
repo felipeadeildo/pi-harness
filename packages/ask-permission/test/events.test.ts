@@ -750,3 +750,131 @@ describe("what the log keeps of a ruling and of the mode", () => {
 		]);
 	});
 });
+
+function questionsOf(asked: AskRequest[]) {
+	return asked.map((request) => request.questions[0]?.question ?? "");
+}
+
+describe("a chain of commands", () => {
+	test("only the step that is not a read asks, and it says which line it belongs to", async () => {
+		const { bus, asked } = questionsProvider([answerTo("yes")]);
+		const { toolCall, decided } = harness("manual", "ask", bus);
+
+		const result = await toolCall(
+			judgeCall("call-1", "cd /repo && rm -rf build && git status"),
+			fakeContext(),
+		);
+
+		expect(result).toBeUndefined();
+		expect(asked).toHaveLength(1);
+		expect(questionsOf(asked)[0]).toContain("  rm -rf build\n");
+		expect(questionsOf(asked)[0]).toContain(
+			"step 2 of 3 in: cd /repo && rm -rf build && git status",
+		);
+		expect(decided).toEqual([expect.objectContaining({ action: "allow", by: "you" })]);
+	});
+
+	test("an always yes for the cd in front lets nothing after it through", async () => {
+		const { bus, asked } = questionsProvider([answerTo("no")]);
+		const { toolCall, state } = harness("manual", "ask", bus);
+		state.alwaysYes.add("session", "bash", "cd /repo");
+
+		const result = await toolCall(judgeCall("call-1", "cd /repo && rm -rf ~"), fakeContext());
+
+		expect(questionsOf(asked)).toEqual([expect.stringContaining("  rm -rf ~\n")]);
+		expect(result).toEqual({
+			block: true,
+			reason: "pi-ask-permission: denied by the user this step of the command: rm -rf ~.",
+		});
+	});
+
+	test("each step that asks gets its own dialog, and a no on any blocks the whole call", async () => {
+		const { bus, asked } = questionsProvider([answerTo("yes"), answerTo("no"), answerTo("yes")]);
+		const { toolCall } = harness("manual", "ask", bus);
+
+		const result = await toolCall(
+			judgeCall("call-1", "npm install; npm test; npm publish"),
+			fakeContext(),
+		);
+
+		expect(questionsOf(asked).map((question) => question.split("\n")[1])).toEqual([
+			"  npm install",
+			"  npm test",
+		]);
+		expect(result).toEqual({ block: true, reason: expect.stringContaining("npm test") });
+	});
+
+	test("always yes remembers the step, so the next chain with it does not ask about it", async () => {
+		const { bus, asked } = questionsProvider([
+			answerTo("always yes"),
+			answerTo("npm test"),
+			answerTo("this session"),
+		]);
+		const { toolCall, state } = harness("manual", "ask", bus);
+
+		await toolCall(judgeCall("call-1", "cd /repo && npm test"), fakeContext());
+		expect(asked).toHaveLength(3);
+		expect(state.alwaysYes.has("bash", ["npm test"])).toBe(true);
+		expect(state.alwaysYes.has("bash", ["cd /repo && npm test"])).toBe(false);
+
+		const again = await toolCall(judgeCall("call-2", "cd /repo/sub && npm test"), fakeContext());
+		expect(again).toBeUndefined();
+		expect(asked).toHaveLength(3);
+	});
+
+	test("a step a cd moved out of the workspace asks, past its always yes, and says where", async () => {
+		const { bus, asked } = questionsProvider([answerTo("yes")]);
+		const { toolCall, state } = harness("manual", "ask", bus);
+		state.alwaysYes.add("session", "bash", "rm -rf build");
+
+		await toolCall(judgeCall("call-1", "cd /elsewhere && rm -rf build"), fakeContext());
+
+		expect(questionsOf(asked)).toEqual([
+			expect.stringMatching(/ {2}rm -rf build\nin \/elsewhere\n[\s\S]*outside the workspace/),
+		]);
+	});
+
+	test("a step a cd moved out of the workspace is blocked when outside is denied", async () => {
+		const { toolCall } = harness("full", "deny");
+		const result = await toolCall(judgeCall("call-1", "cd /elsewhere && rm -rf *"), fakeContext());
+		expect(result).toEqual({
+			block: true,
+			reason: expect.stringContaining("outside the workspace"),
+		});
+	});
+
+	test("an always yes for exactly the whole line still runs it", async () => {
+		const { bus, asked } = questionsProvider([]);
+		const { toolCall, state } = harness("manual", "ask", bus);
+		state.alwaysYes.add("session", "bash", "cd /repo && rm -rf build");
+
+		const result = await toolCall(judgeCall("call-1", "cd /repo && rm -rf build"), fakeContext());
+
+		expect(result).toBeUndefined();
+		expect(asked).toHaveLength(0);
+	});
+
+	test("with nobody to answer, noUI decides the chain", async () => {
+		const { toolCall } = harness("manual");
+		const result = await toolCall(judgeCall("call-1", "cd /repo && rm -rf build"), {
+			...fakeContext(),
+			hasUI: false,
+		} as ExtensionContext);
+		expect(result).toEqual({ block: true, reason: expect.stringContaining("no UI") });
+	});
+
+	test("the host's selector shows the step and the line it belongs to", async () => {
+		const { toolCall } = harness("manual");
+		const titles: string[] = [];
+		const ctx = fakeContext();
+		const select = ctx.ui.select.bind(ctx.ui);
+		ctx.ui.select = (async (title: string, labels: string[]) => {
+			titles.push(title);
+			return select(title, labels);
+		}) as typeof ctx.ui.select;
+
+		await toolCall(judgeCall("call-1", "cd /repo && rm -rf build"), ctx);
+
+		expect(titles[0]).toBe("Allow bash?\nrm -rf build\nstep 2 of 2 in: cd /repo && rm -rf build");
+	});
+});

@@ -7,6 +7,7 @@ import {
 	type AskQuestion,
 	type AskReply,
 	askQuestions,
+	tildify,
 } from "@adeildo/pi-kit";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
@@ -122,9 +123,29 @@ function questionText(call: Call, reason: string | undefined): string {
 	const lines = [
 		`${whereOf(call)} wants to run:`,
 		...clipSummary(call.target.summary).map((line) => `  ${line}`),
+		...stepContext(call),
 	];
 	if (reason !== undefined) lines.push("", `\u25b2 ${reason}`);
 	return lines.join("\n");
+}
+
+/** For one command of a chain: where it runs, when a `cd` moved it, and the line it is part of. */
+export function stepContext(call: Call): string[] {
+	const step = call.step;
+	if (step === undefined) return [];
+	const lines: string[] = [];
+	if (step.workdir !== undefined) {
+		const where = step.cwds.map((dir) =>
+			dir === undefined ? "a folder it cannot tell" : tildify(dir),
+		);
+		lines.push(`in ${where.join(" or ")}`);
+	}
+	const [first = "", ...rest] = clipSummary(step.chain);
+	lines.push(
+		`step ${step.index + 1} of ${step.count} in: ${first}`,
+		...rest.map((line) => `  ${line}`),
+	);
+	return lines;
 }
 
 // The tool name, plus what it does not say: the server behind an MCP tool and what it declares, and
