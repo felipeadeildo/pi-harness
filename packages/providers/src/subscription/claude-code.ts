@@ -4,7 +4,7 @@
 // and it refuses newer models to a version it considers too old. `turn` marks the features a turn
 // of Claude Code's TUI asks for, which is the side the settings screen offers.
 
-export const CLAUDE_CODE_VERSION = "2.1.330";
+export const CLAUDE_CODE_VERSION = "2.1.332";
 
 export const CLAUDE_CODE_FEATURES = [
 	{
@@ -266,6 +266,12 @@ export const CLAUDE_CODE_FEATURES = [
 		header: "dangerous-tool-use-2026-09-03",
 		turn: false,
 		description: "Travels with `safeguards`.",
+	},
+	{
+		name: "subagent_review",
+		header: "subagent-review-2026-11-17",
+		turn: false,
+		description: "Nothing in this build says what it does.",
 	},
 	{
 		name: "thinking_display_updates",
